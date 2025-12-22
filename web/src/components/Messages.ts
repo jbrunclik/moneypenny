@@ -1,10 +1,11 @@
 import { escapeHtml, getElementById, scrollToBottom, isScrolledToBottom } from '../utils/dom';
-import { renderMarkdown, highlightAllCodeBlocks } from '../utils/markdown';
+import { renderMarkdown, highlightAllCodeBlocks, highlightCode } from '../utils/markdown';
 import { observeThumbnail } from '../utils/thumbnails';
 import { createUserAvatarElement } from '../utils/avatar';
-import { AI_AVATAR_SVG, getFileIcon, DOWNLOAD_ICON, COPY_ICON } from '../utils/icons';
+import { AI_AVATAR_SVG, getFileIcon, DOWNLOAD_ICON, COPY_ICON, TOOL_ICON, SPINNER_ICON, CHEVRON_RIGHT_ICON, CHECK_ICON, THINKING_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
-import type { Message, FileMetadata } from '../types/api';
+import { messages as messagesApi } from '../api/client';
+import type { Message, FileMetadata, DetailEvent } from '../types/api';
 
 /**
  * Format a timestamp for display using system locale
@@ -101,13 +102,31 @@ export function addMessageToUI(
   content.className = 'message-content';
 
   if (message.role === 'assistant') {
-    // Assistant: files outside bubble, then text
+    // Assistant: files, then text content with inline details toggle
+    const hasDetails = message.hasDetails || (message.details && message.details.length > 0);
+
     if (message.files && message.files.length > 0) {
       const filesContainer = renderMessageFiles(message.files, message.id);
       contentWrapper.appendChild(filesContainer);
     }
-    content.innerHTML = renderMarkdown(message.content);
-    highlightAllCodeBlocks(content);
+
+    // Add details toggle inside message content if hasDetails
+    if (hasDetails) {
+      const detailsToggle = createInlineDetailsToggle(message.id);
+      content.appendChild(detailsToggle);
+
+      // Add details section (collapsed by default)
+      const detailsSection = createDetailsSection(message.id, !!message.hasDetails, message.details);
+      content.appendChild(detailsSection);
+    }
+
+    // Add the markdown content
+    const textContent = document.createElement('div');
+    textContent.className = 'message-text';
+    textContent.innerHTML = renderMarkdown(message.content);
+    highlightAllCodeBlocks(textContent);
+    content.appendChild(textContent);
+
     contentWrapper.appendChild(content);
   } else {
     // User: text first, then files inside the bubble
@@ -247,7 +266,7 @@ export function addStreamingMessage(): HTMLElement {
     <div class="message-avatar">${AI_AVATAR_SVG}</div>
     <div class="message-content-wrapper">
       <div class="message-content">
-        <span class="streaming-cursor"></span>
+        <div class="message-text"><span class="streaming-cursor"></span></div>
       </div>
     </div>
   `;
@@ -272,8 +291,16 @@ export function updateStreamingMessage(
     getElementById('messages')!
   );
 
+  // Find or create the text container (preserve details toggle and section)
+  let textContainer = contentEl.querySelector('.message-text') as HTMLElement;
+  if (!textContainer) {
+    textContainer = document.createElement('div');
+    textContainer.className = 'message-text';
+    contentEl.appendChild(textContainer);
+  }
+
   // Render markdown for the accumulated content
-  contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
+  textContainer.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
 
   if (wasAtBottom) {
     scrollToBottom(getElementById('messages')!);
@@ -388,5 +415,287 @@ export function updateChatTitle(title: string): void {
   const titleEl = getElementById<HTMLSpanElement>('current-chat-title');
   if (titleEl) {
     titleEl.textContent = title;
+  }
+}
+
+/**
+ * Render details (thinking/tool events) for a message
+ */
+function renderDetails(details: DetailEvent[]): string {
+  // Track which tool calls have results for loading state
+  const toolResultIds = new Set<string>();
+  details.forEach(event => {
+    if (event.type === 'tool_result') {
+      toolResultIds.add(event.tool_call_id);
+    }
+  });
+  
+  return `<div class="message-details-content">${details
+    .map((event) => {
+      if (event.type === 'thinking') {
+        // Trim leading/trailing whitespace but preserve internal formatting
+        const trimmedContent = event.content.trim();
+        // Render markdown for thinking content (supports bold, italic, code, etc.)
+        const renderedContent = renderMarkdown(trimmedContent);
+        return `
+          <div class="detail-thinking">
+            <div class="thinking-header">
+              ${THINKING_ICON}
+              <span class="thinking-label">Thinking</span>
+            </div>
+            <div class="thinking-content">${renderedContent}</div>
+          </div>
+        `;
+      } else if (event.type === 'tool_call') {
+        const argsStr = JSON.stringify(event.args, null, 2);
+        // Use syntax highlighting for JSON args
+        const highlightedArgs = highlightCode(argsStr, 'json');
+        // Check if this tool call has a corresponding result
+        const hasResult = toolResultIds.has(event.id);
+        return `
+          <div class="detail-tool-call" data-tool-id="${escapeHtml(event.id)}">
+            <div class="tool-call-header">
+              ${TOOL_ICON}
+              <span class="tool-name">${escapeHtml(event.name)}</span>
+              ${!hasResult ? `<span class="tool-spinner">${SPINNER_ICON}</span>` : ''}
+            </div>
+            <pre class="tool-args"><code class="hljs language-json">${highlightedArgs}</code></pre>
+          </div>
+        `;
+      } else if (event.type === 'tool_result') {
+        // Try to parse and highlight as JSON if it's valid JSON
+        const content = event.content;
+        let renderedContent: string;
+
+        // Try JSON parsing first (more reliable than heuristics)
+        try {
+          const parsed = JSON.parse(content);
+          const formatted = JSON.stringify(parsed, null, 2);
+          renderedContent = `<pre class="tool-result-content"><code class="hljs language-json">${highlightCode(formatted, 'json')}</code></pre>`;
+        } catch {
+          // Not valid JSON - check if it looks like JSON and might be truncated
+          const trimmed = content.trim();
+          const looksLikeJson = trimmed.startsWith('{') || trimmed.startsWith('[');
+          
+          if (looksLikeJson) {
+            // Might be truncated JSON - still try to highlight as JSON
+            renderedContent = `<pre class="tool-result-content"><code class="hljs language-json">${highlightCode(content, 'json')}</code></pre>`;
+          } else {
+            // Render as markdown (e.g., fetch_url returns markdown text from HTML conversion)
+            renderedContent = `<div class="tool-result-markdown">${renderMarkdown(content)}</div>`;
+          }
+        }
+        return `
+          <div class="detail-tool-result" data-tool-id="${escapeHtml(event.tool_call_id)}">
+            <div class="tool-result-header">
+              ${CHECK_ICON}
+              <span class="tool-result-label">Result</span>
+            </div>
+            ${renderedContent}
+          </div>
+        `;
+      }
+      return '';
+    })
+    .join('')}</div>`;
+}
+
+/**
+ * Create inline details toggle for inside the message bubble
+ * This creates a small toggle that sits at the top-right of the message content
+ */
+function createInlineDetailsToggle(messageId: string): HTMLElement {
+  const toggle = document.createElement('button');
+  toggle.className = 'inline-details-toggle';
+  toggle.title = 'Show details';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.innerHTML = `${CHEVRON_RIGHT_ICON}`;
+
+  toggle.addEventListener('click', async () => {
+    const messageEl = toggle.closest('.message');
+    if (!messageEl) return;
+
+    const detailsSection = messageEl.querySelector('.message-details');
+    if (!detailsSection) return;
+
+    const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+
+    if (isExpanded) {
+      // Collapse
+      toggle.setAttribute('aria-expanded', 'false');
+      detailsSection.classList.add('collapsed');
+      useStore.getState().toggleMessageDetails(messageId);
+      // Scroll button visibility will be updated by ResizeObserver in ScrollToBottom.ts
+    } else {
+      // Expand
+      toggle.setAttribute('aria-expanded', 'true');
+      detailsSection.classList.remove('collapsed');
+      useStore.getState().toggleMessageDetails(messageId);
+
+      // Check if we need to lazy load the details
+      const cachedDetails = useStore.getState().messageDetails.get(messageId);
+      if (!cachedDetails && detailsSection.classList.contains('loading')) {
+        // Fetch details from API
+        try {
+          const details = await messagesApi.getDetails(messageId);
+          useStore.getState().setMessageDetails(messageId, details);
+          detailsSection.classList.remove('loading');
+          detailsSection.innerHTML = renderDetails(details);
+          // Apply syntax highlighting to code blocks in thinking content
+          const thinkingContent = detailsSection.querySelector('.thinking-content');
+          if (thinkingContent) {
+            highlightAllCodeBlocks(thinkingContent as HTMLElement);
+          }
+        } catch (error) {
+          console.error('Failed to load message details:', error);
+          detailsSection.classList.remove('loading');
+          detailsSection.innerHTML = '<div class="detail-error">Failed to load details</div>';
+        }
+      }
+      // Scroll button visibility will be updated by ResizeObserver in ScrollToBottom.ts
+    }
+  });
+
+  return toggle;
+}
+
+/**
+ * Create details section for a message (collapsed by default)
+ */
+function createDetailsSection(
+  _messageId: string,
+  hasDetails: boolean,
+  details?: DetailEvent[]
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'message-details collapsed';
+
+  if (details && details.length > 0) {
+    // We have the details data - render it
+    section.innerHTML = renderDetails(details);
+    // Apply syntax highlighting to code blocks in thinking content
+    const thinkingContent = section.querySelector('.thinking-content');
+    if (thinkingContent) {
+      highlightAllCodeBlocks(thinkingContent as HTMLElement);
+    }
+  } else if (hasDetails) {
+    // Details exist but need to be lazy loaded
+    section.classList.add('loading');
+    section.innerHTML = `<div class="detail-loading">${SPINNER_ICON} Loading...</div>`;
+  }
+
+  return section;
+}
+
+/**
+ * Add details section to a streaming message
+ */
+export function addStreamingDetails(messageEl: HTMLElement): void {
+  const content = messageEl.querySelector('.message-content');
+  if (!content) return;
+
+  // Check if details section already exists
+  if (content.querySelector('.message-details')) return;
+
+  // Add inline toggle button (hidden until we have details)
+  const toggle = document.createElement('button');
+  toggle.className = 'inline-details-toggle';
+  toggle.title = 'Show details';
+  toggle.setAttribute('aria-expanded', 'false'); // Start collapsed
+  toggle.innerHTML = `${CHEVRON_RIGHT_ICON}`;
+  toggle.style.display = 'none'; // Hidden until we have details
+
+  // Add details section (collapsed by default, even during streaming)
+  const section = document.createElement('div');
+  section.className = 'message-details streaming-details collapsed';
+
+  // Insert at beginning of content
+  content.insertBefore(section, content.firstChild);
+  content.insertBefore(toggle, content.firstChild);
+
+  // Set up toggle click handler for streaming
+  toggle.addEventListener('click', () => {
+    const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+    if (isExpanded) {
+      toggle.setAttribute('aria-expanded', 'false');
+      section.classList.add('collapsed');
+      // Scroll button visibility will be updated by ResizeObserver in ScrollToBottom.ts
+    } else {
+      toggle.setAttribute('aria-expanded', 'true');
+      section.classList.remove('collapsed');
+      // Scroll button visibility will be updated by ResizeObserver in ScrollToBottom.ts
+    }
+  });
+}
+
+/**
+ * Update details section during streaming
+ */
+export function updateStreamingDetails(
+  messageEl: HTMLElement,
+  details: DetailEvent[]
+): void {
+  const section = messageEl.querySelector('.message-details') as HTMLElement | null;
+  const toggle = messageEl.querySelector('.inline-details-toggle') as HTMLElement | null;
+
+  if (!section || !toggle) return;
+
+  if (details.length > 0) {
+    // Check scroll position before updating DOM
+    const messagesContainer = getElementById('messages')!;
+    const wasAtBottom = isScrolledToBottom(messagesContainer);
+    
+    // Show toggle when we have details
+    toggle.style.display = '';
+    section.innerHTML = renderDetails(details);
+    
+    // Apply syntax highlighting to code blocks in thinking content
+    const thinkingContent = section.querySelector('.thinking-content');
+    if (thinkingContent) {
+      highlightAllCodeBlocks(thinkingContent as HTMLElement);
+    }
+
+    // Maintain scroll position if user was at bottom (details are collapsed by default)
+    // This ensures autoscroll works during streaming
+    if (wasAtBottom) {
+      // Use double RAF to ensure DOM has fully updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom(messagesContainer);
+        });
+      });
+    }
+  }
+}
+
+/**
+ * Finalize details section after streaming completes
+ */
+export function finalizeStreamingDetails(
+  messageEl: HTMLElement,
+  messageId: string,
+  details?: DetailEvent[]
+): void {
+  const section = messageEl.querySelector('.message-details') as HTMLElement | null;
+  const toggle = messageEl.querySelector('.inline-details-toggle') as HTMLElement | null;
+
+  if (!section || !toggle) return;
+
+  section.classList.remove('streaming-details');
+
+  if (details && details.length > 0) {
+    // Store details in cache
+    useStore.getState().setMessageDetails(messageId, details);
+
+    // Preserve expanded state if user had expanded during streaming
+    // Otherwise keep collapsed (the click handler was already set up in addStreamingDetails)
+    const wasExpanded = toggle.getAttribute('aria-expanded') === 'true';
+    if (!wasExpanded) {
+      section.classList.add('collapsed');
+    }
+  } else {
+    // No details - hide the toggle and section
+    toggle.style.display = 'none';
+    section.classList.add('collapsed');
   }
 }

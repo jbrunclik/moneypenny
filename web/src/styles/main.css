@@ -14,6 +14,7 @@
     --error: #ef4444;
     --user-bg: #2563eb;
     --assistant-bg: #1f1f1f;
+    --thinking-color: #a855f7;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     --radius: 12px;
     --radius-sm: 8px;
@@ -521,6 +522,12 @@ body {
     min-width: 0;
     overflow-wrap: break-word;
     word-wrap: break-word;
+    box-sizing: border-box;
+}
+
+/* When message has details, reserve space for toggle to prevent width changes */
+.message.assistant .message-content:has(.inline-details-toggle) {
+    padding-right: 40px;
 }
 
 .message.user .message-content {
@@ -753,6 +760,493 @@ body {
 .message-copy-btn svg {
     width: 16px;
     height: 16px;
+}
+
+/* Inline details toggle (inside message bubble) */
+.inline-details-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-tertiary);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: all 0.15s ease;
+    z-index: 1;
+}
+
+/* Show toggle on message hover */
+.message.assistant:hover .inline-details-toggle,
+.message.assistant .inline-details-toggle:focus,
+.message.assistant .inline-details-toggle[aria-expanded="true"] {
+    opacity: 1;
+}
+
+/* On touch devices, always show the toggle */
+@media (hover: none) {
+    .inline-details-toggle {
+        opacity: 0.6;
+    }
+}
+
+.inline-details-toggle:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-secondary);
+}
+
+.inline-details-toggle svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.2s ease;
+}
+
+.inline-details-toggle[aria-expanded="true"] svg {
+    transform: rotate(90deg);
+}
+
+/* Make message-content relative for positioning context */
+.message.assistant .message-content {
+    position: relative;
+    /* Ensure consistent width - prevent jump when details expand/collapse */
+    min-width: 200px;
+}
+
+/* Legacy header-style toggle (for streaming) */
+.message-details-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 8px;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.message-details-header:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-color: var(--text-muted);
+}
+
+.message-details-header svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.message-details-header .details-chevron {
+    margin-left: 4px;
+    transition: transform 0.2s ease;
+}
+
+.message-details-header[aria-expanded="true"] .details-chevron {
+    transform: rotate(90deg);
+}
+
+.message-details-header .details-spinner {
+    margin-left: 4px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.message-details {
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.message-details.collapsed {
+    display: none;
+}
+
+/* Hide empty details section (no border/margin when empty) */
+.message-details:empty,
+.message-details.streaming-details:empty {
+    display: none;
+}
+
+.message-details-content {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Thinking block styling */
+.detail-thinking {
+    padding: 12px 14px;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(168, 85, 247, 0.1);
+    transition: border-color 0.2s ease;
+}
+
+.detail-thinking:hover {
+    border-color: rgba(168, 85, 247, 0.2);
+}
+
+.thinking-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.thinking-header svg {
+    width: 16px;
+    height: 16px;
+    color: var(--thinking-color);
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.thinking-label {
+    color: var(--thinking-color);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    letter-spacing: 0.01em;
+}
+
+.thinking-content {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+/* Trim leading/trailing whitespace from thinking content */
+.thinking-content:first-line {
+    text-indent: 0;
+}
+
+/* Tool call styling */
+.detail-tool-call {
+    padding: 12px 14px;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(99, 102, 241, 0.1);
+    transition: border-color 0.2s ease;
+}
+
+.detail-tool-call:hover {
+    border-color: rgba(99, 102, 241, 0.2);
+}
+
+.tool-call-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.tool-call-header svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent);
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.tool-name {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    letter-spacing: 0.01em;
+}
+
+.tool-spinner {
+    margin-left: auto;
+    color: var(--text-muted);
+    animation: spin 1s linear infinite;
+    display: flex;
+    align-items: center;
+}
+
+.tool-spinner svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Tool args - now using pre/code for syntax highlighting */
+.tool-args {
+    margin: 0;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tool-args::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.tool-args::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tool-args::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.tool-args::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.tool-args code {
+    background: none;
+    padding: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-primary);
+}
+
+/* Tool result styling */
+.detail-tool-result {
+    padding: 12px 14px;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(34, 197, 94, 0.1);
+    transition: border-color 0.2s ease;
+    font-size: 0.875rem;
+}
+
+.detail-tool-result:hover {
+    border-color: rgba(34, 197, 94, 0.2);
+}
+
+.tool-result-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.tool-result-header svg {
+    width: 16px;
+    height: 16px;
+    color: var(--success);
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.tool-result-label {
+    color: var(--success);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    letter-spacing: 0.01em;
+}
+
+.tool-result-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+/* Markdown rendered inside tool results */
+.tool-result-markdown {
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.tool-result-markdown p {
+    margin-bottom: 8px;
+}
+
+.tool-result-markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.tool-result-markdown h1,
+.tool-result-markdown h2,
+.tool-result-markdown h3,
+.tool-result-markdown h4,
+.tool-result-markdown h5,
+.tool-result-markdown h6 {
+    margin-top: 12px;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.tool-result-markdown ul,
+.tool-result-markdown ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.tool-result-markdown li {
+    margin-bottom: 2px;
+}
+
+.tool-result-markdown a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.tool-result-markdown a:hover {
+    text-decoration: underline;
+}
+
+.tool-result-markdown code {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tool-result-markdown pre {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    margin: 8px 0;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tool-result-markdown pre::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.tool-result-markdown pre::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tool-result-markdown pre::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.tool-result-markdown pre::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.tool-result-markdown pre code {
+    background: none;
+    padding: 0;
+}
+
+/* Tool result JSON content */
+.tool-result-content {
+    margin: 0;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.tool-result-content::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.tool-result-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tool-result-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.tool-result-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.tool-result-content code {
+    background: none;
+    padding: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-primary);
+}
+
+/* Streaming details - only show when not collapsed */
+.message-details.streaming-details:not(.collapsed) {
+    display: block;
+}
+
+/* Details loading state */
+.detail-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.detail-loading svg {
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+    color: var(--accent);
+    opacity: 0.8;
+}
+
+/* Details error state */
+.detail-error {
+    padding: 12px 14px;
+    color: var(--error);
+    font-size: 0.875rem;
+    background-color: rgba(239, 68, 68, 0.1);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Mobile adjustments for details */
+@media (max-width: 768px) {
+    .message-details-header {
+        padding: 8px 10px;
+    }
+
+    .message-details-content {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .detail-tool-call,
+    .detail-tool-result,
+    .detail-thinking {
+        padding: 8px 10px;
+    }
 }
 
 /* Markdown content styling */

@@ -165,3 +165,41 @@ export const PLUS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
 export const CHEVRON_DOWN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <polyline points="6 9 12 15 18 9"/>
 </svg>`;
+
+/**
+ * Chevron right icon (for expandable sections)
+ */
+export const CHEVRON_RIGHT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="9 18 15 12 9 6"/>
+</svg>`;
+
+/**
+ * Details/info icon (for showing thinking/tool details)
+ */
+export const DETAILS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="10"/>
+  <line x1="12" y1="16" x2="12" y2="12"/>
+  <line x1="12" y1="8" x2="12.01" y2="8"/>
+</svg>`;
+
+/**
+ * Wrench/tool icon (for tool calls)
+ */
+export const TOOL_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+</svg>`;
+
+/**
+ * Spinner/loading icon
+ */
+export const SPINNER_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin">
+  <path d="M21 12a9 9 0 11-6.219-8.56"/>
+</svg>`;
+
+/**
+ * Thinking/brain icon (for model reasoning)
+ */
+export const THINKING_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 2a4 4 0 014 4c0 1.1-.5 2.1-1.3 2.8l.3.2a4 4 0 01-1 7.8V20a2 2 0 01-4 0v-3.2a4 4 0 01-1-7.8l.3-.2A4 4 0 0112 2z"/>
+  <circle cx="12" cy="10" r="1" fill="currentColor"/>
+</svg>`;

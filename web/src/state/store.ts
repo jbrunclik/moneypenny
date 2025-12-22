@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
   Conversation,
+  DetailEvent,
   FileUpload,
   Model,
   UploadConfig,
@@ -32,6 +33,10 @@ interface AppState {
   pendingFiles: FileUpload[];
   uploadConfig: UploadConfig;
 
+  // Message details (for lazy loading)
+  expandedMessages: Set<string>;
+  messageDetails: Map<string, DetailEvent[]>;
+
   // Actions - Auth
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
@@ -61,6 +66,10 @@ interface AppState {
   removePendingFile: (index: number) => void;
   clearPendingFiles: () => void;
   setUploadConfig: (config: UploadConfig) => void;
+
+  // Actions - Message Details
+  toggleMessageDetails: (messageId: string) => void;
+  setMessageDetails: (messageId: string, details: DetailEvent[]) => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -96,6 +105,8 @@ export const useStore = create<AppState>()(
       forceTools: [],
       pendingFiles: [],
       uploadConfig: DEFAULT_UPLOAD_CONFIG,
+      expandedMessages: new Set<string>(),
+      messageDetails: new Map<string, DetailEvent[]>(),
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -163,6 +174,34 @@ export const useStore = create<AppState>()(
         })),
       clearPendingFiles: () => set({ pendingFiles: [] }),
       setUploadConfig: (uploadConfig) => set({ uploadConfig }),
+
+      // Message details actions
+      toggleMessageDetails: (messageId) =>
+        set((state) => {
+          const newExpanded = new Set(state.expandedMessages);
+          if (newExpanded.has(messageId)) {
+            newExpanded.delete(messageId);
+          } else {
+            newExpanded.add(messageId);
+          }
+          return { expandedMessages: newExpanded };
+        }),
+      setMessageDetails: (messageId, details) =>
+        set((state) => {
+          const newDetails = new Map(state.messageDetails);
+          newDetails.set(messageId, details);
+          
+          // Limit cache size to 50 messages to prevent memory issues
+          if (newDetails.size > 50) {
+            // Remove oldest entry (first key in insertion order)
+            const firstKey = newDetails.keys().next().value;
+            if (firstKey) {
+              newDetails.delete(firstKey);
+            }
+          }
+          
+          return { messageDetails: newDetails };
+        }),
     }),
     {
       name: 'ai-chatbot-storage',

@@ -58,6 +58,9 @@ from langgraph.prebuilt import ToolNode
 from src.agent.tools import TOOLS
 from src.config import Config
 
+# Type for streaming events
+StreamEvent = dict[str, Any]  # {"type": "token"|"thinking"|"tool_call"|"tool_result", ...}
+
 BASE_SYSTEM_PROMPT = """You are a helpful, harmless, and honest AI assistant.
 
 # Core Principles
@@ -178,13 +181,24 @@ class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
 
 
-def create_chat_model(model_name: str, with_tools: bool = True) -> ChatGoogleGenerativeAI:
-    """Create a Gemini chat model, optionally with tools bound."""
+def create_chat_model(
+    model_name: str, with_tools: bool = True, include_thinking: bool = False
+) -> ChatGoogleGenerativeAI:
+    """Create a Gemini chat model, optionally with tools bound.
+
+    Args:
+        model_name: The Gemini model to use
+        with_tools: Whether to bind tools to the model
+        include_thinking: Whether to include thinking/reasoning in responses
+    """
     model = ChatGoogleGenerativeAI(
         model=model_name,
         google_api_key=Config.GEMINI_API_KEY,
         temperature=1.0,  # Recommended default for Gemini 3
         convert_system_message_to_human=True,
+        # Thinking configuration for Gemini 3 models
+        thinking_level="medium" if include_thinking else None,
+        include_thoughts=include_thinking,
     )
 
     if with_tools and TOOLS:
@@ -212,9 +226,11 @@ def chat_node(state: AgentState, model: ChatGoogleGenerativeAI) -> dict[str, lis
     return {"messages": [response]}
 
 
-def create_chat_graph(model_name: str, with_tools: bool = True) -> StateGraph[AgentState]:
+def create_chat_graph(
+    model_name: str, with_tools: bool = True, include_thinking: bool = False
+) -> StateGraph[AgentState]:
     """Create a chat graph with optional tool support."""
-    model = create_chat_model(model_name, with_tools=with_tools)
+    model = create_chat_model(model_name, with_tools=with_tools, include_thinking=include_thinking)
 
     # Define the graph
     graph: StateGraph[AgentState] = StateGraph(AgentState)
@@ -243,13 +259,34 @@ def create_chat_graph(model_name: str, with_tools: bool = True) -> StateGraph[Ag
     return graph
 
 
+def extract_thinking_content(content: str | list[Any] | dict[str, Any]) -> str | None:
+    """Extract thinking content from message, if present.
+
+    Gemini returns thinking as: {'type': 'thinking', 'thinking': '...'}
+    """
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "thinking":
+                return str(part.get("thinking", ""))
+    return None
+
+
 class ChatAgent:
     """Agent for handling chat conversations with tool support."""
 
-    def __init__(self, model_name: str = Config.DEFAULT_MODEL, with_tools: bool = True) -> None:
+    def __init__(
+        self,
+        model_name: str = Config.DEFAULT_MODEL,
+        with_tools: bool = True,
+        include_thinking: bool = False,
+    ) -> None:
         self.model_name = model_name
         self.with_tools = with_tools
-        self.graph = create_chat_graph(model_name, with_tools=with_tools).compile()
+        self.include_thinking = include_thinking
+        # Create graph with thinking support if requested
+        self.graph = create_chat_graph(
+            model_name, with_tools=with_tools, include_thinking=include_thinking
+        ).compile()
 
     def _build_message_content(
         self, text: str, files: list[dict[str, Any]] | None = None
@@ -384,9 +421,9 @@ class ChatAgent:
         files: list[dict[str, Any]] | None = None,
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
-    ) -> Generator[str, None, None]:
+    ) -> Generator[StreamEvent, None, None]:
         """
-        Stream response tokens using LangGraph's stream method.
+        Stream response events using LangGraph's stream method.
 
         Args:
             text: The user's message text
@@ -395,11 +432,14 @@ class ChatAgent:
             force_tools: Optional list of tool names that must be used
 
         Yields:
-            Text tokens as they are generated
+            StreamEvent dicts with types: 'token', 'thinking', 'tool_call', 'tool_result'
         """
         messages = self._build_messages(text, files, history, force_tools=force_tools)
 
-        # Stream the graph execution with messages mode for token-level streaming
+        # Track tool calls and thinking we've already emitted to avoid duplicates
+        emitted_tool_calls: set[str] = set()
+        emitted_thinking = False
+
         for event in self.graph.stream(
             cast(Any, {"messages": messages}),
             stream_mode="messages",
@@ -407,15 +447,85 @@ class ChatAgent:
             # event is a tuple of (message_chunk, metadata) in messages mode
             if isinstance(event, tuple) and len(event) >= 1:
                 message_chunk = event[0]
-                # Only yield content from AI message chunks (not tool calls or tool results)
+
+                # Handle AI message chunks (thinking, text tokens and tool calls)
                 if isinstance(message_chunk, AIMessageChunk):
-                    # Skip chunks that are only tool calls (no text content)
-                    if message_chunk.tool_calls or message_chunk.tool_call_chunks:
-                        continue
-                    if message_chunk.content:
-                        content = extract_text_content(message_chunk.content)
-                        if content:
-                            yield content
+                    # Emit tool calls
+                    if message_chunk.tool_calls:
+                        for tool_call in message_chunk.tool_calls:
+                            tool_call_id = tool_call.get("id", "")
+                            if tool_call_id and tool_call_id not in emitted_tool_calls:
+                                emitted_tool_calls.add(tool_call_id)
+                                yield {
+                                    "type": "tool_call",
+                                    "id": tool_call_id,
+                                    "name": tool_call.get("name", ""),
+                                    "args": tool_call.get("args", {}),
+                                }
+
+                    # Handle content (may include thinking and text)
+                    if message_chunk.content and not message_chunk.tool_calls:
+                        content = message_chunk.content
+
+                        # Handle list content (thinking and text parts from Gemini)
+                        if isinstance(content, list):
+                            for part in content:
+                                if isinstance(part, dict):
+                                    # Emit thinking content (only once)
+                                    if part.get("type") == "thinking" and not emitted_thinking:
+                                        thinking_text = part.get("thinking", "")
+                                        # Ensure thinking_text is a string
+                                        if thinking_text and isinstance(thinking_text, str):
+                                            yield {
+                                                "type": "thinking",
+                                                "content": thinking_text,
+                                            }
+                                            emitted_thinking = True
+                                    # Emit text content
+                                    elif part.get("type") == "text":
+                                        text_content = part.get("text", "")
+                                        if text_content:
+                                            yield {"type": "token", "text": text_content}
+                        else:
+                            # Simple string content
+                            text_content = extract_text_content(content)
+                            if text_content:
+                                yield {"type": "token", "text": text_content}
+
+                # Handle tool results
+                elif isinstance(message_chunk, ToolMessage):
+                    content = str(message_chunk.content)
+                    # Truncate long results, but preserve JSON structure if possible
+                    max_length = Config.MAX_TOOL_RESULT_LENGTH
+                    if len(content) > max_length:
+                        # Try to truncate at a safe point (end of a JSON object/array)
+                        truncated = content[:max_length]
+                        # If it looks like JSON, try to close it properly
+                        if truncated.strip().startswith(("{", "[")):
+                            # Count open/close braces to see if we can close it
+                            open_braces = truncated.count("{") - truncated.count("}")
+                            open_brackets = truncated.count("[") - truncated.count("]")
+                            # Try to close JSON structure
+                            if open_braces > 0 or open_brackets > 0:
+                                # Remove trailing incomplete content
+                                last_comma = truncated.rfind(",")
+                                last_brace = max(truncated.rfind("{"), truncated.rfind("["))
+                                if last_comma > last_brace:
+                                    truncated = truncated[:last_comma].rstrip()
+                                # Add closing braces
+                                truncated += "}" * open_braces + "]" * open_brackets
+                                truncated += '\n\n... (truncated)'
+                            else:
+                                truncated += '\n\n... (truncated)'
+                        else:
+                            truncated += '\n\n... (truncated)'
+                        content = truncated
+                    
+                    yield {
+                        "type": "tool_result",
+                        "tool_call_id": message_chunk.tool_call_id,
+                        "content": content,
+                    }
 
     def chat_with_state(
         self,

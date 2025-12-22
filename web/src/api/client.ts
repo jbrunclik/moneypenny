@@ -3,6 +3,7 @@ import type {
   ChatResponse,
   Conversation,
   ConversationsResponse,
+  DetailEvent,
   ErrorResponse,
   FileUpload,
   ModelsResponse,
@@ -259,6 +260,16 @@ export const files = {
     }
 
     return response.blob();
+  },
+};
+
+// Message endpoints
+export const messages = {
+  async getDetails(messageId: string): Promise<DetailEvent[]> {
+    const data = await request<{ details: DetailEvent[] }>(
+      `/api/messages/${messageId}/details`
+    );
+    return data.details;
   },
 };
 

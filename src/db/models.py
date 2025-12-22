@@ -43,6 +43,7 @@ class Message:
     content: str  # Plain text message
     created_at: datetime
     files: list[dict[str, Any]] = field(default_factory=list)  # File attachments
+    details: list[dict[str, Any]] | None = None  # Thinking/tool events (assistant only)
 
 
 @dataclass
@@ -226,6 +227,7 @@ class Database:
         role: str,
         content: str,
         files: list[dict[str, Any]] | None = None,
+        details: list[dict[str, Any]] | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -234,6 +236,7 @@ class Database:
             role: "user" or "assistant"
             content: Plain text message
             files: Optional list of file attachments
+            details: Optional list of detail events (thinking/tool calls for assistant)
 
         Returns:
             The created Message
@@ -242,12 +245,13 @@ class Database:
         now = datetime.now()
         files = files or []
         files_json = json.dumps(files) if files else None
+        details_json = json.dumps(details) if details else None
 
         with self._get_conn() as conn:
             conn.execute(
-                """INSERT INTO messages (id, conversation_id, role, content, files, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (msg_id, conversation_id, role, content, files_json, now.isoformat()),
+                """INSERT INTO messages (id, conversation_id, role, content, files, details, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (msg_id, conversation_id, role, content, files_json, details_json, now.isoformat()),
             )
             # Update conversation's updated_at
             conn.execute(
@@ -263,9 +267,17 @@ class Database:
             content=content,
             created_at=now,
             files=files,
+            details=details,
         )
 
-    def get_messages(self, conversation_id: str) -> list[Message]:
+    def get_messages(self, conversation_id: str, include_details: bool = False) -> list[Message]:
+        """Get all messages for a conversation.
+
+        Args:
+            conversation_id: The conversation ID
+            include_details: If True, include full details. If False, details is None
+                           (use has_details() to check if details exist for lazy loading)
+        """
         with self._get_conn() as conn:
             rows = conn.execute(
                 "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at",
@@ -280,12 +292,37 @@ class Database:
                     content=row["content"],
                     created_at=datetime.fromisoformat(row["created_at"]),
                     files=json.loads(row["files"]) if row["files"] else [],
+                    details=json.loads(row["details"])
+                    if include_details and row["details"]
+                    else None,
                 )
                 for row in rows
             ]
 
+    def has_details(self, message_id: str) -> bool:
+        """Check if a message has details (for lazy loading indicator)."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT details IS NOT NULL AND details != '[]' as has_details FROM messages WHERE id = ?",
+                (message_id,),
+            ).fetchone()
+            return bool(row and row["has_details"])
+
+    def get_message_details(self, message_id: str) -> list[dict[str, Any]] | None:
+        """Get just the details for a message (for lazy loading)."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT details FROM messages WHERE id = ?",
+                (message_id,),
+            ).fetchone()
+
+            if not row or not row["details"]:
+                return None
+
+            return json.loads(row["details"])  # type: ignore[no-any-return]
+
     def get_message_by_id(self, message_id: str) -> Message | None:
-        """Get a single message by its ID."""
+        """Get a single message by its ID (includes full details)."""
         with self._get_conn() as conn:
             row = conn.execute(
                 "SELECT * FROM messages WHERE id = ?",
@@ -302,6 +339,7 @@ class Database:
                 content=row["content"],
                 created_at=datetime.fromisoformat(row["created_at"]),
                 files=json.loads(row["files"]) if row["files"] else [],
+                details=json.loads(row["details"]) if row["details"] else None,
             )
 
     # Agent state operations

@@ -85,8 +85,10 @@ def web_search(query: str, num_results: int = 5) -> str:
         num_results: Number of results to return (default 5, max 10)
 
     Returns:
-        A list of search results with title, URL, and snippet
+        JSON with search results containing title, URL, and snippet
     """
+    import json
+
     num_results = min(max(1, num_results), 10)
 
     try:
@@ -94,18 +96,35 @@ def web_search(query: str, num_results: int = 5) -> str:
             results = list(ddgs.text(query, max_results=num_results))
 
         if not results:
-            return f"No results found for '{query}'"
+            return json.dumps(
+                {"query": query, "results": [], "error": None}, ensure_ascii=False, indent=2
+            )
 
-        output = f"Search results for '{query}':\n\n"
-        for i, r in enumerate(results, 1):
-            output += f"{i}. **{r.get('title', 'No title')}**\n"
-            output += f"   URL: {r.get('href', 'No URL')}\n"
-            output += f"   {r.get('body', 'No description')}\n\n"
+        # Structure results as JSON
+        structured_results = []
+        for r in results:
+            structured_results.append(
+                {
+                    "title": r.get("title", "No title"),
+                    "url": r.get("href", ""),
+                    "snippet": r.get("body", ""),
+                }
+            )
 
-        return output
+        return json.dumps(
+            {
+                "query": query,
+                "results": structured_results,
+                "error": None,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
 
     except Exception as e:
-        return f"Error searching for '{query}': {e}"
+        return json.dumps(
+            {"query": query, "results": [], "error": str(e)}, ensure_ascii=False, indent=2
+        )
 
 
 # List of all available tools for the agent

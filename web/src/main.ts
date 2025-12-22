@@ -22,6 +22,9 @@ import {
   showConversationLoader,
   hideConversationLoader,
   updateChatTitle,
+  addStreamingDetails,
+  updateStreamingDetails,
+  finalizeStreamingDetails,
 } from './components/Messages';
 import {
   initMessageInput,
@@ -39,7 +42,7 @@ import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/
 import { getElementById } from './utils/dom';
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, PLUS_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
-import type { Conversation, Message } from './types/api';
+import type { Conversation, Message, DetailEvent } from './types/api';
 
 // App HTML template
 function renderAppShell(): string {
@@ -429,13 +432,43 @@ async function sendStreamingMessage(
 ): Promise<void> {
   const messageEl = addStreamingMessage();
   let fullContent = '';
+  const details: DetailEvent[] = [];
+
+  // Add details section placeholder for streaming
+  addStreamingDetails(messageEl);
 
   try {
     for await (const event of chat.stream(convId, message, files, forceTools)) {
       if (event.type === 'token') {
         fullContent += event.text;
         updateStreamingMessage(messageEl, fullContent);
+      } else if (event.type === 'tool_call') {
+        // Track tool call for details
+        details.push({
+          type: 'tool_call',
+          id: event.id,
+          name: event.name,
+          args: event.args,
+        });
+        updateStreamingDetails(messageEl, details);
+      } else if (event.type === 'tool_result') {
+        // Track tool result for details
+        details.push({
+          type: 'tool_result',
+          tool_call_id: event.tool_call_id,
+          content: event.content,
+        });
+        updateStreamingDetails(messageEl, details);
+      } else if (event.type === 'thinking') {
+        // Track thinking for details (Phase 2)
+        details.push({
+          type: 'thinking',
+          content: event.content,
+        });
+        updateStreamingDetails(messageEl, details);
       } else if (event.type === 'done') {
+        // Finalize details section
+        finalizeStreamingDetails(messageEl, event.id, event.details);
         finalizeStreamingMessage(messageEl, event.id, event.created_at);
 
         // Update conversation title if this was the first message

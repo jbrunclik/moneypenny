@@ -38,6 +38,14 @@ export function initScrollToBottom(): void {
       updateScrollButtonVisibility(messagesContainer);
     });
   });
+
+  // Also listen for resize events (when content height changes, e.g., collapsing details)
+  const resizeObserver = new ResizeObserver(() => {
+    requestAnimationFrame(() => {
+      updateScrollButtonVisibility(messagesContainer);
+    });
+  });
+  resizeObserver.observe(messagesContainer);
 }
 
 /**

@@ -197,15 +197,18 @@ def get_conversation(conv_id: str) -> tuple[dict[str, Any], int]:
                 }
                 optimized_files.append(optimized_file)
 
-        optimized_messages.append(
-            {
-                "id": m.id,
-                "role": m.role,
-                "content": m.content,
-                "files": optimized_files,
-                "created_at": m.created_at.isoformat(),
-            }
-        )
+        msg_data: dict[str, Any] = {
+            "id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "files": optimized_files,
+            "created_at": m.created_at.isoformat(),
+        }
+        # Add hasDetails flag for lazy loading (only check for assistant messages)
+        if m.role == "assistant":
+            msg_data["hasDetails"] = db.has_details(m.id)
+
+        optimized_messages.append(msg_data)
 
     return {
         "id": conv.id,
@@ -360,39 +363,43 @@ def chat_stream(conv_id: str) -> Response | tuple[dict[str, str], int]:
     ]  # Exclude the just-added message
 
     def generate() -> Generator[str, None, None]:
-        """Generator that streams tokens as SSE events with keepalive support.
+        """Generator that streams events as SSE with keepalive support.
 
-        Uses a separate thread to stream LLM tokens into a queue, while the main
-        generator loop sends keepalives when no tokens are available. This prevents
+        Uses a separate thread to stream events into a queue, while the main
+        generator loop sends keepalives when no events are available. This prevents
         proxy timeouts during the LLM's "thinking" phase before tokens start flowing.
+
+        Emits event types: token, thinking, tool_call, tool_result, done, error
         """
-        agent = ChatAgent(model_name=conv.model)
+        # Create agent with thinking enabled for streaming
+        agent = ChatAgent(model_name=conv.model, include_thinking=True)
         full_response = ""
-        token_queue: queue.Queue[str | None | Exception] = queue.Queue()
+        details: list[dict[str, Any]] = []  # Collect detail events for DB storage
+        event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
         stream_done = threading.Event()
 
-        def stream_tokens() -> None:
-            """Background thread that streams tokens into the queue."""
+        def stream_events() -> None:
+            """Background thread that streams events into the queue."""
             try:
-                for token in agent.stream_chat(
+                for event in agent.stream_chat(
                     message_text, files, history, force_tools=force_tools
                 ):
-                    token_queue.put(token)
-                token_queue.put(None)  # Signal completion
+                    event_queue.put(event)
+                event_queue.put(None)  # Signal completion
             except Exception as e:
-                token_queue.put(e)  # Signal error
+                event_queue.put(e)  # Signal error
             finally:
                 stream_done.set()
 
         # Start streaming in background thread
-        stream_thread = threading.Thread(target=stream_tokens, daemon=True)
+        stream_thread = threading.Thread(target=stream_events, daemon=True)
         stream_thread.start()
 
         try:
             while True:
                 try:
-                    # Wait for token with timeout for keepalive
-                    item = token_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL)
+                    # Wait for event with timeout for keepalive
+                    item = event_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL)
 
                     if item is None:
                         # Stream completed successfully
@@ -402,24 +409,71 @@ def chat_stream(conv_id: str) -> Response | tuple[dict[str, str], int]:
                         yield f"data: {json.dumps({'type': 'error', 'message': str(item)})}\n\n"
                         return
                     else:
-                        # Got a token
-                        full_response += item
-                        yield f"data: {json.dumps({'type': 'token', 'text': item})}\n\n"
+                        # Got an event - forward to client and collect details
+                        event_type = item.get("type")
+
+                        if event_type == "token":
+                            full_response += item.get("text", "")
+                            yield f"data: {json.dumps(item)}\n\n"
+
+                        elif event_type == "thinking":
+                            # Store for DB and forward to client
+                            details.append(
+                                {
+                                    "type": "thinking",
+                                    "content": item.get("content", ""),
+                                }
+                            )
+                            yield f"data: {json.dumps(item)}\n\n"
+
+                        elif event_type == "tool_call":
+                            # Store for DB and forward to client
+                            details.append(
+                                {
+                                    "type": "tool_call",
+                                    "id": item.get("id", ""),
+                                    "name": item.get("name", ""),
+                                    "args": item.get("args", {}),
+                                }
+                            )
+                            yield f"data: {json.dumps(item)}\n\n"
+
+                        elif event_type == "tool_result":
+                            # Store for DB and forward to client
+                            details.append(
+                                {
+                                    "type": "tool_result",
+                                    "tool_call_id": item.get("tool_call_id", ""),
+                                    "content": item.get("content", ""),
+                                }
+                            )
+                            yield f"data: {json.dumps(item)}\n\n"
 
                 except queue.Empty:
-                    # No token available, send keepalive comment
+                    # No event available, send keepalive comment
                     # SSE comments start with ":" and are ignored by clients
                     yield ": keepalive\n\n"
 
-            # Save complete response to DB
-            assistant_msg = db.add_message(conv_id, "assistant", full_response)
+            # Save complete response to DB with details
+            assistant_msg = db.add_message(
+                conv_id, "assistant", full_response, details=details if details else None
+            )
 
             # Auto-generate title from first message if still default
             if conv.title == "New Conversation":
                 new_title = generate_title(message_text, full_response)
                 db.update_conversation(conv_id, user.id, title=new_title)
 
-            yield f"data: {json.dumps({'type': 'done', 'id': assistant_msg.id, 'created_at': assistant_msg.created_at.isoformat()})}\n\n"
+            # Include details in done event for streaming messages
+            done_event: dict[str, Any] = {
+                "type": "done",
+                "id": assistant_msg.id,
+                "created_at": assistant_msg.created_at.isoformat(),
+            }
+            if details:
+                done_event["details"] = details
+
+            yield f"data: {json.dumps(done_event)}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -580,3 +634,35 @@ def get_message_file(message_id: str, file_index: int) -> Response | tuple[dict[
         )
     except Exception:
         return {"error": "Invalid file data"}, 500
+
+
+# ============================================================================
+# Message Details Routes (lazy loading)
+# ============================================================================
+
+
+@api.route("/messages/<message_id>/details", methods=["GET"])
+@require_auth
+def get_message_details(message_id: str) -> tuple[dict[str, Any], int]:
+    """Get details (thinking/tool events) for a message.
+
+    Used for lazy loading details on historical messages.
+    Returns the details array for the message.
+    """
+    user = get_current_user()
+    assert user is not None  # Guaranteed by @require_auth
+
+    # Get the message
+    message = db.get_message_by_id(message_id)
+    if not message:
+        return {"error": "Message not found"}, 404
+
+    # Verify user owns the conversation
+    conv = db.get_conversation(message.conversation_id, user.id)
+    if not conv:
+        return {"error": "Not authorized"}, 403
+
+    # Get details
+    details = db.get_message_details(message_id)
+
+    return {"details": details or []}, 200

@@ -109,8 +109,19 @@ Gemini may return content in various formats:
 Use `extract_text_content()` in [chat_agent.py](src/agent/chat_agent.py) to normalize.
 
 ### Parameters
-- `thinking_level`: Controls reasoning (minimal/low/medium/high)
+- `thinking_level`: Controls reasoning depth (minimal/low/medium/high). Currently hardcoded to `medium` when streaming.
+- `include_thoughts`: Boolean to include thinking content in responses
 - Temperature: Keep at 1.0 (Gemini 3 default)
+
+### Thinking Mode
+When `include_thinking=True` is passed to `ChatAgent`, the model returns structured content:
+```python
+[
+    {'type': 'thinking', 'thinking': 'Let me analyze this...'},
+    {'type': 'text', 'text': 'Here is my response...'}
+]
+```
+The agent streams these as separate events (`thinking` and `token`) for UI display.
 
 ## Auth Flow
 
@@ -158,6 +169,46 @@ The `forceTools` state in Zustand allows forcing specific tools to be used. Curr
 - Frontend: `store.forceTools: string[]` with `toggleForceTool(tool)` and `clearForceTools()`
 - Backend: `force_tools` parameter in `/chat/batch` and `/chat/stream` endpoints
 - Agent: `get_force_tools_prompt()` in [chat_agent.py](src/agent/chat_agent.py)
+
+## Thinking & Tool Details
+
+Assistant messages can display thinking and tool execution details behind a collapsible toggle. This feature shows the model's reasoning process and tool calls/results.
+
+### Architecture
+
+**Data flow:**
+1. `ChatAgent.stream_chat()` yields events: `token`, `thinking`, `tool_call`, `tool_result`
+2. `routes.py` streams these as SSE events and collects them into a `details` array
+3. Details are stored in the `messages` table as JSON in the `details` column
+4. Frontend receives events during streaming, or lazy-loads via `/api/messages/<id>/details`
+
+**Event types:**
+```typescript
+type DetailEvent =
+  | { type: 'thinking'; content: string }
+  | { type: 'tool_call'; id: string; name: string; args: Record<string, unknown> }
+  | { type: 'tool_result'; toolCallId: string; content: string };
+```
+
+**Key files:**
+- [chat_agent.py](src/agent/chat_agent.py) - `stream_chat()` yields detail events
+- [routes.py](src/api/routes.py) - SSE streaming, stores details in DB
+- [models.py](src/db/models.py) - `details` field on Message, `get_message_details()`
+- [Messages.ts](web/src/components/Messages.ts) - `renderDetails()`, toggle UI
+- [api.ts](web/src/types/api.ts) - `DetailEvent` type definition
+
+**UI behavior:**
+- Details section is collapsed by default (even during streaming)
+- Small chevron toggle in top-right of message bubble
+- Lazy loading: historical messages fetch details on-demand when expanded
+- During streaming: details update in real-time if user expands
+- Three visual styles: purple for thinking, indigo for tool calls, green for results
+
+**State management:**
+- `store.expandedMessages: Set<string>` - tracks which messages have details expanded
+- `store.messageDetails: Map<string, DetailEvent[]>` - caches fetched details
+- `store.toggleMessageDetails(messageId)` - toggle expand/collapse
+- `store.setMessageDetails(messageId, details)` - cache details after fetch
 
 ## Voice Input
 

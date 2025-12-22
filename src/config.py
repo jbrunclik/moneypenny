@@ -58,6 +58,9 @@ class Config:
         ).split(",")
     )
 
+    # Tool result settings
+    MAX_TOOL_RESULT_LENGTH: int = int(os.getenv("MAX_TOOL_RESULT_LENGTH", "2000"))  # Max chars for tool results
+
     @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of errors."""

@@ -19,12 +19,20 @@ export interface Conversation {
   messages?: Message[];
 }
 
+// Detail event types (thinking + tools, interleaved in order)
+export type DetailEvent =
+  | { type: 'thinking'; content: string }
+  | { type: 'tool_call'; id: string; name: string; args: Record<string, unknown> }
+  | { type: 'tool_result'; tool_call_id: string; content: string };
+
 // Message types
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   files?: FileMetadata[];
+  hasDetails?: boolean; // Flag for lazy loading (from API)
+  details?: DetailEvent[]; // Actual data (from streaming or lazy load)
   created_at: string;
 }
 
@@ -60,7 +68,10 @@ export interface UploadConfig {
 // Streaming response events
 export type StreamEvent =
   | { type: 'token'; text: string }
-  | { type: 'done'; id: string; created_at: string }
+  | { type: 'thinking'; content: string } // Phase 2
+  | { type: 'tool_call'; id: string; name: string; args: Record<string, unknown> }
+  | { type: 'tool_result'; tool_call_id: string; content: string }
+  | { type: 'done'; id: string; created_at: string; details?: DetailEvent[] }
   | { type: 'error'; message: string };
 
 // API response types

@@ -13,7 +13,9 @@ This file tracks planned features, improvements, and technical debt.
 
 ## Phase 2 - Streaming & Polish
 - [x] **Streaming responses** - Display tokens as they arrive from Gemini (with toggle)
-- [ ] **Show thinking/tool details** - Display model reasoning and tool execution behind a toggle
+- [x] **Show thinking/tool details** - Display model reasoning and tool execution behind a toggle
+- [ ] **Configurable thinking level** - Allow user to select thinking level (low/medium/high) in UI
+- [ ] **Stop generation button** - Send button turns into stop button during streaming to cancel generation
 - [ ] Improve error handling and user feedback
 - [x] **Add loading states and animations** - Conversation loading spinner, thumbnail loading indicators
 - [x] Conversation delete functionality
@@ -28,6 +30,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] Web search tool (DuckDuckGo)
 - [x] URL fetch tool (extract text from web pages)
 - [x] **Forcing search/browser tool** - Allow users to force the agent to use search or browser tools for specific queries
+- [ ] **Show internet sources** - Display sources/links from web_search and fetch_url tools in a user-friendly format
 - [ ] Image generation tool (Gemini 3 Pro Image or Imagen)
 - [ ] Text-to-speech tool
 - [ ] Code execution sandbox
