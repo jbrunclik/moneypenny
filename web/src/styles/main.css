@@ -149,9 +149,45 @@ body {
     flex: 1;
 }
 
-/* Regular delete button (desktop hover) */
-.conversation-delete {
+/* Action buttons container (desktop) */
+.conversation-actions {
+    display: flex;
+    gap: 4px;
     opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.conversation-item:hover .conversation-actions {
+    opacity: 1;
+}
+
+/* Rename button (desktop hover) */
+.conversation-rename {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.conversation-rename svg {
+    width: 16px;
+    height: 16px;
+}
+
+.conversation-rename:hover {
+    color: var(--accent);
+    background-color: rgba(139, 92, 246, 0.1);
+}
+
+/* Delete button (desktop hover) */
+.conversation-delete {
     background: none;
     border: none;
     color: var(--text-muted);
@@ -175,26 +211,54 @@ body {
     background-color: rgba(239, 68, 68, 0.1);
 }
 
-.conversation-item:hover .conversation-delete {
-    opacity: 1;
-}
-
-/* Swipe-to-reveal delete button - only rendered on touch devices */
-.conversation-delete-swipe {
+/* Swipe-to-reveal action buttons - only rendered on touch devices */
+.conversation-actions-swipe {
     display: none;
 }
 
-/* Touch devices: hide regular delete, show swipe delete */
+/* Touch devices: hide desktop actions, show swipe actions */
 @media (hover: none) {
-    .conversation-delete {
+    .conversation-actions {
         display: none;
     }
 
-    .conversation-delete-swipe {
+    .conversation-actions-swipe {
         position: absolute;
-        right: -80px;
+        right: -160px; /* Width for 2 buttons: 80px each */
         top: 0;
         bottom: 0;
+        width: 160px;
+        display: flex;
+        flex-shrink: 0;
+        transition: right 0.3s ease-out;
+        z-index: 1;
+        /* Completely hidden when not swiped */
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .conversation-rename-swipe {
+        width: 80px;
+        background-color: var(--accent);
+        color: white;
+        border: none;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    .conversation-rename-swipe svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .conversation-delete-swipe {
         width: 80px;
         background-color: var(--error);
         color: white;
@@ -203,14 +267,11 @@ body {
         font-weight: 500;
         cursor: pointer;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        z-index: 1;
-        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-        transition: right 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        /* Completely hidden when not swiped */
-        opacity: 0;
-        pointer-events: none;
+        gap: 4px;
+        flex-shrink: 0;
     }
 
     .conversation-delete-swipe svg {
@@ -218,15 +279,14 @@ body {
         height: 20px;
     }
 
-    /* Swiped state - slide item left and delete button in */
+    /* Swiped state - slide item left to reveal both buttons */
     .conversation-item-wrapper.swiped .conversation-item {
-        transform: translateX(-80px);
-        /* Remove right border-radius when swiped for clean edge */
+        transform: translateX(-160px);
         border-radius: var(--radius-sm) 0 0 var(--radius-sm);
     }
 
-    /* Show delete button when swiped */
-    .conversation-item-wrapper.swiped .conversation-delete-swipe {
+    /* Show action buttons when swiped */
+    .conversation-item-wrapper.swiped .conversation-actions-swipe {
         right: 0;
         opacity: 1;
         pointer-events: auto;
