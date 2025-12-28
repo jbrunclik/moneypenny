@@ -5,7 +5,7 @@ import { useStore } from './state/store';
 import { createLogger } from './utils/logger';
 import { conversations, chat, models, config, costs, ApiError } from './api/client';
 import { initToast, toast } from './components/Toast';
-import { initModal, showConfirm } from './components/Modal';
+import { initModal, showConfirm, showPrompt } from './components/Modal';
 import { initGoogleSignIn, renderGoogleButton, checkAuth, logout } from './auth/google';
 import {
   renderConversationsList,
@@ -434,6 +434,77 @@ async function deleteConversation(convId: string): Promise<void> {
   } catch (error) {
     log.error('Failed to delete conversation', { error, conversationId: convId });
     toast.error('Failed to delete conversation. Please try again.');
+  }
+}
+
+// Rename a conversation
+async function renameConversation(convId: string): Promise<void> {
+  const store = useStore.getState();
+  const conv = store.conversations.find(c => c.id === convId);
+
+  if (!conv) {
+    log.warn('Conversation not found for rename', { conversationId: convId });
+    return;
+  }
+
+  const currentTitle = conv.title || DEFAULT_CONVERSATION_TITLE;
+
+  const newTitle = await showPrompt({
+    title: 'Rename Conversation',
+    message: 'Enter a new name for this conversation:',
+    defaultValue: currentTitle,
+    placeholder: 'Conversation name',
+    confirmLabel: 'Rename',
+    cancelLabel: 'Cancel',
+  });
+
+  // User cancelled or entered empty string
+  if (!newTitle || newTitle.trim() === '') {
+    return;
+  }
+
+  const trimmedTitle = newTitle.trim();
+
+  // No change
+  if (trimmedTitle === currentTitle) {
+    return;
+  }
+
+  // Validate length (backend accepts 1-200 chars)
+  if (trimmedTitle.length > 200) {
+    toast.error('Conversation name is too long (max 200 characters).');
+    return;
+  }
+
+  // For temp conversations, just update locally (no API call needed)
+  if (isTempConversation(convId)) {
+    store.updateConversation(convId, { title: trimmedTitle });
+    if (store.currentConversation?.id === convId) {
+      updateChatTitle(trimmedTitle);
+    }
+    renderConversationsList();
+    toast.success('Conversation renamed.');
+    return;
+  }
+
+  try {
+    await conversations.update(convId, { title: trimmedTitle });
+
+    // Update local state
+    store.updateConversation(convId, { title: trimmedTitle });
+
+    // Update chat title if this is the current conversation
+    if (store.currentConversation?.id === convId) {
+      updateChatTitle(trimmedTitle);
+    }
+
+    // Update sidebar
+    renderConversationsList();
+
+    toast.success('Conversation renamed.');
+  } catch (error) {
+    log.error('Failed to rename conversation', { error, conversationId: convId });
+    toast.error('Failed to rename conversation. Please try again.');
   }
 }
 
@@ -982,6 +1053,19 @@ function setupEventListeners(): void {
 
   // Conversation list clicks
   getElementById('conversations-list')?.addEventListener('click', (e) => {
+    // Handle rename button clicks
+    const renameBtn = (e.target as HTMLElement).closest('[data-rename-id]');
+    if (renameBtn) {
+      e.stopPropagation();
+      const id = (renameBtn as HTMLElement).dataset.renameId;
+      if (id) {
+        resetSwipeStates();
+        renameConversation(id);
+      }
+      return;
+    }
+
+    // Handle delete button clicks
     const deleteBtn = (e.target as HTMLElement).closest('[data-delete-id]');
     if (deleteBtn) {
       e.stopPropagation();
@@ -993,6 +1077,7 @@ function setupEventListeners(): void {
       return;
     }
 
+    // Handle conversation selection
     const convItem = (e.target as HTMLElement).closest('.conversation-item');
     if (convItem) {
       const wrapper = convItem.closest('[data-conv-id]');
@@ -1067,13 +1152,13 @@ function setupTouchGestures(): void {
 
   // Constants
   const SWIPE_THRESHOLD = 60;
-  const SWIPE_DISTANCE = 80;
+  const SWIPE_DISTANCE = 160; // Updated from 80 to accommodate both rename and delete buttons
   const EDGE_ZONE = 50; // px from left edge to trigger sidebar swipe
 
   // Track active swipe type to prevent conflicts
   let activeSwipeType: 'none' | 'conversation' | 'sidebar' = 'none';
 
-  // Swipe to reveal delete on conversations
+  // Swipe to reveal rename and delete on conversations
   const conversationSwipe = createSwipeHandler({
     shouldStart: (e) => {
       if (activeSwipeType === 'sidebar') return false;
@@ -1082,6 +1167,8 @@ function setupTouchGestures(): void {
         resetSwipeStates();
         return false;
       }
+      // Prevent starting new swipe if clicking action buttons
+      if ((e.target as HTMLElement).closest('.conversation-rename-swipe')) return false;
       if ((e.target as HTMLElement).closest('.conversation-delete-swipe')) return false;
       // Note: We set activeSwipeType in onSwipeMove (when actual swiping starts),
       // not here, to avoid blocking sidebar swipes after a tap (non-swipe touch)

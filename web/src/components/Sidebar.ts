@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { DELETE_ICON, LOGOUT_ICON } from '../utils/icons';
+import { DELETE_ICON, EDIT_ICON, LOGOUT_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
@@ -52,13 +52,23 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
     <div class="conversation-item-wrapper ${isActive ? 'active' : ''}" data-conv-id="${conv.id}">
       <div class="conversation-item">
         <div class="conversation-title">${title}</div>
-        <button class="conversation-delete" data-delete-id="${conv.id}" aria-label="Delete">
+        <div class="conversation-actions">
+          <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
+            ${EDIT_ICON}
+          </button>
+          <button class="conversation-delete" data-delete-id="${conv.id}" aria-label="Delete">
+            ${DELETE_ICON}
+          </button>
+        </div>
+      </div>
+      <div class="conversation-actions-swipe">
+        <button class="conversation-rename-swipe" data-rename-id="${conv.id}" aria-label="Rename">
+          ${EDIT_ICON}
+        </button>
+        <button class="conversation-delete-swipe" data-delete-id="${conv.id}" aria-label="Delete">
           ${DELETE_ICON}
         </button>
       </div>
-      <button class="conversation-delete-swipe" data-delete-id="${conv.id}" aria-label="Delete">
-        ${DELETE_ICON}
-      </button>
     </div>
   `;
 }

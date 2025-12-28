@@ -267,16 +267,20 @@ test.describe('Conversation deletion', () => {
 
   test('delete button appears on hover', async ({ page }) => {
     const convItem = page.locator('.conversation-item-wrapper').first();
-    const deleteBtn = convItem.locator('.conversation-delete');
+    const actionsContainer = convItem.locator('.conversation-actions');
 
-    // Initially not visible (opacity: 0)
-    await expect(deleteBtn).toHaveCSS('opacity', '0');
+    // Initially not visible (opacity: 0) - actions container controls visibility
+    await expect(actionsContainer).toHaveCSS('opacity', '0');
 
-    // Hover on the conversation item to reveal delete button
+    // Hover on the conversation item to reveal buttons
     await convItem.hover();
 
-    // Delete button should now be visible (opacity: 1)
-    await expect(deleteBtn).toHaveCSS('opacity', '1');
+    // Actions container should now be visible (opacity: 1)
+    await expect(actionsContainer).toHaveCSS('opacity', '1');
+
+    // Delete button should be visible
+    const deleteBtn = convItem.locator('.conversation-delete');
+    await expect(deleteBtn).toBeVisible();
   });
 
   test('clicking delete removes conversation', async ({ page }) => {
@@ -317,6 +321,176 @@ test.describe('Conversation deletion', () => {
     // Conversation should still be there
     const convItems = page.locator('.conversation-item-wrapper');
     await expect(convItems).toHaveCount(1);
+  });
+});
+
+test.describe('Conversation rename', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+
+    // Create a conversation first
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Test conversation for rename');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+  });
+
+  test('rename button appears on hover', async ({ page }) => {
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    const actionsContainer = convItem.locator('.conversation-actions');
+
+    // Initially not visible (opacity: 0)
+    await expect(actionsContainer).toHaveCSS('opacity', '0');
+
+    // Hover on the conversation item to reveal buttons
+    await convItem.hover();
+
+    // Actions container should now be visible (opacity: 1)
+    await expect(actionsContainer).toHaveCSS('opacity', '1');
+
+    // Rename button should be visible
+    const renameBtn = convItem.locator('.conversation-rename');
+    await expect(renameBtn).toBeVisible();
+  });
+
+  test('clicking rename opens prompt modal', async ({ page }) => {
+    // Hover to reveal rename button, then click
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    await convItem.hover();
+
+    const renameBtn = convItem.locator('.conversation-rename');
+    await renameBtn.click();
+
+    // Wait for prompt modal to appear
+    const modal = page.locator('.modal-container:not(.modal-hidden)');
+    await expect(modal).toBeVisible();
+
+    // Should have title "Rename Conversation"
+    const title = modal.locator('.modal-title');
+    await expect(title).toContainText('Rename Conversation');
+
+    // Should have an input field
+    const input = modal.locator('.modal-input');
+    await expect(input).toBeVisible();
+  });
+
+  test('can rename a conversation', async ({ page }) => {
+    // Hover to reveal rename button, then click
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    await convItem.hover();
+
+    const renameBtn = convItem.locator('.conversation-rename');
+    await renameBtn.click();
+
+    // Wait for prompt modal to appear
+    const modal = page.locator('.modal-container:not(.modal-hidden)');
+    await expect(modal).toBeVisible();
+
+    // Clear existing value and type new name
+    const input = modal.locator('.modal-input');
+    await input.clear();
+    await input.fill('My Renamed Conversation');
+
+    // Click confirm
+    await modal.locator('.modal-confirm').click();
+
+    // Modal should close
+    await expect(modal).not.toBeVisible();
+
+    // Conversation title in sidebar should be updated
+    const convTitle = convItem.locator('.conversation-title');
+    await expect(convTitle).toContainText('My Renamed Conversation');
+
+    // Success toast should appear
+    const toast = page.locator('.toast-success');
+    await expect(toast).toBeVisible();
+  });
+
+  test('can cancel rename', async ({ page }) => {
+    // Get original title
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    const convTitle = convItem.locator('.conversation-title');
+    const originalTitle = await convTitle.textContent();
+
+    // Hover to reveal rename button, then click
+    await convItem.hover();
+
+    const renameBtn = convItem.locator('.conversation-rename');
+    await renameBtn.click();
+
+    // Wait for prompt modal to appear
+    const modal = page.locator('.modal-container:not(.modal-hidden)');
+    await expect(modal).toBeVisible();
+
+    // Type new name
+    const input = modal.locator('.modal-input');
+    await input.clear();
+    await input.fill('Should Not Be Saved');
+
+    // Click cancel
+    await modal.locator('.modal-cancel').click();
+
+    // Modal should close
+    await expect(modal).not.toBeVisible();
+
+    // Title should remain unchanged
+    await expect(convTitle).toContainText(originalTitle!);
+  });
+
+  test('updates chat title when renaming current conversation', async ({ page }) => {
+    // Verify we're viewing the current conversation
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    await expect(convItem).toHaveClass(/active/);
+
+    // Rename the conversation
+    await convItem.hover();
+    const renameBtn = convItem.locator('.conversation-rename');
+    await renameBtn.click();
+
+    const modal = page.locator('.modal-container:not(.modal-hidden)');
+    const input = modal.locator('.modal-input');
+    await input.clear();
+    await input.fill('Updated Chat Title');
+    await modal.locator('.modal-confirm').click();
+
+    // Chat header title should be updated
+    const chatTitle = page.locator('#current-chat-title');
+    await expect(chatTitle).toContainText('Updated Chat Title');
+  });
+
+  test('rejects empty name', async ({ page }) => {
+    // Hover to reveal rename button, then click
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    await convItem.hover();
+
+    const renameBtn = convItem.locator('.conversation-rename');
+    await renameBtn.click();
+
+    // Wait for prompt modal to appear
+    const modal = page.locator('.modal-container:not(.modal-hidden)');
+    await expect(modal).toBeVisible();
+
+    // Clear the input (empty name)
+    const input = modal.locator('.modal-input');
+    await input.clear();
+
+    // Click confirm
+    await modal.locator('.modal-confirm').click();
+
+    // Modal should close (frontend returns early for empty input)
+    await expect(modal).not.toBeVisible();
+
+    // Title should remain unchanged (no error, just no change)
+    const convTitle = convItem.locator('.conversation-title');
+    await expect(convTitle).toBeVisible();
   });
 });
 
