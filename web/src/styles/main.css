@@ -147,6 +147,12 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
+    transition: margin-right 0.15s;
+}
+
+/* On hover, make room for action buttons */
+.conversation-item:hover .conversation-title {
+    margin-right: 56px; /* Space for 2 buttons (24px each + 8px gap) */
 }
 
 /* Action buttons container (desktop) */
@@ -155,6 +161,8 @@ body {
     gap: 4px;
     opacity: 0;
     transition: opacity 0.15s;
+    position: absolute;
+    right: 12px; /* Match conversation-item padding */
 }
 
 .conversation-item:hover .conversation-actions {
