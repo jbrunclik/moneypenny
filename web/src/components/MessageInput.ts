@@ -4,6 +4,17 @@ import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
 
 /**
+ * Check if running in iOS PWA mode (standalone)
+ * Exported for testing
+ */
+export function isIOSPWA(): boolean {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || ('standalone' in navigator && (navigator as { standalone: boolean }).standalone);
+  return isIOS && isStandalone;
+}
+
+/**
  * Initialize message input handlers
  */
 export function initMessageInput(onSend: () => void): void {
@@ -28,6 +39,36 @@ export function initMessageInput(onSend: () => void): void {
 
   // Send button click
   sendBtn.addEventListener('click', onSend);
+
+  // iOS PWA keyboard fix: scroll the messages container when keyboard opens
+  // iOS Safari in PWA mode miscalculates the scroll position when keyboard opens,
+  // causing the cursor to appear below the input initially. We scroll the messages
+  // container to ensure the input area is visible above the keyboard.
+  if (isIOSPWA() && window.visualViewport) {
+    const viewport = window.visualViewport;
+    let lastHeight = viewport.height;
+
+    const handleViewportChange = () => {
+      // Only act when viewport shrinks (keyboard opening) and input is focused
+      const currentHeight = viewport.height;
+      const keyboardOpening = currentHeight < lastHeight;
+      lastHeight = currentHeight;
+
+      if (keyboardOpening && document.activeElement === input) {
+        // Use requestAnimationFrame to wait for layout to settle
+        requestAnimationFrame(() => {
+          // Scroll the messages container to the bottom
+          // This ensures the input stays visible above the keyboard
+          const messagesContainer = document.querySelector('.messages');
+          if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+        });
+      }
+    };
+
+    viewport.addEventListener('resize', handleViewportChange);
+  }
 }
 
 /**
