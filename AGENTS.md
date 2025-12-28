@@ -346,11 +346,34 @@ The button shows a pulsing red indicator while recording. Transcribed text is ap
 
 **Auto-stop on send**: Voice recording is automatically stopped when a message is sent (via `stopVoiceRecording()` in `sendMessage()`), preventing transcribed text from being re-added to the cleared input.
 
+## Conversation Management
+
+The sidebar displays a list of conversations with hover actions for rename and delete.
+
+### Rename
+- **Desktop**: Hover over a conversation to reveal action buttons, click the pencil icon to rename
+- **Mobile**: Swipe left on a conversation to reveal rename and delete buttons
+- Opens a prompt modal with the current title pre-filled
+- Updates both the sidebar title and the chat header title (if viewing that conversation)
+- Shows a success toast on completion
+- Empty names are rejected (modal closes without changes)
+
+### Delete
+- **Desktop**: Hover over a conversation to reveal action buttons, click the trash icon to delete
+- **Mobile**: Swipe left on a conversation to reveal delete button
+- Shows a confirmation modal before deleting
+- Cost data is intentionally preserved after deletion for accurate reporting
+
+**Key files:**
+- [Sidebar.ts](web/src/components/Sidebar.ts) - Conversation list rendering, rename/delete handlers
+- [main.ts](web/src/main.ts) - `renameConversation()` function
+- [Modal.ts](web/src/components/Modal.ts) - `showPrompt()` and `showConfirm()` dialogs
+
 ## Touch Gestures
 
 The app uses a reusable swipe gesture system (`createSwipeHandler` in [swipe.ts](web/src/gestures/swipe.ts)):
 
-1. **Conversation swipe-to-delete**: Swipe left on a conversation item to reveal delete button, swipe right to close
+1. **Conversation swipe actions**: Swipe left on a conversation item to reveal rename and delete buttons, swipe right to close
 2. **Sidebar swipe-to-open**: Swipe from left edge (within 50px) to open sidebar, swipe left on main content to close
 
 The swipe handler prevents conflicts by giving priority to more specific gestures (conversation swipes) over global gestures (sidebar edge swipe).
