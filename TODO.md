@@ -104,8 +104,8 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Extract magic numbers and strings to constants** - Created centralized `constants.{ts,py}` for unit conversions and `config.{ts,py}` for developer-configurable values. See CLAUDE.md "Constants and Configuration" section for guidelines.
 - [x] **Remove console.log statements** - Implemented structured frontend logging in `web/src/utils/logger.ts` with `createLogger()` factory. All console statements replaced with structured logs. See CLAUDE.md "Frontend Logging" section.
 - [x] **Reduce innerHTML usage** - Added `clearElement()` helper to replace `innerHTML = ''`. Documented acceptable vs avoidable innerHTML patterns in AGENTS.md. Remaining innerHTML uses are legitimate (SVG icons, markdown rendering, complex HTML structures).
-- [ ] **Audit unused CSS classes** - After TypeScript migration, review and remove unused CSS classes from main.css
-- [ ] **Create design system / color palette** - Consolidate purple/blue shades into named CSS variables. Currently using multiple similar colors: `--accent` (#6366f1), `--accent-hover` (#818cf8), `--user-bg` (#2563eb), version banner (#3730a3, #1e1b4b), assistant avatar gradient. Define a consistent palette with semantic names.
+- [x] **Audit unused CSS classes** - Removed unused classes (.settings-toggle, .toggle-*, .btn-google, .model-options, .btn-attach) after TypeScript migration
+- [x] **Create design system / color palette** - Consolidated colors into variables.css with semantic naming (--color-neutral-*, --color-brand-*, --color-success-*, etc.). Split CSS into modular files: variables.css, base.css, layout.css, components/*.css. See "CSS Architecture" section in CLAUDE.md.
 
 ### 🟢 Database
 - [ ] **Database connection pooling** - Consider connection pooling for SQLite (though SQLite has limitations)

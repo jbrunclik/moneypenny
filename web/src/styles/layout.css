@@ -1,0 +1,163 @@
+/* ============================================
+   Layout - App Shell Structure
+   ============================================ */
+
+/* App container - fills viewport */
+#app {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+}
+
+/* ============================================
+   Sidebar
+   ============================================ */
+
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    align-self: stretch;
+    padding-top: env(safe-area-inset-top, 0);
+}
+
+.sidebar-header {
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sidebar-header h1 {
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    margin-bottom: var(--space-3);
+}
+
+.sidebar-footer {
+    padding: var(--space-4);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+/* Sidebar overlay for mobile */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: var(--z-overlay);
+}
+
+.sidebar-overlay.visible {
+    display: block;
+}
+
+/* ============================================
+   Main Content Area
+   ============================================ */
+
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    align-self: stretch;
+}
+
+/* Mobile Header */
+.mobile-header {
+    display: none;
+    min-height: var(--header-height);
+    padding: 0 var(--space-4);
+    padding-top: env(safe-area-inset-top, 0);
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.mobile-header span {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100% - 120px);
+    pointer-events: none;
+}
+
+/* ============================================
+   Messages Area
+   ============================================ */
+
+.messages {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    position: relative;
+    scroll-behavior: auto;
+}
+
+/* ============================================
+   Input Area
+   ============================================ */
+
+.input-area {
+    padding: var(--space-4) var(--space-6) var(--space-6);
+    padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0));
+    background-color: var(--bg-primary);
+    flex-shrink: 0;
+}
+
+.input-wrapper {
+    max-width: var(--message-max-width);
+    margin: 0 auto;
+}
+
+/* ============================================
+   Mobile Responsiveness
+   ============================================ */
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: var(--z-sidebar);
+        transform: translateX(-100%);
+        transition: transform var(--transition-slow);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .mobile-header {
+        display: flex;
+    }
+
+    .messages {
+        padding: var(--space-4);
+    }
+
+    .input-area {
+        padding: var(--space-3) var(--space-4);
+        padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0));
+    }
+}

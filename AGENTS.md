@@ -67,7 +67,17 @@ ai-chatbot/
 │       │   ├── thumbnails.ts     # Intersection Observer lazy loading
 │       │   ├── icons.ts          # SVG icon constants
 │       │   └── logger.ts         # Structured logging utility
-│       └── styles/main.css       # Dark theme, responsive layout
+│       └── styles/               # CSS files (modular structure)
+│           ├── main.css          # Entry point, imports all modules
+│           ├── variables.css     # Design system tokens
+│           ├── base.css          # Reset, typography, utilities
+│           ├── layout.css        # App shell structure
+│           └── components/       # Component-specific styles
+│               ├── buttons.css
+│               ├── messages.css
+│               ├── sidebar.css
+│               ├── input.css
+│               └── popups.css
 └── static/                       # Build output + PWA assets
     ├── assets/                   # Vite output (hashed JS/CSS)
     ├── manifest.json
@@ -676,6 +686,62 @@ Edit [config.py](src/config.py) `MODELS` dict.
 
 ### Add new icons
 Add SVG constants to [icons.ts](web/src/utils/icons.ts) and import where needed.
+
+## CSS Architecture
+
+The frontend uses a modular CSS architecture with design tokens for consistency.
+
+### File Structure
+
+```
+web/src/styles/
+├── main.css           # Entry point (imports all modules)
+├── variables.css      # Design system tokens
+├── base.css           # Reset, typography, utilities
+├── layout.css         # App shell structure
+└── components/
+    ├── buttons.css    # All button variants
+    ├── messages.css   # Message display, avatars, content
+    ├── sidebar.css    # Conversation list, swipe actions
+    ├── input.css      # Input toolbar, model selector, file preview
+    └── popups.css     # Modals, toasts, lightbox, info popups
+```
+
+### Design System Variables
+
+All design tokens are defined in [variables.css](web/src/styles/variables.css):
+
+**Colors:**
+- Neutral scale: `--color-neutral-950` (darkest) to `--color-neutral-100` (lightest)
+- Brand colors: `--color-brand-400` to `--color-brand-950` (indigo/purple)
+- Semantic: `--color-success-*`, `--color-error-*`, `--color-warning-*`
+- Aliases: `--bg-primary`, `--text-primary`, `--accent`, `--border` (for easier use)
+
+**Spacing:**
+- Scale: `--space-1` (4px) to `--space-12` (48px)
+
+**Typography:**
+- Sizes: `--font-size-xs` to `--font-size-4xl`
+- Family: `--font-family` (system), `--font-family-mono`
+
+**Other tokens:**
+- Border radius: `--radius-xs` to `--radius-full`
+- Shadows: `--shadow-sm`, `--shadow-md`, `--shadow-lg`
+- Transitions: `--transition-fast`, `--transition-normal`, `--transition-slow`
+- Z-index: `--z-dropdown`, `--z-modal`, `--z-toast`, etc.
+
+### Adding New Styles
+
+1. **New component**: Create file in `components/`, import in `main.css`
+2. **New color**: Add to palette in `variables.css`, create semantic alias if needed
+3. **Reusable pattern**: Add to appropriate component file or create new one
+
+### Key Files
+
+- [variables.css](web/src/styles/variables.css) - Design tokens
+- [layout.css](web/src/styles/layout.css) - App shell, responsive breakpoints
+- [components/buttons.css](web/src/styles/components/buttons.css) - Button variants
+- [components/popups.css](web/src/styles/components/popups.css) - Modals, toasts, overlays
 
 ## Testing
 

@@ -1,0 +1,195 @@
+/* ============================================
+   Design System - CSS Variables
+   ============================================
+
+   Naming convention:
+   - Colors: --color-{category}-{shade}
+   - Spacing: --space-{size}
+   - Typography: --font-{property}
+   - Effects: --{effect}-{variant}
+*/
+
+:root {
+    /* ----------------------------------------
+       Color Palette - Neutrals (Gray scale)
+       ---------------------------------------- */
+    --color-neutral-950: #0f0f0f;   /* Darkest - primary bg */
+    --color-neutral-900: #1a1a1a;   /* Secondary bg */
+    --color-neutral-850: #1f1f1f;   /* Assistant message bg */
+    --color-neutral-800: #252525;   /* Tertiary bg */
+    --color-neutral-700: #303030;   /* Hover bg */
+    --color-neutral-600: #333333;   /* Borders */
+    --color-neutral-400: #666666;   /* Muted text */
+    --color-neutral-300: #a0a0a0;   /* Secondary text */
+    --color-neutral-100: #e5e5e5;   /* Primary text */
+
+    /* ----------------------------------------
+       Color Palette - Brand (Indigo/Purple)
+       ---------------------------------------- */
+    --color-brand-400: #818cf8;     /* Accent hover */
+    --color-brand-500: #6366f1;     /* Primary accent */
+    --color-brand-600: #4f46e5;     /* Pressed state */
+    --color-brand-700: #4338ca;     /* Dark accent */
+    --color-brand-800: #3730a3;     /* Version banner bg */
+    --color-brand-900: #312e81;     /* Darker variant */
+    --color-brand-950: #1e1b4b;     /* Darkest - banner text */
+
+    /* Purple shades (for gradients) */
+    --color-purple-500: #8b5cf6;    /* Gradient middle */
+    --color-purple-400: #a855f7;    /* Gradient end */
+
+    /* ----------------------------------------
+       Color Palette - Semantic
+       ---------------------------------------- */
+    --color-success-500: #22c55e;   /* Success green */
+    --color-success-600: #16a34a;   /* Success hover */
+
+    --color-error-400: #f87171;     /* Error light */
+    --color-error-500: #ef4444;     /* Error red */
+    --color-error-600: #dc2626;     /* Error hover */
+
+    --color-warning-500: #f59e0b;   /* Warning amber */
+    --color-warning-400: #fbbf24;   /* Warning light */
+
+    --color-info-500: #3b82f6;      /* Info blue */
+    --color-user-500: #2563eb;      /* User message bg (blue-600) */
+
+    /* ----------------------------------------
+       Semantic Aliases (for easier use)
+       ---------------------------------------- */
+    /* Backgrounds */
+    --bg-primary: var(--color-neutral-950);
+    --bg-secondary: var(--color-neutral-900);
+    --bg-tertiary: var(--color-neutral-800);
+    --bg-hover: var(--color-neutral-700);
+    --bg-assistant: var(--color-neutral-850);
+    --bg-user: var(--color-user-500);
+
+    /* Text */
+    --text-primary: var(--color-neutral-100);
+    --text-secondary: var(--color-neutral-300);
+    --text-muted: var(--color-neutral-400);
+
+    /* Accent */
+    --accent: var(--color-brand-500);
+    --accent-hover: var(--color-brand-400);
+    --accent-muted: rgba(99, 102, 241, 0.15);
+
+    /* Borders */
+    --border: var(--color-neutral-600);
+    --border-light: var(--color-neutral-700);
+
+    /* Status */
+    --success: var(--color-success-500);
+    --error: var(--color-error-500);
+    --error-hover: var(--color-error-600);
+    --warning: var(--color-warning-500);
+
+    /* ----------------------------------------
+       Gradients
+       ---------------------------------------- */
+    --gradient-assistant-avatar: linear-gradient(
+        135deg,
+        var(--color-brand-500) 0%,
+        var(--color-purple-500) 50%,
+        var(--color-purple-400) 100%
+    );
+
+    --gradient-table-header: linear-gradient(
+        135deg,
+        var(--bg-tertiary) 0%,
+        var(--bg-secondary) 100%
+    );
+
+    /* ----------------------------------------
+       Shadows
+       ---------------------------------------- */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --shadow-glow-accent: 0 0 12px rgba(139, 92, 246, 0.5);
+    --shadow-scroll-btn: 0 2px 12px rgba(0, 0, 0, 0.4);
+
+    /* ----------------------------------------
+       Border Radius
+       ---------------------------------------- */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-pill: 10px;    /* For pill-shaped badges/counts */
+    --radius-full: 9999px;
+
+    /* Legacy aliases */
+    --radius: var(--radius-md);
+
+    /* ----------------------------------------
+       Spacing Scale
+       ---------------------------------------- */
+    --space-1: 4px;
+    --space-1-5: 6px;   /* For fine-tuned spacing */
+    --space-2: 8px;
+    --space-2-5: 10px;  /* For fine-tuned spacing */
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+
+    /* ----------------------------------------
+       Typography
+       ---------------------------------------- */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-family-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+
+    --font-size-2xs: 0.5rem;     /* 8px - dropdown arrows */
+    --font-size-xs: 0.6875rem;   /* 11px */
+    --font-size-sm: 0.75rem;     /* 12px */
+    --font-size-badge: 0.7rem;   /* ~11px - badge numbers */
+    --font-size-base: 0.875rem;  /* 14px */
+    --font-size-md: 0.9375rem;   /* 15px */
+    --font-size-lg: 1rem;        /* 16px */
+    --font-size-xl: 1.125rem;    /* 18px */
+    --font-size-2xl: 1.25rem;    /* 20px */
+    --font-size-3xl: 1.5rem;     /* 24px */
+    --font-size-4xl: 2rem;       /* 32px */
+
+    --line-height: 1.5;
+
+    /* ----------------------------------------
+       Layout
+       ---------------------------------------- */
+    --sidebar-width: 280px;
+    --header-height: 56px;
+    --input-height: 60px;
+    --message-max-width: 800px;
+
+    /* ----------------------------------------
+       Transitions
+       ---------------------------------------- */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.2s ease;
+    --transition-slow: 0.3s ease;
+
+    /* ----------------------------------------
+       Z-Index Scale
+       ---------------------------------------- */
+    --z-dropdown: 50;
+    --z-sidebar: 50;
+    --z-overlay: 40;
+    --z-banner: 150;
+    --z-modal-backdrop: 200;
+    --z-lightbox: 300;
+    --z-popup: 300;
+    --z-toast: 10000;
+    --z-modal: 10001;
+
+    /* ----------------------------------------
+       Legacy aliases (for backwards compat)
+       ---------------------------------------- */
+    --shadow: var(--shadow-md);
+    --user-bg: var(--bg-user);
+    --assistant-bg: var(--bg-assistant);
+}

@@ -1,0 +1,314 @@
+/* ============================================
+   Buttons
+   ============================================
+
+   Naming convention:
+   - .btn              Base button
+   - .btn-primary      Primary variant
+   - .btn-secondary    Secondary variant
+   - .btn-icon         Icon-only button
+   - .btn-toolbar      Toolbar button
+   - .btn-send         Send message button
+   - .btn-logout       Logout button
+   - .btn-monthly-cost Monthly cost button
+   - .btn-voice        Voice input button
+   - .scroll-to-bottom Scroll to bottom button
+*/
+
+/* ----------------------------------------
+   Base Button
+   ---------------------------------------- */
+
+.btn {
+    padding: 10px var(--space-4);
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* ----------------------------------------
+   Primary Button
+   ---------------------------------------- */
+
+.btn-primary {
+    background-color: var(--accent);
+    color: white;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+}
+
+.btn-primary svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-hover);
+}
+
+/* ----------------------------------------
+   Secondary Button
+   ---------------------------------------- */
+
+.btn-secondary {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+    background-color: var(--bg-hover);
+}
+
+/* ----------------------------------------
+   Icon Button (text icon like hamburger)
+   ---------------------------------------- */
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--font-size-2xl);
+    cursor: pointer;
+    padding: var(--space-2);
+}
+
+/* ----------------------------------------
+   Toolbar Button
+   ---------------------------------------- */
+
+.btn-toolbar {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-1-5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.btn-toolbar:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-toolbar svg {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-toolbar.active {
+    color: var(--accent);
+}
+
+.btn-toolbar.active:hover {
+    background-color: var(--accent-muted);
+    color: var(--accent-hover);
+}
+
+/* ----------------------------------------
+   Send Button
+   ---------------------------------------- */
+
+.btn-send {
+    background-color: var(--accent);
+    color: white;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+}
+
+.btn-send svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.btn-send:disabled {
+    background-color: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------
+   Logout Button
+   ---------------------------------------- */
+
+.btn-logout {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-lg);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-logout svg {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-logout:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* ----------------------------------------
+   Monthly Cost Button
+   ---------------------------------------- */
+
+.btn-monthly-cost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: var(--space-1-5) var(--space-3);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    text-align: left;
+}
+
+.btn-monthly-cost:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+.btn-monthly-cost .cost-label {
+    color: var(--text-muted);
+}
+
+.btn-monthly-cost .cost-value {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* ----------------------------------------
+   Voice Input Button
+   ---------------------------------------- */
+
+.btn-voice {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.btn-voice:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-voice svg {
+    width: 20px;
+    height: 20px;
+}
+
+.btn-voice.recording {
+    color: var(--error);
+    animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+.btn-voice.recording:hover {
+    color: var(--error);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.btn-voice.hidden {
+    display: none;
+}
+
+@keyframes pulse-recording {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ----------------------------------------
+   Scroll to Bottom Button
+   ---------------------------------------- */
+
+.scroll-to-bottom {
+    position: sticky;
+    bottom: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background-color: var(--bg-hover);
+    border: 1px solid var(--text-muted);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-scroll-btn);
+    transition: opacity var(--transition-normal), transform var(--transition-normal), background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    z-index: 20;
+    opacity: 1;
+    margin-top: -52px;
+    align-self: center;
+    flex-shrink: 0;
+}
+
+.scroll-to-bottom:hover {
+    background-color: var(--bg-tertiary);
+    color: white;
+    border-color: var(--text-secondary);
+}
+
+.scroll-to-bottom:active {
+    transform: translateX(-50%) scale(0.95);
+}
+
+.scroll-to-bottom svg {
+    width: 18px;
+    height: 18px;
+}
+
+.scroll-to-bottom.hidden {
+    opacity: 0;
+    pointer-events: none;
+}

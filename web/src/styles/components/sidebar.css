@@ -1,0 +1,260 @@
+/* ============================================
+   Sidebar Components
+   ============================================
+
+   - Conversations list
+   - Conversation items (with swipe actions)
+   - User info section
+*/
+
+/* ----------------------------------------
+   Conversations List
+   ---------------------------------------- */
+
+.conversations-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2);
+    -webkit-overflow-scrolling: touch;
+}
+
+.conversations-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    color: var(--text-secondary);
+    min-height: 120px;
+}
+
+.conversations-empty p {
+    margin: var(--space-1) 0;
+}
+
+.conversations-empty .text-muted {
+    font-size: var(--font-size-base);
+}
+
+/* ----------------------------------------
+   Conversation Item
+   ---------------------------------------- */
+
+.conversation-item-wrapper {
+    position: relative;
+    margin-bottom: var(--space-1);
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+}
+
+.conversation-item {
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    touch-action: pan-y;
+    background-color: var(--bg-secondary);
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-width: 100%;
+    box-sizing: border-box;
+}
+
+.conversation-item:hover {
+    background-color: var(--bg-hover);
+}
+
+.conversation-item-wrapper.active .conversation-item {
+    background-color: var(--bg-tertiary);
+}
+
+.conversation-title {
+    font-size: var(--font-size-base);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    transition: margin-right var(--transition-fast);
+}
+
+/* On hover, make room for action buttons */
+.conversation-item:hover .conversation-title {
+    margin-right: 56px;
+}
+
+/* ----------------------------------------
+   Conversation Actions (Desktop)
+   ---------------------------------------- */
+
+.conversation-actions {
+    display: flex;
+    gap: var(--space-1);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    position: absolute;
+    right: var(--space-3);
+}
+
+.conversation-item:hover .conversation-actions {
+    opacity: 1;
+}
+
+.conversation-rename,
+.conversation-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.conversation-rename svg,
+.conversation-delete svg {
+    width: 16px;
+    height: 16px;
+}
+
+.conversation-rename:hover {
+    color: var(--accent);
+    background-color: var(--accent-muted);
+}
+
+.conversation-delete:hover {
+    color: var(--error);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* ----------------------------------------
+   Conversation Actions (Swipe - Touch)
+   ---------------------------------------- */
+
+.conversation-actions-swipe {
+    display: none;
+}
+
+@media (hover: none) {
+    .conversation-actions {
+        display: none;
+    }
+
+    .conversation-actions-swipe {
+        position: absolute;
+        right: -160px;
+        top: 0;
+        bottom: 0;
+        width: 160px;
+        display: flex;
+        flex-shrink: 0;
+        transition: right var(--transition-slow);
+        z-index: 1;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .conversation-rename-swipe,
+    .conversation-delete-swipe {
+        width: 80px;
+        color: white;
+        border: none;
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-1);
+        flex-shrink: 0;
+    }
+
+    .conversation-rename-swipe {
+        background-color: var(--accent);
+    }
+
+    .conversation-delete-swipe {
+        background-color: var(--error);
+    }
+
+    .conversation-rename-swipe svg,
+    .conversation-delete-swipe svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Swiped state */
+    .conversation-item-wrapper.swiped .conversation-item {
+        transform: translateX(-160px);
+        border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    }
+
+    .conversation-item-wrapper.swiped .conversation-actions-swipe {
+        right: 0;
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+/* ----------------------------------------
+   User Info Section
+   ---------------------------------------- */
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.user-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    width: 100%;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1;
+    min-width: 0;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background-color: var(--bg-tertiary);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.user-avatar-initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-user);
+    color: white;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+}
+
+.user-name {
+    font-size: var(--font-size-base);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
