@@ -21,7 +21,16 @@ import {
 import { costs } from '../api/client';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import type { Message, FileMetadata, Source, GeneratedImage } from '../types/api';
+import {
+  createThinkingIndicator,
+  updateThinkingIndicator,
+  finalizeThinkingIndicator,
+  createThinkingState,
+  addThinkingToTrace,
+  addToolStartToTrace,
+  markToolCompletedInTrace,
+} from './ThinkingIndicator';
+import type { Message, FileMetadata, Source, GeneratedImage, ThinkingState } from '../types/api';
 
 const log = createLogger('messages');
 
@@ -368,7 +377,28 @@ function renderMessageFiles(files: FileMetadata[], messageId: string): HTMLEleme
 }
 
 /**
+ * Streaming message context - holds state for the current streaming message
+ */
+interface StreamingMessageContext {
+  element: HTMLElement;
+  thinkingIndicator: HTMLElement;
+  thinkingState: ThinkingState;
+  /** Whether to auto-scroll during streaming - dynamically updated based on user scroll */
+  shouldAutoScroll: boolean;
+  /** Scroll listener cleanup function */
+  scrollListenerCleanup: (() => void) | null;
+}
+
+// Global context for the current streaming message
+let currentStreamingContext: StreamingMessageContext | null = null;
+
+// Constants for streaming scroll behavior
+const STREAMING_SCROLL_THRESHOLD_PX = 100; // Distance from bottom to consider "at bottom"
+const STREAMING_SCROLL_CHECK_DEBOUNCE_MS = 50; // Debounce for scroll detection
+
+/**
  * Add a streaming message placeholder
+ * @returns Object with element and methods to update thinking state
  */
 export function addStreamingMessage(): HTMLElement {
   const container = getElementById<HTMLDivElement>('messages');
@@ -376,6 +406,11 @@ export function addStreamingMessage(): HTMLElement {
 
   const messageEl = document.createElement('div');
   messageEl.className = 'message assistant streaming';
+
+  // Create thinking indicator
+  const thinkingIndicator = createThinkingIndicator();
+  const thinkingState = createThinkingState();
+
   messageEl.innerHTML = `
     <div class="message-avatar">${AI_AVATAR_SVG}</div>
     <div class="message-content-wrapper">
@@ -385,14 +420,170 @@ export function addStreamingMessage(): HTMLElement {
     </div>
   `;
 
+  // Insert thinking indicator at the start of message-content
+  const contentEl = messageEl.querySelector('.message-content');
+  if (contentEl) {
+    contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
+  }
+
+  // Check if user is at bottom BEFORE adding the message
+  const wasAtBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
+
+  // Store context for updates
+  currentStreamingContext = {
+    element: messageEl,
+    thinkingIndicator,
+    thinkingState,
+    shouldAutoScroll: wasAtBottom,
+    scrollListenerCleanup: null,
+  };
+
   container.appendChild(messageEl);
   scrollToBottom(container);
+
+  // Set up scroll listener to detect user scroll during streaming
+  // This allows interrupting auto-scroll when scrolling up and resuming when scrolling back to bottom
+  setupStreamingScrollListener(container);
+
   // Update button visibility after adding message and scrolling
   requestAnimationFrame(() => {
     checkScrollButtonVisibility();
   });
 
   return messageEl;
+}
+
+/**
+ * Set up a scroll listener for streaming that:
+ * 1. Disables auto-scroll when user scrolls up (away from bottom)
+ * 2. Re-enables auto-scroll when user scrolls back to bottom
+ */
+function setupStreamingScrollListener(container: HTMLElement): void {
+  if (!currentStreamingContext) return;
+
+  // Clean up any existing listener
+  if (currentStreamingContext.scrollListenerCleanup) {
+    currentStreamingContext.scrollListenerCleanup();
+  }
+
+  let debounceTimeout: number | undefined;
+
+  const scrollHandler = (): void => {
+    if (!currentStreamingContext) return;
+
+    // Debounce the scroll check to avoid excessive processing
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+
+    debounceTimeout = window.setTimeout(() => {
+      if (!currentStreamingContext) return;
+
+      const atBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
+
+      if (atBottom && !currentStreamingContext.shouldAutoScroll) {
+        // User scrolled back to bottom - resume auto-scroll
+        currentStreamingContext.shouldAutoScroll = true;
+        log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
+      } else if (!atBottom && currentStreamingContext.shouldAutoScroll) {
+        // User scrolled away from bottom - disable auto-scroll
+        currentStreamingContext.shouldAutoScroll = false;
+        log.debug('Streaming auto-scroll paused (user scrolled up)');
+      }
+    }, STREAMING_SCROLL_CHECK_DEBOUNCE_MS);
+  };
+
+  container.addEventListener('scroll', scrollHandler, { passive: true });
+
+  // Store cleanup function
+  currentStreamingContext.scrollListenerCleanup = () => {
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+    container.removeEventListener('scroll', scrollHandler);
+  };
+}
+
+/**
+ * Clean up streaming context and scroll listener.
+ * Called when streaming ends (success or error).
+ */
+export function cleanupStreamingContext(): void {
+  if (currentStreamingContext) {
+    if (currentStreamingContext.scrollListenerCleanup) {
+      currentStreamingContext.scrollListenerCleanup();
+    }
+    currentStreamingContext = null;
+  }
+}
+
+/**
+ * Auto-scroll to keep the thinking indicator visible during streaming.
+ * Only scrolls if auto-scroll is enabled (user hasn't scrolled away).
+ */
+function autoScrollForStreaming(): void {
+  if (!currentStreamingContext?.shouldAutoScroll) return;
+
+  const messagesContainer = getElementById('messages');
+  if (messagesContainer) {
+    scrollToBottom(messagesContainer);
+  }
+}
+
+/**
+ * Update the thinking state of the current streaming message
+ */
+export function updateStreamingThinking(thinkingText?: string): void {
+  if (!currentStreamingContext) return;
+
+  if (thinkingText) {
+    addThinkingToTrace(currentStreamingContext.thinkingState, thinkingText);
+  }
+  currentStreamingContext.thinkingState.isThinking = true;
+
+  updateThinkingIndicator(
+    currentStreamingContext.thinkingIndicator,
+    currentStreamingContext.thinkingState
+  );
+
+  // Auto-scroll to keep thinking indicator visible
+  autoScrollForStreaming();
+}
+
+/**
+ * Signal that a tool has started executing
+ * @param toolName The name of the tool
+ * @param detail Optional detail (search query, URL, prompt)
+ */
+export function updateStreamingToolStart(toolName: string, detail?: string): void {
+  if (!currentStreamingContext) return;
+
+  addToolStartToTrace(currentStreamingContext.thinkingState, toolName, detail);
+
+  updateThinkingIndicator(
+    currentStreamingContext.thinkingIndicator,
+    currentStreamingContext.thinkingState
+  );
+
+  // Auto-scroll to keep tool indicator visible
+  autoScrollForStreaming();
+}
+
+/**
+ * Signal that a tool has finished executing
+ */
+export function updateStreamingToolEnd(toolName: string): void {
+  if (!currentStreamingContext) return;
+
+  markToolCompletedInTrace(currentStreamingContext.thinkingState, toolName);
+
+  updateThinkingIndicator(
+    currentStreamingContext.thinkingIndicator,
+    currentStreamingContext.thinkingState
+  );
+
+  // Auto-scroll after tool completion
+  autoScrollForStreaming();
 }
 
 /**
@@ -405,20 +596,28 @@ export function updateStreamingMessage(
   const contentEl = messageEl.querySelector('.message-content');
   if (!contentEl) return;
 
-  const wasAtBottom = isScrolledToBottom(
-    getElementById('messages')!
-  );
+  // Preserve thinking indicator if it exists
+  const thinkingIndicator = contentEl.querySelector('.thinking-indicator');
 
   // Render markdown for the accumulated content
   contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
 
-  if (wasAtBottom) {
-    scrollToBottom(getElementById('messages')!);
-    // Update button visibility after scrolling
-    requestAnimationFrame(() => {
-      checkScrollButtonVisibility();
-    });
+  // Re-insert thinking indicator at the top
+  if (thinkingIndicator) {
+    contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
   }
+
+  // When content starts flowing, mark thinking as done
+  if (content && currentStreamingContext) {
+    currentStreamingContext.thinkingState.isThinking = false;
+    updateThinkingIndicator(
+      currentStreamingContext.thinkingIndicator,
+      currentStreamingContext.thinkingState
+    );
+  }
+
+  // Auto-scroll if user was at bottom when streaming started
+  autoScrollForStreaming();
 }
 
 /**
@@ -439,6 +638,20 @@ export function finalizeStreamingMessage(
   // Remove cursor
   const cursor = messageEl.querySelector('.streaming-cursor');
   cursor?.remove();
+
+  // Finalize thinking indicator and clean up streaming context
+  if (currentStreamingContext && currentStreamingContext.element === messageEl) {
+    finalizeThinkingIndicator(
+      currentStreamingContext.thinkingIndicator,
+      currentStreamingContext.thinkingState
+    );
+    // Clean up scroll listener
+    if (currentStreamingContext.scrollListenerCleanup) {
+      currentStreamingContext.scrollListenerCleanup();
+    }
+    // Clear the context
+    currentStreamingContext = null;
+  }
 
   // Apply syntax highlighting to code blocks
   const content = messageEl.querySelector('.message-content');

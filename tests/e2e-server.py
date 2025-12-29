@@ -38,12 +38,13 @@ E2E_DB_PATH = PROJECT_ROOT / "tests" / f"e2e-test-{DB_ID}.db"
 os.environ["DATABASE_PATH"] = str(E2E_DB_PATH)
 
 # Mock configuration (inline - no external files needed)
-MOCK_CONFIG = {
+MOCK_CONFIG: dict[str, Any] = {
     "response_prefix": "This is a mock response to: ",
     "input_tokens": 100,
     "output_tokens": 50,
     "stream_delay_ms": 30,  # Delay between streamed tokens (fast for tests)
     "custom_response": None,  # If set, use this instead of prefix + message
+    "emit_thinking": False,  # If True, emit thinking events during streaming
 }
 
 
@@ -239,6 +240,71 @@ def create_mock_stream_chat() -> Any:
     return mock_stream_chat
 
 
+def create_mock_stream_chat_events() -> Any:
+    """Create a mock stream_chat_events method that yields structured events.
+
+    This method yields events including thinking, tool_start, tool_end, token, and final.
+    """
+    from collections.abc import Generator
+
+    def mock_stream_chat_events(
+        self: Any,
+        message: str,
+        files: list[dict[str, Any]] | None = None,
+        history: list[dict[str, Any]] | None = None,
+        force_tools: list[str] | None = None,
+        user_name: str | None = None,
+    ) -> Generator[dict[str, Any]]:
+        """Mock streaming that yields structured events."""
+        # Use custom response if set, otherwise use prefix + message
+        if MOCK_CONFIG["custom_response"]:
+            response_text = MOCK_CONFIG["custom_response"]
+        else:
+            prefix = MOCK_CONFIG["response_prefix"]
+            response_text = f"{prefix}{message[:100]}"
+
+        delay_s = MOCK_CONFIG["stream_delay_ms"] / 1000
+
+        # Optionally yield a thinking event (based on mock config or message content)
+        if "think" in message.lower() or MOCK_CONFIG.get("emit_thinking"):
+            time.sleep(delay_s)
+            yield {"type": "thinking", "text": "Let me think about this..."}
+
+        # Optionally yield tool events (if force_tools specified)
+        if force_tools:
+            for tool in force_tools:
+                time.sleep(delay_s)
+                yield {"type": "tool_start", "tool": tool}
+                time.sleep(delay_s * 2)  # Simulate tool execution
+                yield {"type": "tool_end", "tool": tool}
+
+        # Stream tokens word-by-word
+        words = response_text.split()
+        for i, word in enumerate(words):
+            # Add space before word (except first)
+            token = f" {word}" if i > 0 else word
+            yield {"type": "token", "text": token}
+            time.sleep(delay_s)
+
+        # Yield final event
+        input_tokens = MOCK_CONFIG["input_tokens"]
+        output_tokens = MOCK_CONFIG["output_tokens"]
+        usage_info = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+        }
+        yield {
+            "type": "final",
+            "content": response_text,
+            "metadata": {},
+            "tool_results": [],
+            "usage_info": usage_info,
+        }
+
+    return mock_stream_chat_events
+
+
 def main() -> None:
     """Start the E2E test server with all mocks applied."""
     import contextlib
@@ -264,6 +330,12 @@ def main() -> None:
         )
         stack.enter_context(
             patch("src.agent.chat_agent.ChatAgent.stream_chat", create_mock_stream_chat())
+        )
+        stack.enter_context(
+            patch(
+                "src.agent.chat_agent.ChatAgent.stream_chat_events",
+                create_mock_stream_chat_events(),
+            )
         )
 
         # Import app after mocks are in place
@@ -324,6 +396,16 @@ def main() -> None:
             """Clear custom mock response to restore default behavior."""
             MOCK_CONFIG["custom_response"] = None
             return {"status": "cleared"}, 200
+
+        @test_bp.route("/test/set-emit-thinking", methods=["POST"])
+        def set_emit_thinking() -> tuple[dict[str, Any], int]:
+            """Enable/disable thinking events for testing thinking indicator UI."""
+            from flask import request
+
+            data = request.get_json() or {}
+            emit = data.get("emit", True)
+            MOCK_CONFIG["emit_thinking"] = emit
+            return {"status": "set", "emit_thinking": emit}, 200
 
         app.register_blueprint(test_bp)
 

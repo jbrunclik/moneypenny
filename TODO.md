@@ -13,11 +13,11 @@ This file tracks planned features, improvements, and technical debt.
 
 ## Phase 2 - Streaming & Polish
 - [x] **Streaming responses** - Display tokens as they arrive from Gemini (with toggle)
-- [ ] **Show thinking/tool details** - Display model reasoning and tool execution behind a toggle
+- [x] **Show thinking/tool details** - Display model thinking and tool execution trace during streaming with auto-collapse to "Show details" toggle. Shows search queries, URLs, and image prompts with markdown formatting
 - [x] **Improve error handling and user feedback** - Toast notifications, custom modals, retry logic, draft message preservation
 - [x] **Add loading states and animations** - Conversation loading spinner, thumbnail loading indicators
 - [x] Conversation delete functionality
-- [ ] Conversation rename functionality
+- [x] **Conversation rename functionality** - Rename via pencil icon on hover (desktop) or swipe actions (mobile). Updates sidebar and chat header in real-time
 - [x] Mobile gesture support (swipe to open sidebar, swipe to delete conversations)
 - [x] **Show message timestamps** - Display message timestamps on hover (locale-aware formatting)
 - [x] **Scroll to bottom button** - Floating button to jump to latest messages when scrolled up

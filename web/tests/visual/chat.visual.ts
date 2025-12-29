@@ -119,3 +119,72 @@ test.describe('Visual: Chat States', () => {
     await expect(searchBtn).toHaveScreenshot('search-btn-active.png');
   });
 });
+
+test.describe('Visual: Thinking Indicator', () => {
+  // Note: Visual tests for thinking indicator are run via E2E tests instead.
+  // The thinking indicator only appears during streaming and is difficult to capture
+  // in visual tests because:
+  // 1. The mock server emits thinking events quickly, making capture timing-sensitive
+  // 2. The indicator is removed after finalization if no meaningful content (by design)
+  //
+  // The E2E tests in chat.spec.ts verify the thinking indicator behavior.
+  // The component structure and styling are covered by unit tests.
+
+  test('message with streaming response', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Ensure streaming is enabled
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+
+    // Send a message containing "think" to trigger thinking events
+    await page.fill('#message-input', 'Please think about this question');
+    await page.click('#send-btn');
+
+    // Wait for streaming to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // Wait for animations to complete
+    await page.waitForTimeout(500);
+
+    // Screenshot the message (may or may not have thinking indicator based on timing)
+    await expect(assistantMessage).toHaveScreenshot('message-with-streaming-response.png');
+  });
+
+  test('message with tool usage', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Ensure streaming is enabled
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+
+    // Enable search to trigger web_search tool
+    const searchBtn = page.locator('#search-btn');
+    await searchBtn.click();
+
+    // Send a message
+    await page.fill('#message-input', 'Search for something');
+    await page.click('#send-btn');
+
+    // Wait for streaming to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // Wait for animations
+    await page.waitForTimeout(500);
+
+    // Screenshot the message (may or may not have tool indicator based on timing)
+    await expect(assistantMessage).toHaveScreenshot('message-with-tool-usage.png');
+  });
+});

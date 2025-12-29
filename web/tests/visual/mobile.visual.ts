@@ -225,4 +225,31 @@ test.describe('Visual: Mobile Interactions', () => {
       'mobile-wide-table.png'
     );
   });
+
+  test('streaming message on mobile', async ({ page }) => {
+    // Test streaming response on mobile viewport
+    await page.goto('/');
+    await createNewConversationMobile(page);
+
+    // Ensure streaming is enabled
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+
+    // Send a message containing "think" to trigger thinking events
+    await page.fill('#message-input', 'Please think about this');
+    await page.click('#send-btn');
+
+    // Wait for streaming to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // Wait for animations
+    await page.waitForTimeout(500);
+
+    // Screenshot the streaming message on mobile
+    await expect(assistantMessage).toHaveScreenshot('mobile-streaming-message.png');
+  });
 });

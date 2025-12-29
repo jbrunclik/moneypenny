@@ -179,17 +179,18 @@ class TestChatStream:
         with patch("src.api.routes.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
-            def mock_stream(*args: Any, **kwargs: Any) -> Any:
-                yield "Hello"
-                yield " world"
-                yield (
-                    "Hello world",
-                    {},
-                    [],
-                    {"input_tokens": 50, "output_tokens": 10},
-                )
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Hello"}
+                yield {"type": "token", "text": " world"}
+                yield {
+                    "type": "final",
+                    "content": "Hello world",
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
 
-            mock_agent.stream_chat = mock_stream
+            mock_agent.stream_chat_events = mock_stream_events
             mock_agent_class.return_value = mock_agent
 
             response = client.post(
@@ -211,17 +212,18 @@ class TestChatStream:
         with patch("src.api.routes.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
-            def mock_stream(*args: Any, **kwargs: Any) -> Any:
-                yield "Token1"
-                yield "Token2"
-                yield (
-                    "Token1Token2",
-                    {},
-                    [],
-                    {"input_tokens": 50, "output_tokens": 10},
-                )
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Token1"}
+                yield {"type": "token", "text": "Token2"}
+                yield {
+                    "type": "final",
+                    "content": "Token1Token2",
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
 
-            mock_agent.stream_chat = mock_stream
+            mock_agent.stream_chat_events = mock_stream_events
             mock_agent_class.return_value = mock_agent
 
             response = client.post(
@@ -272,17 +274,18 @@ class TestChatStream:
         with patch("src.api.routes.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
-            def mock_stream(*args: Any, **kwargs: Any) -> Any:
-                yield "Token1"
-                yield "Token2"
-                yield (
-                    "Token1Token2",
-                    {},
-                    [],
-                    {"input_tokens": 50, "output_tokens": 10},
-                )
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Token1"}
+                yield {"type": "token", "text": "Token2"}
+                yield {
+                    "type": "final",
+                    "content": "Token1Token2",
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
 
-            mock_agent.stream_chat = mock_stream
+            mock_agent.stream_chat_events = mock_stream_events
             mock_agent_class.return_value = mock_agent
 
             # Start the request and read partial response (simulating client disconnect)
@@ -512,8 +515,8 @@ class TestChatWithGeneratedImages:
         with patch("src.api.routes.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
-            def mock_stream(*args: Any, **kwargs: Any) -> Any:
-                """Mock stream that yields tokens, then final tuple with tool results.
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                """Mock stream_chat_events that yields structured events with tool results.
 
                 Also simulates the tool node capturing full results into _full_tool_results.
                 """
@@ -525,19 +528,20 @@ class TestChatWithGeneratedImages:
                         {"type": "tool", "content": tool_result_content}
                     ]
 
-                yield "Here"
-                yield " is"
-                yield " the"
-                yield " image"
-                # Final tuple: (content, metadata, tool_results, usage_info)
-                yield (
-                    'Here is the image\n\n<!-- METADATA:\n{"generated_images": [{"prompt": "a blue circle"}]}\n-->',
-                    {"generated_images": [{"prompt": "a blue circle"}]},
-                    [{"type": "tool", "content": tool_result_content}],
-                    {"input_tokens": 100, "output_tokens": 50},
-                )
+                yield {"type": "token", "text": "Here"}
+                yield {"type": "token", "text": " is"}
+                yield {"type": "token", "text": " the"}
+                yield {"type": "token", "text": " image"}
+                # Final event with content, metadata, and tool results
+                yield {
+                    "type": "final",
+                    "content": 'Here is the image\n\n<!-- METADATA:\n{"generated_images": [{"prompt": "a blue circle"}]}\n-->',
+                    "metadata": {"generated_images": [{"prompt": "a blue circle"}]},
+                    "tool_results": [{"type": "tool", "content": tool_result_content}],
+                    "usage_info": {"input_tokens": 100, "output_tokens": 50},
+                }
 
-            mock_agent.stream_chat = mock_stream
+            mock_agent.stream_chat_events = mock_stream_events
             mock_agent_class.return_value = mock_agent
 
             response = client.post(
@@ -602,17 +606,18 @@ class TestChatWithGeneratedImages:
         with patch("src.api.routes.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
-            def mock_stream(*args: Any, **kwargs: Any) -> Any:
-                yield "Test"
-                yield " response"
-                yield (
-                    "Test response",
-                    {},
-                    [],  # No tool results
-                    {"input_tokens": 10, "output_tokens": 5},
-                )
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Test"}
+                yield {"type": "token", "text": " response"}
+                yield {
+                    "type": "final",
+                    "content": "Test response",
+                    "metadata": {},
+                    "tool_results": [],  # No tool results
+                    "usage_info": {"input_tokens": 10, "output_tokens": 5},
+                }
 
-            mock_agent.stream_chat = mock_stream
+            mock_agent.stream_chat_events = mock_stream_events
             mock_agent_class.return_value = mock_agent
 
             response = client.post(

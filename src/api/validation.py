@@ -64,7 +64,7 @@ def pydantic_to_error_response(
         "Pydantic validation failed",
         extra={
             "field": field,
-            "message": message,
+            "error_message": message,
             "error_count": len(error.errors()),
         },
     )

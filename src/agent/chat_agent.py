@@ -404,6 +404,65 @@ def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:
     return str(content)
 
 
+def extract_thinking_and_text(
+    content: str | list[Any] | dict[str, Any],
+) -> tuple[str | None, str]:
+    """Extract thinking content and regular text from message content.
+
+    Gemini thinking models return content with parts that have 'thought': true.
+
+    Args:
+        content: The message content (string, dict, or list of parts)
+
+    Returns:
+        Tuple of (thinking_text, regular_text)
+        - thinking_text: The model's reasoning/thinking (None if not present)
+        - regular_text: The regular response text
+    """
+    if isinstance(content, str):
+        return None, content
+
+    # Handle dict format
+    if isinstance(content, dict):
+        # Check if this is a thought part (old format: {'thought': true, 'text': '...'})
+        if content.get("thought"):
+            return str(content.get("text", "")), ""
+        # Check for thinking content (Gemini format: {'type': 'thinking', 'thinking': '...'})
+        if content.get("type") == "thinking":
+            return str(content.get("thinking", "")), ""
+        if content.get("type") == "text":
+            return None, str(content.get("text", ""))
+        if "text" in content:
+            return None, str(content["text"])
+        return None, ""
+
+    # Handle list format - separate thought parts from regular text parts
+    if isinstance(content, list):
+        thinking_parts = []
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict):
+                # Check for thought content (old format: {'thought': true, 'text': '...'})
+                if part.get("thought"):
+                    thinking_parts.append(str(part.get("text", "")))
+                # Check for thinking content (Gemini format: {'type': 'thinking', 'thinking': '...'})
+                elif part.get("type") == "thinking":
+                    thinking_parts.append(str(part.get("thinking", "")))
+                elif part.get("type") == "text":
+                    text_parts.append(str(part.get("text", "")))
+                elif "text" in part and "type" not in part:
+                    text_parts.append(str(part["text"]))
+                # Skip parts with 'extras', 'signature', etc.
+            elif isinstance(part, str):
+                text_parts.append(part)
+
+        thinking = "".join(thinking_parts) if thinking_parts else None
+        text = "".join(text_parts)
+        return thinking, text
+
+    return None, str(content)
+
+
 # Pattern to match metadata block: <!-- METADATA:\n{...}\n-->
 METADATA_PATTERN = re.compile(
     r"<!--\s*METADATA:\s*\n(.*?)\n\s*-->",
@@ -548,13 +607,22 @@ class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
 
 
-def create_chat_model(model_name: str, with_tools: bool = True) -> ChatGoogleGenerativeAI:
-    """Create a Gemini chat model, optionally with tools bound."""
+def create_chat_model(
+    model_name: str, with_tools: bool = True, include_thoughts: bool = False
+) -> ChatGoogleGenerativeAI:
+    """Create a Gemini chat model, optionally with tools bound.
+
+    Args:
+        model_name: The Gemini model to use
+        with_tools: Whether to bind tools to the model
+        include_thoughts: Whether to include thinking/reasoning summaries in responses
+    """
     model = ChatGoogleGenerativeAI(
         model=model_name,
         google_api_key=Config.GEMINI_API_KEY,
         temperature=Config.GEMINI_DEFAULT_TEMPERATURE,
         convert_system_message_to_human=True,
+        include_thoughts=include_thoughts,
     )
 
     if with_tools and TOOLS:
@@ -617,9 +685,17 @@ def chat_node(state: AgentState, model: ChatGoogleGenerativeAI) -> dict[str, lis
     return {"messages": [response]}
 
 
-def create_chat_graph(model_name: str, with_tools: bool = True) -> StateGraph[AgentState]:
-    """Create a chat graph with optional tool support."""
-    model = create_chat_model(model_name, with_tools=with_tools)
+def create_chat_graph(
+    model_name: str, with_tools: bool = True, include_thoughts: bool = False
+) -> StateGraph[AgentState]:
+    """Create a chat graph with optional tool support.
+
+    Args:
+        model_name: The Gemini model to use
+        with_tools: Whether to bind tools to the model
+        include_thoughts: Whether to include thinking/reasoning summaries
+    """
+    model = create_chat_model(model_name, with_tools=with_tools, include_thoughts=include_thoughts)
 
     # Define the graph
     graph: StateGraph[AgentState] = StateGraph(AgentState)
@@ -651,11 +727,26 @@ def create_chat_graph(model_name: str, with_tools: bool = True) -> StateGraph[Ag
 class ChatAgent:
     """Agent for handling chat conversations with tool support."""
 
-    def __init__(self, model_name: str = Config.DEFAULT_MODEL, with_tools: bool = True) -> None:
+    def __init__(
+        self,
+        model_name: str = Config.DEFAULT_MODEL,
+        with_tools: bool = True,
+        include_thoughts: bool = False,
+    ) -> None:
         self.model_name = model_name
         self.with_tools = with_tools
-        logger.debug("Creating ChatAgent", extra={"model": model_name, "with_tools": with_tools})
-        self.graph = create_chat_graph(model_name, with_tools=with_tools).compile()
+        self.include_thoughts = include_thoughts
+        logger.debug(
+            "Creating ChatAgent",
+            extra={
+                "model": model_name,
+                "with_tools": with_tools,
+                "include_thoughts": include_thoughts,
+            },
+        )
+        self.graph = create_chat_graph(
+            model_name, with_tools=with_tools, include_thoughts=include_thoughts
+        ).compile()
 
     def _build_message_content(
         self, text: str, files: list[dict[str, Any]] | None = None
@@ -1004,6 +1095,210 @@ class ChatAgent:
 
         # Final yield: (content, metadata, tool_results, usage_info) for server processing
         yield (clean_content, metadata, tool_results, usage_info)
+
+    def stream_chat_events(
+        self,
+        text: str,
+        files: list[dict[str, Any]] | None = None,
+        history: list[dict[str, Any]] | None = None,
+        force_tools: list[str] | None = None,
+        user_name: str | None = None,
+    ) -> Generator[dict[str, Any]]:
+        """Stream response events including thinking, tool calls, and tokens.
+
+        This method yields structured events that can be sent to the frontend.
+        It requires include_thoughts=True on the ChatAgent to receive thinking content.
+
+        Args:
+            text: The user's message text
+            files: Optional list of file attachments
+            history: Optional list of previous messages with 'role', 'content', and 'files' keys
+            force_tools: Optional list of tool names that must be used
+            user_name: Optional user name from JWT for personalized responses
+
+        Yields:
+            Events as dicts with 'type' field:
+            - {"type": "thinking", "text": "..."} - Model's reasoning/thinking text
+            - {"type": "tool_start", "tool": "tool_name"} - Tool execution starting
+            - {"type": "tool_end", "tool": "tool_name"} - Tool execution finished
+            - {"type": "token", "text": "..."} - Text token for streaming display
+            - {"type": "final", "content": "...", "metadata": {...}, "tool_results": [...], "usage_info": {...}}
+        """
+        messages = self._build_messages(
+            text, files, history, force_tools=force_tools, user_name=user_name
+        )
+
+        # Accumulate full response to extract metadata at the end
+        full_response = ""
+        # Buffer to detect metadata marker
+        buffer = ""
+        metadata_marker = "<!-- METADATA:"
+        in_metadata = False
+        # Capture tool results for server-side extraction
+        tool_results: list[dict[str, Any]] = []
+        # Track token counts
+        total_input_tokens = 0
+        total_output_tokens = 0
+        chunk_count = 0
+        # Track active tool calls to detect when a tool is being executed
+        pending_tool_calls: set[str] = set()
+        # Accumulate thinking text across chunks
+        accumulated_thinking = ""
+
+        # Stream the graph execution with messages mode for token-level streaming
+        for event in self.graph.stream(
+            cast(Any, {"messages": messages}),
+            stream_mode="messages",
+        ):
+            if isinstance(event, tuple) and len(event) >= 1:
+                message_chunk = event[0]
+
+                # Capture tool messages (results from tool execution)
+                if isinstance(message_chunk, ToolMessage):
+                    tool_results.append(
+                        {
+                            "type": "tool",
+                            "content": message_chunk.content,
+                        }
+                    )
+                    # Signal tool execution ended
+                    tool_name = getattr(message_chunk, "name", None)
+                    if tool_name and tool_name in pending_tool_calls:
+                        pending_tool_calls.discard(tool_name)
+                        yield {"type": "tool_end", "tool": tool_name}
+                    continue
+
+                # Process AI message chunks
+                if isinstance(message_chunk, AIMessageChunk):
+                    # Extract usage metadata immediately
+                    chunk_count += 1
+                    if hasattr(message_chunk, "usage_metadata") and message_chunk.usage_metadata:
+                        usage = message_chunk.usage_metadata
+                        if isinstance(usage, dict):
+                            input_tokens = usage.get("input_tokens", 0)
+                            output_tokens = usage.get("output_tokens", 0)
+                            if input_tokens > 0 or output_tokens > 0:
+                                total_input_tokens += input_tokens
+                                total_output_tokens += output_tokens
+
+                    # Check for tool calls starting
+                    if message_chunk.tool_calls or message_chunk.tool_call_chunks:
+                        # Get tool names and args from tool_calls or tool_call_chunks
+                        # tool_calls has complete args as dict, tool_call_chunks has partial args as string
+                        tool_infos: list[tuple[str, dict[str, Any]]] = []
+                        if message_chunk.tool_calls:
+                            for tool_call in message_chunk.tool_calls:
+                                tc_name = tool_call.get("name")
+                                tc_args = tool_call.get("args", {})
+                                if tc_name is not None and isinstance(tc_args, dict):
+                                    tool_infos.append((tc_name, tc_args))
+                        elif message_chunk.tool_call_chunks:
+                            # tool_call_chunks have args as string (partial JSON)
+                            # We can only get the tool name here, not args
+                            for tc_chunk in message_chunk.tool_call_chunks:
+                                chunk_name = tc_chunk.get("name")
+                                if chunk_name is not None:
+                                    # Empty args dict since chunks don't have complete args
+                                    tool_infos.append((chunk_name, {}))
+
+                        for tool_name, tool_args in tool_infos:
+                            if tool_name not in pending_tool_calls:
+                                pending_tool_calls.add(tool_name)
+                                # Include relevant detail based on tool type
+                                tool_event: dict[str, Any] = {
+                                    "type": "tool_start",
+                                    "tool": tool_name,
+                                }
+                                # Add tool-specific detail (only available from complete tool_calls)
+                                if tool_name == "web_search" and "query" in tool_args:
+                                    tool_event["detail"] = tool_args["query"]
+                                elif tool_name == "fetch_url" and "url" in tool_args:
+                                    tool_event["detail"] = tool_args["url"]
+                                elif tool_name == "generate_image" and "prompt" in tool_args:
+                                    tool_event["detail"] = tool_args["prompt"]
+                                yield tool_event
+                        continue
+
+                    # Process content
+                    if message_chunk.content:
+                        # Debug: Log raw content structure occasionally
+                        if chunk_count <= 5:
+                            content_type = type(message_chunk.content).__name__
+                            content_preview = str(message_chunk.content)[:200]
+                            logger.debug(
+                                "Raw chunk content",
+                                extra={
+                                    "chunk_number": chunk_count,
+                                    "content_type": content_type,
+                                    "content_preview": content_preview,
+                                },
+                            )
+
+                        # Extract thinking and text separately
+                        thinking, text_content = extract_thinking_and_text(message_chunk.content)
+
+                        # Debug: Log the extracted content
+                        if thinking:
+                            logger.debug(
+                                "Extracted thinking content",
+                                extra={
+                                    "thinking_length": len(thinking),
+                                    "thinking_preview": thinking[:100]
+                                    if len(thinking) > 100
+                                    else thinking,
+                                },
+                            )
+
+                        # Accumulate thinking content and yield updates
+                        if thinking:
+                            accumulated_thinking += thinking
+                            yield {"type": "thinking", "text": accumulated_thinking}
+
+                        # Process regular text content
+                        if text_content:
+                            full_response += text_content
+
+                            # If we've detected metadata, don't yield anything more
+                            if in_metadata:
+                                continue
+
+                            # Add to buffer and check for metadata marker
+                            buffer += text_content
+
+                            # Check if buffer contains the start of metadata
+                            if metadata_marker in buffer:
+                                marker_pos = buffer.find(metadata_marker)
+                                if marker_pos > 0:
+                                    yield {"type": "token", "text": buffer[:marker_pos].rstrip()}
+                                in_metadata = True
+                                buffer = ""
+                            elif len(buffer) > len(metadata_marker):
+                                safe_length = len(buffer) - len(metadata_marker)
+                                yield {"type": "token", "text": buffer[:safe_length]}
+                                buffer = buffer[safe_length:]
+
+        # Yield any remaining buffer that's not metadata
+        if buffer and not in_metadata:
+            clean, _ = extract_metadata_from_response(buffer)
+            if clean and clean.strip():
+                yield {"type": "token", "text": clean}
+
+        # Extract metadata
+        clean_content, metadata = extract_metadata_from_response(full_response)
+
+        usage_info = {
+            "input_tokens": total_input_tokens,
+            "output_tokens": total_output_tokens,
+        }
+
+        # Final yield with all accumulated data
+        yield {
+            "type": "final",
+            "content": clean_content,
+            "metadata": metadata,
+            "tool_results": tool_results,
+            "usage_info": usage_info,
+        }
 
 
 def generate_title(user_message: str, assistant_response: str) -> str:

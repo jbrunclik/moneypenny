@@ -78,6 +78,9 @@ export interface UploadConfig {
 // Streaming response events
 export type StreamEvent =
   | { type: 'token'; text: string }
+  | { type: 'thinking'; text: string }
+  | { type: 'tool_start'; tool: string; detail?: string }
+  | { type: 'tool_end'; tool: string }
   | {
       type: 'done';
       id: string;
@@ -88,6 +91,25 @@ export type StreamEvent =
       title?: string; // Auto-generated conversation title (only present for first message)
     }
   | { type: 'error'; message: string; code?: string; retryable?: boolean };
+
+// Single event in the thinking/tool trace
+export interface ThinkingTraceItem {
+  type: 'thinking' | 'tool';
+  label: string;
+  detail?: string;
+  completed: boolean;
+}
+
+// Thinking indicator state for streaming messages
+export interface ThinkingState {
+  isThinking: boolean;
+  thinkingText: string;
+  activeTool: string | null;
+  activeToolDetail?: string;
+  completedTools: string[];
+  /** Full trace of all thinking/tool events with details */
+  trace: ThinkingTraceItem[];
+}
 
 // API response types
 export interface AuthResponse {

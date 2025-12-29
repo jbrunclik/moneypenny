@@ -652,67 +652,56 @@ def chat_stream(
         # Set request ID for this streaming request to capture full tool results
         set_current_request_id(stream_request_id)
 
-        agent = ChatAgent(model_name=conv.model)
-        token_queue: queue.Queue[
-            str
-            | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]
-            | None
-            | Exception
-        ] = queue.Queue()
+        # Use stream_chat_events for structured events including thinking/tool status
+        agent = ChatAgent(model_name=conv.model, include_thoughts=True)
+        event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
 
         # Shared state for final results (accessible from both threads)
         final_results: dict[str, Any] = {"ready": False}
 
-        def stream_tokens() -> None:
-            """Background thread that streams tokens into the queue and saves message on completion."""
+        def stream_events() -> None:
+            """Background thread that streams events into the queue."""
             # Copy context from parent thread so contextvars are accessible
-            # This is necessary because Python threads don't inherit context by default
             set_current_request_id(stream_request_id)
             try:
                 logger.debug(
                     "Stream thread started", extra={"user_id": user.id, "conversation_id": conv_id}
                 )
-                token_count = 0
-                for item in agent.stream_chat(
+                event_count = 0
+                for event in agent.stream_chat_events(
                     message_text, files, history, force_tools=force_tools, user_name=user.name
                 ):
-                    if isinstance(item, str):
-                        token_count += 1
-                        token_queue.put(item)
-                    elif isinstance(item, tuple):
-                        # This is the final tuple - store it for cleanup thread and put in queue
-                        # Store in final_results for cleanup thread (in case generator stops)
-                        final_results["clean_content"] = item[0]
-                        final_results["metadata"] = item[1]
-                        final_results["tool_results"] = item[2]
-                        final_results["usage_info"] = item[3]
+                    event_count += 1
+                    if event.get("type") == "final":
+                        # Store final results for cleanup thread
+                        final_results["clean_content"] = event.get("content", "")
+                        final_results["metadata"] = event.get("metadata", {})
+                        final_results["tool_results"] = event.get("tool_results", [])
+                        final_results["usage_info"] = event.get("usage_info", {})
                         final_results["ready"] = True
-                        # Also put in queue for generator to process
-                        token_queue.put(item)
-                    else:
-                        token_queue.put(item)
+                    event_queue.put(event)
                 logger.debug(
                     "Stream thread completed",
                     extra={
                         "user_id": user.id,
                         "conversation_id": conv_id,
-                        "token_count": token_count,
+                        "event_count": event_count,
                     },
                 )
 
-                token_queue.put(None)  # Signal completion
+                event_queue.put(None)  # Signal completion
             except Exception as e:
                 logger.error(
                     "Stream thread error",
                     extra={"user_id": user.id, "conversation_id": conv_id, "error": str(e)},
                     exc_info=True,
                 )
-                token_queue.put(e)  # Signal error
+                event_queue.put(e)  # Signal error
 
         # Start streaming in background thread
         # Note: The thread sets its own request_id via set_current_request_id()
         stream_thread = threading.Thread(
-            target=stream_tokens, daemon=False
+            target=stream_events, daemon=False
         )  # Non-daemon to ensure completion
         stream_thread.start()
 
@@ -913,15 +902,12 @@ def chat_stream(
         try:
             while True:
                 try:
-                    # Wait for token with timeout for keepalive
-                    item = token_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL)
+                    # Wait for event with timeout for keepalive
+                    item = event_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL)
 
                     if item is None:
                         # Stream completed successfully
                         break
-                    elif isinstance(item, tuple):
-                        # Final tuple with (clean_content, metadata, tool_results, usage_info)
-                        clean_content, metadata, tool_results, usage_info = item
                     elif isinstance(item, Exception):
                         # Error occurred - send structured error for frontend handling
                         error_str = str(item).lower()
@@ -953,27 +939,36 @@ def chat_stream(
                             # Client disconnected - error already logged in stream_thread
                             pass
                         return
-                    else:
-                        # Got a token string - yield to frontend
-                        # Catch client disconnection errors but continue processing
-                        try:
-                            yield f"data: {json.dumps({'type': 'token', 'text': item})}\n\n"
-                        except (BrokenPipeError, ConnectionError, OSError) as e:
-                            # Client disconnected - log but continue processing in background
-                            if client_connected:
-                                logger.warning(
-                                    "Client disconnected during streaming",
-                                    extra={
-                                        "user_id": user.id,
-                                        "conversation_id": conv_id,
-                                        "error": str(e),
-                                    },
-                                )
-                                client_connected = False
-                            # Continue processing - background thread will complete and save to DB
+                    elif isinstance(item, dict):
+                        event_type = item.get("type")
+
+                        if event_type == "final":
+                            # Store final values for saving to DB
+                            clean_content = item.get("content", "")
+                            metadata = item.get("metadata", {})
+                            tool_results = item.get("tool_results", [])
+                            usage_info = item.get("usage_info", {})
+                            # Don't yield final event - we handle done event separately below
+                        elif event_type in ("thinking", "tool_start", "tool_end", "token"):
+                            # Forward event to frontend
+                            # Catch client disconnection errors but continue processing
+                            try:
+                                yield f"data: {json.dumps(item)}\n\n"
+                            except (BrokenPipeError, ConnectionError, OSError) as e:
+                                if client_connected:
+                                    logger.warning(
+                                        "Client disconnected during streaming",
+                                        extra={
+                                            "user_id": user.id,
+                                            "conversation_id": conv_id,
+                                            "event_type": event_type,
+                                            "error": str(e),
+                                        },
+                                    )
+                                    client_connected = False
 
                 except queue.Empty:
-                    # No token available, send keepalive comment
+                    # No event available, send keepalive comment
                     # SSE comments start with ":" and are ignored by clients
                     # Catch client disconnection errors but continue processing
                     try:

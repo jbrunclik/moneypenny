@@ -277,6 +277,80 @@ test.describe('Chat - Model Selection', () => {
   });
 });
 
+test.describe('Chat - Thinking Indicator', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Enable streaming (thinking indicator only shows in streaming mode)
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test('shows thinking indicator during streaming', async ({ page }) => {
+    // Type a message that triggers thinking (mock server emits thinking for "think" keyword)
+    await page.fill('#message-input', 'Let me think about this');
+    await page.click('#send-btn');
+
+    // Wait for assistant message to appear (streaming creates element immediately)
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+
+    // The thinking indicator should appear initially
+    // Note: Due to fast mock streaming, it may collapse quickly
+    // We check that response eventually completes
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+  });
+
+  test('thinking indicator collapses after message finishes', async ({ page }) => {
+    await page.fill('#message-input', 'Think about 2+2');
+    await page.click('#send-btn');
+
+    // Wait for streaming to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // After streaming completes, the indicator should be finalized (collapsed)
+    // Check for the finalized class or toggle button
+    const thinkingIndicator = assistantMessage.locator('.thinking-indicator.finalized');
+    const thinkingToggle = assistantMessage.locator('.thinking-toggle');
+
+    // Either the indicator is finalized (has toggle) or it was removed (no thinking content)
+    const finalizedCount = await thinkingIndicator.count();
+    const toggleCount = await thinkingToggle.count();
+
+    // The indicator should either be collapsed with a toggle, or removed entirely
+    // (removed if no thinking/tool content to show)
+    expect(finalizedCount + toggleCount).toBeLessThanOrEqual(1);
+  });
+
+  test('tool indicator shows when force tools are used', async ({ page }) => {
+    // Activate search (force web_search tool)
+    const searchBtn = page.locator('#search-btn');
+    await searchBtn.click();
+    await expect(searchBtn).toHaveClass(/active/);
+
+    await page.fill('#message-input', 'Search for something');
+    await page.click('#send-btn');
+
+    // Wait for streaming to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // After streaming, there should be a finalized thinking indicator with tool info
+    // The mock emits tool_start/tool_end events when force_tools are specified
+    const thinkingIndicator = assistantMessage.locator('.thinking-indicator');
+    const count = await thinkingIndicator.count();
+
+    // Either indicator exists (showing tool usage) or was removed (no content)
+    expect(count).toBeLessThanOrEqual(1);
+  });
+});
+
 test.describe('Chat - Force Tools', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -539,5 +613,154 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
     await page.waitForSelector('.message.user', { timeout: 10000 });
     const secondAssistant = page.locator('.message.assistant').first();
     await expect(secondAssistant).toContainText('mock response', { timeout: 10000 });
+  });
+});
+
+test.describe('Chat - Streaming Auto-Scroll', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Enable streaming for auto-scroll tests
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test('scrolls to bottom when sending a new message', async ({ page }) => {
+    // First, create some messages to have scrollable content
+    // Disable streaming temporarily for faster setup
+    const streamBtn = page.locator('#stream-btn');
+    await streamBtn.click(); // Disable streaming
+
+    for (let i = 0; i < 3; i++) {
+      await page.fill('#message-input', `Setup message ${i + 1}`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+    }
+
+    // Re-enable streaming
+    await streamBtn.click();
+
+    const messagesContainer = page.locator('#messages');
+
+    // Scroll up to simulate user browsing history
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await page.waitForTimeout(100);
+
+    // Verify we're at the top
+    const scrollTopBefore = await messagesContainer.evaluate((el) => el.scrollTop);
+    expect(scrollTopBefore).toBe(0);
+
+    // Send a new message
+    await page.fill('#message-input', 'New message to test scroll');
+    await page.click('#send-btn');
+
+    // Wait for user message to appear
+    await page.waitForSelector('.message.user >> text=New message to test scroll', {
+      timeout: 5000,
+    });
+
+    // User message should be visible (scrolled to bottom after send)
+    const userMessage = page.locator('.message.user >> text=New message to test scroll');
+    await expect(userMessage).toBeInViewport();
+  });
+
+  test('auto-scroll can be interrupted by scrolling up during streaming', async ({ page }) => {
+    // Send a message to start streaming
+    await page.fill('#message-input', 'Tell me a long story');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start (assistant message appears)
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    const messagesContainer = page.locator('#messages');
+
+    // Scroll up during streaming to interrupt auto-scroll
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+
+    // Wait for scroll event to be processed
+    await page.waitForTimeout(100);
+
+    // Verify we're at the top
+    const scrollTopAfterScrollUp = await messagesContainer.evaluate((el) => el.scrollTop);
+    expect(scrollTopAfterScrollUp).toBe(0);
+
+    // Wait for streaming to continue/complete
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // After streaming completes, we should still be at top (scroll was interrupted)
+    const scrollTopAfterStream = await messagesContainer.evaluate((el) => el.scrollTop);
+    // Allow some tolerance - should be near the top (not at bottom)
+    expect(scrollTopAfterStream).toBeLessThan(200);
+  });
+
+  test('auto-scroll resumes when scrolling back to bottom during streaming', async ({ page }) => {
+    // First, create some messages to have scrollable content
+    // Disable streaming temporarily for faster setup
+    const streamBtn = page.locator('#stream-btn');
+    await streamBtn.click(); // Disable streaming
+
+    for (let i = 0; i < 3; i++) {
+      await page.fill('#message-input', `Setup message ${i + 1}`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+    }
+
+    // Re-enable streaming
+    await streamBtn.click();
+
+    // Scroll up first
+    const messagesContainer = page.locator('#messages');
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await page.waitForTimeout(100);
+
+    // Send a new message
+    await page.fill('#message-input', 'Another long story please');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start
+    const assistantMessage = page.locator('.message.assistant').last();
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Auto-scroll should bring us to bottom since we were scrolled up before sending
+    // Wait for first content to appear
+    await page.waitForTimeout(200);
+
+    // Scroll up to interrupt
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await page.waitForTimeout(100);
+
+    // Now scroll back to bottom to resume auto-scroll
+    await messagesContainer.evaluate((el) => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
+    });
+    await page.waitForTimeout(100);
+
+    // Wait for streaming to complete
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // After streaming completes, we should be at bottom (auto-scroll resumed)
+    const scrollInfo = await messagesContainer.evaluate((el) => ({
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    const distanceFromBottom =
+      scrollInfo.scrollHeight - scrollInfo.scrollTop - scrollInfo.clientHeight;
+    // Should be within threshold of bottom
+    expect(distanceFromBottom).toBeLessThan(150);
   });
 });

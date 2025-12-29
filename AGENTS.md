@@ -55,6 +55,7 @@ ai-chatbot/
 │       │   ├── ModelSelector.ts  # Model dropdown
 │       │   ├── FileUpload.ts     # File handling, base64
 │       │   ├── VoiceInput.ts     # Speech-to-text input
+│       │   ├── ThinkingIndicator.ts # Thinking/tool status during streaming
 │       │   ├── Lightbox.ts       # Image viewer
 │       │   ├── ScrollToBottom.ts # Scroll-to-bottom button
 │       │   ├── VersionBanner.ts  # New version notification
@@ -77,7 +78,8 @@ ai-chatbot/
 │               ├── messages.css
 │               ├── sidebar.css
 │               ├── input.css
-│               └── popups.css
+│               ├── popups.css
+│               └── thinking.css
 └── static/                       # Build output + PWA assets
     ├── assets/                   # Vite output (hashed JS/CSS)
     ├── manifest.json
@@ -356,6 +358,93 @@ Tool results (including generated images) are returned from both `chat_batch()` 
 
 The `chat_batch()` method returns `(response_text, tool_results, usage_info)`. The batch and streaming endpoints extract images from `tool_results` for storage, then discard the tool results themselves.
 
+## Thinking Indicator
+
+During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.
+
+### Design Principles
+- **Streaming only**: The indicator only appears during streaming mode, not when loading historical messages
+- **No persistence**: Thinking state and tool activity are NOT stored in the database
+- **Singleton thinking**: There's exactly ONE thinking item that accumulates all thinking text, updated in real-time
+- **Live updates**: Thinking text is visible and updates during streaming, not just in finalized view
+- **Full trace**: Shows thinking (singleton) + all tool events with details
+- **Rich details**: Shows full thinking text, search queries, URLs, and image prompts
+- **Auto-collapse**: When the message finishes, the indicator collapses into a "Show details" toggle
+
+### How it works
+1. **Backend streaming**: `stream_chat_events()` in [chat_agent.py](src/agent/chat_agent.py) yields structured events:
+   - `{"type": "thinking", "text": "..."}` - Accumulated thinking text (if `include_thoughts=True`)
+   - `{"type": "tool_start", "tool": "web_search", "detail": "search query"}` - Tool starting with details
+   - `{"type": "tool_end", "tool": "web_search"}` - When a tool finishes
+   - `{"type": "token", "text": "..."}` - Regular content tokens
+   - `{"type": "final", ...}` - Final result with metadata
+
+2. **SSE forwarding**: [routes.py](src/api/routes.py) forwards these events via Server-Sent Events
+
+3. **Frontend handling**: [main.ts](web/src/main.ts) parses events and calls:
+   - `updateStreamingThinking(text)` for thinking events (with full accumulated text)
+   - `updateStreamingToolStart(tool, detail)` for tool_start events (with optional detail)
+   - `updateStreamingToolEnd()` for tool_end events
+
+4. **UI rendering**: [ThinkingIndicator.ts](web/src/components/ThinkingIndicator.ts) manages the indicator:
+   - Maintains a trace of all thinking/tool events with details
+   - Shows animated "Thinking" with brain icon and dots during thinking
+   - Shows tool icons, labels, and details (query/URL/prompt) with animated dots during execution
+   - Shows checkmark when tools complete
+   - Collapses into an expandable "Show details" toggle when message finishes
+
+### Tool labels and details
+The indicator uses user-friendly labels and shows relevant details for tools:
+- `web_search` → "Searching the web" + search query → "Searched" + query (finalized)
+- `fetch_url` → "Fetching page" + URL → "Fetched" + URL (finalized)
+- `generate_image` → "Generating image" + prompt → "Generated image" + prompt (finalized)
+
+### Trace state management
+The thinking state tracks a full trace of events:
+```typescript
+interface ThinkingTraceItem {
+  type: 'thinking' | 'tool';
+  label: string;
+  detail?: string;  // thinking text, search query, URL, or prompt
+  completed: boolean;
+}
+```
+
+**Singleton thinking behavior:**
+- The trace is initialized with ONE thinking item at index 0
+- All thinking updates go to this same item (detail gets replaced, not appended)
+- When a tool starts, thinking is marked `completed: true` but remains in place
+- If more thinking comes after a tool, the same thinking item is updated and marked `completed: false`
+- This ensures there's always exactly one thinking item showing accumulated/latest thinking text
+
+**Example trace progression:**
+1. Initial: `[{type: 'thinking', completed: false}]`
+2. Thinking arrives: `[{type: 'thinking', detail: "Analyzing...", completed: false}]`
+3. Tool starts: `[{type: 'thinking', detail: "Analyzing...", completed: true}, {type: 'tool', label: 'web_search', ...}]`
+4. More thinking: `[{type: 'thinking', detail: "New analysis...", completed: false}, {type: 'tool', ...}]`
+
+### Gemini thinking support
+The Gemini API supports a `include_thoughts=True` parameter that returns thinking content in the response. When enabled:
+- `ChatGoogleGenerativeAI` is initialized with `include_thoughts=True`
+- Response chunks may contain parts with `{'type': 'thinking', 'thinking': "..."}` format
+- `extract_thinking_and_text()` separates thinking content from regular text
+- Thinking text is accumulated across chunks and emitted as updates
+- The backend yields `{"type": "thinking", "text": accumulated_text}` events during streaming
+
+### Key files
+- [chat_agent.py](src/agent/chat_agent.py) - `stream_chat_events()`, `extract_thinking_and_text()`
+- [routes.py](src/api/routes.py) - SSE streaming with thinking/tool events
+- [api.ts](web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
+- [ThinkingIndicator.ts](web/src/components/ThinkingIndicator.ts) - UI component
+- [Messages.ts](web/src/components/Messages.ts) - `addStreamingMessage()`, streaming state management
+- [main.ts](web/src/main.ts) - Event handling
+- [thinking.css](web/src/styles/components/thinking.css) - Styles and animations
+
+### Testing
+- Backend unit tests: `TestExtractThinkingAndText` in [test_chat_agent_helpers.py](tests/unit/test_chat_agent_helpers.py)
+- Frontend unit tests: [thinking-indicator.test.ts](web/tests/unit/thinking-indicator.test.ts)
+- E2E tests: "Chat - Thinking Indicator" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
+
 ## Voice Input
 
 Voice input uses the Web Speech API (`SpeechRecognition`) in [VoiceInput.ts](web/src/components/VoiceInput.ts):
@@ -369,6 +458,43 @@ The button shows a pulsing red indicator while recording. Transcribed text is ap
 **Language selection**: Long-press (500ms) on the microphone button to open a language selector popup. Currently supports English (en-US) and Czech (cs-CZ). The browser's preferred language is shown first if supported. The selected language is persisted to localStorage.
 
 **Auto-stop on send**: Voice recording is automatically stopped when a message is sent (via `stopVoiceRecording()` in `sendMessage()`), preventing transcribed text from being re-added to the cleared input.
+
+## Thinking Indicator
+
+During streaming responses, a thinking indicator shows the model's thinking process and tool usage.
+
+### How it works
+1. **Thinking extraction**: The backend extracts thinking content from Gemini's `usage_metadata.thoughts` field in [chat_agent.py](src/agent/chat_agent.py)
+2. **Streaming events**: SSE events are sent for thinking (`event: thinking`), tool starts (`event: tool_start`), and tool completions (`event: tool_end`)
+3. **Frontend component**: [ThinkingIndicator.ts](web/src/components/ThinkingIndicator.ts) renders the trace with animated indicators
+4. **Auto-scroll**: Scrolls to keep thinking visible during streaming (only if user was at bottom when streaming started)
+5. **Finalized view**: After streaming ends, collapses into a "Show details" toggle
+
+### Display states
+- **Streaming**: Shows full trace with active item at the bottom (for auto-scroll). Active items show animated dots
+- **Finalized**: Collapses into toggle button. Clicking expands to show full trace with thinking first, then tools
+
+### Trace ordering
+During streaming, thinking stays at the end of the trace (for auto-scroll). Tools are inserted before thinking. When finalized, trace is reordered: thinking first, then tools (logical reading order).
+
+### Markdown support
+Thinking text is rendered with markdown formatting for better readability (lists, code blocks, emphasis, etc.).
+
+### Key files
+- [chat_agent.py](src/agent/chat_agent.py) - `extract_thinking_and_text()` extracts thinking from Gemini response
+- [routes.py](src/api/routes.py) - Streaming generator sends thinking/tool events
+- [ThinkingIndicator.ts](web/src/components/ThinkingIndicator.ts) - Component with state management and trace helpers
+- [Messages.ts](web/src/components/Messages.ts) - `addStreamingMessage()`, `updateStreamingThinking()`, `updateStreamingToolStart()`, `updateStreamingToolEnd()`
+- [thinking.css](web/src/styles/components/thinking.css) - Styles including markdown formatting
+- [main.ts](web/src/main.ts) - `handleStreamingResponse()` processes SSE events
+
+### Tool labels
+| Tool | Active | Completed |
+|------|--------|-----------|
+| `web_search` | "Searching the web" | "Searched" |
+| `fetch_url` | "Fetching page" | "Fetched" |
+| `generate_image` | "Generating image" | "Generated image" |
+| Other | "Running {tool}" | "Used {tool}" |
 
 ## Conversation Management
 
@@ -576,6 +702,37 @@ programmaticScrollToBottom(container, true);
 
 **Key files:**
 - [thumbnails.ts](web/src/utils/thumbnails.ts) - `programmaticScrollToBottom()`, `markProgrammaticScrollStart()`, `markProgrammaticScrollEnd()`, user scroll listener
+
+### Streaming Auto-Scroll
+
+During streaming responses, a separate scroll system manages auto-scrolling to keep the latest content visible while allowing user interruption.
+
+**How it works:**
+1. **Initial state**: When `addStreamingMessage()` is called, it checks if user is at bottom
+2. **Scroll listener**: A streaming-specific scroll listener is set up to detect user scroll
+3. **Auto-scroll during streaming**: `autoScrollForStreaming()` scrolls to bottom after each content update (thinking, tool, token)
+4. **User interruption**: If user scrolls up (away from bottom), auto-scroll is paused
+5. **Auto-scroll resume**: If user scrolls back to bottom, auto-scroll resumes automatically
+6. **Cleanup**: When streaming ends (success or error), the scroll listener is cleaned up
+
+**Key behaviors:**
+- **Interruptible**: User can scroll up during streaming to read history - auto-scroll pauses
+- **Resumable**: User can scroll back to bottom to resume auto-scroll
+- **Threshold-based**: Uses 100px threshold to determine "at bottom" state (more lenient than 200px used for image loading)
+- **Debounced**: 50ms debounce on scroll detection to avoid excessive processing
+
+**User message scroll:**
+When user sends a message, the app scrolls to bottom immediately after adding the user message to the UI. This ensures the user's message is visible before the assistant's response starts streaming.
+
+**Key files:**
+- [Messages.ts](web/src/components/Messages.ts) - `addStreamingMessage()`, `setupStreamingScrollListener()`, `autoScrollForStreaming()`, `cleanupStreamingContext()`
+- [main.ts](web/src/main.ts) - `sendMessage()` scrolls after adding user message, `sendStreamingMessage()` cleans up context in finally block
+
+**Testing:**
+E2E tests for streaming auto-scroll are in [chat.spec.ts](web/tests/e2e/chat.spec.ts) under "Chat - Streaming Auto-Scroll" describe block:
+- `scrolls to bottom when sending a new message`
+- `auto-scroll can be interrupted by scrolling up during streaming`
+- `auto-scroll resumes when scrolling back to bottom during streaming`
 
 ## Version Update Banner
 

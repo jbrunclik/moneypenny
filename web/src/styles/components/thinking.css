@@ -1,0 +1,321 @@
+/* ============================================
+   Thinking Indicator Component
+   ============================================
+
+   Shows model thinking state and tool execution during streaming.
+   Displays a full trace of events with details (search queries, URLs, prompts).
+   Collapses into an expandable "Show details" toggle when finalized.
+
+   Structure:
+   .thinking-indicator
+     .thinking-indicator-content (while streaming)
+       .thinking-trace
+         .thinking-trace-item
+     .thinking-toggle (when finalized)
+     .thinking-details (expandable content)
+       .thinking-trace
+*/
+
+/* ----------------------------------------
+   Container
+   ---------------------------------------- */
+
+.thinking-indicator {
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+/* ----------------------------------------
+   Streaming State
+   ---------------------------------------- */
+
+.thinking-indicator-content {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Trace container */
+.thinking-trace {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+/* Individual trace item */
+.thinking-trace-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    min-height: 32px;
+    /* Use consistent line-height for all inline elements */
+    line-height: 18px;
+}
+
+.thinking-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 18px; /* Match line-height for vertical centering */
+    flex-shrink: 0;
+}
+
+.thinking-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.thinking-label {
+    font-weight: 500;
+    flex-shrink: 0;
+    line-height: 18px;
+}
+
+/* Detail text (search query, URL, prompt) */
+.thinking-detail {
+    color: var(--text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    line-height: 18px;
+}
+
+/* Thinking item during streaming should wrap and show full text.
+   Thinking is now at the END of the trace (last-child) for proper auto-scroll. */
+.thinking-indicator-content .thinking-trace-item:last-child .thinking-detail {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* Full detail text (e.g., image generation prompts) - always show full text */
+.thinking-detail.full-detail {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+/* Markdown formatting for thinking text */
+.thinking-markdown {
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    white-space: normal;
+}
+
+.thinking-markdown p {
+    margin: 0 0 var(--space-2) 0;
+}
+
+.thinking-markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.thinking-markdown ul,
+.thinking-markdown ol {
+    margin: var(--space-1) 0;
+    padding-left: var(--space-4);
+}
+
+.thinking-markdown li {
+    margin: var(--space-1) 0;
+}
+
+.thinking-markdown code {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 2px 4px;
+    border-radius: var(--radius-xs);
+}
+
+.thinking-markdown pre {
+    margin: var(--space-2) 0;
+    padding: var(--space-2);
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+}
+
+.thinking-markdown pre code {
+    background: none;
+    padding: 0;
+}
+
+.thinking-markdown strong {
+    font-weight: 600;
+}
+
+.thinking-markdown em {
+    font-style: italic;
+}
+
+.thinking-markdown blockquote {
+    margin: var(--space-2) 0;
+    padding-left: var(--space-3);
+    border-left: 2px solid var(--border);
+    color: var(--text-muted);
+}
+
+/* Animated dots for active states */
+.thinking-dots {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+    height: 18px; /* Match line-height for vertical centering */
+}
+
+.thinking-dots span {
+    width: 4px;
+    height: 4px;
+    background-color: var(--text-muted);
+    border-radius: var(--radius-full);
+    animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+
+.thinking-dots span:nth-child(1) { animation-delay: 0s; }
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking-bounce {
+    0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Active item styling with accent glow */
+.thinking-trace-item.active {
+    background: linear-gradient(135deg, var(--bg-tertiary), rgba(99, 102, 241, 0.1));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.thinking-trace-item.active .thinking-icon {
+    color: var(--accent);
+}
+
+/* Completed item styling */
+.thinking-trace-item.completed {
+    opacity: 0.8;
+}
+
+.thinking-checkmark {
+    color: var(--success);
+    font-weight: 600;
+    margin-left: auto;
+    flex-shrink: 0;
+    line-height: 18px; /* Match line-height for vertical centering */
+}
+
+/* ----------------------------------------
+   Finalized State (Collapsible)
+   ---------------------------------------- */
+
+.thinking-indicator.finalized {
+    background-color: var(--bg-tertiary);
+}
+
+.thinking-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.thinking-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.thinking-toggle-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+}
+
+.thinking-toggle-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.thinking-indicator.expanded .thinking-toggle-icon {
+    transform: rotate(90deg);
+}
+
+.thinking-toggle-summary {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Expanded details panel */
+.thinking-details {
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--border);
+}
+
+.thinking-details[hidden] {
+    display: none;
+}
+
+/* In finalized state, trace items have lighter background */
+.thinking-details .thinking-trace-item {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* In finalized state, show full detail text */
+.thinking-details .thinking-detail {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ----------------------------------------
+   Mobile Adjustments
+   ---------------------------------------- */
+
+@media (max-width: 768px) {
+    .thinking-indicator {
+        font-size: var(--font-size-xs);
+    }
+
+    .thinking-trace-item {
+        padding: var(--space-1-5) var(--space-2);
+    }
+
+    .thinking-toggle {
+        padding: var(--space-1-5) var(--space-2);
+    }
+
+    .thinking-detail {
+        max-width: 180px;
+    }
+}

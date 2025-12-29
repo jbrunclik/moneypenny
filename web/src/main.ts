@@ -21,6 +21,10 @@ import {
   addStreamingMessage,
   updateStreamingMessage,
   finalizeStreamingMessage,
+  updateStreamingThinking,
+  updateStreamingToolStart,
+  updateStreamingToolEnd,
+  cleanupStreamingContext,
   showLoadingIndicator,
   hideLoadingIndicator,
   showConversationLoader,
@@ -45,7 +49,7 @@ import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
 import { initScrollToBottom, checkScrollButtonVisibility } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/swipe';
-import { getElementById, isScrolledToBottom, clearElement } from './utils/dom';
+import { getElementById, isScrolledToBottom, clearElement, scrollToBottom } from './utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from './utils/thumbnails';
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
@@ -581,7 +585,7 @@ async function sendMessage(): Promise<void> {
     created_at: new Date().toISOString(),
   };
 
-  // Add to UI immediately
+  // Add to UI immediately and scroll to bottom to show user's message
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (messagesContainer) {
     // Clear welcome message if present (first message in conversation)
@@ -590,6 +594,8 @@ async function sendMessage(): Promise<void> {
       welcomeMessage.remove();
     }
     addMessageToUI(userMessage, messagesContainer);
+    // Scroll to bottom after adding user message so it's visible
+    scrollToBottom(messagesContainer);
     // Update scroll button visibility after adding user message
     requestAnimationFrame(() => {
       checkScrollButtonVisibility();
@@ -710,7 +716,16 @@ async function sendStreamingMessage(
         // The message will be saved to DB and visible when user switches back
         continue;
       }
-      if (event.type === 'token') {
+      if (event.type === 'thinking') {
+        // Update thinking indicator with thinking text
+        updateStreamingThinking(event.text);
+      } else if (event.type === 'tool_start') {
+        // Tool execution started (with optional detail like search query, URL, or prompt)
+        updateStreamingToolStart(event.tool, event.detail);
+      } else if (event.type === 'tool_end') {
+        // Tool execution completed
+        updateStreamingToolEnd(event.tool);
+      } else if (event.type === 'token') {
         fullContent += event.text;
         updateStreamingMessage(messageEl, fullContent);
       } else if (event.type === 'done') {
@@ -829,8 +844,9 @@ async function sendStreamingMessage(
       }
     }
   } finally {
-    // Clean up request tracking
+    // Clean up request tracking and streaming context
     activeRequests.delete(requestId);
+    cleanupStreamingContext();
   }
 }
 
