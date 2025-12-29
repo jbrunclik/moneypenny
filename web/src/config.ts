@@ -77,6 +77,13 @@ export const GOOGLE_BUTTON_WIDTH = 280;
 export const GOOGLE_SCRIPT_POLL_INTERVAL_MS = 100;
 
 // =============================================================================
+// Responsive Breakpoints
+// =============================================================================
+
+/** Mobile breakpoint width - matches CSS media queries in layout.css */
+export const MOBILE_BREAKPOINT_PX = 768;
+
+// =============================================================================
 // Touch Gestures / Swipe
 // =============================================================================
 

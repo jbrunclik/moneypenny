@@ -2,7 +2,8 @@
  * Unit tests for MessageInput component utilities
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { isIOSPWA } from '@/components/MessageInput';
+import { isIOSPWA, isMobileViewport } from '@/components/MessageInput';
+import { MOBILE_BREAKPOINT_PX } from '@/config';
 
 describe('isIOSPWA', () => {
   const originalNavigator = window.navigator;
@@ -143,6 +144,77 @@ describe('isIOSPWA', () => {
       mockUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)');
       mockMatchMedia(true);
       expect(isIOSPWA()).toBe(true);
+    });
+  });
+});
+
+describe('isMobileViewport', () => {
+  const originalInnerWidth = window.innerWidth;
+
+  // Helper to mock window.innerWidth
+  function mockInnerWidth(width: number): void {
+    Object.defineProperty(window, 'innerWidth', {
+      value: width,
+      configurable: true,
+      writable: true,
+    });
+  }
+
+  afterEach(() => {
+    // Restore original
+    Object.defineProperty(window, 'innerWidth', {
+      value: originalInnerWidth,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  describe('mobile detection based on viewport width', () => {
+    it('returns true for narrow mobile viewport (375px - iPhone)', () => {
+      mockInnerWidth(375);
+      expect(isMobileViewport()).toBe(true);
+    });
+
+    it('returns true for wider mobile viewport (414px - iPhone Plus)', () => {
+      mockInnerWidth(414);
+      expect(isMobileViewport()).toBe(true);
+    });
+
+    it('returns true at exactly the breakpoint (768px)', () => {
+      mockInnerWidth(MOBILE_BREAKPOINT_PX);
+      expect(isMobileViewport()).toBe(true);
+    });
+
+    it('returns false just above breakpoint (769px)', () => {
+      mockInnerWidth(MOBILE_BREAKPOINT_PX + 1);
+      expect(isMobileViewport()).toBe(false);
+    });
+
+    it('returns false for tablet landscape (1024px)', () => {
+      mockInnerWidth(1024);
+      expect(isMobileViewport()).toBe(false);
+    });
+
+    it('returns false for desktop (1440px)', () => {
+      mockInnerWidth(1440);
+      expect(isMobileViewport()).toBe(false);
+    });
+
+    it('returns false for large desktop (1920px)', () => {
+      mockInnerWidth(1920);
+      expect(isMobileViewport()).toBe(false);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('returns true for very small viewport (320px - iPhone SE)', () => {
+      mockInnerWidth(320);
+      expect(isMobileViewport()).toBe(true);
+    });
+
+    it('returns true for iPad mini portrait (768px)', () => {
+      mockInnerWidth(768);
+      expect(isMobileViewport()).toBe(true);
     });
   });
 });

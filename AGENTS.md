@@ -263,6 +263,20 @@ The input area has a toolbar row above the textarea with controls:
 - **Mic**: Voice input (see Voice Input section below)
 - **Attach**: File upload
 
+### Message Sending Behavior
+
+The Enter key behavior differs between desktop and mobile viewports:
+
+- **Desktop** (viewport > 768px): Enter sends the message, Shift+Enter adds a newline
+- **Mobile** (viewport ≤ 768px): Enter always adds a newline, users must tap the Send button
+
+This allows mobile users to easily add multiple lines to their prompts (since there's no easy way to type Shift+Enter on mobile keyboards), while preserving the convenient Enter-to-send behavior on desktop.
+
+**Implementation:**
+- `isMobileViewport()` in [MessageInput.ts](web/src/components/MessageInput.ts) checks `window.innerWidth` against `MOBILE_BREAKPOINT_PX`
+- The keydown handler only sends on Enter when NOT in mobile viewport
+- `MOBILE_BREAKPOINT_PX` (768px) is defined in [config.ts](web/src/config.ts) and matches the CSS media query breakpoint in [layout.css](web/src/styles/layout.css)
+
 ### Force Tools System
 
 The `forceTools` state in Zustand allows forcing specific tools to be used. Currently only `web_search` is exposed via UI, but the system supports any tool name. The force tools instruction is added to the system prompt when tools are specified.

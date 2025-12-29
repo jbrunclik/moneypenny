@@ -2,6 +2,7 @@ import { escapeHtml, getElementById, autoResizeTextarea, clearElement } from '..
 import { getFileIcon, CLOSE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
+import { MOBILE_BREAKPOINT_PX } from '../config';
 
 /**
  * Check if running in iOS PWA mode (standalone)
@@ -12,6 +13,15 @@ export function isIOSPWA(): boolean {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches
     || ('standalone' in navigator && (navigator as { standalone: boolean }).standalone);
   return isIOS && isStandalone;
+}
+
+/**
+ * Check if the current viewport width is mobile-sized.
+ * Uses the same breakpoint as CSS media queries (768px).
+ * Exported for testing.
+ */
+export function isMobileViewport(): boolean {
+  return window.innerWidth <= MOBILE_BREAKPOINT_PX;
 }
 
 /**
@@ -29,9 +39,11 @@ export function initMessageInput(onSend: () => void): void {
     updateSendButtonState();
   });
 
-  // Send on Enter (but Shift+Enter for newline)
+  // Send on Enter (desktop only - mobile users must tap Send button)
+  // On desktop: Enter sends, Shift+Enter adds newline
+  // On mobile: Enter always adds newline, must tap Send button
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isMobileViewport()) {
       e.preventDefault();
       onSend();
     }
