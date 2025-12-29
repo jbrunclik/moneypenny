@@ -199,6 +199,23 @@ You have access to the following tools:
 ## Image Generation
 - **generate_image**: Generate images from text descriptions. Returns JSON with the image data.
 
+## Code Execution
+- **execute_code**: Execute Python code in a secure sandbox. Use for calculations, data processing, generating files/charts.
+  - Pre-installed: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
+  - Save files to `/output/` directory to return them (e.g., PDFs, images)
+  - NO network access, NO access to user's local files
+  - 30 second timeout, 512MB memory limit
+  - **For PDFs with non-ASCII text (accents, diacritics, Czech/Polish/etc.)**: Use fpdf2 with DejaVu font:
+    ```python
+    from fpdf import FPDF
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.add_font('DejaVu', '', _get_dejavu_font())  # Use helper function
+    pdf.set_font('DejaVu', size=12)
+    pdf.cell(0, 10, 'Příliš žluťoučký kůň')  # Czech text works!
+    pdf.output('/output/document.pdf')
+    ```
+
 # CRITICAL: How to Use Tools Correctly
 You have function calling capabilities. To use a tool:
 1. Call the tool function directly (NOT by writing JSON in your text response)
@@ -242,6 +259,28 @@ For image prompts, be specific and detailed:
 - Describe colors, lighting, composition, mood, and atmosphere
 - If text should appear in the image, specify it clearly
 - For modifications, describe the complete desired result, not just the changes
+
+# When to Use Code Execution
+Use execute_code when the user needs:
+- **Mathematical calculations**: Complex math, statistics, solving equations
+- **Data analysis**: Processing numbers, computing statistics, analyzing datasets
+- **Charts and plots**: Line graphs, bar charts, scatter plots, histograms (use matplotlib)
+- **Document generation**: Creating PDFs, reports, formatted documents (use reportlab)
+- **Data transformation**: Converting between formats (CSV, JSON, etc.)
+- **Symbolic math**: Algebra, calculus, equation solving (use sympy)
+- **Scientific computing**: Matrix operations, signal processing (use numpy, scipy)
+
+Code execution examples:
+- "Calculate the compound interest on $10,000 at 5% for 10 years"
+- "Create a bar chart comparing these sales numbers"
+- "Generate a PDF invoice with these details"
+- "Solve this quadratic equation: x² + 5x + 6 = 0"
+- "Analyze this CSV data and find the average"
+
+IMPORTANT for file generation:
+- Save generated files to `/output/` directory (e.g., `/output/report.pdf`)
+- Files saved there will be returned to the user as downloadable attachments
+- Always tell the user what files were generated
 
 # Knowledge Cutoff
 Your training data has a cutoff date. For anything after that, use web_search.
@@ -1146,12 +1185,14 @@ class ChatAgent:
         accumulated_thinking = ""
 
         # Stream the graph execution with messages mode for token-level streaming
-        for event in self.graph.stream(
-            cast(Any, {"messages": messages}),
-            stream_mode="messages",
-        ):
-            if isinstance(event, tuple) and len(event) >= 1:
-                message_chunk = event[0]
+        # Wrapped in try-except to handle executor shutdown gracefully
+        try:
+            for event in self.graph.stream(
+                cast(Any, {"messages": messages}),
+                stream_mode="messages",
+            ):
+                if isinstance(event, tuple) and len(event) >= 1:
+                    message_chunk = event[0]
 
                 # Capture tool messages (results from tool execution)
                 if isinstance(message_chunk, ToolMessage):
@@ -1216,6 +1257,10 @@ class ChatAgent:
                                     tool_event["detail"] = tool_args["url"]
                                 elif tool_name == "generate_image" and "prompt" in tool_args:
                                     tool_event["detail"] = tool_args["prompt"]
+                                elif tool_name == "execute_code" and "code" in tool_args:
+                                    # Show first line of code as detail
+                                    code_preview = tool_args["code"].split("\n")[0][:50]
+                                    tool_event["detail"] = code_preview
                                 yield tool_event
                         continue
 
@@ -1276,6 +1321,23 @@ class ChatAgent:
                                 safe_length = len(buffer) - len(metadata_marker)
                                 yield {"type": "token", "text": buffer[:safe_length]}
                                 buffer = buffer[safe_length:]
+        except RuntimeError as e:
+            # Handle executor shutdown gracefully (e.g., during server restart)
+            # Python's ThreadPoolExecutor raises generic RuntimeError with specific messages
+            # when submit() is called after shutdown - there's no specific exception class
+            error_msg = str(e).lower()
+            if "cannot schedule new futures" in error_msg and "shutdown" in error_msg:
+                logger.warning(
+                    "Streaming interrupted by executor shutdown (likely server restart)",
+                    extra={
+                        "accumulated_response_length": len(full_response),
+                        "has_tool_results": bool(tool_results),
+                    },
+                )
+                # Continue to yield accumulated content and final event
+            else:
+                # Re-raise other RuntimeErrors
+                raise
 
         # Yield any remaining buffer that's not metadata
         if buffer and not in_metadata:

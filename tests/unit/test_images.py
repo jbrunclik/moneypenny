@@ -8,6 +8,7 @@ from PIL import Image
 
 from src.config import Config
 from src.utils.images import (
+    extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,
     generate_thumbnail,
     process_image_files,
@@ -291,3 +292,253 @@ class TestExtractGeneratedImagesFromToolResults:
 
         assert len(files) == 1
         assert "thumbnail" in files[0]
+
+
+class TestExtractCodeOutputFilesFromToolResults:
+    """Tests for extract_code_output_files_from_tool_results function."""
+
+    def test_extracts_pdf_from_tool_result(self) -> None:
+        """Should extract PDF file from execute_code tool result."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "stdout": "PDF generated",
+                        "_full_result": {
+                            "files": [
+                                {
+                                    "name": "report.pdf",
+                                    "mime_type": "application/pdf",
+                                    "data": "base64pdfdata",
+                                    "size": 1234,
+                                }
+                            ]
+                        },
+                    }
+                ),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+
+        assert len(files) == 1
+        assert files[0]["name"] == "report.pdf"
+        assert files[0]["type"] == "application/pdf"
+        assert files[0]["data"] == "base64pdfdata"
+
+    def test_extracts_image_with_thumbnail(self, sample_png_base64: str) -> None:
+        """Should extract image file and generate thumbnail."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "_full_result": {
+                            "files": [
+                                {
+                                    "name": "plot.png",
+                                    "mime_type": "image/png",
+                                    "data": sample_png_base64,
+                                    "size": 5000,
+                                }
+                            ]
+                        },
+                    }
+                ),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+
+        assert len(files) == 1
+        assert files[0]["name"] == "plot.png"
+        assert files[0]["type"] == "image/png"
+        assert "thumbnail" in files[0]
+
+    def test_extracts_multiple_files(self) -> None:
+        """Should extract multiple files from single tool result."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "_full_result": {
+                            "files": [
+                                {
+                                    "name": "data.csv",
+                                    "mime_type": "text/csv",
+                                    "data": "csvdata",
+                                    "size": 100,
+                                },
+                                {
+                                    "name": "chart.png",
+                                    "mime_type": "image/png",
+                                    "data": "pngdata",
+                                    "size": 2000,
+                                },
+                            ]
+                        },
+                    }
+                ),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+
+        assert len(files) == 2
+        assert files[0]["name"] == "data.csv"
+        assert files[1]["name"] == "chart.png"
+
+    def test_handles_empty_results(self) -> None:
+        """Empty results should return empty list."""
+        files = extract_code_output_files_from_tool_results([])
+        assert files == []
+
+    def test_skips_non_tool_messages(self) -> None:
+        """Non-tool messages should be skipped."""
+        tool_results = [
+            {"type": "ai", "content": "Hello"},
+            {"type": "human", "content": "Hi"},
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+        assert files == []
+
+    def test_skips_malformed_json(self) -> None:
+        """Malformed JSON content should be skipped."""
+        tool_results = [{"type": "tool", "content": "not valid json"}]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+        assert files == []
+
+    def test_skips_missing_full_result(self) -> None:
+        """Results without _full_result should be skipped."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps({"success": True, "stdout": "Hello"}),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+        assert files == []
+
+    def test_skips_missing_files(self) -> None:
+        """Results without files should be skipped."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps({"success": True, "_full_result": {"other": "data"}}),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+        assert files == []
+
+    def test_skips_files_without_name(self) -> None:
+        """Files without name should be skipped."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "_full_result": {"files": [{"mime_type": "text/plain", "data": "data"}]},
+                    }
+                ),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+        assert files == []
+
+    def test_skips_files_without_data(self) -> None:
+        """Files without data should be skipped."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "_full_result": {
+                            "files": [{"name": "file.txt", "mime_type": "text/plain"}]
+                        },
+                    }
+                ),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+        assert files == []
+
+    def test_default_mime_type(self) -> None:
+        """Should use octet-stream as default MIME type."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "_full_result": {
+                            "files": [
+                                {
+                                    "name": "unknown.xyz",
+                                    "data": "somedata",
+                                    # No mime_type specified
+                                }
+                            ]
+                        },
+                    }
+                ),
+            }
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+
+        assert len(files) == 1
+        assert files[0]["type"] == "application/octet-stream"
+
+    def test_extracts_from_multiple_tool_results(self) -> None:
+        """Should extract files from multiple tool results."""
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "_full_result": {
+                            "files": [
+                                {"name": "file1.txt", "mime_type": "text/plain", "data": "data1"}
+                            ]
+                        },
+                    }
+                ),
+            },
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "success": True,
+                        "_full_result": {
+                            "files": [
+                                {
+                                    "name": "file2.pdf",
+                                    "mime_type": "application/pdf",
+                                    "data": "data2",
+                                }
+                            ]
+                        },
+                    }
+                ),
+            },
+        ]
+
+        files = extract_code_output_files_from_tool_results(tool_results)
+
+        assert len(files) == 2
+        assert files[0]["name"] == "file1.txt"
+        assert files[1]["name"] == "file2.pdf"

@@ -33,7 +33,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Forcing search/browser tool** - Allow users to force the agent to use search or browser tools for specific queries
 - [x] Image generation tool (Gemini 3 Pro Image Preview)
 - [ ] Text-to-speech tool
-- [ ] Code execution sandbox
+- [x] **Code execution sandbox** - Secure Python sandbox using llm-sandbox with Docker. No network access, configurable resource limits. Supports file output (PDFs, images), matplotlib plots. See CLAUDE.md "Code Execution Sandbox" section.
 - [x] File upload and processing (images, PDFs, text files)
 - [x] **Image thumbnails & lightbox** - Thumbnails in chat, click to view full-size with on-demand loading
 - [x] **Performance optimizations** - Optimized conversation payload (metadata only), parallel thumbnail fetching

@@ -14,6 +14,7 @@ import {
   SPARKLES_ICON,
   CHEVRON_RIGHT_ICON,
   BRAIN_ICON,
+  CODE_ICON,
 } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { renderMarkdown } from '../utils/markdown';
@@ -24,6 +25,7 @@ const TOOL_LABELS: Record<string, string> = {
   web_search: 'Searching the web',
   fetch_url: 'Fetching page',
   generate_image: 'Generating image',
+  execute_code: 'Running code',
 };
 
 /** Map tool names to past tense labels */
@@ -31,6 +33,7 @@ const TOOL_LABELS_PAST: Record<string, string> = {
   web_search: 'Searched',
   fetch_url: 'Fetched',
   generate_image: 'Generated image',
+  execute_code: 'Ran code',
 };
 
 /** Map tool names to icons */
@@ -38,6 +41,7 @@ const TOOL_ICONS: Record<string, string> = {
   web_search: SEARCH_ICON,
   fetch_url: LINK_ICON,
   generate_image: SPARKLES_ICON,
+  execute_code: CODE_ICON,
 };
 
 /**
@@ -141,12 +145,13 @@ export function updateThinkingIndicator(
   for (let i = 0; i < state.trace.length; i++) {
     const item = state.trace[i];
     // Thinking item is active if isThinking is true and no tool is active
-    // Tool item is active if it's the last item and not completed
+    // Tool item is active if it matches the currently active tool and is not completed
     let isActive = false;
     if (item.type === 'thinking') {
       isActive = state.isThinking && !state.activeTool;
     } else {
-      isActive = i === state.trace.length - 1 && !item.completed;
+      // Tool is active if it matches the currently active tool and is not completed
+      isActive = state.activeTool === item.label && !item.completed;
     }
     traceItems.push(renderTraceItem(item, isActive));
   }

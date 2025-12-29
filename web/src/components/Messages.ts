@@ -357,12 +357,20 @@ function renderMessageFiles(files: FileMetadata[], messageId: string): HTMLEleme
       const fileIndex = files.indexOf(file);
       const doc = document.createElement('div');
       doc.className = 'message-document';
+      // Make filename clickable to open in new tab (for PDFs), download button for saving
       doc.innerHTML = `
         <span class="document-icon">${getFileIcon(file.type)}</span>
-        <span class="document-name">${escapeHtml(file.name)}</span>
+        <a class="document-name document-preview"
+           href="#"
+           data-message-id="${file.messageId || messageId}"
+           data-file-index="${file.fileIndex ?? fileIndex}"
+           data-file-name="${escapeHtml(file.name)}"
+           data-file-type="${file.type}"
+           title="Open in new tab">${escapeHtml(file.name)}</a>
         <button class="document-download"
                 data-message-id="${file.messageId || messageId}"
                 data-file-index="${file.fileIndex ?? fileIndex}"
+                data-file-name="${escapeHtml(file.name)}"
                 title="Download">
           ${DOWNLOAD_ICON}
         </button>

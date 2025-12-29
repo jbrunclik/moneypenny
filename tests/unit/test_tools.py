@@ -9,8 +9,17 @@ from google.genai import errors as genai_errors
 
 from src.agent.tools import (
     VALID_ASPECT_RATIOS,
+    _build_execution_response,
+    _build_font_setup_code,
+    _extract_plots,
+    _get_mime_type,
+    _needs_font_setup,
+    _parse_output_files_from_stdout,
+    _wrap_user_code,
+    execute_code,
     fetch_url,
     generate_image,
+    is_code_sandbox_available,
     web_search,
 )
 
@@ -322,3 +331,613 @@ class TestGenerateImage:
 
         assert "error" in parsed
         assert "too long" in parsed["error"].lower()
+
+
+class TestGetMimeType:
+    """Tests for _get_mime_type helper function."""
+
+    def test_pdf_mime_type(self) -> None:
+        """Should return correct MIME type for PDF."""
+        assert _get_mime_type("report.pdf") == "application/pdf"
+
+    def test_png_mime_type(self) -> None:
+        """Should return correct MIME type for PNG."""
+        assert _get_mime_type("image.png") == "image/png"
+
+    def test_jpg_mime_type(self) -> None:
+        """Should return correct MIME type for JPG."""
+        assert _get_mime_type("photo.jpg") == "image/jpeg"
+        assert _get_mime_type("photo.jpeg") == "image/jpeg"
+
+    def test_csv_mime_type(self) -> None:
+        """Should return correct MIME type for CSV."""
+        assert _get_mime_type("data.csv") == "text/csv"
+
+    def test_unknown_extension(self) -> None:
+        """Should return octet-stream for unknown extensions."""
+        assert _get_mime_type("file.xyz") == "application/octet-stream"
+
+    def test_no_extension(self) -> None:
+        """Should return octet-stream for files without extension."""
+        assert _get_mime_type("filename") == "application/octet-stream"
+
+
+class TestExecuteCode:
+    """Tests for execute_code tool."""
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", False)
+    def test_returns_error_when_disabled(self) -> None:
+        """Should return error when sandbox is disabled."""
+        result = execute_code.invoke({"code": "print('hello')"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "disabled" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=False)
+    def test_returns_error_when_docker_unavailable(self, mock_check: MagicMock) -> None:
+        """Should return error when Docker is not available."""
+        result = execute_code.invoke({"code": "print('hello')"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "Docker" in parsed["error"] or "not available" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    def test_rejects_empty_code(self, mock_check: MagicMock) -> None:
+        """Should reject empty code."""
+        result = execute_code.invoke({"code": ""})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "empty" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    def test_rejects_whitespace_only_code(self, mock_check: MagicMock) -> None:
+        """Should reject whitespace-only code."""
+        result = execute_code.invoke({"code": "   "})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "empty" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
+    def test_successful_execution(
+        self, mock_session_class: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """Should return success for valid code execution."""
+        # Mock the sandbox session
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stdout = "Hello, World!\n"
+        mock_result.stderr = ""
+        mock_result.plots = []
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.return_value = mock_result
+        mock_session_class.return_value = mock_session
+
+        result = execute_code.invoke({"code": "print('Hello, World!')"})
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+        assert parsed["exit_code"] == 0
+        assert "Hello, World!" in parsed["stdout"]
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
+    def test_captures_stderr(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
+        """Should capture stderr from execution."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "NameError: name 'undefined_var' is not defined"
+        mock_result.plots = []
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.return_value = mock_result
+        mock_session_class.return_value = mock_session
+
+        result = execute_code.invoke({"code": "print(undefined_var)"})
+        parsed = json.loads(result)
+
+        assert parsed["success"] is False
+        assert parsed["exit_code"] == 1
+        assert "NameError" in parsed["stderr"]
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
+    def test_captures_plots(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
+        """Should capture matplotlib plots with metadata in response and data in _full_result."""
+        mock_plot = MagicMock()
+        mock_plot.format = MagicMock()
+        mock_plot.format.value = "png"
+        mock_plot.content_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
+        mock_result.plots = [mock_plot]
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.return_value = mock_result
+        mock_session_class.return_value = mock_session
+
+        result = execute_code.invoke(
+            {"code": "import matplotlib.pyplot as plt; plt.plot([1,2,3]); plt.show()"}
+        )
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+        # LLM sees only metadata (no base64 data)
+        assert "plots" in parsed
+        assert len(parsed["plots"]) == 1
+        assert parsed["plots"][0]["format"] == "png"
+        assert parsed["plots"][0]["name"] == "plot_1.png"
+        assert "data" not in parsed["plots"][0]  # Data is in _full_result
+
+        # Full data is in _full_result for server-side extraction
+        assert "_full_result" in parsed
+        assert "files" in parsed["_full_result"]
+        assert len(parsed["_full_result"]["files"]) == 1
+        assert parsed["_full_result"]["files"][0]["name"] == "plot_1.png"
+        assert parsed["_full_result"]["files"][0]["data"] == mock_plot.content_base64
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
+    def test_output_files_uses_full_result_pattern(
+        self, mock_session_class: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """Should put file data in _full_result and only metadata in response."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stdout = '__OUTPUT_FILES__:["report.pdf"]\n'
+        mock_result.stderr = ""
+        mock_result.plots = []
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.return_value = mock_result
+
+        # Mock file extraction from sandbox
+        def copy_from_runtime(src: str, dest: str) -> None:
+            with open(dest, "wb") as f:
+                f.write(b"PDF content here")
+
+        mock_session.copy_from_runtime = copy_from_runtime
+        mock_session_class.return_value = mock_session
+
+        result = execute_code.invoke({"code": "generate_pdf()"})
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+
+        # LLM sees only metadata (filename, type, size - no data)
+        assert "files" in parsed
+        assert len(parsed["files"]) == 1
+        assert parsed["files"][0]["name"] == "report.pdf"
+        assert parsed["files"][0]["mime_type"] == "application/pdf"
+        assert parsed["files"][0]["size"] == 16  # len(b"PDF content here")
+        assert "data" not in parsed["files"][0]  # Data is NOT in the files list
+
+        # Message for LLM to inform user
+        assert "message" in parsed
+        assert "report.pdf" in parsed["message"]
+
+        # Full data is in _full_result for server-side extraction
+        assert "_full_result" in parsed
+        assert "files" in parsed["_full_result"]
+        assert len(parsed["_full_result"]["files"]) == 1
+        assert parsed["_full_result"]["files"][0]["name"] == "report.pdf"
+        assert "data" in parsed["_full_result"]["files"][0]  # Data IS here
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
+    def test_handles_timeout(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
+        """Should handle execution timeout."""
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.side_effect = TimeoutError("Execution timed out")
+        mock_session_class.return_value = mock_session
+
+        result = execute_code.invoke({"code": "while True: pass"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "timed out" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
+    def test_handles_docker_error(
+        self, mock_session_class: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """Should handle Docker connection errors gracefully."""
+        mock_session_class.side_effect = Exception("Cannot connect to Docker daemon")
+
+        result = execute_code.invoke({"code": "print('test')"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "Docker" in parsed["error"] or "failed" in parsed["error"].lower()
+
+
+class TestIsCodeSandboxAvailable:
+    """Tests for is_code_sandbox_available function."""
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", False)
+    def test_returns_false_when_disabled(self) -> None:
+        """Should return False when sandbox is disabled in config."""
+        assert is_code_sandbox_available() is False
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=False)
+    def test_returns_false_when_docker_unavailable(self, mock_check: MagicMock) -> None:
+        """Should return False when Docker is not available."""
+        assert is_code_sandbox_available() is False
+
+    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools._check_docker_available", return_value=True)
+    def test_returns_true_when_available(self, mock_check: MagicMock) -> None:
+        """Should return True when sandbox is enabled and Docker is available."""
+        assert is_code_sandbox_available() is True
+
+
+# ============================================================================
+# Tests for Code Execution Helper Functions
+# ============================================================================
+
+
+class TestBuildFontSetupCode:
+    """Tests for _build_font_setup_code helper function."""
+
+    def test_returns_font_installation_code(self) -> None:
+        """Should return code that installs DejaVu fonts."""
+        result = _build_font_setup_code()
+        assert "apt-get" in result
+        assert "fonts-dejavu-core" in result
+
+    def test_includes_helper_function(self) -> None:
+        """Should include _get_dejavu_font helper function."""
+        result = _build_font_setup_code()
+        assert "def _get_dejavu_font()" in result
+        assert "DejaVuSans.ttf" in result
+
+    def test_uses_quiet_mode(self) -> None:
+        """Should use quiet mode for apt-get to reduce output."""
+        result = _build_font_setup_code()
+        assert "-qq" in result
+
+
+class TestNeedsFontSetup:
+    """Tests for _needs_font_setup helper function."""
+
+    def test_detects_fpdf_lowercase(self) -> None:
+        """Should detect fpdf import in lowercase."""
+        assert _needs_font_setup("from fpdf import FPDF") is True
+
+    def test_detects_fpdf_uppercase(self) -> None:
+        """Should detect FPDF class name."""
+        assert _needs_font_setup("pdf = FPDF()") is True
+
+    def test_detects_fpdf_in_comment(self) -> None:
+        """Should detect fpdf even in comments (conservative approach)."""
+        assert _needs_font_setup("# using fpdf for PDF") is True
+
+    def test_returns_false_for_no_fpdf(self) -> None:
+        """Should return False when code doesn't use fpdf."""
+        assert _needs_font_setup("print('hello world')") is False
+
+    def test_returns_false_for_reportlab(self) -> None:
+        """Should return False for reportlab (uses different font system)."""
+        assert _needs_font_setup("from reportlab.lib.pagesizes import letter") is False
+
+
+class TestWrapUserCode:
+    """Tests for _wrap_user_code helper function."""
+
+    def test_creates_output_directory(self) -> None:
+        """Should create /output directory at start."""
+        result = _wrap_user_code("print('test')")
+        assert "os.makedirs('/output', exist_ok=True)" in result
+
+    def test_includes_user_code(self) -> None:
+        """Should include the user's code."""
+        user_code = "x = 1 + 1\nprint(x)"
+        result = _wrap_user_code(user_code)
+        assert user_code in result
+
+    def test_adds_file_listing(self) -> None:
+        """Should add code to list output files."""
+        result = _wrap_user_code("print('test')")
+        assert "__OUTPUT_FILES__" in result
+        assert "os.listdir('/output')" in result
+
+    def test_includes_font_setup_for_fpdf(self) -> None:
+        """Should include font setup when fpdf is used."""
+        result = _wrap_user_code("from fpdf import FPDF")
+        assert "fonts-dejavu-core" in result
+        assert "_get_dejavu_font" in result
+
+    def test_excludes_font_setup_for_non_fpdf(self) -> None:
+        """Should not include font setup for non-fpdf code."""
+        result = _wrap_user_code("import numpy as np")
+        assert "fonts-dejavu-core" not in result
+
+
+class TestParseOutputFilesFromStdout:
+    """Tests for _parse_output_files_from_stdout helper function."""
+
+    def test_extracts_single_file(self) -> None:
+        """Should extract a single file from stdout."""
+        stdout = 'Some output\n__OUTPUT_FILES__:["report.pdf"]\n'
+        files, clean = _parse_output_files_from_stdout(stdout)
+        assert files == ["report.pdf"]
+        assert "__OUTPUT_FILES__" not in clean
+
+    def test_extracts_multiple_files(self) -> None:
+        """Should extract multiple files from stdout."""
+        stdout = '__OUTPUT_FILES__:["file1.txt", "file2.png", "file3.pdf"]\n'
+        files, clean = _parse_output_files_from_stdout(stdout)
+        assert files == ["file1.txt", "file2.png", "file3.pdf"]
+
+    def test_preserves_other_output(self) -> None:
+        """Should preserve stdout content that's not the marker."""
+        stdout = "Hello World\nCalculation result: 42\n__OUTPUT_FILES__:[]\n"
+        files, clean = _parse_output_files_from_stdout(stdout)
+        assert "Hello World" in clean
+        assert "Calculation result: 42" in clean
+        assert "__OUTPUT_FILES__" not in clean
+
+    def test_handles_no_marker(self) -> None:
+        """Should handle stdout without the marker."""
+        stdout = "Just some regular output\n"
+        files, clean = _parse_output_files_from_stdout(stdout)
+        assert files == []
+        assert "Just some regular output" in clean
+
+    def test_handles_invalid_json(self) -> None:
+        """Should handle malformed JSON gracefully."""
+        stdout = "__OUTPUT_FILES__:not valid json\n"
+        files, clean = _parse_output_files_from_stdout(stdout)
+        assert files == []
+
+    def test_handles_empty_stdout(self) -> None:
+        """Should handle empty stdout."""
+        files, clean = _parse_output_files_from_stdout("")
+        assert files == []
+        assert clean == ""
+
+
+class TestExtractPlots:
+    """Tests for _extract_plots helper function."""
+
+    def test_extracts_single_plot(self) -> None:
+        """Should extract a single matplotlib plot."""
+        mock_plot = MagicMock()
+        mock_plot.format = MagicMock()
+        mock_plot.format.value = "png"
+        mock_plot.content_base64 = "iVBORw0KGgo="
+
+        mock_result = MagicMock()
+        mock_result.plots = [mock_plot]
+
+        full_plots, metadata = _extract_plots(mock_result)
+
+        assert len(full_plots) == 1
+        assert full_plots[0]["name"] == "plot_1.png"
+        assert full_plots[0]["data"] == "iVBORw0KGgo="
+        assert full_plots[0]["mime_type"] == "image/png"
+
+        assert len(metadata) == 1
+        assert metadata[0]["name"] == "plot_1.png"
+        assert metadata[0]["format"] == "png"
+
+    def test_extracts_multiple_plots(self) -> None:
+        """Should extract multiple plots with sequential names."""
+        mock_plot1 = MagicMock()
+        mock_plot1.format = MagicMock()
+        mock_plot1.format.value = "png"
+        mock_plot1.content_base64 = "aGVsbG8="  # Valid base64 for "hello"
+
+        mock_plot2 = MagicMock()
+        mock_plot2.format = MagicMock()
+        mock_plot2.format.value = "jpeg"
+        mock_plot2.content_base64 = "d29ybGQ="  # Valid base64 for "world"
+
+        mock_result = MagicMock()
+        mock_result.plots = [mock_plot1, mock_plot2]
+
+        full_plots, metadata = _extract_plots(mock_result)
+
+        assert len(full_plots) == 2
+        assert full_plots[0]["name"] == "plot_1.png"
+        assert full_plots[1]["name"] == "plot_2.jpeg"
+
+    def test_handles_no_plots(self) -> None:
+        """Should handle result with no plots."""
+        mock_result = MagicMock()
+        mock_result.plots = []
+
+        full_plots, metadata = _extract_plots(mock_result)
+
+        assert full_plots == []
+        assert metadata == []
+
+    def test_handles_missing_plots_attribute(self) -> None:
+        """Should handle result without plots attribute."""
+        mock_result = MagicMock(spec=[])  # No attributes
+
+        full_plots, metadata = _extract_plots(mock_result)
+
+        assert full_plots == []
+        assert metadata == []
+
+    def test_handles_string_format(self) -> None:
+        """Should handle format as string instead of enum."""
+        mock_plot = MagicMock()
+        mock_plot.format = "svg"  # String, not enum
+        mock_plot.content_base64 = "c3ZnX2RhdGE="  # Valid base64 for "svg_data"
+
+        mock_result = MagicMock()
+        mock_result.plots = [mock_plot]
+
+        full_plots, metadata = _extract_plots(mock_result)
+
+        assert full_plots[0]["name"] == "plot_1.svg"
+        assert full_plots[0]["mime_type"] == "image/svg"
+
+
+class TestBuildExecutionResponse:
+    """Tests for _build_execution_response helper function."""
+
+    def test_builds_success_response(self) -> None:
+        """Should build response for successful execution."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stderr = ""
+
+        response = _build_execution_response(
+            result=mock_result,
+            clean_stdout="Hello World",
+            file_metadata=[],
+            plot_metadata=[],
+            full_result_files=[],
+        )
+
+        assert response["success"] is True
+        assert response["exit_code"] == 0
+        assert response["stdout"] == "Hello World"
+        assert response["stderr"] == ""
+
+    def test_builds_failure_response(self) -> None:
+        """Should build response for failed execution."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 1
+        mock_result.stderr = "Error: something went wrong"
+
+        response = _build_execution_response(
+            result=mock_result,
+            clean_stdout="",
+            file_metadata=[],
+            plot_metadata=[],
+            full_result_files=[],
+        )
+
+        assert response["success"] is False
+        assert response["exit_code"] == 1
+        assert response["stderr"] == "Error: something went wrong"
+
+    def test_includes_file_metadata(self) -> None:
+        """Should include file metadata in response."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stderr = ""
+
+        file_metadata = [
+            {"name": "report.pdf", "mime_type": "application/pdf", "size": 1024},
+        ]
+
+        response = _build_execution_response(
+            result=mock_result,
+            clean_stdout="",
+            file_metadata=file_metadata,
+            plot_metadata=[],
+            full_result_files=[],
+        )
+
+        assert "files" in response
+        assert response["files"] == file_metadata
+        assert "message" in response
+        assert "report.pdf" in response["message"]
+
+    def test_includes_plot_metadata(self) -> None:
+        """Should include plot metadata in response."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stderr = ""
+
+        plot_metadata = [{"format": "png", "name": "plot_1.png"}]
+
+        response = _build_execution_response(
+            result=mock_result,
+            clean_stdout="",
+            file_metadata=[],
+            plot_metadata=plot_metadata,
+            full_result_files=[],
+        )
+
+        assert "plots" in response
+        assert response["plots"] == plot_metadata
+
+    def test_includes_full_result_files(self) -> None:
+        """Should include _full_result with file data."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stderr = ""
+
+        full_files = [{"name": "report.pdf", "data": "base64data", "size": 1024}]
+
+        response = _build_execution_response(
+            result=mock_result,
+            clean_stdout="",
+            file_metadata=[],
+            plot_metadata=[],
+            full_result_files=full_files,
+        )
+
+        assert "_full_result" in response
+        assert response["_full_result"]["files"] == full_files
+
+    def test_omits_empty_sections(self) -> None:
+        """Should not include files/plots keys when empty."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stderr = ""
+
+        response = _build_execution_response(
+            result=mock_result,
+            clean_stdout="output",
+            file_metadata=[],
+            plot_metadata=[],
+            full_result_files=[],
+        )
+
+        assert "files" not in response
+        assert "plots" not in response
+        assert "_full_result" not in response
+        assert "message" not in response
+
+    def test_handles_none_stderr(self) -> None:
+        """Should handle None stderr gracefully."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stderr = None
+
+        response = _build_execution_response(
+            result=mock_result,
+            clean_stdout="",
+            file_metadata=[],
+            plot_metadata=[],
+            full_result_files=[],
+        )
+
+        assert response["stderr"] == ""

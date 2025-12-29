@@ -31,7 +31,7 @@ ai-chatbot/
 │   │   └── utils.py              # API response building utilities
 │   ├── agent/
 │   │   ├── chat_agent.py         # LangGraph agent with Gemini
-│   │   └── tools.py              # Agent tools (fetch_url, web_search, generate_image)
+│   │   └── tools.py              # Agent tools (fetch_url, web_search, generate_image, execute_code)
 │   ├── db/
 │   │   └── models.py             # SQLite: User, Conversation, Message
 │   └── utils/
@@ -231,6 +231,78 @@ Magic numbers and configurable values are centralized in dedicated files:
    - `DEFAULT_CONVERSATION_TITLE` must be identical in both config files
    - Any shared constants should be documented with a comment noting they must match
 
+### Code Quality Guidelines
+
+Follow these principles to maintain clean, testable code:
+
+**1. Keep Functions Small and Focused**
+- Each function should do ONE thing well
+- If a function exceeds ~50 lines, consider splitting it
+- Use descriptive names that explain what the function does, not how it does it
+- Extract complex logic into helper functions with clear inputs/outputs
+
+**2. Organize Large Files with Sections**
+When a module has multiple distinct areas of functionality:
+```python
+# ============================================================================
+# Section Name (e.g., "Helper Functions", "API Endpoints")
+# ============================================================================
+
+def some_function():
+    ...
+```
+
+**3. Extract Testable Units**
+- Logic that can be tested independently should be in its own function
+- Helper functions should be pure where possible (same input → same output)
+- Avoid mixing I/O operations with business logic
+- Complex conditionals should become named functions
+
+**4. Function Naming Patterns**
+```python
+# Prefix private helpers with underscore
+def _parse_output_files(stdout: str) -> list[str]:
+    """Parse and return..."""
+
+# Use verb_noun pattern for actions
+def extract_files_from_sandbox(session, filenames):
+    """Extract files from..."""
+
+# Use is_/has_/can_ for boolean helpers
+def _needs_font_setup(code: str) -> bool:
+    """Check if code needs..."""
+```
+
+**5. When to Refactor**
+Extract helper functions when you see:
+- Deeply nested code (>3 levels of indentation)
+- Repeated logic patterns
+- Long functions that do multiple things
+- Code that's hard to unit test
+- Comments explaining what the next block does (make it a function instead)
+
+**6. Example: Before and After**
+```python
+# BEFORE: Long function doing multiple things
+def execute_code(code: str) -> str:
+    # 200 lines of: wrapping, execution, file extraction, response building
+    ...
+
+# AFTER: Orchestrator that calls focused helpers
+def execute_code(code: str) -> str:
+    wrapped_code = _wrap_user_code(code)
+    result = _run_in_sandbox(wrapped_code)
+    files, clean_stdout = _parse_output_files(result.stdout)
+    full_files, metadata = _extract_output_files(session, files)
+    return _build_execution_response(result, clean_stdout, metadata, full_files)
+```
+
+**7. File Organization**
+- Group related functionality together
+- Consider splitting large files (>500 lines) into modules
+- Keep imports organized: stdlib, third-party, local (separated by blank lines)
+- Put helper functions near the functions that use them
+
 ## Pre-Commit Checklist
 
 **Before committing any changes, you MUST run:**
@@ -358,6 +430,83 @@ Tool results (including generated images) are returned from both `chat_batch()` 
 
 The `chat_batch()` method returns `(response_text, tool_results, usage_info)`. The batch and streaming endpoints extract images from `tool_results` for storage, then discard the tool results themselves.
 
+## Code Execution Sandbox
+
+The app can execute Python code in a secure Docker sandbox using [llm-sandbox](https://github.com/vndee/llm-sandbox).
+
+### How it works
+1. **Tool available**: `execute_code(code)` tool in [tools.py](src/agent/tools.py)
+2. **Docker sandbox**: Code runs in an isolated container with no network access
+3. **File output**: Code saves files to `/output/` directory, which are extracted and returned
+4. **Automatic plots**: Matplotlib plots are captured automatically via llm-sandbox
+5. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
+
+### Security constraints
+- **No network**: Containers run with `--network none` (default in llm-sandbox)
+- **No host access**: Code cannot access files outside the container
+- **Resource limits**: Configurable timeout (30s default), memory limit (512MB default)
+- **Fresh container**: Each execution creates a new container, destroyed after use
+
+### Configuration
+```bash
+CODE_SANDBOX_ENABLED=true           # Enable/disable (default: true)
+CODE_SANDBOX_TIMEOUT=30             # Execution timeout in seconds
+CODE_SANDBOX_MEMORY_LIMIT=512m      # Container memory limit
+CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2
+```
+
+### File output pattern (uses `_full_result` to save tokens)
+The tool uses the same `_full_result` pattern as `generate_image` to avoid sending large file data back to the LLM:
+
+1. **Wrapped execution**: User code is wrapped to create `/output/` directory and list files after execution
+2. **File extraction**: Files are extracted via `session.copy_from_runtime()` to temp files
+3. **LLM sees metadata only**: Response includes file metadata (name, type, size) but NOT the base64 data
+4. **Full data in `_full_result`**: Actual file data is stored in `_full_result.files` for server-side extraction
+5. **Server extracts files**: `extract_code_output_files_from_tool_results()` extracts files from `_full_result`
+6. **Stored as attachments**: Files are attached to the assistant message like any other file upload
+
+**Token optimization:**
+- Without this pattern: Each 100KB file would add ~130K tokens to the next request
+- With this pattern: LLM only sees ~50 tokens of metadata per file
+
+**Implementation details:**
+- [tools.py](src/agent/tools.py) - `execute_code()` puts files in `_full_result.files`
+- [images.py](src/utils/images.py) - `extract_code_output_files_from_tool_results()` extracts files
+- [routes.py](src/api/routes.py) - Combines code output files with generated images before saving message
+
+### Example use cases
+- Mathematical calculations (sympy for symbolic math)
+- Data analysis (pandas, numpy)
+- Charts and visualizations (matplotlib)
+- PDF document generation (reportlab)
+- JSON/CSV data transformation
+
+### Graceful degradation
+- If Docker is not available, the tool returns an error message
+- Docker availability is checked once and cached
+- The tool is only added to the available tools list if `CODE_SANDBOX_ENABLED=true`
+
+### Key files
+- [tools.py](src/agent/tools.py) - `execute_code()` tool, `is_code_sandbox_available()`, `_check_docker_available()`
+- [images.py](src/utils/images.py) - `extract_code_output_files_from_tool_results()` for file extraction
+- [config.py](src/config.py) - `CODE_SANDBOX_*` configuration options
+- [chat_agent.py](src/agent/chat_agent.py) - System prompt with code execution instructions
+- [routes.py](src/api/routes.py) - Extracts and attaches code output files to messages
+
+### Testing locally
+```bash
+# Ensure Docker is running
+docker info
+
+# Test the sandbox manually
+python -c "
+from llm_sandbox import SandboxSession
+with SandboxSession(lang='python') as s:
+    result = s.run('print(1+1)')
+    print(result.stdout)
+"
+```
+
 ## Thinking Indicator
 
 During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.
@@ -398,6 +547,7 @@ The indicator uses user-friendly labels and shows relevant details for tools:
 - `web_search` → "Searching the web" + search query → "Searched" + query (finalized)
 - `fetch_url` → "Fetching page" + URL → "Fetched" + URL (finalized)
 - `generate_image` → "Generating image" + prompt → "Generated image" + prompt (finalized)
+- `execute_code` → "Running code" + first line of code → "Ran code" (finalized)
 
 ### Trace state management
 The thinking state tracks a full trace of events:
@@ -444,6 +594,15 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 - Backend unit tests: `TestExtractThinkingAndText` in [test_chat_agent_helpers.py](tests/unit/test_chat_agent_helpers.py)
 - Frontend unit tests: [thinking-indicator.test.ts](web/tests/unit/thinking-indicator.test.ts)
 - E2E tests: "Chat - Thinking Indicator" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
+
+### Streaming graceful degradation
+The streaming implementation handles server restarts gracefully:
+- LangGraph uses a `ThreadPoolExecutor` internally for graph execution
+- During server restart, the executor shuts down while streaming may still be in progress
+- This raises `RuntimeError: cannot schedule new futures after shutdown`
+- The `stream_chat_events()` method catches this specific error and continues with accumulated content
+- The final event is still yielded with whatever content was accumulated before the interruption
+- This allows partial responses to be saved to the database even during restarts
 
 ## Voice Input
 
@@ -494,6 +653,7 @@ Thinking text is rendered with markdown formatting for better readability (lists
 | `web_search` | "Searching the web" | "Searched" |
 | `fetch_url` | "Fetching page" | "Fetched" |
 | `generate_image` | "Generating image" | "Generated image" |
+| `execute_code` | "Running code" | "Ran code" |
 | Other | "Running {tool}" | "Used {tool}" |
 
 ## Conversation Management

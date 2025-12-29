@@ -1105,14 +1105,30 @@ function setupEventListeners(): void {
     }
   });
 
-  // Document download buttons and message copy buttons
+  // Document preview (open in new tab), download buttons, and message copy buttons
   getElementById('messages')?.addEventListener('click', (e) => {
+    // Document preview (click on filename to open in new tab)
+    const previewLink = (e.target as HTMLElement).closest('.document-preview');
+    if (previewLink) {
+      e.preventDefault();
+      const messageId = (previewLink as HTMLElement).dataset.messageId;
+      const fileIndex = (previewLink as HTMLElement).dataset.fileIndex;
+      const fileName = (previewLink as HTMLElement).dataset.fileName;
+      const fileType = (previewLink as HTMLElement).dataset.fileType;
+      if (messageId && fileIndex) {
+        openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
+      }
+      return;
+    }
+
+    // Document download button
     const downloadBtn = (e.target as HTMLElement).closest('.document-download');
     if (downloadBtn) {
       const messageId = (downloadBtn as HTMLElement).dataset.messageId;
       const fileIndex = (downloadBtn as HTMLElement).dataset.fileIndex;
+      const fileName = (downloadBtn as HTMLElement).dataset.fileName;
       if (messageId && fileIndex) {
-        downloadFile(messageId, parseInt(fileIndex, 10));
+        downloadFile(messageId, parseInt(fileIndex, 10), fileName || `file-${fileIndex}`);
       }
       return;
     }
@@ -1374,8 +1390,38 @@ function setupTouchGestures(): void {
   }, { passive: true });
 }
 
-// Download a file
-async function downloadFile(messageId: string, fileIndex: number): Promise<void> {
+// Open a file in a new browser tab (for preview)
+async function openFileInNewTab(
+  messageId: string,
+  fileIndex: number,
+  fileName: string,
+  fileType: string
+): Promise<void> {
+  try {
+    const { files } = await import('./api/client');
+    const blob = await files.fetchFile(messageId, fileIndex);
+    const url = URL.createObjectURL(blob);
+
+    // Open in new tab
+    const newTab = window.open(url, '_blank');
+
+    // Clean up URL after a delay (give time for the tab to load)
+    // For PDFs and other documents, the browser needs the URL to remain valid
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 60000); // Keep URL valid for 1 minute
+
+    if (!newTab) {
+      toast.warning('Pop-up blocked. Please allow pop-ups to preview files.');
+    }
+  } catch (error) {
+    log.error('Failed to open file', { error, messageId, fileIndex, fileName, fileType });
+    toast.error('Failed to open file.');
+  }
+}
+
+// Download a file with correct filename
+async function downloadFile(messageId: string, fileIndex: number, fileName: string): Promise<void> {
   try {
     const { files } = await import('./api/client');
     const blob = await files.fetchFile(messageId, fileIndex);
@@ -1383,14 +1429,14 @@ async function downloadFile(messageId: string, fileIndex: number): Promise<void>
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `file-${fileIndex}`;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
 
     URL.revokeObjectURL(url);
   } catch (error) {
-    log.error('Failed to download file', { error, messageId, fileIndex });
+    log.error('Failed to download file', { error, messageId, fileIndex, fileName });
     toast.error('Failed to download file.');
   }
 }

@@ -23,6 +23,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Image generation**: Generate images from text descriptions using Gemini
 - **Image lightbox**: Click thumbnails to view full-size images, with loading indicator and on-demand thumbnail loading
 - **Web tools**: Real-time web search (DuckDuckGo) and URL fetching
+- **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
 - Multiple conversations with history
 - Model selection (Gemini 3 Pro for complex tasks, Flash for speed)
 - Markdown rendering with syntax highlighting
@@ -90,6 +91,13 @@ MAX_FILE_SIZE=20971520              # 20 MB in bytes
 MAX_FILES_PER_MESSAGE=10
 ALLOWED_FILE_TYPES=image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv
 
+# Code execution sandbox (optional, requires Docker)
+CODE_SANDBOX_ENABLED=true           # Enable/disable code execution
+CODE_SANDBOX_TIMEOUT=30             # Execution timeout in seconds
+CODE_SANDBOX_MEMORY_LIMIT=512m      # Container memory limit
+CODE_SANDBOX_IMAGE=python:3.11-slim-trixie  # Docker image (use Docker Hub to avoid auth issues)
+CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab
+
 # Gunicorn settings (optional)
 GUNICORN_WORKERS=2                  # Number of worker processes
 GUNICORN_TIMEOUT=300                # 5 minutes default
@@ -98,6 +106,57 @@ SSE_KEEPALIVE_INTERVAL=15           # Heartbeat interval for streaming
 # Cost tracking (optional)
 COST_CURRENCY=CZK                   # Display currency (USD, CZK, EUR, GBP)
 ```
+
+### Setting up Code Execution (Docker)
+
+The code execution feature allows the AI to run Python code in a secure, isolated Docker container. This is optional but enables powerful capabilities like data analysis, chart generation, and PDF creation.
+
+**Prerequisites:**
+- Docker installed and running
+- User must have access to the Docker socket
+
+**Local Development (macOS/Linux):**
+```bash
+# Docker Desktop on macOS/Windows handles permissions automatically
+# On Linux, add your user to the docker group:
+sudo usermod -aG docker $USER
+# Log out and back in for group changes to take effect
+```
+
+**Production Server (Linux with systemd):**
+
+If running the app as a systemd service, the service user needs Docker socket access:
+
+```bash
+# 1. Add the service user to the docker group
+sudo usermod -aG docker $USER
+
+# 2. If using socket activation, ensure the socket is accessible
+# Check socket permissions:
+ls -la /var/run/docker.sock
+# Should show: srw-rw---- 1 root docker ...
+
+# 3. If still having issues, you may need to restart the Docker service:
+sudo systemctl restart docker
+
+# 4. Restart your application service:
+systemctl --user restart ai-chatbot
+```
+
+**Disabling Code Execution:**
+
+If you don't want to set up Docker, simply disable the feature:
+```bash
+CODE_SANDBOX_ENABLED=false
+```
+
+The AI will gracefully handle this and won't offer code execution capabilities.
+
+**Security Notes:**
+- Code runs in isolated containers with no network access
+- Containers have memory and CPU limits
+- Files are only accessible within the sandbox (`/output/` directory)
+- Each execution creates a fresh container that is destroyed after use
 
 ### Setting up Google Sign In
 

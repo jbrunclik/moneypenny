@@ -202,6 +202,23 @@ class Config:
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
 
+    # Code execution sandbox settings
+    CODE_SANDBOX_ENABLED: bool = os.getenv("CODE_SANDBOX_ENABLED", "true").lower() == "true"
+    CODE_SANDBOX_TIMEOUT: int = int(os.getenv("CODE_SANDBOX_TIMEOUT", "30"))  # seconds
+    CODE_SANDBOX_MEMORY_LIMIT: str = os.getenv("CODE_SANDBOX_MEMORY_LIMIT", "512m")
+    CODE_SANDBOX_CPU_LIMIT: float = float(os.getenv("CODE_SANDBOX_CPU_LIMIT", "1.0"))
+    # Docker image for sandbox (use public Docker Hub image to avoid auth issues)
+    CODE_SANDBOX_IMAGE: str = os.getenv("CODE_SANDBOX_IMAGE", "python:3.11-slim-trixie")
+    # Pre-installed libraries in the sandbox (cached in container image)
+    CODE_SANDBOX_LIBRARIES: list[str] = [
+        lib.strip()
+        for lib in os.getenv(
+            "CODE_SANDBOX_LIBRARIES",
+            "numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2",
+        ).split(",")
+        if lib.strip()
+    ]
+
     # Logging truncation settings
     QUERY_LOG_MAX_LENGTH = 200
     PARAMS_LOG_MAX_LENGTH = 100

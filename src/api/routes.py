@@ -44,7 +44,11 @@ from src.config import Config
 from src.db.models import User, db
 from src.utils.costs import convert_currency, format_cost
 from src.utils.files import validate_files
-from src.utils.images import extract_generated_images_from_tool_results, process_image_files
+from src.utils.images import (
+    extract_code_output_files_from_tool_results,
+    extract_generated_images_from_tool_results,
+    process_image_files,
+)
 from src.utils.logging import get_logger, log_payload_snippet
 
 logger = get_logger(__name__)
@@ -433,23 +437,28 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             },
         )
 
-        # Extract generated image files from FULL tool results (before stripping)
-        # We need the full results because they contain the _full_result.image data
+        # Extract generated files from FULL tool results (before stripping)
+        # We need the full results because they contain the _full_result data
         gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
-        if gen_image_files:
+        code_output_files = extract_code_output_files_from_tool_results(full_tool_results)
+
+        # Combine all generated files
+        all_generated_files = gen_image_files + code_output_files
+        if all_generated_files:
             logger.info(
-                "Generated images extracted",
+                "Generated files extracted",
                 extra={
                     "user_id": user.id,
                     "conversation_id": conv_id,
                     "image_count": len(gen_image_files),
+                    "code_output_count": len(code_output_files),
                 },
             )
 
         # Ensure we have at least some content or files to save
-        # If response is empty but we have generated images, use a default message
-        if not clean_response and gen_image_files:
-            clean_response = "I've generated the image for you."
+        # If response is empty but we have generated files, use a default message
+        if not clean_response and all_generated_files:
+            clean_response = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
 
         # Save assistant message (with clean content, files, and metadata)
         logger.debug(
@@ -460,7 +469,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             conv_id,
             "assistant",
             clean_response,
-            files=gen_image_files if gen_image_files else None,
+            files=all_generated_files if all_generated_files else None,
             sources=sources if sources else None,
             generated_images=generated_images_meta if generated_images_meta else None,
         )
@@ -772,13 +781,13 @@ def chat_stream(
                 message_id: str,
                 sources: list[dict[str, str]],
                 generated_images_meta: list[dict[str, str]],
-                gen_image_files: list[dict[str, Any]],
+                all_generated_files: list[dict[str, Any]],
                 generated_title: str | None,
             ) -> None:
                 self.message_id = message_id
                 self.sources = sources
                 self.generated_images_meta = generated_images_meta
-                self.gen_image_files = gen_image_files
+                self.all_generated_files = all_generated_files
                 self.generated_title = generated_title
 
         def save_message_to_db(
@@ -807,20 +816,25 @@ def chat_stream(
                 )
 
                 # Get the FULL tool results (with _full_result) captured before stripping
-                # This is needed for extracting generated images
+                # This is needed for extracting generated images and code output files
                 # NOTE: get_full_tool_results() POPS the results, so we can only call it once!
                 full_tool_results = get_full_tool_results(stream_request_id)
                 set_current_request_id(None)  # Clean up
 
-                # Extract generated image files from FULL tool results (before stripping)
+                # Extract generated files from FULL tool results (before stripping)
                 gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
-                if gen_image_files:
+                code_output_files = extract_code_output_files_from_tool_results(full_tool_results)
+
+                # Combine all generated files
+                all_generated_files = gen_image_files + code_output_files
+                if all_generated_files:
                     logger.info(
-                        "Generated images extracted from stream",
+                        "Generated files extracted from stream",
                         extra={
                             "user_id": user.id,
                             "conversation_id": conv_id,
                             "image_count": len(gen_image_files),
+                            "code_output_count": len(code_output_files),
                         },
                     )
 
@@ -833,7 +847,7 @@ def chat_stream(
                     conv_id,
                     "assistant",
                     content,
-                    files=gen_image_files if gen_image_files else None,
+                    files=all_generated_files if all_generated_files else None,
                     sources=sources if sources else None,
                     generated_images=generated_images_meta if generated_images_meta else None,
                 )
@@ -884,7 +898,7 @@ def chat_stream(
                     message_id=assistant_msg.id,
                     sources=sources,
                     generated_images_meta=generated_images_meta,
-                    gen_image_files=gen_image_files,
+                    all_generated_files=all_generated_files,
                     generated_title=generated_title,
                 )
             except Exception as e:
@@ -1006,7 +1020,7 @@ def chat_stream(
                         # get_full_tool_results again (which would return empty list)
                         done_data = build_stream_done_event(
                             assistant_msg,
-                            save_result.gen_image_files,
+                            save_result.all_generated_files,
                             save_result.sources,
                             save_result.generated_images_meta,
                             conversation_title=save_result.generated_title,

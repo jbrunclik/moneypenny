@@ -373,6 +373,18 @@
     white-space: nowrap;
 }
 
+/* Clickable document name for preview */
+a.document-name {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+a.document-name:hover {
+    text-decoration: underline;
+    color: var(--accent);
+}
+
 .document-download {
     background: none;
     border: none;

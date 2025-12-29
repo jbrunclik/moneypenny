@@ -198,3 +198,84 @@ def extract_generated_images_from_tool_results(
         files.append(file_entry)
 
     return files
+
+
+def extract_code_output_files_from_tool_results(
+    tool_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Extract generated files from execute_code tool results.
+
+    Scans tool results for execute_code outputs and extracts the file data
+    to be stored as message attachments. Files are stored in `_full_result.files`
+    to avoid sending large base64 data back to the LLM.
+
+    Args:
+        tool_results: List of tool result dicts with 'type' and 'content' keys
+
+    Returns:
+        List of file dicts with {name, type, data, thumbnail?} to store
+    """
+    files: list[dict[str, Any]] = []
+
+    for msg in tool_results:
+        # Validate message structure
+        if not isinstance(msg, dict) or msg.get("type") != "tool":
+            continue
+
+        content = msg.get("content", "")
+        if not content or not isinstance(content, str):
+            continue
+
+        # Try to parse as JSON from execute_code tool
+        try:
+            tool_result = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            # Not valid JSON, skip (might be from a different tool)
+            continue
+
+        # Validate tool result structure
+        if not isinstance(tool_result, dict):
+            continue
+
+        # Check if this is an execute_code result with files
+        # File data is in _full_result.files (kept separate to avoid sending to LLM)
+        if "_full_result" not in tool_result:
+            continue
+        full_result = tool_result.get("_full_result", {})
+        if "files" not in full_result:
+            continue
+        result_files = full_result["files"]
+
+        # Validate files structure
+        if not isinstance(result_files, list):
+            continue
+
+        for file_entry in result_files:
+            if not isinstance(file_entry, dict):
+                continue
+
+            # Validate required fields
+            name = file_entry.get("name")
+            data = file_entry.get("data")
+            mime_type = file_entry.get("mime_type", "application/octet-stream")
+
+            if not name or not data:
+                continue
+            if not isinstance(name, str) or not isinstance(data, str):
+                continue
+
+            file_dict: dict[str, Any] = {
+                "name": name,
+                "type": mime_type,
+                "data": data,
+            }
+
+            # Generate thumbnail for images
+            if mime_type.startswith("image/"):
+                processed = process_image_files([file_dict])
+                if processed:
+                    file_dict = processed[0]
+
+            files.append(file_dict)
+
+    return files
