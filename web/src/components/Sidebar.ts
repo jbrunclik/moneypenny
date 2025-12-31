@@ -48,10 +48,16 @@ export function renderConversationsList(): void {
 function renderConversationItem(conv: Conversation, isActive: boolean): string {
   const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
 
+  // Render unread badge if there are unread messages
+  const unreadBadge = conv.unreadCount && conv.unreadCount > 0
+    ? `<span class="unread-badge">${conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>`
+    : '';
+
   return `
     <div class="conversation-item-wrapper ${isActive ? 'active' : ''}" data-conv-id="${conv.id}">
       <div class="conversation-item">
         <div class="conversation-title">${title}</div>
+        ${unreadBadge}
         <div class="conversation-actions">
           <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
             ${EDIT_ICON}

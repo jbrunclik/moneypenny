@@ -252,4 +252,213 @@ test.describe('Visual: Mobile Interactions', () => {
     // Screenshot the streaming message on mobile
     await expect(assistantMessage).toHaveScreenshot('mobile-streaming-message.png');
   });
+
+  test('swipe actions revealed on conversation', async ({ page }) => {
+    await page.goto('/');
+    await createNewConversationMobile(page);
+
+    // Disable streaming for consistent behavior
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+
+    // Create a conversation with a message
+    await page.fill('#message-input', 'Test message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Open sidebar
+    await page.click('#menu-btn');
+    await page.waitForSelector('.sidebar-overlay.visible');
+    await page.waitForTimeout(300);
+
+    // Force touch device styles and set swiped state
+    // The swipe actions are only visible on touch devices (hover: none media query)
+    await page.evaluate(() => {
+      const wrapper = document.querySelector('.conversation-item-wrapper');
+      const item = document.querySelector('.conversation-item');
+      const actions = document.querySelector('.conversation-actions-swipe');
+
+      if (wrapper && item && actions) {
+        // Force the touch-device styles that are normally in @media (hover: none)
+        const actionsEl = actions as HTMLElement;
+        actionsEl.style.display = 'flex';
+        actionsEl.style.position = 'absolute';
+        actionsEl.style.right = '0';
+        actionsEl.style.top = '0';
+        actionsEl.style.bottom = '0';
+        actionsEl.style.width = '160px';
+        actionsEl.style.opacity = '1';
+        actionsEl.style.pointerEvents = 'auto';
+        actionsEl.style.zIndex = '1';
+
+        // Style the buttons
+        const renameBtn = actionsEl.querySelector(
+          '.conversation-rename-swipe'
+        ) as HTMLElement;
+        const deleteBtn = actionsEl.querySelector(
+          '.conversation-delete-swipe'
+        ) as HTMLElement;
+        if (renameBtn) {
+          renameBtn.style.width = '80px';
+          renameBtn.style.display = 'flex';
+          renameBtn.style.flexDirection = 'column';
+          renameBtn.style.alignItems = 'center';
+          renameBtn.style.justifyContent = 'center';
+          renameBtn.style.backgroundColor = 'var(--accent)';
+          renameBtn.style.color = 'white';
+          renameBtn.style.border = 'none';
+          // Size the SVG icon
+          const renameSvg = renameBtn.querySelector('svg') as SVGElement;
+          if (renameSvg) {
+            renameSvg.style.width = '20px';
+            renameSvg.style.height = '20px';
+          }
+        }
+        if (deleteBtn) {
+          deleteBtn.style.width = '80px';
+          deleteBtn.style.display = 'flex';
+          deleteBtn.style.flexDirection = 'column';
+          deleteBtn.style.alignItems = 'center';
+          deleteBtn.style.justifyContent = 'center';
+          deleteBtn.style.backgroundColor = 'var(--error)';
+          deleteBtn.style.color = 'white';
+          deleteBtn.style.border = 'none';
+          // Size the SVG icon
+          const deleteSvg = deleteBtn.querySelector('svg') as SVGElement;
+          if (deleteSvg) {
+            deleteSvg.style.width = '20px';
+            deleteSvg.style.height = '20px';
+          }
+        }
+
+        // Apply the swiped transform
+        (item as HTMLElement).style.transform = 'translateX(-160px)';
+        (item as HTMLElement).style.transition = 'none';
+        wrapper.classList.add('swiping');
+      }
+    });
+
+    // Wait for render
+    await page.waitForTimeout(100);
+
+    // Screenshot the conversation item with revealed swipe actions
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    await expect(convItem).toHaveScreenshot('mobile-swipe-actions.png');
+  });
+
+  test('swipe actions with unread badge', async ({ page }) => {
+    await page.goto('/');
+    await createNewConversationMobile(page);
+
+    // Disable streaming for consistent behavior
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+
+    // Create first conversation
+    await page.fill('#message-input', 'First message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Create second conversation (so we have one to add unread badge to)
+    await page.click('#menu-btn');
+    await page.waitForSelector('.sidebar-overlay.visible');
+    await page.click('#new-chat-btn');
+    await page.waitForSelector('.welcome-message');
+    await page.fill('#message-input', 'Second message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Open sidebar again
+    await page.click('#menu-btn');
+    await page.waitForSelector('.sidebar-overlay.visible');
+    await page.waitForTimeout(300);
+
+    // Add unread badge to first conversation, force touch styles, and set swiped state
+    await page.evaluate(() => {
+      // Find the non-active conversation (first one)
+      const wrapper = document.querySelector(
+        '.conversation-item-wrapper:not(.active)'
+      );
+      const item = wrapper?.querySelector('.conversation-item');
+      const actions = wrapper?.querySelector('.conversation-actions-swipe');
+
+      if (wrapper && item && actions) {
+        // Add unread badge
+        const badge = document.createElement('span');
+        badge.className = 'unread-badge';
+        badge.textContent = '5';
+        item.appendChild(badge);
+
+        // Force the touch-device styles that are normally in @media (hover: none)
+        const actionsEl = actions as HTMLElement;
+        actionsEl.style.display = 'flex';
+        actionsEl.style.position = 'absolute';
+        actionsEl.style.right = '0';
+        actionsEl.style.top = '0';
+        actionsEl.style.bottom = '0';
+        actionsEl.style.width = '160px';
+        actionsEl.style.opacity = '1';
+        actionsEl.style.pointerEvents = 'auto';
+        actionsEl.style.zIndex = '1';
+
+        // Style the buttons
+        const renameBtn = actionsEl.querySelector(
+          '.conversation-rename-swipe'
+        ) as HTMLElement;
+        const deleteBtn = actionsEl.querySelector(
+          '.conversation-delete-swipe'
+        ) as HTMLElement;
+        if (renameBtn) {
+          renameBtn.style.width = '80px';
+          renameBtn.style.display = 'flex';
+          renameBtn.style.flexDirection = 'column';
+          renameBtn.style.alignItems = 'center';
+          renameBtn.style.justifyContent = 'center';
+          renameBtn.style.backgroundColor = 'var(--accent)';
+          renameBtn.style.color = 'white';
+          renameBtn.style.border = 'none';
+          // Size the SVG icon
+          const renameSvg = renameBtn.querySelector('svg') as SVGElement;
+          if (renameSvg) {
+            renameSvg.style.width = '20px';
+            renameSvg.style.height = '20px';
+          }
+        }
+        if (deleteBtn) {
+          deleteBtn.style.width = '80px';
+          deleteBtn.style.display = 'flex';
+          deleteBtn.style.flexDirection = 'column';
+          deleteBtn.style.alignItems = 'center';
+          deleteBtn.style.justifyContent = 'center';
+          deleteBtn.style.backgroundColor = 'var(--error)';
+          deleteBtn.style.color = 'white';
+          deleteBtn.style.border = 'none';
+          // Size the SVG icon
+          const deleteSvg = deleteBtn.querySelector('svg') as SVGElement;
+          if (deleteSvg) {
+            deleteSvg.style.width = '20px';
+            deleteSvg.style.height = '20px';
+          }
+        }
+
+        // Apply the swiped transform
+        (item as HTMLElement).style.transform = 'translateX(-160px)';
+        (item as HTMLElement).style.transition = 'none';
+        wrapper.classList.add('swiping');
+      }
+    });
+
+    // Wait for render
+    await page.waitForTimeout(100);
+
+    // Screenshot the conversation item with swipe actions and unread badge
+    const convItem = page.locator('.conversation-item-wrapper:not(.active)').first();
+    await expect(convItem).toHaveScreenshot('mobile-swipe-actions-unread.png');
+  });
 });

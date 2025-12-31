@@ -185,6 +185,16 @@ export const MODAL_FOCUS_DELAY_MS = 50;
 export const VERSION_CHECK_INTERVAL_MS = 5 * MS_PER_MINUTE;
 
 // =============================================================================
+// Sync Configuration
+// =============================================================================
+
+/** Interval between sync polls (1 minute) */
+export const SYNC_POLL_INTERVAL_MS = 1 * MS_PER_MINUTE;
+
+/** Threshold for triggering full sync after tab is hidden (5 minutes) */
+export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;
+
+// =============================================================================
 // Voice Input
 // =============================================================================
 

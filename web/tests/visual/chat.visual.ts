@@ -188,3 +188,109 @@ test.describe('Visual: Thinking Indicator', () => {
     await expect(assistantMessage).toHaveScreenshot('message-with-tool-usage.png');
   });
 });
+
+test.describe('Visual: Sync UI', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test('unread badge on conversation', async ({ page }) => {
+    // Create a conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Create second conversation to switch to
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Second message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Inject unread badge via JS to simulate sync update
+    // (since the mock server doesn't support multi-tab sync simulation)
+    await page.evaluate(() => {
+      const convItem = document.querySelector('.conversation-item-wrapper:not(.active) .conversation-item');
+      if (convItem) {
+        const badge = document.createElement('span');
+        badge.className = 'unread-badge';
+        badge.textContent = '3';
+        convItem.appendChild(badge);
+      }
+    });
+
+    // Wait for any animations
+    await page.waitForTimeout(300);
+
+    // Screenshot the sidebar showing unread badge
+    await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-unread-badge.png');
+  });
+
+  test('unread badge with high count (99+)', async ({ page }) => {
+    // Create a conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Create second conversation to switch to
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Second message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Inject unread badge with 99+ count
+    await page.evaluate(() => {
+      const convItem = document.querySelector('.conversation-item-wrapper:not(.active) .conversation-item');
+      if (convItem) {
+        const badge = document.createElement('span');
+        badge.className = 'unread-badge';
+        badge.textContent = '99+';
+        convItem.appendChild(badge);
+      }
+    });
+
+    // Wait for any animations
+    await page.waitForTimeout(300);
+
+    // Screenshot just the conversation item with badge
+    const convItem = page.locator('.conversation-item-wrapper:not(.active)').first();
+    await expect(convItem).toHaveScreenshot('conversation-unread-99plus.png');
+  });
+
+  test('new messages available banner', async ({ page }) => {
+    // Create a conversation with messages
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Test message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Inject the "New messages available" banner via JS
+    await page.evaluate(() => {
+      const messagesContainer = document.getElementById('messages');
+      if (messagesContainer) {
+        const banner = document.createElement('div');
+        banner.className = 'new-messages-banner';
+        banner.innerHTML = `
+          <span>New messages available</span>
+          <button class="btn btn-small">Reload</button>
+        `;
+        messagesContainer.insertBefore(banner, messagesContainer.firstChild);
+      }
+    });
+
+    // Wait for any animations
+    await page.waitForTimeout(300);
+
+    // Screenshot the messages area with banner
+    await expect(page.locator('#messages')).toHaveScreenshot('new-messages-banner.png');
+  });
+});

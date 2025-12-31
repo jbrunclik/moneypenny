@@ -258,3 +258,40 @@
     white-space: nowrap;
     flex: 1;
 }
+
+/* ----------------------------------------
+   Unread Count Badge
+   ---------------------------------------- */
+
+.unread-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 var(--space-1);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: white;
+    background-color: var(--accent);
+    border-radius: var(--radius-full);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Adjust title margin when badge is present */
+.conversation-item:has(.unread-badge) .conversation-title {
+    margin-right: var(--space-2);
+}
+
+/* Hide unread badge when hovering (show actions instead on desktop) */
+.conversation-item:hover .unread-badge {
+    display: none;
+}
+
+@media (hover: none) {
+    /* On touch devices, always show the badge (no hover actions) */
+    .conversation-item:hover .unread-badge {
+        display: inline-flex;
+    }
+}

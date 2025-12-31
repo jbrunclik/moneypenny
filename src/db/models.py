@@ -338,6 +338,89 @@ class Database:
                 for row in rows
             ]
 
+    def list_conversations_with_message_count(self, user_id: str) -> list[tuple[Conversation, int]]:
+        """List all conversations for a user with message counts.
+
+        This method is used for sync operations to detect unread messages.
+        Returns conversations with their message counts for comparison.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            List of tuples containing (Conversation, message_count)
+        """
+        with self._get_conn() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                          COUNT(m.id) as message_count
+                   FROM conversations c
+                   LEFT JOIN messages m ON m.conversation_id = c.id
+                   WHERE c.user_id = ?
+                   GROUP BY c.id
+                   ORDER BY c.updated_at DESC""",
+                (user_id,),
+            ).fetchall()
+
+            return [
+                (
+                    Conversation(
+                        id=row["id"],
+                        user_id=row["user_id"],
+                        title=row["title"],
+                        model=row["model"],
+                        created_at=datetime.fromisoformat(row["created_at"]),
+                        updated_at=datetime.fromisoformat(row["updated_at"]),
+                    ),
+                    int(row["message_count"]),
+                )
+                for row in rows
+            ]
+
+    def get_conversations_updated_since(
+        self, user_id: str, since: datetime
+    ) -> list[tuple[Conversation, int]]:
+        """Get conversations updated since a given timestamp with message counts.
+
+        This method is used for incremental sync operations to fetch only
+        conversations that have changed since the last sync.
+
+        Args:
+            user_id: The user ID
+            since: The timestamp to check against (conversations updated after this)
+
+        Returns:
+            List of tuples containing (Conversation, message_count)
+        """
+        with self._get_conn() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                          COUNT(m.id) as message_count
+                   FROM conversations c
+                   LEFT JOIN messages m ON m.conversation_id = c.id
+                   WHERE c.user_id = ? AND c.updated_at > ?
+                   GROUP BY c.id
+                   ORDER BY c.updated_at DESC""",
+                (user_id, since.isoformat()),
+            ).fetchall()
+
+            return [
+                (
+                    Conversation(
+                        id=row["id"],
+                        user_id=row["user_id"],
+                        title=row["title"],
+                        model=row["model"],
+                        created_at=datetime.fromisoformat(row["created_at"]),
+                        updated_at=datetime.fromisoformat(row["updated_at"]),
+                    ),
+                    int(row["message_count"]),
+                )
+                for row in rows
+            ]
+
     def update_conversation(
         self, conv_id: str, user_id: str, title: str | None = None, model: str | None = None
     ) -> bool:

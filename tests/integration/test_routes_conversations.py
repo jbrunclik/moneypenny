@@ -27,6 +27,36 @@ class TestListConversations:
         assert len(data["conversations"]) >= 1
         assert any(c["id"] == test_conversation.id for c in data["conversations"])
 
+    def test_includes_message_count(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Should include message_count for sync initialization.
+
+        This test ensures the list endpoint returns message counts so the
+        frontend can properly initialize local counts and avoid false
+        'unread' badges on initial load.
+        """
+        # Add some messages to the conversation
+        test_database.add_message(test_conversation.id, "user", "Message 1")
+        test_database.add_message(test_conversation.id, "assistant", "Response 1")
+        test_database.add_message(test_conversation.id, "user", "Message 2")
+
+        response = client.get("/api/conversations", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+
+        # Find the test conversation in the response
+        conv = next(c for c in data["conversations"] if c["id"] == test_conversation.id)
+
+        # Verify message_count is present and accurate
+        assert "message_count" in conv, "message_count must be present for sync initialization"
+        assert conv["message_count"] == 3, "message_count should reflect actual message count"
+
     def test_returns_empty_list_for_new_user(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:

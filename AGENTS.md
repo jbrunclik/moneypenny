@@ -906,6 +906,66 @@ E2E tests for streaming auto-scroll are in [chat.spec.ts](web/tests/e2e/chat.spe
 - `auto-scroll can be interrupted by scrolling up during streaming`
 - `auto-scroll resumes when scrolling back to bottom during streaming`
 
+## Real-time Synchronization
+
+The app syncs conversation state across multiple devices/tabs using timestamp-based polling.
+
+### Architecture
+
+Chosen **polling over SSE/WebSockets** because:
+- Simple - no persistent connections or reconnection logic
+- Already indexed - uses existing `idx_conversations_user_id_updated_at` index
+- No write overhead - `updated_at` already updates on changes
+- Appropriate scale - single-user/small-user app
+- Robust - each poll is independent
+
+### How it works
+
+1. **Full sync**: On initial load or after >5 minutes hidden, fetches all conversations with message counts
+2. **Incremental sync**: Every 60 seconds, fetches only conversations updated since last sync
+3. **Unread count**: `unreadCount = server_message_count - local_message_count`
+4. **Delete detection**: Full sync compares local IDs with server response; missing = deleted
+5. **Visibility-aware**: Polling pauses when tab is hidden, syncs immediately on refocus
+
+### UI indicators
+
+- **Unread badge**: Shows count on conversations with new messages (sidebar)
+- **New messages banner**: Appears when current conversation has external updates
+- Badge shows "99+" for counts over 99
+- **Badge clearing**: When user clicks a conversation, `switchToConversation()` calls both `markConversationRead()` AND `renderConversationsList()` to update the store and re-render the sidebar
+
+### Race condition handling
+
+The SyncManager handles several race conditions:
+
+1. **Concurrent sync prevention**: `isSyncing` lock prevents multiple syncs from running simultaneously
+2. **Streaming protection**: Conversations being actively streamed are skipped during sync to prevent false unread counts
+3. **Clock skew**: Always uses `server_time` from response, never client time
+4. **Message boundary**: Server returns `server_time` that becomes next sync's `since` param
+
+### Configuration
+
+```typescript
+// web/src/config.ts
+SYNC_POLL_INTERVAL_MS = 60 * 1000;      // 1 minute
+SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
+```
+
+### Key files
+
+- [SyncManager.ts](web/src/sync/SyncManager.ts) - Polling, state sync, race condition handling
+- [models.py](src/db/models.py) - `list_conversations_with_message_count()`, `get_conversations_updated_since()`
+- [routes.py](src/api/routes.py) - `GET /api/conversations/sync` endpoint
+- [Sidebar.ts](web/src/components/Sidebar.ts) - Unread badge rendering
+- [main.ts](web/src/main.ts) - New messages banner, streaming integration
+
+### Testing
+
+- Backend: [test_routes_sync.py](tests/integration/test_routes_sync.py) - Integration tests for sync endpoint
+- Frontend: [sync-manager.test.ts](web/tests/unit/sync-manager.test.ts) - SyncManager unit tests
+- E2E: [sync.spec.ts](web/tests/e2e/sync.spec.ts) - Multi-tab and visibility scenarios
+- Visual: [chat.visual.ts](web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge, banner)
+
 ## Version Update Banner
 
 The app detects when a new version is deployed and shows a banner prompting users to reload.
@@ -1012,6 +1072,95 @@ The LLM system prompt can include user context to provide more personalized and 
 - [config.py](src/config.py) - `USER_LOCATION` configuration
 - [chat_agent.py](src/agent/chat_agent.py) - `get_user_context()`, `get_system_prompt()` with `user_name` parameter
 - [routes.py](src/api/routes.py) - Passes `user_name` from authenticated user to chat methods
+
+## Real-time Data Synchronization
+
+The app supports synchronization of conversation state across multiple devices/tabs using timestamp-based polling.
+
+### Design Decision: Polling over SSE/WebSockets
+
+The app uses timestamp-based polling with `updated_at` instead of SSE or WebSockets because:
+1. **Simplicity**: No new infrastructure or persistent connections to manage
+2. **Already indexed**: The `idx_conversations_user_id_updated_at` composite index exists
+3. **No write overhead**: `updated_at` is already updated on message addition
+4. **Appropriate scale**: Single-user/small-user app (email whitelist)
+5. **Robust**: Each poll is independent, no reconnection logic needed
+
+### How it works
+
+1. **Sync endpoint**: `GET /api/conversations/sync` returns conversations with message counts
+   - Query params: `since` (ISO timestamp), `full` (boolean for delete detection)
+   - Returns: `conversations`, `server_time`, `is_full_sync`
+
+2. **SyncManager**: Frontend component that manages polling and state updates
+   - Performs initial full sync on login
+   - Polls every 1 minute (configurable via `SYNC_POLL_INTERVAL_MS`)
+   - Performs full sync after 5 minutes of tab inactivity (for delete detection)
+   - Pauses polling when tab is hidden, resumes on visibility
+
+3. **Unread count calculation**: `unreadCount = server_message_count - local_message_count`
+   - Shown as badge on sidebar conversation items
+   - Cleared when user views the conversation
+
+4. **Delete detection**: Full sync compares local conversation IDs with server response
+   - Conversations missing from server are removed from local state
+   - Shows toast if user was viewing a deleted conversation
+
+5. **External update notification**: When current conversation has new messages from another device
+   - Shows "New messages available" banner at top of messages
+   - User clicks to reload and see new messages
+
+### Configuration
+
+```python
+# src/config.py
+SYNC_POLL_INTERVAL_SECONDS = 60  # Not currently used by backend (frontend-only polling)
+```
+
+```typescript
+// web/src/config.ts
+export const SYNC_POLL_INTERVAL_MS = 1 * MS_PER_MINUTE;  // 1 minute
+export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;  // 5 minutes
+```
+
+### Key files
+
+**Backend:**
+- [routes.py](src/api/routes.py) - `GET /api/conversations/sync` endpoint
+- [models.py](src/db/models.py) - `list_conversations_with_message_count()`, `get_conversations_updated_since()`
+
+**Frontend:**
+- [SyncManager.ts](web/src/sync/SyncManager.ts) - Polling and state sync logic
+- [api/client.ts](web/src/api/client.ts) - `conversations.sync()` method
+- [main.ts](web/src/main.ts) - SyncManager initialization and callbacks
+- [Sidebar.ts](web/src/components/Sidebar.ts) - Unread count badge rendering
+- [config.ts](web/src/config.ts) - `SYNC_POLL_INTERVAL_MS`, `SYNC_FULL_SYNC_THRESHOLD_MS`
+
+**Styles:**
+- [sidebar.css](web/src/styles/components/sidebar.css) - `.unread-badge` styles
+- [messages.css](web/src/styles/components/messages.css) - `.new-messages-banner` styles
+
+**Types:**
+- [api.ts](web/src/types/api.ts) - `ConversationSummary`, `SyncResponse` types, sync fields on `Conversation`
+
+**Tests:**
+- [test_routes_sync.py](tests/integration/test_routes_sync.py) - Integration tests for sync endpoint
+- [test_db_models.py](tests/integration/test_db_models.py) - Unit tests for sync database methods
+- [sync-manager.test.ts](web/tests/unit/sync-manager.test.ts) - Unit tests for SyncManager
+
+### Edge cases handled
+
+1. **Clock skew**: Always uses `server_time` from response, not client time
+2. **Race on send**: User sends message, poll happens before save - not a problem (optimistic UI)
+3. **Viewing updated conversation**: Shows "New messages" banner, doesn't auto-inject
+4. **Offline → Online**: On visibility change, syncs immediately
+5. **Deleted while viewing**: Shows toast and clears current conversation
+6. **Temp conversations**: Not synced (start with `temp-` prefix, not yet persisted)
+
+### Future optimizations (TODO)
+
+- Consider soft delete (`deleted_at` column) for more efficient delete detection
+- BroadcastChannel for multi-tab coordination if needed
 
 ## Common Tasks
 

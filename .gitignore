@@ -43,6 +43,7 @@ htmlcov/
 test-results/
 web/playwright-report/
 web/test-results/
+web/visual-gallery.html
 
 # OS
 .DS_Store

@@ -11,6 +11,7 @@ import type {
   MonthlyCostResponse,
   ModelsResponse,
   StreamEvent,
+  SyncResponse,
   UploadConfig,
   User,
   VersionResponse,
@@ -308,7 +309,11 @@ export const auth = {
 export const conversations = {
   async list(): Promise<Conversation[]> {
     const data = await requestWithRetry<ConversationsResponse>('/api/conversations');
-    return data.conversations;
+    // Map snake_case message_count to camelCase messageCount
+    return data.conversations.map((conv) => ({
+      ...conv,
+      messageCount: (conv as { message_count?: number }).message_count,
+    }));
   },
 
   async get(id: string): Promise<Conversation> {
@@ -341,6 +346,19 @@ export const conversations = {
       method: 'DELETE',
       retry: true,
     });
+  },
+
+  /**
+   * Sync conversations with the server.
+   * @param since - ISO timestamp to get conversations updated since (null for full sync)
+   * @param full - Force full sync even with since parameter (for delete detection)
+   */
+  async sync(since: string | null, full: boolean = false): Promise<SyncResponse> {
+    const params = new URLSearchParams();
+    if (since) params.set('since', since);
+    if (full) params.set('full', 'true');
+    const query = params.toString();
+    return requestWithRetry<SyncResponse>(`/api/conversations/sync${query ? `?${query}` : ''}`);
   },
 };
 

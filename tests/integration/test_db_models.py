@@ -458,3 +458,164 @@ class TestCostOperations:
         assert cost["cost_usd"] == 0.05
         assert cost["input_tokens"] == 100
         assert cost["output_tokens"] == 50
+
+
+class TestSyncOperations:
+    """Tests for sync-related operations (list with message count, updated_since)."""
+
+    def test_list_conversations_with_message_count_empty(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should return empty list when user has no conversations."""
+        result = test_database.list_conversations_with_message_count(test_user.id)
+        assert result == []
+
+    def test_list_conversations_with_message_count_no_messages(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should return conversations with zero message count."""
+        conv = test_database.create_conversation(test_user.id, "Empty Chat")
+
+        result = test_database.list_conversations_with_message_count(test_user.id)
+
+        assert len(result) == 1
+        conversation, message_count = result[0]
+        assert conversation.id == conv.id
+        assert conversation.title == "Empty Chat"
+        assert message_count == 0
+
+    def test_list_conversations_with_message_count_with_messages(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should return correct message counts."""
+        conv1 = test_database.create_conversation(test_user.id, "Chat 1")
+        conv2 = test_database.create_conversation(test_user.id, "Chat 2")
+
+        # Add messages to conv1
+        test_database.add_message(conv1.id, "user", "Hello")
+        test_database.add_message(conv1.id, "assistant", "Hi there")
+        test_database.add_message(conv1.id, "user", "How are you?")
+
+        # Add messages to conv2
+        test_database.add_message(conv2.id, "user", "One message")
+
+        result = test_database.list_conversations_with_message_count(test_user.id)
+
+        assert len(result) == 2
+        # Results should be ordered by updated_at DESC (conv2 is most recent since we added message last)
+        conv2_result = next((r for r in result if r[0].id == conv2.id), None)
+        conv1_result = next((r for r in result if r[0].id == conv1.id), None)
+
+        assert conv1_result is not None
+        assert conv2_result is not None
+        assert conv1_result[1] == 3  # 3 messages in conv1
+        assert conv2_result[1] == 1  # 1 message in conv2
+
+    def test_list_conversations_with_message_count_ordered_by_updated(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should return conversations ordered by updated_at DESC."""
+        conv1 = test_database.create_conversation(test_user.id, "First")
+        conv2 = test_database.create_conversation(test_user.id, "Second")
+
+        # Update conv1 to make it most recent
+        test_database.add_message(conv1.id, "user", "Update")
+
+        result = test_database.list_conversations_with_message_count(test_user.id)
+
+        assert len(result) == 2
+        assert result[0][0].id == conv1.id  # Most recently updated first
+        assert result[1][0].id == conv2.id
+
+    def test_get_conversations_updated_since_none_updated(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should return empty list when no conversations updated since timestamp."""
+        # Create conversation (not used directly, needs to exist for test)
+        test_database.create_conversation(test_user.id, "Old Chat")
+
+        # Get conversations updated after the conversation was created
+        future_time = datetime(2099, 1, 1)
+        result = test_database.get_conversations_updated_since(test_user.id, future_time)
+
+        assert result == []
+
+    def test_get_conversations_updated_since_all_updated(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should return all conversations when all are updated since timestamp."""
+        past_time = datetime(2000, 1, 1)
+        conv = test_database.create_conversation(test_user.id, "Recent Chat")
+        test_database.add_message(conv.id, "user", "Hello")
+
+        result = test_database.get_conversations_updated_since(test_user.id, past_time)
+
+        assert len(result) == 1
+        conversation, message_count = result[0]
+        assert conversation.id == conv.id
+        assert message_count == 1
+
+    def test_get_conversations_updated_since_selective(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should only return conversations updated after the given timestamp."""
+        import time
+
+        # Create first conversation (not used directly, needs to exist before checkpoint)
+        test_database.create_conversation(test_user.id, "Conv 1")
+
+        # Wait a tiny bit and capture the time
+        time.sleep(0.01)
+        checkpoint_time = datetime.now()
+
+        # Wait again and create second conversation (will be after checkpoint)
+        time.sleep(0.01)
+        conv2 = test_database.create_conversation(test_user.id, "Conv 2")
+        test_database.add_message(conv2.id, "user", "New message")
+
+        result = test_database.get_conversations_updated_since(test_user.id, checkpoint_time)
+
+        # Only conv2 should be returned (created after checkpoint)
+        assert len(result) == 1
+        assert result[0][0].id == conv2.id
+        assert result[0][1] == 1  # message count
+
+    def test_get_conversations_updated_since_includes_updated_old_conv(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should include old conversations that were updated after the timestamp."""
+        import time
+
+        # Create conversation
+        conv = test_database.create_conversation(test_user.id, "Old Conv")
+
+        # Wait and capture checkpoint
+        time.sleep(0.01)
+        checkpoint_time = datetime.now()
+
+        # Wait and add message to update the conversation
+        time.sleep(0.01)
+        test_database.add_message(conv.id, "user", "New message updates conv")
+
+        result = test_database.get_conversations_updated_since(test_user.id, checkpoint_time)
+
+        # Conv should be returned because it was updated (message added) after checkpoint
+        assert len(result) == 1
+        assert result[0][0].id == conv.id
+        assert result[0][1] == 1
+
+    def test_list_conversations_with_message_count_different_user(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should not return conversations from other users."""
+        # Create conversation for test user
+        test_database.create_conversation(test_user.id, "Test User Conv")
+
+        # Create conversation for different user
+        other_user = test_database.get_or_create_user("other@example.com", "Other")
+        test_database.create_conversation(other_user.id, "Other User Conv")
+
+        result = test_database.list_conversations_with_message_count(test_user.id)
+
+        assert len(result) == 1
+        assert result[0][0].title == "Test User Conv"

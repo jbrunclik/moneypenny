@@ -1,4 +1,4 @@
-.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-watch test-all clean deploy
+.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all clean deploy
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -37,6 +37,8 @@ help:
 	@echo "  test-fe-e2e           Run frontend E2E tests (Playwright)"
 	@echo "  test-fe-visual        Run visual regression tests"
 	@echo "  test-fe-visual-update Update visual regression baselines"
+	@echo "  test-fe-visual-report Open visual test report in browser"
+	@echo "  test-fe-visual-browse Open baseline screenshot directories"
 	@echo "  test-fe-watch         Run frontend tests in watch mode"
 	@echo ""
 	@echo "  test-all              Run all tests (backend + frontend)"
@@ -103,6 +105,26 @@ test-fe-visual:
 
 test-fe-visual-update:
 	cd web && $(NPM) run test:visual:update
+
+# Open visual test report in browser for spot-checking
+# Run after test-fe-visual to review any diffs
+test-fe-visual-report:
+	@if [ -f web/playwright-report/index.html ]; then \
+		echo "Opening visual test report in browser..."; \
+		open web/playwright-report/index.html 2>/dev/null || \
+		xdg-open web/playwright-report/index.html 2>/dev/null || \
+		echo "Report available at: web/playwright-report/index.html"; \
+	else \
+		echo "No report found. Run 'make test-fe-visual' first."; \
+	fi
+
+# Generate and open HTML gallery of visual test baselines
+test-fe-visual-browse:
+	@node web/scripts/visual-gallery.cjs
+	@echo "Opening visual gallery in browser..."
+	@open web/visual-gallery.html 2>/dev/null || \
+		xdg-open web/visual-gallery.html 2>/dev/null || \
+		echo "Gallery available at: web/visual-gallery.html"
 
 test-fe: test-fe-unit test-fe-component test-fe-e2e
 

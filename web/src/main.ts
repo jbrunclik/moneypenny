@@ -49,6 +49,7 @@ import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
 import { initScrollToBottom, checkScrollButtonVisibility } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/swipe';
+import { initSyncManager, stopSyncManager, getSyncManager } from './sync/SyncManager';
 import { getElementById, isScrolledToBottom, clearElement, scrollToBottom } from './utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from './utils/thumbnails';
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
@@ -240,6 +241,9 @@ async function init(): Promise<void> {
   });
 
   window.addEventListener('auth:logout', () => {
+    // Stop sync manager on logout
+    stopSyncManager();
+
     showLoginOverlay();
     useStore.getState().setConversations([]);
     useStore.getState().setCurrentConversation(null);
@@ -278,6 +282,24 @@ async function loadInitialData(): Promise<void> {
     renderConversationsList();
     renderUserInfo();
     renderModelDropdown();
+
+    // Initialize sync manager after data is loaded
+    initSyncManager({
+      onConversationsUpdated: () => {
+        renderConversationsList();
+      },
+      onCurrentConversationDeleted: () => {
+        store.setCurrentConversation(null);
+        renderMessages([]);
+        updateChatTitle('AI Chatbot');
+      },
+      onCurrentConversationExternalUpdate: (messageCount: number) => {
+        // Show banner that new messages are available
+        // The user can click to reload messages
+        showNewMessagesAvailableBanner(messageCount);
+      },
+    });
+    getSyncManager()?.start();
   } catch (error) {
     log.error('Failed to load initial data', { error });
     toast.error('Failed to load data. Please refresh the page.', {
@@ -322,6 +344,9 @@ function switchToConversation(conv: Conversation): void {
   setActiveConversation(conv.id);
   updateChatTitle(conv.title);
 
+  // Hide any existing new messages banner when switching conversations
+  hideNewMessagesAvailableBanner();
+
   // Enable scroll-to-bottom for images that load after initial render
   enableScrollOnImageLoad();
 
@@ -332,6 +357,11 @@ function switchToConversation(conv: Conversation): void {
 
   // Update conversation cost
   updateConversationCost(conv.id);
+
+  // Mark conversation as read in sync manager and re-render sidebar to clear badge
+  const messageCount = conv.messages?.length || 0;
+  getSyncManager()?.markConversationRead(conv.id, messageCount);
+  renderConversationsList();
 }
 
 // Select a conversation
@@ -622,6 +652,9 @@ async function sendMessage(): Promise<void> {
     }
     // Clear draft on successful send
     useStore.getState().clearDraft();
+
+    // Update sync manager's local message count (user message + assistant response = 2)
+    getSyncManager()?.incrementLocalMessageCount(conv.id, 2);
   } catch (error) {
     log.error('Failed to send message', { error, conversationId: conv.id });
     hideLoadingIndicator();
@@ -707,6 +740,9 @@ async function sendStreamingMessage(
     type: 'stream',
   };
   activeRequests.set(requestId, request);
+
+  // Mark conversation as streaming to prevent sync race conditions
+  getSyncManager()?.setConversationStreaming(convId, true);
 
   try {
     // Check if conversation is still current before processing each event
@@ -825,6 +861,9 @@ async function sendStreamingMessage(
     // Clean up request tracking and streaming context
     activeRequests.delete(requestId);
     cleanupStreamingContext();
+
+    // Clear streaming flag so sync can update this conversation again
+    getSyncManager()?.setConversationStreaming(convId, false);
   }
 }
 
@@ -1426,6 +1465,53 @@ function showLoginOverlay(): void {
 
 function hideLoginOverlay(): void {
   getElementById('login-overlay')?.classList.add('hidden');
+}
+
+// Show banner when new messages are available from another device
+function showNewMessagesAvailableBanner(messageCount: number): void {
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  if (!messagesContainer) return;
+
+  // Don't show if banner already exists
+  if (messagesContainer.querySelector('.new-messages-banner')) return;
+
+  const store = useStore.getState();
+  const currentConvId = store.currentConversation?.id;
+  if (!currentConvId) return;
+
+  const banner = document.createElement('div');
+  banner.className = 'new-messages-banner';
+  banner.innerHTML = `
+    <span>New messages available</span>
+    <button class="btn btn-small">Reload</button>
+  `;
+
+  banner.querySelector('button')?.addEventListener('click', async () => {
+    banner.remove();
+
+    // Reload the conversation
+    if (currentConvId && !isTempConversation(currentConvId)) {
+      try {
+        const conv = await conversations.get(currentConvId);
+        switchToConversation(conv);
+
+        // Mark as read in sync manager
+        getSyncManager()?.markConversationRead(currentConvId, messageCount);
+      } catch (error) {
+        log.error('Failed to reload conversation', { error, conversationId: currentConvId });
+        toast.error('Failed to reload conversation.');
+      }
+    }
+  });
+
+  // Insert at the top of messages container
+  messagesContainer.insertBefore(banner, messagesContainer.firstChild);
+}
+
+// Hide the new messages banner
+function hideNewMessagesAvailableBanner(): void {
+  const banner = document.querySelector('.new-messages-banner');
+  banner?.remove();
 }
 
 // Start the app

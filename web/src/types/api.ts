@@ -20,6 +20,10 @@ export interface Conversation {
   cost?: number; // Cost in display currency (optional, fetched separately)
   cost_usd?: number; // Cost in USD (optional)
   cost_formatted?: string; // Formatted cost string (optional)
+  // Sync-related fields
+  unreadCount?: number; // Number of unread messages from other devices
+  hasExternalUpdate?: boolean; // True if conversation was updated externally while viewing
+  messageCount?: number; // Total message count from server (for sync calculations)
 }
 
 // Source types (for web search results)
@@ -201,4 +205,19 @@ export interface MessageCostResponse {
   image_generation_cost_usd?: number;
   image_generation_cost?: number; // Image generation cost in display currency
   image_generation_cost_formatted?: string;
+}
+
+// Sync types
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  model: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface SyncResponse {
+  conversations: ConversationSummary[];
+  server_time: string;
+  is_full_sync: boolean;
 }

@@ -151,13 +151,19 @@ def refresh_token(user: User) -> dict[str, str]:
 
 @api.route("/conversations", methods=["GET"])
 @require_auth
-def list_conversations(user: User) -> dict[str, list[dict[str, str]]]:
-    """List all conversations for the current user."""
+def list_conversations(user: User) -> dict[str, list[dict[str, Any]]]:
+    """List all conversations for the current user.
+
+    Returns conversations with message_count for proper sync initialization.
+    """
     logger.debug("Listing conversations", extra={"user_id": user.id})
-    conversations = db.list_conversations(user.id)
+    # Use list_conversations_with_message_count to include message counts
+    # This is needed so the frontend can properly initialize local counts
+    # and avoid false "unread" badges on initial load
+    conv_with_counts = db.list_conversations_with_message_count(user.id)
     logger.info(
         "Conversations listed",
-        extra={"user_id": user.id, "count": len(conversations)},
+        extra={"user_id": user.id, "count": len(conv_with_counts)},
     )
     return {
         "conversations": [
@@ -167,8 +173,9 @@ def list_conversations(user: User) -> dict[str, list[dict[str, str]]]:
                 "model": c.model,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat(),
+                "message_count": count,
             }
-            for c in conversations
+            for c, count in conv_with_counts
         ]
     }
 
@@ -303,6 +310,66 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 
     logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "deleted"}, 200
+
+
+@api.route("/conversations/sync", methods=["GET"])
+@require_auth
+def sync_conversations(user: User) -> dict[str, Any]:
+    """Sync conversations - returns conversations updated since a given timestamp.
+
+    Query parameters:
+    - since: ISO timestamp to get conversations updated after this time (optional)
+    - full: If "true", returns all conversations for delete detection (optional)
+
+    Returns:
+    - conversations: List of conversation objects with message_count
+    - server_time: Current server timestamp to use for next sync
+    - is_full_sync: Whether this was a full sync (all conversations returned)
+    """
+    since_param = request.args.get("since")
+    full_param = request.args.get("full", "false").lower() == "true"
+
+    logger.debug(
+        "Sync conversations request",
+        extra={"user_id": user.id, "since": since_param, "full": full_param},
+    )
+
+    # Determine if this is a full sync or incremental
+    is_full_sync = full_param or since_param is None
+
+    if is_full_sync:
+        # Full sync: get all conversations with message counts
+        conv_with_counts = db.list_conversations_with_message_count(user.id)
+    else:
+        # Incremental sync: only get conversations updated since timestamp
+        since_dt = datetime.fromisoformat(since_param)  # type: ignore[arg-type]
+        conv_with_counts = db.get_conversations_updated_since(user.id, since_dt)
+
+    server_time = datetime.now()
+
+    logger.info(
+        "Sync conversations completed",
+        extra={
+            "user_id": user.id,
+            "is_full_sync": is_full_sync,
+            "conversation_count": len(conv_with_counts),
+        },
+    )
+
+    return {
+        "conversations": [
+            {
+                "id": conv.id,
+                "title": conv.title,
+                "model": conv.model,
+                "updated_at": conv.updated_at.isoformat(),
+                "message_count": message_count,
+            }
+            for conv, message_count in conv_with_counts
+        ],
+        "server_time": server_time.isoformat(),
+        "is_full_sync": is_full_sync,
+    }
 
 
 # ============================================================================

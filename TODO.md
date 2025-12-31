@@ -41,6 +41,8 @@ This file tracks planned features, improvements, and technical debt.
 ## Phase 4 - Advanced Features
 - [ ] Multiple AI providers (Anthropic Claude, OpenAI)
 - [ ] Custom system prompts per conversation
+- [ ] **User memory** - LLM extracts interesting facts about the user (preferences, context, personal details) and injects them into the system prompt. Users can view and delete stored memories via settings UI
+- [ ] **System prompt customization** - Allow users to customize LLM behavior (preferred tone, salutation style, response length, language preferences, etc.) via settings panel
 - [ ] Conversation export (JSON, Markdown)
 - [ ] Conversation sharing (public links)
 - [ ] Keyboard shortcuts
@@ -74,7 +76,7 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Add connection quality indicator** - Show visual feedback when connection is slow (e.g., SSE keepalives arriving but no tokens for extended period).
 - [x] **Handle stale JWT on reconnect** - Frontend detects `AUTH_EXPIRED` error code and shows toast prompting re-login instead of failing silently.
 - [x] **Persist unsent messages locally** - Draft messages preserved in store and restored on send failure.
-- [ ] **Real-time data synchronization** - Implement mechanism to notify clients about new data (e.g., messages appearing in a chat after losing connectivity, new conversations created on different devices). Options: WebSockets for bidirectional, SSE for server-to-client updates, or polling with efficient change detection. Should handle reconnection and sync missed updates.
+- [x] **Real-time data synchronization** - Implemented timestamp-based polling sync (60s interval) via SyncManager. Shows unread badges on conversations, "New messages available" banner when current conversation has updates. Handles race conditions (concurrent sync lock, streaming protection). Chose polling over SSE/WebSockets for simplicity - appropriate for single-user app. See [SyncManager.ts](web/src/sync/SyncManager.ts) and `/api/conversations/sync` endpoint. Note: Unread counts may be temporarily inaccurate if sync happens mid-message-exchange (timing race), but corrects on next sync cycle.
 
 ### 🔴 Critical / High Priority
 - [x] **Refactor @require_auth to inject user** - `@require_auth` decorator now injects the authenticated `User` as the first argument to route handlers. `@validate_request` appends validated data after user. No more `get_current_user()` + assert pattern.
