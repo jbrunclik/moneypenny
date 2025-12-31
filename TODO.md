@@ -86,7 +86,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Catch specific exceptions** - Replaced bare `except Exception:` with specific exceptions (`binascii.Error`, `DDGSException`, `genai_errors.ClientError`, etc.) where appropriate. Kept broad handlers only for top-level error recovery (streaming threads, request handlers).
 
 ### 🟠 Security
-- [ ] **Add server-side file type validation** - File upload relies on client MIME type. Add magic bytes verification using `python-magic`.
+- [x] **Add server-side file type validation** - File upload validates content via magic bytes (python-magic). Prevents MIME type spoofing for images/PDF. Text-based formats (text/plain, json, csv, markdown) skip magic validation as libmagic detection is unreliable for these.
 - [ ] **Add request size limits** - Enforce request body size limits in Flask to prevent DoS
 - [x] **Improve JWT token handling** - Added token refresh mechanism (proactive refresh when 2 days remain) and enforced minimum secret length (32+ chars in production)
 - [ ] **Add CORS configuration** - Explicitly configure CORS if needed for cross-origin requests

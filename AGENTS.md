@@ -1639,9 +1639,31 @@ This means auth errors return before validation is attempted (correct behavior -
 File uploads use two-phase validation:
 
 1. **Structure (Pydantic)**: Field presence, MIME type in allowed list, file count limit
-2. **Content (validate_files)**: Base64 decoding, file size limits
+2. **Content (validate_files)**: Base64 decoding, file size limits, magic bytes verification
 
 This allows fast-fail on structure before expensive base64 operations.
+
+### Magic Bytes Validation
+
+After base64 decoding and size validation, files are verified using `python-magic` (libmagic) to ensure file content matches the claimed MIME type. This prevents MIME type spoofing attacks where malicious files are disguised as allowed types.
+
+**How it works:**
+1. Binary file formats (images, PDF) are validated by comparing magic-detected MIME type against allowed aliases
+2. Text-based formats (text/plain, markdown, csv, json) skip magic validation since libmagic detection is unreliable for these
+3. If magic detection fails (library error), validation passes to avoid blocking legitimate files
+
+**MIME type aliases:**
+The `MIME_TYPE_ALIASES` dict in [files.py](src/utils/files.py) maps claimed MIME types to acceptable magic-detected types. This handles cases where libmagic detects a slightly different type (e.g., `text/x-python` for Python source vs `text/plain`).
+
+**Key files:**
+- [files.py](src/utils/files.py) - `verify_file_type_by_magic()`, `MIME_TYPE_ALIASES`, `TEXT_BASED_MIME_TYPES`
+- [test_files.py](tests/unit/test_files.py) - Unit tests for magic validation
+
+**System dependency:**
+Requires `libmagic` system library:
+- macOS: `brew install libmagic`
+- Ubuntu/Debian: `apt-get install libmagic1`
+- Alpine: `apk add libmagic`
 
 ### Error Response Format
 
