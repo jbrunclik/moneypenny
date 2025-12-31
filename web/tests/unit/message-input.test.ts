@@ -2,8 +2,16 @@
  * Unit tests for MessageInput component utilities
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { isIOSPWA, isMobileViewport } from '@/components/MessageInput';
+import { isIOSPWA, isMobileViewport, handlePaste } from '@/components/MessageInput';
 import { MOBILE_BREAKPOINT_PX } from '@/config';
+import { useStore } from '@/state/store';
+
+// Mock FileUpload module
+vi.mock('@/components/FileUpload', () => ({
+  addFilesToPending: vi.fn(),
+}));
+
+import { addFilesToPending } from '@/components/FileUpload';
 
 describe('isIOSPWA', () => {
   const originalNavigator = window.navigator;
@@ -215,6 +223,241 @@ describe('isMobileViewport', () => {
     it('returns true for iPad mini portrait (768px)', () => {
       mockInnerWidth(768);
       expect(isMobileViewport()).toBe(true);
+    });
+  });
+});
+
+describe('handlePaste', () => {
+  const mockedAddFilesToPending = vi.mocked(addFilesToPending);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Reset store state
+    useStore.setState({ pendingFiles: [] });
+  });
+
+  /**
+   * Helper to create a mock ClipboardEvent
+   * Screenshots are provided via clipboardData.items (as DataTransferItems),
+   * so we need to mock that interface properly.
+   */
+  function createPasteEvent(options: {
+    files?: File[];
+    preventDefault?: () => void;
+  } = {}): ClipboardEvent {
+    const { files = [], preventDefault = vi.fn() } = options;
+
+    // Create DataTransferItems from files
+    const items = files.map((file) => ({
+      kind: 'file' as const,
+      type: file.type,
+      getAsFile: () => file,
+      getAsString: () => {},
+      webkitGetAsEntry: () => null,
+    }));
+
+    // Create a proper files-like array that supports indexed access
+    const filesArray = [...files];
+
+    const dataTransfer = {
+      // items is the primary source for clipboard images (screenshots)
+      items: {
+        length: items.length,
+        [Symbol.iterator]: function* () {
+          for (const item of items) {
+            yield item;
+          }
+        },
+        ...items.reduce((acc, item, i) => ({ ...acc, [i]: item }), {}),
+      } as unknown as DataTransferItemList,
+      // files is a fallback - must support indexed access like files[i]
+      files: {
+        length: files.length,
+        item: (index: number) => files[index] ?? null,
+        [Symbol.iterator]: function* () {
+          for (const file of files) {
+            yield file;
+          }
+        },
+        ...filesArray.reduce((acc, file, i) => ({ ...acc, [i]: file }), {}),
+      } as unknown as FileList,
+    };
+
+    return {
+      clipboardData: dataTransfer as unknown as DataTransfer,
+      preventDefault,
+    } as unknown as ClipboardEvent;
+  }
+
+  /**
+   * Helper to create a mock File
+   */
+  function createMockFile(name: string, type: string, content = 'test'): File {
+    return new File([content], name, { type });
+  }
+
+  describe('image paste handling', () => {
+    it('adds pasted PNG image to pending files', () => {
+      const imageFile = createMockFile('image.png', 'image/png');
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: [imageFile], preventDefault });
+
+      handlePaste(event);
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
+
+      // Check that a File was passed with generated name
+      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      expect(passedFiles).toHaveLength(1);
+      expect(passedFiles[0].type).toBe('image/png');
+      expect(passedFiles[0].name).toMatch(/^screenshot-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.png$/);
+    });
+
+    it('adds pasted JPEG image to pending files', () => {
+      const imageFile = createMockFile('photo.jpg', 'image/jpeg');
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: [imageFile], preventDefault });
+
+      handlePaste(event);
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
+
+      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      expect(passedFiles[0].type).toBe('image/jpeg');
+      expect(passedFiles[0].name).toMatch(/\.jpeg$/);
+    });
+
+    it('adds pasted WebP image to pending files', () => {
+      const imageFile = createMockFile('image.webp', 'image/webp');
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: [imageFile], preventDefault });
+
+      handlePaste(event);
+
+      expect(preventDefault).toHaveBeenCalled();
+      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      expect(passedFiles[0].type).toBe('image/webp');
+      expect(passedFiles[0].name).toMatch(/\.webp$/);
+    });
+
+    it('adds pasted GIF image to pending files', () => {
+      const imageFile = createMockFile('animation.gif', 'image/gif');
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: [imageFile], preventDefault });
+
+      handlePaste(event);
+
+      expect(preventDefault).toHaveBeenCalled();
+      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      expect(passedFiles[0].type).toBe('image/gif');
+      expect(passedFiles[0].name).toMatch(/\.gif$/);
+    });
+
+    it('handles multiple pasted images', () => {
+      const imageFiles = [
+        createMockFile('image1.png', 'image/png'),
+        createMockFile('image2.jpeg', 'image/jpeg'),
+      ];
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: imageFiles, preventDefault });
+
+      handlePaste(event);
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
+
+      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      expect(passedFiles).toHaveLength(2);
+      expect(passedFiles[0].type).toBe('image/png');
+      expect(passedFiles[1].type).toBe('image/jpeg');
+    });
+  });
+
+  describe('text paste handling', () => {
+    it('does not prevent default for text-only paste', () => {
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: [], preventDefault });
+
+      handlePaste(event);
+
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(mockedAddFilesToPending).not.toHaveBeenCalled();
+    });
+
+    it('does not process non-image files', () => {
+      const pdfFile = createMockFile('document.pdf', 'application/pdf');
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: [pdfFile], preventDefault });
+
+      handlePaste(event);
+
+      // Should not prevent default - let browser handle it
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(mockedAddFilesToPending).not.toHaveBeenCalled();
+    });
+
+    it('only processes image files when mixed content is pasted', () => {
+      const mixedFiles = [
+        createMockFile('image.png', 'image/png'),
+        createMockFile('document.pdf', 'application/pdf'),
+        createMockFile('text.txt', 'text/plain'),
+      ];
+      const preventDefault = vi.fn();
+      const event = createPasteEvent({ files: mixedFiles, preventDefault });
+
+      handlePaste(event);
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
+
+      // Only the image should be passed
+      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      expect(passedFiles).toHaveLength(1);
+      expect(passedFiles[0].type).toBe('image/png');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles null clipboardData', () => {
+      const event = {
+        clipboardData: null,
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+
+      handlePaste(event);
+
+      expect(mockedAddFilesToPending).not.toHaveBeenCalled();
+    });
+
+    it('generates unique names with timestamps', () => {
+      // Create two images and paste them in sequence
+      const imageFile1 = createMockFile('img.png', 'image/png');
+      const imageFile2 = createMockFile('img.png', 'image/png');
+
+      handlePaste(createPasteEvent({ files: [imageFile1] }));
+      handlePaste(createPasteEvent({ files: [imageFile2] }));
+
+      expect(mockedAddFilesToPending).toHaveBeenCalledTimes(2);
+
+      // Both should have timestamp-based names
+      const name1 = mockedAddFilesToPending.mock.calls[0][0][0].name;
+      const name2 = mockedAddFilesToPending.mock.calls[1][0][0].name;
+
+      expect(name1).toMatch(/^screenshot-/);
+      expect(name2).toMatch(/^screenshot-/);
+    });
+
+    it('preserves original file content in the new File', () => {
+      const originalContent = 'original-image-bytes';
+      const imageFile = createMockFile('test.png', 'image/png', originalContent);
+      const event = createPasteEvent({ files: [imageFile] });
+
+      handlePaste(event);
+
+      const passedFile = mockedAddFilesToPending.mock.calls[0][0][0];
+      expect(passedFile.size).toBe(imageFile.size);
     });
   });
 });

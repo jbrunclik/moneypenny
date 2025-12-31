@@ -3,6 +3,10 @@ import { getFileIcon, CLOSE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
 import { MOBILE_BREAKPOINT_PX } from '../config';
+import { addFilesToPending } from './FileUpload';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('message-input');
 
 /**
  * Check if running in iOS PWA mode (standalone)
@@ -51,6 +55,9 @@ export function initMessageInput(onSend: () => void): void {
 
   // Send button click
   sendBtn.addEventListener('click', onSend);
+
+  // Clipboard paste handler for images
+  input.addEventListener('paste', handlePaste);
 
   // iOS PWA keyboard fix: scroll the messages container when keyboard opens
   // iOS Safari in PWA mode miscalculates the scroll position when keyboard opens,
@@ -193,4 +200,68 @@ function renderFilePreviewItem(file: FileUpload, index: number): string {
       </button>
     </div>
   `;
+}
+
+/**
+ * Handle paste event on the message input.
+ * Extracts image files from clipboard and adds them to pending files.
+ * Text paste is handled normally by the browser.
+ * Exported for testing.
+ */
+export function handlePaste(e: ClipboardEvent): void {
+  const clipboardData = e.clipboardData;
+  if (!clipboardData) return;
+
+  // Extract image files from clipboard
+  // Screenshots are typically provided via clipboardData.items (as DataTransferItems),
+  // not clipboardData.files. We need to check items and convert them to Files.
+  const imageFiles: File[] = [];
+
+  // First, check clipboardData.items (this is where screenshots usually appear)
+  if (clipboardData.items) {
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const item = clipboardData.items[i];
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          imageFiles.push(file);
+        }
+      }
+    }
+  }
+
+  // Also check clipboardData.files as fallback (for drag-drop or some browsers)
+  if (imageFiles.length === 0 && clipboardData.files.length > 0) {
+    for (let i = 0; i < clipboardData.files.length; i++) {
+      const file = clipboardData.files[i];
+      if (file.type.startsWith('image/')) {
+        imageFiles.push(file);
+      }
+    }
+  }
+
+  if (imageFiles.length === 0) {
+    // No images in clipboard - let browser handle normal text paste
+    return;
+  }
+
+  // Prevent default paste behavior for images
+  // This stops the browser from inserting image data as text
+  e.preventDefault();
+
+  log.debug('Pasting images from clipboard', { count: imageFiles.length });
+
+  // Generate meaningful names for pasted images
+  const namedFiles = imageFiles.map((file) => {
+    // Use timestamp-based name since clipboard images don't have filenames
+    const extension = file.type.split('/')[1] || 'png';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const name = `screenshot-${timestamp}.${extension}`;
+
+    // Create a new File with the generated name
+    return new File([file], name, { type: file.type });
+  });
+
+  // Add to pending files using existing upload flow
+  addFilesToPending(namedFiles);
 }

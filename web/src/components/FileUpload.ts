@@ -70,8 +70,9 @@ export function initFileUpload(): void {
 
 /**
  * Add files to pending upload queue
+ * Exported for use by clipboard paste handler
  */
-async function addFilesToPending(files: File[]): Promise<void> {
+export async function addFilesToPending(files: File[]): Promise<void> {
   log.debug('Processing files for upload', { count: files.length });
   const store = useStore.getState();
   const { uploadConfig, pendingFiles } = store;

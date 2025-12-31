@@ -371,6 +371,36 @@ The `forceTools` state in Zustand allows forcing specific tools to be used. Curr
 - Backend: `force_tools` parameter in `/chat/batch` and `/chat/stream` endpoints
 - Agent: `get_force_tools_prompt()` in [chat_agent.py](src/agent/chat_agent.py)
 
+### Clipboard Paste
+
+Users can paste screenshots directly from the clipboard into the message input (Cmd+V / Ctrl+V).
+
+**How it works:**
+1. A `paste` event listener on the textarea detects clipboard content
+2. If clipboard contains image files, they're extracted and processed
+3. Images are renamed with timestamp-based names (`screenshot-YYYY-MM-DDTHH-MM-SS.png`)
+4. Uses the existing `addFilesToPending()` flow for validation and preview
+5. Text paste is handled normally by the browser (not intercepted)
+
+**Supported formats:**
+- PNG, JPEG, GIF, WebP images
+- Works with screenshots (Cmd+Shift+4 on Mac, PrtScn on Windows)
+- Works with copied images from other applications
+
+**Implementation details:**
+- `handlePaste()` in [MessageInput.ts](web/src/components/MessageInput.ts) handles the paste event
+- Only images are processed; non-image files and text are passed through
+- `preventDefault()` is only called when images are present (to avoid interfering with text paste)
+- `addFilesToPending()` in [FileUpload.ts](web/src/components/FileUpload.ts) handles validation and base64 conversion
+
+**Key files:**
+- [MessageInput.ts](web/src/components/MessageInput.ts) - `handlePaste()` function
+- [FileUpload.ts](web/src/components/FileUpload.ts) - `addFilesToPending()` for file processing
+
+**Testing:**
+- Unit tests: `handlePaste` describe block in [message-input.test.ts](web/tests/unit/message-input.test.ts)
+- E2E tests: "Chat - Clipboard Paste" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
+
 ## Web Search Sources
 
 When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are displayed to the user.

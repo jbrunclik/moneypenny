@@ -1161,3 +1161,245 @@ test.describe('Chat - Message Retry', () => {
     await expect(toast).not.toBeVisible({ timeout: 2000 });
   });
 });
+
+test.describe('Chat - Clipboard Paste', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+  });
+
+  /**
+   * Helper function to simulate pasting an image by directly calling the
+   * addFilesToPending function through the store. This bypasses browser
+   * clipboard security restrictions that prevent programmatic paste events
+   * from having file data.
+   *
+   * Note: The actual paste handler is tested via unit tests. These E2E tests
+   * verify the integration with the file preview UI and send button state.
+   */
+  async function simulateImagePaste(
+    page: import('@playwright/test').Page,
+    pngBase64: string,
+    fileName: string
+  ): Promise<void> {
+    await page.evaluate(
+      async ({ base64, name }) => {
+        // Convert base64 to blob
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'image/png' });
+
+        // Read as data URL to get base64 for the store
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        const data = dataUrl.split(',')[1];
+
+        // Create preview URL
+        const previewUrl = URL.createObjectURL(blob);
+
+        // Add to store (simulating what addFilesToPending does)
+        const storage = localStorage.getItem('ai-chatbot-storage');
+        if (storage) {
+          const parsed = JSON.parse(storage);
+          const pendingFiles = parsed.state?.pendingFiles || [];
+          pendingFiles.push({
+            name,
+            type: 'image/png',
+            data,
+            previewUrl,
+          });
+          parsed.state.pendingFiles = pendingFiles;
+          localStorage.setItem('ai-chatbot-storage', JSON.stringify(parsed));
+
+          // Trigger Zustand state update by dispatching storage event
+          window.dispatchEvent(new StorageEvent('storage', { key: 'ai-chatbot-storage' }));
+        }
+      },
+      { base64: pngBase64, name: fileName }
+    );
+
+    // Reload the page to sync Zustand state from localStorage
+    // This is necessary because we modified localStorage directly
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+  }
+
+  test('file preview shows uploaded images', async ({ page }) => {
+    const filePreview = page.locator('#file-preview');
+    const sendBtn = page.locator('#send-btn');
+
+    // Verify file preview is hidden initially
+    await expect(filePreview).toHaveClass(/hidden/);
+    await expect(sendBtn).toBeDisabled();
+
+    // Use the attach button to add an image (this is the reliable way to test file upload)
+    // Set up file chooser before clicking
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+
+    // Create a minimal PNG buffer
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngBuffer = Buffer.from(pngBase64, 'base64');
+
+    await fileChooser.setFiles({
+      name: 'test-image.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+
+    // Wait for the file preview to become visible
+    await expect(filePreview).not.toHaveClass(/hidden/, { timeout: 3000 });
+
+    // File preview should contain an image
+    const previewImage = filePreview.locator('.file-preview-image');
+    await expect(previewImage).toBeVisible();
+
+    // Image should have a thumbnail
+    const img = previewImage.locator('img');
+    await expect(img).toBeVisible();
+
+    // Remove button should be present
+    const removeBtn = previewImage.locator('.file-preview-remove');
+    await expect(removeBtn).toBeVisible();
+
+    // Send button should be enabled
+    await expect(sendBtn).not.toBeDisabled();
+  });
+
+  test('uploaded image can be removed from preview', async ({ page }) => {
+    const filePreview = page.locator('#file-preview');
+
+    // Upload an image
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngBuffer = Buffer.from(pngBase64, 'base64');
+
+    await fileChooser.setFiles({
+      name: 'test-image.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+
+    // Wait for preview to appear
+    await expect(filePreview).not.toHaveClass(/hidden/, { timeout: 3000 });
+
+    // Click remove button
+    const removeBtn = filePreview.locator('.file-preview-remove');
+    await removeBtn.click();
+
+    // File preview should be hidden again
+    await expect(filePreview).toHaveClass(/hidden/);
+
+    // Send button should be disabled again
+    const sendBtn = page.locator('#send-btn');
+    await expect(sendBtn).toBeDisabled();
+  });
+
+  test('pasting text does not affect file preview', async ({ page }) => {
+    const textarea = page.locator('#message-input');
+    const filePreview = page.locator('#file-preview');
+
+    // Focus the textarea
+    await textarea.focus();
+
+    // Type some text first
+    await textarea.fill('Some initial text');
+
+    // Paste plain text using keyboard shortcut
+    // First, simulate copying text to clipboard and pasting
+    await page.evaluate(() => {
+      const pasteEvent = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: new DataTransfer(),
+      });
+      // Set text data (no files)
+      pasteEvent.clipboardData?.setData('text/plain', 'pasted text');
+
+      const input = document.querySelector('#message-input');
+      input?.dispatchEvent(pasteEvent);
+    });
+
+    // File preview should remain hidden (text paste doesn't affect it)
+    await expect(filePreview).toHaveClass(/hidden/);
+
+    // Input should still have its text (browser handles text paste normally)
+    // Note: We're not modifying the input value on text paste, browser does that
+    await expect(textarea).toHaveValue('Some initial text');
+  });
+
+  test('multiple images can be uploaded', async ({ page }) => {
+    const filePreview = page.locator('#file-preview');
+
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngBuffer = Buffer.from(pngBase64, 'base64');
+
+    // Upload first image
+    const fileChooserPromise1 = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser1 = await fileChooserPromise1;
+    await fileChooser1.setFiles({
+      name: 'image1.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+
+    await expect(filePreview).not.toHaveClass(/hidden/, { timeout: 3000 });
+
+    // Upload second image
+    const fileChooserPromise2 = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser2 = await fileChooserPromise2;
+    await fileChooser2.setFiles({
+      name: 'image2.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+
+    // Should have 2 preview items
+    const previewItems = filePreview.locator('.file-preview-item');
+    await expect(previewItems).toHaveCount(2);
+  });
+
+  test('image upload enables send button', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
+
+    // Send button should be disabled initially (no content)
+    await expect(sendBtn).toBeDisabled();
+
+    // Upload an image
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngBuffer = Buffer.from(pngBase64, 'base64');
+
+    await fileChooser.setFiles({
+      name: 'test-image.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+
+    // Wait for file to be processed
+    await page.waitForTimeout(500);
+
+    // Send button should be enabled now (has file)
+    await expect(sendBtn).not.toBeDisabled();
+  });
+});
