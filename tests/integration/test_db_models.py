@@ -65,6 +65,55 @@ class TestUserOperations:
 
         assert user.picture is None
 
+    def test_user_custom_instructions_default_none(self, test_database: Database) -> None:
+        """New user should have custom_instructions as None."""
+        user = test_database.get_or_create_user(
+            email="new_instructions@example.com",
+            name="New User",
+        )
+
+        assert user.custom_instructions is None
+
+    def test_update_user_custom_instructions(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should update custom instructions."""
+        success = test_database.update_user_custom_instructions(test_user.id, "Be concise.")
+
+        assert success is True
+
+        # Verify the update
+        updated_user = test_database.get_user_by_id(test_user.id)
+        assert updated_user is not None
+        assert updated_user.custom_instructions == "Be concise."
+
+    def test_update_user_custom_instructions_clear(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should clear custom instructions with None."""
+        # First set some instructions
+        test_database.update_user_custom_instructions(test_user.id, "Be concise.")
+
+        # Then clear them
+        success = test_database.update_user_custom_instructions(test_user.id, None)
+
+        assert success is True
+
+        # Verify they were cleared
+        updated_user = test_database.get_user_by_id(test_user.id)
+        assert updated_user is not None
+        assert updated_user.custom_instructions is None
+
+    def test_update_user_custom_instructions_nonexistent_user(
+        self, test_database: Database
+    ) -> None:
+        """Should return False for non-existent user."""
+        success = test_database.update_user_custom_instructions(
+            "nonexistent-user-id", "Be concise."
+        )
+
+        assert success is False
+
 
 class TestConversationOperations:
     """Tests for Conversation CRUD operations."""

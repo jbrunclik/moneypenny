@@ -118,3 +118,14 @@ class ChatRequest(BaseModel):
         if not message_text and not self.files:
             raise ValueError("Message or files required")
         return self
+
+
+# -----------------------------------------------------------------------------
+# Settings Schemas
+# -----------------------------------------------------------------------------
+
+
+class UpdateSettingsRequest(BaseModel):
+    """Schema for PATCH /api/users/me/settings."""
+
+    custom_instructions: str | None = Field(None, max_length=2000)

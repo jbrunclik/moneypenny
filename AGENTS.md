@@ -60,7 +60,8 @@ ai-chatbot/
 │       │   ├── ScrollToBottom.ts # Scroll-to-bottom button
 │       │   ├── VersionBanner.ts  # New version notification
 │       │   ├── Toast.ts          # Toast notifications
-│       │   └── Modal.ts          # Modal dialogs (alert/confirm/prompt)
+│       │   ├── Modal.ts          # Modal dialogs (alert/confirm/prompt)
+│       │   └── SettingsPopup.ts  # User settings (custom instructions)
 │       ├── gestures/swipe.ts     # Touch handlers
 │       ├── utils/
 │       │   ├── dom.ts            # DOM helpers, escapeHtml
@@ -1192,6 +1193,49 @@ The LLM includes memory operations in the metadata block:
 ### Testing
 - Backend integration tests: [test_routes_memories.py](tests/integration/test_routes_memories.py)
 - Visual tests: `popup-memories.png`, `popup-memories-empty.png`, `mobile-popup-memories.png` in [popups.visual.ts](web/tests/visual/popups.visual.ts)
+
+## Custom Instructions
+
+Users can customize LLM behavior via a free-text custom instructions field in the settings popup.
+
+### How it works
+
+1. **Storage**: Custom instructions are stored in the `users.custom_instructions` column (up to 2000 characters)
+2. **UI**: Settings popup accessible via gear icon button in sidebar (next to memories and logout)
+3. **Injection**: Instructions are appended to the system prompt via `CUSTOM_INSTRUCTIONS_PROMPT` constant
+4. **Immediate effect**: Changes apply to new messages immediately (no restart needed)
+
+### Example use cases
+- "Respond in Czech"
+- "Be concise, use bullet points"
+- "Explain things like I'm a beginner"
+- "Always provide code examples in Python"
+
+### API endpoints
+- `GET /api/users/me/settings` - Returns `{ custom_instructions: string }`
+- `PATCH /api/users/me/settings` - Updates settings, body: `{ custom_instructions: string | null }`
+
+### Key files
+
+**Backend:**
+- [migrations/0010_add_custom_instructions.py](migrations/0010_add_custom_instructions.py) - Database migration
+- [models.py](src/db/models.py) - `User.custom_instructions` field, `update_user_custom_instructions()` method
+- [chat_agent.py](src/agent/chat_agent.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant, `get_system_prompt()` with `custom_instructions` parameter
+- [schemas.py](src/api/schemas.py) - `UpdateSettingsRequest` schema with 2000 char limit
+- [routes.py](src/api/routes.py) - Settings endpoints, passes `custom_instructions` to agent
+
+**Frontend:**
+- [SettingsPopup.ts](web/src/components/SettingsPopup.ts) - Settings popup with textarea, character count, save button
+- [Sidebar.ts](web/src/components/Sidebar.ts) - Gear icon button in user actions
+- [client.ts](web/src/api/client.ts) - `settings.get()`, `settings.update()` API methods
+- [api.ts](web/src/types/api.ts) - `UserSettings` type
+- [icons.ts](web/src/utils/icons.ts) - `SETTINGS_ICON`
+- [popups.css](web/src/styles/components/popups.css) - `.settings-*` styles
+
+### Testing
+- Backend integration tests: [test_routes_settings.py](tests/integration/test_routes_settings.py)
+- E2E tests: [settings.spec.ts](web/tests/e2e/settings.spec.ts)
+- Visual tests: `popup-settings.png`, `popup-settings-empty.png`, `popup-settings-warning.png` in [popups.visual.ts](web/tests/visual/popups.visual.ts)
 
 ## Real-time Data Synchronization
 

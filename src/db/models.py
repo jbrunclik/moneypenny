@@ -89,6 +89,7 @@ class User:
     name: str
     picture: str | None
     created_at: datetime
+    custom_instructions: str | None = None
 
 
 @dataclass
@@ -240,6 +241,7 @@ class Database:
                     name=name,
                     picture=picture,
                     created_at=now,
+                    custom_instructions=None,
                 )
 
             # User already existed, fetch it
@@ -257,6 +259,7 @@ class Database:
                 name=row["name"],
                 picture=row["picture"],
                 created_at=datetime.fromisoformat(row["created_at"]),
+                custom_instructions=row["custom_instructions"],
             )
 
     def get_user_by_id(self, user_id: str) -> User | None:
@@ -274,7 +277,44 @@ class Database:
                 name=row["name"],
                 picture=row["picture"],
                 created_at=datetime.fromisoformat(row["created_at"]),
+                custom_instructions=row["custom_instructions"],
             )
+
+    def update_user_custom_instructions(self, user_id: str, instructions: str | None) -> bool:
+        """Update a user's custom instructions.
+
+        Args:
+            user_id: The user ID
+            instructions: The custom instructions text (or None to clear)
+
+        Returns:
+            True if user was updated, False if not found
+        """
+        logger.debug(
+            "Updating user custom instructions",
+            extra={"user_id": user_id, "has_instructions": bool(instructions)},
+        )
+
+        with self._get_conn() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET custom_instructions = ? WHERE id = ?",
+                (instructions, user_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            logger.info(
+                "User custom instructions updated",
+                extra={"user_id": user_id},
+            )
+        else:
+            logger.warning(
+                "User not found for custom instructions update",
+                extra={"user_id": user_id},
+            )
+        return updated
 
     # Conversation operations
     def create_conversation(

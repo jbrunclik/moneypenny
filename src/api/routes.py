@@ -30,6 +30,7 @@ from src.api.schemas import (
     CreateConversationRequest,
     GoogleAuthRequest,
     UpdateConversationRequest,
+    UpdateSettingsRequest,
 )
 from src.api.utils import (
     build_chat_response,
@@ -474,6 +475,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             force_tools=force_tools,
             user_name=user.name,
             user_id=user.id,
+            custom_instructions=user.custom_instructions,
         )
 
         # Get the FULL tool results (with _full_result) captured before stripping
@@ -773,6 +775,7 @@ def chat_stream(
                     force_tools=force_tools,
                     user_name=user.name,
                     user_id=stream_user_id,
+                    custom_instructions=user.custom_instructions,
                 ):
                     event_count += 1
                     if event.get("type") == "final":
@@ -1767,6 +1770,46 @@ def get_user_cost_history(user: User) -> tuple[dict[str, Any], int]:
         "user_id": user.id,
         "history": history_display,
     }, 200
+
+
+# ============================================================================
+# Settings Routes
+# ============================================================================
+
+
+@api.route("/users/me/settings", methods=["GET"])
+@require_auth
+def get_user_settings(user: User) -> dict[str, Any]:
+    """Get user settings including custom instructions."""
+    logger.debug("Getting user settings", extra={"user_id": user.id})
+    return {
+        "custom_instructions": user.custom_instructions or "",
+    }
+
+
+@api.route("/users/me/settings", methods=["PATCH"])
+@require_auth
+@validate_request(UpdateSettingsRequest)
+def update_user_settings(user: User, data: UpdateSettingsRequest) -> tuple[dict[str, str], int]:
+    """Update user settings."""
+    logger.debug(
+        "Updating user settings",
+        extra={
+            "user_id": user.id,
+            "has_custom_instructions": data.custom_instructions is not None,
+        },
+    )
+
+    if data.custom_instructions is not None:
+        # Normalize empty/whitespace-only strings to None
+        instructions = data.custom_instructions.strip() if data.custom_instructions else None
+        db.update_user_custom_instructions(user.id, instructions)
+        logger.info(
+            "User settings updated",
+            extra={"user_id": user.id, "has_instructions": bool(instructions)},
+        )
+
+    return {"status": "updated"}, 200
 
 
 # ============================================================================

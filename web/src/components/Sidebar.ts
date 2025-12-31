@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { BRAIN_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON } from '../utils/icons';
+import { BRAIN_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, SETTINGS_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
@@ -107,6 +107,9 @@ export function renderUserInfo(): void {
         <span class="cost-value">—</span>
       </button>
       <div class="user-actions-buttons">
+        <button id="settings-btn" class="btn-icon-action" title="Settings">
+          ${SETTINGS_ICON}
+        </button>
         <button id="memories-btn" class="btn-icon-action" title="View memories">
           ${BRAIN_ICON}
         </button>

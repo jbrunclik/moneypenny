@@ -326,6 +326,14 @@ Example with only generated images:
 {"generated_images": [{"prompt": "a majestic mountain sunset, photorealistic, golden hour lighting"}]}
 -->"""
 
+CUSTOM_INSTRUCTIONS_PROMPT = """
+# User's Custom Instructions
+The user has provided these custom instructions for how you should respond:
+
+{instructions}
+
+Follow these instructions while still adhering to safety guidelines."""
+
 MEMORY_SYSTEM_PROMPT = """
 # User Memory System
 You have access to a memory system that stores facts about the user for personalization.
@@ -465,6 +473,7 @@ def get_system_prompt(
     force_tools: list[str] | None = None,
     user_name: str | None = None,
     user_id: str | None = None,
+    custom_instructions: str | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -473,6 +482,7 @@ def get_system_prompt(
         force_tools: List of tool names that must be used (e.g., ["web_search", "image_generation"])
         user_name: The user's name from JWT authentication
         user_id: The user's ID for memory retrieval
+        custom_instructions: User-provided custom instructions for LLM behavior
     """
     date_context = f"\n\nCurrent date and time: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
@@ -483,6 +493,12 @@ def get_system_prompt(
 
     if with_tools and TOOLS:
         prompt += TOOLS_SYSTEM_PROMPT
+
+    # Add custom instructions if provided
+    if custom_instructions and custom_instructions.strip():
+        prompt += "\n\n" + CUSTOM_INSTRUCTIONS_PROMPT.format(
+            instructions=custom_instructions.strip()
+        )
 
     # Add user memories if user_id is provided
     if user_id:
@@ -946,6 +962,7 @@ class ChatAgent:
         force_tools: list[str] | None = None,
         user_name: str | None = None,
         user_id: str | None = None,
+        custom_instructions: str | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
         messages: list[BaseMessage] = []
@@ -954,7 +971,11 @@ class ChatAgent:
         messages.append(
             SystemMessage(
                 content=get_system_prompt(
-                    self.with_tools, force_tools=force_tools, user_name=user_name, user_id=user_id
+                    self.with_tools,
+                    force_tools=force_tools,
+                    user_name=user_name,
+                    user_id=user_id,
+                    custom_instructions=custom_instructions,
                 )
             )
         )
@@ -982,6 +1003,7 @@ class ChatAgent:
         force_tools: list[str] | None = None,
         user_name: str | None = None,
         user_id: str | None = None,
+        custom_instructions: str | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
         """
         Send a message and get a response (non-streaming).
@@ -993,12 +1015,19 @@ class ChatAgent:
             force_tools: Optional list of tool names that must be used
             user_name: Optional user name from JWT for personalized responses
             user_id: Optional user ID for memory retrieval and injection
+            custom_instructions: Optional user-provided custom instructions for LLM behavior
 
         Returns:
             Tuple of (response_text, tool_results, usage_info)
         """
         messages = self._build_messages(
-            text, files, history, force_tools=force_tools, user_name=user_name, user_id=user_id
+            text,
+            files,
+            history,
+            force_tools=force_tools,
+            user_name=user_name,
+            user_id=user_id,
+            custom_instructions=custom_instructions,
         )
         logger.debug(
             "Starting chat_batch",
@@ -1081,6 +1110,7 @@ class ChatAgent:
         force_tools: list[str] | None = None,
         user_name: str | None = None,
         user_id: str | None = None,
+        custom_instructions: str | None = None,
     ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
         """
         Stream response tokens using LangGraph's stream method.
@@ -1092,6 +1122,7 @@ class ChatAgent:
             force_tools: Optional list of tool names that must be used
             user_name: Optional user name from JWT for personalized responses
             user_id: Optional user ID for memory retrieval and injection
+            custom_instructions: Optional user-provided custom instructions for LLM behavior
 
         Yields:
             - str: Text tokens for streaming display
@@ -1102,7 +1133,13 @@ class ChatAgent:
               - usage_info: Dict with 'input_tokens' and 'output_tokens'
         """
         messages = self._build_messages(
-            text, files, history, force_tools=force_tools, user_name=user_name, user_id=user_id
+            text,
+            files,
+            history,
+            force_tools=force_tools,
+            user_name=user_name,
+            user_id=user_id,
+            custom_instructions=custom_instructions,
         )
 
         # Accumulate full response to extract metadata at the end
@@ -1233,6 +1270,7 @@ class ChatAgent:
         force_tools: list[str] | None = None,
         user_name: str | None = None,
         user_id: str | None = None,
+        custom_instructions: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -1246,6 +1284,7 @@ class ChatAgent:
             force_tools: Optional list of tool names that must be used
             user_name: Optional user name from JWT for personalized responses
             user_id: Optional user ID for memory retrieval and injection
+            custom_instructions: Optional user-provided custom instructions for LLM behavior
 
         Yields:
             Events as dicts with 'type' field:
@@ -1256,7 +1295,13 @@ class ChatAgent:
             - {"type": "final", "content": "...", "metadata": {...}, "tool_results": [...], "usage_info": {...}}
         """
         messages = self._build_messages(
-            text, files, history, force_tools=force_tools, user_name=user_name, user_id=user_id
+            text,
+            files,
+            history,
+            force_tools=force_tools,
+            user_name=user_name,
+            user_id=user_id,
+            custom_instructions=custom_instructions,
         )
 
         # Accumulate full response to extract metadata at the end

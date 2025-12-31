@@ -46,6 +46,7 @@ import { initImageGenPopup } from './components/ImageGenPopup';
 import { initMessageCostPopup } from './components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from './components/CostHistoryPopup';
 import { initMemoriesPopup, getMemoriesPopupHtml, openMemoriesPopup } from './components/MemoriesPopup';
+import { initSettingsPopup, getSettingsPopupHtml, openSettingsPopup } from './components/SettingsPopup';
 import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
 import { initScrollToBottom, checkScrollButtonVisibility } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
@@ -176,6 +177,9 @@ function renderAppShell(): string {
     <!-- Memories Popup -->
     ${getMemoriesPopupHtml()}
 
+    <!-- Settings Popup -->
+    ${getSettingsPopupHtml()}
+
     <!-- Login overlay -->
     <div id="login-overlay" class="login-overlay hidden">
       <div class="login-box">
@@ -209,6 +213,7 @@ async function init(): Promise<void> {
   initMessageCostPopup();
   costHistoryPopup.init();
   initMemoriesPopup();
+  initSettingsPopup();
   initScrollToBottom();
   initVersionBanner();
   setupEventListeners();
@@ -1141,6 +1146,10 @@ function setupEventListeners(): void {
     }
     if ((e.target as HTMLElement).closest('#memories-btn')) {
       openMemoriesPopup();
+      return;
+    }
+    if ((e.target as HTMLElement).closest('#settings-btn')) {
+      openSettingsPopup();
     }
   });
 

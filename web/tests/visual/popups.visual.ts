@@ -502,6 +502,152 @@ test.describe('Visual: Lightbox', () => {
   });
 });
 
+const SETTINGS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+
+test.describe('Visual: Settings Popup', () => {
+  test('settings popup', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    // Inject settings popup directly
+    await page.evaluate(({ SETTINGS_ICON, CLOSE_ICON }) => {
+      const popup = document.createElement('div');
+      popup.id = 'settings-popup';
+      popup.className = 'info-popup';
+      popup.innerHTML = `
+        <div class="info-popup-content">
+          <div class="info-popup-header">
+            <span class="info-popup-icon">${SETTINGS_ICON}</span>
+            <h3>Settings</h3>
+            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+          </div>
+          <div class="info-popup-body">
+            <div class="settings-body">
+              <div class="settings-field">
+                <label class="settings-label" for="custom-instructions">Custom Instructions</label>
+                <p class="settings-helper">Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")</p>
+                <textarea
+                  id="custom-instructions"
+                  class="settings-textarea"
+                  placeholder="Enter your custom instructions here..."
+                  maxlength="2000"
+                >Respond in Czech. Be concise and use bullet points.</textarea>
+                <span class="settings-char-count">52/2000</span>
+              </div>
+            </div>
+          </div>
+          <div class="info-popup-footer settings-footer">
+            <button class="btn btn-primary settings-save-btn">Save</button>
+          </div>
+        </div>
+      `;
+      const existing = document.getElementById('settings-popup');
+      if (existing) existing.remove();
+      document.body.appendChild(popup);
+    }, { SETTINGS_ICON, CLOSE_ICON });
+
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#settings-popup')).toHaveScreenshot('popup-settings.png');
+  });
+
+  test('settings popup empty', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    // Inject settings popup with empty textarea
+    await page.evaluate(({ SETTINGS_ICON, CLOSE_ICON }) => {
+      const popup = document.createElement('div');
+      popup.id = 'settings-popup';
+      popup.className = 'info-popup';
+      popup.innerHTML = `
+        <div class="info-popup-content">
+          <div class="info-popup-header">
+            <span class="info-popup-icon">${SETTINGS_ICON}</span>
+            <h3>Settings</h3>
+            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+          </div>
+          <div class="info-popup-body">
+            <div class="settings-body">
+              <div class="settings-field">
+                <label class="settings-label" for="custom-instructions">Custom Instructions</label>
+                <p class="settings-helper">Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")</p>
+                <textarea
+                  id="custom-instructions"
+                  class="settings-textarea"
+                  placeholder="Enter your custom instructions here..."
+                  maxlength="2000"
+                ></textarea>
+                <span class="settings-char-count">0/2000</span>
+              </div>
+            </div>
+          </div>
+          <div class="info-popup-footer settings-footer">
+            <button class="btn btn-primary settings-save-btn">Save</button>
+          </div>
+        </div>
+      `;
+      const existing = document.getElementById('settings-popup');
+      if (existing) existing.remove();
+      document.body.appendChild(popup);
+    }, { SETTINGS_ICON, CLOSE_ICON });
+
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#settings-popup')).toHaveScreenshot('popup-settings-empty.png');
+  });
+
+  test('settings popup with warning character count', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    // Inject settings popup with character count warning
+    await page.evaluate(({ SETTINGS_ICON, CLOSE_ICON }) => {
+      const popup = document.createElement('div');
+      popup.id = 'settings-popup';
+      popup.className = 'info-popup';
+      const longText = 'x'.repeat(1850);
+      popup.innerHTML = `
+        <div class="info-popup-content">
+          <div class="info-popup-header">
+            <span class="info-popup-icon">${SETTINGS_ICON}</span>
+            <h3>Settings</h3>
+            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+          </div>
+          <div class="info-popup-body">
+            <div class="settings-body">
+              <div class="settings-field">
+                <label class="settings-label" for="custom-instructions">Custom Instructions</label>
+                <p class="settings-helper">Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")</p>
+                <textarea
+                  id="custom-instructions"
+                  class="settings-textarea"
+                  placeholder="Enter your custom instructions here..."
+                  maxlength="2000"
+                >${longText}</textarea>
+                <span class="settings-char-count warning">1850/2000</span>
+              </div>
+            </div>
+          </div>
+          <div class="info-popup-footer settings-footer">
+            <button class="btn btn-primary settings-save-btn">Save</button>
+          </div>
+        </div>
+      `;
+      const existing = document.getElementById('settings-popup');
+      if (existing) existing.remove();
+      document.body.appendChild(popup);
+    }, { SETTINGS_ICON, CLOSE_ICON });
+
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#settings-popup')).toHaveScreenshot('popup-settings-warning.png');
+  });
+});
+
 test.describe('Visual: Mobile Popups', () => {
   test.use({ viewport: { width: 375, height: 812 } }); // iPhone X
 

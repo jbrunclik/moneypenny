@@ -234,3 +234,8 @@ export interface Memory {
 export interface MemoriesResponse {
   memories: Memory[];
 }
+
+// Settings types
+export interface UserSettings {
+  custom_instructions: string;
+}
