@@ -9,6 +9,13 @@
  */
 import { test, expect } from '../global-setup';
 
+// Extend Window type for test helpers exposed by the app
+declare global {
+  interface Window {
+    __testFullSync: () => Promise<void>;
+  }
+}
+
 test.describe('Sync - Unread Count Badges', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -150,6 +157,102 @@ test.describe('Sync - Conversation Deletion Detection', () => {
     if (isPressed === 'true') {
       await streamBtn.click();
     }
+  });
+
+  test('detects conversation deleted by another client on full sync', async ({ page, request }) => {
+    // Create a conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Test external deletion');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Verify conversation exists in sidebar
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(1);
+
+    // Get the conversation ID from the data attribute
+    const convId = await page.evaluate(() => {
+      const activeItem = document.querySelector('.conversation-item-wrapper.active');
+      return activeItem?.getAttribute('data-conv-id');
+    });
+    expect(convId).toBeTruthy();
+
+    // Delete the conversation directly via API (simulating another client)
+    const deleteResponse = await request.delete(`/api/conversations/${convId}`);
+    expect(deleteResponse.status()).toBe(200);
+
+    // Trigger a full sync by simulating long tab inactivity and visibility change
+    // This forces the SyncManager to do a full sync with delete detection
+    await page.evaluate(() => {
+      // Simulate tab becoming hidden
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Wait a tiny bit
+    await page.waitForTimeout(50);
+
+    // Manually force the hidden time to be > 5 minutes ago
+    // We can't easily mock time in E2E, so we'll directly trigger full sync via reload
+    // OR we can expose a test-only method to force full sync
+
+    // Alternative: Just reload the page which triggers full sync on startup
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+
+    // Conversation should be removed from sidebar
+    await expect(page.locator('.conversation-item-wrapper')).toHaveCount(0);
+
+    // Main area should show welcome state (no current conversation)
+    const welcomeMessage = page.locator('text=Welcome to AI Chatbot');
+    await expect(welcomeMessage).toBeVisible();
+  });
+
+  test('shows warning toast when current conversation is deleted externally during live sync', async ({
+    page,
+    request,
+  }) => {
+    // Create two conversations
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Second conversation - will be deleted');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Verify we have 2 conversations
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(2);
+
+    // Get the current conversation ID (the one we're viewing)
+    const currentConvId = await page.evaluate(() => {
+      const activeItem = document.querySelector('.conversation-item-wrapper.active');
+      return activeItem?.getAttribute('data-conv-id');
+    });
+    expect(currentConvId).toBeTruthy();
+
+    // Delete the current conversation via API (simulating another client)
+    const deleteResponse = await request.delete(`/api/conversations/${currentConvId}`);
+    expect(deleteResponse.status()).toBe(200);
+
+    // Trigger a full sync WITHOUT reloading (simulates sync while app is running)
+    // This allows the SyncManager to detect the current conversation was deleted
+    await page.evaluate(() => window.__testFullSync());
+
+    // Should show warning toast about deleted conversation
+    const warningToast = page.locator('.toast-warning');
+    await expect(warningToast).toBeVisible({ timeout: 5000 });
+    await expect(warningToast).toContainText('deleted');
+
+    // Only one conversation should remain
+    await expect(page.locator('.conversation-item-wrapper')).toHaveCount(1);
   });
 
   test('removes conversation from sidebar when deleted', async ({ page }) => {

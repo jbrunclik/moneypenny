@@ -1565,5 +1565,19 @@ function hideNewMessagesAvailableBanner(): void {
   banner?.remove();
 }
 
+// Test helper: Trigger a full sync (for E2E tests)
+// Usage in browser console: await window.__testFullSync()
+declare global {
+  interface Window {
+    __testFullSync: () => Promise<void>;
+  }
+}
+window.__testFullSync = async () => {
+  const syncManager = getSyncManager();
+  if (syncManager) {
+    await syncManager.fullSync();
+  }
+};
+
 // Start the app
 document.addEventListener('DOMContentLoaded', init);
