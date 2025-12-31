@@ -320,6 +320,18 @@ Both commands must pass without errors. If linting fails, run `make lint-fix` to
 - Use existing fixtures from `tests/conftest.py` where applicable
 - Mock all external services (never make real API calls in tests)
 
+**When fixing bugs (TDD approach):**
+1. **Write a failing test first** that reproduces the bug
+2. Run the test to confirm it fails (captures the regression)
+3. Implement the fix
+4. Run the test to confirm it passes
+5. Run the full test suite to ensure no regressions
+
+This approach ensures:
+- The bug is documented as a test case
+- The fix is verified to work
+- The bug won't regress in the future
+
 ## Input Toolbar
 
 The input area has a toolbar row above the textarea with controls:

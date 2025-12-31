@@ -379,12 +379,15 @@ function createConversation(): void {
   const tempId = `temp-${Date.now()}`;
   const now = new Date().toISOString();
 
+  // Use pending model if set, otherwise default model
+  const model = store.pendingModel || store.defaultModel;
+
   // Clear cost display for new conversation
   updateConversationCost(null);
   const conv = {
     id: tempId,
     title: DEFAULT_CONVERSATION_TITLE,
-    model: store.defaultModel,
+    model,
     created_at: now,
     updated_at: now,
     messages: [],
@@ -392,6 +395,8 @@ function createConversation(): void {
 
   store.addConversation(conv);
   store.setCurrentConversation(conv);
+  // Clear pending model since it's now used
+  store.setPendingModel(null);
   renderConversationsList();
   setActiveConversation(conv.id);
   updateChatTitle(conv.title);

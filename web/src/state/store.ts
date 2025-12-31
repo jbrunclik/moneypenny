@@ -32,6 +32,7 @@ interface AppState {
   // Models
   models: Model[];
   defaultModel: string;
+  pendingModel: string | null; // Model selected when no conversation exists
 
   // UI State
   isLoading: boolean;
@@ -70,6 +71,7 @@ interface AppState {
 
   // Actions - Models
   setModels: (models: Model[], defaultModel: string) => void;
+  setPendingModel: (model: string | null) => void;
 
   // Actions - UI
   setLoading: (loading: boolean) => void;
@@ -128,6 +130,7 @@ export const useStore = create<AppState>()(
       currentConversation: null,
       models: [],
       defaultModel: 'gemini-3-flash-preview',
+      pendingModel: null,
       isLoading: false,
       isSidebarOpen: false,
       streamingEnabled: true,
@@ -181,6 +184,7 @@ export const useStore = create<AppState>()(
 
       // Model actions
       setModels: (models, defaultModel) => set({ models, defaultModel }),
+      setPendingModel: (pendingModel) => set({ pendingModel }),
 
       // UI actions
       setLoading: (isLoading) => set({ isLoading }),

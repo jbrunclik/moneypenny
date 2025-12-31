@@ -53,6 +53,9 @@
 
     --color-info-500: #3b82f6;      /* Info blue */
     --color-user-500: #2563eb;      /* User message bg (blue-600) */
+    --color-user-text: #ffffff;     /* User message text */
+    --color-user-text-secondary: rgba(255, 255, 255, 0.85); /* User message secondary text */
+    --color-user-overlay: rgba(255, 255, 255, 0.2); /* User message overlay bg */
 
     /* ----------------------------------------
        Semantic Aliases (for easier use)

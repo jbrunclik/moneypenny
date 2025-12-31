@@ -275,6 +275,202 @@ test.describe('Chat - Model Selection', () => {
     // Model should still be the one we selected for this conversation
     expect(await page.locator('#current-model-name').textContent()).toBe(targetModelName);
   });
+
+  test('model selection persists after sending first message in streaming mode', async ({ page }) => {
+    const modelSelectorBtn = page.locator('#model-selector-btn');
+    const modelDropdown = page.locator('#model-dropdown');
+
+    // Enable streaming
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+
+    // Open dropdown and select a non-default model
+    await modelSelectorBtn.click();
+    await expect(modelDropdown).not.toHaveClass(/hidden/);
+
+    // Get all model options and find one that's not selected
+    const modelOptions = modelDropdown.locator('.model-option');
+    let targetOption = null;
+    let targetModelName = null;
+    const optionCount = await modelOptions.count();
+    for (let i = 0; i < optionCount; i++) {
+      const option = modelOptions.nth(i);
+      const isSelected = await option.evaluate((el) => el.classList.contains('selected'));
+      if (!isSelected) {
+        targetOption = option;
+        targetModelName = await option.locator('.model-name').textContent();
+        break;
+      }
+    }
+
+    expect(targetOption).not.toBeNull();
+    await targetOption!.click();
+
+    // Verify model is selected
+    const selectedModelName = await page.locator('#current-model-name').textContent();
+    expect(selectedModelName).toBe(targetModelName);
+
+    // Send first message (this persists the conversation)
+    await page.fill('#message-input', 'First message with selected model (streaming)');
+    await page.click('#send-btn');
+
+    // Wait for streaming to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // Model should still be the one we selected
+    expect(await page.locator('#current-model-name').textContent()).toBe(targetModelName);
+  });
+
+  /**
+   * REGRESSION TEST: Model selection before any conversation exists (initial state)
+   *
+   * This test catches a bug where selecting a model on initial page load
+   * (before clicking New Chat or having any conversation) would:
+   * 1. Update the button text correctly (showing new model name)
+   * 2. BUT the selection would be lost because there was no conversation to update
+   *
+   * The issue was that selectModel() only updated the conversation model, but when
+   * currentConversation was null (initial state), nothing was stored.
+   *
+   * The fix adds pendingModel state in the store that tracks the selected model
+   * when no conversation exists. This pendingModel is then used when creating
+   * a new conversation (either via New Chat or on first message send).
+   */
+  test('model selection persists on initial state (no conversation)', async ({ page }) => {
+    // Navigate to page without clicking New Chat - tests initial state
+    // The beforeEach already clicks New Chat, so we need a fresh page
+    await page.goto('/');
+    await page.waitForSelector('#model-selector-btn');
+
+    // At this point, there should be NO current conversation
+    // (user hasn't clicked New Chat yet)
+
+    const modelSelectorBtn = page.locator('#model-selector-btn');
+    const modelDropdown = page.locator('#model-dropdown');
+
+    // Get initial model name (should be the default)
+    const initialModelName = await page.locator('#current-model-name').textContent();
+
+    // Open dropdown
+    await modelSelectorBtn.click();
+    await expect(modelDropdown).not.toHaveClass(/hidden/);
+
+    // Find a model that is NOT currently selected
+    const modelOptions = modelDropdown.locator('.model-option');
+    let differentModelOption = null;
+    let differentModelName = null;
+    let differentModelId = null;
+    const optionCount = await modelOptions.count();
+    for (let i = 0; i < optionCount; i++) {
+      const option = modelOptions.nth(i);
+      const isSelected = await option.evaluate((el) => el.classList.contains('selected'));
+      if (!isSelected) {
+        differentModelOption = option;
+        differentModelName = await option.locator('.model-name').textContent();
+        differentModelId = await option.getAttribute('data-model-id');
+        break;
+      }
+    }
+
+    expect(differentModelOption).not.toBeNull();
+    expect(differentModelName).not.toBe(initialModelName);
+
+    // Select the different model
+    await differentModelOption!.click();
+    await expect(modelDropdown).toHaveClass(/hidden/);
+
+    // Model name should be updated in the button
+    const newModelName = await page.locator('#current-model-name').textContent();
+    expect(newModelName).toBe(differentModelName);
+
+    // Re-open dropdown to verify checkmark is correct
+    await modelSelectorBtn.click();
+    await expect(modelDropdown).not.toHaveClass(/hidden/);
+
+    // The selected model should have the checkmark
+    const selectedOption = modelDropdown.locator(`[data-model-id="${differentModelId}"]`);
+    await expect(selectedOption).toHaveClass(/selected/);
+
+    // Only one model should be selected
+    const selectedOptions = modelDropdown.locator('.model-option.selected');
+    await expect(selectedOptions).toHaveCount(1);
+
+    // Close dropdown
+    await modelSelectorBtn.click();
+
+    // Now click New Chat - the selected model should be preserved
+    await page.click('#new-chat-btn');
+
+    // Wait for conversation to be created
+    await page.waitForTimeout(100);
+
+    // Model should still be the one we selected
+    expect(await page.locator('#current-model-name').textContent()).toBe(differentModelName);
+
+    // Re-open dropdown to verify checkmark is still correct
+    await modelSelectorBtn.click();
+    await expect(modelDropdown).not.toHaveClass(/hidden/);
+    await expect(selectedOption).toHaveClass(/selected/);
+  });
+
+  /**
+   * REGRESSION TEST: Dropdown checkmark position after model selection
+   *
+   * This test catches a bug where selecting a model on a new conversation would:
+   * 1. Update the button text correctly (showing new model name)
+   * 2. BUT leave the dropdown checkmark on the old model
+   *
+   * The issue was that selectModel() only called updateCurrentModelDisplay() but
+   * didn't re-render the dropdown, so when opened again the checkmark was stale.
+   *
+   * The fix ensures the dropdown is re-rendered when opened (not when model is selected)
+   * to always show fresh data from the store.
+   */
+  test('dropdown checkmark shows correct model after selection', async ({ page }) => {
+    const modelSelectorBtn = page.locator('#model-selector-btn');
+    const modelDropdown = page.locator('#model-dropdown');
+
+    // Open dropdown and find a non-default model
+    await modelSelectorBtn.click();
+    await expect(modelDropdown).not.toHaveClass(/hidden/);
+
+    // Get all model options and find one that's not selected
+    const modelOptions = modelDropdown.locator('.model-option');
+    let targetOption = null;
+    let targetModelId = null;
+    const optionCount = await modelOptions.count();
+    for (let i = 0; i < optionCount; i++) {
+      const option = modelOptions.nth(i);
+      const isSelected = await option.evaluate((el) => el.classList.contains('selected'));
+      if (!isSelected) {
+        targetOption = option;
+        targetModelId = await option.getAttribute('data-model-id');
+        break;
+      }
+    }
+
+    expect(targetOption).not.toBeNull();
+
+    // Select the model (dropdown closes)
+    await targetOption!.click();
+    await expect(modelDropdown).toHaveClass(/hidden/);
+
+    // Re-open dropdown - the checkmark should now be on the newly selected model
+    await modelSelectorBtn.click();
+    await expect(modelDropdown).not.toHaveClass(/hidden/);
+
+    // Verify the selected model has the checkmark (selected class)
+    const selectedOption = modelDropdown.locator(`[data-model-id="${targetModelId}"]`);
+    await expect(selectedOption).toHaveClass(/selected/);
+
+    // Verify only one option has the selected class
+    const selectedOptions = modelDropdown.locator('.model-option.selected');
+    await expect(selectedOptions).toHaveCount(1);
+  });
 });
 
 test.describe('Chat - Thinking Indicator', () => {
@@ -315,17 +511,18 @@ test.describe('Chat - Thinking Indicator', () => {
     await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
 
     // After streaming completes, the indicator should be finalized (collapsed)
-    // Check for the finalized class or toggle button
-    const thinkingIndicator = assistantMessage.locator('.thinking-indicator.finalized');
-    const thinkingToggle = assistantMessage.locator('.thinking-toggle');
+    // or removed entirely if there was no thinking/tool content
+    const thinkingIndicator = assistantMessage.locator('.thinking-indicator');
+    const indicatorCount = await thinkingIndicator.count();
 
-    // Either the indicator is finalized (has toggle) or it was removed (no thinking content)
-    const finalizedCount = await thinkingIndicator.count();
-    const toggleCount = await thinkingToggle.count();
-
-    // The indicator should either be collapsed with a toggle, or removed entirely
-    // (removed if no thinking/tool content to show)
-    expect(finalizedCount + toggleCount).toBeLessThanOrEqual(1);
+    if (indicatorCount > 0) {
+      // If indicator exists, it should be finalized (collapsed with toggle)
+      await expect(thinkingIndicator).toHaveClass(/finalized/);
+      // And should have a toggle button
+      const thinkingToggle = thinkingIndicator.locator('.thinking-toggle');
+      await expect(thinkingToggle).toBeVisible();
+    }
+    // If indicatorCount is 0, that's also valid (removed because no content)
   });
 
   test('tool indicator shows when force tools are used', async ({ page }) => {

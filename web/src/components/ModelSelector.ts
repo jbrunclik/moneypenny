@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { conversations as conversationsApi } from '../api/client';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
+import { CHECK_ICON } from '../utils/icons';
 
 const log = createLogger('model-selector');
 
@@ -44,11 +45,19 @@ export function initModelSelector(): void {
 }
 
 /**
- * Toggle model dropdown visibility
+ * Toggle model dropdown visibility.
+ * Re-renders dropdown content when opening to ensure checkmark reflects current model.
  */
 function toggleModelDropdown(): void {
   const dropdown = getElementById<HTMLDivElement>('model-dropdown');
-  dropdown?.classList.toggle('hidden');
+  if (!dropdown) return;
+
+  const isHidden = dropdown.classList.contains('hidden');
+  if (isHidden) {
+    // Re-render dropdown content before showing to ensure checkmark is correct
+    renderModelDropdown();
+  }
+  dropdown.classList.toggle('hidden');
 }
 
 /**
@@ -78,35 +87,39 @@ async function selectModel(modelId: string): Promise<void> {
   if (!model) return;
 
   // Get previous model for rollback
-  const previousModelId = currentConversation?.model || store.defaultModel;
+  const previousModelId = currentConversation?.model || store.pendingModel || store.defaultModel;
   const previousModel = models.find((m) => m.id === previousModelId);
 
   // Update UI immediately (optimistic update)
   updateCurrentModelDisplay(model.name);
   closeModelDropdown();
 
-  // Update conversation on server if one is selected
-  if (currentConversation) {
-    // For temp conversations (not yet persisted), just update locally
-    // The model will be used when the conversation is created on first message
-    if (isTempConversation(currentConversation.id)) {
-      store.updateConversation(currentConversation.id, { model: modelId });
-      log.debug('Updated model for temp conversation', { modelId, conversationId: currentConversation.id });
-      return;
-    }
+  // If no conversation exists, store as pending model
+  if (!currentConversation) {
+    store.setPendingModel(modelId);
+    log.debug('Set pending model (no conversation)', { modelId });
+    return;
+  }
 
-    // For persisted conversations, update on server
-    try {
-      await conversationsApi.update(currentConversation.id, { model: modelId });
-      store.updateConversation(currentConversation.id, { model: modelId });
-    } catch (error) {
-      log.error('Failed to update model', { error, modelId, conversationId: currentConversation.id });
-      // Revert optimistic update on failure
-      if (previousModel) {
-        updateCurrentModelDisplay(previousModel.name);
-      }
-      toast.error('Failed to change model. Please try again.');
+  // For temp conversations (not yet persisted), just update locally
+  // The model will be used when the conversation is created on first message
+  if (isTempConversation(currentConversation.id)) {
+    store.updateConversation(currentConversation.id, { model: modelId });
+    log.debug('Updated model for temp conversation', { modelId, conversationId: currentConversation.id });
+    return;
+  }
+
+  // For persisted conversations, update on server
+  try {
+    await conversationsApi.update(currentConversation.id, { model: modelId });
+    store.updateConversation(currentConversation.id, { model: modelId });
+  } catch (error) {
+    log.error('Failed to update model', { error, modelId, conversationId: currentConversation.id });
+    // Revert optimistic update on failure
+    if (previousModel) {
+      updateCurrentModelDisplay(previousModel.name);
     }
+    toast.error('Failed to change model. Please try again.');
   }
 }
 
@@ -127,8 +140,9 @@ export function renderModelDropdown(): void {
   const dropdown = getElementById<HTMLDivElement>('model-dropdown');
   if (!dropdown) return;
 
-  const { models, currentConversation, defaultModel } = useStore.getState();
-  const currentModelId = currentConversation?.model || defaultModel;
+  const { models, currentConversation, pendingModel, defaultModel } = useStore.getState();
+  // Priority: conversation model > pending model > default model
+  const currentModelId = currentConversation?.model || pendingModel || defaultModel;
 
   dropdown.innerHTML = models
     .map(
@@ -136,7 +150,7 @@ export function renderModelDropdown(): void {
       <div class="model-option ${model.id === currentModelId ? 'selected' : ''}"
            data-model-id="${model.id}">
         <span class="model-name">${escapeHtml(model.name)}</span>
-        ${model.id === currentModelId ? '<span class="model-check">✓</span>' : ''}
+        ${model.id === currentModelId ? `<span class="model-check">${CHECK_ICON}</span>` : ''}
       </div>
     `
     )

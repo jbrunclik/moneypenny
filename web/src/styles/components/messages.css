@@ -348,8 +348,26 @@
 }
 
 .message.user .message-document {
-    background-color: rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.9);
+    background-color: var(--color-user-overlay);
+    color: var(--color-user-text);
+}
+
+.message.user .message-document .document-name,
+.message.user .message-document a.document-name {
+    color: var(--color-user-text);
+}
+
+.message.user .message-document a.document-name:hover {
+    color: var(--color-user-text);
+    text-decoration: underline;
+}
+
+.message.user .message-document .document-download {
+    color: var(--color-user-text-secondary);
+}
+
+.message.user .message-document .document-download:hover {
+    color: var(--color-user-text);
 }
 
 .document-icon {
@@ -382,7 +400,6 @@ a.document-name {
 
 a.document-name:hover {
     text-decoration: underline;
-    color: var(--accent);
 }
 
 .document-download {
