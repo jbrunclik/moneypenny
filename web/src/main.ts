@@ -694,7 +694,6 @@ async function sendStreamingMessage(
 ): Promise<void> {
   const messageEl = addStreamingMessage();
   let fullContent = '';
-  let errorHandledViaEvent = false;
   const requestId = `stream-${convId}-${Date.now()}`;
 
   // Track this request
@@ -783,66 +782,40 @@ async function sendStreamingMessage(
         } else {
           messageEl.remove();
         }
-        // Show error toast with retry option
+        // Convert error event to ApiError and throw - outer sendMessage catch handles draft/toast
         const errorEvent = event as { message?: string; code?: string; retryable?: boolean };
-        if (errorEvent.code === 'TIMEOUT') {
-          toast.error('Request timed out. Your message has been saved.', {
-            action: { label: 'Retry', onClick: () => retryFromDraft() },
-          });
-        } else if (errorEvent.retryable) {
-          toast.error(errorEvent.message || 'Failed to generate response.', {
-            action: { label: 'Retry', onClick: () => retryFromDraft() },
-          });
-        } else {
-          toast.error(errorEvent.message || 'Failed to generate response.');
-        }
-        // Mark that error was handled via event (don't re-show toast in catch block)
-        errorHandledViaEvent = true;
+        const streamError = new ApiError(
+          errorEvent.message || 'Failed to generate response.',
+          errorEvent.code === 'TIMEOUT' ? 408 : 500,
+          {
+            code: errorEvent.code,
+            retryable: errorEvent.retryable ?? false,
+            isTimeout: errorEvent.code === 'TIMEOUT',
+          }
+        );
+        throw streamError;
       }
     }
   } catch (error) {
     log.error('Streaming failed', { error, conversationId: convId });
 
-    // Check if conversation is still current before showing errors
+    // Check if conversation is still current before cleaning up UI
     const store = useStore.getState();
     const isCurrentConversation = store.currentConversation?.id === convId;
 
-    if (isCurrentConversation) {
-      // Keep partial content if any was received
-      if (fullContent.trim()) {
-        messageEl.classList.add('message-incomplete');
-      } else {
-        messageEl.remove();
-      }
-
-      // Handle errors that weren't already handled via event
-      // This is a fallback for errors that occur before streaming starts
-      if (!errorHandledViaEvent) {
-        if (error instanceof ApiError) {
-          if (error.isTimeout) {
-            toast.error('Request timed out. Your message has been saved.', {
-              action: { label: 'Retry', onClick: () => retryFromDraft() },
-            });
-          } else if (error.retryable) {
-            toast.error(error.message || 'Failed to generate response.', {
-              action: { label: 'Retry', onClick: () => retryFromDraft() },
-            });
-          } else {
-            toast.error(error.message || 'Failed to generate response.');
-          }
-        } else {
-          // Re-throw non-ApiErrors to be handled by outer sendMessage catch
-          throw error;
-        }
-      }
+    // Keep partial content if any was received, otherwise remove the message element
+    if (fullContent.trim()) {
+      messageEl.classList.add('message-incomplete');
     } else {
-      // User switched conversations - silently handle error, message will be in DB
-      if (fullContent.trim()) {
-        messageEl.classList.add('message-incomplete');
-      } else {
-        messageEl.remove();
-      }
+      messageEl.remove();
     }
+
+    // Re-throw error if this is still the current conversation
+    // Outer sendMessage catch handles draft saving and toast display
+    if (isCurrentConversation) {
+      throw error;
+    }
+    // If user switched conversations, silently swallow the error
   } finally {
     // Clean up request tracking and streaming context
     activeRequests.delete(requestId);

@@ -1461,6 +1461,39 @@ try {
 - ⚠️ Conditionally safe: PATCH, DELETE (idempotent operations)
 - ❌ NOT safe to retry: POST (creates resources, could duplicate)
 
+#### Draft-Based Message Recovery
+
+When a chat message fails to send (network error, timeout, server error), the user's message and any attached files are preserved in a draft so they can retry:
+
+**How it works:**
+1. **Error occurs**: When `sendMessage()` fails (either batch or streaming mode), the catch block saves the message and files to draft state
+2. **Draft saved**: `store.setDraft(message, files)` persists to Zustand store, which syncs to localStorage
+3. **Toast with retry**: User sees error toast with "Retry" button
+4. **Retry clicked**: `retryFromDraft()` restores message to input field, clears draft, and re-sends
+5. **Success**: Draft is automatically cleared when message sends successfully
+
+**Consistency between modes:**
+- Both batch and streaming modes use the same error handling path in `sendMessage()` catch block
+- Streaming errors (from SSE `error` events) are converted to `ApiError` and re-thrown
+- This ensures draft saving and toast display work identically regardless of streaming mode
+
+**Draft state in store:**
+```typescript
+// store.ts
+draftMessage: string | null;
+draftFiles: FileAttachment[];
+setDraft: (message: string | null, files: FileAttachment[]) => void;
+```
+
+**Key functions in main.ts:**
+- `sendMessage()` - Outer catch block saves draft and shows toast
+- `sendStreamingMessage()` - Converts error events to ApiError, re-throws
+- `sendBatchMessage()` - Re-throws errors to outer catch
+- `retryFromDraft()` - Restores draft to input and re-sends
+
+**Testing:**
+E2E tests for retry functionality are in [chat.spec.ts](web/tests/e2e/chat.spec.ts) under "Chat - Message Retry" describe block.
+
 ### Error Handling Guidelines
 
 **Backend:**
