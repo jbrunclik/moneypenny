@@ -195,7 +195,7 @@ async function init(): Promise<void> {
   // Initialize components
   initToast();
   initModal();
-  initMessageInput(sendMessage);
+  initMessageInput(sendMessage, handleStopStreaming);
   initModelSelector();
   initFileUpload();
   initVoiceInput();
@@ -723,6 +723,36 @@ interface ActiveRequest {
 
 const activeRequests = new Map<string, ActiveRequest>();
 
+/**
+ * Abort a streaming request for a conversation.
+ * Called when user clicks the stop button.
+ * Returns true if a request was found and aborted.
+ */
+export function abortStreamingRequest(convId: string): boolean {
+  for (const [requestId, request] of activeRequests.entries()) {
+    if (request.conversationId === convId && request.type === 'stream' && request.abortController) {
+      log.info('Aborting streaming request', { conversationId: convId, requestId });
+      request.abortController.abort();
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Handle stop button click - abort current streaming request.
+ * This is passed to MessageInput as the onStop callback.
+ */
+function handleStopStreaming(): void {
+  const currentConvId = useStore.getState().currentConversation?.id;
+  if (currentConvId) {
+    const aborted = abortStreamingRequest(currentConvId);
+    if (!aborted) {
+      log.warn('No streaming request found to abort', { conversationId: currentConvId });
+    }
+  }
+}
+
 // Send message with streaming response
 async function sendStreamingMessage(
   convId: string,
@@ -733,20 +763,25 @@ async function sendStreamingMessage(
   const messageEl = addStreamingMessage();
   let fullContent = '';
   const requestId = `stream-${convId}-${Date.now()}`;
+  const abortController = new AbortController();
 
-  // Track this request
+  // Track this request with abort controller
   const request: ActiveRequest = {
     conversationId: convId,
     type: 'stream',
+    abortController,
   };
   activeRequests.set(requestId, request);
 
   // Mark conversation as streaming to prevent sync race conditions
   getSyncManager()?.setConversationStreaming(convId, true);
 
+  // Set streaming state in store for UI updates (stop button)
+  useStore.getState().setStreamingConversation(convId);
+
   try {
     // Check if conversation is still current before processing each event
-    for await (const event of chat.stream(convId, message, files, forceTools)) {
+    for await (const event of chat.stream(convId, message, files, forceTools, abortController)) {
       // Check if user switched conversations - if so, silently continue in background
       const store = useStore.getState();
       const isCurrentConversation = store.currentConversation?.id === convId;
@@ -838,6 +873,19 @@ async function sendStreamingMessage(
       }
     }
   } catch (error) {
+    // Check if this was a user-initiated abort
+    if (error instanceof Error && error.name === 'AbortError') {
+      log.info('Stream aborted by user', { conversationId: convId });
+      // User actively stopped - remove the streaming assistant message from UI
+      messageEl.remove();
+      // Show a toast so user knows the action was successful
+      toast.info('Response stopped.');
+      // Note: Partial messages may remain in the backend database.
+      // A future message delete button can be used to clean them up if needed.
+      // Don't re-throw - this is intentional user action, not an error
+      return;
+    }
+
     log.error('Streaming failed', { error, conversationId: convId });
 
     // Check if conversation is still current before cleaning up UI
@@ -864,6 +912,9 @@ async function sendStreamingMessage(
 
     // Clear streaming flag so sync can update this conversation again
     getSyncManager()?.setConversationStreaming(convId, false);
+
+    // Clear streaming state in store (for stop button UI)
+    useStore.getState().setStreamingConversation(null);
   }
 }
 

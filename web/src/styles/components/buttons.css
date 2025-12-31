@@ -151,6 +151,37 @@
 }
 
 /* ----------------------------------------
+   Stop Button (for aborting streaming)
+   ---------------------------------------- */
+
+.btn-stop {
+    background-color: var(--error);
+    color: white;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+    border: none;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.btn-stop svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+}
+
+.btn-stop:hover {
+    background-color: var(--error-hover);
+}
+
+/* ----------------------------------------
    Logout Button
    ---------------------------------------- */
 

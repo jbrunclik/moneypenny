@@ -390,14 +390,18 @@ export const chat = {
     conversationId: string,
     message: string,
     files?: FileUpload[],
-    forceTools?: string[]
+    forceTools?: string[],
+    abortController?: AbortController
   ): AsyncGenerator<StreamEvent> {
     log.debug('Starting stream', { conversationId, messageLength: message.length, fileCount: files?.length ?? 0 });
     const token = getToken();
 
-    // Add timeout to initial fetch request
-    const controller = new AbortController();
-    const fetchTimeoutId = setTimeout(() => controller.abort(), API_CHAT_TIMEOUT_MS);
+    // Use provided controller or create new one for timeout
+    const controller = abortController || new AbortController();
+    // Only set timeout if using internal controller (not user-provided)
+    const fetchTimeoutId = abortController
+      ? null
+      : setTimeout(() => controller.abort(), API_CHAT_TIMEOUT_MS);
 
     let response: Response;
     try {
@@ -417,10 +421,15 @@ export const chat = {
           signal: controller.signal,
         }
       );
-      clearTimeout(fetchTimeoutId);
+      if (fetchTimeoutId) clearTimeout(fetchTimeoutId);
     } catch (error) {
-      clearTimeout(fetchTimeoutId);
+      if (fetchTimeoutId) clearTimeout(fetchTimeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
+        // If user provided controller, this is a user-initiated abort - re-throw as AbortError
+        if (abortController) {
+          throw error;
+        }
+        // Otherwise it's a timeout
         throw new ApiError(
           'Request timed out before streaming started.',
           0,
@@ -514,6 +523,11 @@ export const chat = {
         if (done) break;
       }
     } catch (error) {
+      // Handle user-initiated abort - re-throw so caller can handle cleanup
+      if (error instanceof Error && error.name === 'AbortError') {
+        log.debug('Stream aborted by user', { conversationId });
+        throw error;
+      }
       // Yield an error event for all ApiErrors for consistency with SSE error handling
       if (error instanceof ApiError) {
         yield {

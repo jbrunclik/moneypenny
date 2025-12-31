@@ -1,5 +1,5 @@
 import { escapeHtml, getElementById, autoResizeTextarea, clearElement } from '../utils/dom';
-import { getFileIcon, CLOSE_ICON } from '../utils/icons';
+import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
 import { MOBILE_BREAKPOINT_PX } from '../config';
@@ -7,6 +7,9 @@ import { addFilesToPending } from './FileUpload';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('message-input');
+
+// Track whether we're in stop mode (for click handler)
+let isStopMode = false;
 
 /**
  * Check if running in iOS PWA mode (standalone)
@@ -28,14 +31,22 @@ export function isMobileViewport(): boolean {
   return window.innerWidth <= MOBILE_BREAKPOINT_PX;
 }
 
+// Store the stop callback for use in click handler
+let stopCallback: (() => void) | null = null;
+
 /**
  * Initialize message input handlers
+ * @param onSend - Callback when send button is clicked (in send mode)
+ * @param onStop - Callback when stop button is clicked (in stop mode)
  */
-export function initMessageInput(onSend: () => void): void {
+export function initMessageInput(onSend: () => void, onStop?: () => void): void {
   const input = getElementById<HTMLTextAreaElement>('message-input');
   const sendBtn = getElementById<HTMLButtonElement>('send-btn');
 
   if (!input || !sendBtn) return;
+
+  // Store stop callback for use in click handler
+  stopCallback = onStop || null;
 
   // Auto-resize on input
   input.addEventListener('input', () => {
@@ -49,12 +60,39 @@ export function initMessageInput(onSend: () => void): void {
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !isMobileViewport()) {
       e.preventDefault();
+      // Only send if not in stop mode
+      if (!isStopMode) {
+        onSend();
+      }
+    }
+  });
+
+  // Send/Stop button click - behavior depends on current mode
+  sendBtn.addEventListener('click', () => {
+    if (isStopMode && stopCallback) {
+      stopCallback();
+    } else {
       onSend();
     }
   });
 
-  // Send button click
-  sendBtn.addEventListener('click', onSend);
+  // Subscribe to streaming state changes to update button appearance
+  // fireImmediately ensures we get the current state on subscription
+  useStore.subscribe(
+    (state) => ({
+      streamingConvId: state.streamingConversationId,
+      currentConvId: state.currentConversation?.id,
+    }),
+    ({ streamingConvId, currentConvId }) => {
+      // Show stop button only when streaming the current conversation
+      const shouldShowStop = streamingConvId !== null && streamingConvId === currentConvId;
+      updateSendButtonMode(shouldShowStop);
+    },
+    {
+      equalityFn: (a, b) => a.streamingConvId === b.streamingConvId && a.currentConvId === b.currentConvId,
+      fireImmediately: true,
+    }
+  );
 
   // Clipboard paste handler for images
   input.addEventListener('paste', handlePaste);
@@ -119,9 +157,12 @@ export function focusMessageInput(): void {
 }
 
 /**
- * Update send button enabled state
+ * Update send button enabled state (only applies in send mode, not stop mode)
  */
 export function updateSendButtonState(): void {
+  // Don't update enabled state while in stop mode - stop button is always enabled
+  if (isStopMode) return;
+
   const input = getElementById<HTMLTextAreaElement>('message-input');
   const sendBtn = getElementById<HTMLButtonElement>('send-btn');
   const { pendingFiles, isLoading } = useStore.getState();
@@ -132,6 +173,35 @@ export function updateSendButtonState(): void {
   const hasFiles = pendingFiles.length > 0;
 
   sendBtn.disabled = isLoading || (!hasContent && !hasFiles);
+}
+
+/**
+ * Update send button to show send or stop icon based on streaming state
+ */
+function updateSendButtonMode(showStop: boolean): void {
+  const sendBtn = getElementById<HTMLButtonElement>('send-btn');
+  if (!sendBtn) return;
+
+  isStopMode = showStop;
+
+  if (showStop) {
+    // Switch to stop mode
+    sendBtn.innerHTML = STOP_ICON;
+    sendBtn.classList.add('btn-stop');
+    sendBtn.classList.remove('btn-send');
+    sendBtn.title = 'Stop generating';
+    sendBtn.disabled = false; // Stop button is always enabled
+    log.debug('Send button switched to stop mode');
+  } else {
+    // Switch back to send mode
+    sendBtn.innerHTML = SEND_ICON;
+    sendBtn.classList.remove('btn-stop');
+    sendBtn.classList.add('btn-send');
+    sendBtn.title = 'Send message';
+    // Re-check enabled state based on input content
+    updateSendButtonState();
+    log.debug('Send button switched to send mode');
+  }
 }
 
 /**

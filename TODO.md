@@ -22,7 +22,8 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Show message timestamps** - Display message timestamps on hover (locale-aware formatting)
 - [x] **Scroll to bottom button** - Floating button to jump to latest messages when scrolled up
 - [x] **Version update banner** - Show banner to user when new version is available, prompting to reload the page
-- [ ] **Stop button for streaming** - Transform send button into stop button during streaming to allow interrupting responses
+- [x] **Stop button for streaming** - Transform send button into stop button during streaming to allow interrupting responses. Button changes to red square icon, clicking aborts the stream and removes the streaming message from UI. Note: Partial messages may remain in backend database (see message delete button TODO)
+- [ ] **Message delete button** - Add delete button to message actions (three-dot menu) to allow users to delete individual messages. Useful for cleaning up partial messages from aborted streams or removing unwanted messages
 - [ ] **Thinking mode toggle** - Allow enabling Gemini thinking mode with configurable level (minimal/low/medium/high) using long-press UI similar to voice input language selector
 - [x] **Show search sources** - Display internet sources used by web_search tool in a popup accessible via message actions button
 

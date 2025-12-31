@@ -549,6 +549,44 @@ with SandboxSession(lang='python') as s:
 "
 ```
 
+## Stop Streaming
+
+Users can abort an ongoing streaming response by clicking the stop button.
+
+### How it works
+
+1. **Button transformation**: When streaming starts for the current conversation, the send button transforms to a stop button (red square icon with `.btn-stop` class)
+2. **State tracking**: `streamingConversationId` in Zustand store tracks which conversation is streaming
+3. **Abort mechanism**: Clicking stop calls `abortController.abort()` on the streaming fetch request
+4. **Stream cancellation**: The API client catches `AbortError` and re-throws it so the caller can handle cleanup
+5. **UI cleanup**: The streaming assistant message element is removed from the DOM immediately
+6. **User feedback**: A toast notification confirms "Response stopped."
+
+**Note on partial messages**: When the user aborts, the backend cleanup thread may still save a partial message to the database. These partial messages are intentionally NOT deleted automatically - users can clean them up later using the message delete button (see TODO.md for planned feature). This simpler approach avoids complex timing issues with backend cleanup threads and race conditions.
+
+### Key files
+
+- [store.ts](web/src/state/store.ts) - `streamingConversationId` state and `setStreamingConversation()` action
+- [client.ts](web/src/api/client.ts) - `stream()` method accepts optional `AbortController`, re-throws `AbortError` for caller handling
+- [MessageInput.ts](web/src/components/MessageInput.ts) - Button transformation logic, subscribes to streaming state with `fireImmediately: true`
+- [main.ts](web/src/main.ts) - `abortStreamingRequest()`, `handleStopStreaming()`, abort handling in `sendStreamingMessage()`
+- [buttons.css](web/src/styles/components/buttons.css) - `.btn-stop` styles (red background)
+- [icons.ts](web/src/utils/icons.ts) - `STOP_ICON` SVG constant (square icon)
+
+### Race conditions handled
+
+| Condition | Handling |
+|-----------|----------|
+| Stop clicked while done event processing | Done event clears streaming state; stop button disappears before click possible |
+| User switches conversations during streaming | Stop button only shows for current streaming conversation |
+| Rapid stop/send clicks | Button state controlled by store subscription; mode check in click handler |
+| Stream naturally completes | `setStreamingConversation(null)` in finally block reverts button |
+| Multiple conversations streaming in background | Only `streamingConversationId === currentConversation.id` shows stop button |
+
+### Testing
+
+- E2E tests: "Chat - Stop Streaming" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
+
 ## Thinking Indicator
 
 During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.

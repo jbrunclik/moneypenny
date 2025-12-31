@@ -195,6 +195,13 @@ export const SYNC_POLL_INTERVAL_MS = 1 * MS_PER_MINUTE;
 export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;
 
 // =============================================================================
+// Streaming Abort Cleanup
+// =============================================================================
+
+/** Delay before attempting to delete partial message after aborting stream (1.5 seconds) */
+export const STREAMING_ABORT_CLEANUP_DELAY_MS = 1.5 * MS_PER_SECOND;
+
+// =============================================================================
 // Voice Input
 // =============================================================================
 

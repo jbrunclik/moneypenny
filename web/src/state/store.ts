@@ -39,6 +39,7 @@ interface AppState {
   isSidebarOpen: boolean;
   streamingEnabled: boolean;
   forceTools: string[];
+  streamingConversationId: string | null; // Which conversation is currently streaming
 
   // File upload
   pendingFiles: FileUpload[];
@@ -78,6 +79,7 @@ interface AppState {
   toggleSidebar: () => void;
   closeSidebar: () => void;
   setStreamingEnabled: (enabled: boolean) => void;
+  setStreamingConversation: (convId: string | null) => void;
   toggleForceTool: (tool: string) => void;
   clearForceTools: () => void;
 
@@ -135,6 +137,7 @@ export const useStore = create<AppState>()(
       isSidebarOpen: false,
       streamingEnabled: true,
       forceTools: [],
+      streamingConversationId: null,
       pendingFiles: [],
       uploadConfig: DEFAULT_UPLOAD_CONFIG,
       appVersion: null,
@@ -192,6 +195,7 @@ export const useStore = create<AppState>()(
         set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       closeSidebar: () => set({ isSidebarOpen: false }),
       setStreamingEnabled: (streamingEnabled) => set({ streamingEnabled }),
+      setStreamingConversation: (streamingConversationId) => set({ streamingConversationId }),
       toggleForceTool: (tool) =>
         set((state) => ({
           forceTools: state.forceTools.includes(tool)

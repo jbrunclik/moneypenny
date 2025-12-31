@@ -1162,6 +1162,180 @@ test.describe('Chat - Message Retry', () => {
   });
 });
 
+test.describe('Chat - Stop Streaming', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Enable streaming for stop tests
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test('send button shows send icon initially', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
+
+    // Should have send icon (btn-send class) initially
+    await expect(sendBtn).toHaveClass(/btn-send/);
+    await expect(sendBtn).not.toHaveClass(/btn-stop/);
+
+    // Should have correct title
+    await expect(sendBtn).toHaveAttribute('title', 'Send message');
+  });
+
+  test('send button transforms to stop button during streaming', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
+
+    // Type a message
+    await page.fill('#message-input', 'Tell me a very long story');
+
+    // Click send
+    await page.click('#send-btn');
+
+    // Wait for streaming to start (assistant message appears)
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Send button should transform to stop button during streaming
+    await expect(sendBtn).toHaveClass(/btn-stop/, { timeout: 2000 });
+    await expect(sendBtn).not.toHaveClass(/btn-send/);
+    await expect(sendBtn).toHaveAttribute('title', 'Stop generating');
+
+    // Wait for streaming to complete naturally
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // After streaming, should revert to send button
+    await expect(sendBtn).toHaveClass(/btn-send/);
+    await expect(sendBtn).not.toHaveClass(/btn-stop/);
+    await expect(sendBtn).toHaveAttribute('title', 'Send message');
+  });
+
+  test('clicking stop button aborts stream and shows toast', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
+
+    // Type a message
+    await page.fill('#message-input', 'Tell me a very long story please');
+
+    // Click send
+    await page.click('#send-btn');
+
+    // Wait for streaming to start (assistant message appears)
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Wait for stop button to appear
+    await expect(sendBtn).toHaveClass(/btn-stop/, { timeout: 2000 });
+
+    // Click the stop button
+    await sendBtn.click();
+
+    // Toast should appear confirming the action
+    const toast = page.locator('.toast-info');
+    await expect(toast).toBeVisible({ timeout: 3000 });
+    await expect(toast).toContainText('Response stopped');
+
+    // The streaming assistant message should be removed from UI
+    // Wait a moment for cleanup
+    await page.waitForTimeout(500);
+
+    // After abort, only user message should remain (assistant message removed)
+    // Note: The user message still exists
+    const userMessage = page.locator('.message.user');
+    await expect(userMessage).toBeVisible();
+
+    // Assistant message should be removed (or the count should be 0)
+    const assistantMessages = page.locator('.message.assistant');
+    await expect(assistantMessages).toHaveCount(0);
+
+    // Send button should revert to send mode
+    await expect(sendBtn).toHaveClass(/btn-send/);
+    await expect(sendBtn).not.toHaveClass(/btn-stop/);
+  });
+
+  test('stop button does not appear in batch mode', async ({ page }) => {
+    // Disable streaming for batch mode
+    const streamBtn = page.locator('#stream-btn');
+    await streamBtn.click();
+    await expect(streamBtn).toHaveAttribute('aria-pressed', 'false');
+
+    const sendBtn = page.locator('#send-btn');
+
+    // Type a message
+    await page.fill('#message-input', 'Hello batch mode');
+
+    // Click send
+    await page.click('#send-btn');
+
+    // Wait for response
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+
+    // Send button should never have transformed to stop button
+    // It should always have btn-send class (or be disabled during loading)
+    // Since batch is fast, we check it hasn't changed
+    await expect(sendBtn).toHaveClass(/btn-send/);
+    await expect(sendBtn).not.toHaveClass(/btn-stop/);
+  });
+
+  test('stop button only appears for current conversation', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
+
+    // Send message in first conversation
+    await page.fill('#message-input', 'First conversation message');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Stop button should appear
+    await expect(sendBtn).toHaveClass(/btn-stop/, { timeout: 2000 });
+
+    // Create a new conversation (switch away while streaming)
+    await page.click('#new-chat-btn');
+
+    // In the new conversation, stop button should NOT appear
+    // because we're not streaming in THIS conversation
+    await expect(sendBtn).toHaveClass(/btn-send/);
+    await expect(sendBtn).not.toHaveClass(/btn-stop/);
+  });
+
+  test('abort handles quick stop during thinking phase', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
+
+    // Type a message that triggers thinking
+    await page.fill('#message-input', 'Let me think about this');
+
+    // Click send
+    await page.click('#send-btn');
+
+    // Wait for assistant message to appear
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Wait for stop button
+    await expect(sendBtn).toHaveClass(/btn-stop/, { timeout: 2000 });
+
+    // Click stop immediately (during early phase)
+    await sendBtn.click();
+
+    // Should show toast
+    const toast = page.locator('.toast-info');
+    await expect(toast).toBeVisible({ timeout: 3000 });
+    await expect(toast).toContainText('Response stopped');
+
+    // Assistant message should be removed
+    await expect(assistantMessage).toHaveCount(0, { timeout: 2000 });
+
+    // Button should revert
+    await expect(sendBtn).toHaveClass(/btn-send/);
+  });
+});
+
 test.describe('Chat - Clipboard Paste', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
