@@ -42,7 +42,7 @@ This file tracks planned features, improvements, and technical debt.
 ## Phase 4 - Advanced Features
 - [ ] Multiple AI providers (Anthropic Claude, OpenAI)
 - [ ] Custom system prompts per conversation
-- [ ] **User memory** - LLM extracts interesting facts about the user (preferences, context, personal details) and injects them into the system prompt. Users can view and delete stored memories via settings UI
+- [x] **User memory** - LLM extracts interesting facts about the user and stores them in database. Memories are categorized (preference, fact, context, goal) and injected into system prompt for personalization. LLM can add/update/delete memories via metadata operations. Users can view memories via brain icon button in sidebar and delete with confirmation dialog. 100 memory limit with LLM-managed consolidation. See `src/agent/chat_agent.py` for `MEMORY_SYSTEM_PROMPT` and `get_user_memories_prompt()`, `web/src/components/MemoriesPopup.ts` for UI.
 - [ ] **System prompt customization** - Allow users to customize LLM behavior (preferred tone, salutation style, response length, language preferences, etc.) via settings panel
 - [ ] Conversation export (JSON, Markdown)
 - [ ] Conversation sharing (public links)

@@ -1141,6 +1141,58 @@ The LLM system prompt can include user context to provide more personalized and 
 - [chat_agent.py](src/agent/chat_agent.py) - `get_user_context()`, `get_system_prompt()` with `user_name` parameter
 - [routes.py](src/api/routes.py) - Passes `user_name` from authenticated user to chat methods
 
+## User Memory
+
+The LLM can learn and remember interesting facts about the user across conversations for personalization.
+
+### Design decisions
+- **Delete only**: Users can view and delete memories, but not edit them (prevents fake memories)
+- **100 memory limit**: With LLM-managed rotation when near limit
+- **LLM deduplication**: LLM sees existing memories and decides to update/consolidate/remove
+- **Categories**: `preference`, `fact`, `context`, `goal`
+
+### How it works
+
+1. **Injection**: Current memories are injected into the system prompt with timestamps and IDs
+2. **Extraction**: LLM includes memory operations in a metadata block at the end of responses
+3. **Processing**: Backend processes operations (add/update/delete) after response completion
+4. **Management**: Users can view/delete memories via brain icon button in sidebar
+
+### Memory operations format
+
+The LLM includes memory operations in the metadata block:
+```json
+{
+  "memory_operations": [
+    {"action": "add", "content": "User prefers dark mode", "category": "preference"},
+    {"action": "update", "id": "mem-123", "content": "User now prefers light mode"},
+    {"action": "delete", "id": "mem-456"}
+  ]
+}
+```
+
+### Key files
+
+**Backend:**
+- [migrations/0009_add_user_memories.py](migrations/0009_add_user_memories.py) - Database migration
+- [models.py](src/db/models.py) - `Memory` dataclass, CRUD methods (`add_memory`, `update_memory`, `delete_memory`, `list_memories`)
+- [chat_agent.py](src/agent/chat_agent.py) - `MEMORY_SYSTEM_PROMPT`, `get_user_memories_prompt()`
+- [utils.py](src/api/utils.py) - `extract_memory_operations()` for parsing metadata
+- [routes.py](src/api/routes.py) - Memory processing in chat endpoints, `GET /api/memories`, `DELETE /api/memories/<id>`
+- [config.py](src/config.py) - `USER_MEMORY_LIMIT` constant (default: 100)
+
+**Frontend:**
+- [MemoriesPopup.ts](web/src/components/MemoriesPopup.ts) - Popup component with category badges, delete confirmation
+- [Sidebar.ts](web/src/components/Sidebar.ts) - Brain icon button trigger
+- [client.ts](web/src/api/client.ts) - `memories.list()`, `memories.delete()` API methods
+- [api.ts](web/src/types/api.ts) - `Memory`, `MemoriesResponse` types
+- [icons.ts](web/src/utils/icons.ts) - `BRAIN_ICON`
+- [popups.css](web/src/styles/components/popups.css) - `.memory-item`, `.memory-category` styles
+
+### Testing
+- Backend integration tests: [test_routes_memories.py](tests/integration/test_routes_memories.py)
+- Visual tests: `popup-memories.png`, `popup-memories-empty.png`, `mobile-popup-memories.png` in [popups.visual.ts](web/tests/visual/popups.visual.ts)
+
 ## Real-time Data Synchronization
 
 The app supports synchronization of conversation state across multiple devices/tabs using timestamp-based polling.

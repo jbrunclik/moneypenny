@@ -224,6 +224,12 @@
     width: 100%;
 }
 
+.user-actions-buttons {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
 .user-profile {
     display: flex;
     align-items: center;

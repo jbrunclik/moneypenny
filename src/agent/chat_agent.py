@@ -61,6 +61,7 @@ from langgraph.prebuilt import ToolNode as BaseToolNode
 
 from src.agent.tools import TOOLS
 from src.config import Config
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -325,6 +326,84 @@ Example with only generated images:
 {"generated_images": [{"prompt": "a majestic mountain sunset, photorealistic, golden hour lighting"}]}
 -->"""
 
+MEMORY_SYSTEM_PROMPT = """
+# User Memory System
+You have access to a memory system that stores facts about the user for personalization.
+
+## Instructions for Managing Memories
+- When you learn interesting facts about the user, add them to memory via the metadata block
+- Categories: preference, fact, context, goal
+- Check existing memories before adding - update if info changed, don't create duplicates
+- When near the limit ({warning_threshold}+ memories), consolidate or remove outdated memories
+- Do NOT store: temporary info, obvious facts, sensitive data (passwords, financial details)
+
+## Memory Operations (in metadata block)
+Include memory_operations in your metadata block when you want to modify the user's memories:
+```json
+{{"memory_operations": [
+  {{"action": "add", "content": "User prefers dark mode", "category": "preference"}},
+  {{"action": "update", "id": "mem-xxx", "content": "Updated fact about user"}},
+  {{"action": "delete", "id": "mem-xxx"}}
+]}}
+```
+
+Categories:
+- **preference**: User preferences and choices (e.g., "Prefers Python over JavaScript")
+- **fact**: Personal facts (e.g., "Has a dog named Max", "Lives in Prague")
+- **context**: Work/life context (e.g., "Works as a software engineer")
+- **goal**: Goals and projects (e.g., "Building a weather app", "Learning Spanish")
+
+## What to Memorize
+- Personal preferences that affect recommendations
+- Important context that helps personalize responses
+- Ongoing projects or goals the user mentions
+- Corrections the user makes (update existing memories)
+
+## What NOT to Memorize
+- Temporary requests (e.g., "help me with this email")
+- Information they're asking about (not about them)
+- Sensitive data (passwords, financial info, health details)
+- Obvious facts that don't add value"""
+
+
+def get_user_memories_prompt(user_id: str) -> str:
+    """Build the user memories section for the system prompt.
+
+    Args:
+        user_id: The user ID to fetch memories for
+
+    Returns:
+        Formatted string with memory instructions and current memories
+    """
+    memories = db.list_memories(user_id)
+    memory_count = len(memories)
+    limit = Config.USER_MEMORY_LIMIT
+    warning_threshold = Config.USER_MEMORY_WARNING_THRESHOLD
+
+    # Build the prompt with current memories
+    prompt_parts = [
+        MEMORY_SYSTEM_PROMPT.format(warning_threshold=warning_threshold),
+        f"\n\n## Current Memories ({memory_count}/{limit})",
+    ]
+
+    if memory_count >= warning_threshold:
+        prompt_parts.append(
+            "\n**WARNING**: Near memory limit! Consider consolidating or removing outdated memories."
+        )
+
+    if memories:
+        prompt_parts.append("\n")
+        for mem in memories:
+            category_str = f"[{mem.category}]" if mem.category else ""
+            created_date = mem.created_at.strftime("%Y-%m-%d")
+            prompt_parts.append(
+                f"- {category_str} {mem.content} (id: {mem.id}, created: {created_date})"
+            )
+    else:
+        prompt_parts.append("\nNo memories stored yet.")
+
+    return "\n".join(prompt_parts)
+
 
 def get_force_tools_prompt(force_tools: list[str]) -> str:
     """Build a prompt instructing the LLM to use specific tools.
@@ -385,6 +464,7 @@ def get_system_prompt(
     with_tools: bool = True,
     force_tools: list[str] | None = None,
     user_name: str | None = None,
+    user_id: str | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -392,6 +472,7 @@ def get_system_prompt(
         with_tools: Whether tools are available
         force_tools: List of tool names that must be used (e.g., ["web_search", "image_generation"])
         user_name: The user's name from JWT authentication
+        user_id: The user's ID for memory retrieval
     """
     date_context = f"\n\nCurrent date and time: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
@@ -402,6 +483,10 @@ def get_system_prompt(
 
     if with_tools and TOOLS:
         prompt += TOOLS_SYSTEM_PROMPT
+
+    # Add user memories if user_id is provided
+    if user_id:
+        prompt += "\n\n" + get_user_memories_prompt(user_id)
 
     # Add force tools instruction if specified
     if force_tools:
@@ -860,6 +945,7 @@ class ChatAgent:
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
         user_name: str | None = None,
+        user_id: str | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
         messages: list[BaseMessage] = []
@@ -868,7 +954,7 @@ class ChatAgent:
         messages.append(
             SystemMessage(
                 content=get_system_prompt(
-                    self.with_tools, force_tools=force_tools, user_name=user_name
+                    self.with_tools, force_tools=force_tools, user_name=user_name, user_id=user_id
                 )
             )
         )
@@ -895,6 +981,7 @@ class ChatAgent:
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
         user_name: str | None = None,
+        user_id: str | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
         """
         Send a message and get a response (non-streaming).
@@ -905,12 +992,13 @@ class ChatAgent:
             history: Optional list of previous messages with 'role', 'content', and 'files' keys
             force_tools: Optional list of tool names that must be used
             user_name: Optional user name from JWT for personalized responses
+            user_id: Optional user ID for memory retrieval and injection
 
         Returns:
             Tuple of (response_text, tool_results, usage_info)
         """
         messages = self._build_messages(
-            text, files, history, force_tools=force_tools, user_name=user_name
+            text, files, history, force_tools=force_tools, user_name=user_name, user_id=user_id
         )
         logger.debug(
             "Starting chat_batch",
@@ -992,6 +1080,7 @@ class ChatAgent:
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
         user_name: str | None = None,
+        user_id: str | None = None,
     ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
         """
         Stream response tokens using LangGraph's stream method.
@@ -1002,6 +1091,7 @@ class ChatAgent:
             history: Optional list of previous messages with 'role', 'content', and 'files' keys
             force_tools: Optional list of tool names that must be used
             user_name: Optional user name from JWT for personalized responses
+            user_id: Optional user ID for memory retrieval and injection
 
         Yields:
             - str: Text tokens for streaming display
@@ -1012,7 +1102,7 @@ class ChatAgent:
               - usage_info: Dict with 'input_tokens' and 'output_tokens'
         """
         messages = self._build_messages(
-            text, files, history, force_tools=force_tools, user_name=user_name
+            text, files, history, force_tools=force_tools, user_name=user_name, user_id=user_id
         )
 
         # Accumulate full response to extract metadata at the end
@@ -1142,6 +1232,7 @@ class ChatAgent:
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
         user_name: str | None = None,
+        user_id: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -1154,6 +1245,7 @@ class ChatAgent:
             history: Optional list of previous messages with 'role', 'content', and 'files' keys
             force_tools: Optional list of tool names that must be used
             user_name: Optional user name from JWT for personalized responses
+            user_id: Optional user ID for memory retrieval and injection
 
         Yields:
             Events as dicts with 'type' field:
@@ -1164,7 +1256,7 @@ class ChatAgent:
             - {"type": "final", "content": "...", "metadata": {...}, "tool_results": [...], "usage_info": {...}}
         """
         messages = self._build_messages(
-            text, files, history, force_tools=force_tools, user_name=user_name
+            text, files, history, force_tools=force_tools, user_name=user_name, user_id=user_id
         )
 
         # Accumulate full response to extract metadata at the end

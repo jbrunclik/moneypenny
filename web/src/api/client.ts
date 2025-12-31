@@ -7,6 +7,8 @@ import type {
   ConversationCostResponse,
   ErrorResponse,
   FileUpload,
+  MemoriesResponse,
+  Memory,
   MessageCostResponse,
   MonthlyCostResponse,
   ModelsResponse,
@@ -630,6 +632,22 @@ export const costs = {
 
   async getMessageCost(messageId: string): Promise<MessageCostResponse> {
     return requestWithRetry<MessageCostResponse>(`/api/messages/${messageId}/cost`);
+  },
+};
+
+// Memory endpoints
+export const memories = {
+  async list(): Promise<Memory[]> {
+    const data = await requestWithRetry<MemoriesResponse>('/api/memories');
+    return data.memories;
+  },
+
+  async delete(memoryId: string): Promise<void> {
+    // DELETE is idempotent, safe to retry
+    await request<{ status: string }>(`/api/memories/${memoryId}`, {
+      method: 'DELETE',
+      retry: true,
+    });
   },
 };
 

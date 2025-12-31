@@ -23,6 +23,8 @@ const CLOSE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="2
 const COST_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
 const SOURCES_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
 const SPARKLES_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>`;
+const BRAIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>`;
+const DELETE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
 
 test.describe('Visual: Cost Popups', () => {
   test('message cost popup', async ({ page }) => {
@@ -329,6 +331,115 @@ test.describe('Visual: Image Generation Popup', () => {
   });
 });
 
+test.describe('Visual: Memories Popup', () => {
+  test('memories popup with multiple memories', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    // Inject memories popup directly
+    await page.evaluate(({ BRAIN_ICON, CLOSE_ICON, DELETE_ICON }) => {
+      const popup = document.createElement('div');
+      popup.id = 'memories-popup';
+      popup.className = 'info-popup';
+      popup.innerHTML = `
+        <div class="info-popup-content">
+          <div class="info-popup-header">
+            <span class="info-popup-icon">${BRAIN_ICON}</span>
+            <h3>Memories</h3>
+            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+          </div>
+          <div class="info-popup-body memories-body">
+            <div class="memories-list">
+              <div class="memory-item" data-memory-id="mem-1">
+                <div class="memory-header">
+                  <span class="memory-category preference">Preference</span>
+                  <span class="memory-time">2 days ago</span>
+                </div>
+                <div class="memory-content">User prefers dark mode in all applications and websites</div>
+                <button class="memory-delete-btn" aria-label="Delete memory">${DELETE_ICON}</button>
+              </div>
+              <div class="memory-item" data-memory-id="mem-2">
+                <div class="memory-header">
+                  <span class="memory-category fact">Fact</span>
+                  <span class="memory-time">1 week ago</span>
+                </div>
+                <div class="memory-content">User is a software developer working primarily with TypeScript and Python</div>
+                <button class="memory-delete-btn" aria-label="Delete memory">${DELETE_ICON}</button>
+              </div>
+              <div class="memory-item" data-memory-id="mem-3">
+                <div class="memory-header">
+                  <span class="memory-category context">Context</span>
+                  <span class="memory-time">2 weeks ago</span>
+                </div>
+                <div class="memory-content">User is located in Prague, Czech Republic</div>
+                <button class="memory-delete-btn" aria-label="Delete memory">${DELETE_ICON}</button>
+              </div>
+              <div class="memory-item" data-memory-id="mem-4">
+                <div class="memory-header">
+                  <span class="memory-category goal">Goal</span>
+                  <span class="memory-time">3 weeks ago</span>
+                </div>
+                <div class="memory-content">User is building an AI chatbot application and wants to learn more about LangChain</div>
+                <button class="memory-delete-btn" aria-label="Delete memory">${DELETE_ICON}</button>
+              </div>
+            </div>
+          </div>
+          <div class="info-popup-footer">
+            <span class="memories-count">4/100 memories</span>
+          </div>
+        </div>
+      `;
+      const existing = document.getElementById('memories-popup');
+      if (existing) existing.remove();
+      document.body.appendChild(popup);
+    }, { BRAIN_ICON, CLOSE_ICON, DELETE_ICON });
+
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#memories-popup')).toHaveScreenshot('popup-memories.png');
+  });
+
+  test('memories popup empty state', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    // Inject memories popup with empty state
+    await page.evaluate(({ BRAIN_ICON, CLOSE_ICON }) => {
+      const popup = document.createElement('div');
+      popup.id = 'memories-popup';
+      popup.className = 'info-popup';
+      popup.innerHTML = `
+        <div class="info-popup-content">
+          <div class="info-popup-header">
+            <span class="info-popup-icon">${BRAIN_ICON}</span>
+            <h3>Memories</h3>
+            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+          </div>
+          <div class="info-popup-body memories-body">
+            <div class="memories-empty">
+              <div class="memories-empty-icon">${BRAIN_ICON}</div>
+              <p>No memories yet.</p>
+              <p class="text-muted">The AI will learn about you as you chat.</p>
+            </div>
+          </div>
+          <div class="info-popup-footer">
+            <span class="memories-count">0/100 memories</span>
+          </div>
+        </div>
+      `;
+      const existing = document.getElementById('memories-popup');
+      if (existing) existing.remove();
+      document.body.appendChild(popup);
+    }, { BRAIN_ICON, CLOSE_ICON });
+
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#memories-popup')).toHaveScreenshot('popup-memories-empty.png');
+  });
+});
+
 test.describe('Visual: Lightbox', () => {
   test('lightbox with image', async ({ page }) => {
     await page.goto('/');
@@ -499,6 +610,58 @@ test.describe('Visual: Mobile Popups', () => {
     await page.waitForTimeout(300);
 
     await expect(page).toHaveScreenshot('mobile-popup-sources.png');
+  });
+
+  test('mobile memories popup', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    // Inject memories popup directly
+    await page.evaluate(({ BRAIN_ICON, CLOSE_ICON, DELETE_ICON }) => {
+      const popup = document.createElement('div');
+      popup.id = 'memories-popup';
+      popup.className = 'info-popup';
+      popup.innerHTML = `
+        <div class="info-popup-content">
+          <div class="info-popup-header">
+            <span class="info-popup-icon">${BRAIN_ICON}</span>
+            <h3>Memories</h3>
+            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+          </div>
+          <div class="info-popup-body memories-body">
+            <div class="memories-list">
+              <div class="memory-item" data-memory-id="mem-1">
+                <div class="memory-header">
+                  <span class="memory-category preference">Preference</span>
+                  <span class="memory-time">2 days ago</span>
+                </div>
+                <div class="memory-content">User prefers dark mode in all apps</div>
+                <button class="memory-delete-btn" aria-label="Delete memory">${DELETE_ICON}</button>
+              </div>
+              <div class="memory-item" data-memory-id="mem-2">
+                <div class="memory-header">
+                  <span class="memory-category fact">Fact</span>
+                  <span class="memory-time">1 week ago</span>
+                </div>
+                <div class="memory-content">Software developer using TypeScript</div>
+                <button class="memory-delete-btn" aria-label="Delete memory">${DELETE_ICON}</button>
+              </div>
+            </div>
+          </div>
+          <div class="info-popup-footer">
+            <span class="memories-count">2/100 memories</span>
+          </div>
+        </div>
+      `;
+      const existing = document.getElementById('memories-popup');
+      if (existing) existing.remove();
+      document.body.appendChild(popup);
+    }, { BRAIN_ICON, CLOSE_ICON, DELETE_ICON });
+
+    await page.waitForTimeout(300);
+
+    await expect(page).toHaveScreenshot('mobile-popup-memories.png');
   });
 
   test('mobile lightbox with image', async ({ page }) => {

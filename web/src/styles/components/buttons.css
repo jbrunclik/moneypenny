@@ -211,6 +211,34 @@
 }
 
 /* ----------------------------------------
+   Icon Action Button (sidebar actions)
+   ---------------------------------------- */
+
+.btn-icon-action {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon-action svg {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-icon-action:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* ----------------------------------------
    Monthly Cost Button
    ---------------------------------------- */
 

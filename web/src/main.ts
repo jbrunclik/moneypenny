@@ -45,6 +45,7 @@ import { initSourcesPopup } from './components/SourcesPopup';
 import { initImageGenPopup } from './components/ImageGenPopup';
 import { initMessageCostPopup } from './components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from './components/CostHistoryPopup';
+import { initMemoriesPopup, getMemoriesPopupHtml, openMemoriesPopup } from './components/MemoriesPopup';
 import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
 import { initScrollToBottom, checkScrollButtonVisibility } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
@@ -172,6 +173,9 @@ function renderAppShell(): string {
     <!-- Cost History Popup -->
     ${getCostHistoryPopupHtml()}
 
+    <!-- Memories Popup -->
+    ${getMemoriesPopupHtml()}
+
     <!-- Login overlay -->
     <div id="login-overlay" class="login-overlay hidden">
       <div class="login-box">
@@ -204,6 +208,7 @@ async function init(): Promise<void> {
   initImageGenPopup();
   initMessageCostPopup();
   costHistoryPopup.init();
+  initMemoriesPopup();
   initScrollToBottom();
   initVersionBanner();
   setupEventListeners();
@@ -1132,6 +1137,10 @@ function setupEventListeners(): void {
         log.error('Failed to load cost history', { error });
         toast.error('Failed to load cost history.');
       }
+      return;
+    }
+    if ((e.target as HTMLElement).closest('#memories-btn')) {
+      openMemoriesPopup();
     }
   });
 

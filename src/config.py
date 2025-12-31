@@ -225,6 +225,12 @@ class Config:
     PAYLOAD_LOG_MAX_LENGTH = 500
     FILE_DATA_SNIPPET_LENGTH = 100
 
+    # User memory settings
+    USER_MEMORY_LIMIT: int = int(os.getenv("USER_MEMORY_LIMIT", "100"))  # Max memories per user
+    USER_MEMORY_WARNING_THRESHOLD: int = int(
+        os.getenv("USER_MEMORY_WARNING_THRESHOLD", "80")
+    )  # Warn LLM to consolidate at this count
+
     @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of errors with clear guidance."""

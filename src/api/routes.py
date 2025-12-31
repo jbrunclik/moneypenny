@@ -35,7 +35,9 @@ from src.api.utils import (
     build_chat_response,
     build_stream_done_event,
     calculate_and_save_message_cost,
+    extract_memory_operations,
     extract_metadata_fields,
+    process_memory_operations,
 )
 from src.api.validation import validate_request
 from src.auth.google_auth import GoogleAuthError, is_email_allowed, verify_google_id_token
@@ -466,7 +468,12 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
 
         agent = ChatAgent(model_name=conv.model)
         raw_response, tool_results, usage_info = agent.chat_batch(
-            message_text, files, history, force_tools=force_tools, user_name=user.name
+            message_text,
+            files,
+            history,
+            force_tools=force_tools,
+            user_name=user.name,
+            user_id=user.id,
         )
 
         # Get the FULL tool results (with _full_result) captured before stripping
@@ -503,6 +510,19 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
                 else 0,
             },
         )
+
+        # Process memory operations from metadata
+        memory_ops = extract_memory_operations(metadata)
+        if memory_ops:
+            logger.debug(
+                "Processing memory operations",
+                extra={
+                    "user_id": user.id,
+                    "conversation_id": conv_id,
+                    "operation_count": len(memory_ops),
+                },
+            )
+            process_memory_operations(user.id, memory_ops)
 
         # Extract generated files from FULL tool results (before stripping)
         # We need the full results because they contain the _full_result data
@@ -731,6 +751,8 @@ def chat_stream(
         # Use stream_chat_events for structured events including thinking/tool status
         agent = ChatAgent(model_name=conv.model, include_thoughts=True)
         event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
+        # Store user_id for use in nested functions
+        stream_user_id = user.id
 
         # Shared state for final results (accessible from both threads)
         final_results: dict[str, Any] = {"ready": False}
@@ -745,7 +767,12 @@ def chat_stream(
                 )
                 event_count = 0
                 for event in agent.stream_chat_events(
-                    message_text, files, history, force_tools=force_tools, user_name=user.name
+                    message_text,
+                    files,
+                    history,
+                    force_tools=force_tools,
+                    user_name=user.name,
+                    user_id=stream_user_id,
                 ):
                     event_count += 1
                     if event.get("type") == "final":
@@ -881,6 +908,19 @@ def chat_stream(
                         else 0,
                     },
                 )
+
+                # Process memory operations from metadata
+                memory_ops = extract_memory_operations(meta)
+                if memory_ops:
+                    logger.debug(
+                        "Processing memory operations from stream",
+                        extra={
+                            "user_id": stream_user_id,
+                            "conversation_id": conv_id,
+                            "operation_count": len(memory_ops),
+                        },
+                    )
+                    process_memory_operations(stream_user_id, memory_ops)
 
                 # Get the FULL tool results (with _full_result) captured before stripping
                 # This is needed for extracting generated images and code output files
@@ -1727,3 +1767,48 @@ def get_user_cost_history(user: User) -> tuple[dict[str, Any], int]:
         "user_id": user.id,
         "history": history_display,
     }, 200
+
+
+# ============================================================================
+# Memory Routes
+# ============================================================================
+
+
+@api.route("/memories", methods=["GET"])
+@require_auth
+def list_memories(user: User) -> dict[str, Any]:
+    """List all memories for the current user."""
+    logger.debug("Listing memories", extra={"user_id": user.id})
+    memories = db.list_memories(user.id)
+    logger.info(
+        "Memories listed",
+        extra={"user_id": user.id, "count": len(memories)},
+    )
+    return {
+        "memories": [
+            {
+                "id": m.id,
+                "content": m.content,
+                "category": m.category,
+                "created_at": m.created_at.isoformat(),
+                "updated_at": m.updated_at.isoformat(),
+            }
+            for m in memories
+        ]
+    }
+
+
+@api.route("/memories/<memory_id>", methods=["DELETE"])
+@require_auth
+def delete_memory(user: User, memory_id: str) -> tuple[dict[str, str], int]:
+    """Delete a memory."""
+    logger.debug("Deleting memory", extra={"user_id": user.id, "memory_id": memory_id})
+    if not db.delete_memory(memory_id, user.id):
+        logger.warning(
+            "Memory not found for deletion",
+            extra={"user_id": user.id, "memory_id": memory_id},
+        )
+        return not_found_error("Memory")
+
+    logger.info("Memory deleted", extra={"user_id": user.id, "memory_id": memory_id})
+    return {"status": "deleted"}, 200

@@ -114,6 +114,16 @@ class Message:
     has_cost: bool = False  # Whether cost tracking data exists for this message
 
 
+@dataclass
+class Memory:
+    id: str
+    user_id: str
+    content: str
+    category: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class Database:
     def __init__(self, db_path: Path | None = None) -> None:
         self.db_path = db_path or Config.DATABASE_PATH
@@ -806,6 +816,171 @@ class Database:
                 }
                 for row in rows
             ]
+
+    # Memory operations
+    def add_memory(self, user_id: str, content: str, category: str | None = None) -> Memory:
+        """Add a memory for a user.
+
+        Args:
+            user_id: The user ID
+            content: The memory content
+            category: Optional category (preference, fact, context, goal)
+
+        Returns:
+            The created Memory
+        """
+        memory_id = str(uuid.uuid4())
+        now = datetime.now()
+        logger.debug(
+            "Adding memory",
+            extra={"user_id": user_id, "memory_id": memory_id, "category": category},
+        )
+
+        with self._get_conn() as conn:
+            self._execute_with_timing(
+                conn,
+                """INSERT INTO user_memories (id, user_id, content, category, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (memory_id, user_id, content, category, now.isoformat(), now.isoformat()),
+            )
+            conn.commit()
+
+        logger.info("Memory added", extra={"memory_id": memory_id, "user_id": user_id})
+        return Memory(
+            id=memory_id,
+            user_id=user_id,
+            content=content,
+            category=category,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def update_memory(
+        self, memory_id: str, user_id: str, content: str, category: str | None = None
+    ) -> bool:
+        """Update a memory's content.
+
+        Args:
+            memory_id: The memory ID
+            user_id: The user ID (for ownership verification)
+            content: New content
+            category: Optional new category
+
+        Returns:
+            True if memory was updated, False if not found
+        """
+        now = datetime.now().isoformat()
+        logger.debug(
+            "Updating memory",
+            extra={"user_id": user_id, "memory_id": memory_id},
+        )
+
+        with self._get_conn() as conn:
+            if category is not None:
+                cursor = self._execute_with_timing(
+                    conn,
+                    """UPDATE user_memories SET content = ?, category = ?, updated_at = ?
+                       WHERE id = ? AND user_id = ?""",
+                    (content, category, now, memory_id, user_id),
+                )
+            else:
+                cursor = self._execute_with_timing(
+                    conn,
+                    """UPDATE user_memories SET content = ?, updated_at = ?
+                       WHERE id = ? AND user_id = ?""",
+                    (content, now, memory_id, user_id),
+                )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            logger.info("Memory updated", extra={"memory_id": memory_id, "user_id": user_id})
+        else:
+            logger.warning(
+                "Memory not found for update",
+                extra={"memory_id": memory_id, "user_id": user_id},
+            )
+        return updated
+
+    def delete_memory(self, memory_id: str, user_id: str) -> bool:
+        """Delete a memory.
+
+        Args:
+            memory_id: The memory ID
+            user_id: The user ID (for ownership verification)
+
+        Returns:
+            True if memory was deleted, False if not found
+        """
+        logger.debug(
+            "Deleting memory",
+            extra={"user_id": user_id, "memory_id": memory_id},
+        )
+
+        with self._get_conn() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "DELETE FROM user_memories WHERE id = ? AND user_id = ?",
+                (memory_id, user_id),
+            )
+            conn.commit()
+            deleted = cursor.rowcount > 0
+
+        if deleted:
+            logger.info("Memory deleted", extra={"memory_id": memory_id, "user_id": user_id})
+        else:
+            logger.warning(
+                "Memory not found for deletion",
+                extra={"memory_id": memory_id, "user_id": user_id},
+            )
+        return deleted
+
+    def list_memories(self, user_id: str) -> list[Memory]:
+        """List all memories for a user.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            List of Memory objects, ordered by updated_at DESC
+        """
+        with self._get_conn() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM user_memories WHERE user_id = ?
+                   ORDER BY updated_at DESC""",
+                (user_id,),
+            ).fetchall()
+
+            return [
+                Memory(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    content=row["content"],
+                    category=row["category"],
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    updated_at=datetime.fromisoformat(row["updated_at"]),
+                )
+                for row in rows
+            ]
+
+    def get_memory_count(self, user_id: str) -> int:
+        """Get the count of memories for a user.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            Number of memories
+        """
+        with self._get_conn() as conn:
+            row = self._execute_with_timing(
+                conn,
+                "SELECT COUNT(*) as count FROM user_memories WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+
+            return int(row["count"]) if row else 0
 
 
 # Global database instance

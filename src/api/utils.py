@@ -52,6 +52,129 @@ def extract_metadata_fields(
     return sources, generated_images
 
 
+def extract_memory_operations(
+    metadata: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Extract memory operations from metadata dict.
+
+    Memory operations allow the LLM to add, update, or delete user memories.
+
+    Args:
+        metadata: Metadata dict from extract_metadata_from_response, or None
+
+    Returns:
+        List of memory operation dicts with 'action', 'content', 'category', 'id' fields
+    """
+    if not metadata:
+        return []
+
+    operations = metadata.get("memory_operations", [])
+
+    # Validate each operation has required fields
+    valid_operations = []
+    valid_actions = {"add", "update", "delete"}
+
+    for op in operations:
+        if not isinstance(op, dict):
+            logger.warning("Invalid memory operation - not a dict", extra={"operation": op})
+            continue
+
+        action = op.get("action")
+        if action not in valid_actions:
+            logger.warning(
+                "Invalid memory operation action",
+                extra={"action": action, "valid_actions": list(valid_actions)},
+            )
+            continue
+
+        # Validate required fields per action
+        if action == "add":
+            if not op.get("content"):
+                logger.warning("Memory add operation missing content", extra={"operation": op})
+                continue
+        elif action == "update":
+            if not op.get("id") or not op.get("content"):
+                logger.warning(
+                    "Memory update operation missing id or content", extra={"operation": op}
+                )
+                continue
+        elif action == "delete":
+            if not op.get("id"):
+                logger.warning("Memory delete operation missing id", extra={"operation": op})
+                continue
+
+        valid_operations.append(op)
+
+    return valid_operations
+
+
+def process_memory_operations(user_id: str, operations: list[dict[str, Any]]) -> None:
+    """Process memory operations extracted from LLM response.
+
+    Args:
+        user_id: The user ID
+        operations: List of memory operation dicts
+    """
+    if not operations:
+        return
+
+    logger.info(
+        "Processing memory operations",
+        extra={"user_id": user_id, "operation_count": len(operations)},
+    )
+
+    for op in operations:
+        action = op["action"]
+
+        try:
+            if action == "add":
+                content = op["content"]
+                category = op.get("category")
+                memory = db.add_memory(user_id, content, category)
+                logger.info(
+                    "Memory added via LLM",
+                    extra={
+                        "user_id": user_id,
+                        "memory_id": memory.id,
+                        "category": category,
+                    },
+                )
+            elif action == "update":
+                memory_id = op["id"]
+                content = op["content"]
+                category = op.get("category")
+                success = db.update_memory(memory_id, user_id, content, category)
+                if success:
+                    logger.info(
+                        "Memory updated via LLM",
+                        extra={"user_id": user_id, "memory_id": memory_id},
+                    )
+                else:
+                    logger.warning(
+                        "Memory update failed - not found or unauthorized",
+                        extra={"user_id": user_id, "memory_id": memory_id},
+                    )
+            elif action == "delete":
+                memory_id = op["id"]
+                success = db.delete_memory(memory_id, user_id)
+                if success:
+                    logger.info(
+                        "Memory deleted via LLM",
+                        extra={"user_id": user_id, "memory_id": memory_id},
+                    )
+                else:
+                    logger.warning(
+                        "Memory delete failed - not found or unauthorized",
+                        extra={"user_id": user_id, "memory_id": memory_id},
+                    )
+        except Exception as e:
+            logger.error(
+                "Error processing memory operation",
+                extra={"user_id": user_id, "action": action, "error": str(e)},
+                exc_info=True,
+            )
+
+
 def build_response_files(
     gen_image_files: list[dict[str, Any]], message_id: str
 ) -> list[dict[str, Any]]:

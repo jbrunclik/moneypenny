@@ -207,6 +207,7 @@ def create_mock_stream_chat() -> Any:
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
         user_name: str | None = None,
+        user_id: str | None = None,
     ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
         """Mock streaming that yields tokens word-by-word."""
         # Use custom response if set, otherwise use prefix + message
@@ -254,6 +255,7 @@ def create_mock_stream_chat_events() -> Any:
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
         user_name: str | None = None,
+        user_id: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
         # Use custom response if set, otherwise use prefix + message
@@ -349,6 +351,7 @@ def main() -> None:
         stack.enter_context(patch("src.db.models.db", test_db))
         stack.enter_context(patch("src.auth.jwt_auth.db", test_db))
         stack.enter_context(patch("src.api.routes.db", test_db))
+        stack.enter_context(patch("src.agent.chat_agent.db", test_db))
 
         app = create_app()
         app.config["TESTING"] = True
@@ -364,6 +367,7 @@ def main() -> None:
                 conn.execute("DELETE FROM message_costs")
                 conn.execute("DELETE FROM messages")
                 conn.execute("DELETE FROM conversations")
+                conn.execute("DELETE FROM user_memories")
                 conn.execute("DELETE FROM users")
                 conn.commit()
             return {"status": "reset"}, 200

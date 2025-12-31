@@ -221,3 +221,16 @@ export interface SyncResponse {
   server_time: string;
   is_full_sync: boolean;
 }
+
+// Memory types
+export interface Memory {
+  id: string;
+  content: string;
+  category: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemoriesResponse {
+  memories: Memory[];
+}
