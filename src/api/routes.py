@@ -68,7 +68,8 @@ from src.api.validation import validate_request
 from src.auth.google_auth import GoogleAuthError, is_email_allowed, verify_google_id_token
 from src.auth.jwt_auth import create_token, require_auth
 from src.config import Config
-from src.db.models import User, db
+from src.db.blob_store import get_blob_store
+from src.db.models import User, db, make_blob_key, make_thumbnail_key
 from src.utils.background_thumbnails import (
     generate_and_save_thumbnail,
     mark_files_for_thumbnail_generation,
@@ -1410,6 +1411,8 @@ def get_message_thumbnail(
 ) -> Response | tuple[dict[str, Any], int]:
     """Get a thumbnail for an image file from a message.
 
+    Thumbnails are stored in the blob store (files.db).
+
     Returns:
         - 200 with thumbnail binary data when ready
         - 202 with {"status": "pending"} when thumbnail is still being generated
@@ -1434,7 +1437,7 @@ def get_message_thumbnail(
         )
         raise_auth_forbidden_error("Not authorized to access this resource")
 
-    # Get the file
+    # Get the file metadata
     if not message.files or file_index >= len(message.files):
         logger.warning(
             "File not found for thumbnail",
@@ -1458,6 +1461,8 @@ def get_message_thumbnail(
         )
         raise_validation_error("File is not an image", field="file_type")
 
+    blob_store = get_blob_store()
+
     # Check thumbnail status (default to "ready" for legacy messages without status)
     thumbnail_status = file.get("thumbnail_status", "ready")
 
@@ -1477,24 +1482,26 @@ def get_message_thumbnail(
                     "threshold_seconds": Config.THUMBNAIL_STALE_THRESHOLD_SECONDS,
                 },
             )
-            # Regenerate synchronously (one-time recovery) using shared helper
-            file_data = file.get("data", "")
-            thumbnail = (
-                generate_and_save_thumbnail(message_id, file_index, file_data, file_type)
-                if file_data
-                else None
-            )
-
-            if thumbnail:
-                try:
-                    binary_data = base64.b64decode(thumbnail)
-                    return Response(
-                        binary_data,
-                        mimetype=file_type,
-                        headers={"Cache-Control": "private, max-age=31536000"},
-                    )
-                except binascii.Error:
-                    pass  # Fall through to full image
+            # Get full image from blob store for regeneration
+            blob_key = make_blob_key(message_id, file_index)
+            blob_result = blob_store.get(blob_key)
+            if blob_result:
+                file_bytes, _ = blob_result
+                file_data_b64 = base64.b64encode(file_bytes).decode("utf-8")
+                # Regenerate synchronously (one-time recovery) using shared helper
+                thumbnail = generate_and_save_thumbnail(
+                    message_id, file_index, file_data_b64, file_type
+                )
+                if thumbnail:
+                    try:
+                        binary_data = base64.b64decode(thumbnail)
+                        return Response(
+                            binary_data,
+                            mimetype="image/jpeg",
+                            headers={"Cache-Control": "private, max-age=31536000"},
+                        )
+                    except binascii.Error:
+                        pass  # Fall through to full image
             # Fall through to full image fallback below
         else:
             # Not stale yet - return 202 to signal frontend to poll
@@ -1509,13 +1516,19 @@ def get_message_thumbnail(
             )
             return {"status": "pending"}, 202
 
-    # Thumbnail is ready - return it
-    thumbnail_data = file.get("thumbnail")
-    if thumbnail_data:
-        try:
-            binary_data = base64.b64decode(thumbnail_data)
+    # Try to get thumbnail from blob store
+    has_thumbnail = file.get("has_thumbnail", False)
+    # Also check legacy "thumbnail" field for migration compatibility
+    has_legacy_thumbnail = "thumbnail" in file and file["thumbnail"]
+
+    if has_thumbnail or has_legacy_thumbnail:
+        # Try blob store first (new format)
+        thumb_key = make_thumbnail_key(message_id, file_index)
+        thumb_result = blob_store.get(thumb_key)
+        if thumb_result:
+            binary_data, mime_type = thumb_result
             logger.debug(
-                "Returning thumbnail",
+                "Returning thumbnail from blob store",
                 extra={
                     "user_id": user.id,
                     "message_id": message_id,
@@ -1526,40 +1539,40 @@ def get_message_thumbnail(
             )
             return Response(
                 binary_data,
-                mimetype=file_type,
-                headers={
-                    "Cache-Control": "private, max-age=31536000",  # Cache for 1 year
-                },
+                mimetype=mime_type,
+                headers={"Cache-Control": "private, max-age=31536000"},
             )
-        except binascii.Error as e:
-            logger.warning(
-                "Failed to decode thumbnail, falling back to full image",
-                extra={
-                    "user_id": user.id,
-                    "message_id": message_id,
-                    "conversation_id": message.conversation_id,
-                    "error": str(e),
-                },
-            )
-            # Fall through to full image
-            pass
 
-    # Fall back to full image if no thumbnail or thumbnail failed
-    file_data = file.get("data", "")
-    if not file_data:
-        logger.warning(
-            "No image data found for thumbnail",
-            extra={
-                "user_id": user.id,
-                "message_id": message_id,
-                "conversation_id": message.conversation_id,
-                "file_index": file_index,
-            },
-        )
-        raise_not_found_error("Image data")
+        # Try legacy base64 thumbnail (for unmigrated messages)
+        if has_legacy_thumbnail:
+            try:
+                binary_data = base64.b64decode(file["thumbnail"])
+                logger.debug(
+                    "Returning legacy thumbnail",
+                    extra={
+                        "user_id": user.id,
+                        "message_id": message_id,
+                        "conversation_id": message.conversation_id,
+                        "file_index": file_index,
+                        "size": len(binary_data),
+                    },
+                )
+                return Response(
+                    binary_data,
+                    mimetype="image/jpeg",
+                    headers={"Cache-Control": "private, max-age=31536000"},
+                )
+            except binascii.Error as e:
+                logger.warning(
+                    "Failed to decode legacy thumbnail",
+                    extra={"message_id": message_id, "error": str(e)},
+                )
 
-    try:
-        binary_data = base64.b64decode(file_data)
+    # Fall back to full image from blob store
+    blob_key = make_blob_key(message_id, file_index)
+    blob_result = blob_store.get(blob_key)
+    if blob_result:
+        binary_data, mime_type = blob_result
         logger.debug(
             "Returning full image as thumbnail fallback",
             extra={
@@ -1572,14 +1585,43 @@ def get_message_thumbnail(
         )
         return Response(
             binary_data,
-            mimetype=file_type,
-            headers={
-                "Cache-Control": "private, max-age=31536000",
-            },
+            mimetype=mime_type,
+            headers={"Cache-Control": "private, max-age=31536000"},
         )
-    except binascii.Error as e:
-        logger.error("Failed to decode image data", extra={"error": str(e)}, exc_info=True)
-        raise_server_error("Failed to process image data")
+
+    # Try legacy base64 data (for unmigrated messages)
+    file_data = file.get("data", "")
+    if file_data:
+        try:
+            binary_data = base64.b64decode(file_data)
+            logger.debug(
+                "Returning legacy full image as thumbnail fallback",
+                extra={
+                    "user_id": user.id,
+                    "message_id": message_id,
+                    "conversation_id": message.conversation_id,
+                    "file_index": file_index,
+                    "size": len(binary_data),
+                },
+            )
+            return Response(
+                binary_data,
+                mimetype=file_type,
+                headers={"Cache-Control": "private, max-age=31536000"},
+            )
+        except binascii.Error as e:
+            logger.error("Failed to decode legacy image data", extra={"error": str(e)})
+
+    logger.warning(
+        "No image data found for thumbnail",
+        extra={
+            "user_id": user.id,
+            "message_id": message_id,
+            "conversation_id": message.conversation_id,
+            "file_index": file_index,
+        },
+    )
+    raise_not_found_error("Image data")
 
 
 @api.route("/messages/<message_id>/files/<int:file_index>", methods=["GET"])
@@ -1593,6 +1635,9 @@ def get_message_file(
     user: User, message_id: str, file_index: int
 ) -> Response | tuple[dict[str, str], int]:
     """Get a full-size file from a message.
+
+    Files are stored in the blob store (files.db).
+    Falls back to legacy base64 data for unmigrated messages.
 
     Returns the file as binary data with appropriate content-type header.
     """
@@ -1622,7 +1667,7 @@ def get_message_file(
         )
         raise_auth_forbidden_error("Not authorized to access this resource")
 
-    # Get the file
+    # Get the file metadata
     if not message.files or file_index >= len(message.files):
         logger.warning(
             "File not found",
@@ -1636,33 +1681,65 @@ def get_message_file(
         raise_not_found_error("File")
 
     file = message.files[file_index]
-    file_data = file.get("data", "")
     file_type = file.get("type", "application/octet-stream")
 
-    # Decode base64 and return as binary
-    try:
-        binary_data = base64.b64decode(file_data)
+    # Try blob store first (new format)
+    blob_store = get_blob_store()
+    blob_key = make_blob_key(message_id, file_index)
+    blob_result = blob_store.get(blob_key)
+    if blob_result:
+        binary_data, mime_type = blob_result
         logger.debug(
-            "Returning file",
+            "Returning file from blob store",
             extra={
                 "user_id": user.id,
                 "message_id": message_id,
                 "conversation_id": message.conversation_id,
                 "file_index": file_index,
-                "file_type": file_type,
+                "file_type": mime_type,
                 "size": len(binary_data),
             },
         )
         return Response(
             binary_data,
-            mimetype=file_type,
-            headers={
-                "Cache-Control": "private, max-age=31536000",  # Cache for 1 year
-            },
+            mimetype=mime_type,
+            headers={"Cache-Control": "private, max-age=31536000"},
         )
-    except binascii.Error as e:
-        logger.error("Failed to decode file data", extra={"error": str(e)}, exc_info=True)
-        raise_server_error("Failed to process file data")
+
+    # Fall back to legacy base64 data (for unmigrated messages)
+    file_data = file.get("data", "")
+    if file_data:
+        try:
+            binary_data = base64.b64decode(file_data)
+            logger.debug(
+                "Returning legacy file",
+                extra={
+                    "user_id": user.id,
+                    "message_id": message_id,
+                    "conversation_id": message.conversation_id,
+                    "file_index": file_index,
+                    "file_type": file_type,
+                    "size": len(binary_data),
+                },
+            )
+            return Response(
+                binary_data,
+                mimetype=file_type,
+                headers={"Cache-Control": "private, max-age=31536000"},
+            )
+        except binascii.Error as e:
+            logger.error("Failed to decode legacy file data", extra={"error": str(e)})
+
+    logger.warning(
+        "No file data found",
+        extra={
+            "user_id": user.id,
+            "message_id": message_id,
+            "conversation_id": message.conversation_id,
+            "file_index": file_index,
+        },
+    )
+    raise_not_found_error("File data")
 
 
 # ============================================================================

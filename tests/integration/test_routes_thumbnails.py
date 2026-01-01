@@ -25,6 +25,7 @@ class TestGetMessageThumbnail:
     ) -> None:
         """Should return 200 with thumbnail data when status is ready."""
         # Create a message with a ready thumbnail
+        # Note: thumbnails are stored as image/jpeg regardless of original image type
         files = [
             {
                 "name": "test.png",
@@ -44,7 +45,8 @@ class TestGetMessageThumbnail:
         )
 
         assert response.status_code == 200
-        assert response.content_type == "image/png"
+        # Thumbnails are always stored and returned as JPEG in blob store
+        assert response.content_type == "image/jpeg"
 
     def test_returns_202_when_thumbnail_pending(
         self,
@@ -175,6 +177,7 @@ class TestGetMessageThumbnail:
     ) -> None:
         """Should handle legacy messages without thumbnail_status field."""
         # Create a message without thumbnail_status (legacy format)
+        # Note: thumbnails are stored as image/jpeg regardless of original image type
         files = [
             {
                 "name": "test.png",
@@ -194,8 +197,9 @@ class TestGetMessageThumbnail:
         )
 
         # Should return thumbnail (defaults to "ready" status)
+        # Thumbnails are always stored and returned as JPEG in blob store
         assert response.status_code == 200
-        assert response.content_type == "image/png"
+        assert response.content_type == "image/jpeg"
 
     def test_returns_404_for_nonexistent_message(
         self,
@@ -252,9 +256,14 @@ class TestUpdateMessageFileThumbnail:
         self,
         test_database: Database,
         test_conversation: Conversation,
+        test_blob_store,
         sample_png_base64: str,
     ) -> None:
         """Should update thumbnail for a specific file."""
+        import base64
+
+        from src.db.models import make_thumbnail_key
+
         # Create a message with pending thumbnail
         files = [
             {
@@ -268,26 +277,45 @@ class TestUpdateMessageFileThumbnail:
             test_conversation.id, "user", "Test message", files=files
         )
 
+        # Create valid base64 thumbnail data
+        thumb_data = b"thumbnail binary data"
+        thumb_base64 = base64.b64encode(thumb_data).decode()
+
         # Update the thumbnail
         success = test_database.update_message_file_thumbnail(
-            message.id, 0, "new_thumbnail_data", status="ready"
+            message.id, 0, thumb_base64, status="ready"
         )
 
         assert success is True
 
-        # Verify the update
+        # Verify the metadata update
         updated = test_database.get_message_by_id(message.id)
         assert updated is not None
-        assert updated.files[0]["thumbnail"] == "new_thumbnail_data"
+        assert updated.files[0]["has_thumbnail"] is True
         assert updated.files[0]["thumbnail_status"] == "ready"
+        # Thumbnail data should NOT be in the JSON (stored in blob store)
+        assert "thumbnail" not in updated.files[0]
+
+        # Verify thumbnail is in blob store
+        thumb_key = make_thumbnail_key(message.id, 0)
+        result = test_blob_store.get(thumb_key)
+        assert result is not None
+        data, mime_type = result
+        assert data == thumb_data
+        assert mime_type == "image/jpeg"
 
     def test_updates_correct_file_in_multi_file_message(
         self,
         test_database: Database,
         test_conversation: Conversation,
+        test_blob_store,
         sample_png_base64: str,
     ) -> None:
         """Should update only the specified file in a multi-file message."""
+        import base64
+
+        from src.db.models import make_thumbnail_key
+
         # Create a message with multiple files
         files = [
             {
@@ -307,19 +335,36 @@ class TestUpdateMessageFileThumbnail:
             test_conversation.id, "user", "Test message", files=files
         )
 
+        # Create valid base64 thumbnail data
+        thumb_data = b"thumbnail for file 2"
+        thumb_base64 = base64.b64encode(thumb_data).decode()
+
         # Update only the second file
         success = test_database.update_message_file_thumbnail(
-            message.id, 1, "thumbnail_for_file_2", status="ready"
+            message.id, 1, thumb_base64, status="ready"
         )
 
         assert success is True
 
-        # Verify only the second file was updated
+        # Verify only the second file was updated in metadata
         updated = test_database.get_message_by_id(message.id)
         assert updated is not None
         assert updated.files[0]["thumbnail_status"] == "pending"
-        assert updated.files[1]["thumbnail"] == "thumbnail_for_file_2"
+        assert updated.files[0].get("has_thumbnail") is False
         assert updated.files[1]["thumbnail_status"] == "ready"
+        assert updated.files[1]["has_thumbnail"] is True
+        # Thumbnail data should NOT be in the JSON (stored in blob store)
+        assert "thumbnail" not in updated.files[1]
+
+        # Verify only second file's thumbnail is in blob store
+        thumb_key_0 = make_thumbnail_key(message.id, 0)
+        thumb_key_1 = make_thumbnail_key(message.id, 1)
+        assert test_blob_store.get(thumb_key_0) is None  # First file has no thumbnail
+        result = test_blob_store.get(thumb_key_1)
+        assert result is not None
+        data, mime_type = result
+        assert data == thumb_data
+        assert mime_type == "image/jpeg"
 
     def test_returns_false_for_nonexistent_message(
         self,

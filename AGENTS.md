@@ -35,7 +35,8 @@ ai-chatbot/
 │   │   ├── chat_agent.py         # LangGraph agent with Gemini
 │   │   └── tools.py              # Agent tools (fetch_url, web_search, generate_image, execute_code)
 │   ├── db/
-│   │   └── models.py             # SQLite: User, Conversation, Message
+│   │   ├── models.py             # SQLite: User, Conversation, Message
+│   │   └── blob_store.py         # Blob storage for files and thumbnails
 │   └── utils/
 │       └── images.py             # Thumbnail generation (Pillow)
 ├── web/                          # Vite + TypeScript frontend
@@ -99,6 +100,7 @@ ai-chatbot/
 - [validation.py](src/api/validation.py) - Request validation decorator
 - [chat_agent.py](src/agent/chat_agent.py) - LangGraph graph, Gemini integration
 - [models.py](src/db/models.py) - Database schema and operations
+- [blob_store.py](src/db/blob_store.py) - Blob storage for files and thumbnails
 - [images.py](src/utils/images.py) - Thumbnail generation for uploaded images
 - [main.ts](web/src/main.ts) - Frontend entry point
 - [store.ts](web/src/state/store.ts) - Zustand state management
@@ -828,7 +830,7 @@ Thumbnails are generated in background threads to avoid blocking chat requests.
 3. Message saved to database with file statuses
 4. `queue_pending_thumbnails()` queues background generation for pending files
 5. ThreadPoolExecutor (2 workers) generates thumbnails asynchronously
-6. Database updated with thumbnail data when generation completes
+6. Thumbnail saved to blob store (see [Blob Storage](#blob-storage) section)
 7. Frontend polls `/api/messages/<id>/files/<idx>/thumbnail`:
    - Returns 200 with thumbnail data when ready
    - Returns 202 with `{"status": "pending"}` when still generating
@@ -2172,6 +2174,74 @@ log.error('Operation failed', { error, context });
 - Use `warn` for recoverable issues (cost fetch failed, optional feature unavailable)
 - Use `error` for failures that affect functionality (API errors, file read failures)
 - Always include relevant context as the second argument (error objects, IDs, etc.)
+
+## Blob Storage
+
+File data and thumbnails are stored in a separate SQLite database (`files.db`) to keep the main database (`chatbot.db`) small and fast.
+
+### Architecture
+
+**Why separate blob storage:**
+- Main DB stays small (~KB per message instead of ~MB with embedded images)
+- Faster queries on conversations and messages (no large BLOB columns)
+- Native SQLite BLOB storage is ~33% smaller than base64-encoded JSON
+- Easier backup strategies (can backup main DB more frequently)
+
+**Database files:**
+- `chatbot.db` - Main database (users, conversations, messages with metadata)
+- `files.db` - Blob storage (file data, thumbnails)
+
+### Key Format
+
+Blobs are stored with keys that encode the message and file index:
+- **Files**: `{message_id}/{index}` (e.g., `msg-abc123/0`)
+- **Thumbnails**: `{message_id}/{index}.thumb` (e.g., `msg-abc123/0.thumb`)
+
+### How it works
+
+1. **Message creation**: When a message with files is saved:
+   - File metadata (name, type, size, has_thumbnail) stored in `messages.files` JSON column
+   - File binary data extracted from base64, saved to blob store
+   - Thumbnail data (if present) saved separately with `.thumb` suffix
+
+2. **File retrieval**: `/api/messages/<id>/files/<idx>` endpoint:
+   - First tries blob store lookup with `{message_id}/{index}` key
+   - Falls back to legacy base64 in `messages.files` JSON (for unmigrated messages)
+
+3. **Thumbnail retrieval**: `/api/messages/<id>/files/<idx>/thumbnail` endpoint:
+   - First tries blob store lookup with `{message_id}/{index}.thumb` key
+   - Falls back to legacy `thumbnail` field in files JSON
+
+4. **Conversation deletion**: Deletes all blobs with `{message_id}/` prefix for each message
+
+### Configuration
+
+```bash
+BLOB_STORAGE_PATH=files.db  # Path relative to project root (default: files.db)
+```
+
+### Migration
+
+Existing messages are migrated via yoyo migration `0012_migrate_files_to_blob_store.py`:
+- Processes messages in batches of 100
+- Extracts base64 data → saves to blob store
+- Updates JSON to remove `data`/`thumbnail`, add `size`/`has_thumbnail`
+- Idempotent (skips already migrated files)
+- Has rollback support
+
+### Key files
+
+- [blob_store.py](src/db/blob_store.py) - `BlobStore` class with `save()`, `get()`, `delete()`, `delete_by_prefix()`
+- [models.py](src/db/models.py) - `make_blob_key()`, `save_file_to_blob_store()`, `extract_file_metadata()`
+- [routes.py](src/api/routes.py) - File/thumbnail endpoints with blob store + legacy fallback
+- [config.py](src/config.py) - `BLOB_STORAGE_PATH` configuration
+- [0011_create_blob_store.py](migrations/0011_create_blob_store.py) - Creates blob store DB
+- [0012_migrate_files_to_blob_store.py](migrations/0012_migrate_files_to_blob_store.py) - Migrates existing data
+
+### Testing
+
+- Unit tests: [test_blob_store.py](tests/unit/test_blob_store.py)
+- Test fixtures use isolated blob stores per test (see `test_blob_store` fixture in conftest.py)
 
 ## Database Performance & Monitoring
 

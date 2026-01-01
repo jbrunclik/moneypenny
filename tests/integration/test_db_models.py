@@ -261,10 +261,17 @@ class TestMessageOperations:
         assert isinstance(msg.created_at, datetime)
 
     def test_add_message_with_files(
-        self, test_database: Database, test_conversation: Conversation
+        self, test_database: Database, test_conversation: Conversation, test_blob_store
     ) -> None:
-        """Should store file attachments."""
-        files = [{"name": "test.png", "type": "image/png", "data": "base64data"}]
+        """Should store file attachments with data in blob store and metadata in message."""
+        import base64
+
+        from src.db.models import make_blob_key
+
+        # Create valid base64 data
+        test_data = b"test file content"
+        base64_data = base64.b64encode(test_data).decode()
+        files = [{"name": "test.png", "type": "image/png", "data": base64_data}]
 
         msg = test_database.add_message(
             conversation_id=test_conversation.id,
@@ -273,7 +280,21 @@ class TestMessageOperations:
             files=files,
         )
 
-        assert msg.files == files
+        # Verify metadata is stored in message (not the raw data)
+        assert len(msg.files) == 1
+        assert msg.files[0]["name"] == "test.png"
+        assert msg.files[0]["type"] == "image/png"
+        assert msg.files[0]["size"] == len(test_data)
+        assert msg.files[0]["has_thumbnail"] is False
+        assert "data" not in msg.files[0]  # Data should be in blob store, not message
+
+        # Verify data is in blob store
+        blob_key = make_blob_key(msg.id, 0)
+        result = test_blob_store.get(blob_key)
+        assert result is not None
+        data, mime_type = result
+        assert data == test_data
+        assert mime_type == "image/png"
 
     def test_add_message_with_sources(
         self, test_database: Database, test_conversation: Conversation

@@ -96,7 +96,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] Add request validation (pydantic or marshmallow) - Implemented Pydantic v2 with `@validate_request` decorator
 - [ ] Consider async Flask (quart) for better concurrency
 - [x] **Add OpenAPI/Swagger documentation** - APIFlask generates OpenAPI 3.0 spec at `/api/openapi.json` with Swagger UI at `/api/docs`. Response schemas defined in `schemas.py` with `@api.output()` decorators. TypeScript types auto-generated via `openapi-typescript`. See "OpenAPI Documentation" section in CLAUDE.md.
-- [ ] **Store files and thumbnails outside DB** - Move file data and thumbnails to object storage (S3, MinIO, etc.) for better scalability and performance
+- [x] **Store files and thumbnails outside DB** - Moved to separate SQLite blob store (`files.db`) for better performance. See [Blob Storage](CLAUDE.md#blob-storage) section
 - [x] **Split JavaScript into modules** - Migrated to Vite + TypeScript with modular components in `web/src/`
 - [x] **Add structured logging** - Replace print statements with proper logging framework (Python logging module). Currently `images.py:69` uses `print()`.
 - [x] **Error handling standardization** - Consistent error response format with ErrorCode enum, retryable flag, and structured responses across all API endpoints
@@ -111,7 +111,6 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Create design system / color palette** - Consolidated colors into variables.css with semantic naming (--color-neutral-*, --color-brand-*, --color-success-*, etc.). Split CSS into modular files: variables.css, base.css, layout.css, components/*.css. See "CSS Architecture" section in CLAUDE.md.
 
 ### 🟢 Database
-- [ ] **Database connection pooling** - Consider connection pooling for SQLite (though SQLite has limitations)
 - [x] **Add database indexes** - Add indexes on frequently queried columns (conversations.user_id, messages.conversation_id, etc.)
 - [x] **Add database query optimization** - Review and optimize N+1 query patterns (e.g., loading conversations with message counts) - Reviewed, no N+1 patterns found
 - [ ] **Pagination for conversations** - Add pagination to conversations list endpoint for users with many conversations

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import sqlite3
@@ -13,9 +14,92 @@ from typing import Any
 from yoyo import get_backend, read_migrations
 
 from src.config import Config
+from src.db.blob_store import get_blob_store
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+# ============================================================================
+# Blob Storage Helpers
+# ============================================================================
+
+
+def make_blob_key(message_id: str, file_index: int) -> str:
+    """Create blob key for a file."""
+    return f"{message_id}/{file_index}"
+
+
+def make_thumbnail_key(message_id: str, file_index: int) -> str:
+    """Create blob key for a thumbnail."""
+    return f"{message_id}/{file_index}.thumb"
+
+
+def save_file_to_blob_store(message_id: str, file_index: int, file_data: dict[str, Any]) -> None:
+    """Save file data and thumbnail to blob store.
+
+    Args:
+        message_id: Message ID
+        file_index: Index of file in message's files array
+        file_data: File dict containing 'data', 'type', and optionally 'thumbnail'
+    """
+    blob_store = get_blob_store()
+    mime_type = file_data.get("type", "application/octet-stream")
+
+    # Save main file data
+    if "data" in file_data:
+        try:
+            data_bytes = base64.b64decode(file_data["data"])
+            blob_store.save(make_blob_key(message_id, file_index), data_bytes, mime_type)
+        except Exception:
+            logger.exception(
+                "Failed to save file to blob store",
+                extra={"message_id": message_id, "file_index": file_index},
+            )
+
+    # Save thumbnail if present
+    if "thumbnail" in file_data and file_data["thumbnail"]:
+        try:
+            thumb_bytes = base64.b64decode(file_data["thumbnail"])
+            # Thumbnails are always JPEG
+            blob_store.save(make_thumbnail_key(message_id, file_index), thumb_bytes, "image/jpeg")
+        except Exception:
+            logger.exception(
+                "Failed to save thumbnail to blob store",
+                extra={"message_id": message_id, "file_index": file_index},
+            )
+
+
+def extract_file_metadata(file_data: dict[str, Any]) -> dict[str, Any]:
+    """Extract metadata from file dict, removing binary data.
+
+    Returns a new dict with 'data' and 'thumbnail' removed, plus 'size' added.
+    """
+    metadata = {}
+
+    # Copy over non-data fields
+    for key, value in file_data.items():
+        if key not in ("data", "thumbnail"):
+            metadata[key] = value
+
+    # Calculate and store size from data
+    if "data" in file_data:
+        try:
+            data_bytes = base64.b64decode(file_data["data"])
+            metadata["size"] = len(data_bytes)
+        except Exception:
+            metadata["size"] = 0
+
+    # Track whether thumbnail exists
+    metadata["has_thumbnail"] = bool(file_data.get("thumbnail"))
+
+    return metadata
+
+
+def delete_message_blobs(message_id: str) -> int:
+    """Delete all blobs for a message."""
+    blob_store = get_blob_store()
+    return blob_store.delete_by_prefix(f"{message_id}/")
 
 
 def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str | None]:
@@ -499,6 +583,16 @@ class Database:
         with self._get_conn() as conn:
             # Note: We intentionally keep message_costs even after conversation deletion
             # to preserve accurate cost reporting (the money was already spent)
+
+            # Get message IDs to delete associated blobs
+            message_rows = self._execute_with_timing(
+                conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
+            ).fetchall()
+
+            # Delete blobs for each message
+            for row in message_rows:
+                delete_message_blobs(row["id"])
+
             # Delete messages
             self._execute_with_timing(
                 conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
@@ -524,11 +618,14 @@ class Database:
     ) -> Message:
         """Add a message to a conversation.
 
+        Files are stored in a separate blob store (files.db) to keep the main
+        database small and fast. Only file metadata is stored in the messages table.
+
         Args:
             conversation_id: The conversation ID
             role: "user" or "assistant"
             content: Plain text message
-            files: Optional list of file attachments
+            files: Optional list of file attachments (with 'data' and optional 'thumbnail')
             sources: Optional list of web sources (for assistant messages)
             generated_images: Optional list of generated image metadata (for assistant messages)
 
@@ -538,7 +635,16 @@ class Database:
         msg_id = str(uuid.uuid4())
         now = datetime.now()
         files = files or []
-        files_json = json.dumps(files) if files else None
+
+        # Extract metadata and save binary data to blob store
+        files_metadata: list[dict[str, Any]] = []
+        for idx, file_data in enumerate(files):
+            # Save file data and thumbnail to blob store
+            save_file_to_blob_store(msg_id, idx, file_data)
+            # Keep only metadata in the database
+            files_metadata.append(extract_file_metadata(file_data))
+
+        files_json = json.dumps(files_metadata) if files_metadata else None
         sources_json = json.dumps(sources) if sources else None
         generated_images_json = json.dumps(generated_images) if generated_images else None
         logger.debug(
@@ -587,7 +693,7 @@ class Database:
             role=role,
             content=content,
             created_at=now,
-            files=files,
+            files=files_metadata,
             sources=sources,
             generated_images=generated_images,
         )
@@ -647,7 +753,8 @@ class Database:
         """Update thumbnail for a specific file in a message.
 
         Used by background thumbnail generation to update the thumbnail
-        after the message has been saved.
+        after the message has been saved. The thumbnail is saved to the blob store
+        and only the status is updated in the message metadata.
 
         Args:
             message_id: ID of the message
@@ -693,8 +800,26 @@ class Database:
                 )
                 return False
 
-            # Update the file's thumbnail and status
-            files[file_index]["thumbnail"] = thumbnail
+            # Save thumbnail to blob store if provided
+            if thumbnail:
+                try:
+                    thumb_bytes = base64.b64decode(thumbnail)
+                    blob_store = get_blob_store()
+                    blob_store.save(
+                        make_thumbnail_key(message_id, file_index), thumb_bytes, "image/jpeg"
+                    )
+                    files[file_index]["has_thumbnail"] = True
+                except Exception:
+                    logger.exception(
+                        "Failed to save thumbnail to blob store",
+                        extra={"message_id": message_id, "file_index": file_index},
+                    )
+                    status = "failed"
+                    files[file_index]["has_thumbnail"] = False
+            else:
+                files[file_index]["has_thumbnail"] = False
+
+            # Update status in metadata (no longer storing thumbnail in JSON)
             files[file_index]["thumbnail_status"] = status
 
             # Save back to database

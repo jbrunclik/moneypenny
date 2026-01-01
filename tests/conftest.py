@@ -43,6 +43,13 @@ def test_db_path(temp_db_dir: Path, request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture
+def test_blob_path(temp_db_dir: Path, request: pytest.FixtureRequest) -> Path:
+    """Create unique blob store path for each test."""
+    test_name = request.node.name.replace("[", "_").replace("]", "_").replace("/", "_")
+    return temp_db_dir / f"{test_name}_blobs.db"
+
+
+@pytest.fixture
 def test_database(test_db_path: Path) -> Generator[Database]:
     """Create isolated test database for each test."""
     from src.db.models import Database
@@ -52,26 +59,46 @@ def test_database(test_db_path: Path) -> Generator[Database]:
     # Cleanup happens automatically when temp dir is removed
 
 
+@pytest.fixture
+def test_blob_store(test_blob_path: Path):
+    """Create isolated blob store for each test.
+
+    This fixture also patches get_blob_store in models.py so that
+    database operations use the test blob store instance.
+    """
+    from src.db.blob_store import BlobStore
+
+    blob_store = BlobStore(db_path=test_blob_path)
+
+    # Patch get_blob_store in models.py so add_message etc. use test blob store
+    with patch("src.db.models.get_blob_store", return_value=blob_store):
+        yield blob_store
+
+
 # -----------------------------------------------------------------------------
 # Flask app fixtures
 # -----------------------------------------------------------------------------
 
 
 @pytest.fixture
-def app(test_database: Database) -> Generator[Flask]:
-    """Create Flask test application with isolated database.
+def app(test_database: Database, test_blob_store) -> Generator[Flask]:
+    """Create Flask test application with isolated database and blob store.
 
-    Uses test_database fixture to ensure same db instance is shared
-    between app routes and test fixtures like test_user.
+    Uses test_database and test_blob_store fixtures to ensure same instances
+    are shared between app routes and test fixtures like test_user.
     """
     with patch("src.db.models.db", test_database):
         with patch("src.auth.jwt_auth.db", test_database):
             with patch("src.api.routes.db", test_database):
-                from src.app import create_app
+                # Patch the global blob store getter to return our test instance
+                with patch("src.db.blob_store._blob_store", test_blob_store):
+                    with patch("src.db.models.get_blob_store", return_value=test_blob_store):
+                        with patch("src.api.routes.get_blob_store", return_value=test_blob_store):
+                            from src.app import create_app
 
-                flask_app = create_app()
-                flask_app.config["TESTING"] = True
-                yield flask_app
+                            flask_app = create_app()
+                            flask_app.config["TESTING"] = True
+                            yield flask_app
 
 
 @pytest.fixture

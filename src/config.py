@@ -143,6 +143,7 @@ class Config:
 
     # Database
     DATABASE_PATH: Path = BASE_DIR / os.getenv("DATABASE_PATH", "chatbot.db")
+    BLOB_STORAGE_PATH: Path = BASE_DIR / os.getenv("BLOB_STORAGE_PATH", "files.db")
 
     # File upload settings
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", str(20 * BYTES_PER_MB)))  # 20 MB default
