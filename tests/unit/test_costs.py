@@ -138,6 +138,14 @@ class TestCalculateTotalCost:
 class TestConvertCurrency:
     """Tests for convert_currency function."""
 
+    # Fixed rates for testing (mocked to avoid dependency on DB/Config values)
+    MOCK_RATES = {"CZK": 23.0, "EUR": 0.92, "GBP": 0.79}
+
+    @pytest.fixture(autouse=True)
+    def mock_rates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Mock get_currency_rates to return fixed test values."""
+        monkeypatch.setattr("src.utils.costs.get_currency_rates", lambda: self.MOCK_RATES)
+
     def test_usd_to_usd(self) -> None:
         """USD to USD conversion should be 1:1."""
         assert convert_currency(1.0, "USD") == 1.0
@@ -145,19 +153,19 @@ class TestConvertCurrency:
 
     def test_usd_to_czk(self) -> None:
         """USD to CZK conversion."""
-        # Using rate of 23.0
+        # Using mocked rate of 23.0
         assert convert_currency(1.0, "CZK") == 23.0
         assert convert_currency(0.5, "CZK") == 11.5
 
     def test_usd_to_eur(self) -> None:
         """USD to EUR conversion."""
-        # Using rate of 0.92
+        # Using mocked rate of 0.92
         assert convert_currency(1.0, "EUR") == 0.92
         assert convert_currency(10.0, "EUR") == pytest.approx(9.2)
 
     def test_usd_to_gbp(self) -> None:
         """USD to GBP conversion."""
-        # Using rate of 0.79
+        # Using mocked rate of 0.79
         assert convert_currency(1.0, "GBP") == 0.79
 
     def test_unknown_currency_uses_default_rate(self) -> None:
