@@ -1,4 +1,4 @@
-.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all clean deploy
+.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -42,6 +42,9 @@ help:
 	@echo "  test-fe-watch         Run frontend tests in watch mode"
 	@echo ""
 	@echo "  test-all              Run all tests (backend + frontend)"
+	@echo ""
+	@echo "  openapi               Export OpenAPI spec to static/openapi.json"
+	@echo "  types                 Generate TypeScript types from OpenAPI spec"
 	@echo ""
 	@echo "  clean                 Remove venv, caches, and build artifacts"
 	@echo "  deploy                Deploy to systemd (Hetzner)"
@@ -133,6 +136,18 @@ test-fe-watch:
 
 # All tests (backend + frontend)
 test-all: test test-fe
+
+# Export OpenAPI spec by running Flask app briefly
+# The app exports spec on startup to static/openapi.json
+openapi:
+	$(PYTHON) -c "from src.app import create_app; app = create_app(); import json; open('static/openapi.json', 'w').write(json.dumps(app.spec, indent=2))"
+	@echo "OpenAPI spec exported to static/openapi.json"
+
+# Generate TypeScript types from OpenAPI spec
+# Run 'make openapi' first if you've changed backend schemas
+types:
+	cd web && $(NPM) run types:generate
+	@echo "TypeScript types generated at web/src/types/generated-api.ts"
 
 clean:
 	rm -rf $(VENV)

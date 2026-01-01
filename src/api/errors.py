@@ -3,10 +3,16 @@
 This module provides a consistent error response format across all API endpoints,
 enabling the frontend to properly categorize errors and implement appropriate
 handling strategies (retry, user notification, etc.).
+
+Uses APIFlask's HTTPError for idiomatic error handling. Custom error classes
+inherit from HTTPError and are properly documented in the OpenAPI spec.
 """
 
 from enum import Enum
-from typing import Any
+from typing import Any, NoReturn
+
+from apiflask import HTTPError
+from pydantic import BaseModel
 
 
 class ErrorCode(str, Enum):
@@ -59,12 +65,194 @@ def is_retryable(code: ErrorCode) -> bool:
     return code in RETRYABLE_ERRORS
 
 
+# =============================================================================
+# Pydantic schema for OpenAPI documentation
+# =============================================================================
+
+
+class ErrorDetail(BaseModel):
+    """Error detail schema for OpenAPI documentation."""
+
+    code: str
+    message: str
+    retryable: bool = False
+    details: dict[str, Any] | None = None
+
+
+class ErrorResponse(BaseModel):
+    """Error response schema for OpenAPI documentation."""
+
+    error: ErrorDetail
+
+
+# =============================================================================
+# Custom HTTPError subclass for our error format
+# =============================================================================
+
+
+class APIError(HTTPError):
+    """Custom HTTPError that uses our standardized error format.
+
+    This integrates with APIFlask's error handling while maintaining
+    our custom error structure with code, message, retryable, and details.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        code: ErrorCode,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ):
+        # Build error dict with our custom structure
+        error_dict: dict[str, Any] = {
+            "code": code.value,
+            "message": message,
+            "retryable": is_retryable(code),
+        }
+        if details:
+            error_dict["details"] = details
+
+        # Store our custom fields in extra_data, which APIFlask includes in response
+        extra_data: dict[str, Any] = {"error": error_dict}
+
+        # Call parent with empty message since we put everything in extra_data
+        # APIFlask will merge extra_data into the response body
+        super().__init__(status_code=status_code, message="", extra_data=extra_data)
+
+        # Store for potential access
+        self.code = code
+        self.error_message = message
+        self.details = details
+
+
+# =============================================================================
+# Convenience functions for raising common errors
+# =============================================================================
+
+
+def raise_validation_error(message: str, field: str | None = None) -> NoReturn:
+    """Raise a validation error (400)."""
+    details = {"field": field} if field else None
+    raise APIError(400, ErrorCode.VALIDATION_ERROR, message, details)
+
+
+def raise_missing_field_error(field: str) -> NoReturn:
+    """Raise a missing field error (400)."""
+    raise APIError(
+        400, ErrorCode.MISSING_FIELD, f"Missing required field: {field}", {"field": field}
+    )
+
+
+def raise_invalid_format_error(message: str = "Invalid format") -> NoReturn:
+    """Raise an invalid format error (400)."""
+    raise APIError(400, ErrorCode.INVALID_FORMAT, message)
+
+
+def raise_not_found_error(resource: str = "Resource") -> NoReturn:
+    """Raise a not found error (404)."""
+    raise APIError(404, ErrorCode.NOT_FOUND, f"{resource} not found")
+
+
+def raise_auth_required_error() -> NoReturn:
+    """Raise an authentication required error (401)."""
+    raise APIError(401, ErrorCode.AUTH_REQUIRED, "Authentication required")
+
+
+def raise_auth_invalid_error(message: str = "Invalid credentials") -> NoReturn:
+    """Raise an invalid authentication error (401)."""
+    raise APIError(401, ErrorCode.AUTH_INVALID, message)
+
+
+def raise_auth_expired_error(message: str = "Token expired") -> NoReturn:
+    """Raise an expired authentication error (401).
+
+    This is distinct from AUTH_INVALID to allow the frontend to prompt
+    re-authentication rather than treating it as a credentials error.
+    """
+    raise APIError(401, ErrorCode.AUTH_EXPIRED, message)
+
+
+def raise_auth_forbidden_error(message: str = "Access denied") -> NoReturn:
+    """Raise a forbidden error (403)."""
+    raise APIError(403, ErrorCode.AUTH_FORBIDDEN, message)
+
+
+def raise_timeout_error(
+    message: str = "Request timed out. Please try again.",
+    timeout_seconds: int | None = None,
+) -> NoReturn:
+    """Raise a timeout error (504)."""
+    details = {"timeout_seconds": timeout_seconds} if timeout_seconds else None
+    raise APIError(504, ErrorCode.TIMEOUT, message, details)
+
+
+def raise_server_error(
+    message: str = "An unexpected error occurred. Please try again.",
+) -> NoReturn:
+    """Raise a generic server error (500).
+
+    Note: Never expose internal error details to users. Log them server-side instead.
+    """
+    raise APIError(500, ErrorCode.SERVER_ERROR, message)
+
+
+def raise_service_unavailable_error(
+    message: str = "Service temporarily unavailable. Please try again later.",
+) -> NoReturn:
+    """Raise a service unavailable error (503)."""
+    raise APIError(503, ErrorCode.SERVICE_UNAVAILABLE, message)
+
+
+def raise_rate_limited_error(
+    message: str = "Too many requests. Please slow down.",
+    retry_after: int | None = None,
+) -> NoReturn:
+    """Raise a rate limited error (429)."""
+    details = {"retry_after": retry_after} if retry_after else None
+    raise APIError(429, ErrorCode.RATE_LIMITED, message, details)
+
+
+def raise_llm_error(message: str = "AI service error. Please try again.") -> NoReturn:
+    """Raise an LLM/Gemini error (502)."""
+    raise APIError(502, ErrorCode.LLM_ERROR, message)
+
+
+def raise_tool_error(
+    message: str = "Tool execution failed.",
+    tool_name: str | None = None,
+) -> NoReturn:
+    """Raise a tool execution error (500)."""
+    details = {"tool": tool_name} if tool_name else None
+    raise APIError(500, ErrorCode.TOOL_ERROR, message, details)
+
+
+def raise_external_service_error(
+    message: str = "External service error. Please try again.",
+    service: str | None = None,
+) -> NoReturn:
+    """Raise an external service error (502)."""
+    details = {"service": service} if service else None
+    raise APIError(502, ErrorCode.EXTERNAL_SERVICE_ERROR, message, details)
+
+
+def raise_invalid_json_error() -> NoReturn:
+    """Raise an invalid JSON error (400)."""
+    raise APIError(400, ErrorCode.INVALID_FORMAT, "Invalid JSON in request body")
+
+
+# =============================================================================
+# Legacy function-based API (returns values instead of raising)
+# Keep for backward compatibility with existing code
+# =============================================================================
+
+
 def create_error_response(
     code: ErrorCode,
     message: str,
     details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create a standardized error response.
+    """Create a standardized error response dict.
 
     Args:
         code: Error code enum value
@@ -94,129 +282,7 @@ def create_error_response(
     return {"error": error_data}
 
 
-# Convenience functions for common error types
-
-
-def validation_error(message: str, field: str | None = None) -> tuple[dict[str, Any], int]:
-    """Create a validation error response (400)."""
+def validation_error_dict(message: str, field: str | None = None) -> tuple[dict[str, Any], int]:
+    """Create a validation error dict and status code (for use outside Flask context)."""
     details = {"field": field} if field else None
     return create_error_response(ErrorCode.VALIDATION_ERROR, message, details), 400
-
-
-def missing_field_error(field: str) -> tuple[dict[str, Any], int]:
-    """Create a missing field error response (400)."""
-    return create_error_response(
-        ErrorCode.MISSING_FIELD,
-        f"Missing required field: {field}",
-        {"field": field},
-    ), 400
-
-
-def not_found_error(resource: str = "Resource") -> tuple[dict[str, Any], int]:
-    """Create a not found error response (404)."""
-    return create_error_response(
-        ErrorCode.NOT_FOUND,
-        f"{resource} not found",
-    ), 404
-
-
-def auth_required_error() -> tuple[dict[str, Any], int]:
-    """Create an authentication required error response (401)."""
-    return create_error_response(
-        ErrorCode.AUTH_REQUIRED,
-        "Authentication required",
-    ), 401
-
-
-def auth_invalid_error(message: str = "Invalid credentials") -> tuple[dict[str, Any], int]:
-    """Create an invalid authentication error response (401)."""
-    return create_error_response(
-        ErrorCode.AUTH_INVALID,
-        message,
-    ), 401
-
-
-def auth_expired_error(message: str = "Token expired") -> tuple[dict[str, Any], int]:
-    """Create an expired authentication error response (401).
-
-    This is distinct from AUTH_INVALID to allow the frontend to prompt
-    re-authentication rather than treating it as a credentials error.
-    """
-    return create_error_response(
-        ErrorCode.AUTH_EXPIRED,
-        message,
-    ), 401
-
-
-def auth_forbidden_error(message: str = "Access denied") -> tuple[dict[str, Any], int]:
-    """Create a forbidden error response (403)."""
-    return create_error_response(
-        ErrorCode.AUTH_FORBIDDEN,
-        message,
-    ), 403
-
-
-def timeout_error(
-    message: str = "Request timed out. Please try again.",
-    timeout_seconds: int | None = None,
-) -> tuple[dict[str, Any], int]:
-    """Create a timeout error response (504)."""
-    details = {"timeout_seconds": timeout_seconds} if timeout_seconds else None
-    return create_error_response(ErrorCode.TIMEOUT, message, details), 504
-
-
-def server_error(
-    message: str = "An unexpected error occurred. Please try again.",
-) -> tuple[dict[str, Any], int]:
-    """Create a generic server error response (500).
-
-    Note: Never expose internal error details to users. Log them server-side instead.
-    """
-    return create_error_response(ErrorCode.SERVER_ERROR, message), 500
-
-
-def service_unavailable_error(
-    message: str = "Service temporarily unavailable. Please try again later.",
-) -> tuple[dict[str, Any], int]:
-    """Create a service unavailable error response (503)."""
-    return create_error_response(ErrorCode.SERVICE_UNAVAILABLE, message), 503
-
-
-def rate_limited_error(
-    message: str = "Too many requests. Please slow down.",
-    retry_after: int | None = None,
-) -> tuple[dict[str, Any], int]:
-    """Create a rate limited error response (429)."""
-    details = {"retry_after": retry_after} if retry_after else None
-    return create_error_response(ErrorCode.RATE_LIMITED, message, details), 429
-
-
-def llm_error(message: str = "AI service error. Please try again.") -> tuple[dict[str, Any], int]:
-    """Create an LLM/Gemini error response (502)."""
-    return create_error_response(ErrorCode.LLM_ERROR, message), 502
-
-
-def tool_error(
-    message: str = "Tool execution failed.",
-    tool_name: str | None = None,
-) -> tuple[dict[str, Any], int]:
-    """Create a tool execution error response (500)."""
-    details = {"tool": tool_name} if tool_name else None
-    return create_error_response(ErrorCode.TOOL_ERROR, message, details), 500
-
-
-def external_service_error(
-    message: str = "External service error. Please try again.",
-    service: str | None = None,
-) -> tuple[dict[str, Any], int]:
-    """Create an external service error response (502)."""
-    details = {"service": service} if service else None
-    return create_error_response(ErrorCode.EXTERNAL_SERVICE_ERROR, message, details), 502
-
-
-def invalid_json_error() -> tuple[dict[str, Any], int]:
-    """Create an invalid JSON error response (400)."""
-    return create_error_response(
-        ErrorCode.INVALID_FORMAT,
-        "Invalid JSON in request body",
-    ), 400

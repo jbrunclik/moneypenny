@@ -12,7 +12,7 @@ from typing import Any
 from flask import request
 from pydantic import BaseModel, ValidationError
 
-from src.api.errors import invalid_json_error, validation_error
+from src.api.errors import raise_invalid_json_error, raise_validation_error, validation_error_dict
 from src.api.utils import get_request_json
 from src.utils.logging import get_logger
 
@@ -25,7 +25,7 @@ def pydantic_to_error_response(
     """Convert Pydantic ValidationError to standardized API error response.
 
     Converts Pydantic's error format to the existing error format used by
-    validation_error() in src/api/errors.py.
+    raise_validation_error() in src/api/errors.py.
 
     Pydantic error format:
     {
@@ -69,7 +69,30 @@ def pydantic_to_error_response(
         },
     )
 
-    return validation_error(message, field=field)
+    # Return dict and status code (works outside Flask context for unit testing)
+    return validation_error_dict(message, field=field)
+
+
+def _extract_validation_error_details(error: ValidationError) -> tuple[str, str | None]:
+    """Extract message and field from Pydantic ValidationError.
+
+    Returns:
+        Tuple of (message, field) where field may be None
+    """
+    first_error = error.errors()[0]
+
+    # Extract field name from location tuple
+    loc = first_error.get("loc", ())
+    field = ".".join(str(x) for x in loc) if loc else None
+
+    # Get the human-readable message
+    message = first_error.get("msg", "Invalid input")
+
+    # If the message starts with "Value error, " (from custom validators), clean it
+    if message.startswith("Value error, "):
+        message = message[13:]  # Remove "Value error, " prefix
+
+    return message, field
 
 
 def validate_request[T: BaseModel](
@@ -90,7 +113,7 @@ def validate_request[T: BaseModel](
     1. Parses request JSON using get_request_json()
     2. Validates against the schema
     3. On success: inserts validated model after injected args (e.g., user from @require_auth)
-    4. On failure: returns standardized error response
+    4. On failure: raises APIError with standardized error format
 
     Note: This decorator should be placed AFTER @require_auth so that
     auth errors are returned before validation is attempted. The validated
@@ -103,13 +126,14 @@ def validate_request[T: BaseModel](
             # Parse JSON from request
             data = get_request_json(request)
             if data is None:
-                return invalid_json_error()
+                raise_invalid_json_error()
 
             # Validate against schema
             try:
                 validated = schema_class.model_validate(data)
             except ValidationError as e:
-                return pydantic_to_error_response(e)
+                message, field = _extract_validation_error_details(e)
+                raise_validation_error(message, field)
 
             # Insert validated data after any injected args (like user from @require_auth)
             # but before URL parameters (which come via kwargs from Flask)

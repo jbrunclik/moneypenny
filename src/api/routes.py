@@ -8,7 +8,8 @@ from collections.abc import Generator
 from datetime import datetime
 from typing import Any
 
-from flask import Blueprint, Response, request
+from apiflask import APIBlueprint
+from flask import Response, request
 
 from src.agent.chat_agent import (
     ChatAgent,
@@ -18,19 +19,42 @@ from src.agent.chat_agent import (
     set_current_request_id,
 )
 from src.api.errors import (
-    auth_forbidden_error,
-    auth_invalid_error,
-    llm_error,
-    not_found_error,
-    server_error,
-    validation_error,
+    raise_auth_forbidden_error,
+    raise_auth_invalid_error,
+    raise_llm_error,
+    raise_not_found_error,
+    raise_server_error,
+    raise_validation_error,
 )
 from src.api.schemas import (
+    # Response schemas
+    AuthResponse,
+    ChatBatchResponse,
+    # Request schemas
     ChatRequest,
+    ClientIdResponse,
+    ConversationCostResponse,
+    ConversationDetailResponse,
+    ConversationResponse,
+    ConversationsListResponse,
+    CostHistoryResponse,
     CreateConversationRequest,
     GoogleAuthRequest,
+    HealthResponse,
+    MemoriesListResponse,
+    MessageCostResponse,
+    ModelsListResponse,
+    MonthlyCostResponse,
+    ReadinessResponse,
+    StatusResponse,
+    SyncResponse,
+    TokenRefreshResponse,
     UpdateConversationRequest,
     UpdateSettingsRequest,
+    UploadConfigResponse,
+    UserContainerResponse,
+    UserSettingsResponse,
+    VersionResponse,
 )
 from src.api.utils import (
     build_chat_response,
@@ -60,8 +84,8 @@ from src.utils.logging import get_logger, log_payload_snippet
 
 logger = get_logger(__name__)
 
-api = Blueprint("api", __name__, url_prefix="/api")
-auth = Blueprint("auth", __name__, url_prefix="/auth")
+api = APIBlueprint("api", __name__, url_prefix="/api", tag="API")
+auth = APIBlueprint("auth", __name__, url_prefix="/auth", tag="Auth")
 
 
 # ============================================================================
@@ -70,13 +94,15 @@ auth = Blueprint("auth", __name__, url_prefix="/auth")
 
 
 @auth.route("/google", methods=["POST"])
+@auth.output(AuthResponse, status_code=200)
+@auth.doc(responses=[400, 401, 403])
 @validate_request(GoogleAuthRequest)
 def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
     """Authenticate with Google ID token from Sign In with Google."""
     logger.info("Google authentication request")
     if Config.is_development():
         logger.warning("Authentication attempted in development mode")
-        return validation_error("Authentication disabled in local mode")
+        raise_validation_error("Authentication disabled in local mode")
 
     id_token = data.credential
 
@@ -87,11 +113,11 @@ def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
         logger.debug("Google token verified", extra={"email": email})
     except GoogleAuthError as e:
         logger.warning("Google token verification failed", extra={"error": str(e)})
-        return auth_invalid_error(str(e))
+        raise_auth_invalid_error(str(e))
 
     if not is_email_allowed(email):
         logger.warning("Email not in whitelist", extra={"email": email})
-        return auth_forbidden_error("Email not authorized")
+        raise_auth_forbidden_error("Email not authorized")
 
     # Create or get user
     logger.debug("Getting or creating user", extra={"email": email})
@@ -117,12 +143,14 @@ def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
 
 
 @auth.route("/client-id", methods=["GET"])
+@auth.output(ClientIdResponse)
 def get_client_id() -> dict[str, str]:
     """Return Google Client ID for frontend initialization."""
     return {"client_id": Config.GOOGLE_CLIENT_ID}
 
 
 @auth.route("/me")
+@auth.output(UserContainerResponse)
 @require_auth
 def me(user: User) -> dict[str, dict[str, str | None]]:
     """Get current user info."""
@@ -137,6 +165,7 @@ def me(user: User) -> dict[str, dict[str, str | None]]:
 
 
 @auth.route("/refresh", methods=["POST"])
+@auth.output(TokenRefreshResponse)
 @require_auth
 def refresh_token(user: User) -> dict[str, str]:
     """Refresh the JWT token.
@@ -157,6 +186,7 @@ def refresh_token(user: User) -> dict[str, str]:
 
 
 @api.route("/conversations", methods=["GET"])
+@api.output(ConversationsListResponse)
 @require_auth
 def list_conversations(user: User) -> dict[str, list[dict[str, Any]]]:
     """List all conversations for the current user.
@@ -188,6 +218,7 @@ def list_conversations(user: User) -> dict[str, list[dict[str, Any]]]:
 
 
 @api.route("/conversations", methods=["POST"])
+@api.output(ConversationResponse, status_code=201)
 @require_auth
 @validate_request(CreateConversationRequest)
 def create_conversation(user: User, data: CreateConversationRequest) -> tuple[dict[str, str], int]:
@@ -211,6 +242,8 @@ def create_conversation(user: User, data: CreateConversationRequest) -> tuple[di
 
 
 @api.route("/conversations/<conv_id>", methods=["GET"])
+@api.output(ConversationDetailResponse)
+@api.doc(responses=[404])
 @require_auth
 def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     """Get a conversation with its messages.
@@ -226,7 +259,7 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
             "Conversation not found",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        return not_found_error("Conversation")
+        raise_not_found_error("Conversation")
 
     messages = db.get_messages(conv_id)
     logger.info(
@@ -278,6 +311,8 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
 
 
 @api.route("/conversations/<conv_id>", methods=["PATCH"])
+@api.output(StatusResponse)
+@api.doc(responses=[404])
 @require_auth
 @validate_request(UpdateConversationRequest)
 def update_conversation(
@@ -297,13 +332,15 @@ def update_conversation(
             "Conversation not found for update",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        return not_found_error("Conversation")
+        raise_not_found_error("Conversation")
 
     logger.info("Conversation updated", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "updated"}, 200
 
 
 @api.route("/conversations/<conv_id>", methods=["DELETE"])
+@api.output(StatusResponse)
+@api.doc(responses=[404])
 @require_auth
 def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
     """Delete a conversation."""
@@ -313,13 +350,14 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
             "Conversation not found for deletion",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        return not_found_error("Conversation")
+        raise_not_found_error("Conversation")
 
     logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "deleted"}, 200
 
 
 @api.route("/conversations/sync", methods=["GET"])
+@api.output(SyncResponse)
 @require_auth
 def sync_conversations(user: User) -> dict[str, Any]:
     """Sync conversations - returns conversations updated since a given timestamp.
@@ -385,6 +423,8 @@ def sync_conversations(user: User) -> dict[str, Any]:
 
 
 @api.route("/conversations/<conv_id>/chat/batch", methods=["POST"])
+@api.output(ChatBatchResponse)
+@api.doc(responses=[400, 404, 500])
 @require_auth
 @validate_request(ChatRequest)
 def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, str], int]:
@@ -402,7 +442,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             "Conversation not found for chat",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        return not_found_error("Conversation")
+        raise_not_found_error("Conversation")
 
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
@@ -429,7 +469,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
                     "file_count": len(files),
                 },
             )
-            return validation_error(error or "File validation failed", field="files")
+            raise_validation_error(error or "File validation failed", field="files")
         # Mark images for background thumbnail generation
         logger.debug(
             "Marking image files for thumbnail generation",
@@ -601,7 +641,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             },
             exc_info=True,
         )
-        return llm_error("Request timed out. The AI took too long to respond. Please try again.")
+        raise_llm_error("Request timed out. The AI took too long to respond. Please try again.")
     except Exception as e:
         # Log the error but don't expose internal details to users
         import traceback
@@ -619,11 +659,11 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # Check for common recoverable errors
         error_str = str(e).lower()
         if "timeout" in error_str or "timed out" in error_str:
-            return llm_error("Request timed out. Please try again.")
+            raise_llm_error("Request timed out. Please try again.")
         if "rate limit" in error_str or "quota" in error_str:
-            return llm_error("AI service is busy. Please try again in a moment.")
+            raise_llm_error("AI service is busy. Please try again in a moment.")
         # Generic server error (don't expose internal details)
-        return server_error("Failed to generate response. Please try again.")
+        raise_server_error("Failed to generate response. Please try again.")
 
     # Auto-generate title from first message if still default
     generated_title: str | None = None
@@ -653,6 +693,21 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
 
 
 @api.route("/conversations/<conv_id>/chat/stream", methods=["POST"])
+@api.doc(
+    summary="Stream chat response via SSE",
+    description="""Send a message and stream the response via Server-Sent Events.
+
+Returns text/event-stream with the following event types:
+- `thinking`: LLM thinking text (if enabled) - `{"type": "thinking", "text": "..."}`
+- `tool_start`: Tool starting - `{"type": "tool_start", "tool": "web_search", "detail": "..."}`
+- `tool_end`: Tool completed - `{"type": "tool_end", "tool": "web_search"}`
+- `token`: Content token - `{"type": "token", "text": "..."}`
+- `error`: Error occurred - `{"type": "error", "message": "...", "code": "...", "retryable": bool}`
+- `done`: Stream complete with metadata - `{"type": "done", "id": "...", "created_at": "...", ...}`
+
+Uses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.
+""",
+)
 @require_auth
 @validate_request(ChatRequest)
 def chat_stream(
@@ -675,7 +730,7 @@ def chat_stream(
             "Conversation not found for stream chat",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        return not_found_error("Conversation")
+        raise_not_found_error("Conversation")
 
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
@@ -702,7 +757,7 @@ def chat_stream(
                     "file_count": len(files),
                 },
             )
-            return validation_error(error or "File validation failed", field="files")
+            raise_validation_error(error or "File validation failed", field="files")
         # Mark images for background thumbnail generation
         logger.debug(
             "Marking image files for thumbnail generation in stream",
@@ -1214,6 +1269,7 @@ def chat_stream(
 
 
 @api.route("/models", methods=["GET"])
+@api.output(ModelsListResponse)
 @require_auth
 def list_models(user: User) -> dict[str, Any]:
     """List available models."""
@@ -1233,6 +1289,7 @@ def list_models(user: User) -> dict[str, Any]:
 
 
 @api.route("/config/upload", methods=["GET"])
+@api.output(UploadConfigResponse)
 @require_auth
 def get_upload_config(user: User) -> dict[str, Any]:
     """Get file upload configuration for frontend."""
@@ -1251,6 +1308,7 @@ def get_upload_config(user: User) -> dict[str, Any]:
 
 
 @api.route("/version", methods=["GET"])
+@api.output(VersionResponse)
 def get_version() -> dict[str, str | None]:
     """Get current app version (JS bundle hash).
 
@@ -1269,6 +1327,7 @@ def get_version() -> dict[str, str | None]:
 
 
 @api.route("/health", methods=["GET"])
+@api.output(HealthResponse)
 def health_check() -> tuple[dict[str, str | None], int]:
     """Liveness probe - checks if the application process is running.
 
@@ -1289,6 +1348,8 @@ def health_check() -> tuple[dict[str, str | None], int]:
 
 
 @api.route("/ready", methods=["GET"])
+@api.output(ReadinessResponse)
+@api.doc(responses=[503])
 def readiness_check() -> tuple[dict[str, Any], int]:
     """Readiness probe - checks if the application can serve traffic.
 
@@ -1338,6 +1399,11 @@ def readiness_check() -> tuple[dict[str, Any], int]:
 
 
 @api.route("/messages/<message_id>/files/<int:file_index>/thumbnail", methods=["GET"])
+@api.doc(
+    summary="Get thumbnail for an image file",
+    description="Returns thumbnail binary data (200) or pending status (202).",
+    responses=[202, 403, 404],
+)
 @require_auth
 def get_message_thumbnail(
     user: User, message_id: str, file_index: int
@@ -1358,7 +1424,7 @@ def get_message_thumbnail(
     message = db.get_message_by_id(message_id)
     if not message:
         logger.warning("Message not found for thumbnail", extra={"message_id": message_id})
-        return not_found_error("Message")
+        raise_not_found_error("Message")
 
     # Verify user owns the conversation
     conv = db.get_conversation(message.conversation_id, user.id)
@@ -1366,7 +1432,7 @@ def get_message_thumbnail(
         logger.warning(
             "Unauthorized thumbnail access", extra={"user_id": user.id, "message_id": message_id}
         )
-        return auth_forbidden_error("Not authorized to access this resource")
+        raise_auth_forbidden_error("Not authorized to access this resource")
 
     # Get the file
     if not message.files or file_index >= len(message.files):
@@ -1374,7 +1440,7 @@ def get_message_thumbnail(
             "File not found for thumbnail",
             extra={"message_id": message_id, "file_index": file_index},
         )
-        return not_found_error("File")
+        raise_not_found_error("File")
 
     file = message.files[file_index]
     file_type = file.get("type", "application/octet-stream")
@@ -1390,7 +1456,7 @@ def get_message_thumbnail(
                 "file_type": file_type,
             },
         )
-        return validation_error("File is not an image", field="file_type")
+        raise_validation_error("File is not an image", field="file_type")
 
     # Check thumbnail status (default to "ready" for legacy messages without status)
     thumbnail_status = file.get("thumbnail_status", "ready")
@@ -1490,7 +1556,7 @@ def get_message_thumbnail(
                 "file_index": file_index,
             },
         )
-        return not_found_error("Image data")
+        raise_not_found_error("Image data")
 
     try:
         binary_data = base64.b64decode(file_data)
@@ -1513,10 +1579,15 @@ def get_message_thumbnail(
         )
     except binascii.Error as e:
         logger.error("Failed to decode image data", extra={"error": str(e)}, exc_info=True)
-        return server_error("Failed to process image data")
+        raise_server_error("Failed to process image data")
 
 
 @api.route("/messages/<message_id>/files/<int:file_index>", methods=["GET"])
+@api.doc(
+    summary="Get full file from a message",
+    description="Returns the file as binary data with appropriate content-type header.",
+    responses=[403, 404],
+)
 @require_auth
 def get_message_file(
     user: User, message_id: str, file_index: int
@@ -1536,7 +1607,7 @@ def get_message_file(
         logger.warning(
             "Message not found for file", extra={"user_id": user.id, "message_id": message_id}
         )
-        return not_found_error("Message")
+        raise_not_found_error("Message")
 
     # Verify user owns the conversation
     conv = db.get_conversation(message.conversation_id, user.id)
@@ -1549,7 +1620,7 @@ def get_message_file(
                 "conversation_id": message.conversation_id,
             },
         )
-        return auth_forbidden_error("Not authorized to access this resource")
+        raise_auth_forbidden_error("Not authorized to access this resource")
 
     # Get the file
     if not message.files or file_index >= len(message.files):
@@ -1562,7 +1633,7 @@ def get_message_file(
                 "file_index": file_index,
             },
         )
-        return not_found_error("File")
+        raise_not_found_error("File")
 
     file = message.files[file_index]
     file_data = file.get("data", "")
@@ -1591,7 +1662,7 @@ def get_message_file(
         )
     except binascii.Error as e:
         logger.error("Failed to decode file data", extra={"error": str(e)}, exc_info=True)
-        return server_error("Failed to process file data")
+        raise_server_error("Failed to process file data")
 
 
 # ============================================================================
@@ -1600,6 +1671,8 @@ def get_message_file(
 
 
 @api.route("/conversations/<conv_id>/cost", methods=["GET"])
+@api.output(ConversationCostResponse)
+@api.doc(responses=[404])
 @require_auth
 def get_conversation_cost(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     """Get total cost for a conversation."""
@@ -1614,7 +1687,7 @@ def get_conversation_cost(user: User, conv_id: str) -> tuple[dict[str, Any], int
             "Conversation not found for cost query",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        return not_found_error("Conversation")
+        raise_not_found_error("Conversation")
 
     cost_usd = db.get_conversation_cost(conv_id)
     cost_display = convert_currency(cost_usd, Config.COST_CURRENCY)
@@ -1635,6 +1708,8 @@ def get_conversation_cost(user: User, conv_id: str) -> tuple[dict[str, Any], int
 
 
 @api.route("/messages/<message_id>/cost", methods=["GET"])
+@api.output(MessageCostResponse)
+@api.doc(responses=[404])
 @require_auth
 def get_message_cost(user: User, message_id: str) -> tuple[dict[str, Any], int]:
     """Get cost for a specific message."""
@@ -1647,7 +1722,7 @@ def get_message_cost(user: User, message_id: str) -> tuple[dict[str, Any], int]:
             "Message not found for cost query",
             extra={"user_id": user.id, "message_id": message_id},
         )
-        return not_found_error("Message")
+        raise_not_found_error("Message")
 
     conv = db.get_conversation(message.conversation_id, user.id)
     if not conv:
@@ -1659,7 +1734,7 @@ def get_message_cost(user: User, message_id: str) -> tuple[dict[str, Any], int]:
                 "conversation_id": message.conversation_id,
             },
         )
-        return not_found_error("Message")
+        raise_not_found_error("Message")
 
     cost_data = db.get_message_cost(message_id)
     if not cost_data:
@@ -1667,7 +1742,7 @@ def get_message_cost(user: User, message_id: str) -> tuple[dict[str, Any], int]:
             "No cost data found for message",
             extra={"user_id": user.id, "message_id": message_id},
         )
-        return not_found_error("Cost data for this message")
+        raise_not_found_error("Cost data for this message")
 
     cost_display = convert_currency(cost_data["cost_usd"], Config.COST_CURRENCY)
     formatted_cost = format_cost(cost_display, Config.COST_CURRENCY)
@@ -1710,6 +1785,8 @@ def get_message_cost(user: User, message_id: str) -> tuple[dict[str, Any], int]:
 
 
 @api.route("/users/me/costs/monthly", methods=["GET"])
+@api.output(MonthlyCostResponse)
+@api.doc(responses=[400])
 @require_auth
 def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
     """Get cost for the current user in a specific month."""
@@ -1724,7 +1801,7 @@ def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
             "Invalid month in request",
             extra={"user_id": user.id, "year": year, "month": month},
         )
-        return validation_error("Month must be between 1 and 12", field="month")
+        raise_validation_error("Month must be between 1 and 12", field="month")
 
     logger.debug(
         "Getting user monthly cost",
@@ -1772,6 +1849,7 @@ def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
 
 
 @api.route("/users/me/costs/history", methods=["GET"])
+@api.output(CostHistoryResponse)
 @require_auth
 def get_user_cost_history(user: User) -> tuple[dict[str, Any], int]:
     """Get monthly cost history for the current user."""
@@ -1843,6 +1921,7 @@ def get_user_cost_history(user: User) -> tuple[dict[str, Any], int]:
 
 
 @api.route("/users/me/settings", methods=["GET"])
+@api.output(UserSettingsResponse)
 @require_auth
 def get_user_settings(user: User) -> dict[str, Any]:
     """Get user settings including custom instructions."""
@@ -1853,6 +1932,7 @@ def get_user_settings(user: User) -> dict[str, Any]:
 
 
 @api.route("/users/me/settings", methods=["PATCH"])
+@api.output(StatusResponse)
 @require_auth
 @validate_request(UpdateSettingsRequest)
 def update_user_settings(user: User, data: UpdateSettingsRequest) -> tuple[dict[str, str], int]:
@@ -1883,6 +1963,7 @@ def update_user_settings(user: User, data: UpdateSettingsRequest) -> tuple[dict[
 
 
 @api.route("/memories", methods=["GET"])
+@api.output(MemoriesListResponse)
 @require_auth
 def list_memories(user: User) -> dict[str, Any]:
     """List all memories for the current user."""
@@ -1907,6 +1988,8 @@ def list_memories(user: User) -> dict[str, Any]:
 
 
 @api.route("/memories/<memory_id>", methods=["DELETE"])
+@api.output(StatusResponse)
+@api.doc(responses=[404])
 @require_auth
 def delete_memory(user: User, memory_id: str) -> tuple[dict[str, str], int]:
     """Delete a memory."""
@@ -1916,7 +1999,7 @@ def delete_memory(user: User, memory_id: str) -> tuple[dict[str, str], int]:
             "Memory not found for deletion",
             extra={"user_id": user.id, "memory_id": memory_id},
         )
-        return not_found_error("Memory")
+        raise_not_found_error("Memory")
 
     logger.info("Memory deleted", extra={"user_id": user.id, "memory_id": memory_id})
     return {"status": "deleted"}, 200

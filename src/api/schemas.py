@@ -1,7 +1,8 @@
-"""Pydantic schemas for API request validation.
+"""Pydantic schemas for API request and response validation.
 
-This module defines Pydantic models for all API request payloads. These schemas
+This module defines Pydantic models for all API payloads. Request schemas
 provide automatic validation of request structure, types, and constraints.
+Response schemas provide OpenAPI documentation and response validation.
 
 For file content validation (base64 decoding, size limits), see validate_files()
 in src/utils/files.py which handles the content-level validation after Pydantic
@@ -9,6 +10,8 @@ validates the structure.
 """
 
 from __future__ import annotations
+
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -129,3 +132,369 @@ class UpdateSettingsRequest(BaseModel):
     """Schema for PATCH /api/users/me/settings."""
 
     custom_instructions: str | None = Field(None, max_length=2000)
+
+
+# =============================================================================
+# Response Schemas
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Common Response Components
+# -----------------------------------------------------------------------------
+
+
+class ErrorDetail(BaseModel):
+    """Error detail structure in error responses."""
+
+    code: str = Field(..., description="Error code for programmatic handling")
+    message: str = Field(..., description="Human-readable error message")
+    retryable: bool = Field(default=False, description="Whether the request can be retried")
+    details: dict[str, Any] | None = Field(default=None, description="Additional error context")
+
+
+class ErrorResponse(BaseModel):
+    """Standard error response structure."""
+
+    error: ErrorDetail
+
+
+class StatusResponse(BaseModel):
+    """Simple status response for operations that don't return data."""
+
+    status: str = Field(..., description="Operation status (e.g., 'updated', 'deleted')")
+
+
+# -----------------------------------------------------------------------------
+# User Schemas
+# -----------------------------------------------------------------------------
+
+
+class UserResponse(BaseModel):
+    """User information."""
+
+    id: str
+    email: str
+    name: str
+    picture: str | None = None
+
+
+class UserContainerResponse(BaseModel):
+    """Response containing user info (used by /auth/me)."""
+
+    user: UserResponse
+
+
+# -----------------------------------------------------------------------------
+# Auth Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class AuthResponse(BaseModel):
+    """Response from successful authentication."""
+
+    token: str = Field(..., description="JWT token for subsequent requests")
+    user: UserResponse
+
+
+class TokenRefreshResponse(BaseModel):
+    """Response from token refresh."""
+
+    token: str = Field(..., description="New JWT token")
+
+
+class ClientIdResponse(BaseModel):
+    """Response containing Google Client ID."""
+
+    client_id: str
+
+
+# -----------------------------------------------------------------------------
+# File Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class FileMetadataResponse(BaseModel):
+    """File metadata in message responses (excludes full data for performance)."""
+
+    name: str
+    type: str
+    messageId: str | None = None
+    fileIndex: int | None = None
+
+
+class SourceResponse(BaseModel):
+    """Web search source citation."""
+
+    title: str
+    url: str
+
+
+class GeneratedImageResponse(BaseModel):
+    """Generated image metadata."""
+
+    prompt: str
+    image_index: int | None = None
+
+
+# -----------------------------------------------------------------------------
+# Message Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class MessageResponse(BaseModel):
+    """Message in a conversation."""
+
+    id: str
+    role: Literal["user", "assistant"]
+    content: str
+    files: list[FileMetadataResponse] | None = None
+    sources: list[SourceResponse] | None = None
+    generated_images: list[GeneratedImageResponse] | None = None
+    created_at: str
+
+
+class ChatBatchResponse(BaseModel):
+    """Response from batch chat endpoint."""
+
+    id: str
+    role: Literal["assistant"] = "assistant"
+    content: str
+    files: list[FileMetadataResponse] | None = None
+    sources: list[SourceResponse] | None = None
+    generated_images: list[GeneratedImageResponse] | None = None
+    created_at: str
+    title: str | None = Field(
+        default=None, description="Auto-generated conversation title (first message only)"
+    )
+
+
+# -----------------------------------------------------------------------------
+# Conversation Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class ConversationResponse(BaseModel):
+    """Conversation summary (without messages)."""
+
+    id: str
+    title: str
+    model: str
+    created_at: str
+    updated_at: str
+    message_count: int | None = None
+
+
+class ConversationDetailResponse(BaseModel):
+    """Full conversation with messages."""
+
+    id: str
+    title: str
+    model: str
+    created_at: str
+    updated_at: str
+    messages: list[MessageResponse]
+
+
+class ConversationsListResponse(BaseModel):
+    """List of conversations."""
+
+    conversations: list[ConversationResponse]
+
+
+class SyncConversationResponse(BaseModel):
+    """Conversation summary for sync endpoint."""
+
+    id: str
+    title: str
+    model: str
+    updated_at: str
+    message_count: int
+
+
+class SyncResponse(BaseModel):
+    """Response from sync endpoint."""
+
+    conversations: list[SyncConversationResponse]
+    server_time: str = Field(..., description="ISO timestamp to use for next sync")
+    is_full_sync: bool
+
+
+# -----------------------------------------------------------------------------
+# Model Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class ModelResponse(BaseModel):
+    """Available model info."""
+
+    id: str
+    name: str
+
+
+class ModelsListResponse(BaseModel):
+    """List of available models."""
+
+    models: list[ModelResponse]
+    default: str = Field(..., description="Default model ID")
+
+
+# -----------------------------------------------------------------------------
+# Config Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class UploadConfigResponse(BaseModel):
+    """File upload configuration."""
+
+    maxFileSize: int = Field(..., description="Maximum file size in bytes")
+    maxFilesPerMessage: int = Field(..., description="Maximum files per message")
+    allowedFileTypes: list[str] = Field(..., description="Allowed MIME types")
+
+
+# -----------------------------------------------------------------------------
+# Version and Health Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class VersionResponse(BaseModel):
+    """App version info."""
+
+    version: str | None = Field(default=None, description="App version (JS bundle hash)")
+
+
+class HealthResponse(BaseModel):
+    """Liveness probe response."""
+
+    status: str
+    version: str | None = None
+
+
+class HealthCheckDetail(BaseModel):
+    """Individual health check result."""
+
+    status: str
+    message: str | None = None
+
+
+class ReadinessResponse(BaseModel):
+    """Readiness probe response."""
+
+    status: str = Field(..., description="'ready' or 'not_ready'")
+    checks: dict[str, HealthCheckDetail]
+    version: str | None = None
+
+
+# -----------------------------------------------------------------------------
+# Cost Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class ConversationCostResponse(BaseModel):
+    """Cost for a conversation."""
+
+    conversation_id: str
+    cost_usd: float
+    cost: float = Field(..., description="Cost in display currency")
+    currency: str
+    formatted: str
+
+
+class MessageCostResponse(BaseModel):
+    """Cost breakdown for a message."""
+
+    message_id: str
+    cost_usd: float
+    cost: float = Field(..., description="Cost in display currency")
+    currency: str
+    formatted: str
+    input_tokens: int
+    output_tokens: int
+    model: str
+    image_generation_cost_usd: float | None = None
+    image_generation_cost: float | None = None
+    image_generation_cost_formatted: str | None = None
+
+
+class ModelCostBreakdown(BaseModel):
+    """Cost breakdown by model."""
+
+    total: float
+    total_usd: float
+    message_count: int
+    formatted: str
+
+
+class MonthlyCostResponse(BaseModel):
+    """Monthly cost for a user."""
+
+    user_id: str
+    year: int
+    month: int
+    total_usd: float
+    total: float = Field(..., description="Total in display currency")
+    currency: str
+    formatted: str
+    message_count: int
+    breakdown: dict[str, ModelCostBreakdown]
+
+
+class MonthCostEntry(BaseModel):
+    """Single month in cost history."""
+
+    year: int
+    month: int
+    total_usd: float
+    total: float
+    currency: str
+    formatted: str
+    message_count: int
+
+
+class CostHistoryResponse(BaseModel):
+    """Cost history for a user."""
+
+    user_id: str
+    history: list[MonthCostEntry]
+
+
+# -----------------------------------------------------------------------------
+# Settings Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class UserSettingsResponse(BaseModel):
+    """User settings."""
+
+    custom_instructions: str = Field(default="", description="Custom instructions for the AI")
+
+
+# -----------------------------------------------------------------------------
+# Memory Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class MemoryResponse(BaseModel):
+    """Single memory entry."""
+
+    id: str
+    content: str
+    category: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class MemoriesListResponse(BaseModel):
+    """List of memories."""
+
+    memories: list[MemoryResponse]
+
+
+# -----------------------------------------------------------------------------
+# Thumbnail Response Schema
+# -----------------------------------------------------------------------------
+
+
+class ThumbnailPendingResponse(BaseModel):
+    """Response when thumbnail is still being generated (202)."""
+
+    status: Literal["pending"] = "pending"

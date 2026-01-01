@@ -95,7 +95,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] Add proper database migrations (yoyo-migrations)
 - [x] Add request validation (pydantic or marshmallow) - Implemented Pydantic v2 with `@validate_request` decorator
 - [ ] Consider async Flask (quart) for better concurrency
-- [ ] Add OpenAPI/Swagger documentation
+- [x] **Add OpenAPI/Swagger documentation** - APIFlask generates OpenAPI 3.0 spec at `/api/openapi.json` with Swagger UI at `/api/docs`. Response schemas defined in `schemas.py` with `@api.output()` decorators. TypeScript types auto-generated via `openapi-typescript`. See "OpenAPI Documentation" section in CLAUDE.md.
 - [ ] **Store files and thumbnails outside DB** - Move file data and thumbnails to object storage (S3, MinIO, etc.) for better scalability and performance
 - [x] **Split JavaScript into modules** - Migrated to Vite + TypeScript with modular components in `web/src/`
 - [x] **Add structured logging** - Replace print statements with proper logging framework (Python logging module). Currently `images.py:69` uses `print()`.

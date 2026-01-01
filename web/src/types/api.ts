@@ -1,7 +1,25 @@
+/**
+ * API types for the AI Chatbot frontend.
+ *
+ * This file defines types for API communication. While we have auto-generated
+ * types from the OpenAPI spec (in generated-api.ts), we keep manual types here
+ * for frontend flexibility (e.g., adding frontend-only fields like previewUrl).
+ *
+ * The generated types are available for reference and can be used for strict
+ * validation in tests. To regenerate:
+ *   npm run types:generate
+ */
+
+// Re-export generated types for reference and test validation
+export type { components, paths } from './generated-api';
+
 // Constants
 export const DEFAULT_CONVERSATION_TITLE = 'New Conversation';
 
+// =============================================================================
 // User types
+// =============================================================================
+
 export interface User {
   id: string;
   email: string;
@@ -9,7 +27,10 @@ export interface User {
   picture: string | null;
 }
 
+// =============================================================================
 // Conversation types
+// =============================================================================
+
 export interface Conversation {
   id: string;
   title: string;
@@ -26,20 +47,21 @@ export interface Conversation {
   messageCount?: number; // Total message count from server (for sync calculations)
 }
 
-// Source types (for web search results)
+// =============================================================================
+// Message types
+// =============================================================================
+
 export interface Source {
   title: string;
   url: string;
 }
 
-// Generated image metadata
 export interface GeneratedImage {
   prompt: string;
-  image_index?: number; // Optional - not currently set by backend, but reserved for future use
-  message_id?: string; // Optional - message ID for fetching cost
+  image_index?: number;
+  message_id?: string;
 }
 
-// Message types
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -50,7 +72,10 @@ export interface Message {
   created_at: string;
 }
 
+// =============================================================================
 // File types
+// =============================================================================
+
 export interface FileMetadata {
   name: string;
   type: string;
@@ -66,20 +91,29 @@ export interface FileUpload {
   previewUrl?: string; // blob URL for local preview
 }
 
+// =============================================================================
 // Model types
+// =============================================================================
+
 export interface Model {
   id: string;
   name: string;
 }
 
+// =============================================================================
 // Upload config
+// =============================================================================
+
 export interface UploadConfig {
   maxFileSize: number;
   maxFilesPerMessage: number;
   allowedFileTypes: string[];
 }
 
-// Streaming response events
+// =============================================================================
+// Streaming types (SSE events - frontend only)
+// =============================================================================
+
 export type StreamEvent =
   | { type: 'token'; text: string }
   | { type: 'thinking'; text: string }
@@ -92,11 +126,14 @@ export type StreamEvent =
       sources?: Source[];
       generated_images?: GeneratedImage[];
       files?: FileMetadata[];
-      title?: string; // Auto-generated conversation title (only present for first message)
+      title?: string;
     }
   | { type: 'error'; message: string; code?: string; retryable?: boolean };
 
-// Single event in the thinking/tool trace
+// =============================================================================
+// UI State types (frontend-only)
+// =============================================================================
+
 export interface ThinkingTraceItem {
   type: 'thinking' | 'tool';
   label: string;
@@ -104,18 +141,19 @@ export interface ThinkingTraceItem {
   completed: boolean;
 }
 
-// Thinking indicator state for streaming messages
 export interface ThinkingState {
   isThinking: boolean;
   thinkingText: string;
   activeTool: string | null;
   activeToolDetail?: string;
   completedTools: string[];
-  /** Full trace of all thinking/tool events with details */
   trace: ThinkingTraceItem[];
 }
 
-// API response types
+// =============================================================================
+// API Response types
+// =============================================================================
+
 export interface AuthResponse {
   token: string;
   user: User;
@@ -138,7 +176,7 @@ export interface ChatResponse {
   sources?: Source[];
   generated_images?: GeneratedImage[];
   created_at: string;
-  title?: string; // Auto-generated conversation title (only present for first message)
+  title?: string;
 }
 
 export interface ErrorResponse {
@@ -154,13 +192,30 @@ export interface VersionResponse {
   version: string | null;
 }
 
+// =============================================================================
 // Cost tracking types
+// =============================================================================
+
 export interface ConversationCostResponse {
   conversation_id: string;
   cost_usd: number;
   cost: number;
   currency: string;
   formatted: string;
+}
+
+export interface MessageCostResponse {
+  message_id: string;
+  cost_usd: number;
+  cost: number;
+  currency: string;
+  formatted: string;
+  input_tokens: number;
+  output_tokens: number;
+  model: string;
+  image_generation_cost_usd?: number;
+  image_generation_cost?: number;
+  image_generation_cost_formatted?: string;
 }
 
 export interface MonthlyCostResponse {
@@ -193,21 +248,10 @@ export interface CostHistoryResponse {
   }>;
 }
 
-export interface MessageCostResponse {
-  message_id: string;
-  cost_usd: number;
-  cost: number; // Cost in display currency
-  currency: string;
-  formatted: string;
-  input_tokens: number;
-  output_tokens: number;
-  model: string;
-  image_generation_cost_usd?: number;
-  image_generation_cost?: number; // Image generation cost in display currency
-  image_generation_cost_formatted?: string;
-}
-
+// =============================================================================
 // Sync types
+// =============================================================================
+
 export interface ConversationSummary {
   id: string;
   title: string;
@@ -222,7 +266,10 @@ export interface SyncResponse {
   is_full_sync: boolean;
 }
 
+// =============================================================================
 // Memory types
+// =============================================================================
+
 export interface Memory {
   id: string;
   content: string;
@@ -235,7 +282,10 @@ export interface MemoriesResponse {
   memories: Memory[];
 }
 
+// =============================================================================
 // Settings types
+// =============================================================================
+
 export interface UserSettings {
   custom_instructions: string;
 }

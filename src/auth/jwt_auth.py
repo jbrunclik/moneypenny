@@ -9,9 +9,9 @@ import jwt
 from flask import Request, g, request
 
 from src.api.errors import (
-    auth_expired_error,
-    auth_invalid_error,
-    auth_required_error,
+    raise_auth_expired_error,
+    raise_auth_invalid_error,
+    raise_auth_required_error,
 )
 from src.config import Config
 from src.db.models import User, db
@@ -124,18 +124,18 @@ def require_auth[F: Callable[..., Any]](f: F) -> F:
         token = get_token_from_request(request)
         if not token:
             logger.warning("Missing authentication token", extra={"path": request.path})
-            return auth_required_error()
+            raise_auth_required_error()
 
         # Use decode_token_with_status to distinguish expired from invalid
         result = decode_token_with_status(token)
 
         if result.status == TokenStatus.EXPIRED:
             logger.warning("Token expired", extra={"path": request.path})
-            return auth_expired_error("Your session has expired. Please sign in again.")
+            raise_auth_expired_error("Your session has expired. Please sign in again.")
 
         if result.status == TokenStatus.INVALID:
             logger.warning("Invalid token", extra={"path": request.path, "error": result.error})
-            return auth_invalid_error("Invalid authentication token")
+            raise_auth_invalid_error("Invalid authentication token")
 
         # Token is valid, extract user info
         payload = result.payload
@@ -144,7 +144,7 @@ def require_auth[F: Callable[..., Any]](f: F) -> F:
         user_id = payload.get("sub")
         if not user_id:
             logger.warning("Invalid token payload - missing sub", extra={"path": request.path})
-            return auth_invalid_error("Invalid token payload")
+            raise_auth_invalid_error("Invalid token payload")
 
         user = db.get_user_by_id(user_id)
         if not user:
@@ -152,7 +152,7 @@ def require_auth[F: Callable[..., Any]](f: F) -> F:
                 "User not found for token", extra={"user_id": user_id, "path": request.path}
             )
             # Use 401 for user not found (token is valid but user was deleted)
-            return auth_invalid_error("User account not found")
+            raise_auth_invalid_error("User account not found")
 
         g.current_user = user
         logger.debug("Authentication successful", extra={"user_id": user_id, "path": request.path})

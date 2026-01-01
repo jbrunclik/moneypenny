@@ -231,3 +231,45 @@ def sample_file(sample_png_base64: str) -> dict[str, Any]:
         "type": "image/png",
         "data": sample_png_base64,
     }
+
+
+# -----------------------------------------------------------------------------
+# OpenAPI validation fixtures
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def openapi_spec(app: Flask) -> dict[str, Any]:
+    """Get the OpenAPI spec from the app.
+
+    Uses APIFlask's app.spec property to get the full OpenAPI specification.
+    This can be used for response validation in tests.
+    """
+    return app.spec  # type: ignore[attr-defined]
+
+
+@pytest.fixture
+def openapi_client(client: FlaskClient, app: Flask) -> Generator[FlaskClient]:
+    """Create a test client with response validation enabled via APIFlask.
+
+    APIFlask validates responses against OpenAPI schemas when VALIDATION_MODE
+    is set to "response". This fixture ensures validation is enabled during tests.
+
+    Note: For tests that need explicit schema validation against the spec,
+    use the openapi_spec fixture directly. APIFlask's built-in validation
+    handles nested schema references correctly during actual requests.
+
+    Usage:
+        def test_endpoint(openapi_client):
+            response = openapi_client.get("/api/conversations")
+            # Response is automatically validated by APIFlask
+            assert response.status_code == 200
+    """
+    # Ensure response validation is enabled for tests
+    original_mode = app.config.get("VALIDATION_MODE")
+    app.config["VALIDATION_MODE"] = "response"
+
+    yield client
+
+    # Restore original mode
+    app.config["VALIDATION_MODE"] = original_mode

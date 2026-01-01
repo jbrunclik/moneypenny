@@ -1,0 +1,2162 @@
+{
+  "info": {
+    "title": "AI Chatbot API",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "API"
+    },
+    {
+      "name": "Auth"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Index"
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserContainerResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current user info."
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Readiness probe - checks if the application can serve traffic.",
+        "description": "Verifies that all dependencies (database) are accessible.\nUse this for load balancer health checks that should remove\nunhealthy instances from the pool.\n\nReturns:\n200: Application is ready to serve traffic\n503: Application is not ready (dependency failure)"
+      }
+    },
+    "/api/models": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "List available models."
+      }
+    },
+    "/api/health": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Liveness probe - checks if the application process is running.",
+        "description": "This endpoint should NOT check external dependencies (database, APIs).\nIt only verifies the Flask application is responding to requests.\n\nUse /api/ready for readiness checks that verify dependencies.\n\nReturns:\n200: Application is alive and responding"
+      }
+    },
+    "/api/version": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get current app version (JS bundle hash).",
+        "description": "This endpoint does not require authentication so version can be\nchecked even before login. Used by frontend to detect when a new\nversion is deployed and prompt users to reload."
+      }
+    },
+    "/auth/google": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Authenticate with Google ID token from Sign In with Google."
+      }
+    },
+    "/{path}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Static Files"
+      }
+    },
+    "/api/memories": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoriesListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "List all memories for the current user."
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenRefreshResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh the JWT token.",
+        "description": "Returns a new token with extended expiration.\nThe old token remains valid until its original expiration."
+      }
+    },
+    "/auth/client-id": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientIdResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Return Google Client ID for frontend initialization."
+      }
+    },
+    "/api/conversations": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationsListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "List all conversations for the current user.",
+        "description": "Returns conversations with message_count for proper sync initialization."
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Create a new conversation."
+      }
+    },
+    "/api/config/upload": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadConfigResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get file upload configuration for frontend."
+      }
+    },
+    "/api/users/me/settings": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get user settings including custom instructions."
+      },
+      "patch": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Update user settings."
+      }
+    },
+    "/api/conversations/sync": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Sync conversations - returns conversations updated since a given timestamp.",
+        "description": "Query parameters:\n- since: ISO timestamp to get conversations updated after this time (optional)\n- full: If \"true\", returns all conversations for delete detection (optional)\n\nReturns:\n- conversations: List of conversation objects with message_count\n- server_time: Current server timestamp to use for next sync\n- is_full_sync: Whether this was a full sync (all conversations returned)"
+      }
+    },
+    "/api/memories/{memory_id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memory_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Delete a memory."
+      }
+    },
+    "/api/users/me/costs/monthly": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyCostResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get cost for the current user in a specific month."
+      }
+    },
+    "/api/users/me/costs/history": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get monthly cost history for the current user."
+      }
+    },
+    "/api/conversations/{conv_id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetailResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get a conversation with its messages.",
+        "description": "Optimized: Only includes file metadata, not thumbnails or full file data.\nThumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail.\nFull files can be fetched via /api/messages/<message_id>/files/<file_index>."
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Update a conversation (title, model)."
+      },
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Delete a conversation."
+      }
+    },
+    "/api/messages/{message_id}/cost": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageCostResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get cost for a specific message."
+      }
+    },
+    "/api/conversations/{conv_id}/cost": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationCostResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get total cost for a conversation."
+      }
+    },
+    "/api/conversations/{conv_id}/chat/batch": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatBatchResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Send a message and get a complete response (non-streaming).",
+        "description": "Accepts JSON body with:\n- message: str (optional if files present) - the text message\n- files: list[dict] (optional if message present) - array of {name, type, data} file objects\n- force_tools: list[str] (optional) - list of tool names to force (e.g. [\"web_search\"])"
+      }
+    },
+    "/api/conversations/{conv_id}/chat/stream": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Stream chat response via SSE",
+        "description": "Send a message and stream the response via Server-Sent Events.\n\nReturns text/event-stream with the following event types:\n- `thinking`: LLM thinking text (if enabled) - `{\"type\": \"thinking\", \"text\": \"...\"}`\n- `tool_start`: Tool starting - `{\"type\": \"tool_start\", \"tool\": \"web_search\", \"detail\": \"...\"}`\n- `tool_end`: Tool completed - `{\"type\": \"tool_end\", \"tool\": \"web_search\"}`\n- `token`: Content token - `{\"type\": \"token\", \"text\": \"...\"}`\n- `error`: Error occurred - `{\"type\": \"error\", \"message\": \"...\", \"code\": \"...\", \"retryable\": bool}`\n- `done`: Stream complete with metadata - `{\"type\": \"done\", \"id\": \"...\", \"created_at\": \"...\", ...}`\n\nUses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.\n"
+      }
+    },
+    "/api/messages/{message_id}/files/{file_index}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "file_index",
+            "schema": {
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get full file from a message",
+        "description": "Returns the file as binary data with appropriate content-type header."
+      }
+    },
+    "/api/messages/{message_id}/files/{file_index}/thumbnail": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "file_index",
+            "schema": {
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Accepted"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get thumbnail for an image file",
+        "description": "Returns thumbnail binary data (200) or pending status (202)."
+      }
+    }
+  },
+  "openapi": "3.0.3",
+  "components": {
+    "schemas": {
+      "UserContainerResponse.UserResponse": {
+        "description": "User information.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Picture"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "UserContainerResponse": {
+        "description": "Response containing user info (used by /auth/me).",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserContainerResponse.UserResponse"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "title": "UserContainerResponse",
+        "type": "object"
+      },
+      "ReadinessResponse.HealthCheckDetail": {
+        "description": "Individual health check result.",
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthCheckDetail",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "description": "Readiness probe response.",
+        "properties": {
+          "status": {
+            "description": "'ready' or 'not_ready'",
+            "title": "Status",
+            "type": "string"
+          },
+          "checks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ReadinessResponse.HealthCheckDetail"
+            },
+            "title": "Checks",
+            "type": "object"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "HTTPError": {
+        "properties": {
+          "detail": {
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ModelsListResponse.ModelResponse": {
+        "description": "Available model info.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ModelResponse",
+        "type": "object"
+      },
+      "ModelsListResponse": {
+        "description": "List of available models.",
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelsListResponse.ModelResponse"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "default": {
+            "type": "string",
+            "description": "Default model ID",
+            "title": "Default"
+          }
+        },
+        "required": [
+          "models",
+          "default"
+        ],
+        "title": "ModelsListResponse",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "Liveness probe response.",
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "VersionResponse": {
+        "description": "App version info.",
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "App version (JS bundle hash)",
+            "title": "Version"
+          }
+        },
+        "title": "VersionResponse",
+        "type": "object"
+      },
+      "AuthResponse.UserResponse": {
+        "description": "User information.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Picture"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "AuthResponse": {
+        "description": "Response from successful authentication.",
+        "properties": {
+          "token": {
+            "description": "JWT token for subsequent requests",
+            "title": "Token",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthResponse.UserResponse"
+          }
+        },
+        "required": [
+          "token",
+          "user"
+        ],
+        "title": "AuthResponse",
+        "type": "object"
+      },
+      "MemoriesListResponse.MemoryResponse": {
+        "description": "Single memory entry.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MemoryResponse",
+        "type": "object"
+      },
+      "MemoriesListResponse": {
+        "description": "List of memories.",
+        "properties": {
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/MemoriesListResponse.MemoryResponse"
+            },
+            "title": "Memories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "memories"
+        ],
+        "title": "MemoriesListResponse",
+        "type": "object"
+      },
+      "TokenRefreshResponse": {
+        "description": "Response from token refresh.",
+        "properties": {
+          "token": {
+            "description": "New JWT token",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "TokenRefreshResponse",
+        "type": "object"
+      },
+      "ClientIdResponse": {
+        "description": "Response containing Google Client ID.",
+        "properties": {
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id"
+        ],
+        "title": "ClientIdResponse",
+        "type": "object"
+      },
+      "ConversationsListResponse.ConversationResponse": {
+        "description": "Conversation summary (without messages).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "message_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message Count"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "model",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConversationResponse",
+        "type": "object"
+      },
+      "ConversationsListResponse": {
+        "description": "List of conversations.",
+        "properties": {
+          "conversations": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationsListResponse.ConversationResponse"
+            },
+            "title": "Conversations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "conversations"
+        ],
+        "title": "ConversationsListResponse",
+        "type": "object"
+      },
+      "ConversationResponse": {
+        "description": "Conversation summary (without messages).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "message_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message Count"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "model",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConversationResponse",
+        "type": "object"
+      },
+      "UploadConfigResponse": {
+        "description": "File upload configuration.",
+        "properties": {
+          "maxFileSize": {
+            "description": "Maximum file size in bytes",
+            "title": "Maxfilesize",
+            "type": "integer"
+          },
+          "maxFilesPerMessage": {
+            "description": "Maximum files per message",
+            "title": "Maxfilespermessage",
+            "type": "integer"
+          },
+          "allowedFileTypes": {
+            "description": "Allowed MIME types",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowedfiletypes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "maxFileSize",
+          "maxFilesPerMessage",
+          "allowedFileTypes"
+        ],
+        "title": "UploadConfigResponse",
+        "type": "object"
+      },
+      "UserSettingsResponse": {
+        "description": "User settings.",
+        "properties": {
+          "custom_instructions": {
+            "default": "",
+            "description": "Custom instructions for the AI",
+            "title": "Custom Instructions",
+            "type": "string"
+          }
+        },
+        "title": "UserSettingsResponse",
+        "type": "object"
+      },
+      "StatusResponse": {
+        "description": "Simple status response for operations that don't return data.",
+        "properties": {
+          "status": {
+            "description": "Operation status (e.g., 'updated', 'deleted')",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StatusResponse",
+        "type": "object"
+      },
+      "SyncResponse.SyncConversationResponse": {
+        "description": "Conversation summary for sync endpoint.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "message_count": {
+            "title": "Message Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "model",
+          "updated_at",
+          "message_count"
+        ],
+        "title": "SyncConversationResponse",
+        "type": "object"
+      },
+      "SyncResponse": {
+        "description": "Response from sync endpoint.",
+        "properties": {
+          "conversations": {
+            "items": {
+              "$ref": "#/components/schemas/SyncResponse.SyncConversationResponse"
+            },
+            "title": "Conversations",
+            "type": "array"
+          },
+          "server_time": {
+            "description": "ISO timestamp to use for next sync",
+            "title": "Server Time",
+            "type": "string"
+          },
+          "is_full_sync": {
+            "title": "Is Full Sync",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "conversations",
+          "server_time",
+          "is_full_sync"
+        ],
+        "title": "SyncResponse",
+        "type": "object"
+      },
+      "MonthlyCostResponse.ModelCostBreakdown": {
+        "description": "Cost breakdown by model.",
+        "properties": {
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "number"
+          },
+          "message_count": {
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          }
+        },
+        "required": [
+          "total",
+          "total_usd",
+          "message_count",
+          "formatted"
+        ],
+        "title": "ModelCostBreakdown",
+        "type": "object"
+      },
+      "MonthlyCostResponse": {
+        "description": "Monthly cost for a user.",
+        "properties": {
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "integer"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "number"
+          },
+          "total": {
+            "description": "Total in display currency",
+            "title": "Total",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          },
+          "message_count": {
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "breakdown": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MonthlyCostResponse.ModelCostBreakdown"
+            },
+            "title": "Breakdown",
+            "type": "object"
+          }
+        },
+        "required": [
+          "user_id",
+          "year",
+          "month",
+          "total_usd",
+          "total",
+          "currency",
+          "formatted",
+          "message_count",
+          "breakdown"
+        ],
+        "title": "MonthlyCostResponse",
+        "type": "object"
+      },
+      "CostHistoryResponse.MonthCostEntry": {
+        "description": "Single month in cost history.",
+        "properties": {
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "integer"
+          },
+          "total_usd": {
+            "title": "Total Usd",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          },
+          "message_count": {
+            "title": "Message Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "month",
+          "total_usd",
+          "total",
+          "currency",
+          "formatted",
+          "message_count"
+        ],
+        "title": "MonthCostEntry",
+        "type": "object"
+      },
+      "CostHistoryResponse": {
+        "description": "Cost history for a user.",
+        "properties": {
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/CostHistoryResponse.MonthCostEntry"
+            },
+            "title": "History",
+            "type": "array"
+          }
+        },
+        "required": [
+          "user_id",
+          "history"
+        ],
+        "title": "CostHistoryResponse",
+        "type": "object"
+      },
+      "ConversationDetailResponse.FileMetadataResponse": {
+        "description": "File metadata in message responses (excludes full data for performance).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "messageId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Messageid"
+          },
+          "fileIndex": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fileindex"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "FileMetadataResponse",
+        "type": "object"
+      },
+      "ConversationDetailResponse.GeneratedImageResponse": {
+        "description": "Generated image metadata.",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "image_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Index"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "ConversationDetailResponse.MessageResponse": {
+        "description": "Message in a conversation.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConversationDetailResponse.FileMetadataResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Files"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConversationDetailResponse.SourceResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sources"
+          },
+          "generated_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConversationDetailResponse.GeneratedImageResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Generated Images"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "content",
+          "created_at"
+        ],
+        "title": "MessageResponse",
+        "type": "object"
+      },
+      "ConversationDetailResponse.SourceResponse": {
+        "description": "Web search source citation.",
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ],
+        "title": "SourceResponse",
+        "type": "object"
+      },
+      "ConversationDetailResponse": {
+        "description": "Full conversation with messages.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationDetailResponse.MessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "model",
+          "created_at",
+          "updated_at",
+          "messages"
+        ],
+        "title": "ConversationDetailResponse",
+        "type": "object"
+      },
+      "MessageCostResponse": {
+        "description": "Cost breakdown for a message.",
+        "properties": {
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "cost": {
+            "description": "Cost in display currency",
+            "title": "Cost",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "image_generation_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Generation Cost Usd"
+          },
+          "image_generation_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Generation Cost"
+          },
+          "image_generation_cost_formatted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Generation Cost Formatted"
+          }
+        },
+        "required": [
+          "message_id",
+          "cost_usd",
+          "cost",
+          "currency",
+          "formatted",
+          "input_tokens",
+          "output_tokens",
+          "model"
+        ],
+        "title": "MessageCostResponse",
+        "type": "object"
+      },
+      "ConversationCostResponse": {
+        "description": "Cost for a conversation.",
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "cost": {
+            "description": "Cost in display currency",
+            "title": "Cost",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "cost_usd",
+          "cost",
+          "currency",
+          "formatted"
+        ],
+        "title": "ConversationCostResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.FileMetadataResponse": {
+        "description": "File metadata in message responses (excludes full data for performance).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "messageId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Messageid"
+          },
+          "fileIndex": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fileindex"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "FileMetadataResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.GeneratedImageResponse": {
+        "description": "Generated image metadata.",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "image_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Index"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.SourceResponse": {
+        "description": "Web search source citation.",
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ],
+        "title": "SourceResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse": {
+        "description": "Response from batch chat endpoint.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.FileMetadataResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Files"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.SourceResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sources"
+          },
+          "generated_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.GeneratedImageResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Generated Images"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Auto-generated conversation title (first message only)",
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "created_at"
+        ],
+        "title": "ChatBatchResponse",
+        "type": "object"
+      }
+    }
+  }
+}

@@ -3,14 +3,15 @@ import sys
 import uuid
 from pathlib import Path
 
-from flask import Flask, Response, render_template, request, send_from_directory
+from apiflask import APIFlask
+from flask import Response, render_template, request, send_from_directory
 
 from src.api.routes import api, auth
 from src.config import Config
 from src.utils.logging import get_logger, set_request_id, setup_logging
 
 
-def create_app() -> Flask:
+def create_app() -> APIFlask:
     """Create and configure the Flask application."""
     # Setup structured logging first
     setup_logging()
@@ -23,12 +24,20 @@ def create_app() -> Flask:
         },
     )
 
-    app = Flask(
+    app = APIFlask(
         __name__,
         static_folder="../static",
         static_url_path="/static",
         template_folder="templates",
+        title="AI Chatbot API",
+        version="1.0.0",
+        spec_path="/api/openapi.json",
+        docs_path="/api/docs",
+        docs_ui="swagger-ui",  # Use 'redoc' for ReDoc
     )
+    # Note: APIFlask's @api.output() decorator auto-serializes responses.
+    # Error responses are returned as Flask Response objects to bypass this serialization.
+    # See errors.py for details.
 
     # Request ID middleware - must be before blueprints
     @app.before_request
@@ -72,6 +81,48 @@ def create_app() -> Flask:
     # Register blueprints
     app.register_blueprint(api)
     app.register_blueprint(auth)
+
+    # Custom error processor to return our standardized error format
+    # APIFlask calls this for all HTTPError exceptions (including APIError)
+    @app.error_processor
+    def custom_error_processor(error):  # type: ignore[no-untyped-def]
+        """Process errors and return our custom error format.
+
+        For APIError (our custom class), the error data is in extra_data.
+        For standard HTTPError, we wrap the message in our format.
+        """
+        from src.api.errors import APIError, ErrorCode, is_retryable
+
+        if isinstance(error, APIError):
+            # Our custom error - extra_data already has the correct format
+            return error.extra_data, error.status_code, error.headers or {}
+
+        # Standard HTTPError - wrap in our format
+        # Map status codes to appropriate error codes
+        status_to_code = {
+            400: ErrorCode.VALIDATION_ERROR,
+            401: ErrorCode.AUTH_REQUIRED,
+            403: ErrorCode.AUTH_FORBIDDEN,
+            404: ErrorCode.NOT_FOUND,
+            429: ErrorCode.RATE_LIMITED,
+            500: ErrorCode.SERVER_ERROR,
+            502: ErrorCode.EXTERNAL_SERVICE_ERROR,
+            503: ErrorCode.SERVICE_UNAVAILABLE,
+            504: ErrorCode.TIMEOUT,
+        }
+        code = status_to_code.get(error.status_code, ErrorCode.SERVER_ERROR)
+
+        return (
+            {
+                "error": {
+                    "code": code.value,
+                    "message": error.message or "An error occurred",
+                    "retryable": is_retryable(code),
+                }
+            },
+            error.status_code,
+            error.headers or {},
+        )
 
     # Load Vite manifest for production builds
     vite_manifest: dict[str, dict[str, str | list[str]]] = {}

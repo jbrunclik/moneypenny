@@ -9,6 +9,8 @@ This file contains context for Claude Code to work effectively on this project.
 - **Lint**: `make lint` (ruff + mypy + eslint)
 - **Test**: `make test` (run all tests)
 - **Setup**: `make setup` (venv + deps)
+- **OpenAPI**: `make openapi` (export OpenAPI spec)
+- **Types**: `make types` (generate TypeScript types from OpenAPI)
 - **Help**: `make` (show all targets)
 
 ## Project Structure
@@ -43,7 +45,8 @@ ai-chatbot/
 │   └── src/
 │       ├── main.ts               # Entry point, app shell, event wiring
 │       ├── types/                # TypeScript interfaces
-│       │   ├── api.ts            # API response types
+│       │   ├── api.ts            # API response types (manual)
+│       │   ├── generated-api.ts  # Auto-generated from OpenAPI (make types)
 │       │   └── google.d.ts       # Google Identity Services types
 │       ├── api/client.ts         # Typed fetch wrapper, streaming
 │       ├── auth/google.ts        # Google Sign-In, JWT handling
@@ -83,6 +86,7 @@ ai-chatbot/
 │               └── thinking.css
 └── static/                       # Build output + PWA assets
     ├── assets/                   # Vite output (hashed JS/CSS)
+    ├── openapi.json              # OpenAPI spec (make openapi)
     ├── manifest.json
     └── icons/
 ```
@@ -1622,6 +1626,84 @@ make test-fe-visual-update    # Update baselines after intentional UI changes
 - [TODO.md](TODO.md) - Memory bank for planned work
 - [README.md](README.md) - User-facing documentation
 
+## OpenAPI Documentation
+
+The API is documented using [APIFlask](https://apiflask.com/) which automatically generates an OpenAPI 3.0 specification.
+
+### Available Documentation
+
+- **OpenAPI Spec**: [/api/openapi.json](http://localhost:8000/api/openapi.json) - JSON specification
+- **Swagger UI**: [/api/docs](http://localhost:8000/api/docs) - Interactive API documentation
+- **Static Spec**: [static/openapi.json](static/openapi.json) - Committed spec file for TypeScript generation
+
+### TypeScript Type Generation
+
+Types are auto-generated from the OpenAPI spec using [openapi-typescript](https://www.npmjs.com/package/openapi-typescript):
+
+```bash
+# Generate types from the committed spec
+make types
+```
+
+This creates `web/src/types/generated-api.ts`. The manual types in [api.ts](web/src/types/api.ts) re-export these and add frontend-only types (e.g., `StreamEvent`, `ThinkingState`).
+
+### Adding Response Schemas
+
+Response schemas are defined in [schemas.py](src/api/schemas.py) alongside request schemas. Use `@api.output()` for success responses and `@api.doc(responses=[...])` to document error status codes:
+
+```python
+from apiflask import APIBlueprint
+from src.api.schemas import MyResponse
+from src.api.errors import raise_not_found_error
+
+api = APIBlueprint("api", __name__, url_prefix="/api")
+
+@api.route("/endpoint/<item_id>", methods=["GET"])
+@api.output(MyResponse)  # 200 response - generates OpenAPI schema
+@api.doc(responses=[404])  # Document possible error codes
+@require_auth
+def my_endpoint(user: User, item_id: str) -> tuple[dict, int]:
+    item = db.get_item(item_id)
+    if not item:
+        raise_not_found_error("Item")  # Raises APIError, handled by error processor
+    return {"id": item.id, "name": item.name}, 200
+```
+
+**Note**: Error responses use `raise_xxx_error()` functions from [errors.py](src/api/errors.py), which raise `APIError` exceptions. These are handled by the custom error processor in [app.py](src/app.py) and return our standardized error format.
+
+### Response Validation
+
+APIFlask validates responses against schemas in development mode:
+- Enable via `app.config["VALIDATION_MODE"] = "response"`
+- Automatically enabled in tests via the `openapi_client` fixture
+- Disabled in production for performance
+
+### Regenerating the Spec
+
+To update the static OpenAPI spec after adding new endpoints or schemas:
+
+```bash
+# Export OpenAPI spec to static/openapi.json
+make openapi
+
+# Generate TypeScript types from the spec
+make types
+```
+
+This workflow should be run whenever you modify:
+- Response schemas in `src/api/schemas.py`
+- Endpoint definitions or `@api.output()` decorators in `src/api/routes.py`
+
+### Key Files
+
+- [app.py](src/app.py) - APIFlask configuration
+- [schemas.py](src/api/schemas.py) - Request and response Pydantic schemas
+- [routes.py](src/api/routes.py) - API endpoints with `@api.output()` decorators
+- [static/openapi.json](static/openapi.json) - Generated OpenAPI specification
+- [web/src/types/generated-api.ts](web/src/types/generated-api.ts) - Auto-generated TypeScript types
+- [web/src/types/api.ts](web/src/types/api.ts) - Frontend type definitions
+- [tests/integration/test_openapi.py](tests/integration/test_openapi.py) - OpenAPI spec tests
+
 ## Request Validation
 
 The API uses Pydantic v2 for request validation. All validation follows a consistent pattern using the `@validate_request` decorator.
@@ -1764,25 +1846,24 @@ All API errors return a standardized JSON format from [errors.py](src/api/errors
 - `SERVER_ERROR`, `TIMEOUT`, `SERVICE_UNAVAILABLE`, `RATE_LIMITED` - Server errors (retryable)
 - `EXTERNAL_SERVICE_ERROR`, `LLM_ERROR`, `TOOL_ERROR` - External service errors
 
-**Helper functions** for common responses:
+**Raising errors** - Use `raise_xxx_error()` functions which raise `APIError` exceptions:
 ```python
-from src.api.errors import validation_error, not_found_error, server_error
+from src.api.errors import raise_validation_error, raise_not_found_error, raise_server_error
 
-# Returns tuple of (response_dict, status_code)
-return validation_error("Invalid email", field="email")  # 400
-return not_found_error("Conversation")  # 404
-return server_error()  # 500
+# Raises APIError, handled by custom error processor in app.py
+raise_validation_error("Invalid email", field="email")  # 400
+raise_not_found_error("Conversation")  # 404
+raise_server_error()  # 500
 ```
 
-**Safe JSON parsing** - Always use `get_request_json()` from [utils.py](src/api/utils.py):
-```python
-from src.api.utils import get_request_json
-from src.api.errors import invalid_json_error
+**How error handling works:**
+1. Route code calls `raise_xxx_error()` which raises an `APIError` exception
+2. `APIError` extends APIFlask's `HTTPError` with our custom error structure in `extra_data`
+3. The custom `error_processor` in [app.py](src/app.py) catches all `HTTPError` exceptions
+4. For `APIError`, it returns the `extra_data` which contains our standardized error format
+5. For standard `HTTPError` (e.g., Flask's 404), it wraps the message in our format
 
-data = get_request_json(request)
-if data is None:
-    return invalid_json_error()
-```
+**Note:** The `@validate_request` decorator uses `raise_validation_error()` and `raise_invalid_json_error()` internally, so validation errors are automatically formatted correctly.
 
 ### Frontend Error Handling
 
@@ -1896,10 +1977,10 @@ E2E tests for retry functionality are in [chat.spec.ts](web/tests/e2e/chat.spec.
 
 **Backend:**
 1. Never expose internal error details to users - log them, return generic message
-2. Use `get_request_json()` for all JSON parsing (handles malformed JSON gracefully)
+2. Use `@validate_request` decorator for JSON parsing and validation (handles malformed JSON gracefully)
 3. Wrap external API calls (Gemini, Google Auth) in try/except
-4. Use appropriate error helpers from `errors.py`
-5. Log errors with `exc_info=True` before returning error response
+4. Use `raise_xxx_error()` functions from `errors.py` to raise errors (not return)
+5. Log errors with `exc_info=True` before raising error
 
 **Frontend:**
 1. Every async operation should have error handling
@@ -1910,7 +1991,8 @@ E2E tests for retry functionality are in [chat.spec.ts](web/tests/e2e/chat.spec.
 
 ### Key Files
 
-- [errors.py](src/api/errors.py) - Backend error response utilities
+- [errors.py](src/api/errors.py) - `APIError` class and `raise_xxx_error()` functions
+- [app.py](src/app.py) - Custom error processor that formats `APIError` responses
 - [Toast.ts](web/src/components/Toast.ts) - Toast notification component
 - [Modal.ts](web/src/components/Modal.ts) - Modal dialog component
 - [api/client.ts](web/src/api/client.ts) - API client with retry/timeout
