@@ -141,7 +141,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Add request ID tracking** - Include request IDs in logs and error responses for easier debugging
 - [x] **Add API response compression** - Enable gzip compression via nginx (see README deployment section)
 - [ ] **Remove unused dependencies** - Audit and remove any unused npm/Python dependencies
-- [ ] **Optimize image processing** - Consider async/background processing for thumbnail generation on large images
+- [x] **Optimize image processing** - Background thumbnail generation using ThreadPoolExecutor, skip small images (<100KB), BILINEAR resampling for speed. Frontend polls with exponential backoff when thumbnails are pending. Lazy recovery regenerates thumbnails if pending >60s (server death recovery). See "Background Thumbnail Generation" section in CLAUDE.md.
 - [x] **Make HTTP timeout configurable** - `tools.py` uses `Config.TOOL_TIMEOUT` (default 90s)
 - [x] **Make thumbnail dimensions configurable** - `Config.THUMBNAIL_MAX_SIZE` (default 400x400) and `Config.THUMBNAIL_QUALITY` (default 85)
 

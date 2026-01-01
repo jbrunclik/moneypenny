@@ -3,7 +3,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from src.constants import BYTES_PER_MB, SECONDS_PER_DAY, SECONDS_PER_WEEK
+from src.constants import BYTES_PER_KB, BYTES_PER_MB, SECONDS_PER_DAY, SECONDS_PER_WEEK
 
 load_dotenv()
 
@@ -160,6 +160,16 @@ class Config:
         int(os.getenv("THUMBNAIL_MAX_HEIGHT", "400")),
     )
     THUMBNAIL_QUALITY: int = int(os.getenv("THUMBNAIL_QUALITY", "85"))  # JPEG quality (1-100)
+    THUMBNAIL_SKIP_THRESHOLD_BYTES: int = int(
+        os.getenv("THUMBNAIL_SKIP_THRESHOLD", str(100 * BYTES_PER_KB))
+    )  # 100KB - skip thumbnail for small images
+    THUMBNAIL_WORKER_THREADS: int = int(os.getenv("THUMBNAIL_WORKER_THREADS", "2"))
+    THUMBNAIL_RESAMPLING: str = os.getenv(
+        "THUMBNAIL_RESAMPLING", "BILINEAR"
+    )  # BILINEAR (fast) or LANCZOS (quality)
+    THUMBNAIL_STALE_THRESHOLD_SECONDS: int = int(
+        os.getenv("THUMBNAIL_STALE_THRESHOLD", "60")
+    )  # Recovery threshold for stuck pending thumbnails
 
     # Cost history settings
     COST_HISTORY_DEFAULT_LIMIT: int = int(

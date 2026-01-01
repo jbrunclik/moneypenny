@@ -57,7 +57,11 @@ def generate_thumbnail(
                 img = background
 
         # Generate thumbnail (maintains aspect ratio)
-        img.thumbnail(max_size, Image.Resampling.LANCZOS)
+        # Use configurable resampling algorithm (BILINEAR is faster, LANCZOS is higher quality)
+        resampling = getattr(
+            Image.Resampling, Config.THUMBNAIL_RESAMPLING, Image.Resampling.BILINEAR
+        )
+        img.thumbnail(max_size, resampling)
 
         # Save to bytes
         output = io.BytesIO()
@@ -88,32 +92,53 @@ def generate_thumbnail(
         return None
 
 
-def process_image_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Process a list of files and add thumbnails to images.
+def process_image_files_sync(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Process a list of files and add thumbnails to images synchronously.
+
+    This is used for tool-generated images where we want synchronous thumbnail
+    generation. For user uploads, use background_thumbnails.mark_files_for_thumbnail_generation()
+    and background_thumbnails.queue_pending_thumbnails() instead.
 
     Args:
         files: List of file dictionaries with 'name', 'type', 'data' keys
 
     Returns:
-        Same list with 'thumbnail' key added to image files
+        Same list with 'thumbnail' and 'thumbnail_status' keys added to image files
     """
     image_count = sum(1 for f in files if f.get("type", "").startswith("image/"))
     if image_count > 0:
         logger.debug(
-            "Processing image files for thumbnails",
+            "Processing image files for thumbnails (sync)",
             extra={"image_count": image_count, "total_files": len(files)},
         )
     for file in files:
         if file.get("type", "").startswith("image/"):
             thumbnail = generate_thumbnail(file.get("data", ""), file.get("type", ""))
+            file["thumbnail"] = thumbnail
+            file["thumbnail_status"] = "ready" if thumbnail else "failed"
             if thumbnail:
-                file["thumbnail"] = thumbnail
                 logger.debug(
-                    "Thumbnail generated",
+                    "Thumbnail generated (sync)",
                     extra={"file_name": file.get("name", "unknown"), "file_type": file.get("type")},
                 )
 
     return files
+
+
+# Keep old name for backwards compatibility (used by extract functions)
+def process_image_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Process a list of files and add thumbnails to images.
+
+    DEPRECATED: Use process_image_files_sync() for synchronous processing,
+    or background_thumbnails functions for async processing.
+
+    Args:
+        files: List of file dictionaries with 'name', 'type', 'data' keys
+
+    Returns:
+        Same list with 'thumbnail' and 'thumbnail_status' keys added to image files
+    """
+    return process_image_files_sync(files)
 
 
 def extract_generated_images_from_tool_results(

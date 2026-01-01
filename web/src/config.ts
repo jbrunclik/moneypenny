@@ -109,11 +109,24 @@ export const SIDEBAR_EDGE_SWIPE_ZONE_PX = 50;
 export const LONG_PRESS_DURATION_MS = 500;
 
 // =============================================================================
-// Scroll Behavior
+// Thumbnail Loading
 // =============================================================================
 
 /** Maximum concurrent thumbnail fetches */
 export const THUMBNAIL_MAX_CONCURRENT_FETCHES = 6;
+
+/** Initial polling delay when thumbnail is pending (ms) */
+export const THUMBNAIL_POLL_INITIAL_DELAY_MS = 500;
+
+/** Maximum polling delay for pending thumbnails (ms) */
+export const THUMBNAIL_POLL_MAX_DELAY_MS = 4 * MS_PER_SECOND;
+
+/** Maximum number of polling attempts before giving up */
+export const THUMBNAIL_POLL_MAX_ATTEMPTS = 5;
+
+// =============================================================================
+// Scroll Behavior
+// =============================================================================
 
 /** Delay after programmatic scroll to reset the flag (ensures scroll events fired) */
 export const SCROLL_PROGRAMMATIC_RESET_DELAY_MS = 150;

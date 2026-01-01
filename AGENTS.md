@@ -812,6 +812,50 @@ When working on mobile/PWA features, beware of these iOS Safari issues:
 - Native browser lazy loading (`loading="lazy"`) is used for all images
 - Parallel fetching: Up to 6 missing images fetch concurrently when they come into viewport
 
+### Background Thumbnail Generation
+
+Thumbnails are generated in background threads to avoid blocking chat requests.
+
+**How it works:**
+1. User uploads image with message
+2. `mark_files_for_thumbnail_generation()` checks each image:
+   - Small images (<100KB): Original data used as thumbnail, status set to "ready"
+   - Large images: Status set to "pending"
+3. Message saved to database with file statuses
+4. `queue_pending_thumbnails()` queues background generation for pending files
+5. ThreadPoolExecutor (2 workers) generates thumbnails asynchronously
+6. Database updated with thumbnail data when generation completes
+7. Frontend polls `/api/messages/<id>/files/<idx>/thumbnail`:
+   - Returns 200 with thumbnail data when ready
+   - Returns 202 with `{"status": "pending"}` when still generating
+   - Falls back to full image if generation failed
+
+**Server death recovery:**
+If the server dies while generating thumbnails, pending thumbnails would be stuck forever. The system handles this with lazy recovery:
+- When thumbnail endpoint receives a request for a "pending" thumbnail older than 60 seconds, it regenerates synchronously
+- This one-time cost recovers the thumbnail without needing a startup job
+
+**Configuration:**
+- `THUMBNAIL_SKIP_THRESHOLD_BYTES`: Skip thumbnails for images under this size (default: 100KB)
+- `THUMBNAIL_WORKER_THREADS`: Number of background workers (default: 2)
+- `THUMBNAIL_RESAMPLING`: BILINEAR (fast) or LANCZOS (quality) (default: BILINEAR)
+- `THUMBNAIL_STALE_THRESHOLD_SECONDS`: Recovery threshold for stuck thumbnails (default: 60s)
+
+**User uploads vs tool-generated images:**
+- **User uploads**: Use background generation (`mark_files_for_thumbnail_generation()` → `queue_pending_thumbnails()`)
+- **Tool-generated images**: Use synchronous generation via `process_image_files_sync()` since the LLM response is already complete
+
+**Key files:**
+- [background_thumbnails.py](src/utils/background_thumbnails.py) - ThreadPoolExecutor, queue functions, `generate_and_save_thumbnail()` shared helper
+- [images.py](src/utils/images.py) - `generate_thumbnail()`, `process_image_files_sync()` for tool outputs
+- [routes.py](src/api/routes.py) - Thumbnail endpoint with 202 response and stale recovery
+- [client.ts](web/src/api/client.ts) - `fetchThumbnail()` with polling and exponential backoff
+- [config.ts](web/src/config.ts) - Frontend polling configuration
+
+**Testing:**
+- Unit tests: [test_background_thumbnails.py](tests/unit/test_background_thumbnails.py)
+- Integration tests: [test_routes_thumbnails.py](tests/integration/test_routes_thumbnails.py)
+
 ### Token Usage Optimization
 
 The app implements several optimizations to minimize token costs:

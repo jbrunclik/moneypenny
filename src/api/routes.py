@@ -45,12 +45,16 @@ from src.auth.google_auth import GoogleAuthError, is_email_allowed, verify_googl
 from src.auth.jwt_auth import create_token, require_auth
 from src.config import Config
 from src.db.models import User, db
+from src.utils.background_thumbnails import (
+    generate_and_save_thumbnail,
+    mark_files_for_thumbnail_generation,
+    queue_pending_thumbnails,
+)
 from src.utils.costs import convert_currency, format_cost
 from src.utils.files import validate_files
 from src.utils.images import (
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,
-    process_image_files,
 )
 from src.utils.logging import get_logger, log_payload_snippet
 
@@ -426,12 +430,12 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
                 },
             )
             return validation_error(error or "File validation failed", field="files")
-        # Generate thumbnails for images
+        # Mark images for background thumbnail generation
         logger.debug(
-            "Processing image files for thumbnails",
+            "Marking image files for thumbnail generation",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        files = process_image_files(files)
+        files = mark_files_for_thumbnail_generation(files)
 
     # Save user message with separate content and files
     logger.debug(
@@ -443,7 +447,11 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             "file_count": len(files) if files else 0,
         },
     )
-    db.add_message(conv_id, "user", message_text, files=files if files else None)
+    user_msg = db.add_message(conv_id, "user", message_text, files=files if files else None)
+
+    # Queue background thumbnail generation for pending files
+    if files:
+        queue_pending_thumbnails(user_msg.id, files)
 
     # Get conversation history (excluding files from previous messages to save tokens)
     messages = db.get_messages(conv_id)
@@ -695,12 +703,12 @@ def chat_stream(
                 },
             )
             return validation_error(error or "File validation failed", field="files")
-        # Generate thumbnails for images
+        # Mark images for background thumbnail generation
         logger.debug(
-            "Processing image files for thumbnails in stream",
+            "Marking image files for thumbnail generation in stream",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        files = process_image_files(files)
+        files = mark_files_for_thumbnail_generation(files)
 
     # Save user message with separate content and files
     logger.debug(
@@ -712,7 +720,11 @@ def chat_stream(
             "file_count": len(files) if files else 0,
         },
     )
-    db.add_message(conv_id, "user", message_text, files=files if files else None)
+    user_msg = db.add_message(conv_id, "user", message_text, files=files if files else None)
+
+    # Queue background thumbnail generation for pending files
+    if files:
+        queue_pending_thumbnails(user_msg.id, files)
 
     # Get conversation history for context
     # NOTE: We exclude files from history to avoid re-sending large base64 data for every message.
@@ -1329,11 +1341,13 @@ def readiness_check() -> tuple[dict[str, Any], int]:
 @require_auth
 def get_message_thumbnail(
     user: User, message_id: str, file_index: int
-) -> Response | tuple[dict[str, str], int]:
+) -> Response | tuple[dict[str, Any], int]:
     """Get a thumbnail for an image file from a message.
 
-    Returns the thumbnail as binary data with appropriate content-type header.
-    Falls back to full image if thumbnail doesn't exist.
+    Returns:
+        - 200 with thumbnail binary data when ready
+        - 202 with {"status": "pending"} when thumbnail is still being generated
+        - Falls back to full image if thumbnail generation failed
     """
     logger.debug(
         "Getting thumbnail",
@@ -1378,7 +1392,58 @@ def get_message_thumbnail(
         )
         return validation_error("File is not an image", field="file_type")
 
-    # Prefer thumbnail, fall back to full image if thumbnail doesn't exist
+    # Check thumbnail status (default to "ready" for legacy messages without status)
+    thumbnail_status = file.get("thumbnail_status", "ready")
+
+    # Handle pending thumbnail with stale recovery
+    if thumbnail_status == "pending":
+        # Check if message is old enough that generation should have completed
+        # If pending for more than threshold, assume the worker died and regenerate synchronously
+        message_age = (datetime.now() - message.created_at).total_seconds()
+        if message_age > Config.THUMBNAIL_STALE_THRESHOLD_SECONDS:
+            logger.warning(
+                "Stale pending thumbnail detected, regenerating synchronously",
+                extra={
+                    "user_id": user.id,
+                    "message_id": message_id,
+                    "file_index": file_index,
+                    "message_age_seconds": message_age,
+                    "threshold_seconds": Config.THUMBNAIL_STALE_THRESHOLD_SECONDS,
+                },
+            )
+            # Regenerate synchronously (one-time recovery) using shared helper
+            file_data = file.get("data", "")
+            thumbnail = (
+                generate_and_save_thumbnail(message_id, file_index, file_data, file_type)
+                if file_data
+                else None
+            )
+
+            if thumbnail:
+                try:
+                    binary_data = base64.b64decode(thumbnail)
+                    return Response(
+                        binary_data,
+                        mimetype=file_type,
+                        headers={"Cache-Control": "private, max-age=31536000"},
+                    )
+                except binascii.Error:
+                    pass  # Fall through to full image
+            # Fall through to full image fallback below
+        else:
+            # Not stale yet - return 202 to signal frontend to poll
+            logger.debug(
+                "Thumbnail pending, returning 202",
+                extra={
+                    "user_id": user.id,
+                    "message_id": message_id,
+                    "file_index": file_index,
+                    "message_age_seconds": message_age,
+                },
+            )
+            return {"status": "pending"}, 202
+
+    # Thumbnail is ready - return it
     thumbnail_data = file.get("thumbnail")
     if thumbnail_data:
         try:
@@ -1413,7 +1478,7 @@ def get_message_thumbnail(
             # Fall through to full image
             pass
 
-    # Fall back to full image if no thumbnail
+    # Fall back to full image if no thumbnail or thumbnail failed
     file_data = file.get("data", "")
     if not file_data:
         logger.warning(

@@ -641,6 +641,76 @@ class Database:
                 else None,
             )
 
+    def update_message_file_thumbnail(
+        self, message_id: str, file_index: int, thumbnail: str | None, status: str = "ready"
+    ) -> bool:
+        """Update thumbnail for a specific file in a message.
+
+        Used by background thumbnail generation to update the thumbnail
+        after the message has been saved.
+
+        Args:
+            message_id: ID of the message
+            file_index: Index of the file in the files array
+            thumbnail: Base64-encoded thumbnail data (or None if generation failed)
+            status: "ready" or "failed"
+
+        Returns:
+            True if updated successfully, False if message not found or index out of range
+        """
+        logger.debug(
+            "Updating message file thumbnail",
+            extra={"message_id": message_id, "file_index": file_index, "status": status},
+        )
+
+        with self._get_conn() as conn:
+            # Get current files JSON
+            cursor = self._execute_with_timing(
+                conn,
+                "SELECT files FROM messages WHERE id = ?",
+                (message_id,),
+            )
+            row = cursor.fetchone()
+
+            if not row or not row["files"]:
+                logger.warning(
+                    "Message not found or has no files",
+                    extra={"message_id": message_id, "file_index": file_index},
+                )
+                return False
+
+            files = json.loads(row["files"])
+
+            # Validate file index
+            if file_index < 0 or file_index >= len(files):
+                logger.warning(
+                    "File index out of range",
+                    extra={
+                        "message_id": message_id,
+                        "file_index": file_index,
+                        "files_count": len(files),
+                    },
+                )
+                return False
+
+            # Update the file's thumbnail and status
+            files[file_index]["thumbnail"] = thumbnail
+            files[file_index]["thumbnail_status"] = status
+
+            # Save back to database
+            self._execute_with_timing(
+                conn,
+                "UPDATE messages SET files = ? WHERE id = ?",
+                (json.dumps(files), message_id),
+            )
+            conn.commit()
+
+            logger.debug(
+                "Message file thumbnail updated",
+                extra={"message_id": message_id, "file_index": file_index, "status": status},
+            )
+            return True
+
     # Cost tracking operations
     def save_message_cost(
         self,
