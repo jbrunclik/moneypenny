@@ -11,6 +11,7 @@
    - Toast notifications
    - Modal dialogs
    - Version banner
+   - Login overlay
 */
 
 /* ----------------------------------------
@@ -1402,4 +1403,40 @@
         justify-content: flex-start;
         padding: var(--space-2) var(--space-3);
     }
+}
+
+/* ----------------------------------------
+   Login Overlay
+   ---------------------------------------- */
+
+.login-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: var(--bg-primary);
+    z-index: var(--z-modal-backdrop);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-overlay.hidden {
+    display: none;
+}
+
+.login-box {
+    text-align: center;
+    padding: var(--space-12);
+}
+
+.login-box h2 {
+    font-size: var(--font-size-3xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2);
+}
+
+.login-box p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-md);
+    margin: 0 0 var(--space-6);
 }
