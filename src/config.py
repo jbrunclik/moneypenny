@@ -50,6 +50,9 @@ class Config:
     # Image generation alone can take 30-60s, complex queries with multiple tools need more time
     CHAT_TIMEOUT: int = int(os.getenv("CHAT_TIMEOUT", "300"))  # 5 minutes for full chat request
     TOOL_TIMEOUT: int = int(os.getenv("TOOL_TIMEOUT", "90"))  # 90 seconds per tool execution
+    FETCH_URL_MAX_FILE_SIZE: int = int(
+        os.getenv("FETCH_URL_MAX_FILE_SIZE", str(10 * BYTES_PER_MB))
+    )  # 10MB default for fetched files (PDFs, images)
     GOOGLE_AUTH_TIMEOUT: int = int(
         os.getenv("GOOGLE_AUTH_TIMEOUT", "10")
     )  # 10 seconds for Google token verification
