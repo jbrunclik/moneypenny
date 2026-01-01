@@ -1426,9 +1426,10 @@ async function copyMessageContent(button: HTMLButtonElement): Promise<void> {
 
   if (!contentEl) return;
 
-  // Clone the content element and remove file attachments to get clean text
+  // Clone the content and remove non-response elements (files, thinking/tool traces)
   const clone = contentEl.cloneNode(true) as HTMLElement;
   clone.querySelectorAll('.message-files').forEach((el) => el.remove());
+  clone.querySelectorAll('.thinking-indicator').forEach((el) => el.remove());
 
   const textContent = clone.textContent?.trim();
   if (!textContent) return;
