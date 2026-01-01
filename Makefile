@@ -1,4 +1,4 @@
-.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy vacuum
+.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy vacuum update-currency
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -49,6 +49,7 @@ help:
 	@echo "  clean                 Remove venv, caches, and build artifacts"
 	@echo "  deploy                Deploy to systemd (Hetzner)"
 	@echo "  vacuum                Run database vacuum manually"
+	@echo "  update-currency       Update currency exchange rates manually"
 
 setup:
 	python3 -m venv $(VENV)
@@ -69,14 +70,14 @@ build:
 	cd web && $(NPM) run build
 
 lint:
-	$(RUFF) check src/ tests/
-	$(RUFF) format --check src/ tests/
+	$(RUFF) check src/ tests/ scripts/
+	$(RUFF) format --check src/ tests/ scripts/
 	$(MYPY) src/
 	cd web && $(NPM) run typecheck && $(NPM) run lint
 
 lint-fix:
-	$(RUFF) check --fix src/ tests/
-	$(RUFF) format src/ tests/
+	$(RUFF) check --fix src/ tests/ scripts/
+	$(RUFF) format src/ tests/ scripts/
 	cd web && $(NPM) run lint:fix
 
 run:
@@ -166,13 +167,20 @@ deploy:
 	cp -f systemd/ai-chatbot.service ~/.config/systemd/user/
 	cp -f systemd/ai-chatbot-vacuum.service ~/.config/systemd/user/
 	cp -f systemd/ai-chatbot-vacuum.timer ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-currency.service ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-currency.timer ~/.config/systemd/user/
 	systemctl --user daemon-reload
 	systemctl --user enable ai-chatbot
 	systemctl --user enable ai-chatbot-vacuum.timer
+	systemctl --user enable ai-chatbot-currency.timer
 	systemctl --user start ai-chatbot-vacuum.timer
+	systemctl --user start ai-chatbot-currency.timer
 	systemctl --user restart ai-chatbot
 	@echo "Deployed. View logs with: journalctl --user -u ai-chatbot -f"
-	@echo "Vacuum timer enabled (weekly). Check with: systemctl --user list-timers"
+	@echo "Timers enabled. Check with: systemctl --user list-timers"
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py
+
+update-currency:
+	$(PYTHON) scripts/update_currency_rates.py

@@ -207,6 +207,7 @@ make test-integration  # Run integration tests only
 make test-cov   # Run tests with coverage report
 make deploy     # Deploy systemd service (Linux)
 make vacuum     # Run database vacuum (reclaim space)
+make update-currency  # Update currency exchange rates
 ```
 
 ## Testing
@@ -285,6 +286,18 @@ journalctl --user -u ai-chatbot-vacuum
 
 # Run vacuum manually
 make vacuum
+```
+
+### Currency Rate Updates
+
+A daily systemd timer updates currency exchange rates from a free API (no API key required). Rates are stored in the database and used for cost display without requiring an app restart.
+
+```bash
+# View currency update logs
+journalctl --user -u ai-chatbot-currency
+
+# Run update manually
+make update-currency
 ```
 
 ### Reverse Proxy (nginx)
@@ -406,11 +419,14 @@ ai-chatbot/
 │   ├── assets/                   # Vite output (hashed JS/CSS)
 │   └── manifest.json             # PWA manifest
 ├── scripts/                      # Utility scripts
-│   └── vacuum_databases.py       # Database vacuum script
+│   ├── vacuum_databases.py       # Database vacuum script
+│   └── update_currency_rates.py  # Currency rate update script
 ├── systemd/                      # Systemd service files
 │   ├── ai-chatbot.service        # Main application service
 │   ├── ai-chatbot-vacuum.service # Database vacuum service
-│   └── ai-chatbot-vacuum.timer   # Weekly vacuum timer
+│   ├── ai-chatbot-vacuum.timer   # Weekly vacuum timer
+│   ├── ai-chatbot-currency.service # Currency rate update service
+│   └── ai-chatbot-currency.timer # Daily currency timer
 ├── Makefile                      # Build and run targets
 ├── pyproject.toml                # Python project configuration
 └── requirements.txt              # Python dependencies

@@ -8,6 +8,24 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+def get_currency_rates() -> dict[str, float]:
+    """Get currency exchange rates, preferring DB values over Config defaults.
+
+    Returns:
+        Dictionary of currency code to rate (USD base)
+    """
+    # Import here to avoid circular dependency
+    from src.db.models import db
+
+    # Try to get rates from database first
+    db_rates = db.get_currency_rates()
+    if db_rates:
+        return db_rates
+
+    # Fall back to Config defaults
+    return Config.CURRENCY_RATES.copy()
+
+
 def get_model_pricing(model_name: str) -> dict[str, float]:
     """Get pricing for a model.
 
@@ -118,7 +136,8 @@ def convert_currency(amount_usd: float, target_currency: str = "USD") -> float:
     if target_currency == "USD":
         return amount_usd
 
-    rate = Config.CURRENCY_RATES.get(target_currency.upper(), 1.0)
+    rates = get_currency_rates()
+    rate = rates.get(target_currency.upper(), 1.0)
     converted = amount_usd * rate
     logger.debug(
         "Currency converted",

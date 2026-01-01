@@ -1164,7 +1164,6 @@ Token usage is tracked efficiently during streaming by extracting and accumulati
 ### Configuration
 - `COST_CURRENCY`: Display currency (default: `CZK`)
 - `MODEL_PRICING`: Model pricing per million tokens (in [config.py](src/config.py))
-- `CURRENCY_RATES`: Exchange rates for currency conversion (in [config.py](src/config.py))
 - `COST_HISTORY_MAX_MONTHS`: Maximum number of months for cost history queries (default: `120`)
 - `COST_HISTORY_DEFAULT_LIMIT`: Default number of months for cost history queries (default: `12`)
 - `STREAM_CLEANUP_THREAD_TIMEOUT`: Timeout for cleanup thread waiting for stream thread (default: `600` seconds)
@@ -1173,7 +1172,33 @@ Token usage is tracked efficiently during streaming by extracting and accumulati
 - `THUMBNAIL_MAX_SIZE`: Maximum thumbnail dimensions (default: `(400, 400)`)
 - `THUMBNAIL_QUALITY`: JPEG quality for thumbnails (default: `85`)
 
-**Note**: Currency rates and model pricing are currently hardcoded in `config.py`. See [TODO.md](TODO.md) for planned automated updates. All configuration values can be overridden via environment variables (see `.env.example`).
+### Currency Rate Updates
+
+Currency exchange rates are stored in the database (`app_settings` table) and updated daily via a systemd timer.
+
+**Automatic updates (systemd timer):**
+- Runs daily at 4:00 AM (with up to 30 min random delay)
+- Fetches rates from [open.er-api.com](https://open.er-api.com) (free, no API key required)
+- Updates rates for USD, CZK, EUR, GBP
+- Automatically enabled when running `make deploy`
+- View logs: `journalctl --user -u ai-chatbot-currency`
+
+**Manual update:**
+```bash
+make update-currency  # Fetch and update rates immediately
+```
+
+**Fallback behavior:**
+- If DB has no rates (first run), falls back to hardcoded defaults in `Config.CURRENCY_RATES`
+- If API fetch fails, existing rates are preserved
+- Rates are loaded fresh from DB on each currency conversion (no app restart needed)
+
+**Key files:**
+- [update_currency_rates.py](scripts/update_currency_rates.py) - Python script that fetches and saves rates
+- [ai-chatbot-currency.service](systemd/ai-chatbot-currency.service) - Systemd service (oneshot)
+- [ai-chatbot-currency.timer](systemd/ai-chatbot-currency.timer) - Daily timer
+- [costs.py](src/utils/costs.py) - `get_currency_rates()` loads from DB with fallback
+- [models.py](src/db/models.py) - `get_currency_rates()`, `set_currency_rates()` DB methods
 
 ## User Context
 

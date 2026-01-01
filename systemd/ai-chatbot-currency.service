@@ -1,0 +1,27 @@
+# Systemd user service for AI Chatbot currency rate updates
+# Install to: ~/.config/systemd/user/ai-chatbot-currency.service
+# This service is triggered by ai-chatbot-currency.timer
+
+[Unit]
+Description=AI Chatbot - Update currency exchange rates
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/ai-chatbot
+ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/update_currency_rates.py
+Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+# Load environment from .env file (for database paths)
+EnvironmentFile=%h/src/ai-chatbot/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Don't restart on failure (timer will retry tomorrow)
+Restart=no
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,18 @@
+# Systemd timer for AI Chatbot currency rate updates
+# Install to: ~/.config/systemd/user/ai-chatbot-currency.timer
+# Enable with: systemctl --user enable ai-chatbot-currency.timer
+# Check status: systemctl --user list-timers
+
+[Unit]
+Description=Daily update of currency exchange rates
+
+[Timer]
+# Run daily at 4:00 AM
+OnCalendar=*-*-* 04:00:00
+# Add random delay up to 30 minutes to avoid exact timing
+RandomizedDelaySec=30m
+# Run immediately if we missed a scheduled run (e.g., system was off)
+Persistent=true
+
+[Install]
+WantedBy=timers.target

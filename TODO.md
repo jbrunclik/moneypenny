@@ -57,7 +57,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] Request logging and monitoring
 - [x] Database migrations system (yoyo-migrations)
 - [x] **Cost tracking** - Track API costs per user and per conversation
-- [ ] **Automated currency rate updates** - Implement regular updates of currency exchange rates (CURRENCY_RATES in config.py) from an external API (e.g., exchangerate-api.com, fixer.io) with fallback to manual updates. Consider caching rates and updating daily/weekly.
+- [x] **Automated currency rate updates** - Daily systemd timer fetches rates from open.er-api.com (free API), stores in DB. See "Currency Rate Updates" section in CLAUDE.md.
 - [ ] Backup and restore
 - [ ] Docker deployment option
 

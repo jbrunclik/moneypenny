@@ -100,10 +100,11 @@ class Config:
     }
 
     # Currency conversion rates (USD to other currencies)
-    # These should be updated regularly - see TODO.md for automated update task
+    # These are fallback defaults - actual rates are loaded from database
+    # Updated daily via scripts/update_currency_rates.py (systemd timer)
     CURRENCY_RATES = {
         "USD": 1.0,
-        "CZK": 23.0,  # Approximate rate - should be updated regularly
+        "CZK": 23.0,
         "EUR": 0.92,
         "GBP": 0.79,
     }
