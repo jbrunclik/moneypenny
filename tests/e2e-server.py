@@ -43,6 +43,7 @@ MOCK_CONFIG: dict[str, Any] = {
     "input_tokens": 100,
     "output_tokens": 50,
     "stream_delay_ms": 30,  # Delay between streamed tokens (fast for tests)
+    "batch_delay_ms": 0,  # Delay before batch response (for testing conversation switching)
     "custom_response": None,  # If set, use this instead of prefix + message
     "emit_thinking": False,  # If True, emit thinking events during streaming
 }
@@ -60,6 +61,11 @@ def create_mock_llm() -> MagicMock:
     mock_instance = MagicMock()
 
     def mock_invoke(messages: list[Any], **kwargs: Any) -> AIMessage:
+        # Apply batch delay if configured (for testing conversation switching)
+        batch_delay_ms = MOCK_CONFIG.get("batch_delay_ms", 0)
+        if batch_delay_ms > 0:
+            time.sleep(batch_delay_ms / 1000)
+
         # Extract user message from the last message
         user_message = ""
         if messages:
@@ -411,6 +417,26 @@ def main() -> None:
             emit = data.get("emit", True)
             MOCK_CONFIG["emit_thinking"] = emit
             return {"status": "set", "emit_thinking": emit}, 200
+
+        @test_bp.route("/test/set-stream-delay", methods=["POST"])
+        def set_stream_delay() -> tuple[dict[str, Any], int]:
+            """Set the delay between streamed tokens for testing conversation switching."""
+            from flask import request
+
+            data = request.get_json() or {}
+            delay_ms = data.get("delay_ms", 30)
+            MOCK_CONFIG["stream_delay_ms"] = delay_ms
+            return {"status": "set", "stream_delay_ms": delay_ms}, 200
+
+        @test_bp.route("/test/set-batch-delay", methods=["POST"])
+        def set_batch_delay() -> tuple[dict[str, Any], int]:
+            """Set the delay for batch responses for testing conversation switching."""
+            from flask import request
+
+            data = request.get_json() or {}
+            delay_ms = data.get("delay_ms", 0)
+            MOCK_CONFIG["batch_delay_ms"] = delay_ms
+            return {"status": "set", "batch_delay_ms": delay_ms}, 200
 
         app.register_blueprint(test_bp)
 

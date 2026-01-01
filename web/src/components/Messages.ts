@@ -395,6 +395,8 @@ interface StreamingMessageContext {
   shouldAutoScroll: boolean;
   /** Scroll listener cleanup function */
   scrollListenerCleanup: (() => void) | null;
+  /** Conversation ID this streaming context belongs to */
+  conversationId: string;
 }
 
 // Global context for the current streaming message
@@ -406,9 +408,10 @@ const STREAMING_SCROLL_CHECK_DEBOUNCE_MS = 50; // Debounce for scroll detection
 
 /**
  * Add a streaming message placeholder
+ * @param conversationId - The ID of the conversation this streaming message belongs to
  * @returns Object with element and methods to update thinking state
  */
-export function addStreamingMessage(): HTMLElement {
+export function addStreamingMessage(conversationId: string): HTMLElement {
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) throw new Error('Messages container not found');
 
@@ -444,6 +447,7 @@ export function addStreamingMessage(): HTMLElement {
     thinkingState,
     shouldAutoScroll: wasAtBottom,
     scrollListenerCleanup: null,
+    conversationId,
   };
 
   container.appendChild(messageEl);
@@ -523,6 +527,97 @@ export function cleanupStreamingContext(): void {
     }
     currentStreamingContext = null;
   }
+}
+
+/**
+ * Check if there is an active streaming context
+ */
+export function hasActiveStreamingContext(): boolean {
+  return currentStreamingContext !== null;
+}
+
+/**
+ * Get the conversation ID of the current streaming context, if any.
+ * Used to determine if we should clean up the context when switching conversations.
+ */
+export function getStreamingContextConversationId(): string | null {
+  return currentStreamingContext?.conversationId ?? null;
+}
+
+/**
+ * Restore a streaming message UI when switching back to a conversation with an active stream.
+ * This re-creates the streaming message element with the accumulated content and thinking state.
+ * @param conversationId - The ID of the conversation this streaming message belongs to
+ * @param content - The accumulated content so far
+ * @param thinkingState - The thinking state to restore
+ */
+export function restoreStreamingMessage(conversationId: string, content: string, thinkingState?: ThinkingState): HTMLElement {
+  const container = getElementById<HTMLDivElement>('messages');
+  if (!container) throw new Error('Messages container not found');
+
+  // Clean up any existing streaming context first (this shouldn't happen normally
+  // since switchToConversation should only clean up when switching to a different conversation)
+  cleanupStreamingContext();
+
+  const messageEl = document.createElement('div');
+  messageEl.className = 'message assistant streaming';
+
+  // Create thinking indicator with the restored state
+  const thinkingIndicator = createThinkingIndicator();
+  const restoredThinkingState = thinkingState ?? createThinkingState();
+
+  messageEl.innerHTML = `
+    <div class="message-avatar">${AI_AVATAR_SVG}</div>
+    <div class="message-content-wrapper">
+      <div class="message-content">
+        <span class="streaming-cursor"></span>
+      </div>
+    </div>
+  `;
+
+  // Insert thinking indicator at the start of message-content
+  const contentEl = messageEl.querySelector('.message-content');
+  if (contentEl) {
+    contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
+
+    // Render existing content if any
+    if (content) {
+      contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
+      // Re-insert thinking indicator at the top
+      contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
+    }
+  }
+
+  // Check if user is at bottom BEFORE adding the message
+  const wasAtBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
+
+  // Store context for updates
+  currentStreamingContext = {
+    element: messageEl,
+    thinkingIndicator,
+    thinkingState: restoredThinkingState,
+    shouldAutoScroll: wasAtBottom,
+    scrollListenerCleanup: null,
+    conversationId,
+  };
+
+  // Update thinking indicator with the restored state
+  updateThinkingIndicator(thinkingIndicator, restoredThinkingState);
+
+  container.appendChild(messageEl);
+  scrollToBottom(container);
+
+  // Set up scroll listener
+  setupStreamingScrollListener(container);
+
+  // Update button visibility
+  requestAnimationFrame(() => {
+    checkScrollButtonVisibility();
+  });
+
+  log.debug('Restored streaming message', { contentLength: content.length, hasThinkingState: !!thinkingState });
+
+  return messageEl;
 }
 
 /**

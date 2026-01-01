@@ -6,6 +6,7 @@ import type {
   Model,
   UploadConfig,
   User,
+  ThinkingState,
 } from '../types/api';
 
 /**
@@ -17,6 +18,18 @@ export interface Notification {
   message: string;
   action?: { label: string; onClick: () => void };
   duration?: number; // 0 for persistent
+}
+
+/**
+ * Active request state for a conversation
+ * Used to restore UI when switching back to a conversation with an active request
+ */
+export interface ActiveRequestState {
+  conversationId: string;
+  type: 'stream' | 'batch';
+  // Streaming-specific state
+  content?: string;
+  thinkingState?: ThinkingState;
 }
 
 interface AppState {
@@ -40,6 +53,7 @@ interface AppState {
   streamingEnabled: boolean;
   forceTools: string[];
   streamingConversationId: string | null; // Which conversation is currently streaming
+  activeRequests: Map<string, ActiveRequestState>; // Active requests by conversation ID
 
   // File upload
   pendingFiles: FileUpload[];
@@ -82,6 +96,10 @@ interface AppState {
   setStreamingConversation: (convId: string | null) => void;
   toggleForceTool: (tool: string) => void;
   clearForceTools: () => void;
+  setActiveRequest: (convId: string, state: ActiveRequestState) => void;
+  updateActiveRequestContent: (convId: string, content: string, thinkingState?: ThinkingState) => void;
+  removeActiveRequest: (convId: string) => void;
+  getActiveRequest: (convId: string) => ActiveRequestState | undefined;
 
   // Actions - Files
   addPendingFile: (file: FileUpload) => void;
@@ -123,7 +141,7 @@ const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
 export const useStore = create<AppState>()(
   subscribeWithSelector(
     persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       token: null,
       user: null,
@@ -138,6 +156,7 @@ export const useStore = create<AppState>()(
       streamingEnabled: true,
       forceTools: [],
       streamingConversationId: null,
+      activeRequests: new Map(),
       pendingFiles: [],
       uploadConfig: DEFAULT_UPLOAD_CONFIG,
       appVersion: null,
@@ -203,6 +222,27 @@ export const useStore = create<AppState>()(
             : [...state.forceTools, tool],
         })),
       clearForceTools: () => set({ forceTools: [] }),
+      setActiveRequest: (convId, state) =>
+        set((s) => {
+          const newMap = new Map(s.activeRequests);
+          newMap.set(convId, state);
+          return { activeRequests: newMap };
+        }),
+      updateActiveRequestContent: (convId, content, thinkingState) =>
+        set((s) => {
+          const existing = s.activeRequests.get(convId);
+          if (!existing) return s;
+          const newMap = new Map(s.activeRequests);
+          newMap.set(convId, { ...existing, content, thinkingState: thinkingState ?? existing.thinkingState });
+          return { activeRequests: newMap };
+        }),
+      removeActiveRequest: (convId) =>
+        set((s) => {
+          const newMap = new Map(s.activeRequests);
+          newMap.delete(convId);
+          return { activeRequests: newMap };
+        }),
+      getActiveRequest: (convId) => get().activeRequests.get(convId),
 
       // File actions
       addPendingFile: (file) =>

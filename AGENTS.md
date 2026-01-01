@@ -315,6 +315,13 @@ make test   # Run all tests
 
 Both commands must pass without errors. If linting fails, run `make lint-fix` to auto-fix issues where possible.
 
+**Zero tolerance for flaky tests:**
+- All tests MUST pass consistently - no intermittent failures
+- If a test fails, investigate the root cause; don't just re-run and hope it passes
+- Tests must not depend on timing assumptions that can vary (use explicit waits, not arbitrary delays)
+- When writing assertions on dynamic content, use robust matchers (e.g., `toContainText` instead of exact length comparisons)
+- If you encounter a flaky test, fix the underlying issue before proceeding
+
 **When implementing new features:**
 - Add tests for new backend code to maintain coverage
 - Place unit tests in `tests/unit/` and integration tests in `tests/integration/`
@@ -2257,6 +2264,15 @@ When I correct Claude's approach, the reasoning is documented here to prevent re
 **Location**: [main.ts](web/src/main.ts) - `createConversation()`, `sendMessage()`, `isTempConversation()`
 **Rationale**: Prevents empty conversations from polluting the database when users click "New Chat" but don't send any messages
 
+**Temp-to-permanent ID transition:**
+- When user clicks "New Chat", a local conversation is created with `temp-{timestamp}` ID
+- On first message send, the temp conversation is persisted to DB BEFORE any streaming starts
+- The `sendMessage()` function detects temp IDs and calls `conversations.create()` synchronously
+- The store is updated: temp conversation removed, persisted conversation added with real ID
+- Only AFTER this transition does streaming begin with the real conversation ID
+- This means streaming/batch requests ALWAYS use real (persistent) conversation IDs, never temp IDs
+- All request tracking, UI state restoration, and active request management use the real ID
+
 ### Concurrent Request Handling
 
 The app supports multiple active requests across different conversations simultaneously. Requests continue processing in the background even when users switch conversations or disconnect.
@@ -2286,6 +2302,36 @@ The app supports multiple active requests across different conversations simulta
 **Key files:**
 - [main.ts](web/src/main.ts) - Request tracking, conversation switching logic, UI update guards
 - [routes.py](src/api/routes.py) - Client disconnection detection, cleanup threads, message persistence
+
+### Seamless Conversation Switching
+
+When a user switches away from a conversation with an active request (streaming or batch) and switches back, the UI state is seamlessly restored.
+
+**How it works:**
+1. **State tracking in store**: `ActiveRequestState` in Zustand store tracks content and thinking state per conversation
+2. **Local state updates**: During streaming, `localThinkingState` is maintained in `main.ts` independent of Messages.ts context
+3. **Store sync**: After each streaming event (thinking, tool_start, tool_end, token), state is synced to store via `updateActiveRequestContent()`
+4. **Streaming context cleanup**: When switching to a DIFFERENT conversation, `cleanupStreamingContext()` is called. When switching BACK to the streaming conversation, the context is NOT cleaned up
+5. **UI restoration**: `switchToConversation()` checks for active requests and calls `restoreStreamingMessage()` to recreate the streaming UI
+
+**Key state management:**
+- `activeRequests` Map in store: Tracks `{conversationId, type, content, thinkingState}` per conversation
+- `streamingMessageElements` Map in main.ts: Tracks DOM element references for continued updates
+- `currentStreamingContext` in Messages.ts: Tracks the current streaming UI context with conversation ID
+
+**Conversation ID tracking:**
+The streaming context (`currentStreamingContext`) includes a `conversationId` field to determine whether to clean up when switching:
+- `getStreamingContextConversationId()` returns the ID of the conversation being streamed
+- `switchToConversation()` only calls `cleanupStreamingContext()` when switching to a DIFFERENT conversation
+- This allows seamless restoration when switching back to the streaming conversation
+
+**Testing:**
+E2E tests for conversation switching are in [chat.spec.ts](web/tests/e2e/chat.spec.ts) under "Chat - Conversation Switch During Active Request" describe block.
+
+**Key files:**
+- [store.ts](web/src/state/store.ts) - `ActiveRequestState` interface, `activeRequests` Map, actions
+- [main.ts](web/src/main.ts) - `sendStreamingMessage()` local state tracking, `switchToConversation()` restoration logic
+- [Messages.ts](web/src/components/Messages.ts) - `restoreStreamingMessage()`, streaming context with conversation ID
 
 ### @require_auth Injects User
 
