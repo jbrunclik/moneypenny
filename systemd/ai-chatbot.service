@@ -16,6 +16,11 @@ WorkingDirectory=%h/src/ai-chatbot
 ExecStartPre=/bin/bash -c 'cd %h/src/ai-chatbot/web && npm install && npm run build'
 
 ExecStart=/bin/bash -c 'cd %h/src/ai-chatbot && .venv/bin/gunicorn --bind 0.0.0.0:${PORT} --workers ${GUNICORN_WORKERS:-2} --timeout ${GUNICORN_TIMEOUT:-600} --access-logfile - --error-logfile - --log-level info --capture-output "src.app:create_app()"'
+
+# Graceful reload: sends SIGHUP to gunicorn master, which spawns new workers
+# and gracefully shuts down old workers after they finish current requests
+ExecReload=/bin/kill -s HUP $MAINPID
+
 Restart=on-failure
 RestartSec=5
 Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin

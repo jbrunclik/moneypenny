@@ -205,7 +205,9 @@ make test       # Run all tests
 make test-unit  # Run unit tests only
 make test-integration  # Run integration tests only
 make test-cov   # Run tests with coverage report
-make deploy     # Deploy systemd service (Linux)
+make deploy     # Deploy systemd service (Linux) - full restart
+make reload     # Graceful reload - zero downtime (backend only)
+make update     # Full update with deps rebuild + graceful reload
 make vacuum     # Run database vacuum (reclaim space)
 make update-currency  # Update currency exchange rates
 ```
@@ -272,6 +274,29 @@ journalctl --user -u ai-chatbot -f
 The systemd service automatically runs `npm install && npm run build` before starting Gunicorn.
 
 **Important**: User services are tied to login sessions by default. The `enable-linger` command ensures your service continues running after you disconnect from SSH.
+
+### Zero-Downtime Updates
+
+After the initial deployment, use graceful reloads for zero-downtime updates:
+
+```bash
+# Pull latest changes
+git pull
+
+# Option 1: Backend-only changes (Python code) - fastest
+make reload
+
+# Option 2: Any changes (backend + frontend + dependencies)
+make update
+```
+
+**How it works**: The `reload` command sends `SIGHUP` to gunicorn, which spawns new workers and gracefully shuts down old ones after they finish current requests. No connections are dropped.
+
+| Command | Use When | Downtime |
+|---------|----------|----------|
+| `make reload` | Python code changes only | None |
+| `make update` | Frontend, dependencies, or full update | None |
+| `make deploy` | First deployment or systemd config changes | Brief (~5s) |
 
 ### Database Vacuum
 

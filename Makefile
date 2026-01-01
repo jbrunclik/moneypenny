@@ -1,4 +1,4 @@
-.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy vacuum update-currency
+.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy reload update vacuum update-currency
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -47,7 +47,9 @@ help:
 	@echo "  types                 Generate TypeScript types from OpenAPI spec"
 	@echo ""
 	@echo "  clean                 Remove venv, caches, and build artifacts"
-	@echo "  deploy                Deploy to systemd (Hetzner)"
+	@echo "  deploy                Deploy to systemd (Hetzner) - full restart"
+	@echo "  reload                Graceful reload - zero downtime (backend only)"
+	@echo "  update                Rebuild frontend + graceful reload"
 	@echo "  vacuum                Run database vacuum manually"
 	@echo "  update-currency       Update currency exchange rates manually"
 
@@ -178,6 +180,18 @@ deploy:
 	systemctl --user restart ai-chatbot
 	@echo "Deployed. View logs with: journalctl --user -u ai-chatbot -f"
 	@echo "Timers enabled. Check with: systemctl --user list-timers"
+
+# Graceful reload - zero downtime for code changes (does NOT rebuild frontend)
+reload:
+	systemctl --user reload ai-chatbot
+	@echo "Graceful reload triggered. Workers will restart after finishing current requests."
+
+# Full update with dependencies rebuild and graceful reload
+update:
+	$(PIP) install -r requirements.txt
+	cd web && npm install && npm run build
+	systemctl --user reload ai-chatbot
+	@echo "Dependencies updated, frontend rebuilt, graceful reload triggered."
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py
