@@ -115,7 +115,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Add database query optimization** - Review and optimize N+1 query patterns (e.g., loading conversations with message counts) - Reviewed, no N+1 patterns found
 - [ ] **Pagination for conversations** - Add pagination to conversations list endpoint for users with many conversations
 - [ ] **Add database backup automation** - Automated daily backups of SQLite database
-- [ ] **Add database vacuum** - Periodic SQLite VACUUM to reclaim space and optimize database
+- [x] **Add database vacuum** - Weekly systemd timer runs VACUUM on both databases. See "Database Vacuum" section in CLAUDE.md.
 - [x] **Add database query logging** - Log slow queries for optimization (in development/debug mode)
 - [x] **Add database connectivity check** - Verify database is accessible at startup with clear error message
 

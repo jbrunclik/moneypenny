@@ -1,4 +1,4 @@
-.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy
+.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy vacuum
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -48,6 +48,7 @@ help:
 	@echo ""
 	@echo "  clean                 Remove venv, caches, and build artifacts"
 	@echo "  deploy                Deploy to systemd (Hetzner)"
+	@echo "  vacuum                Run database vacuum manually"
 
 setup:
 	python3 -m venv $(VENV)
@@ -162,8 +163,16 @@ clean:
 
 deploy:
 	@mkdir -p ~/.config/systemd/user
-	cp -f ai-chatbot.service ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot.service ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-vacuum.service ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-vacuum.timer ~/.config/systemd/user/
 	systemctl --user daemon-reload
 	systemctl --user enable ai-chatbot
+	systemctl --user enable ai-chatbot-vacuum.timer
+	systemctl --user start ai-chatbot-vacuum.timer
 	systemctl --user restart ai-chatbot
 	@echo "Deployed. View logs with: journalctl --user -u ai-chatbot -f"
+	@echo "Vacuum timer enabled (weekly). Check with: systemctl --user list-timers"
+
+vacuum:
+	$(PYTHON) scripts/vacuum_databases.py

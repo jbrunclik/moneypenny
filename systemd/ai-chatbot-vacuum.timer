@@ -1,0 +1,18 @@
+# Systemd timer for AI Chatbot database vacuum
+# Install to: ~/.config/systemd/user/ai-chatbot-vacuum.timer
+# Enable with: systemctl --user enable ai-chatbot-vacuum.timer
+# Check status: systemctl --user list-timers
+
+[Unit]
+Description=Weekly vacuum of AI Chatbot databases
+
+[Timer]
+# Run weekly on Sunday at 3:00 AM
+OnCalendar=Sun *-*-* 03:00:00
+# Add random delay up to 1 hour to avoid exact timing
+RandomizedDelaySec=1h
+# Run immediately if we missed a scheduled run (e.g., system was off)
+Persistent=true
+
+[Install]
+WantedBy=timers.target

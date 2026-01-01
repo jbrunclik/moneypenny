@@ -1,0 +1,26 @@
+# Systemd user service for AI Chatbot database vacuum
+# Install to: ~/.config/systemd/user/ai-chatbot-vacuum.service
+# This service is triggered by ai-chatbot-vacuum.timer
+
+[Unit]
+Description=AI Chatbot - Database vacuum (reclaim space and optimize)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/ai-chatbot
+ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/vacuum_databases.py
+Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+# Load environment from .env file (for database paths)
+EnvironmentFile=%h/src/ai-chatbot/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Don't restart on failure (timer will retry next week)
+Restart=no
+
+[Install]
+WantedBy=default.target

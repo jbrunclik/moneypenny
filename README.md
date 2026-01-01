@@ -206,6 +206,7 @@ make test-unit  # Run unit tests only
 make test-integration  # Run integration tests only
 make test-cov   # Run tests with coverage report
 make deploy     # Deploy systemd service (Linux)
+make vacuum     # Run database vacuum (reclaim space)
 ```
 
 ## Testing
@@ -270,6 +271,21 @@ journalctl --user -u ai-chatbot -f
 The systemd service automatically runs `npm install && npm run build` before starting Gunicorn.
 
 **Important**: User services are tied to login sessions by default. The `enable-linger` command ensures your service continues running after you disconnect from SSH.
+
+### Database Vacuum
+
+A weekly systemd timer is automatically configured to run VACUUM on both SQLite databases (main database and blob storage). This reclaims disk space from deleted records and optimizes database performance.
+
+```bash
+# Check timer status
+systemctl --user list-timers
+
+# View vacuum logs
+journalctl --user -u ai-chatbot-vacuum
+
+# Run vacuum manually
+make vacuum
+```
 
 ### Reverse Proxy (nginx)
 
@@ -389,6 +405,12 @@ ai-chatbot/
 ├── static/                       # Build output + PWA assets
 │   ├── assets/                   # Vite output (hashed JS/CSS)
 │   └── manifest.json             # PWA manifest
+├── scripts/                      # Utility scripts
+│   └── vacuum_databases.py       # Database vacuum script
+├── systemd/                      # Systemd service files
+│   ├── ai-chatbot.service        # Main application service
+│   ├── ai-chatbot-vacuum.service # Database vacuum service
+│   └── ai-chatbot-vacuum.timer   # Weekly vacuum timer
 ├── Makefile                      # Build and run targets
 ├── pyproject.toml                # Python project configuration
 └── requirements.txt              # Python dependencies

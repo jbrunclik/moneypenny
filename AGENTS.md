@@ -2310,6 +2310,32 @@ At startup, the application verifies database connectivity before starting the F
 - [app.py](src/app.py) - Startup connectivity check in `main()`
 - [config.py](src/config.py) - `SLOW_QUERY_THRESHOLD_MS` setting
 
+### Database Vacuum
+
+SQLite databases can accumulate unused space over time as data is deleted. The VACUUM command reclaims this space and optimizes the database file.
+
+**Automatic vacuum (systemd timer):**
+- Runs weekly on Sunday at 3:00 AM (with up to 1 hour random delay)
+- Vacuums both `chatbot.db` (main database) and `files.db` (blob storage)
+- Automatically enabled when running `make deploy`
+- Check timer status: `systemctl --user list-timers`
+- View vacuum logs: `journalctl --user -u ai-chatbot-vacuum`
+
+**Manual vacuum:**
+```bash
+make vacuum  # Run vacuum immediately
+```
+
+**What VACUUM does:**
+- Rebuilds the database file, reclaiming space from deleted rows
+- Defragments the database for better read performance
+- Requires exclusive access (no concurrent writes during vacuum)
+
+**Key files:**
+- [vacuum_databases.py](scripts/vacuum_databases.py) - Python script that runs VACUUM on both databases
+- [ai-chatbot-vacuum.service](systemd/ai-chatbot-vacuum.service) - Systemd service (oneshot)
+- [ai-chatbot-vacuum.timer](systemd/ai-chatbot-vacuum.timer) - Systemd timer (weekly)
+
 ### Database Best Practices
 
 When adding or modifying database code, follow these guidelines:
