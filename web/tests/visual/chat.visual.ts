@@ -88,6 +88,63 @@ test.describe('Visual: Chat Interface', () => {
   });
 });
 
+test.describe('Visual: Long Content Wrapping', () => {
+  test('long URL in user message wraps correctly', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+
+    // Send a message with a very long URL
+    const longUrl = 'https://www.example.com/very/long/path/that/should/wrap/properly/in/the/message/bubble/without/breaking/layout/file.pdf';
+    await page.fill('#message-input', longUrl);
+    await page.click('#send-btn');
+
+    // Wait for response
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Wait for animations
+    await page.waitForTimeout(500);
+
+    // Screenshot the user message to verify URL wrapping
+    const userMessage = page.locator('.message.user').first();
+    await expect(userMessage).toHaveScreenshot('user-message-long-url.png');
+  });
+
+  test('short message displays correctly', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+
+    // Send a short message
+    await page.fill('#message-input', 'ahoj');
+    await page.click('#send-btn');
+
+    // Wait for response
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Wait for animations
+    await page.waitForTimeout(500);
+
+    // Screenshot the user message to verify it doesn't collapse
+    const userMessage = page.locator('.message.user').first();
+    await expect(userMessage).toHaveScreenshot('user-message-short.png');
+  });
+});
+
 test.describe('Visual: Chat States', () => {
   // Note: Loading state test removed as it's inherently flaky - the mock responds too quickly
   // to reliably capture the loading state. Would require artificially slowing down the mock.
