@@ -27,7 +27,8 @@ test.describe('Settings', () => {
     const popup = page.locator('#settings-popup');
     await expect(popup).toBeVisible();
     await expect(popup.locator('h3')).toHaveText('Settings');
-    await expect(popup.locator('.settings-label')).toHaveText('Custom Instructions');
+    await expect(popup.locator('.settings-label').first()).toHaveText('Appearance');
+    await expect(popup.locator('.settings-label').nth(1)).toHaveText('Custom Instructions');
     await expect(popup.locator('#custom-instructions')).toBeVisible();
     await expect(popup.locator('.settings-save-btn')).toBeVisible();
   });
@@ -159,5 +160,166 @@ test.describe('Settings', () => {
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     await expect(page.locator('#custom-instructions')).toHaveValue('');
+  });
+});
+
+test.describe('Color Scheme', () => {
+  // Clear localStorage before each test to ensure clean state
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.removeItem('ai-chatbot-color-scheme');
+    });
+  });
+
+  test('shows color scheme options in settings popup', async ({ page }) => {
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Open settings popup
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+
+    // Verify color scheme options are visible
+    const options = page.locator('.settings-color-scheme-option');
+    await expect(options).toHaveCount(3);
+
+    // Verify labels
+    await expect(options.nth(0).locator('.settings-color-scheme-label')).toHaveText('Light');
+    await expect(options.nth(1).locator('.settings-color-scheme-label')).toHaveText('Dark');
+    await expect(options.nth(2).locator('.settings-color-scheme-label')).toHaveText('System');
+  });
+
+  test('system is selected by default', async ({ page }) => {
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Open settings popup
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+
+    // Verify system option is selected
+    const systemOption = page.locator('.settings-color-scheme-option[data-color-scheme="system"]');
+    await expect(systemOption).toHaveClass(/selected/);
+  });
+
+  test('switches to light theme when clicking Light option', async ({ page }) => {
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Open settings popup
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+
+    // Click Light option
+    await page.locator('.settings-color-scheme-option[data-color-scheme="light"]').click();
+
+    // Verify light theme is applied
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    // Verify Light option is now selected
+    const lightOption = page.locator('.settings-color-scheme-option[data-color-scheme="light"]');
+    await expect(lightOption).toHaveClass(/selected/);
+  });
+
+  test('switches to dark theme when clicking Dark option', async ({ page }) => {
+    // First set to light theme via localStorage (beforeEach clears it, so we set it again)
+    await page.evaluate(() => {
+      localStorage.setItem('ai-chatbot-color-scheme', 'light');
+    });
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Verify light theme is active
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    // Open settings popup
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+
+    // Click Dark option
+    await page.locator('.settings-color-scheme-option[data-color-scheme="dark"]').click();
+
+    // Verify dark theme is applied (no data-theme attribute)
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+
+    // Verify Dark option is now selected
+    const darkOption = page.locator('.settings-color-scheme-option[data-color-scheme="dark"]');
+    await expect(darkOption).toHaveClass(/selected/);
+  });
+
+  test('persists theme selection across page reload', async ({ page }) => {
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Open settings popup and select light theme
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+    await page.locator('.settings-color-scheme-option[data-color-scheme="light"]').click();
+
+    // Close popup
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#settings-popup')).toHaveClass(/hidden/);
+
+    // Reload page
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Verify light theme is still active
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    // Open settings popup and verify Light is selected
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+    const lightOption = page.locator('.settings-color-scheme-option[data-color-scheme="light"]');
+    await expect(lightOption).toHaveClass(/selected/);
+  });
+
+  test('theme applies immediately without needing to save', async ({ page }) => {
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Open settings popup
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+
+    // Click Light option - theme should apply immediately
+    await page.locator('.settings-color-scheme-option[data-color-scheme="light"]').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+    // Close popup without clicking save
+    await page.keyboard.press('Escape');
+
+    // Theme should still be applied
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+
+  test('theme affects visual appearance', async ({ page }) => {
+    await page.reload();
+    await page.waitForSelector('#user-info');
+
+    // Open settings and select dark theme to ensure consistent starting point
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+    await page.locator('.settings-color-scheme-option[data-color-scheme="dark"]').click();
+    await page.keyboard.press('Escape');
+
+    // Get dark theme background color
+    const darkBg = await page.locator('body').evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+
+    // Switch to light theme
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+    await page.locator('.settings-color-scheme-option[data-color-scheme="light"]').click();
+
+    // Get light theme background color
+    const lightBg = await page.locator('body').evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    });
+
+    // Verify background colors are different
+    expect(darkBg).not.toBe(lightBg);
   });
 });

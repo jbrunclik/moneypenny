@@ -20,7 +20,7 @@
 .lightbox {
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.95);
+    background-color: var(--lightbox-bg);
     z-index: var(--z-lightbox);
     display: flex;
     align-items: center;
@@ -120,7 +120,7 @@
 .info-popup {
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: var(--overlay-bg);
     z-index: var(--z-popup);
     display: flex;
     align-items: center;
@@ -765,7 +765,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--overlay-bg);
     padding: var(--space-4);
     animation: modal-overlay-enter 0.15s ease-out;
 }
@@ -1325,4 +1325,81 @@
 .settings-save-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Settings divider between sections */
+.settings-divider {
+    height: 1px;
+    background-color: var(--border);
+    margin: var(--space-4) 0;
+}
+
+/* Color scheme selector */
+.settings-color-scheme {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.settings-color-scheme-option {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.settings-color-scheme-option:hover {
+    border-color: var(--text-muted);
+}
+
+.settings-color-scheme-option.selected {
+    border-color: var(--accent);
+    background-color: var(--accent-muted);
+}
+
+.settings-color-scheme-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+}
+
+.settings-color-scheme-option.selected .settings-color-scheme-icon {
+    color: var(--accent);
+}
+
+.settings-color-scheme-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-color-scheme-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.settings-color-scheme-option.selected .settings-color-scheme-label {
+    color: var(--text-primary);
+}
+
+/* Mobile: stack color scheme options */
+@media (max-width: 480px) {
+    .settings-color-scheme {
+        flex-direction: column;
+    }
+
+    .settings-color-scheme-option {
+        flex-direction: row;
+        justify-content: flex-start;
+        padding: var(--space-2) var(--space-3);
+    }
 }

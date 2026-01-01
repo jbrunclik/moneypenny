@@ -1292,6 +1292,45 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - E2E tests: [settings.spec.ts](web/tests/e2e/settings.spec.ts)
 - Visual tests: `popup-settings.png`, `popup-settings-empty.png`, `popup-settings-warning.png` in [popups.visual.ts](web/tests/visual/popups.visual.ts)
 
+## Color Scheme
+
+The app supports three color scheme options: Light, Dark, and System (default).
+
+### How it works
+
+1. **Storage**: Theme preference is stored in localStorage under `ai-chatbot-color-scheme`
+2. **UI**: Color scheme selector in the settings popup with three options (Light, Dark, System)
+3. **Application**: Theme is applied via `data-theme="light"` attribute on the `<html>` element
+4. **Immediate effect**: Theme changes are applied instantly without requiring a save
+5. **System preference**: When "System" is selected, the app follows the OS preference and updates automatically when it changes
+
+### Theme implementation
+
+**CSS variables approach:**
+- Base theme (dark) is defined in `:root` in [variables.css](web/src/styles/variables.css)
+- Light theme overrides are defined in `[data-theme="light"]` selector
+- Uses semantic color aliases (`--bg-primary`, `--text-primary`, `--accent`, etc.) that map to the current theme
+
+**Key color variables:**
+- `--bg-primary`, `--bg-secondary`, `--bg-tertiary` - Background colors
+- `--text-primary`, `--text-secondary`, `--text-muted` - Text colors
+- `--border`, `--border-light` - Border colors
+- `--accent`, `--accent-hover`, `--accent-muted` - Accent/brand colors
+- `--color-user-text` - Text color for user messages (white, for contrast on blue background)
+
+### Key files
+
+**Frontend:**
+- [theme.ts](web/src/utils/theme.ts) - Theme utility with `getStoredColorScheme()`, `saveColorScheme()`, `applyColorScheme()`, `setupSystemPreferenceListener()`
+- [SettingsPopup.ts](web/src/components/SettingsPopup.ts) - Color scheme selector UI
+- [variables.css](web/src/styles/variables.css) - CSS custom properties for both themes
+- [icons.ts](web/src/utils/icons.ts) - `SUN_ICON`, `MOON_ICON`, `MONITOR_ICON` for theme options
+- [main.ts](web/src/main.ts) - Early theme initialization to prevent flash of wrong theme
+
+### Testing
+- E2E tests: Color Scheme describe block in [settings.spec.ts](web/tests/e2e/settings.spec.ts)
+- Visual tests: All visual test snapshots capture the dark theme (default)
+
 ## Real-time Data Synchronization
 
 The app supports synchronization of conversation state across multiple devices/tabs using timestamp-based polling.

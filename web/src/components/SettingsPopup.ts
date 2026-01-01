@@ -1,8 +1,15 @@
 import { getElementById } from '../utils/dom';
-import { SETTINGS_ICON, CLOSE_ICON } from '../utils/icons';
+import { SETTINGS_ICON, CLOSE_ICON, SUN_ICON, MOON_ICON, MONITOR_ICON } from '../utils/icons';
 import { settings } from '../api/client';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
+import {
+  type ColorScheme,
+  getStoredColorScheme,
+  saveColorScheme,
+  applyColorScheme,
+  setupSystemPreferenceListener,
+} from '../utils/theme';
 
 const log = createLogger('settings-popup');
 
@@ -12,15 +19,50 @@ const CHAR_LIMIT = 2000;
 /** Current custom instructions value */
 let currentInstructions = '';
 
+/** Current color scheme value */
+let currentColorScheme: ColorScheme = 'system';
+
+/**
+ * Render color scheme option
+ */
+function renderColorSchemeOption(
+  value: ColorScheme,
+  icon: string,
+  label: string,
+  selected: boolean
+): string {
+  return `
+    <button
+      type="button"
+      class="settings-color-scheme-option${selected ? ' selected' : ''}"
+      data-color-scheme="${value}"
+    >
+      <span class="settings-color-scheme-icon">${icon}</span>
+      <span class="settings-color-scheme-label">${label}</span>
+    </button>
+  `;
+}
+
 /**
  * Render the popup content
  */
-function renderContent(instructions: string): string {
+function renderContent(instructions: string, colorScheme: ColorScheme): string {
   const charCount = instructions.length;
   const charCountClass = charCount > CHAR_LIMIT ? 'error' : charCount > CHAR_LIMIT * 0.9 ? 'warning' : '';
 
   return `
     <div class="settings-body">
+      <div class="settings-field">
+        <label class="settings-label">Appearance</label>
+        <div class="settings-color-scheme">
+          ${renderColorSchemeOption('light', SUN_ICON, 'Light', colorScheme === 'light')}
+          ${renderColorSchemeOption('dark', MOON_ICON, 'Dark', colorScheme === 'dark')}
+          ${renderColorSchemeOption('system', MONITOR_ICON, 'System', colorScheme === 'system')}
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
       <div class="settings-field">
         <label class="settings-label" for="custom-instructions">Custom Instructions</label>
         <p class="settings-helper">Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")</p>
@@ -83,11 +125,35 @@ async function saveSettings(): Promise<void> {
 }
 
 /**
+ * Handle color scheme option click
+ */
+function handleColorSchemeClick(scheme: ColorScheme): void {
+  if (scheme === currentColorScheme) return;
+
+  // Update selection UI
+  const options = document.querySelectorAll('.settings-color-scheme-option');
+  options.forEach((option) => {
+    const optionScheme = (option as HTMLElement).dataset.colorScheme as ColorScheme;
+    option.classList.toggle('selected', optionScheme === scheme);
+  });
+
+  // Apply and save the theme
+  currentColorScheme = scheme;
+  saveColorScheme(scheme);
+  applyColorScheme(scheme);
+
+  log.info('Color scheme changed', { scheme });
+}
+
+/**
  * Open the settings popup
  */
 export async function openSettingsPopup(): Promise<void> {
   const popup = getElementById<HTMLDivElement>(POPUP_ID);
   if (!popup) return;
+
+  // Load current color scheme
+  currentColorScheme = getStoredColorScheme();
 
   // Show popup with loading state
   const content = popup.querySelector('.info-popup-content');
@@ -122,7 +188,7 @@ export async function openSettingsPopup(): Promise<void> {
     // Update popup body
     const body = popup.querySelector('.info-popup-body');
     if (body) {
-      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions)}</div>`;
+      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme)}</div>`;
     }
 
     // Enable save button and attach handlers
@@ -139,6 +205,15 @@ export async function openSettingsPopup(): Promise<void> {
       // Focus the textarea
       textarea.focus();
     }
+
+    // Attach color scheme click handlers
+    const colorSchemeOptions = popup.querySelectorAll('.settings-color-scheme-option');
+    colorSchemeOptions.forEach((option) => {
+      option.addEventListener('click', () => {
+        const scheme = (option as HTMLElement).dataset.colorScheme as ColorScheme;
+        handleColorSchemeClick(scheme);
+      });
+    });
   } catch (error) {
     log.error('Failed to load settings', { error });
     const body = popup.querySelector('.info-popup-body');
@@ -164,7 +239,7 @@ export function closeSettingsPopup(): void {
 }
 
 /**
- * Initialize settings popup
+ * Initialize settings popup and theme system
  */
 export function initSettingsPopup(): void {
   const popup = getElementById<HTMLDivElement>(POPUP_ID);
@@ -191,6 +266,16 @@ export function initSettingsPopup(): void {
     // Retry button
     if (target.classList.contains('settings-retry-btn')) {
       openSettingsPopup();
+    }
+  });
+
+  // Set up system preference listener for when 'system' is selected
+  // Note: This listener is never cleaned up since the popup/app lives forever
+  setupSystemPreferenceListener(() => {
+    const currentScheme = getStoredColorScheme();
+    if (currentScheme === 'system') {
+      // Re-apply when system preference changes and 'system' is selected
+      applyColorScheme('system');
     }
   });
 

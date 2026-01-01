@@ -57,6 +57,7 @@ import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/
 import { initSyncManager, stopSyncManager, getSyncManager } from './sync/SyncManager';
 import { getElementById, isScrolledToBottom, clearElement, scrollToBottom } from './utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from './utils/thumbnails';
+import { initializeTheme } from './utils/theme';
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
@@ -197,6 +198,11 @@ function renderAppShell(): string {
 // Initialize the application
 async function init(): Promise<void> {
   log.info('Initializing application');
+
+  // Initialize theme early to prevent flash of wrong theme
+  const { scheme, effectiveTheme } = initializeTheme();
+  log.debug('Theme initialized', { scheme, effectiveTheme });
+
   const app = getElementById<HTMLDivElement>('app');
   if (!app) return;
 

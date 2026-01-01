@@ -7,11 +7,17 @@
    - Spacing: --space-{size}
    - Typography: --font-{property}
    - Effects: --{effect}-{variant}
+
+   Theme system:
+   - Dark theme is default (:root)
+   - Light theme uses [data-theme="light"]
+   - System preference is handled via JavaScript
 */
 
 :root {
     /* ----------------------------------------
        Color Palette - Neutrals (Gray scale)
+       Dark theme values
        ---------------------------------------- */
     --color-neutral-950: #0f0f0f;   /* Darkest - primary bg */
     --color-neutral-900: #1a1a1a;   /* Secondary bg */
@@ -26,9 +32,9 @@
     /* ----------------------------------------
        Color Palette - Brand (Indigo/Purple)
        ---------------------------------------- */
-    --color-brand-400: #818cf8;     /* Accent hover */
+    --color-brand-400: #818cf8;     /* Accent hover (dark) */
     --color-brand-500: #6366f1;     /* Primary accent */
-    --color-brand-600: #4f46e5;     /* Pressed state */
+    --color-brand-600: #4f46e5;     /* Pressed state / accent hover (light) */
     --color-brand-700: #4338ca;     /* Dark accent */
     --color-brand-800: #3730a3;     /* Version banner bg */
     --color-brand-900: #312e81;     /* Darker variant */
@@ -41,15 +47,19 @@
     /* ----------------------------------------
        Color Palette - Semantic
        ---------------------------------------- */
+    --color-success-400: #4ade80;   /* Success light */
     --color-success-500: #22c55e;   /* Success green */
     --color-success-600: #16a34a;   /* Success hover */
+    --color-success-900: rgba(34, 197, 94, 0.15); /* Success badge bg (dark) */
 
     --color-error-400: #f87171;     /* Error light */
     --color-error-500: #ef4444;     /* Error red */
     --color-error-600: #dc2626;     /* Error hover */
+    --color-error-900: rgba(239, 68, 68, 0.15); /* Error badge bg (dark) */
 
-    --color-warning-500: #f59e0b;   /* Warning amber */
     --color-warning-400: #fbbf24;   /* Warning light */
+    --color-warning-500: #f59e0b;   /* Warning amber */
+    --color-warning-900: rgba(245, 158, 11, 0.15); /* Warning badge bg (dark) */
 
     --color-info-500: #3b82f6;      /* Info blue */
     --color-user-500: #2563eb;      /* User message bg (blue-600) */
@@ -59,6 +69,7 @@
 
     /* ----------------------------------------
        Semantic Aliases (for easier use)
+       Dark theme values (default)
        ---------------------------------------- */
     /* Backgrounds */
     --bg-primary: var(--color-neutral-950);
@@ -87,6 +98,14 @@
     --error: var(--color-error-500);
     --error-hover: var(--color-error-600);
     --warning: var(--color-warning-500);
+
+    /* Overlay/backdrop for modals and popups */
+    --overlay-bg: rgba(0, 0, 0, 0.8);
+    --lightbox-bg: rgba(0, 0, 0, 0.95);
+
+    /* Code blocks */
+    --code-bg: var(--bg-tertiary);
+    --code-inline-bg: rgba(0, 0, 0, 0.3);
 
     /* ----------------------------------------
        Gradients
@@ -195,4 +214,48 @@
     --shadow: var(--shadow-md);
     --user-bg: var(--bg-user);
     --assistant-bg: var(--bg-assistant);
+}
+
+/* ============================================
+   Light Theme
+   ============================================
+   Applied via [data-theme="light"] on html element
+*/
+
+[data-theme="light"] {
+    /* Light theme neutral palette */
+    --color-neutral-950: #ffffff;   /* Lightest - primary bg */
+    --color-neutral-900: #f9fafb;   /* Secondary bg */
+    --color-neutral-850: #f3f4f6;   /* Assistant message bg */
+    --color-neutral-800: #e5e7eb;   /* Tertiary bg */
+    --color-neutral-700: #d1d5db;   /* Hover bg */
+    --color-neutral-600: #d1d5db;   /* Borders */
+    --color-neutral-400: #6b7280;   /* Muted text */
+    --color-neutral-300: #4b5563;   /* Secondary text */
+    --color-neutral-100: #111827;   /* Primary text */
+
+    /* Accent adjustments for light theme */
+    --accent-hover: var(--color-brand-600);
+    --accent-muted: rgba(99, 102, 241, 0.1);
+
+    /* Badge backgrounds for light theme */
+    --color-success-900: rgba(34, 197, 94, 0.12);
+    --color-error-900: rgba(239, 68, 68, 0.12);
+    --color-warning-900: rgba(245, 158, 11, 0.12);
+    --color-brand-900: rgba(99, 102, 241, 0.12);
+
+    /* Overlay/backdrop for light theme */
+    --overlay-bg: rgba(0, 0, 0, 0.5);
+    --lightbox-bg: rgba(0, 0, 0, 0.9);
+
+    /* Code blocks for light theme */
+    --code-bg: #f3f4f6;
+    --code-inline-bg: rgba(0, 0, 0, 0.06);
+
+    /* Shadows for light theme (lighter) */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.15);
+    --shadow-glow-accent: 0 0 12px rgba(99, 102, 241, 0.3);
+    --shadow-scroll-btn: 0 2px 12px rgba(0, 0, 0, 0.15);
 }

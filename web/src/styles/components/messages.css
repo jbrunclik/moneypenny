@@ -82,6 +82,7 @@
 
 .message.user .message-avatar {
     background-color: var(--bg-user);
+    color: var(--color-user-text);
 }
 
 /* ----------------------------------------
@@ -99,6 +100,7 @@
 
 .message.user .message-content {
     background-color: var(--bg-user);
+    color: var(--color-user-text);
     min-width: fit-content;
 }
 
