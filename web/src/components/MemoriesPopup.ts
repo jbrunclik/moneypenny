@@ -5,6 +5,7 @@ import type { Memory } from '../types/api';
 import { toast } from './Toast';
 import { showConfirm } from './Modal';
 import { createLogger } from '../utils/logger';
+import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 
 const log = createLogger('memories-popup');
 
@@ -221,12 +222,8 @@ export function initMemoriesPopup(): void {
     }
   });
 
-  // Close on Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !popup.classList.contains('hidden')) {
-      closeMemoriesPopup();
-    }
-  });
+  // Register with centralized Escape key handler
+  registerPopupEscapeHandler(POPUP_ID, closeMemoriesPopup);
 
   // Event delegation for delete buttons and retry
   popup.addEventListener('click', (e) => {

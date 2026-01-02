@@ -92,9 +92,9 @@ This file tracks planned features, improvements, and technical debt.
 
 ### 🟡 Code Quality
 - [ ] Consider async Flask (quart) for better concurrency
-- [ ] **Extract shared `_execute_with_timing()` helper** - Duplicated in `models.py` and `blob_store.py`. Extract to shared utility module
-- [ ] **Add datetime validation in sync endpoint** - `datetime.fromisoformat()` in `routes.py:391` can raise `ValueError` on invalid format. Wrap in try/except
-- [ ] **Frontend event listener cleanup** - Document-level keydown listeners in `MemoriesPopup.ts`, `SettingsPopup.ts`, `InfoPopup.ts`, `Lightbox.ts` are added but not tracked for cleanup. Consider `addEventListenerWithCleanup()` helper or event delegation
+- [x] **Extract shared `_execute_with_timing()` helper** - Extracted to `src/utils/db_helpers.py` with `execute_with_timing()` and `init_query_logging()` functions. Both `models.py` and `blob_store.py` now delegate to the shared implementation
+- [x] **Add datetime validation in sync endpoint** - Added try/except around `datetime.fromisoformat()` in sync endpoint, returns 400 VALIDATION_ERROR for invalid timestamps
+- [x] **Frontend event listener cleanup** - Created centralized `popupEscapeHandler.ts` with single document-level Escape key listener for all popups (MemoriesPopup, SettingsPopup, InfoPopup, Lightbox). Popups register via `registerPopupEscapeHandler()`. Reduces 5+ listeners to 1
 - [x] Add proper database migrations (yoyo-migrations)
 - [x] Add request validation (pydantic or marshmallow) - Implemented Pydantic v2 with `@validate_request` decorator
 - [x] **Add OpenAPI/Swagger documentation** - APIFlask generates OpenAPI 3.0 spec at `/api/openapi.json` with Swagger UI at `/api/docs`. Response schemas defined in `schemas.py` with `@api.output()` decorators. TypeScript types auto-generated via `openapi-typescript`. See "OpenAPI Documentation" section in CLAUDE.md.

@@ -392,7 +392,13 @@ def sync_conversations(user: User) -> dict[str, Any]:
         conv_with_counts = db.list_conversations_with_message_count(user.id)
     else:
         # Incremental sync: only get conversations updated since timestamp
-        since_dt = datetime.fromisoformat(since_param)  # type: ignore[arg-type]
+        try:
+            since_dt = datetime.fromisoformat(since_param)  # type: ignore[arg-type]
+        except ValueError:
+            raise_validation_error(
+                "Invalid timestamp format. Use ISO format (e.g., 2024-01-01T12:00:00)",
+                field="since",
+            )
         conv_with_counts = db.get_conversations_updated_since(user.id, since_dt)
 
     server_time = datetime.now()

@@ -2263,6 +2263,30 @@ log.error('Operation failed', { error, context });
 - Use `error` for failures that affect functionality (API errors, file read failures)
 - Always include relevant context as the second argument (error objects, IDs, etc.)
 
+### Popup Escape Key Handler
+
+All popups use a centralized Escape key handler instead of individual document-level listeners. This consolidates 5+ listeners into a single one.
+
+**How it works:**
+1. `initPopupEscapeListener()` is called once in `main.ts` during app initialization
+2. Each popup registers via `registerPopupEscapeHandler(popupId, closeCallback)`
+3. On Escape key, the handler finds the topmost visible popup and closes it
+4. Handlers are called in reverse registration order (most recent first)
+
+**Usage:**
+```typescript
+import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
+
+// In popup init function
+registerPopupEscapeHandler('my-popup-id', closeMyPopup);
+```
+
+**Key files:**
+- [popupEscapeHandler.ts](web/src/utils/popupEscapeHandler.ts) - Centralized handler
+- [main.ts](web/src/main.ts) - Initialization call
+
+**Note:** Modal.ts retains its own keydown handler because it also needs Enter (confirm) and Tab (focus trapping) handling.
+
 ## Blob Storage
 
 File data and thumbnails are stored in a separate SQLite database (`files.db`) to keep the main database (`chatbot.db`) small and fast.
@@ -2384,6 +2408,14 @@ In development/debug mode, the database tracks query execution time and logs war
 **Security considerations:**
 - Query text is truncated to 200 characters
 - Parameters are truncated to 100 characters (to avoid logging large base64 file data)
+
+**Implementation:**
+The query timing logic is centralized in [db_helpers.py](src/utils/db_helpers.py):
+- `execute_with_timing()` - Executes queries with optional timing and logging
+- `init_query_logging()` - Returns configuration tuple `(should_log, threshold_ms)`
+
+Both [models.py](src/db/models.py) and [blob_store.py](src/db/blob_store.py) delegate to these shared helpers.
+The blob store uses `log_prefix="Blob "` to distinguish its logs from main database logs.
 
 ### Database Connectivity Check
 

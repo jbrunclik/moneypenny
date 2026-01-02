@@ -1,5 +1,6 @@
 import { getElementById } from '../utils/dom';
 import { CLOSE_ICON } from '../utils/icons';
+import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 
 /**
  * Configuration for creating an info popup
@@ -93,12 +94,8 @@ export function createPopup<T>(
       }
     });
 
-    // Close on Escape key (global listener, checks if this popup is visible)
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !popup?.classList.contains('hidden')) {
-        close();
-      }
-    });
+    // Register with centralized Escape key handler
+    registerPopupEscapeHandler(id, close);
 
     // Listen for custom open events
     window.addEventListener(eventName, ((e: CustomEvent) => {

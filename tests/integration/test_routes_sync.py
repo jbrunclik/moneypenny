@@ -372,6 +372,45 @@ class TestSyncRaceConditions:
 class TestSyncTimestampEdgeCases:
     """Tests for edge cases with timestamp handling in sync."""
 
+    def test_sync_with_invalid_timestamp_format(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """Should return 400 for invalid timestamp format."""
+        response = client.get(
+            "/api/conversations/sync?since=invalid-date",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert data["error"]["code"] == "VALIDATION_ERROR"
+        assert "timestamp" in data["error"]["message"].lower()
+        assert data["error"]["details"]["field"] == "since"
+
+    def test_sync_with_malformed_iso_timestamp(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """Should return 400 for malformed ISO timestamp."""
+        # Missing time component
+        response = client.get(
+            "/api/conversations/sync?since=2024-01-01",
+            headers=auth_headers,
+        )
+        # Python 3.11+ accepts date-only ISO format, so this may succeed
+        # Test with clearly invalid format instead
+        response = client.get(
+            "/api/conversations/sync?since=not-a-date",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert data["error"]["code"] == "VALIDATION_ERROR"
+
     def test_sync_with_microsecond_precision_timestamp(
         self,
         client: FlaskClient,

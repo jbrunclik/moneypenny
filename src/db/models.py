@@ -2,7 +2,6 @@ import base64
 import json
 import os
 import sqlite3
-import time
 import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -15,6 +14,7 @@ from yoyo import get_backend, read_migrations
 
 from src.config import Config
 from src.db.blob_store import get_blob_store
+from src.utils.db_helpers import execute_with_timing, init_query_logging
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -225,8 +225,7 @@ class Database:
     def __init__(self, db_path: Path | None = None) -> None:
         self.db_path = db_path or Config.DATABASE_PATH
         # Query logging is only active in development/debug mode
-        self._should_log_queries = Config.LOG_LEVEL == "DEBUG" or Config.is_development()
-        self._slow_query_threshold_ms = Config.SLOW_QUERY_THRESHOLD_MS
+        self._should_log_queries, self._slow_query_threshold_ms = init_query_logging()
         self._init_db()
 
     @contextmanager
@@ -246,56 +245,15 @@ class Database:
     ) -> sqlite3.Cursor:
         """Execute a query with optional timing and logging.
 
-        In development/debug mode, this method tracks query execution time
-        and logs warnings for slow queries.
-
-        Args:
-            conn: SQLite connection
-            query: SQL query string
-            params: Query parameters
-
-        Returns:
-            SQLite cursor with results
+        Delegates to shared execute_with_timing() helper.
         """
-        if not self._should_log_queries:
-            return conn.execute(query, params)
-
-        start_time = time.perf_counter()
-        cursor = conn.execute(query, params)
-        elapsed_ms = (time.perf_counter() - start_time) * 1000
-
-        # Truncate query for logging (normalize whitespace)
-        query_snippet = " ".join(query.split())
-        if len(query_snippet) > 200:
-            query_snippet = query_snippet[:200] + "..."
-
-        # Truncate params for logging (avoid logging large data like base64 files)
-        params_str = str(params)
-        if len(params_str) > 100:
-            params_snippet = params_str[:100] + "..."
-        else:
-            params_snippet = params_str
-
-        if elapsed_ms >= self._slow_query_threshold_ms:
-            logger.warning(
-                "Slow query detected",
-                extra={
-                    "query_snippet": query_snippet,
-                    "params_snippet": params_snippet,
-                    "elapsed_ms": round(elapsed_ms, 2),
-                    "threshold_ms": self._slow_query_threshold_ms,
-                },
-            )
-        elif Config.LOG_LEVEL == "DEBUG":
-            logger.debug(
-                "Query executed",
-                extra={
-                    "query_snippet": query_snippet,
-                    "elapsed_ms": round(elapsed_ms, 2),
-                },
-            )
-
-        return cursor
+        return execute_with_timing(
+            conn,
+            query,
+            params,
+            should_log=self._should_log_queries,
+            slow_query_threshold_ms=self._slow_query_threshold_ms,
+        )
 
     def _init_db(self) -> None:
         """Run yoyo migrations to initialize/update the database schema."""

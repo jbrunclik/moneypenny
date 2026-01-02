@@ -10,6 +10,7 @@ import {
   applyColorScheme,
   setupSystemPreferenceListener,
 } from '../utils/theme';
+import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 
 const log = createLogger('settings-popup');
 
@@ -252,12 +253,8 @@ export function initSettingsPopup(): void {
     }
   });
 
-  // Close on Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !popup.classList.contains('hidden')) {
-      closeSettingsPopup();
-    }
-  });
+  // Register with centralized Escape key handler
+  registerPopupEscapeHandler(POPUP_ID, closeSettingsPopup);
 
   // Event delegation for retry button
   popup.addEventListener('click', (e) => {

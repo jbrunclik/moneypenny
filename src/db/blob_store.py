@@ -10,13 +10,13 @@ Key format:
 """
 
 import sqlite3
-import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from src.config import Config
+from src.utils.db_helpers import execute_with_timing, init_query_logging
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -32,8 +32,7 @@ class BlobStore:
             db_path: Path to the blob database file. Uses Config.BLOB_STORAGE_PATH if not provided.
         """
         self.db_path = db_path or Config.BLOB_STORAGE_PATH
-        self._should_log_queries = Config.LOG_LEVEL == "DEBUG" or Config.is_development()
-        self._slow_query_threshold_ms = Config.SLOW_QUERY_THRESHOLD_MS
+        self._should_log_queries, self._slow_query_threshold_ms = init_query_logging()
         self._init_db()
 
     @contextmanager
@@ -52,38 +51,18 @@ class BlobStore:
         query: str,
         params: tuple[object, ...] = (),
     ) -> sqlite3.Cursor:
-        """Execute a query with optional timing and logging."""
-        if not self._should_log_queries:
-            return conn.execute(query, params)
+        """Execute a query with optional timing and logging.
 
-        start_time = time.perf_counter()
-        cursor = conn.execute(query, params)
-        elapsed_ms = (time.perf_counter() - start_time) * 1000
-
-        # Truncate query for logging
-        query_snippet = " ".join(query.split())
-        if len(query_snippet) > 200:
-            query_snippet = query_snippet[:200] + "..."
-
-        if elapsed_ms >= self._slow_query_threshold_ms:
-            logger.warning(
-                "Slow blob query detected",
-                extra={
-                    "query_snippet": query_snippet,
-                    "elapsed_ms": round(elapsed_ms, 2),
-                    "threshold_ms": self._slow_query_threshold_ms,
-                },
-            )
-        elif Config.LOG_LEVEL == "DEBUG":
-            logger.debug(
-                "Blob query executed",
-                extra={
-                    "query_snippet": query_snippet,
-                    "elapsed_ms": round(elapsed_ms, 2),
-                },
-            )
-
-        return cursor
+        Delegates to shared execute_with_timing() helper.
+        """
+        return execute_with_timing(
+            conn,
+            query,
+            params,
+            should_log=self._should_log_queries,
+            slow_query_threshold_ms=self._slow_query_threshold_ms,
+            log_prefix="Blob ",
+        )
 
     def _init_db(self) -> None:
         """Initialize the blob database schema."""

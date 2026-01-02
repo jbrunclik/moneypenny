@@ -22,7 +22,7 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 0  # Everything is slow
 
-        with caplog.at_level(logging.WARNING, logger="src.db.models"):
+        with caplog.at_level(logging.WARNING, logger="src.utils.db_helpers"):
             test_database.get_or_create_user("slow@example.com", "Slow User")
 
         assert any("Slow query" in record.message for record in caplog.records)
@@ -34,7 +34,7 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 0
 
-        with caplog.at_level(logging.WARNING, logger="src.db.models"):
+        with caplog.at_level(logging.WARNING, logger="src.utils.db_helpers"):
             test_database.get_or_create_user("timing@example.com", "Timing User")
 
         # Find the slow query log record
@@ -50,7 +50,7 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 0
 
-        with caplog.at_level(logging.WARNING, logger="src.db.models"):
+        with caplog.at_level(logging.WARNING, logger="src.utils.db_helpers"):
             test_database.get_or_create_user("truncate@example.com", "Truncate User")
 
         # Find the slow query log record
@@ -68,7 +68,7 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 0
 
-        with caplog.at_level(logging.WARNING, logger="src.db.models"):
+        with caplog.at_level(logging.WARNING, logger="src.utils.db_helpers"):
             # Create user with long name to test param truncation
             test_database.get_or_create_user("params@example.com", "A" * 200)
 
@@ -85,7 +85,7 @@ class TestSlowQueryLogging:
         """Should not log queries when logging is disabled."""
         test_database._should_log_queries = False
 
-        with caplog.at_level(logging.DEBUG, logger="src.db.models"):
+        with caplog.at_level(logging.DEBUG, logger="src.utils.db_helpers"):
             test_database.get_or_create_user("nolog@example.com", "No Log User")
 
         slow_query_records = [r for r in caplog.records if "Slow query" in r.message]
@@ -98,7 +98,7 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 10000  # 10 seconds
 
-        with caplog.at_level(logging.WARNING, logger="src.db.models"):
+        with caplog.at_level(logging.WARNING, logger="src.utils.db_helpers"):
             test_database.get_or_create_user("fast@example.com", "Fast User")
 
         slow_query_records = [r for r in caplog.records if "Slow query" in r.message]
@@ -111,8 +111,8 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 10000  # High threshold
 
-        with patch("src.db.models.Config.LOG_LEVEL", "DEBUG"):
-            with caplog.at_level(logging.DEBUG, logger="src.db.models"):
+        with patch("src.utils.db_helpers.Config.LOG_LEVEL", "DEBUG"):
+            with caplog.at_level(logging.DEBUG, logger="src.utils.db_helpers"):
                 test_database.get_or_create_user("debug@example.com", "Debug User")
 
         query_records = [r for r in caplog.records if "Query executed" in r.message]
@@ -139,8 +139,7 @@ class TestSlowQueryLogging:
 
     def test_slow_query_threshold_from_config(self, tmp_path: Path) -> None:
         """Should use SLOW_QUERY_THRESHOLD_MS from Config."""
-        with patch("src.db.models.Config") as mock_config:
-            mock_config.DATABASE_PATH = tmp_path / "threshold.db"
+        with patch("src.utils.db_helpers.Config") as mock_config:
             mock_config.SLOW_QUERY_THRESHOLD_MS = 500
             mock_config.LOG_LEVEL = "INFO"
             mock_config.is_development.return_value = True
@@ -152,8 +151,7 @@ class TestSlowQueryLogging:
 
     def test_query_logging_enabled_in_development(self, tmp_path: Path) -> None:
         """Should enable query logging in development mode."""
-        with patch("src.db.models.Config") as mock_config:
-            mock_config.DATABASE_PATH = tmp_path / "dev.db"
+        with patch("src.utils.db_helpers.Config") as mock_config:
             mock_config.SLOW_QUERY_THRESHOLD_MS = 100
             mock_config.LOG_LEVEL = "INFO"
             mock_config.is_development.return_value = True
@@ -165,8 +163,7 @@ class TestSlowQueryLogging:
 
     def test_query_logging_enabled_for_debug_level(self, tmp_path: Path) -> None:
         """Should enable query logging when LOG_LEVEL is DEBUG."""
-        with patch("src.db.models.Config") as mock_config:
-            mock_config.DATABASE_PATH = tmp_path / "debug.db"
+        with patch("src.utils.db_helpers.Config") as mock_config:
             mock_config.SLOW_QUERY_THRESHOLD_MS = 100
             mock_config.LOG_LEVEL = "DEBUG"
             mock_config.is_development.return_value = False
@@ -178,8 +175,7 @@ class TestSlowQueryLogging:
 
     def test_query_logging_disabled_in_production(self, tmp_path: Path) -> None:
         """Should disable query logging in production with non-DEBUG level."""
-        with patch("src.db.models.Config") as mock_config:
-            mock_config.DATABASE_PATH = tmp_path / "prod.db"
+        with patch("src.utils.db_helpers.Config") as mock_config:
             mock_config.SLOW_QUERY_THRESHOLD_MS = 100
             mock_config.LOG_LEVEL = "INFO"
             mock_config.is_development.return_value = False

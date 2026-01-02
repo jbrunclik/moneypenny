@@ -2,6 +2,7 @@ import { getElementById } from '../utils/dom';
 import { files } from '../api/client';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
+import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 
 const log = createLogger('lightbox');
 
@@ -24,12 +25,8 @@ export function initLightbox(): void {
     }
   });
 
-  // Close on Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !lightbox?.classList.contains('hidden')) {
-      closeLightbox();
-    }
-  });
+  // Register with centralized Escape key handler
+  registerPopupEscapeHandler('lightbox', closeLightbox);
 
   // Listen for custom lightbox:open events
   window.addEventListener('lightbox:open', ((e: CustomEvent) => {

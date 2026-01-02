@@ -58,6 +58,7 @@ import { initSyncManager, stopSyncManager, getSyncManager } from './sync/SyncMan
 import { getElementById, isScrolledToBottom, clearElement, scrollToBottom } from './utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from './utils/thumbnails';
 import { initializeTheme } from './utils/theme';
+import { initPopupEscapeListener } from './utils/popupEscapeHandler';
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
@@ -212,6 +213,7 @@ async function init(): Promise<void> {
   // Initialize components
   initToast();
   initModal();
+  initPopupEscapeListener(); // Single Escape key listener for all popups
   initMessageInput(sendMessage, handleStopStreaming);
   initModelSelector();
   initFileUpload();
