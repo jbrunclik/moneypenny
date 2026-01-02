@@ -82,6 +82,51 @@ class TestBlobStore:
         # Other message should still exist
         assert blob_store.exists("msg-456/0")
 
+    def test_delete_by_prefixes(self, blob_store):
+        """Test deleting blobs with multiple prefixes in a single query."""
+        # Create blobs for multiple messages
+        blob_store.save("msg-111/0", b"file0", "text/plain")
+        blob_store.save("msg-111/0.thumb", b"thumb0", "image/jpeg")
+        blob_store.save("msg-222/0", b"file1", "text/plain")
+        blob_store.save("msg-222/1", b"file2", "text/plain")
+        blob_store.save("msg-333/0", b"file3", "text/plain")
+        blob_store.save("msg-444/0", b"other", "text/plain")
+
+        # Delete all for msg-111, msg-222, msg-333 in a single query
+        count = blob_store.delete_by_prefixes(["msg-111/", "msg-222/", "msg-333/"])
+
+        assert count == 5
+        assert not blob_store.exists("msg-111/0")
+        assert not blob_store.exists("msg-111/0.thumb")
+        assert not blob_store.exists("msg-222/0")
+        assert not blob_store.exists("msg-222/1")
+        assert not blob_store.exists("msg-333/0")
+        # Other message should still exist
+        assert blob_store.exists("msg-444/0")
+
+    def test_delete_by_prefixes_empty_list(self, blob_store):
+        """Test that empty prefix list returns 0 without error."""
+        blob_store.save("msg-123/0", b"file0", "text/plain")
+
+        count = blob_store.delete_by_prefixes([])
+
+        assert count == 0
+        # Blob should still exist
+        assert blob_store.exists("msg-123/0")
+
+    def test_delete_by_prefixes_single_prefix(self, blob_store):
+        """Test delete_by_prefixes with a single prefix."""
+        blob_store.save("msg-123/0", b"file0", "text/plain")
+        blob_store.save("msg-123/1", b"file1", "text/plain")
+        blob_store.save("msg-456/0", b"other", "text/plain")
+
+        count = blob_store.delete_by_prefixes(["msg-123/"])
+
+        assert count == 2
+        assert not blob_store.exists("msg-123/0")
+        assert not blob_store.exists("msg-123/1")
+        assert blob_store.exists("msg-456/0")
+
     def test_get_size(self, blob_store):
         """Test getting blob size without loading data."""
         key = "msg-123/0"
@@ -160,6 +205,56 @@ class TestBlobStoreKeyFormat:
 
         key = make_thumbnail_key("abc-def-456", 2)
         assert key == "abc-def-456/2.thumb"
+
+
+class TestDeleteMessagesBlobs:
+    """Test batch deletion of message blobs."""
+
+    def test_delete_messages_blobs(self):
+        """Test deleting blobs for multiple messages."""
+        import tempfile
+        from pathlib import Path
+
+        from src.db.blob_store import BlobStore, reset_blob_store
+        from src.db.models import delete_messages_blobs
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test_blobs.db"
+            # Create blob store and set it as global
+            blob_store = BlobStore(db_path)
+
+            # Patch get_blob_store to return our test store
+            import src.db.models as models_module
+
+            original_get_blob_store = models_module.get_blob_store
+            models_module.get_blob_store = lambda: blob_store
+
+            try:
+                # Create blobs for multiple messages
+                blob_store.save("msg-aaa/0", b"file0", "text/plain")
+                blob_store.save("msg-aaa/1", b"file1", "text/plain")
+                blob_store.save("msg-bbb/0", b"file2", "text/plain")
+                blob_store.save("msg-ccc/0", b"file3", "text/plain")
+
+                # Delete blobs for msg-aaa and msg-bbb
+                count = delete_messages_blobs(["msg-aaa", "msg-bbb"])
+
+                assert count == 3
+                assert not blob_store.exists("msg-aaa/0")
+                assert not blob_store.exists("msg-aaa/1")
+                assert not blob_store.exists("msg-bbb/0")
+                # msg-ccc should still exist
+                assert blob_store.exists("msg-ccc/0")
+            finally:
+                models_module.get_blob_store = original_get_blob_store
+                reset_blob_store()
+
+    def test_delete_messages_blobs_empty_list(self):
+        """Test that empty message list returns 0."""
+        from src.db.models import delete_messages_blobs
+
+        count = delete_messages_blobs([])
+        assert count == 0
 
 
 class TestExtractFileMetadata:

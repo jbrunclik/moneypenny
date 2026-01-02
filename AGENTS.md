@@ -2237,7 +2237,15 @@ Blobs are stored with keys that encode the message and file index:
    - First tries blob store lookup with `{message_id}/{index}.thumb` key
    - Falls back to legacy `thumbnail` field in files JSON
 
-4. **Conversation deletion**: Deletes all blobs with `{message_id}/` prefix for each message
+4. **Conversation deletion**: Uses `delete_by_prefixes()` to delete all blobs for all messages in a single SQL query (batched deletion)
+
+### Indexing
+
+The blob store uses `key TEXT PRIMARY KEY` which automatically provides a B-tree index. This index is used for:
+- Exact key lookups (`WHERE key = ?`)
+- Prefix queries (`WHERE key LIKE 'prefix%'`) - SQLite uses the B-tree for left-anchored LIKE patterns
+
+No additional indexes are needed.
 
 ### Configuration
 
@@ -2256,8 +2264,8 @@ Existing messages are migrated via yoyo migration `0012_migrate_files_to_blob_st
 
 ### Key files
 
-- [blob_store.py](src/db/blob_store.py) - `BlobStore` class with `save()`, `get()`, `delete()`, `delete_by_prefix()`
-- [models.py](src/db/models.py) - `make_blob_key()`, `save_file_to_blob_store()`, `extract_file_metadata()`
+- [blob_store.py](src/db/blob_store.py) - `BlobStore` class with `save()`, `get()`, `delete()`, `delete_by_prefix()`, `delete_by_prefixes()`
+- [models.py](src/db/models.py) - `make_blob_key()`, `save_file_to_blob_store()`, `extract_file_metadata()`, `delete_messages_blobs()`
 - [routes.py](src/api/routes.py) - File/thumbnail endpoints with blob store + legacy fallback
 - [config.py](src/config.py) - `BLOB_STORAGE_PATH` configuration
 - [0011_create_blob_store.py](migrations/0011_create_blob_store.py) - Creates blob store DB

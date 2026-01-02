@@ -102,6 +102,18 @@ def delete_message_blobs(message_id: str) -> int:
     return blob_store.delete_by_prefix(f"{message_id}/")
 
 
+def delete_messages_blobs(message_ids: list[str]) -> int:
+    """Delete all blobs for multiple messages in a single query.
+
+    More efficient than calling delete_message_blobs() in a loop.
+    """
+    if not message_ids:
+        return 0
+    blob_store = get_blob_store()
+    prefixes = [f"{msg_id}/" for msg_id in message_ids]
+    return blob_store.delete_by_prefixes(prefixes)
+
+
 def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str | None]:
     """Check if the database is accessible.
 
@@ -589,9 +601,9 @@ class Database:
                 conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
             ).fetchall()
 
-            # Delete blobs for each message
-            for row in message_rows:
-                delete_message_blobs(row["id"])
+            # Delete all blobs for these messages in a single query
+            message_ids = [row["id"] for row in message_rows]
+            delete_messages_blobs(message_ids)
 
             # Delete messages
             self._execute_with_timing(

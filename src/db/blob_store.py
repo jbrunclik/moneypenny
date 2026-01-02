@@ -98,11 +98,8 @@ class BlobStore:
                     created_at TEXT NOT NULL
                 )
             """)
-            # Index for prefix-based queries (e.g., delete all blobs for a message)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_blobs_key_prefix
-                ON blobs(key)
-            """)
+            # Note: No additional index needed - PRIMARY KEY on 'key' already provides
+            # a B-tree index that SQLite uses for both exact matches and LIKE prefix queries
             conn.commit()
 
     def save(self, key: str, data: bytes, mime_type: str) -> None:
@@ -192,6 +189,41 @@ class BlobStore:
             count = cursor.rowcount
 
         logger.debug("Blobs deleted by prefix", extra={"prefix": prefix, "count": count})
+        return count
+
+    def delete_by_prefixes(self, prefixes: list[str]) -> int:
+        """Delete all blobs with keys starting with any of the given prefixes.
+
+        More efficient than calling delete_by_prefix() in a loop - executes a single
+        SQL query instead of N queries.
+
+        Args:
+            prefixes: List of key prefixes to match (e.g., ["{msg_id1}/", "{msg_id2}/"])
+
+        Returns:
+            Total number of blobs deleted
+        """
+        if not prefixes:
+            return 0
+
+        logger.debug("Deleting blobs by prefixes", extra={"prefix_count": len(prefixes)})
+        with self._get_conn() as conn:
+            # Build OR conditions for each prefix
+            conditions = " OR ".join(["key LIKE ?" for _ in prefixes])
+            params = tuple(prefix + "%" for prefix in prefixes)
+
+            cursor = self._execute_with_timing(
+                conn,
+                f"DELETE FROM blobs WHERE {conditions}",
+                params,
+            )
+            conn.commit()
+            count = cursor.rowcount
+
+        logger.debug(
+            "Blobs deleted by prefixes",
+            extra={"prefix_count": len(prefixes), "deleted_count": count},
+        )
         return count
 
     def exists(self, key: str) -> bool:

@@ -115,10 +115,10 @@ This file tracks planned features, improvements, and technical debt.
 ### 🟢 Database
 - [ ] **Pagination for conversations** - Add pagination to conversations list endpoint for users with many conversations
 - [ ] **Add database backup automation** - Automated daily backups of SQLite database
-- [ ] **Batch blob deletions in delete_conversation()** - N+1 pattern: fetches message IDs then calls `delete_message_blobs()` in a loop. Consider batch deletion or single query
 - [ ] **Add database connection pooling** - Each operation creates a new connection. Consider pooling for better performance under load
 - [x] **Add database indexes** - Add indexes on frequently queried columns (conversations.user_id, messages.conversation_id, etc.)
-- [x] **Add database query optimization** - Review and optimize N+1 query patterns (e.g., loading conversations with message counts) - Reviewed, main queries optimized. Note: `delete_conversation()` has N+1 for blob deletion (tracked separately)
+- [x] **Add database query optimization** - Review and optimize N+1 query patterns (e.g., loading conversations with message counts) - Reviewed, all queries optimized
+- [x] **Batch blob deletions in delete_conversation()** - Uses `delete_by_prefixes()` to delete all blobs for all messages in a single SQL query instead of N queries
 - [x] **Add database vacuum** - Weekly systemd timer runs VACUUM on both databases. See "Database Vacuum" section in CLAUDE.md.
 - [x] **Add database query logging** - Log slow queries for optimization (in development/debug mode)
 - [x] **Add database connectivity check** - Verify database is accessible at startup with clear error message
