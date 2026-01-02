@@ -315,6 +315,12 @@ function renderMessageFiles(files: FileMetadata[], messageId: string): HTMLEleme
       img.dataset.messageId = file.messageId || messageId;
       img.dataset.fileIndex = String(file.fileIndex ?? fileIndex);
 
+      // Mark images with temp IDs as pending (lightbox disabled until real ID received)
+      const effectiveMessageId = file.messageId || messageId;
+      if (effectiveMessageId.startsWith('temp-')) {
+        img.dataset.pending = 'true';
+      }
+
       // If we have a local preview URL (just-uploaded file), use it directly
       // Otherwise, use lazy loading to fetch thumbnail from server
       if (file.previewUrl) {
@@ -343,8 +349,12 @@ function renderMessageFiles(files: FileMetadata[], messageId: string): HTMLEleme
         observeThumbnail(img);
       }
 
-      // Click to open lightbox
+      // Click to open lightbox (only if not pending)
       img.addEventListener('click', () => {
+        if (img.dataset.pending === 'true') {
+          // Image still has temp ID - lightbox would fail
+          return;
+        }
         window.dispatchEvent(
           new CustomEvent('lightbox:open', {
             detail: {
@@ -944,4 +954,49 @@ export function updateChatTitle(title: string): void {
   if (titleEl) {
     titleEl.textContent = title;
   }
+}
+
+/**
+ * Update a user message's ID from a temporary ID to the real server ID.
+ * This updates the message element and all nested elements that reference the message ID
+ * (images, documents, etc.) so that clicking on them fetches from the correct API endpoint.
+ *
+ * @param tempId - The temporary ID (e.g., "temp-1234567890")
+ * @param realId - The real server ID returned after saving the message
+ */
+export function updateUserMessageId(tempId: string, realId: string): void {
+  const messagesContainer = getElementById('messages');
+  if (!messagesContainer) return;
+
+  // Find the message element with the temp ID
+  const messageEl = messagesContainer.querySelector<HTMLDivElement>(
+    `.message.user[data-message-id="${tempId}"]`
+  );
+  if (!messageEl) {
+    log.warn('Could not find user message to update ID', { tempId, realId });
+    return;
+  }
+
+  // Update the message element itself
+  messageEl.dataset.messageId = realId;
+
+  // Update all images that reference this message and enable lightbox
+  const images = messageEl.querySelectorAll<HTMLImageElement>(
+    `img[data-message-id="${tempId}"]`
+  );
+  images.forEach((img) => {
+    img.dataset.messageId = realId;
+    // Remove pending state - lightbox now works
+    delete img.dataset.pending;
+  });
+
+  // Update all document links and buttons that reference this message
+  const docElements = messageEl.querySelectorAll<HTMLElement>(
+    `[data-message-id="${tempId}"]`
+  );
+  docElements.forEach((el) => {
+    el.dataset.messageId = realId;
+  });
+
+  log.debug('Updated user message ID', { tempId, realId, imageCount: images.length });
 }

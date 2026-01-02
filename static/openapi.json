@@ -460,6 +460,47 @@
         "summary": "Delete a memory."
       }
     },
+    "/api/messages/{message_id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Delete a message.",
+        "description": "Deletes a single message and its associated files/thumbnails.\nThe message must belong to a conversation owned by the authenticated user.\nCost data is intentionally preserved for accurate reporting."
+      }
+    },
     "/api/users/me/costs/monthly": {
       "get": {
         "parameters": [],
@@ -2523,6 +2564,19 @@
             "default": null,
             "description": "Auto-generated conversation title (first message only)",
             "title": "Title"
+          },
+          "user_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Real ID of the user message (for updating temp IDs in frontend)",
+            "title": "User Message Id"
           }
         },
         "required": [

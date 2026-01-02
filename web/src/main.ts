@@ -34,6 +34,7 @@ import {
   showConversationLoader,
   hideConversationLoader,
   updateChatTitle,
+  updateUserMessageId,
 } from './components/Messages';
 import {
   initMessageInput,
@@ -747,9 +748,9 @@ async function sendMessage(): Promise<void> {
 
   try {
     if (store.streamingEnabled) {
-      await sendStreamingMessage(conv.id, messageText, files, forceTools);
+      await sendStreamingMessage(conv.id, messageText, files, forceTools, userMessage.id);
     } else {
-      await sendBatchMessage(conv.id, messageText, files, forceTools);
+      await sendBatchMessage(conv.id, messageText, files, forceTools, userMessage.id);
     }
     // Clear draft on successful send
     useStore.getState().clearDraft();
@@ -947,7 +948,8 @@ async function sendStreamingMessage(
   convId: string,
   message: string,
   files: ReturnType<typeof getPendingFiles>,
-  forceTools: string[]
+  forceTools: string[],
+  tempUserMessageId: string
 ): Promise<void> {
   let messageEl = addStreamingMessage(convId);
   let fullContent = '';
@@ -1001,7 +1003,13 @@ async function sendStreamingMessage(
         messageEl = currentMessageEl;
       }
 
-      if (event.type === 'thinking') {
+      if (event.type === 'user_message_saved') {
+        // Update user message ID from temp to real ID immediately (before streaming completes)
+        // This enables lightbox to fetch files during streaming
+        if (event.user_message_id) {
+          updateUserMessageId(tempUserMessageId, event.user_message_id);
+        }
+      } else if (event.type === 'thinking') {
         // Update local thinking state (always, regardless of current conversation)
         updateLocalThinkingState(localThinkingState, 'thinking', event.text);
         // Update UI only if this is the current conversation
@@ -1042,6 +1050,11 @@ async function sendStreamingMessage(
         }
       } else if (event.type === 'done') {
         log.info('Streaming complete', { conversationId: convId, messageId: event.id });
+
+        // Update user message ID from temp to real ID (for file fetching in lightbox)
+        if (event.user_message_id) {
+          updateUserMessageId(tempUserMessageId, event.user_message_id);
+        }
 
         // Only update UI if this is still the current conversation
         if (isCurrentConversation) {
@@ -1168,7 +1181,8 @@ async function sendBatchMessage(
   convId: string,
   message: string,
   files: ReturnType<typeof getPendingFiles>,
-  forceTools: string[]
+  forceTools: string[],
+  tempUserMessageId: string
 ): Promise<void> {
   const requestId = `batch-${convId}-${Date.now()}`;
 
@@ -1190,6 +1204,11 @@ async function sendBatchMessage(
   try {
     const response = await chat.sendBatch(convId, message, files, forceTools);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
+
+    // Update user message ID from temp to real ID (for file fetching in lightbox)
+    if (response.user_message_id) {
+      updateUserMessageId(tempUserMessageId, response.user_message_id);
+    }
 
     // Check if conversation is still current before updating UI
     const store = useStore.getState();

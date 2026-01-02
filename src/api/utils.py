@@ -236,6 +236,7 @@ def build_chat_response(
     sources: list[dict[str, str]],
     generated_images_meta: list[dict[str, str]],
     conversation_title: str | None = None,
+    user_message_id: str | None = None,
 ) -> dict[str, Any]:
     """Build chat response dictionary for batch endpoint.
 
@@ -246,6 +247,7 @@ def build_chat_response(
         sources: List of source dicts
         generated_images_meta: List of generated image metadata dicts
         conversation_title: Optional conversation title (included if provided)
+        user_message_id: Optional user message ID (for updating temp IDs in frontend)
 
     Returns:
         Response dictionary with id, role, content, created_at, and optional files/sources/generated_images/title
@@ -265,6 +267,8 @@ def build_chat_response(
         response_data["generated_images"] = generated_images_meta
     if conversation_title:
         response_data["title"] = conversation_title
+    if user_message_id:
+        response_data["user_message_id"] = user_message_id
 
     return response_data
 
@@ -275,6 +279,7 @@ def build_stream_done_event(
     sources: list[dict[str, str]],
     generated_images_meta: list[dict[str, str]],
     conversation_title: str | None = None,
+    user_message_id: str | None = None,
 ) -> dict[str, Any]:
     """Build done event dictionary for streaming endpoint.
 
@@ -284,6 +289,7 @@ def build_stream_done_event(
         sources: List of source dicts
         generated_images_meta: List of generated image metadata dicts
         conversation_title: Optional conversation title (included if provided)
+        user_message_id: Optional user message ID (for updating temp IDs in frontend)
 
     Returns:
         Done event dictionary with type, id, created_at, and optional files/sources/generated_images/title
@@ -302,6 +308,8 @@ def build_stream_done_event(
         done_data["generated_images"] = generated_images_meta
     if conversation_title:
         done_data["title"] = conversation_title
+    if user_message_id:
+        done_data["user_message_id"] = user_message_id
 
     return done_data
 

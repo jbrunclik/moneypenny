@@ -2830,6 +2830,44 @@ When I correct Claude's approach, the reasoning is documented here to prevent re
 - This means streaming/batch requests ALWAYS use real (persistent) conversation IDs, never temp IDs
 - All request tracking, UI state restoration, and active request management use the real ID
 
+**User message ID handling:**
+User messages are initially created with temp IDs (`temp-{timestamp}`) in the frontend before the API request completes. The backend returns the real message ID via:
+- **Streaming mode**: `user_message_saved` SSE event sent immediately after user message is saved (before LLM streaming starts)
+- **Batch mode**: `user_message_id` field in the response body
+
+The frontend then updates all DOM elements (message container, images, document links) to use the real ID.
+
+**Image pending state:**
+Images with temp message IDs are marked with `data-pending="true"` which:
+- Shows `cursor: wait` to indicate the image isn't clickable yet
+- Disables the click handler (lightbox won't open)
+- Gets removed when `updateUserMessageId()` receives the real ID
+
+This prevents the "Failed to load image" error when clicking images before the real ID is available.
+
+**Timeline:**
+| Mode | User clicks image | What happens |
+|------|-------------------|--------------|
+| Streaming | Before `user_message_saved` event | Click is ignored (pending state) |
+| Streaming | After `user_message_saved` event | Lightbox opens successfully |
+| Batch | Before response | Click is ignored (pending state) |
+| Batch | After response | Lightbox opens successfully |
+
+**Key files:**
+- [routes.py](src/api/routes.py) - Sends `user_message_saved` SSE event early in streaming
+- [utils.py](src/api/utils.py) - `build_chat_response()` and `build_stream_done_event()` accept `user_message_id`
+- [schemas.py](src/api/schemas.py) - `ChatBatchResponse.user_message_id` field
+- [api.ts](web/src/types/api.ts) - `StreamEvent` type includes `user_message_saved` event
+- [Messages.ts](web/src/components/Messages.ts) - `updateUserMessageId()` updates DOM and removes pending state
+- [messages.css](web/src/styles/components/messages.css) - `.message-image[data-pending="true"]` styles
+- [main.ts](web/src/main.ts) - Handles `user_message_saved` event and calls `updateUserMessageId()`
+
+**E2E test coverage:**
+- [chat.spec.ts](web/tests/e2e/chat.spec.ts) - "Chat - Lightbox" test suite includes:
+  - `clicking image in message opens lightbox with full image` - batch mode
+  - `clicking image during streaming opens lightbox after user_message_saved event` - streaming mode
+  - `image shows wait cursor before user_message_saved event` - pending state verification
+
 ### Concurrent Request Handling
 
 The app supports multiple active requests across different conversations simultaneously. Requests continue processing in the background even when users switch conversations or disconnect.

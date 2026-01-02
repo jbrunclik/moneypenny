@@ -312,6 +312,15 @@
     transform: scale(1.02);
 }
 
+/* Pending state - lightbox not ready (temp message ID) */
+.message-image[data-pending="true"] {
+    cursor: wait;
+}
+
+.message-image[data-pending="true"]:hover {
+    transform: none;
+}
+
 @keyframes pulse {
     0%, 100% { opacity: 0.6; }
     50% { opacity: 0.3; }

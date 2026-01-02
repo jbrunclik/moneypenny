@@ -722,6 +722,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a message.
+         * @description Deletes a single message and its associated files/thumbnails.
+         *     The message must belong to a conversation owned by the authenticated user.
+         *     Cost data is intentionally preserved for accurate reporting.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    message_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me/costs/monthly": {
         parameters: {
             query?: never;
@@ -2111,6 +2163,12 @@ export interface components {
              * @default null
              */
             title: string | null;
+            /**
+             * User Message Id
+             * @description Real ID of the user message (for updating temp IDs in frontend)
+             * @default null
+             */
+            user_message_id: string | null;
         };
     };
     responses: never;

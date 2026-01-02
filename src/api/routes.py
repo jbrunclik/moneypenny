@@ -911,7 +911,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             extra={"user_id": user.id, "conversation_id": conv_id, "title": generated_title},
         )
 
-    # Build response (include title if it was just generated)
+    # Build response (include title if it was just generated, and user message ID for UI update)
     response_data = build_chat_response(
         assistant_msg,
         clean_response,
@@ -919,6 +919,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         sources,
         generated_images_meta,
         conversation_title=generated_title,
+        user_message_id=user_msg.id,
     )
 
     return response_data, 200
@@ -1165,6 +1166,14 @@ def chat_stream(
 
         cleanup_thread = threading.Thread(target=cleanup_and_save, daemon=True)
         cleanup_thread.start()
+
+        # Send user_message_saved event FIRST so frontend can update temp ID immediately
+        # This ensures image clicks work during streaming (before done event)
+        try:
+            yield f"data: {json.dumps({'type': 'user_message_saved', 'user_message_id': user_msg.id})}\n\n"
+        except (BrokenPipeError, ConnectionError, OSError):
+            # Client disconnected immediately - streaming will handle this
+            pass
 
         # Variables to capture final content, metadata, tool results, and usage info
         clean_content = ""
@@ -1438,6 +1447,7 @@ def chat_stream(
                             save_result.sources,
                             save_result.generated_images_meta,
                             conversation_title=save_result.generated_title,
+                            user_message_id=user_msg.id,
                         )
 
                         # Try to send done event, but continue even if client disconnected

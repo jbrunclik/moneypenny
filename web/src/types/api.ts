@@ -126,6 +126,7 @@ export type StreamEvent =
   | { type: 'thinking'; text: string }
   | { type: 'tool_start'; tool: string; detail?: string }
   | { type: 'tool_end'; tool: string }
+  | { type: 'user_message_saved'; user_message_id: string } // Sent early so lightbox works during streaming
   | {
       type: 'done';
       id: string;
@@ -134,6 +135,7 @@ export type StreamEvent =
       generated_images?: GeneratedImage[];
       files?: FileMetadata[];
       title?: string;
+      user_message_id?: string; // Real ID of the user message (kept for backwards compatibility)
     }
   | { type: 'error'; message: string; code?: string; retryable?: boolean };
 
@@ -218,6 +220,7 @@ export interface ChatResponse {
   generated_images?: GeneratedImage[];
   created_at: string;
   title?: string;
+  user_message_id?: string; // Real ID of the user message (for updating temp IDs)
 }
 
 export interface ErrorResponse {

@@ -297,6 +297,9 @@ class ChatBatchResponse(BaseModel):
     title: str | None = Field(
         default=None, description="Auto-generated conversation title (first message only)"
     )
+    user_message_id: str | None = Field(
+        default=None, description="Real ID of the user message (for updating temp IDs in frontend)"
+    )
 
 
 # -----------------------------------------------------------------------------

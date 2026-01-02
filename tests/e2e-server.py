@@ -32,10 +32,12 @@ os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-e2e-testing"
 os.environ["ALLOWED_EMAILS"] = "*"  # Allow all emails in E2E tests
 os.environ["LOG_LEVEL"] = "WARNING"  # Reduce noise during E2E tests
 
-# Use a unique database file per server run to avoid state pollution between test runs
+# Use unique database files per server run to avoid state pollution between test runs
 DB_ID = uuid.uuid4().hex[:8]
 E2E_DB_PATH = PROJECT_ROOT / "tests" / f"e2e-test-{DB_ID}.db"
+E2E_BLOB_PATH = PROJECT_ROOT / "tests" / f"e2e-test-{DB_ID}-blobs.db"
 os.environ["DATABASE_PATH"] = str(E2E_DB_PATH)
+os.environ["BLOB_STORAGE_PATH"] = str(E2E_BLOB_PATH)
 
 # Mock configuration (inline - no external files needed)
 MOCK_CONFIG: dict[str, Any] = {
@@ -322,10 +324,13 @@ def main() -> None:
 
     print("E2E Test Server starting...")
     print(f"Database: {E2E_DB_PATH}")
+    print(f"Blob store: {E2E_BLOB_PATH}")
 
-    # Remove old test database for clean state
+    # Remove old test database files for clean state
     if E2E_DB_PATH.exists():
         E2E_DB_PATH.unlink()
+    if E2E_BLOB_PATH.exists():
+        E2E_BLOB_PATH.unlink()
 
     # Use ExitStack to avoid deep nesting of context managers
     with contextlib.ExitStack() as stack:
@@ -349,16 +354,25 @@ def main() -> None:
 
         # Import app after mocks are in place
         from src.app import create_app
+        from src.db.blob_store import BlobStore
         from src.db.models import Database
 
         # Create test database using E2E_DB_PATH
         test_db = Database(db_path=E2E_DB_PATH)
+
+        # Create test blob store using E2E_BLOB_PATH
+        test_blob_store = BlobStore(db_path=E2E_BLOB_PATH)
 
         # Patch database everywhere
         stack.enter_context(patch("src.db.models.db", test_db))
         stack.enter_context(patch("src.auth.jwt_auth.db", test_db))
         stack.enter_context(patch("src.api.routes.db", test_db))
         stack.enter_context(patch("src.agent.chat_agent.db", test_db))
+
+        # Patch blob store everywhere it's used
+        stack.enter_context(patch("src.db.blob_store._blob_store", test_blob_store))
+        stack.enter_context(patch("src.db.models.get_blob_store", return_value=test_blob_store))
+        stack.enter_context(patch("src.api.routes.get_blob_store", return_value=test_blob_store))
 
         app = create_app()
         app.config["TESTING"] = True
@@ -368,7 +382,8 @@ def main() -> None:
 
         @test_bp.route("/test/reset", methods=["POST"])
         def reset_database() -> tuple[dict[str, str], int]:
-            """Reset database to clean state for test isolation."""
+            """Reset database and blob store to clean state for test isolation."""
+            # Reset main database
             with test_db._get_conn() as conn:
                 # Delete all data but keep tables
                 conn.execute("DELETE FROM message_costs")
@@ -377,6 +392,12 @@ def main() -> None:
                 conn.execute("DELETE FROM user_memories")
                 conn.execute("DELETE FROM users")
                 conn.commit()
+
+            # Reset blob store
+            with test_blob_store._get_conn() as conn:
+                conn.execute("DELETE FROM blobs")
+                conn.commit()
+
             return {"status": "reset"}, 200
 
         @test_bp.route("/test/simulate-error", methods=["POST"])
@@ -452,13 +473,14 @@ def main() -> None:
                 threaded=True,
             )
         finally:
-            # Clean up database file on shutdown
-            if E2E_DB_PATH.exists():
-                try:
-                    E2E_DB_PATH.unlink()
-                    print(f"Cleaned up test database: {E2E_DB_PATH}")
-                except Exception as e:
-                    print(f"Warning: Could not delete test database: {e}")
+            # Clean up database files on shutdown
+            for path, name in [(E2E_DB_PATH, "database"), (E2E_BLOB_PATH, "blob store")]:
+                if path.exists():
+                    try:
+                        path.unlink()
+                        print(f"Cleaned up test {name}: {path}")
+                    except Exception as e:
+                        print(f"Warning: Could not delete test {name}: {e}")
 
 
 if __name__ == "__main__":
