@@ -195,6 +195,7 @@ The backend returns distinct error codes for authentication failures:
 - Conventional Commits: `type(scope): description`
   - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 - **Test all UI changes on both desktop and mobile** - The app has a responsive layout with different behavior at 768px breakpoint. Always verify changes work on both layouts.
+- **No trailing whitespace** - ESLint (`no-trailing-spaces`) and Ruff (W291, W293) automatically catch trailing whitespace. Always run `make lint` before committing.
 
 ### Constants and Configuration
 
@@ -1170,6 +1171,9 @@ During streaming responses, a separate scroll system manages auto-scrolling to k
 5. **Auto-scroll resume**: If user scrolls back to bottom, auto-scroll resumes automatically (with debounce)
 6. **Cleanup**: When streaming ends (success or error), the scroll listener is cleaned up
 
+**Race condition fix:**
+`autoScrollForStreaming()` includes a synchronous check before scrolling: if `scrollTop` has decreased since the last check, the user has scrolled up and auto-scroll is disabled immediately. This prevents a race condition where `autoScrollForStreaming()` is called (from a token update) before the scroll event handler has fired to disable auto-scroll. Without this check, the function would scroll to bottom even though the user had just scrolled up.
+
 **Key behaviors:**
 - **Interruptible**: User can scroll up during streaming to read history - auto-scroll pauses immediately
 - **Resumable**: User can scroll back to bottom to resume auto-scroll (with 150ms debounce)
@@ -1299,7 +1303,16 @@ Chosen **polling over SSE/WebSockets** because:
 ### How it works
 
 1. **Full sync**: On initial load or after >5 minutes hidden, fetches all conversations with message counts
+   - **IMPORTANT**: Full sync only updates EXISTING conversations and detects deletions
+   - Full sync does NOT add new conversations to the store (they come via pagination or incremental sync)
+   - This preserves pagination - conversations are only added via:
+     - Initial pagination load (`loadInitialData`)
+     - User scrolling to load more (pagination)
+     - Incremental sync adding genuinely new conversations (created on another device)
 2. **Incremental sync**: Every 60 seconds, fetches only conversations updated since last sync
+   - Adds genuinely new conversations (created/updated after initial page load)
+   - Distinguishes between pagination-discovered (older) and actually new (recent) conversations
+   - Only actually new conversations are added to the store (pagination-discovered come via pagination)
 3. **Unread count**: `unreadCount = server_message_count - local_message_count`
 4. **Delete detection**: Full sync compares local IDs with server response; missing = deleted
 5. **Visibility-aware**: Polling pauses when tab is hidden, syncs immediately on refocus
@@ -1327,6 +1340,8 @@ The SyncManager handles several race conditions:
    - **Actually new**: Conversations created/updated after the initial page load (e.g., on another device, identified by `updated_at >= initialLoadTime - 1 minute buffer`). These get `unreadCount: message_count` (shows badge with message count) to indicate new messages from another device.
    - The distinction uses server time comparison (`updated_at` and `initialLoadTime` are both server time) to avoid clock skew issues. The `initialLoadTime` is set to the server time from the first full sync, with a 1-minute buffer to account for timing differences
 9. **Actually new conversation localMessageCount preservation**: When an actually new conversation is discovered, `localMessageCount` is initialized to `0` (user hasn't seen any messages). The `shouldUpdateLocalCount` logic must NOT overwrite this `0` value during full sync, even though full syncs normally update all local counts. This ensures that when more messages arrive for an actually new conversation before the user views it, the unread count correctly shows the total (all messages unread), not just the new ones. The fix detects actually new conversations by checking `!existing && currentLocalCount === 0 && serverConv.message_count > 0` and excludes them from the full sync update logic
+10. **Full sync architecture**: Full sync (`applyFullSync()`) explicitly filters server conversations to only include those already present in the store. This ensures full syncs only update existing conversations and detect deletions, but do NOT add new conversations. New conversations come via pagination (when user scrolls) or incremental sync (genuinely new conversations from another device). This architecture preserves pagination while still allowing efficient sync of currently loaded conversations.
+11. **Pagination-discovered conversation loop continuation**: When processing conversations in incremental sync, pagination-discovered conversations use `continue` (not `return`) to skip to the next conversation in the loop. Using `return` would exit the entire function, preventing subsequent conversations from being processed. This bug was fixed to ensure all conversations in the sync response are processed correctly.
 
 **Critical ordering in `sendStreamingMessage()` finally block:**
 ```typescript

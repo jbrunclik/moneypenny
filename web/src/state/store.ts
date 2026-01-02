@@ -251,18 +251,29 @@ export const useStore = create<AppState>()(
         set((state) => {
           // Insert conversation at correct sorted position (by updated_at DESC)
           // This ensures conversations discovered via sync appear in correct order
-          // Use <= so that conversations with same timestamp are prepended (newer first)
+          // For temp conversations (newly created), always prepend to ensure they appear at top
+          // For other conversations, use <= so that conversations with same timestamp are prepended (newer first)
+          const isTempConversation = conversation.id.startsWith('temp-');
           const newConvs = [...state.conversations];
-          const insertIndex = newConvs.findIndex(
-            (c) => c.updated_at <= conversation.updated_at
-          );
-          if (insertIndex === -1) {
-            // No conversation is older or equal, append at end
-            newConvs.push(conversation);
+
+          if (isTempConversation) {
+            // Newly created conversations should always be at the top
+            newConvs.unshift(conversation);
           } else {
-            // Insert before the first older-or-equal conversation
-            newConvs.splice(insertIndex, 0, conversation);
+            // For conversations from sync, insert at correct sorted position
+            // Use <= so that conversations with same timestamp are prepended (newer first)
+            const insertIndex = newConvs.findIndex(
+              (c) => c.updated_at <= conversation.updated_at
+            );
+            if (insertIndex === -1) {
+              // No conversation is older or equal, append at end
+              newConvs.push(conversation);
+            } else {
+              // Insert before the first older-or-equal conversation
+              newConvs.splice(insertIndex, 0, conversation);
+            }
           }
+
           return {
             conversations: newConvs,
             conversationsPagination: {

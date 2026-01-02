@@ -30,7 +30,7 @@ line-length = 100
 [tool.ruff.lint]
 select = [
     "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
+    "W",      # pycodestyle warnings (includes W291, W293 for trailing whitespace)
     "F",      # pyflakes
     "I",      # isort
     "B",      # flake8-bugbear
@@ -40,6 +40,9 @@ select = [
 ignore = [
     "E501",   # line too long (handled by formatter)
 ]
+# W291 = trailing whitespace
+# W293 = blank line contains whitespace
+# These are included in "W" but explicitly listed for clarity
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

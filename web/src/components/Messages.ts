@@ -688,12 +688,29 @@ export function restoreStreamingMessage(conversationId: string, content: string,
  * scrollHeight increases, making the user appear "not at bottom" even though they
  * never scrolled. The scroll listener handles detecting actual user scrolls by
  * checking scroll direction (scrollTop decreasing = user scrolled up).
+ *
+ * However, we DO check if scrollTop has decreased since last check to catch cases
+ * where the user scrolled up but the scroll event hasn't fired yet (race condition).
  */
 function autoScrollForStreaming(): void {
   if (!currentStreamingContext?.shouldAutoScroll) return;
 
   const messagesContainer = getElementById('messages');
   if (!messagesContainer) return;
+
+  // Synchronous check: if scrollTop has decreased, user scrolled up
+  // This catches race conditions where user scrolls up but scroll event hasn't fired yet
+  const currentScrollTop = messagesContainer.scrollTop;
+  if (currentScrollTop < previousScrollTop) {
+    // User scrolled up - disable auto-scroll immediately
+    currentStreamingContext.shouldAutoScroll = false;
+    log.debug('Streaming auto-scroll paused (detected user scroll up synchronously)');
+    previousScrollTop = currentScrollTop;
+    return;
+  }
+
+  // Update previousScrollTop before scrolling (scrollToBottom will increase it)
+  previousScrollTop = currentScrollTop;
 
   scrollToBottom(messagesContainer);
 }

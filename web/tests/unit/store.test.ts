@@ -152,13 +152,50 @@ describe('Store - Conversations', () => {
   });
 
   describe('addConversation', () => {
-    it('prepends conversation to list', () => {
-      useStore.getState().addConversation(createConversation('1', 'First'));
-      useStore.getState().addConversation(createConversation('2', 'Second'));
+    it('prepends temp conversation to list (always at top)', () => {
+      // Add a regular conversation first
+      const conv1 = createConversation('1', 'First');
+      useStore.getState().addConversation(conv1);
+
+      // Add a temp conversation (newly created) - should be at top
+      const tempConv = createConversation('temp-123', 'New Conversation');
+      useStore.getState().addConversation(tempConv);
 
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(2);
-      expect(convs[0].id).toBe('2'); // Most recent first
+      expect(convs[0].id).toBe('temp-123'); // Temp conversation always at top
+      expect(convs[1].id).toBe('1');
+    });
+
+    it('inserts non-temp conversation at correct sorted position', () => {
+      // Add conversations with different timestamps
+      const oldConv = createConversation('1', 'Old');
+      oldConv.updated_at = '2024-01-01T00:00:00Z';
+      useStore.getState().addConversation(oldConv);
+
+      const newConv = createConversation('2', 'New');
+      newConv.updated_at = '2024-01-02T00:00:00Z'; // Newer
+      useStore.getState().addConversation(newConv);
+
+      const convs = useStore.getState().conversations;
+      expect(convs).toHaveLength(2);
+      expect(convs[0].id).toBe('2'); // Newer first
+      expect(convs[1].id).toBe('1');
+    });
+
+    it('handles conversation with same timestamp (prepends)', () => {
+      const conv1 = createConversation('1', 'First');
+      conv1.updated_at = '2024-01-01T12:00:00Z';
+      useStore.getState().addConversation(conv1);
+
+      const conv2 = createConversation('2', 'Second');
+      conv2.updated_at = '2024-01-01T12:00:00Z'; // Same timestamp
+      useStore.getState().addConversation(conv2);
+
+      const convs = useStore.getState().conversations;
+      expect(convs).toHaveLength(2);
+      // With <= comparison, conv2 should be prepended (newer first)
+      expect(convs[0].id).toBe('2');
       expect(convs[1].id).toBe('1');
     });
   });
@@ -243,6 +280,48 @@ describe('Store - Conversations', () => {
       useStore.getState().setCurrentConversation(createConversation('1', 'Test'));
       useStore.getState().setCurrentConversation(null);
       expect(useStore.getState().currentConversation).toBeNull();
+    });
+  });
+
+  describe('appendConversations', () => {
+    it('appends new conversations to existing list', () => {
+      const conv1 = createConversation('1', 'First');
+      useStore.getState().setConversations([conv1], createPagination(true, 10));
+
+      const conv2 = createConversation('2', 'Second');
+      const conv3 = createConversation('3', 'Third');
+      useStore.getState().appendConversations([conv2, conv3], createPagination(false, 10));
+
+      const convs = useStore.getState().conversations;
+      expect(convs).toHaveLength(3);
+      expect(convs[0].id).toBe('1');
+      expect(convs[1].id).toBe('2');
+      expect(convs[2].id).toBe('3');
+    });
+
+    it('updates pagination state', () => {
+      useStore.getState().setConversations([createConversation('1', 'Test')], createPagination(true, 10));
+
+      useStore.getState().appendConversations(
+        [createConversation('2', 'Test2')],
+        createPagination(false, 10)
+      );
+
+      const pagination = useStore.getState().conversationsPagination;
+      expect(pagination.hasMore).toBe(false);
+      expect(pagination.totalCount).toBe(10);
+      expect(pagination.nextCursor).toBeNull();
+      expect(pagination.isLoadingMore).toBe(false);
+    });
+
+
+    it('handles empty new conversations list', () => {
+      useStore.getState().setConversations([createConversation('1', 'Test')], createPagination(true, 10));
+
+      useStore.getState().appendConversations([], createPagination(false, 10));
+
+      const convs = useStore.getState().conversations;
+      expect(convs).toHaveLength(1);
     });
   });
 });

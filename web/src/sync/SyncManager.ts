@@ -74,21 +74,28 @@ export class SyncManager {
 
   /**
    * Start the sync manager - performs initial full sync and begins polling.
+   *
+   * Note: Full sync on startup is safe because applyFullSync() only updates
+   * existing conversations and detects deletions - it does NOT add new conversations.
+   * This preserves pagination while still allowing us to:
+   * 1. Update message counts for conversations already loaded
+   * 2. Detect deletions
+   * 3. Establish initialLoadTime for pagination-discovered distinction
    */
   async start(): Promise<void> {
     log.info('Starting SyncManager');
 
-    // Initialize local message counts from existing conversations
+    // Initialize local message counts from existing conversations (loaded via pagination)
     const store = useStore.getState();
     for (const conv of store.conversations) {
-      // For existing conversations, we don't know the exact message count yet
-      // We'll get it from the first sync
       if (conv.messageCount !== undefined) {
         this.localMessageCounts.set(conv.id, conv.messageCount);
       }
     }
 
     // Perform initial full sync
+    // Note: applyFullSync() only updates existing conversations and detects deletions
+    // It does NOT add new conversations, preserving pagination
     // Note: initialLoadTime is set during fullSync() before applying results
     await this.fullSync();
 
@@ -203,7 +210,17 @@ export class SyncManager {
   }
 
   /**
-   * Apply full sync results - handles deletions and updates.
+   * Apply full sync results - handles deletions and updates ONLY.
+   *
+   * IMPORTANT: Full sync does NOT add new conversations to the store.
+   * It only:
+   * 1. Updates existing conversations (message counts, titles, etc.)
+   * 2. Detects deletions (conversations in store but not on server)
+   *
+   * This preserves pagination - conversations are only added via:
+   * - Initial pagination load (loadInitialData)
+   * - User scrolling to load more (pagination)
+   * - Incremental sync adding genuinely new conversations (created on another device)
    */
   private applyFullSync(serverConversations: ConversationSummary[]): void {
     const store = useStore.getState();
@@ -228,10 +245,15 @@ export class SyncManager {
       this.localMessageCounts.delete(id);
     }
 
-    // Apply updates
-    this.applyChanges(serverConversations, true);
+    // Apply updates to EXISTING conversations only (don't add new ones)
+    // Filter to only conversations that are already in the store
+    const existingServerConvs = serverConversations.filter((serverConv) =>
+      store.conversations.some((localConv) => localConv.id === serverConv.id)
+    );
 
-    if (deletedIds.length > 0 || serverConversations.length > 0) {
+    this.applyChanges(existingServerConvs, true);
+
+    if (deletedIds.length > 0 || existingServerConvs.length > 0) {
       this.callbacks.onConversationsUpdated();
     }
   }
@@ -299,12 +321,23 @@ export class SyncManager {
           hasExternalUpdate,
         });
       } else {
-        // New conversation discovered via sync. Distinguish between:
+        // New conversation discovered via sync
+        // Only incremental sync should add new conversations (full sync doesn't add)
+        if (isFullSync) {
+          // Full sync should never add new conversations - they should come via pagination
+          // This is a safety check in case applyFullSync() filtering fails
+          log.warn('Full sync attempted to add new conversation (should not happen)', {
+            conversationId: serverConv.id,
+          });
+          return;
+        }
+
+        // Incremental sync: Distinguish between:
         // 1. Pagination-discovered: Older conversations that weren't in initial page load
         // 2. Actually new: Created/updated after initial page load (e.g., on another device)
         const isPaginationDiscovered = this.isPaginationDiscovered(
           serverConv.updated_at,
-          isFullSync
+          false // Always false for incremental sync
         );
 
         // For actually new conversations, show unread badge with message count
@@ -312,24 +345,28 @@ export class SyncManager {
         const unreadCount = isPaginationDiscovered ? 0 : serverConv.message_count;
 
         if (isPaginationDiscovered) {
-          log.info('Pagination-discovered conversation (not unread)', {
+          log.info('Pagination-discovered conversation (not unread, skipping add)', {
             conversationId: serverConv.id,
             updated_at: serverConv.updated_at,
           });
-          // Initialize localMessageCount to server's count to prevent false unread on future syncs
+          // Don't add pagination-discovered conversations - they'll come via pagination when user scrolls
+          // Just track the message count for when they do get loaded
           this.localMessageCounts.set(serverConv.id, serverConv.message_count);
-        } else {
-          log.info('Actually new conversation discovered via sync (showing unread badge)', {
-            conversationId: serverConv.id,
-            updated_at: serverConv.updated_at,
-            messageCount: serverConv.message_count,
-          });
-          // For actually new conversations, initialize to 0 so unread count is correct
-          // (unreadCount = serverCount - localCount = serverCount - 0 = serverCount)
-          // Don't update this in the shouldUpdateLocalCount block below - we want to preserve
-          // the 0 value until the user views the conversation
-          this.localMessageCounts.set(serverConv.id, 0);
+          continue; // Skip to next conversation in loop
         }
+
+        // Actually new conversation - add it to the store
+        log.info('Actually new conversation discovered via sync (showing unread badge)', {
+          conversationId: serverConv.id,
+          updated_at: serverConv.updated_at,
+          messageCount: serverConv.message_count,
+          unreadCount,
+        });
+        // For actually new conversations, initialize to 0 so unread count is correct
+        // (unreadCount = serverCount - localCount = serverCount - 0 = serverCount)
+        // Don't update this in the shouldUpdateLocalCount block below - we want to preserve
+        // the 0 value until the user views the conversation
+        this.localMessageCounts.set(serverConv.id, 0);
 
         store.addConversation({
           id: serverConv.id,
@@ -464,14 +501,15 @@ export class SyncManager {
    * @param isFullSync Whether this is a full sync operation
    * @returns true if conversation is pagination-discovered, false if actually new
    */
-  private isPaginationDiscovered(updatedAt: string, isFullSync: boolean): boolean {
-    // Incremental syncs only return conversations updated since lastSyncTime (server time),
-    // so they're all genuinely new
-    if (!isFullSync) {
-      return false;
-    }
+  private isPaginationDiscovered(updatedAt: string, _isFullSync: boolean): boolean {
+    // For incremental syncs, we still need to check if the conversation is pagination-discovered
+    // (older than initialLoadTime) vs actually new (created on another device).
+    // However, incremental syncs only return conversations updated since lastSyncTime,
+    // so most will be actually new. But we still check the timestamp to be safe.
+    // (This handles edge cases like invalid timestamps or conversations that were updated
+    // but are still older than initialLoadTime)
 
-    // For full syncs, we need initialLoadTime (server time) to compare
+    // We need initialLoadTime (server time) to compare
     if (!this.initialLoadTime) {
       // If we don't have initialLoadTime yet (first sync), we can't distinguish.
       // Default to treating as pagination-discovered to be safe (no false unread badges).
