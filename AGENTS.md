@@ -238,6 +238,70 @@ Magic numbers and configurable values are centralized in dedicated files:
    - `DEFAULT_CONVERSATION_TITLE` must be identical in both config files
    - Any shared constants should be documented with a comment noting they must match
 
+### Enums for Categorical Values
+
+Use enums instead of hardcoded string constants for values that represent a fixed set of options. This provides type safety, IDE autocompletion, and centralizes the valid values.
+
+**Backend (Python):**
+Define enums in [schemas.py](src/api/schemas.py) using `str, Enum` for JSON serialization:
+```python
+from enum import Enum
+
+class MessageRole(str, Enum):
+    """Role of a message sender."""
+    USER = "user"
+    ASSISTANT = "assistant"
+
+class ThumbnailStatus(str, Enum):
+    """Status of thumbnail generation."""
+    PENDING = "pending"
+    READY = "ready"
+    FAILED = "failed"
+
+class PaginationDirection(str, Enum):
+    """Direction for cursor-based pagination."""
+    OLDER = "older"
+    NEWER = "newer"
+```
+
+**Usage in Python:**
+```python
+from src.api.schemas import MessageRole, ThumbnailStatus
+
+# Function signatures with type hints
+def add_message(role: MessageRole, ...):
+    ...
+
+# Comparisons use the enum
+if message.role == MessageRole.ASSISTANT:
+    ...
+
+# When storing in JSON or sending to external APIs, use .value
+history = [{"role": m.role.value, "content": m.content} for m in messages]
+file["thumbnail_status"] = ThumbnailStatus.READY.value
+```
+
+**Frontend (TypeScript):**
+Define enum-like constants in [api.ts](web/src/types/api.ts) using `as const`:
+```typescript
+export const PaginationDirection = {
+  OLDER: 'older',
+  NEWER: 'newer',
+} as const;
+export type PaginationDirection = (typeof PaginationDirection)[keyof typeof PaginationDirection];
+```
+
+**When to use enums:**
+- Message roles (`user`, `assistant`)
+- Status values (`pending`, `ready`, `failed`)
+- Direction/mode parameters (`older`, `newer`, `asc`, `desc`)
+- Any fixed set of string options used in multiple places
+
+**When NOT to use enums:**
+- Single-use string literals
+- Values that come from external systems and may change
+- Configuration values that users might customize
+
 ### Code Quality Guidelines
 
 Follow these principles to maintain clean, testable code:
@@ -959,6 +1023,36 @@ The app implements several optimizations to minimize token costs:
 - [images.py](src/utils/images.py) - `extract_generated_images_from_tool_results()` extracts images from `_full_result`
 - [routes.py](src/api/routes.py) - Sets request ID before agent call, retrieves full results after, passes to image extraction and cost calculation
 
+### Scroll Scenarios Reference
+
+**CRITICAL**: Scroll behavior is complex and took significant effort to get right. Before modifying any scroll-related code, understand all scenarios and ensure changes don't break them.
+
+| Scenario | Expected Behavior | Key Files |
+|----------|-------------------|-----------|
+| **Opening a conversation** | Scroll to bottom immediately, then smooth scroll again after all images load | `renderMessages()`, `enableScrollOnImageLoad()` |
+| **Opening conversation with images** | Initial scroll to bottom (makes images visible), IntersectionObserver triggers thumbnail fetches, smooth scroll after all images finish loading | `thumbnails.ts`, `Messages.ts` |
+| **Sending a new message (batch)** | User message added → scroll to bottom → assistant response added → scroll to bottom → if images, smooth scroll after they load | `sendBatchMessage()`, `addMessageToUI()` |
+| **Sending a new message (streaming)** | User message added → scroll to bottom → auto-scroll during streaming → if images in final message, smooth scroll after load | `sendStreamingMessage()`, `autoScrollForStreaming()` |
+| **Auto-scroll during streaming** | Content auto-scrolls as tokens arrive, keeping latest content visible | `autoScrollForStreaming()` in `Messages.ts` |
+| **User scrolls up during streaming** | Auto-scroll pauses immediately (user is reading history) | `setupStreamingScrollListener()` |
+| **User scrolls back to bottom during streaming** | Auto-scroll resumes automatically | streaming scroll listener threshold check |
+| **Click scroll-to-bottom button** | Smooth animated scroll to bottom | `ScrollToBottom.ts`, `scrollToBottom()` |
+| **Images loading after initial render** | Track all pending images, smooth scroll only after ALL finish loading | `pendingImageLoads` counter, `scheduleScrollAfterImageLoad()` |
+| **User scrolled up when images finish loading** | NO scroll (user is browsing history, don't hijack position) | `safelyDisableScrollOnImageLoad()` |
+| **PWA keyboard opens** | Scroll input into view using visualViewport API | `MessageInput.ts` `isIOSPWA()` check |
+| **Conversation switch during streaming** | Clean up streaming context if switching away, restore if switching back | `cleanupStreamingContext()`, `restoreStreamingMessage()` |
+
+**Race conditions handled:**
+- Image load timing vs scroll listener debounce
+- Layout shifts from image loading causing false "scrolled away" detection
+- Cached images loading before tracking starts
+- Programmatic vs user scrolls (programmatic marker system)
+
+**E2E test coverage:**
+- `web/tests/e2e/chat.spec.ts` - "Chat - Streaming Auto-Scroll" describe block
+- `web/tests/e2e/chat.spec.ts` - "Chat - Scroll to Bottom" describe block
+- `web/tests/e2e/chat.spec.ts` - "Chat - Conversation Switch During Active Request" describe block
+
 ### Scroll-to-Bottom Behavior
 
 The app automatically scrolls to the bottom when loading conversations and when new messages are added, but handles lazy-loaded images specially to avoid scrolling before images have loaded and affected the layout.
@@ -1094,6 +1188,79 @@ E2E tests for streaming auto-scroll are in [chat.spec.ts](web/tests/e2e/chat.spe
 - `scrolls to bottom when sending a new message`
 - `auto-scroll can be interrupted by scrolling up during streaming`
 - `auto-scroll resumes when scrolling back to bottom during streaming`
+
+### Cursor-Based Pagination
+
+The app uses cursor-based pagination for both conversations and messages to efficiently handle large datasets.
+
+**Why cursor-based pagination:**
+- **Stable**: Cursors use `(timestamp, id)` tuples - new items don't shift existing pages
+- **Efficient**: Uses existing indexes (`idx_conversations_user_id_updated_at`, `idx_messages_conversation_id_created_at`)
+- **Bi-directional**: Supports both forward (older) and backward (newer) pagination for messages
+
+**Cursor format:**
+- Format: `{timestamp}:{id}` (e.g., `2024-01-01T12:00:00.123456:msg-abc-123`)
+- The ID serves as a tie-breaker when multiple items have the same timestamp
+- Built with `build_cursor()` and parsed with `parse_cursor()` in [models.py](src/db/models.py)
+
+**API endpoints:**
+
+1. **Conversations list** - `GET /api/conversations`
+   - Query params: `limit` (default: 30, max: 100), `cursor` (optional)
+   - Returns: Paginated conversations ordered by `updated_at DESC` (newest first)
+   - Response includes: `next_cursor`, `has_more`, `total_count`
+
+2. **Conversation detail** - `GET /api/conversations/<id>`
+   - Query params: `message_limit` (default: 50, max: 200), `message_cursor` (optional), `direction` ("older" or "newer", default: "older")
+   - Returns: Conversation with paginated messages ordered by `created_at ASC` (oldest first)
+   - Response includes: `older_cursor`, `newer_cursor`, `has_older`, `has_newer`, `total_count`
+
+3. **Messages endpoint** - `GET /api/conversations/<id>/messages`
+   - Dedicated endpoint for fetching message pages (more efficient than full conversation endpoint)
+   - Same query params and response format as conversation detail's message pagination
+
+**Frontend implementation:**
+
+1. **Conversations infinite scroll** ([Sidebar.ts](web/src/components/Sidebar.ts)):
+   - Calculates optimal page size based on viewport height (`calculatePageSize()`)
+   - Uses `IntersectionObserver` to detect when user scrolls near bottom
+   - Automatically fetches next page when threshold reached (200px from bottom)
+   - Shows loading spinner during fetch
+   - Debounced scroll handler (100ms) to avoid excessive checks
+
+2. **Dynamic page sizing**:
+   - Conversations: Based on viewport height, ~60px per item, minimum 15 items
+   - Messages: ~120px per message estimate, minimum 20 items
+   - Buffer multiplier (1.5x) ensures smooth scrolling without gaps
+
+**Configuration:**
+
+Backend ([config.py](src/config.py)):
+- `CONVERSATIONS_DEFAULT_PAGE_SIZE`: Default limit (30)
+- `CONVERSATIONS_MAX_PAGE_SIZE`: Server-enforced maximum (100)
+- `MESSAGES_DEFAULT_PAGE_SIZE`: Default limit (50)
+- `MESSAGES_MAX_PAGE_SIZE`: Server-enforced maximum (200)
+
+Frontend ([config.ts](web/src/config.ts)):
+- `CONVERSATION_ITEM_HEIGHT_PX`: Estimated item height (60px)
+- `MESSAGE_AVG_HEIGHT_PX`: Estimated message height (120px)
+- `CONVERSATIONS_MIN_PAGE_SIZE`: Minimum items (15)
+- `MESSAGES_MIN_PAGE_SIZE`: Minimum items (20)
+- `VIEWPORT_BUFFER_MULTIPLIER`: Buffer for page size calculation (1.5x)
+- `LOAD_MORE_THRESHOLD_PX`: Distance from bottom to trigger load (200px)
+- `INFINITE_SCROLL_DEBOUNCE_MS`: Scroll handler debounce (100ms)
+
+**Key files:**
+- [models.py](src/db/models.py) - `build_cursor()`, `parse_cursor()`, `list_conversations_paginated()`, `get_messages_paginated()`
+- [routes.py](src/api/routes.py) - Pagination endpoints with query param validation
+- [schemas.py](src/api/schemas.py) - Pagination response schemas
+- [Sidebar.ts](web/src/components/Sidebar.ts) - Infinite scroll implementation
+- [store.ts](web/src/state/store.ts) - Pagination state management
+- [client.ts](web/src/api/client.ts) - Pagination API methods
+
+**Testing:**
+- Backend integration tests: [test_routes_pagination.py](tests/integration/test_routes_pagination.py)
+- E2E tests: [pagination.spec.ts](web/tests/e2e/pagination.spec.ts)
 
 ## Real-time Synchronization
 

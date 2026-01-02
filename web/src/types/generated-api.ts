@@ -482,8 +482,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List all conversations for the current user.
-         * @description Returns conversations with message_count for proper sync initialization.
+         * List conversations for the current user with pagination.
+         * @description Query parameters:
+         *     - limit: Number of conversations to return (default: 30, max: 100)
+         *     - cursor: Cursor from previous page for fetching next page
+         *
+         *     Returns paginated conversations with message_count for proper sync initialization.
          */
         get: {
             parameters: {
@@ -500,7 +504,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ConversationsListResponse"];
+                        "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
                     };
                 };
             };
@@ -807,8 +811,15 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get a conversation with its messages.
-         * @description Optimized: Only includes file metadata, not thumbnails or full file data.
+         * Get a conversation with its messages (paginated).
+         * @description Query parameters for message pagination:
+         *     - message_limit: Number of messages to return (default: 50, max: 200)
+         *     - message_cursor: Cursor for fetching older/newer messages
+         *     - direction: "older" (default) or "newer" for pagination direction
+         *
+         *     By default, returns the newest messages.
+         *
+         *     Optimized: Only includes file metadata, not thumbnails or full file data.
          *     Thumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail.
          *     Full files can be fetched via /api/messages/<message_id>/files/<file_index>.
          */
@@ -829,7 +840,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ConversationDetailResponse"];
+                        "application/json": components["schemas"]["ConversationDetailPaginatedResponse"];
                     };
                 };
                 /** @description Not found */
@@ -986,6 +997,64 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConversationCostResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get paginated messages for a conversation.
+         * @description This is a dedicated endpoint for fetching message pages, more efficient
+         *     than the full conversation endpoint when only messages are needed.
+         *
+         *     Query parameters:
+         *     - limit: Number of messages to return (default: 50, max: 200)
+         *     - cursor: Cursor for fetching older/newer messages
+         *     - direction: "older" (default) or "newer" for pagination direction
+         *
+         *     By default, returns the newest messages.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MessagesListResponse"];
                     };
                 };
                 /** @description Not found */
@@ -1441,7 +1510,7 @@ export interface components {
          * ConversationResponse
          * @description Conversation summary (without messages).
          */
-        "ConversationsListResponse.ConversationResponse": {
+        "ConversationsListPaginatedResponse.ConversationResponse": {
             /** Id */
             id: string;
             /** Title */
@@ -1459,12 +1528,35 @@ export interface components {
             message_count: number | null;
         };
         /**
-         * ConversationsListResponse
-         * @description List of conversations.
+         * ConversationsPaginationResponse
+         * @description Pagination info for conversations list.
          */
-        ConversationsListResponse: {
+        "ConversationsListPaginatedResponse.ConversationsPaginationResponse": {
+            /**
+             * Next Cursor
+             * @description Cursor for fetching next page (null if no more)
+             * @default null
+             */
+            next_cursor: string | null;
+            /**
+             * Has More
+             * @description Whether there are more pages
+             */
+            has_more: boolean;
+            /**
+             * Total Count
+             * @description Total number of conversations
+             */
+            total_count: number;
+        };
+        /**
+         * ConversationsListPaginatedResponse
+         * @description Paginated list of conversations.
+         */
+        ConversationsListPaginatedResponse: {
             /** Conversations */
-            conversations: components["schemas"]["ConversationsListResponse.ConversationResponse"][];
+            conversations: components["schemas"]["ConversationsListPaginatedResponse.ConversationResponse"][];
+            pagination: components["schemas"]["ConversationsListPaginatedResponse.ConversationsPaginationResponse"];
         };
         /**
          * ConversationResponse
@@ -1639,7 +1731,7 @@ export interface components {
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
-        "ConversationDetailResponse.FileMetadataResponse": {
+        "ConversationDetailPaginatedResponse.FileMetadataResponse": {
             /** Name */
             name: string;
             /** Type */
@@ -1659,7 +1751,7 @@ export interface components {
          * GeneratedImageResponse
          * @description Generated image metadata.
          */
-        "ConversationDetailResponse.GeneratedImageResponse": {
+        "ConversationDetailPaginatedResponse.GeneratedImageResponse": {
             /** Prompt */
             prompt: string;
             /**
@@ -1672,7 +1764,7 @@ export interface components {
          * MessageResponse
          * @description Message in a conversation.
          */
-        "ConversationDetailResponse.MessageResponse": {
+        "ConversationDetailPaginatedResponse.MessageResponse": {
             /** Id */
             id: string;
             /**
@@ -1686,35 +1778,68 @@ export interface components {
              * Files
              * @default null
              */
-            files: components["schemas"]["ConversationDetailResponse.FileMetadataResponse"][] | null;
+            files: components["schemas"]["ConversationDetailPaginatedResponse.FileMetadataResponse"][] | null;
             /**
              * Sources
              * @default null
              */
-            sources: components["schemas"]["ConversationDetailResponse.SourceResponse"][] | null;
+            sources: components["schemas"]["ConversationDetailPaginatedResponse.SourceResponse"][] | null;
             /**
              * Generated Images
              * @default null
              */
-            generated_images: components["schemas"]["ConversationDetailResponse.GeneratedImageResponse"][] | null;
+            generated_images: components["schemas"]["ConversationDetailPaginatedResponse.GeneratedImageResponse"][] | null;
             /** Created At */
             created_at: string;
+        };
+        /**
+         * MessagesPaginationResponse
+         * @description Pagination info for messages list.
+         */
+        "ConversationDetailPaginatedResponse.MessagesPaginationResponse": {
+            /**
+             * Older Cursor
+             * @description Cursor for fetching older messages (null if at oldest)
+             * @default null
+             */
+            older_cursor: string | null;
+            /**
+             * Newer Cursor
+             * @description Cursor for fetching newer messages (null if at newest)
+             * @default null
+             */
+            newer_cursor: string | null;
+            /**
+             * Has Older
+             * @description Whether there are older messages
+             */
+            has_older: boolean;
+            /**
+             * Has Newer
+             * @description Whether there are newer messages
+             */
+            has_newer: boolean;
+            /**
+             * Total Count
+             * @description Total number of messages in conversation
+             */
+            total_count: number;
         };
         /**
          * SourceResponse
          * @description Web search source citation.
          */
-        "ConversationDetailResponse.SourceResponse": {
+        "ConversationDetailPaginatedResponse.SourceResponse": {
             /** Title */
             title: string;
             /** Url */
             url: string;
         };
         /**
-         * ConversationDetailResponse
-         * @description Full conversation with messages.
+         * ConversationDetailPaginatedResponse
+         * @description Full conversation with paginated messages.
          */
-        ConversationDetailResponse: {
+        ConversationDetailPaginatedResponse: {
             /** Id */
             id: string;
             /** Title */
@@ -1726,7 +1851,8 @@ export interface components {
             /** Updated At */
             updated_at: string;
             /** Messages */
-            messages: components["schemas"]["ConversationDetailResponse.MessageResponse"][];
+            messages: components["schemas"]["ConversationDetailPaginatedResponse.MessageResponse"][];
+            message_pagination: components["schemas"]["ConversationDetailPaginatedResponse.MessagesPaginationResponse"];
         };
         /**
          * MessageCostResponse
@@ -1786,6 +1912,123 @@ export interface components {
             currency: string;
             /** Formatted */
             formatted: string;
+        };
+        /**
+         * FileMetadataResponse
+         * @description File metadata in message responses (excludes full data for performance).
+         */
+        "MessagesListResponse.FileMetadataResponse": {
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /**
+             * Messageid
+             * @default null
+             */
+            messageId: string | null;
+            /**
+             * Fileindex
+             * @default null
+             */
+            fileIndex: number | null;
+        };
+        /**
+         * GeneratedImageResponse
+         * @description Generated image metadata.
+         */
+        "MessagesListResponse.GeneratedImageResponse": {
+            /** Prompt */
+            prompt: string;
+            /**
+             * Image Index
+             * @default null
+             */
+            image_index: number | null;
+        };
+        /**
+         * MessageResponse
+         * @description Message in a conversation.
+         */
+        "MessagesListResponse.MessageResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /**
+             * Files
+             * @default null
+             */
+            files: components["schemas"]["MessagesListResponse.FileMetadataResponse"][] | null;
+            /**
+             * Sources
+             * @default null
+             */
+            sources: components["schemas"]["MessagesListResponse.SourceResponse"][] | null;
+            /**
+             * Generated Images
+             * @default null
+             */
+            generated_images: components["schemas"]["MessagesListResponse.GeneratedImageResponse"][] | null;
+            /** Created At */
+            created_at: string;
+        };
+        /**
+         * MessagesPaginationResponse
+         * @description Pagination info for messages list.
+         */
+        "MessagesListResponse.MessagesPaginationResponse": {
+            /**
+             * Older Cursor
+             * @description Cursor for fetching older messages (null if at oldest)
+             * @default null
+             */
+            older_cursor: string | null;
+            /**
+             * Newer Cursor
+             * @description Cursor for fetching newer messages (null if at newest)
+             * @default null
+             */
+            newer_cursor: string | null;
+            /**
+             * Has Older
+             * @description Whether there are older messages
+             */
+            has_older: boolean;
+            /**
+             * Has Newer
+             * @description Whether there are newer messages
+             */
+            has_newer: boolean;
+            /**
+             * Total Count
+             * @description Total number of messages in conversation
+             */
+            total_count: number;
+        };
+        /**
+         * SourceResponse
+         * @description Web search source citation.
+         */
+        "MessagesListResponse.SourceResponse": {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * MessagesListResponse
+         * @description Paginated messages response (for dedicated messages endpoint).
+         */
+        MessagesListResponse: {
+            /** Messages */
+            messages: components["schemas"]["MessagesListResponse.MessageResponse"][];
+            pagination: components["schemas"]["MessagesListResponse.MessagesPaginationResponse"];
         };
         /**
          * FileMetadataResponse

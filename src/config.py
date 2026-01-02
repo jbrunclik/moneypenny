@@ -246,6 +246,13 @@ class Config:
         os.getenv("USER_MEMORY_WARNING_THRESHOLD", "80")
     )  # Warn LLM to consolidate at this count
 
+    # Pagination settings
+    # Client requests appropriate size based on viewport; these are server-side limits
+    CONVERSATIONS_DEFAULT_PAGE_SIZE: int = int(os.getenv("CONVERSATIONS_DEFAULT_PAGE_SIZE", "30"))
+    CONVERSATIONS_MAX_PAGE_SIZE: int = int(os.getenv("CONVERSATIONS_MAX_PAGE_SIZE", "100"))
+    MESSAGES_DEFAULT_PAGE_SIZE: int = int(os.getenv("MESSAGES_DEFAULT_PAGE_SIZE", "50"))
+    MESSAGES_MAX_PAGE_SIZE: int = int(os.getenv("MESSAGES_MAX_PAGE_SIZE", "200"))
+
     @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of errors with clear guidance."""

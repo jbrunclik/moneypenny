@@ -4,10 +4,29 @@ import { BRAIN_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, SETTINGS_ICON } from '
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
-import { costs } from '../api/client';
+import { costs, conversations as conversationsApi } from '../api/client';
 import { createLogger } from '../utils/logger';
+import {
+  LOAD_MORE_THRESHOLD_PX,
+  INFINITE_SCROLL_DEBOUNCE_MS,
+  CONVERSATION_ITEM_HEIGHT_PX,
+  CONVERSATIONS_MIN_PAGE_SIZE,
+  VIEWPORT_BUFFER_MULTIPLIER,
+} from '../config';
 
 const log = createLogger('sidebar');
+
+// Track if infinite scroll listener is set up
+let scrollListenerCleanup: (() => void) | null = null;
+
+/**
+ * Calculate optimal page size based on container height
+ */
+function calculatePageSize(containerHeight: number): number {
+  const itemsNeeded = Math.ceil(containerHeight / CONVERSATION_ITEM_HEIGHT_PX);
+  const withBuffer = Math.ceil(itemsNeeded * VIEWPORT_BUFFER_MULTIPLIER);
+  return Math.max(CONVERSATIONS_MIN_PAGE_SIZE, withBuffer);
+}
 
 /**
  * Render the conversations list in the sidebar
@@ -16,7 +35,7 @@ export function renderConversationsList(): void {
   const container = getElementById<HTMLDivElement>('conversations-list');
   if (!container) return;
 
-  const { conversations, currentConversation, isLoading } = useStore.getState();
+  const { conversations, currentConversation, isLoading, conversationsPagination } = useStore.getState();
 
   if (isLoading && conversations.length === 0) {
     container.innerHTML = `
@@ -37,9 +56,22 @@ export function renderConversationsList(): void {
     return;
   }
 
-  container.innerHTML = conversations
+  // Render conversations
+  const conversationsHtml = conversations
     .map((conv) => renderConversationItem(conv, conv.id === currentConversation?.id))
     .join('');
+
+  // Render loading indicator for "load more" if there are more pages
+  const loadMoreHtml = conversationsPagination.hasMore
+    ? `<div class="conversations-load-more ${conversationsPagination.isLoadingMore ? 'loading' : ''}">
+        <div class="loading-spinner-small"></div>
+      </div>`
+    : '';
+
+  container.innerHTML = conversationsHtml + loadMoreHtml;
+
+  // Set up infinite scroll if not already set up
+  setupInfiniteScroll(container);
 }
 
 /**
@@ -229,5 +261,110 @@ function updateSidebarVisibility(): void {
     sidebar.classList.remove('open');
     const overlay = app.querySelector<HTMLDivElement>('.sidebar-overlay');
     overlay?.classList.remove('visible');
+  }
+}
+
+/**
+ * Set up infinite scroll for the conversations list.
+ * When user scrolls near the bottom and there are more pages, load more conversations.
+ */
+function setupInfiniteScroll(container: HTMLDivElement): void {
+  // If listener already set up, don't add another
+  if (scrollListenerCleanup) return;
+
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const handleScroll = () => {
+    // Debounce the scroll handler
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+
+    debounceTimeout = setTimeout(() => {
+      const { conversationsPagination } = useStore.getState();
+
+      // Don't load more if already loading or no more pages
+      if (conversationsPagination.isLoadingMore || !conversationsPagination.hasMore) {
+        return;
+      }
+
+      // Check if user is near the bottom
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom < LOAD_MORE_THRESHOLD_PX) {
+        loadMoreConversations(container);
+      }
+    }, INFINITE_SCROLL_DEBOUNCE_MS);
+  };
+
+  container.addEventListener('scroll', handleScroll);
+
+  // Store cleanup function
+  scrollListenerCleanup = () => {
+    container.removeEventListener('scroll', handleScroll);
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+  };
+
+  log.debug('Infinite scroll set up');
+}
+
+/**
+ * Clean up infinite scroll listener.
+ * Should be called when navigating away or when store is reset.
+ */
+export function cleanupInfiniteScroll(): void {
+  if (scrollListenerCleanup) {
+    scrollListenerCleanup();
+    scrollListenerCleanup = null;
+    log.debug('Infinite scroll cleaned up');
+  }
+}
+
+/**
+ * Load more conversations from the API.
+ */
+async function loadMoreConversations(container: HTMLDivElement): Promise<void> {
+  const store = useStore.getState();
+  const { conversationsPagination } = store;
+
+  if (!conversationsPagination.hasMore || conversationsPagination.isLoadingMore) {
+    return;
+  }
+
+  log.debug('Loading more conversations', { cursor: conversationsPagination.nextCursor });
+
+  // Set loading state
+  store.setLoadingMoreConversations(true);
+
+  // Show loading indicator
+  const loadMoreEl = container.querySelector('.conversations-load-more');
+  loadMoreEl?.classList.add('loading');
+
+  try {
+    // Calculate page size based on container height
+    const pageSize = calculatePageSize(container.clientHeight);
+
+    const result = await conversationsApi.list(pageSize, conversationsPagination.nextCursor);
+
+    // Append conversations to the store
+    store.appendConversations(result.conversations, result.pagination);
+
+    log.info('Loaded more conversations', {
+      count: result.conversations.length,
+      hasMore: result.pagination.has_more,
+    });
+
+    // Re-render the list (this will also update the load-more indicator)
+    renderConversationsList();
+  } catch (error) {
+    log.error('Failed to load more conversations', { error });
+    // Reset loading state on error
+    store.setLoadingMoreConversations(false);
+    loadMoreEl?.classList.remove('loading');
   }
 }

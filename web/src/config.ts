@@ -208,6 +208,31 @@ export const SYNC_POLL_INTERVAL_MS = 1 * MS_PER_MINUTE;
 export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;
 
 // =============================================================================
+// Pagination Configuration
+// =============================================================================
+
+/** Approximate height of a conversation item in pixels (for viewport calculation) */
+export const CONVERSATION_ITEM_HEIGHT_PX = 60;
+
+/** Approximate height of a message in pixels (for viewport calculation) */
+export const MESSAGE_AVG_HEIGHT_PX = 120;
+
+/** Minimum page size for conversations (floor for small viewports) */
+export const CONVERSATIONS_MIN_PAGE_SIZE = 15;
+
+/** Minimum page size for messages (floor for small viewports) */
+export const MESSAGES_MIN_PAGE_SIZE = 20;
+
+/** Buffer multiplier for viewport-based page size calculation */
+export const VIEWPORT_BUFFER_MULTIPLIER = 1.5;
+
+/** Distance from bottom of scroll container to trigger loading more (in pixels) */
+export const LOAD_MORE_THRESHOLD_PX = 200;
+
+/** Debounce delay for infinite scroll scroll event handler */
+export const INFINITE_SCROLL_DEBOUNCE_MS = 100;
+
+// =============================================================================
 // Streaming Abort Cleanup
 // =============================================================================
 

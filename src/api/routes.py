@@ -35,20 +35,25 @@ from src.api.schemas import (
     ChatRequest,
     ClientIdResponse,
     ConversationCostResponse,
-    ConversationDetailResponse,
+    ConversationDetailPaginatedResponse,
     ConversationResponse,
-    ConversationsListResponse,
+    ConversationsListPaginatedResponse,
     CostHistoryResponse,
     CreateConversationRequest,
     GoogleAuthRequest,
     HealthResponse,
     MemoriesListResponse,
     MessageCostResponse,
+    # Enums
+    MessageRole,
+    MessagesListResponse,
     ModelsListResponse,
     MonthlyCostResponse,
+    PaginationDirection,
     ReadinessResponse,
     StatusResponse,
     SyncResponse,
+    ThumbnailStatus,
     TokenRefreshResponse,
     UpdateConversationRequest,
     UpdateSettingsRequest,
@@ -189,22 +194,56 @@ def refresh_token(user: User) -> dict[str, str]:
 
 
 @api.route("/conversations", methods=["GET"])
-@api.output(ConversationsListResponse)
+@api.output(ConversationsListPaginatedResponse)
 @require_auth
-def list_conversations(user: User) -> dict[str, list[dict[str, Any]]]:
-    """List all conversations for the current user.
+def list_conversations(user: User) -> dict[str, Any]:
+    """List conversations for the current user with pagination.
 
-    Returns conversations with message_count for proper sync initialization.
+    Query parameters:
+    - limit: Number of conversations to return (default: 30, max: 100)
+    - cursor: Cursor from previous page for fetching next page
+
+    Returns paginated conversations with message_count for proper sync initialization.
     """
-    logger.debug("Listing conversations", extra={"user_id": user.id})
-    # Use list_conversations_with_message_count to include message counts
-    # This is needed so the frontend can properly initialize local counts
-    # and avoid false "unread" badges on initial load
+    # Parse pagination parameters
+    limit_param = request.args.get("limit")
+    cursor_param = request.args.get("cursor")
+
+    # Validate and clamp limit
+    if limit_param:
+        try:
+            limit = int(limit_param)
+            limit = max(1, min(limit, Config.CONVERSATIONS_MAX_PAGE_SIZE))
+        except ValueError:
+            limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
+    else:
+        limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
+
+    logger.debug(
+        "Listing conversations",
+        extra={"user_id": user.id, "limit": limit, "cursor": cursor_param},
+    )
+
+    # Get paginated results
+    conversations, next_cursor, has_more, total_count = db.list_conversations_paginated(
+        user.id, limit=limit, cursor=cursor_param
+    )
+
+    # We need message counts for sync initialization
+    # Note: Currently fetches counts for all conversations; see TODO.md for optimization ideas
     conv_with_counts = db.list_conversations_with_message_count(user.id)
+    count_map = {c.id: count for c, count in conv_with_counts}
+
     logger.info(
         "Conversations listed",
-        extra={"user_id": user.id, "count": len(conv_with_counts)},
+        extra={
+            "user_id": user.id,
+            "returned": len(conversations),
+            "total": total_count,
+            "has_more": has_more,
+        },
     )
+
     return {
         "conversations": [
             {
@@ -213,10 +252,15 @@ def list_conversations(user: User) -> dict[str, list[dict[str, Any]]]:
                 "model": c.model,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat(),
-                "message_count": count,
+                "message_count": count_map.get(c.id, 0),
             }
-            for c, count in conv_with_counts
-        ]
+            for c in conversations
+        ],
+        "pagination": {
+            "next_cursor": next_cursor,
+            "has_more": has_more,
+            "total_count": total_count,
+        },
     }
 
 
@@ -245,17 +289,54 @@ def create_conversation(user: User, data: CreateConversationRequest) -> tuple[di
 
 
 @api.route("/conversations/<conv_id>", methods=["GET"])
-@api.output(ConversationDetailResponse)
+@api.output(ConversationDetailPaginatedResponse)
 @api.doc(responses=[404])
 @require_auth
 def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
-    """Get a conversation with its messages.
+    """Get a conversation with its messages (paginated).
+
+    Query parameters for message pagination:
+    - message_limit: Number of messages to return (default: 50, max: 200)
+    - message_cursor: Cursor for fetching older/newer messages
+    - direction: "older" (default) or "newer" for pagination direction
+
+    By default, returns the newest messages.
 
     Optimized: Only includes file metadata, not thumbnails or full file data.
     Thumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail.
     Full files can be fetched via /api/messages/<message_id>/files/<file_index>.
     """
-    logger.debug("Getting conversation", extra={"user_id": user.id, "conversation_id": conv_id})
+    # Parse message pagination parameters
+    limit_param = request.args.get("message_limit")
+    cursor_param = request.args.get("message_cursor")
+    direction_param = request.args.get("direction", PaginationDirection.OLDER.value)
+
+    # Validate and clamp limit
+    if limit_param:
+        try:
+            limit = int(limit_param)
+            limit = max(1, min(limit, Config.MESSAGES_MAX_PAGE_SIZE))
+        except ValueError:
+            limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
+    else:
+        limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
+
+    # Validate direction
+    try:
+        direction = PaginationDirection(direction_param)
+    except ValueError:
+        direction = PaginationDirection.OLDER
+
+    logger.debug(
+        "Getting conversation",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "message_limit": limit,
+            "message_cursor": cursor_param,
+            "direction": direction.value,
+        },
+    )
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
         logger.warning(
@@ -264,18 +345,48 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         )
         raise_not_found_error("Conversation")
 
-    messages = db.get_messages(conv_id)
+    # Get paginated messages
+    messages, pagination = db.get_messages_paginated(
+        conv_id, limit=limit, cursor=cursor_param, direction=direction
+    )
     logger.info(
         "Conversation retrieved",
         extra={
             "user_id": user.id,
             "conversation_id": conv_id,
             "message_count": len(messages),
+            "total_messages": pagination.total_count,
+            "has_older": pagination.has_older,
+            "has_newer": pagination.has_newer,
         },
     )
 
     # Optimize file data: only include metadata, not thumbnails or full file data
     # Thumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail
+    optimized_messages = _optimize_messages_for_response(messages)
+
+    return {
+        "id": conv.id,
+        "title": conv.title,
+        "model": conv.model,
+        "created_at": conv.created_at.isoformat(),
+        "updated_at": conv.updated_at.isoformat(),
+        "messages": optimized_messages,
+        "message_pagination": {
+            "older_cursor": pagination.older_cursor,
+            "newer_cursor": pagination.newer_cursor,
+            "has_older": pagination.has_older,
+            "has_newer": pagination.has_newer,
+            "total_count": pagination.total_count,
+        },
+    }, 200
+
+
+def _optimize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]:
+    """Convert Message objects to optimized response format.
+
+    Only includes file metadata (name, type, messageId, fileIndex), not full data.
+    """
     optimized_messages = []
     for m in messages:
         optimized_files = []
@@ -304,15 +415,7 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
             msg_data["generated_images"] = normalize_generated_images(m.generated_images)
 
         optimized_messages.append(msg_data)
-
-    return {
-        "id": conv.id,
-        "title": conv.title,
-        "model": conv.model,
-        "created_at": conv.created_at.isoformat(),
-        "updated_at": conv.updated_at.isoformat(),
-        "messages": optimized_messages,
-    }, 200
+    return optimized_messages
 
 
 @api.route("/conversations/<conv_id>", methods=["PATCH"])
@@ -359,6 +462,96 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 
     logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "deleted"}, 200
+
+
+@api.route("/conversations/<conv_id>/messages", methods=["GET"])
+@api.output(MessagesListResponse)
+@api.doc(responses=[404])
+@require_auth
+def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
+    """Get paginated messages for a conversation.
+
+    This is a dedicated endpoint for fetching message pages, more efficient
+    than the full conversation endpoint when only messages are needed.
+
+    Query parameters:
+    - limit: Number of messages to return (default: 50, max: 200)
+    - cursor: Cursor for fetching older/newer messages
+    - direction: "older" (default) or "newer" for pagination direction
+
+    By default, returns the newest messages.
+    """
+    # Parse pagination parameters
+    limit_param = request.args.get("limit")
+    cursor_param = request.args.get("cursor")
+    direction_param = request.args.get("direction", PaginationDirection.OLDER.value)
+
+    # Validate and clamp limit
+    if limit_param:
+        try:
+            limit = int(limit_param)
+            limit = max(1, min(limit, Config.MESSAGES_MAX_PAGE_SIZE))
+        except ValueError:
+            limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
+    else:
+        limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
+
+    # Validate direction
+    try:
+        direction = PaginationDirection(direction_param)
+    except ValueError:
+        direction = PaginationDirection.OLDER
+
+    logger.debug(
+        "Getting messages",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "limit": limit,
+            "cursor": cursor_param,
+            "direction": direction.value,
+        },
+    )
+
+    # Verify conversation exists and belongs to user
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        logger.warning(
+            "Conversation not found",
+            extra={"user_id": user.id, "conversation_id": conv_id},
+        )
+        raise_not_found_error("Conversation")
+
+    # Get paginated messages
+    messages, pagination = db.get_messages_paginated(
+        conv_id, limit=limit, cursor=cursor_param, direction=direction
+    )
+
+    logger.info(
+        "Messages retrieved",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "message_count": len(messages),
+            "total_messages": pagination.total_count,
+            "has_older": pagination.has_older,
+            "has_newer": pagination.has_newer,
+        },
+    )
+
+    # Optimize file data
+    optimized_messages = _optimize_messages_for_response(messages)
+
+    return {
+        "messages": optimized_messages,
+        "pagination": {
+            "older_cursor": pagination.older_cursor,
+            "newer_cursor": pagination.newer_cursor,
+            "has_older": pagination.has_older,
+            "has_newer": pagination.has_newer,
+            "total_count": pagination.total_count,
+        },
+    }, 200
 
 
 @api.route("/conversations/sync", methods=["GET"])
@@ -498,7 +691,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             "file_count": len(files) if files else 0,
         },
     )
-    user_msg = db.add_message(conv_id, "user", message_text, files=files if files else None)
+    user_msg = db.add_message(
+        conv_id, MessageRole.USER, message_text, files=files if files else None
+    )
 
     # Queue background thumbnail generation for pending files
     if files:
@@ -507,7 +702,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     # Get conversation history (excluding files from previous messages to save tokens)
     messages = db.get_messages(conv_id)
     history = [
-        {"role": m.role, "content": m.content} for m in messages[:-1]
+        {"role": m.role.value, "content": m.content} for m in messages[:-1]
     ]  # Exclude the just-added message
     logger.debug(
         "Starting chat agent",
@@ -618,7 +813,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         )
         assistant_msg = db.add_message(
             conv_id,
-            "assistant",
+            MessageRole.ASSISTANT,
             clean_response,
             files=all_generated_files if all_generated_files else None,
             sources=sources if sources else None,
@@ -789,7 +984,9 @@ def chat_stream(
             "file_count": len(files) if files else 0,
         },
     )
-    user_msg = db.add_message(conv_id, "user", message_text, files=files if files else None)
+    user_msg = db.add_message(
+        conv_id, MessageRole.USER, message_text, files=files if files else None
+    )
 
     # Queue background thumbnail generation for pending files
     if files:
@@ -801,7 +998,7 @@ def chat_stream(
     # since the LLM has seen them before and they're stored in the conversation context.
     messages = db.get_messages(conv_id)
     history = [
-        {"role": m.role, "content": m.content} for m in messages[:-1]
+        {"role": m.role.value, "content": m.content} for m in messages[:-1]
     ]  # Exclude the just-added message, exclude files from history
     logger.debug(
         "Starting stream chat agent",
@@ -920,7 +1117,7 @@ def chat_stream(
                 if final_results["ready"]:
                     messages = db.get_messages(conv_id)
                     # Check if last message is assistant (meaning it was already saved by generator)
-                    if not messages or messages[-1].role != "assistant":
+                    if not messages or messages[-1].role != MessageRole.ASSISTANT:
                         logger.info(
                             "Generator stopped early (client disconnected), saving message in cleanup thread",
                             extra={"user_id": user.id, "conversation_id": conv_id},
@@ -1039,7 +1236,7 @@ def chat_stream(
                 )
                 assistant_msg = db.add_message(
                     conv_id,
-                    "assistant",
+                    MessageRole.ASSISTANT,
                     content,
                     files=all_generated_files if all_generated_files else None,
                     sources=sources if sources else None,
@@ -1207,7 +1404,7 @@ def chat_stream(
                 if client_connected and clean_content and save_result:
                     # Get the saved message from DB to get the ID
                     messages = db.get_messages(conv_id)
-                    if messages and messages[-1].role == "assistant":
+                    if messages and messages[-1].role == MessageRole.ASSISTANT:
                         assistant_msg = messages[-1]
 
                         # Use the extracted data from save_result instead of calling
@@ -1480,10 +1677,10 @@ def get_message_thumbnail(
     blob_store = get_blob_store()
 
     # Check thumbnail status (default to "ready" for legacy messages without status)
-    thumbnail_status = file.get("thumbnail_status", "ready")
+    thumbnail_status = file.get("thumbnail_status", ThumbnailStatus.READY.value)
 
     # Handle pending thumbnail with stale recovery
-    if thumbnail_status == "pending":
+    if thumbnail_status == ThumbnailStatus.PENDING.value:
         # Check if message is old enough that generation should have completed
         # If pending for more than threshold, assume the worker died and regenerate synchronously
         message_age = (datetime.now() - message.created_at).total_seconds()

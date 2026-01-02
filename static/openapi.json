@@ -304,7 +304,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConversationsListResponse"
+                  "$ref": "#/components/schemas/ConversationsListPaginatedResponse"
                 }
               }
             },
@@ -314,8 +314,8 @@
         "tags": [
           "API"
         ],
-        "summary": "List all conversations for the current user.",
-        "description": "Returns conversations with message_count for proper sync initialization."
+        "summary": "List conversations for the current user with pagination.",
+        "description": "Query parameters:\n- limit: Number of conversations to return (default: 30, max: 100)\n- cursor: Cursor from previous page for fetching next page\n\nReturns paginated conversations with message_count for proper sync initialization."
       },
       "post": {
         "parameters": [],
@@ -529,7 +529,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConversationDetailResponse"
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse"
                 }
               }
             },
@@ -549,8 +549,8 @@
         "tags": [
           "API"
         ],
-        "summary": "Get a conversation with its messages.",
-        "description": "Optimized: Only includes file metadata, not thumbnails or full file data.\nThumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail.\nFull files can be fetched via /api/messages/<message_id>/files/<file_index>."
+        "summary": "Get a conversation with its messages (paginated).",
+        "description": "Query parameters for message pagination:\n- message_limit: Number of messages to return (default: 50, max: 200)\n- message_cursor: Cursor for fetching older/newer messages\n- direction: \"older\" (default) or \"newer\" for pagination direction\n\nBy default, returns the newest messages.\n\nOptimized: Only includes file metadata, not thumbnails or full file data.\nThumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail.\nFull files can be fetched via /api/messages/<message_id>/files/<file_index>."
       },
       "patch": {
         "parameters": [
@@ -707,6 +707,47 @@
           "API"
         ],
         "summary": "Get total cost for a conversation."
+      }
+    },
+    "/api/conversations/{conv_id}/messages": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagesListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "API"
+        ],
+        "summary": "Get paginated messages for a conversation.",
+        "description": "This is a dedicated endpoint for fetching message pages, more efficient\nthan the full conversation endpoint when only messages are needed.\n\nQuery parameters:\n- limit: Number of messages to return (default: 50, max: 200)\n- cursor: Cursor for fetching older/newer messages\n- direction: \"older\" (default) or \"newer\" for pagination direction\n\nBy default, returns the newest messages."
       }
     },
     "/api/conversations/{conv_id}/chat/batch": {
@@ -1270,7 +1311,7 @@
         "title": "ClientIdResponse",
         "type": "object"
       },
-      "ConversationsListResponse.ConversationResponse": {
+      "ConversationsListPaginatedResponse.ConversationResponse": {
         "description": "Conversation summary (without messages).",
         "properties": {
           "id": {
@@ -1316,21 +1357,59 @@
         "title": "ConversationResponse",
         "type": "object"
       },
-      "ConversationsListResponse": {
-        "description": "List of conversations.",
+      "ConversationsListPaginatedResponse.ConversationsPaginationResponse": {
+        "description": "Pagination info for conversations list.",
         "properties": {
-          "conversations": {
-            "items": {
-              "$ref": "#/components/schemas/ConversationsListResponse.ConversationResponse"
-            },
-            "title": "Conversations",
-            "type": "array"
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cursor for fetching next page (null if no more)",
+            "title": "Next Cursor"
+          },
+          "has_more": {
+            "description": "Whether there are more pages",
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "total_count": {
+            "description": "Total number of conversations",
+            "title": "Total Count",
+            "type": "integer"
           }
         },
         "required": [
-          "conversations"
+          "has_more",
+          "total_count"
         ],
-        "title": "ConversationsListResponse",
+        "title": "ConversationsPaginationResponse",
+        "type": "object"
+      },
+      "ConversationsListPaginatedResponse": {
+        "description": "Paginated list of conversations.",
+        "properties": {
+          "conversations": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationsListPaginatedResponse.ConversationResponse"
+            },
+            "title": "Conversations",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/ConversationsListPaginatedResponse.ConversationsPaginationResponse"
+          }
+        },
+        "required": [
+          "conversations",
+          "pagination"
+        ],
+        "title": "ConversationsListPaginatedResponse",
         "type": "object"
       },
       "ConversationResponse": {
@@ -1652,7 +1731,7 @@
         "title": "CostHistoryResponse",
         "type": "object"
       },
-      "ConversationDetailResponse.FileMetadataResponse": {
+      "ConversationDetailPaginatedResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
           "name": {
@@ -1695,7 +1774,7 @@
         "title": "FileMetadataResponse",
         "type": "object"
       },
-      "ConversationDetailResponse.GeneratedImageResponse": {
+      "ConversationDetailPaginatedResponse.GeneratedImageResponse": {
         "description": "Generated image metadata.",
         "properties": {
           "prompt": {
@@ -1721,7 +1800,7 @@
         "title": "GeneratedImageResponse",
         "type": "object"
       },
-      "ConversationDetailResponse.MessageResponse": {
+      "ConversationDetailPaginatedResponse.MessageResponse": {
         "description": "Message in a conversation.",
         "properties": {
           "id": {
@@ -1744,7 +1823,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/ConversationDetailResponse.FileMetadataResponse"
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.FileMetadataResponse"
                 },
                 "type": "array"
               },
@@ -1759,7 +1838,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/ConversationDetailResponse.SourceResponse"
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.SourceResponse"
                 },
                 "type": "array"
               },
@@ -1774,7 +1853,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/ConversationDetailResponse.GeneratedImageResponse"
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.GeneratedImageResponse"
                 },
                 "type": "array"
               },
@@ -1799,7 +1878,60 @@
         "title": "MessageResponse",
         "type": "object"
       },
-      "ConversationDetailResponse.SourceResponse": {
+      "ConversationDetailPaginatedResponse.MessagesPaginationResponse": {
+        "description": "Pagination info for messages list.",
+        "properties": {
+          "older_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cursor for fetching older messages (null if at oldest)",
+            "title": "Older Cursor"
+          },
+          "newer_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cursor for fetching newer messages (null if at newest)",
+            "title": "Newer Cursor"
+          },
+          "has_older": {
+            "description": "Whether there are older messages",
+            "title": "Has Older",
+            "type": "boolean"
+          },
+          "has_newer": {
+            "description": "Whether there are newer messages",
+            "title": "Has Newer",
+            "type": "boolean"
+          },
+          "total_count": {
+            "description": "Total number of messages in conversation",
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "has_older",
+          "has_newer",
+          "total_count"
+        ],
+        "title": "MessagesPaginationResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.SourceResponse": {
         "description": "Web search source citation.",
         "properties": {
           "title": {
@@ -1818,8 +1950,8 @@
         "title": "SourceResponse",
         "type": "object"
       },
-      "ConversationDetailResponse": {
-        "description": "Full conversation with messages.",
+      "ConversationDetailPaginatedResponse": {
+        "description": "Full conversation with paginated messages.",
         "properties": {
           "id": {
             "title": "Id",
@@ -1843,10 +1975,13 @@
           },
           "messages": {
             "items": {
-              "$ref": "#/components/schemas/ConversationDetailResponse.MessageResponse"
+              "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.MessageResponse"
             },
             "title": "Messages",
             "type": "array"
+          },
+          "message_pagination": {
+            "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.MessagesPaginationResponse"
           }
         },
         "required": [
@@ -1855,9 +1990,10 @@
           "model",
           "created_at",
           "updated_at",
-          "messages"
+          "messages",
+          "message_pagination"
         ],
-        "title": "ConversationDetailResponse",
+        "title": "ConversationDetailPaginatedResponse",
         "type": "object"
       },
       "MessageCostResponse": {
@@ -1979,6 +2115,246 @@
           "formatted"
         ],
         "title": "ConversationCostResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.FileMetadataResponse": {
+        "description": "File metadata in message responses (excludes full data for performance).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "messageId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Messageid"
+          },
+          "fileIndex": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fileindex"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "FileMetadataResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.GeneratedImageResponse": {
+        "description": "Generated image metadata.",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "image_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Index"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.MessageResponse": {
+        "description": "Message in a conversation.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessagesListResponse.FileMetadataResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Files"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessagesListResponse.SourceResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sources"
+          },
+          "generated_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessagesListResponse.GeneratedImageResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Generated Images"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "content",
+          "created_at"
+        ],
+        "title": "MessageResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.MessagesPaginationResponse": {
+        "description": "Pagination info for messages list.",
+        "properties": {
+          "older_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cursor for fetching older messages (null if at oldest)",
+            "title": "Older Cursor"
+          },
+          "newer_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cursor for fetching newer messages (null if at newest)",
+            "title": "Newer Cursor"
+          },
+          "has_older": {
+            "description": "Whether there are older messages",
+            "title": "Has Older",
+            "type": "boolean"
+          },
+          "has_newer": {
+            "description": "Whether there are newer messages",
+            "title": "Has Newer",
+            "type": "boolean"
+          },
+          "total_count": {
+            "description": "Total number of messages in conversation",
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "has_older",
+          "has_newer",
+          "total_count"
+        ],
+        "title": "MessagesPaginationResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.SourceResponse": {
+        "description": "Web search source citation.",
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ],
+        "title": "SourceResponse",
+        "type": "object"
+      },
+      "MessagesListResponse": {
+        "description": "Paginated messages response (for dedicated messages endpoint).",
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MessagesListResponse.MessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/MessagesListResponse.MessagesPaginationResponse"
+          }
+        },
+        "required": [
+          "messages",
+          "pagination"
+        ],
+        "title": "MessagesListResponse",
         "type": "object"
       },
       "ChatBatchResponse.FileMetadataResponse": {

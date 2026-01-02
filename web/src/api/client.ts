@@ -1,23 +1,29 @@
-import type {
-  AuthResponse,
-  ChatResponse,
-  Conversation,
-  ConversationsResponse,
-  CostHistoryResponse,
-  ConversationCostResponse,
-  ErrorResponse,
-  FileUpload,
-  MemoriesResponse,
-  Memory,
-  MessageCostResponse,
-  MonthlyCostResponse,
-  ModelsResponse,
-  StreamEvent,
-  SyncResponse,
-  UploadConfig,
-  User,
-  UserSettings,
-  VersionResponse,
+import {
+  PaginationDirection,
+  type AuthResponse,
+  type ChatResponse,
+  type Conversation,
+  type ConversationDetailResponse,
+  type ConversationsResponse,
+  type ConversationsPagination,
+  type CostHistoryResponse,
+  type ConversationCostResponse,
+  type ErrorResponse,
+  type FileUpload,
+  type MemoriesResponse,
+  type Memory,
+  type Message,
+  type MessageCostResponse,
+  type MessagesResponse,
+  type MessagesPagination,
+  type MonthlyCostResponse,
+  type ModelsResponse,
+  type StreamEvent,
+  type SyncResponse,
+  type UploadConfig,
+  type User,
+  type UserSettings,
+  type VersionResponse,
 } from '../types/api';
 import {
   API_DEFAULT_TIMEOUT_MS,
@@ -313,17 +319,77 @@ export const auth = {
 
 // Conversation endpoints
 export const conversations = {
-  async list(): Promise<Conversation[]> {
-    const data = await requestWithRetry<ConversationsResponse>('/api/conversations');
+  /**
+   * List conversations with pagination.
+   * @param limit - Number of conversations to return
+   * @param cursor - Cursor for fetching next page
+   */
+  async list(
+    limit?: number,
+    cursor?: string | null
+  ): Promise<{ conversations: Conversation[]; pagination: ConversationsPagination }> {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit.toString());
+    if (cursor) params.set('cursor', cursor);
+    const query = params.toString();
+    const data = await requestWithRetry<ConversationsResponse>(
+      `/api/conversations${query ? `?${query}` : ''}`
+    );
     // Map snake_case message_count to camelCase messageCount
-    return data.conversations.map((conv) => ({
-      ...conv,
-      messageCount: (conv as { message_count?: number }).message_count,
-    }));
+    return {
+      conversations: data.conversations.map((conv) => ({
+        ...conv,
+        messageCount: (conv as { message_count?: number }).message_count,
+      })),
+      pagination: data.pagination,
+    };
   },
 
-  async get(id: string): Promise<Conversation> {
-    return requestWithRetry<Conversation>(`/api/conversations/${id}`);
+  /**
+   * Get a conversation with paginated messages.
+   * @param id - Conversation ID
+   * @param messageLimit - Number of messages to return
+   * @param messageCursor - Cursor for fetching older/newer messages
+   * @param direction - PaginationDirection.OLDER or PaginationDirection.NEWER
+   */
+  async get(
+    id: string,
+    messageLimit?: number,
+    messageCursor?: string | null,
+    direction?: PaginationDirection
+  ): Promise<ConversationDetailResponse> {
+    const params = new URLSearchParams();
+    if (messageLimit) params.set('message_limit', messageLimit.toString());
+    if (messageCursor) params.set('message_cursor', messageCursor);
+    if (direction) params.set('direction', direction);
+    const query = params.toString();
+    return requestWithRetry<ConversationDetailResponse>(
+      `/api/conversations/${id}${query ? `?${query}` : ''}`
+    );
+  },
+
+  /**
+   * Get paginated messages for a conversation.
+   * This is a dedicated endpoint, more efficient than get() when only messages are needed.
+   * @param id - Conversation ID
+   * @param limit - Number of messages to return
+   * @param cursor - Cursor for fetching older/newer messages
+   * @param direction - PaginationDirection.OLDER or PaginationDirection.NEWER
+   */
+  async getMessages(
+    id: string,
+    limit?: number,
+    cursor?: string | null,
+    direction?: PaginationDirection
+  ): Promise<{ messages: Message[]; pagination: MessagesPagination }> {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit.toString());
+    if (cursor) params.set('cursor', cursor);
+    if (direction) params.set('direction', direction);
+    const query = params.toString();
+    return requestWithRetry<MessagesResponse>(
+      `/api/conversations/${id}/messages${query ? `?${query}` : ''}`
+    );
   },
 
   async create(model?: string): Promise<Conversation> {

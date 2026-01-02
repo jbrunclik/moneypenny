@@ -41,6 +41,7 @@ class TestOpenAPISpec:
         # Conversation endpoints
         assert "/api/conversations" in paths
         assert "/api/conversations/{conv_id}" in paths
+        assert "/api/conversations/{conv_id}/messages" in paths
         assert "/api/conversations/sync" in paths
 
         # Chat endpoints
@@ -84,9 +85,10 @@ class TestOpenAPISpec:
         # Error format is documented in errors.py and frontend types.
         expected_patterns = [
             "AuthResponse",
-            "ConversationsListResponse",
+            "ConversationsListPaginatedResponse",
             "ConversationResponse",
             "MessageResponse",
+            "MessagesListResponse",
             "ModelsListResponse",
             "UploadConfigResponse",
             "VersionResponse",

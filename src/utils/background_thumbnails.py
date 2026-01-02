@@ -9,6 +9,7 @@ import base64
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from src.api.schemas import ThumbnailStatus
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -106,7 +107,7 @@ def generate_and_save_thumbnail(
     )
 
     thumbnail = generate_thumbnail(file_data, file_type)
-    status = "ready" if thumbnail else "failed"
+    status = ThumbnailStatus.READY if thumbnail else ThumbnailStatus.FAILED
 
     # Update the database with the generated thumbnail
     success = db.update_message_file_thumbnail(
@@ -122,7 +123,7 @@ def generate_and_save_thumbnail(
             extra={
                 "message_id": message_id,
                 "file_index": file_index,
-                "status": status,
+                "status": status.value,
             },
         )
     else:
@@ -160,7 +161,9 @@ def _generate_thumbnail_task(
         try:
             from src.db.models import db
 
-            db.update_message_file_thumbnail(message_id, file_index, None, status="failed")
+            db.update_message_file_thumbnail(
+                message_id, file_index, None, status=ThumbnailStatus.FAILED
+            )
         except Exception:
             # Message might have been deleted, ignore
             pass
@@ -171,8 +174,8 @@ def mark_files_for_thumbnail_generation(files: list[dict[str, Any]]) -> list[dic
 
     This should be called BEFORE saving the message to the database.
     It marks each image file with either:
-    - thumbnail_status: "ready" with thumbnail data (for small images)
-    - thumbnail_status: "pending" (for large images that need background generation)
+    - thumbnail_status: ThumbnailStatus.READY with thumbnail data (for small images)
+    - thumbnail_status: ThumbnailStatus.PENDING (for large images that need background generation)
 
     Args:
         files: List of file dictionaries with 'name', 'type', 'data' keys
@@ -191,14 +194,14 @@ def mark_files_for_thumbnail_generation(files: list[dict[str, Any]]) -> list[dic
         if should_skip_thumbnail(file_data, file_type):
             # Small image - use original data as thumbnail
             file["thumbnail"] = file_data
-            file["thumbnail_status"] = "ready"
+            file["thumbnail_status"] = ThumbnailStatus.READY.value
             logger.debug(
                 "Small image - using original as thumbnail",
                 extra={"file_name": file.get("name"), "file_type": file_type},
             )
         else:
             # Large image - mark as pending for background generation
-            file["thumbnail_status"] = "pending"
+            file["thumbnail_status"] = ThumbnailStatus.PENDING.value
             logger.debug(
                 "Large image - marking for background generation",
                 extra={"file_name": file.get("name"), "file_type": file_type},
@@ -218,5 +221,5 @@ def queue_pending_thumbnails(message_id: str, files: list[dict[str, Any]]) -> No
         files: List of file dictionaries (same as passed to add_message)
     """
     for idx, file in enumerate(files):
-        if file.get("thumbnail_status") == "pending":
+        if file.get("thumbnail_status") == ThumbnailStatus.PENDING.value:
             queue_thumbnail_generation(message_id, idx, file.get("data", ""), file.get("type", ""))

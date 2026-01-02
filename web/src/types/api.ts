@@ -16,6 +16,13 @@ export type { components, paths } from './generated-api';
 // Constants
 export const DEFAULT_CONVERSATION_TITLE = 'New Conversation';
 
+// Enums (as const objects for TypeScript - mirrors Python enums in src/api/schemas.py)
+export const PaginationDirection = {
+  OLDER: 'older',
+  NEWER: 'newer',
+} as const;
+export type PaginationDirection = (typeof PaginationDirection)[keyof typeof PaginationDirection];
+
 // =============================================================================
 // User types
 // =============================================================================
@@ -159,8 +166,42 @@ export interface AuthResponse {
   user: User;
 }
 
+// =============================================================================
+// Pagination types
+// =============================================================================
+
+export interface ConversationsPagination {
+  next_cursor: string | null;
+  has_more: boolean;
+  total_count: number;
+}
+
+export interface MessagesPagination {
+  older_cursor: string | null;
+  newer_cursor: string | null;
+  has_older: boolean;
+  has_newer: boolean;
+  total_count: number;
+}
+
 export interface ConversationsResponse {
   conversations: Conversation[];
+  pagination: ConversationsPagination;
+}
+
+export interface ConversationDetailResponse {
+  id: string;
+  title: string;
+  model: string;
+  created_at: string;
+  updated_at: string;
+  messages: Message[];
+  message_pagination: MessagesPagination;
+}
+
+export interface MessagesResponse {
+  messages: Message[];
+  pagination: MessagesPagination;
 }
 
 export interface ModelsResponse {

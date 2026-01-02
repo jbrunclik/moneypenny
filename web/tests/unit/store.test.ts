@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useStore } from '@/state/store';
-import type { Conversation, User, FileUpload, Model } from '@/types/api';
+import type { Conversation, ConversationsPagination, User, FileUpload, Model } from '@/types/api';
 
 // Helper to reset store state
 function resetStore() {
@@ -39,6 +39,15 @@ function createConversation(id: string, title: string): Conversation {
     model: 'gemini-3-flash-preview',
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
+  };
+}
+
+// Helper to create mock pagination
+function createPagination(hasMore = false, totalCount = 0): ConversationsPagination {
+  return {
+    next_cursor: hasMore ? 'next-cursor' : null,
+    has_more: hasMore,
+    total_count: totalCount,
   };
 }
 
@@ -121,15 +130,24 @@ describe('Store - Conversations', () => {
   describe('setConversations', () => {
     it('sets conversation list', () => {
       const convs = [createConversation('1', 'First'), createConversation('2', 'Second')];
-      useStore.getState().setConversations(convs);
+      useStore.getState().setConversations(convs, createPagination(false, 2));
       expect(useStore.getState().conversations).toHaveLength(2);
     });
 
     it('replaces existing conversations', () => {
       useStore.getState().addConversation(createConversation('1', 'Old'));
-      useStore.getState().setConversations([createConversation('2', 'New')]);
+      useStore.getState().setConversations([createConversation('2', 'New')], createPagination(false, 1));
       expect(useStore.getState().conversations).toHaveLength(1);
       expect(useStore.getState().conversations[0].title).toBe('New');
+    });
+
+    it('updates pagination state', () => {
+      const convs = [createConversation('1', 'Test')];
+      useStore.getState().setConversations(convs, createPagination(true, 10));
+      const pagination = useStore.getState().conversationsPagination;
+      expect(pagination.hasMore).toBe(true);
+      expect(pagination.totalCount).toBe(10);
+      expect(pagination.nextCursor).toBe('next-cursor');
     });
   });
 

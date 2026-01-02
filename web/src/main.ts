@@ -14,6 +14,7 @@ import {
   toggleSidebar,
   closeSidebar,
   updateMonthlyCost,
+  cleanupInfiniteScroll,
 } from './components/Sidebar';
 import {
   renderMessages,
@@ -262,11 +263,12 @@ async function init(): Promise<void> {
   });
 
   window.addEventListener('auth:logout', () => {
-    // Stop sync manager on logout
+    // Stop sync manager and infinite scroll on logout
     stopSyncManager();
+    cleanupInfiniteScroll();
 
     showLoginOverlay();
-    useStore.getState().setConversations([]);
+    useStore.getState().setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
     useStore.getState().setCurrentConversation(null);
     renderConversationsList();
     renderMessages([]);
@@ -289,17 +291,17 @@ async function loadInitialData(): Promise<void> {
 
   try {
     // Load data in parallel
-    const [convList, modelsData, uploadConfig] = await Promise.all([
+    const [convResult, modelsData, uploadConfig] = await Promise.all([
       conversations.list(),
       models.list(),
       config.getUploadConfig(),
     ]);
 
-    store.setConversations(convList);
+    store.setConversations(convResult.conversations, convResult.pagination);
     store.setModels(modelsData.models, modelsData.default);
     store.setUploadConfig(uploadConfig);
 
-    log.info('Initial data loaded', { conversationCount: convList.length, modelCount: modelsData.models.length });
+    log.info('Initial data loaded', { conversationCount: convResult.conversations.length, modelCount: modelsData.models.length });
     renderConversationsList();
     renderUserInfo();
     renderModelDropdown();
@@ -434,8 +436,21 @@ async function selectConversation(convId: string): Promise<void> {
   showConversationLoader();
 
   try {
-    const conv = await conversations.get(convId);
+    const response = await conversations.get(convId);
     hideConversationLoader();
+
+    // Store messages and pagination in the per-conversation Maps
+    store.setMessages(convId, response.messages, response.message_pagination);
+
+    // Convert response to Conversation object for switchToConversation
+    const conv: Conversation = {
+      id: response.id,
+      title: response.title,
+      model: response.model,
+      created_at: response.created_at,
+      updated_at: response.updated_at,
+      messages: response.messages,
+    };
     switchToConversation(conv);
   } catch (error) {
     log.error('Failed to load conversation', { error, conversationId: convId });
@@ -1844,7 +1859,21 @@ function showNewMessagesAvailableBanner(messageCount: number): void {
     // Reload the conversation
     if (currentConvId && !isTempConversation(currentConvId)) {
       try {
-        const conv = await conversations.get(currentConvId);
+        const store = useStore.getState();
+        const response = await conversations.get(currentConvId);
+
+        // Store messages and pagination in the per-conversation Maps
+        store.setMessages(currentConvId, response.messages, response.message_pagination);
+
+        // Convert response to Conversation object for switchToConversation
+        const conv: Conversation = {
+          id: response.id,
+          title: response.title,
+          model: response.model,
+          created_at: response.created_at,
+          updated_at: response.updated_at,
+          messages: response.messages,
+        };
         switchToConversation(conv);
 
         // Mark as read in sync manager

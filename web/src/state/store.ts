@@ -2,7 +2,10 @@ import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type {
   Conversation,
+  ConversationsPagination,
   FileUpload,
+  Message,
+  MessagesPagination,
   Model,
   UploadConfig,
   User,
@@ -32,6 +35,28 @@ export interface ActiveRequestState {
   thinkingState?: ThinkingState;
 }
 
+/**
+ * Pagination state for conversations list
+ */
+export interface ConversationsPaginationState {
+  nextCursor: string | null;
+  hasMore: boolean;
+  totalCount: number;
+  isLoadingMore: boolean;
+}
+
+/**
+ * Pagination state for messages in a conversation
+ */
+export interface MessagesPaginationState {
+  olderCursor: string | null;
+  newerCursor: string | null;
+  hasOlder: boolean;
+  hasNewer: boolean;
+  totalCount: number;
+  isLoadingOlder: boolean;
+}
+
 interface AppState {
   // Auth
   token: string | null;
@@ -41,6 +66,11 @@ interface AppState {
   // Conversations
   conversations: Conversation[];
   currentConversation: Conversation | null;
+  conversationsPagination: ConversationsPaginationState;
+
+  // Messages (per conversation)
+  messages: Map<string, Message[]>;
+  messagesPagination: Map<string, MessagesPaginationState>;
 
   // Models
   models: Model[];
@@ -78,11 +108,22 @@ interface AppState {
   logout: () => void;
 
   // Actions - Conversations
-  setConversations: (conversations: Conversation[]) => void;
+  setConversations: (conversations: Conversation[], pagination: ConversationsPagination) => void;
+  appendConversations: (conversations: Conversation[], pagination: ConversationsPagination) => void;
   addConversation: (conversation: Conversation) => void;
   updateConversation: (id: string, updates: Partial<Conversation>) => void;
   removeConversation: (id: string) => void;
   setCurrentConversation: (conversation: Conversation | null) => void;
+  setLoadingMoreConversations: (loading: boolean) => void;
+
+  // Actions - Messages
+  setMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
+  prependMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
+  appendMessage: (convId: string, message: Message) => void;
+  clearMessages: (convId: string) => void;
+  setLoadingOlderMessages: (convId: string, loading: boolean) => void;
+  getMessages: (convId: string) => Message[];
+  getMessagesPagination: (convId: string) => MessagesPaginationState | undefined;
 
   // Actions - Models
   setModels: (models: Model[], defaultModel: string) => void;
@@ -148,6 +189,14 @@ export const useStore = create<AppState>()(
       googleClientId: null,
       conversations: [],
       currentConversation: null,
+      conversationsPagination: {
+        nextCursor: null,
+        hasMore: false,
+        totalCount: 0,
+        isLoadingMore: false,
+      },
+      messages: new Map(),
+      messagesPagination: new Map(),
       models: [],
       defaultModel: 'gemini-3-flash-preview',
       pendingModel: null,
@@ -178,10 +227,33 @@ export const useStore = create<AppState>()(
         }),
 
       // Conversation actions
-      setConversations: (conversations) => set({ conversations }),
+      setConversations: (conversations, pagination) =>
+        set({
+          conversations,
+          conversationsPagination: {
+            nextCursor: pagination.next_cursor,
+            hasMore: pagination.has_more,
+            totalCount: pagination.total_count,
+            isLoadingMore: false,
+          },
+        }),
+      appendConversations: (newConversations, pagination) =>
+        set((state) => ({
+          conversations: [...state.conversations, ...newConversations],
+          conversationsPagination: {
+            nextCursor: pagination.next_cursor,
+            hasMore: pagination.has_more,
+            totalCount: pagination.total_count,
+            isLoadingMore: false,
+          },
+        })),
       addConversation: (conversation) =>
         set((state) => ({
           conversations: [conversation, ...state.conversations],
+          conversationsPagination: {
+            ...state.conversationsPagination,
+            totalCount: state.conversationsPagination.totalCount + 1,
+          },
         })),
       updateConversation: (id, updates) =>
         set((state) => ({
@@ -200,9 +272,85 @@ export const useStore = create<AppState>()(
             state.currentConversation?.id === id
               ? null
               : state.currentConversation,
+          conversationsPagination: {
+            ...state.conversationsPagination,
+            totalCount: Math.max(0, state.conversationsPagination.totalCount - 1),
+          },
         })),
       setCurrentConversation: (currentConversation) =>
         set({ currentConversation }),
+      setLoadingMoreConversations: (loading) =>
+        set((state) => ({
+          conversationsPagination: {
+            ...state.conversationsPagination,
+            isLoadingMore: loading,
+          },
+        })),
+
+      // Message actions
+      setMessages: (convId, messages, pagination) =>
+        set((state) => {
+          const newMessages = new Map(state.messages);
+          newMessages.set(convId, messages);
+          const newPagination = new Map(state.messagesPagination);
+          newPagination.set(convId, {
+            olderCursor: pagination.older_cursor,
+            newerCursor: pagination.newer_cursor,
+            hasOlder: pagination.has_older,
+            hasNewer: pagination.has_newer,
+            totalCount: pagination.total_count,
+            isLoadingOlder: false,
+          });
+          return { messages: newMessages, messagesPagination: newPagination };
+        }),
+      prependMessages: (convId, newMsgs, pagination) =>
+        set((state) => {
+          const existing = state.messages.get(convId) || [];
+          const newMessages = new Map(state.messages);
+          newMessages.set(convId, [...newMsgs, ...existing]);
+          const newPagination = new Map(state.messagesPagination);
+          newPagination.set(convId, {
+            olderCursor: pagination.older_cursor,
+            newerCursor: pagination.newer_cursor,
+            hasOlder: pagination.has_older,
+            hasNewer: pagination.has_newer,
+            totalCount: pagination.total_count,
+            isLoadingOlder: false,
+          });
+          return { messages: newMessages, messagesPagination: newPagination };
+        }),
+      appendMessage: (convId, message) =>
+        set((state) => {
+          const existing = state.messages.get(convId) || [];
+          const newMessages = new Map(state.messages);
+          newMessages.set(convId, [...existing, message]);
+          // Update total count in pagination
+          const pag = state.messagesPagination.get(convId);
+          if (pag) {
+            const newPagination = new Map(state.messagesPagination);
+            newPagination.set(convId, { ...pag, totalCount: pag.totalCount + 1 });
+            return { messages: newMessages, messagesPagination: newPagination };
+          }
+          return { messages: newMessages };
+        }),
+      clearMessages: (convId) =>
+        set((state) => {
+          const newMessages = new Map(state.messages);
+          newMessages.delete(convId);
+          const newPagination = new Map(state.messagesPagination);
+          newPagination.delete(convId);
+          return { messages: newMessages, messagesPagination: newPagination };
+        }),
+      setLoadingOlderMessages: (convId, loading) =>
+        set((state) => {
+          const pag = state.messagesPagination.get(convId);
+          if (!pag) return state;
+          const newPagination = new Map(state.messagesPagination);
+          newPagination.set(convId, { ...pag, isLoadingOlder: loading });
+          return { messagesPagination: newPagination };
+        }),
+      getMessages: (convId) => get().messages.get(convId) || [],
+      getMessagesPagination: (convId) => get().messagesPagination.get(convId),
 
       // Model actions
       setModels: (models, defaultModel) => set({ models, defaultModel }),

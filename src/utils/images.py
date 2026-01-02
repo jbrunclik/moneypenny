@@ -8,6 +8,7 @@ from typing import Any
 
 from PIL import Image, UnidentifiedImageError
 
+from src.api.schemas import ThumbnailStatus
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -115,7 +116,9 @@ def process_image_files_sync(files: list[dict[str, Any]]) -> list[dict[str, Any]
         if file.get("type", "").startswith("image/"):
             thumbnail = generate_thumbnail(file.get("data", ""), file.get("type", ""))
             file["thumbnail"] = thumbnail
-            file["thumbnail_status"] = "ready" if thumbnail else "failed"
+            file["thumbnail_status"] = (
+                ThumbnailStatus.READY.value if thumbnail else ThumbnailStatus.FAILED.value
+            )
             if thumbnail:
                 logger.debug(
                     "Thumbnail generated (sync)",

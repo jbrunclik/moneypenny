@@ -11,11 +11,42 @@ validates the structure.
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.config import Config
+
+# -----------------------------------------------------------------------------
+# Enums
+# -----------------------------------------------------------------------------
+
+
+class MessageRole(str, Enum):
+    """Role of a message sender."""
+
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class ThumbnailStatus(str, Enum):
+    """Status of thumbnail generation."""
+
+    PENDING = "pending"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class PaginationDirection(str, Enum):
+    """Direction for cursor-based pagination.
+
+    Used when fetching paginated results relative to a cursor position.
+    """
+
+    OLDER = "older"
+    NEWER = "newer"
+
 
 # -----------------------------------------------------------------------------
 # File Schema (reusable)
@@ -498,3 +529,58 @@ class ThumbnailPendingResponse(BaseModel):
     """Response when thumbnail is still being generated (202)."""
 
     status: Literal["pending"] = "pending"
+
+
+# -----------------------------------------------------------------------------
+# Pagination Response Schemas
+# -----------------------------------------------------------------------------
+
+
+class ConversationsPaginationResponse(BaseModel):
+    """Pagination info for conversations list."""
+
+    next_cursor: str | None = Field(
+        default=None, description="Cursor for fetching next page (null if no more)"
+    )
+    has_more: bool = Field(..., description="Whether there are more pages")
+    total_count: int = Field(..., description="Total number of conversations")
+
+
+class ConversationsListPaginatedResponse(BaseModel):
+    """Paginated list of conversations."""
+
+    conversations: list[ConversationResponse]
+    pagination: ConversationsPaginationResponse
+
+
+class MessagesPaginationResponse(BaseModel):
+    """Pagination info for messages list."""
+
+    older_cursor: str | None = Field(
+        default=None, description="Cursor for fetching older messages (null if at oldest)"
+    )
+    newer_cursor: str | None = Field(
+        default=None, description="Cursor for fetching newer messages (null if at newest)"
+    )
+    has_older: bool = Field(..., description="Whether there are older messages")
+    has_newer: bool = Field(..., description="Whether there are newer messages")
+    total_count: int = Field(..., description="Total number of messages in conversation")
+
+
+class ConversationDetailPaginatedResponse(BaseModel):
+    """Full conversation with paginated messages."""
+
+    id: str
+    title: str
+    model: str
+    created_at: str
+    updated_at: str
+    messages: list[MessageResponse]
+    message_pagination: MessagesPaginationResponse
+
+
+class MessagesListResponse(BaseModel):
+    """Paginated messages response (for dedicated messages endpoint)."""
+
+    messages: list[MessageResponse]
+    pagination: MessagesPaginationResponse

@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 from flask.testing import FlaskClient
 
+from src.api.schemas import ThumbnailStatus
+
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database, User
 
@@ -283,7 +285,7 @@ class TestUpdateMessageFileThumbnail:
 
         # Update the thumbnail
         success = test_database.update_message_file_thumbnail(
-            message.id, 0, thumb_base64, status="ready"
+            message.id, 0, thumb_base64, status=ThumbnailStatus.READY
         )
 
         assert success is True
@@ -341,7 +343,7 @@ class TestUpdateMessageFileThumbnail:
 
         # Update only the second file
         success = test_database.update_message_file_thumbnail(
-            message.id, 1, thumb_base64, status="ready"
+            message.id, 1, thumb_base64, status=ThumbnailStatus.READY
         )
 
         assert success is True
@@ -372,7 +374,7 @@ class TestUpdateMessageFileThumbnail:
     ) -> None:
         """Should return False for nonexistent message."""
         success = test_database.update_message_file_thumbnail(
-            "nonexistent-id", 0, "thumbnail", status="ready"
+            "nonexistent-id", 0, "thumbnail", status=ThumbnailStatus.READY
         )
 
         assert success is False
@@ -398,7 +400,7 @@ class TestUpdateMessageFileThumbnail:
 
         # Try to update index that doesn't exist
         success = test_database.update_message_file_thumbnail(
-            message.id, 99, "thumbnail", status="ready"
+            message.id, 99, "thumbnail", status=ThumbnailStatus.READY
         )
 
         assert success is False
@@ -412,7 +414,7 @@ class TestUpdateMessageFileThumbnail:
         message = test_database.add_message(test_conversation.id, "user", "No files message")
 
         success = test_database.update_message_file_thumbnail(
-            message.id, 0, "thumbnail", status="ready"
+            message.id, 0, "thumbnail", status=ThumbnailStatus.READY
         )
 
         assert success is False

@@ -134,21 +134,24 @@ describe('API Client', () => {
 
   describe('conversations', () => {
     describe('list', () => {
-      it('returns conversation list', async () => {
+      it('returns conversation list with pagination', async () => {
         const convs = [
           { id: '1', title: 'First', model: 'gemini', created_at: '', updated_at: '' },
           { id: '2', title: 'Second', model: 'gemini', created_at: '', updated_at: '' },
         ];
-        global.fetch = mockFetchResponse({ conversations: convs });
+        const pagination = { next_cursor: null, has_more: false, total_count: 2 };
+        global.fetch = mockFetchResponse({ conversations: convs, pagination });
 
         const result = await conversations.list();
 
-        expect(result).toHaveLength(2);
-        expect(result[0].title).toBe('First');
+        expect(result.conversations).toHaveLength(2);
+        expect(result.conversations[0].title).toBe('First');
+        expect(result.pagination.total_count).toBe(2);
+        expect(result.pagination.has_more).toBe(false);
       });
 
       it('includes auth header', async () => {
-        global.fetch = mockFetchResponse({ conversations: [] });
+        global.fetch = mockFetchResponse({ conversations: [], pagination: { next_cursor: null, has_more: false, total_count: 0 } });
 
         await conversations.list();
 
@@ -159,6 +162,17 @@ describe('API Client', () => {
               Authorization: 'Bearer test-token',
             }),
           })
+        );
+      });
+
+      it('passes pagination parameters', async () => {
+        global.fetch = mockFetchResponse({ conversations: [], pagination: { next_cursor: null, has_more: false, total_count: 0 } });
+
+        await conversations.list(20, 'cursor-abc');
+
+        expect(fetch).toHaveBeenCalledWith(
+          '/api/conversations?limit=20&cursor=cursor-abc',
+          expect.any(Object)
         );
       });
     });

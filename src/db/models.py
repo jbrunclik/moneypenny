@@ -12,6 +12,7 @@ from typing import Any
 
 from yoyo import get_backend, read_migrations
 
+from src.api.schemas import MessageRole, PaginationDirection, ThumbnailStatus
 from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.utils.db_helpers import execute_with_timing, init_query_logging
@@ -114,6 +115,39 @@ def delete_messages_blobs(message_ids: list[str]) -> int:
     return blob_store.delete_by_prefixes(prefixes)
 
 
+# ============================================================================
+# Cursor-Based Pagination Helpers
+# ============================================================================
+
+
+def build_cursor(timestamp: str, id: str) -> str:
+    """Build a cursor string from timestamp and id.
+
+    Format: '{timestamp}:{id}'
+    The id serves as a tie-breaker for items with the same timestamp.
+    """
+    return f"{timestamp}:{id}"
+
+
+def parse_cursor(cursor: str) -> tuple[str, str]:
+    """Parse a cursor string into (timestamp, id).
+
+    Args:
+        cursor: Cursor string in format '{timestamp}:{id}'
+
+    Returns:
+        Tuple of (timestamp, id)
+
+    Raises:
+        ValueError: If cursor format is invalid
+    """
+    # Use rsplit with maxsplit=1 to handle timestamps that contain colons
+    parts = cursor.rsplit(":", 1)
+    if len(parts) != 2:
+        raise ValueError(f"Invalid cursor format: {cursor}")
+    return parts[0], parts[1]
+
+
 def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str | None]:
     """Check if the database is accessible.
 
@@ -202,7 +236,7 @@ class Conversation:
 class Message:
     id: str
     conversation_id: str
-    role: str  # "user" or "assistant"
+    role: MessageRole
     content: str  # Plain text message
     created_at: datetime
     files: list[dict[str, Any]] = field(default_factory=list)  # File attachments
@@ -219,6 +253,20 @@ class Memory:
     category: str | None
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass
+class MessagePagination:
+    """Pagination info for messages.
+
+    Contains cursors for navigating in both directions (older and newer messages).
+    """
+
+    older_cursor: str | None  # Cursor to fetch older messages
+    newer_cursor: str | None  # Cursor to fetch newer messages
+    has_older: bool  # True if there are older messages
+    has_newer: bool  # True if there are newer messages
+    total_count: int  # Total message count in conversation
 
 
 class Database:
@@ -442,6 +490,88 @@ class Database:
                 for row in rows
             ]
 
+    def list_conversations_paginated(
+        self,
+        user_id: str,
+        limit: int = 30,
+        cursor: str | None = None,
+    ) -> tuple[list[Conversation], str | None, bool, int]:
+        """List conversations for a user with cursor-based pagination.
+
+        Returns conversations ordered by updated_at DESC (most recent first).
+        Uses cursor-based pagination with (updated_at, id) as the cursor key.
+
+        Args:
+            user_id: The user ID
+            limit: Maximum number of conversations to return
+            cursor: Optional cursor from previous page (format: '{updated_at}:{id}')
+
+        Returns:
+            Tuple of:
+            - List of Conversation objects
+            - Next cursor (None if no more pages)
+            - has_more: True if there are more pages
+            - total_count: Total number of conversations for this user
+        """
+        with self._get_conn() as conn:
+            # Get total count for this user
+            total_row = self._execute_with_timing(
+                conn,
+                "SELECT COUNT(*) as count FROM conversations WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            total_count = int(total_row["count"]) if total_row else 0
+
+            # Build the query based on cursor
+            if cursor:
+                cursor_timestamp, cursor_id = parse_cursor(cursor)
+                # Use tuple comparison for stable pagination:
+                # (updated_at, id) < (cursor_updated_at, cursor_id)
+                # This handles tie-breaking when multiple conversations have the same updated_at
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT * FROM conversations
+                       WHERE user_id = ?
+                         AND (updated_at < ? OR (updated_at = ? AND id < ?))
+                       ORDER BY updated_at DESC, id DESC
+                       LIMIT ?""",
+                    (user_id, cursor_timestamp, cursor_timestamp, cursor_id, limit + 1),
+                ).fetchall()
+            else:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT * FROM conversations
+                       WHERE user_id = ?
+                       ORDER BY updated_at DESC, id DESC
+                       LIMIT ?""",
+                    (user_id, limit + 1),
+                ).fetchall()
+
+            # Check if there are more pages
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]
+
+            # Build cursor for next page from last item
+            next_cursor = None
+            if has_more and rows:
+                last_row = rows[-1]
+                next_cursor = build_cursor(last_row["updated_at"], last_row["id"])
+
+            conversations = [
+                Conversation(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    title=row["title"],
+                    model=row["model"],
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    updated_at=datetime.fromisoformat(row["updated_at"]),
+                )
+                for row in rows
+            ]
+
+            return conversations, next_cursor, has_more, total_count
+
     def list_conversations_with_message_count(self, user_id: str) -> list[tuple[Conversation, int]]:
         """List all conversations for a user with message counts.
 
@@ -586,7 +716,7 @@ class Database:
     def add_message(
         self,
         conversation_id: str,
-        role: str,
+        role: MessageRole | str,
         content: str,
         files: list[dict[str, Any]] | None = None,
         sources: list[dict[str, str]] | None = None,
@@ -599,7 +729,7 @@ class Database:
 
         Args:
             conversation_id: The conversation ID
-            role: "user" or "assistant"
+            role: MessageRole.USER or MessageRole.ASSISTANT (also accepts "user"/"assistant" strings)
             content: Plain text message
             files: Optional list of file attachments (with 'data' and optional 'thumbnail')
             sources: Optional list of web sources (for assistant messages)
@@ -608,6 +738,9 @@ class Database:
         Returns:
             The created Message
         """
+        # Normalize role to enum if passed as string
+        if isinstance(role, str) and not isinstance(role, MessageRole):
+            role = MessageRole(role)
         msg_id = str(uuid.uuid4())
         now = datetime.now()
         files = files or []
@@ -686,7 +819,7 @@ class Database:
                 Message(
                     id=row["id"],
                     conversation_id=row["conversation_id"],
-                    role=row["role"],
+                    role=MessageRole(row["role"]),
                     content=row["content"],
                     created_at=datetime.fromisoformat(row["created_at"]),
                     files=json.loads(row["files"]) if row["files"] else [],
@@ -697,6 +830,143 @@ class Database:
                 )
                 for row in rows
             ]
+
+    def get_messages_paginated(
+        self,
+        conversation_id: str,
+        limit: int = 50,
+        cursor: str | None = None,
+        direction: PaginationDirection = PaginationDirection.OLDER,
+    ) -> tuple[list[Message], MessagePagination]:
+        """Get messages for a conversation with cursor-based pagination.
+
+        By default, returns the newest messages (no cursor) or messages
+        older/newer than the cursor position.
+
+        Args:
+            conversation_id: The conversation ID
+            limit: Maximum number of messages to return
+            cursor: Optional cursor from previous page (format: '{created_at}:{id}')
+            direction: PaginationDirection.OLDER to get messages before cursor,
+                      PaginationDirection.NEWER for after
+
+        Returns:
+            Tuple of:
+            - List of Message objects (oldest first within the returned page)
+            - MessagePagination info with cursors and flags
+        """
+        with self._get_conn() as conn:
+            # Get total count
+            total_row = self._execute_with_timing(
+                conn,
+                "SELECT COUNT(*) as count FROM messages WHERE conversation_id = ?",
+                (conversation_id,),
+            ).fetchone()
+            total_count = int(total_row["count"]) if total_row else 0
+
+            if cursor:
+                cursor_timestamp, cursor_id = parse_cursor(cursor)
+
+                if direction == PaginationDirection.OLDER:
+                    # Fetch messages OLDER than cursor (created_at < cursor_timestamp)
+                    # Order by created_at DESC to get the ones just before cursor
+                    rows = self._execute_with_timing(
+                        conn,
+                        """SELECT * FROM messages
+                           WHERE conversation_id = ?
+                             AND (created_at < ? OR (created_at = ? AND id < ?))
+                           ORDER BY created_at DESC, id DESC
+                           LIMIT ?""",
+                        (conversation_id, cursor_timestamp, cursor_timestamp, cursor_id, limit + 1),
+                    ).fetchall()
+                else:  # direction == PaginationDirection.NEWER
+                    # Fetch messages NEWER than cursor (created_at > cursor_timestamp)
+                    # Order by created_at ASC to get the ones just after cursor
+                    rows = self._execute_with_timing(
+                        conn,
+                        """SELECT * FROM messages
+                           WHERE conversation_id = ?
+                             AND (created_at > ? OR (created_at = ? AND id > ?))
+                           ORDER BY created_at ASC, id ASC
+                           LIMIT ?""",
+                        (conversation_id, cursor_timestamp, cursor_timestamp, cursor_id, limit + 1),
+                    ).fetchall()
+            else:
+                # No cursor: return newest messages (for initial load)
+                # Order by created_at DESC to get newest first, then reverse for display
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT * FROM messages
+                       WHERE conversation_id = ?
+                       ORDER BY created_at DESC, id DESC
+                       LIMIT ?""",
+                    (conversation_id, limit + 1),
+                ).fetchall()
+
+            # Check if there are more in the direction we're paginating
+            has_more_in_direction = len(rows) > limit
+            if has_more_in_direction:
+                rows = rows[:limit]
+
+            # Convert rows to Message objects
+            messages = [
+                Message(
+                    id=row["id"],
+                    conversation_id=row["conversation_id"],
+                    role=MessageRole(row["role"]),
+                    content=row["content"],
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    files=json.loads(row["files"]) if row["files"] else [],
+                    sources=json.loads(row["sources"]) if row["sources"] else None,
+                    generated_images=json.loads(row["generated_images"])
+                    if row["generated_images"]
+                    else None,
+                )
+                for row in rows
+            ]
+
+            # For display, we want messages in chronological order (oldest first)
+            # When loading older or initial (newest first in query), we need to reverse
+            if not cursor or direction == PaginationDirection.OLDER:
+                messages = list(reversed(messages))
+
+            # Build pagination info
+            if messages:
+                # The oldest message in results becomes the "older_cursor"
+                first_msg = messages[0]
+                older_cursor = build_cursor(first_msg.created_at.isoformat(), first_msg.id)
+
+                # The newest message in results becomes the "newer_cursor"
+                last_msg = messages[-1]
+                newer_cursor = build_cursor(last_msg.created_at.isoformat(), last_msg.id)
+            else:
+                older_cursor = None
+                newer_cursor = None
+
+            # Determine has_older and has_newer
+            if not cursor:
+                # Initial load (newest messages): has_older if we got more, has_newer is False
+                has_older = has_more_in_direction
+                has_newer = False
+            elif direction == PaginationDirection.OLDER:
+                # Loading older: has_older if we got more, need to check has_newer separately
+                has_older = has_more_in_direction
+                # There are newer messages if we had a cursor (we came from somewhere)
+                has_newer = True
+            else:  # direction == PaginationDirection.NEWER
+                # Loading newer: has_newer if we got more, has_older is True (we came from somewhere)
+                has_newer = has_more_in_direction
+                has_older = True
+
+            pagination = MessagePagination(
+                older_cursor=older_cursor if has_older else None,
+                newer_cursor=newer_cursor if has_newer else None,
+                has_older=has_older,
+                has_newer=has_newer,
+                total_count=total_count,
+            )
+
+            return messages, pagination
 
     def get_message_by_id(self, message_id: str) -> Message | None:
         """Get a single message by its ID."""
@@ -713,7 +983,7 @@ class Database:
             return Message(
                 id=row["id"],
                 conversation_id=row["conversation_id"],
-                role=row["role"],
+                role=MessageRole(row["role"]),
                 content=row["content"],
                 created_at=datetime.fromisoformat(row["created_at"]),
                 files=json.loads(row["files"]) if row["files"] else [],
@@ -724,7 +994,11 @@ class Database:
             )
 
     def update_message_file_thumbnail(
-        self, message_id: str, file_index: int, thumbnail: str | None, status: str = "ready"
+        self,
+        message_id: str,
+        file_index: int,
+        thumbnail: str | None,
+        status: ThumbnailStatus = ThumbnailStatus.READY,
     ) -> bool:
         """Update thumbnail for a specific file in a message.
 
@@ -736,14 +1010,14 @@ class Database:
             message_id: ID of the message
             file_index: Index of the file in the files array
             thumbnail: Base64-encoded thumbnail data (or None if generation failed)
-            status: "ready" or "failed"
+            status: ThumbnailStatus.READY or ThumbnailStatus.FAILED
 
         Returns:
             True if updated successfully, False if message not found or index out of range
         """
         logger.debug(
             "Updating message file thumbnail",
-            extra={"message_id": message_id, "file_index": file_index, "status": status},
+            extra={"message_id": message_id, "file_index": file_index, "status": status.value},
         )
 
         with self._get_conn() as conn:
@@ -790,13 +1064,13 @@ class Database:
                         "Failed to save thumbnail to blob store",
                         extra={"message_id": message_id, "file_index": file_index},
                     )
-                    status = "failed"
+                    status = ThumbnailStatus.FAILED
                     files[file_index]["has_thumbnail"] = False
             else:
                 files[file_index]["has_thumbnail"] = False
 
             # Update status in metadata (no longer storing thumbnail in JSON)
-            files[file_index]["thumbnail_status"] = status
+            files[file_index]["thumbnail_status"] = status.value
 
             # Save back to database
             self._execute_with_timing(
@@ -808,7 +1082,7 @@ class Database:
 
             logger.debug(
                 "Message file thumbnail updated",
-                extra={"message_id": message_id, "file_index": file_index, "status": status},
+                extra={"message_id": message_id, "file_index": file_index, "status": status.value},
             )
             return True
 

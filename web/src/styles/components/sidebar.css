@@ -301,3 +301,28 @@
         display: inline-flex;
     }
 }
+
+/* ----------------------------------------
+   Load More Indicator (Infinite Scroll)
+   ---------------------------------------- */
+
+.conversations-load-more {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-4);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.conversations-load-more.loading {
+    opacity: 1;
+}
+
+.loading-spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: var(--radius-full);
+    animation: spin 0.8s linear infinite;
+}

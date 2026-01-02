@@ -113,7 +113,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Create design system / color palette** - Consolidated colors into variables.css with semantic naming (--color-neutral-*, --color-brand-*, --color-success-*, etc.). Split CSS into modular files: variables.css, base.css, layout.css, components/*.css. See "CSS Architecture" section in CLAUDE.md.
 
 ### 🟢 Database
-- [ ] **Pagination for conversations** - Add pagination to conversations list endpoint for users with many conversations
+- [x] **Pagination for conversations and messages** - Implemented cursor-based pagination for conversations list (`GET /api/conversations` with limit/cursor params) and messages (`GET /api/conversations/<id>` and `/messages` with limit/cursor/direction params). Frontend has infinite scroll in sidebar with dynamic page size calculation based on viewport. See "Cursor-Based Pagination" section in CLAUDE.md.
 - [ ] **Add database backup automation** - Automated daily backups of SQLite database
 - [ ] **Add database connection pooling** - Each operation creates a new connection. Consider pooling for better performance under load
 - [x] **Add database indexes** - Add indexes on frequently queried columns (conversations.user_id, messages.conversation_id, etc.)
