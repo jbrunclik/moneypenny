@@ -525,18 +525,24 @@ class Database:
                 for row in rows
             ]
 
+    # Whitelist of allowed columns for update_conversation to prevent SQL injection
+    _CONVERSATION_UPDATE_COLUMNS = frozenset({"title", "model"})
+
     def update_conversation(
         self, conv_id: str, user_id: str, title: str | None = None, model: str | None = None
     ) -> bool:
         updates: list[str] = ["updated_at = ?"]
         params: list[Any] = [datetime.now().isoformat()]
 
-        if title is not None:
-            updates.append("title = ?")
-            params.append(title)
-        if model is not None:
-            updates.append("model = ?")
-            params.append(model)
+        # Map parameter names to their values (only include non-None values)
+        column_values = {"title": title, "model": model}
+
+        for column, value in column_values.items():
+            if value is not None:
+                if column not in self._CONVERSATION_UPDATE_COLUMNS:
+                    raise ValueError(f"Invalid column for update: {column}")
+                updates.append(f"{column} = ?")
+                params.append(value)
 
         params.extend([conv_id, user_id])
 

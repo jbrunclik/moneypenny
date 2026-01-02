@@ -2500,7 +2500,8 @@ CREATE INDEX idx_conversations_user_id_updated_at ON conversations(user_id, upda
 
 **Query Patterns in This Codebase:**
 - All queries go through `_execute_with_timing()` for automatic slow query detection
-- Use parameterized queries (`?` placeholders) - never string concatenation
+- Use parameterized queries (`?` placeholders) - never string concatenation for VALUES
+- **Dynamic column names**: If you must build SQL with dynamic column names (e.g., for UPDATE statements), use a whitelist. See `_CONVERSATION_UPDATE_COLUMNS` in [models.py](src/db/models.py) for the pattern
 - Keep queries in [models.py](src/db/models.py) - don't write SQL in routes
 - Return dataclasses (`User`, `Conversation`, `Message`) from database methods
 

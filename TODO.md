@@ -86,7 +86,7 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Add request size limits** - Enforce request body size limits in Flask to prevent DoS. Set `app.config['MAX_CONTENT_LENGTH']`
 - [ ] **Add CORS configuration** - Explicitly configure CORS if needed for cross-origin requests
 - [ ] **Add rate limiting** - Add Flask-Limiter or similar to prevent abuse/DoS
-- [ ] **Whitelist columns in update_conversation()** - Dynamic SQL building in `models.py:576` uses f-string for column names. Low risk (hardcoded values), but whitelist would be cleaner
+- [x] **Whitelist columns in update_conversation()** - Added `_CONVERSATION_UPDATE_COLUMNS` frozenset in `models.py` to validate column names before building SQL. Raises `ValueError` for invalid columns
 - [x] **Add server-side file type validation** - File upload validates content via magic bytes (python-magic). Prevents MIME type spoofing for images/PDF. Text-based formats (text/plain, json, csv, markdown) skip magic validation as libmagic detection is unreliable for these.
 - [x] **Improve JWT token handling** - Added token refresh mechanism (proactive refresh when 2 days remain) and enforced minimum secret length (32+ chars in production)
 
