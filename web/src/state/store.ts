@@ -248,13 +248,29 @@ export const useStore = create<AppState>()(
           },
         })),
       addConversation: (conversation) =>
-        set((state) => ({
-          conversations: [conversation, ...state.conversations],
-          conversationsPagination: {
-            ...state.conversationsPagination,
-            totalCount: state.conversationsPagination.totalCount + 1,
-          },
-        })),
+        set((state) => {
+          // Insert conversation at correct sorted position (by updated_at DESC)
+          // This ensures conversations discovered via sync appear in correct order
+          // Use <= so that conversations with same timestamp are prepended (newer first)
+          const newConvs = [...state.conversations];
+          const insertIndex = newConvs.findIndex(
+            (c) => c.updated_at <= conversation.updated_at
+          );
+          if (insertIndex === -1) {
+            // No conversation is older or equal, append at end
+            newConvs.push(conversation);
+          } else {
+            // Insert before the first older-or-equal conversation
+            newConvs.splice(insertIndex, 0, conversation);
+          }
+          return {
+            conversations: newConvs,
+            conversationsPagination: {
+              ...state.conversationsPagination,
+              totalCount: state.conversationsPagination.totalCount + 1,
+            },
+          };
+        }),
       updateConversation: (id, updates) =>
         set((state) => ({
           conversations: state.conversations.map((c) =>

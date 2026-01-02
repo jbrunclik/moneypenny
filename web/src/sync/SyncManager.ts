@@ -44,6 +44,12 @@ export class SyncManager {
   private callbacks: SyncManagerCallbacks;
 
   /**
+   * Tracks when SyncManager first started (initial page load time).
+   * Used to distinguish pagination-discovered conversations from actually new ones.
+   */
+  private initialLoadTime: string | null = null;
+
+  /**
    * Tracks the message count we last knew about for each conversation.
    * Used to calculate unread counts.
    */
@@ -83,6 +89,7 @@ export class SyncManager {
     }
 
     // Perform initial full sync
+    // Note: initialLoadTime is set during fullSync() before applying results
     await this.fullSync();
 
     // Start polling
@@ -91,7 +98,10 @@ export class SyncManager {
     // Listen for visibility changes
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
 
-    log.debug('SyncManager started', { lastSyncTime: this.lastSyncTime });
+    log.debug('SyncManager started', {
+      lastSyncTime: this.lastSyncTime,
+      initialLoadTime: this.initialLoadTime,
+    });
   }
 
   /**
@@ -109,6 +119,7 @@ export class SyncManager {
 
     this.lastSyncTime = null;
     this.lastHiddenTime = null;
+    this.initialLoadTime = null;
     this.localMessageCounts.clear();
     this.streamingConversations.clear();
     this.isSyncing = false;
@@ -130,6 +141,14 @@ export class SyncManager {
     try {
       const result = await conversationsApi.sync(null, true);
       this.lastSyncTime = result.server_time;
+
+      // Set initialLoadTime on first full sync (before applying results)
+      // This allows us to distinguish pagination-discovered vs actually new conversations
+      if (!this.initialLoadTime) {
+        this.initialLoadTime = result.server_time;
+        log.debug('Initial load time established', { initialLoadTime: this.initialLoadTime });
+      }
+
       this.applyFullSync(result.conversations);
       log.info('Full sync completed', {
         conversationCount: result.conversations.length,
@@ -280,10 +299,38 @@ export class SyncManager {
           hasExternalUpdate,
         });
       } else {
-        // New conversation from another device
-        log.info('New conversation from another device', {
-          conversationId: serverConv.id,
-        });
+        // New conversation discovered via sync. Distinguish between:
+        // 1. Pagination-discovered: Older conversations that weren't in initial page load
+        // 2. Actually new: Created/updated after initial page load (e.g., on another device)
+        const isPaginationDiscovered = this.isPaginationDiscovered(
+          serverConv.updated_at,
+          isFullSync
+        );
+
+        // For actually new conversations, show unread badge with message count
+        // For pagination-discovered, no badge (user just hasn't scrolled to see it yet)
+        const unreadCount = isPaginationDiscovered ? 0 : serverConv.message_count;
+
+        if (isPaginationDiscovered) {
+          log.info('Pagination-discovered conversation (not unread)', {
+            conversationId: serverConv.id,
+            updated_at: serverConv.updated_at,
+          });
+          // Initialize localMessageCount to server's count to prevent false unread on future syncs
+          this.localMessageCounts.set(serverConv.id, serverConv.message_count);
+        } else {
+          log.info('Actually new conversation discovered via sync (showing unread badge)', {
+            conversationId: serverConv.id,
+            updated_at: serverConv.updated_at,
+            messageCount: serverConv.message_count,
+          });
+          // For actually new conversations, initialize to 0 so unread count is correct
+          // (unreadCount = serverCount - localCount = serverCount - 0 = serverCount)
+          // Don't update this in the shouldUpdateLocalCount block below - we want to preserve
+          // the 0 value until the user views the conversation
+          this.localMessageCounts.set(serverConv.id, 0);
+        }
+
         store.addConversation({
           id: serverConv.id,
           title: serverConv.title,
@@ -297,12 +344,15 @@ export class SyncManager {
       }
 
       // Update local message count tracking
-      // - On full sync: always update (establishing baseline)
+      // - On full sync: always update (establishing baseline), EXCEPT for actually new conversations
+      //   that were just initialized to 0 (we want to preserve 0 until user views it)
       // - On incremental sync for current conv: don't update (user might have sent messages)
       // - On incremental sync for non-current conv with unread: don't update (preserve unread state)
       // - On incremental sync for non-current conv without unread: update (no state to preserve)
+      const currentLocalCount = this.localMessageCounts.get(serverConv.id) ?? 0;
+      const isActuallyNewConversation = !existing && currentLocalCount === 0 && serverConv.message_count > 0;
       const shouldUpdateLocalCount =
-        isFullSync || (!isCurrentConv && unreadCount === 0);
+        (isFullSync && !isActuallyNewConversation) || (!isCurrentConv && unreadCount === 0);
       if (shouldUpdateLocalCount) {
         this.localMessageCounts.set(serverConv.id, serverConv.message_count);
       }
@@ -400,6 +450,66 @@ export class SyncManager {
       }
       this.schedulePoll();
     }, SYNC_POLL_INTERVAL_MS);
+  }
+
+  /**
+   * Determine if a conversation was discovered via pagination (not actually new).
+   *
+   * Uses server time comparison to avoid clock skew issues. For full syncs: Compares
+   * updated_at (server time) to initialLoadTime (server time from first sync). If older,
+   * it's pagination discovery. For incremental syncs: All conversations are genuinely
+   * new (filtered by since timestamp, which is also server time).
+   *
+   * @param updatedAt ISO timestamp of when conversation was last updated (server time)
+   * @param isFullSync Whether this is a full sync operation
+   * @returns true if conversation is pagination-discovered, false if actually new
+   */
+  private isPaginationDiscovered(updatedAt: string, isFullSync: boolean): boolean {
+    // Incremental syncs only return conversations updated since lastSyncTime (server time),
+    // so they're all genuinely new
+    if (!isFullSync) {
+      return false;
+    }
+
+    // For full syncs, we need initialLoadTime (server time) to compare
+    if (!this.initialLoadTime) {
+      // If we don't have initialLoadTime yet (first sync), we can't distinguish.
+      // Default to treating as pagination-discovered to be safe (no false unread badges).
+      // This handles the case where conversations are discovered during the initial full sync
+      // before we've established the baseline timestamp.
+      return true;
+    }
+
+    // Compare server timestamps: if updated_at is older than initialLoadTime,
+    // it's pagination discovery (existed before initial page load)
+    // Both timestamps are server time, so no clock skew issues
+    try {
+      const updatedDate = new Date(updatedAt);
+      const initialDate = new Date(this.initialLoadTime);
+
+      // Check for invalid dates (new Date() doesn't throw, returns Invalid Date)
+      if (isNaN(updatedDate.getTime()) || isNaN(initialDate.getTime())) {
+        log.warn('Invalid timestamp for pagination detection', {
+          updatedAt,
+          initialLoadTime: this.initialLoadTime,
+        });
+        return true; // Default to pagination-discovered to be safe
+      }
+
+      // If updated_at is older than initial load time, it's pagination discovery
+      // Add a small buffer (1 minute) to account for timing differences between
+      // when the conversation was last updated and when the initial page load happened
+      const bufferMs = 60 * 1000; // 1 minute
+      return updatedDate.getTime() < (initialDate.getTime() - bufferMs);
+    } catch (error) {
+      // If timestamp parsing fails, default to pagination-discovered to be safe
+      log.warn('Failed to parse timestamp for pagination detection', {
+        updatedAt,
+        initialLoadTime: this.initialLoadTime,
+        error,
+      });
+      return true;
+    }
   }
 }
 

@@ -1321,6 +1321,12 @@ The SyncManager handles several race conditions:
 4. **Message boundary**: Server returns `server_time` that becomes next sync's `since` param
 5. **Streaming completion race**: When streaming completes, the local message count must be incremented BEFORE clearing the streaming flag. This prevents a race where sync happens between clearing the flag and incrementing the count, which would cause a false "new messages available" banner
 6. **Pagination count mismatch**: When opening an existing conversation with pagination, use `message_pagination.total_count` (NOT `conv.messages.length`) to set the baseline message count. Using the paginated subset count would cause false external update detection after streaming
+7. **Paginated fullSync discovery**: When fullSync returns conversations beyond the initial paginated load (e.g., user's 50th conversation when only 30 were loaded), these are NOT "unread" - they're newly discovered. The SyncManager initializes `localMessageCounts` to the server's count for these conversations, preventing false unread badges. The store's `addConversation()` inserts at the correct sorted position (by `updated_at` DESC) rather than prepending
+8. **Pagination-discovered vs actually new distinction**: The SyncManager distinguishes between two types of newly discovered conversations:
+   - **Pagination-discovered**: Older conversations that existed before the initial page load but weren't in the initial paginated results (identified by `updated_at < initialLoadTime - 1 minute buffer`). These get `unreadCount: 0` (no badge) since the user just hasn't scrolled to see them yet.
+   - **Actually new**: Conversations created/updated after the initial page load (e.g., on another device, identified by `updated_at >= initialLoadTime - 1 minute buffer`). These get `unreadCount: message_count` (shows badge with message count) to indicate new messages from another device.
+   - The distinction uses server time comparison (`updated_at` and `initialLoadTime` are both server time) to avoid clock skew issues. The `initialLoadTime` is set to the server time from the first full sync, with a 1-minute buffer to account for timing differences
+9. **Actually new conversation localMessageCount preservation**: When an actually new conversation is discovered, `localMessageCount` is initialized to `0` (user hasn't seen any messages). The `shouldUpdateLocalCount` logic must NOT overwrite this `0` value during full sync, even though full syncs normally update all local counts. This ensures that when more messages arrive for an actually new conversation before the user views it, the unread count correctly shows the total (all messages unread), not just the new ones. The fix detects actually new conversations by checking `!existing && currentLocalCount === 0 && serverConv.message_count > 0` and excludes them from the full sync update logic
 
 **Critical ordering in `sendStreamingMessage()` finally block:**
 ```typescript
@@ -1364,7 +1370,13 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
 ### Testing
 
 - Backend: [test_routes_sync.py](tests/integration/test_routes_sync.py) - Integration tests for sync endpoint
-- Frontend: [sync-manager.test.ts](web/tests/unit/sync-manager.test.ts) - SyncManager unit tests
+- Frontend: [sync-manager.test.ts](web/tests/unit/sync-manager.test.ts) - SyncManager unit tests with comprehensive coverage:
+  - Pagination-discovered vs actually new distinction (boundary cases, timestamp parsing errors)
+  - `initialLoadTime` preservation across multiple full syncs
+  - Incremental sync always treats conversations as actually new
+  - Unread count updates for actually new conversations when more messages arrive (race condition)
+  - Unread count updates for pagination-discovered conversations when more messages arrive
+  - Pagination count mismatch bug (using total_count vs paginated count)
 - E2E: [sync.spec.ts](web/tests/e2e/sync.spec.ts) - Multi-tab and visibility scenarios
 - Visual: [chat.visual.ts](web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge, banner)
 
