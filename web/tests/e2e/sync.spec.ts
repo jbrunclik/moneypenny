@@ -515,6 +515,133 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
   });
 });
 
+test.describe('Sync - Streaming Active', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Enable streaming for this test
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'false') {
+      await streamBtn.click();
+    }
+  });
+
+  test('does NOT show new messages banner during active streaming when sync happens', async ({ page }) => {
+    // This test reproduces the bug where the sync would show "new messages available"
+    // while streaming is active because the user message is already saved to DB
+    // but the streaming flag should prevent sync from treating it as external update
+
+    // Create a conversation first
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Now send another message - this will stream
+    await page.fill('#message-input', 'Second message that triggers streaming');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start (streaming message element should appear)
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+
+    // While streaming is active, simulate a visibility change (tab focus/unfocus)
+    // This triggers sync, which should NOT show the banner because conversation is marked as streaming
+    await page.evaluate(() => {
+      // Simulate tab becoming hidden
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Small delay
+    await page.waitForTimeout(100);
+
+    // Simulate tab becoming visible again
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Give sync time to complete
+    await page.waitForTimeout(500);
+
+    // The "new messages available" banner should NOT appear during streaming
+    const banner = page.locator('.new-messages-banner');
+    await expect(banner).toHaveCount(0);
+
+    // Wait for streaming to complete
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 30000 });
+
+    // After streaming completes, banner should still not appear (we're viewing the conversation)
+    await expect(banner).toHaveCount(0);
+  });
+
+  test('does NOT show new messages banner during streaming even with scroll', async ({ page }) => {
+    // This tests the scenario where user scrolls up during streaming
+    // The sync should still not show the banner
+
+    // Create a conversation with some messages
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    await page.fill('#message-input', 'Second message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant >> nth=1', { timeout: 10000 });
+
+    // Now send another message that will stream
+    await page.fill('#message-input', 'Third message that triggers streaming');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+
+    // Scroll up while streaming
+    const messagesContainer = page.locator('#messages');
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+
+    // Trigger sync via visibility change
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await page.waitForTimeout(100);
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Give sync time to complete
+    await page.waitForTimeout(500);
+
+    // Banner should NOT appear even when scrolled up during streaming
+    const banner = page.locator('.new-messages-banner');
+    await expect(banner).toHaveCount(0);
+  });
+});
+
 test.describe('Sync - Visibility Change', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

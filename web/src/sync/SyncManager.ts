@@ -257,6 +257,12 @@ export class SyncManager {
         if (isCurrentConv) {
           // User is viewing this conversation - mark as external update
           hasExternalUpdate = true;
+          log.info('External update detected for current conversation', {
+            conversationId: serverConv.id,
+            serverMessageCount: serverConv.message_count,
+            localMessageCount: localCount,
+            isStreaming: this.streamingConversations.has(serverConv.id),
+          });
           this.callbacks.onCurrentConversationExternalUpdate(serverConv.message_count);
         } else {
           // User is not viewing - count as unread
@@ -341,10 +347,16 @@ export class SyncManager {
   setConversationStreaming(convId: string, isStreaming: boolean): void {
     if (isStreaming) {
       this.streamingConversations.add(convId);
-      log.debug('Conversation marked as streaming', { conversationId: convId });
+      log.debug('Conversation marked as streaming', {
+        conversationId: convId,
+        allStreaming: Array.from(this.streamingConversations),
+      });
     } else {
       this.streamingConversations.delete(convId);
-      log.debug('Conversation streaming completed', { conversationId: convId });
+      log.debug('Conversation streaming completed', {
+        conversationId: convId,
+        allStreaming: Array.from(this.streamingConversations),
+      });
     }
   }
 

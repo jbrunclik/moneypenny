@@ -656,5 +656,267 @@ describe('SyncManager', () => {
       expect(updated2?.title).toBe('Updated 2');
       expect(updated2?.messageCount).toBe(8);
     });
+
+    it('does NOT trigger external update callback when current conversation is streaming', async () => {
+      // This tests the specific scenario: user is viewing a conversation, streaming is active,
+      // sync happens and sees new message count. Should NOT show "new messages available" banner.
+      const conv = createConversation('conv-1', 'Test', 5);
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+      syncManager.markConversationRead('conv-1', 5);
+
+      // Mark conversation as streaming (simulates user sent a message, streaming response)
+      syncManager.setConversationStreaming('conv-1', true);
+
+      // Server reports increased message count (user message was saved to DB)
+      // This is the exact scenario that was causing false "new messages" banners
+      mockSync.mockResolvedValue({
+        conversations: [createConversationSummary('conv-1', 'Test', 6)],
+        server_time: '2024-01-01T12:00:00Z',
+        is_full_sync: false,
+      });
+
+      await syncManager.incrementalSync();
+
+      // External update callback should NOT have been called
+      expect(callbacks.onCurrentConversationExternalUpdate).not.toHaveBeenCalled();
+
+      // Conversation state should not have changed (streaming skip)
+      const updated = useStore.getState().conversations.find((c) => c.id === 'conv-1');
+      expect(updated?.messageCount).toBe(5); // Still 5, not updated
+      expect(updated?.hasExternalUpdate).toBeFalsy();
+    });
+
+    it('does NOT trigger external update callback during visibility change while streaming', async () => {
+      // Same as above but triggered by visibility change (tab refocus)
+      const conv = createConversation('conv-1', 'Test', 5);
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      const serverTime = '2024-01-01T00:00:00Z';
+      mockSync.mockResolvedValue({
+        conversations: [createConversationSummary('conv-1', 'Test', 5)],
+        server_time: serverTime,
+        is_full_sync: true,
+      });
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+      syncManager.markConversationRead('conv-1', 5);
+
+      // Mark conversation as streaming
+      syncManager.setConversationStreaming('conv-1', true);
+
+      mockSync.mockClear();
+      vi.mocked(callbacks.onCurrentConversationExternalUpdate).mockClear();
+
+      // Simulate visibility change (short duration = incremental sync)
+      mockSync.mockResolvedValue({
+        conversations: [createConversationSummary('conv-1', 'Test', 6)],
+        server_time: '2024-01-01T12:00:00Z',
+        is_full_sync: false,
+      });
+
+      // Simulate tab becoming hidden briefly
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        writable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      // Short delay
+      vi.advanceTimersByTime(1000);
+
+      // Simulate tab becoming visible again
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        writable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      await vi.runOnlyPendingTimersAsync();
+
+      // External update callback should NOT have been called during streaming
+      expect(callbacks.onCurrentConversationExternalUpdate).not.toHaveBeenCalled();
+    });
+
+    it('does NOT trigger external update when message count incremented before clearing streaming flag', async () => {
+      // This tests the race condition fix: when streaming completes, the message count
+      // must be incremented BEFORE clearing the streaming flag. Otherwise, if sync happens
+      // between clearing flag and incrementing count, it sees old local count vs new server
+      // count and incorrectly shows "new messages available" banner.
+
+      const conv = createConversation('conv-1', 'Test', 5);
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+      syncManager.markConversationRead('conv-1', 5);
+
+      // Mark conversation as streaming (user sent message)
+      syncManager.setConversationStreaming('conv-1', true);
+
+      // Streaming completes - increment count FIRST (simulates fix in finally block)
+      syncManager.incrementLocalMessageCount('conv-1', 2); // User msg + assistant msg = 7 now
+      // THEN clear streaming flag
+      syncManager.setConversationStreaming('conv-1', false);
+
+      // Sync happens immediately after streaming completes
+      // Server reports 7 messages (user msg + assistant msg added)
+      mockSync.mockResolvedValue({
+        conversations: [createConversationSummary('conv-1', 'Test', 7)],
+        server_time: '2024-01-01T12:00:00Z',
+        is_full_sync: false,
+      });
+
+      await syncManager.incrementalSync();
+
+      // Should NOT trigger external update callback - counts match!
+      expect(callbacks.onCurrentConversationExternalUpdate).not.toHaveBeenCalled();
+
+      // Conversation should be up to date
+      const updated = useStore.getState().conversations.find((c: Conversation) => c.id === 'conv-1');
+      expect(updated?.messageCount).toBe(7);
+      expect(updated?.hasExternalUpdate).toBeFalsy();
+      expect(updated?.unreadCount).toBe(0);
+    });
+
+    it('WOULD trigger external update if count incremented AFTER clearing streaming flag (race condition)', async () => {
+      // This test demonstrates the bug scenario: if we clear streaming flag BEFORE incrementing
+      // the local count, a sync happening in between would see mismatched counts.
+      // This is kept as a documentation test to show why the fix order matters.
+
+      const conv = createConversation('conv-1', 'Test', 5);
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+      syncManager.markConversationRead('conv-1', 5);
+
+      // Mark conversation as streaming (user sent message)
+      syncManager.setConversationStreaming('conv-1', true);
+
+      // BUG SCENARIO: Clear streaming flag FIRST (wrong order!)
+      syncManager.setConversationStreaming('conv-1', false);
+
+      // Sync happens BEFORE incrementLocalMessageCount gets called
+      // Server reports 7 messages but local count is still 5
+      mockSync.mockResolvedValue({
+        conversations: [createConversationSummary('conv-1', 'Test', 7)],
+        server_time: '2024-01-01T12:00:00Z',
+        is_full_sync: false,
+      });
+
+      await syncManager.incrementalSync();
+
+      // This WOULD trigger the external update (the bug!)
+      expect(callbacks.onCurrentConversationExternalUpdate).toHaveBeenCalledWith(7);
+
+      // Now increment count (too late, banner already shown)
+      syncManager.incrementLocalMessageCount('conv-1', 2);
+    });
+  });
+
+  describe('pagination scenario handling', () => {
+    it('uses correct total count when marking conversation as read (not paginated count)', async () => {
+      // This tests the critical pagination bug: when opening an existing conversation
+      // with pagination, we must use the TOTAL message count from the API response,
+      // not the length of the paginated messages array.
+      //
+      // Scenario:
+      // 1. Conversation has 100 messages on server
+      // 2. Pagination returns only 50 messages
+      // 3. If we call markConversationRead(convId, 50) - WRONG!
+      // 4. After streaming adds 2 messages and server has 102, sync sees:
+      //    - localCount: 52 (50 + 2 from streaming)
+      //    - serverCount: 102
+      //    - Difference detected -> false "new messages" banner!
+      //
+      // Correct behavior: markConversationRead(convId, 100) - using total_count
+
+      const conv = createConversation('conv-1', 'Test', 100);
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      mockSync.mockResolvedValue(
+        createSyncResponse([createConversationSummary('conv-1', 'Test', 100)])
+      );
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+
+      // CORRECT: Mark as read with TOTAL count (100), not paginated count (50)
+      syncManager.markConversationRead('conv-1', 100);
+
+      // User sends a message, streaming begins
+      syncManager.setConversationStreaming('conv-1', true);
+
+      // Streaming completes - increment count FIRST
+      syncManager.incrementLocalMessageCount('conv-1', 2); // Now 102 local
+      // THEN clear streaming flag
+      syncManager.setConversationStreaming('conv-1', false);
+
+      // Sync happens - server reports 102 messages
+      mockSync.mockResolvedValue({
+        conversations: [createConversationSummary('conv-1', 'Test', 102)],
+        server_time: '2024-01-01T12:00:00Z',
+        is_full_sync: false,
+      });
+
+      await syncManager.incrementalSync();
+
+      // Should NOT trigger external update - counts match (102 == 102)
+      expect(callbacks.onCurrentConversationExternalUpdate).not.toHaveBeenCalled();
+
+      const updated = useStore.getState().conversations.find((c: Conversation) => c.id === 'conv-1');
+      expect(updated?.messageCount).toBe(102);
+      expect(updated?.hasExternalUpdate).toBeFalsy();
+    });
+
+    it('WOULD show false banner if paginated count used instead of total (documents the bug)', async () => {
+      // This test documents the bug that occurred before the fix:
+      // Using conv.messages.length (paginated) instead of total_count
+
+      const conv = createConversation('conv-1', 'Test', 100);
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      mockSync.mockResolvedValue(
+        createSyncResponse([createConversationSummary('conv-1', 'Test', 100)])
+      );
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+
+      // BUG: Mark as read with PAGINATED count (50) instead of total (100)
+      syncManager.markConversationRead('conv-1', 50);
+
+      // User sends a message, streaming begins
+      syncManager.setConversationStreaming('conv-1', true);
+
+      // Streaming completes correctly
+      syncManager.incrementLocalMessageCount('conv-1', 2); // Now 52 local (WRONG baseline!)
+      syncManager.setConversationStreaming('conv-1', false);
+
+      // Sync happens - server reports 102 messages
+      mockSync.mockResolvedValue({
+        conversations: [createConversationSummary('conv-1', 'Test', 102)],
+        server_time: '2024-01-01T12:00:00Z',
+        is_full_sync: false,
+      });
+
+      await syncManager.incrementalSync();
+
+      // BUG MANIFESTS: External update triggered because 102 > 52
+      expect(callbacks.onCurrentConversationExternalUpdate).toHaveBeenCalledWith(102);
+
+      const updated = useStore.getState().conversations.find((c: Conversation) => c.id === 'conv-1');
+      expect(updated?.hasExternalUpdate).toBe(true);
+    });
   });
 });

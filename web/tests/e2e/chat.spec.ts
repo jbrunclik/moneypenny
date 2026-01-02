@@ -960,6 +960,145 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     // Should be within threshold of bottom
     expect(distanceFromBottom).toBeLessThan(150);
   });
+
+  test('scroll position is maintained when scrolling up during active token streaming', async ({ page }) => {
+    // This test verifies the fix for the race condition where:
+    // - User scrolls up during streaming
+    // - Tokens arrive faster than the debounce period
+    // - Without the fix, auto-scroll would override the user's scroll position
+    //
+    // The fix makes scroll-up detection immediate (no debounce) to prevent this race condition
+
+    // First, create some messages to have scrollable content
+    // Disable streaming temporarily for faster setup
+    const streamBtn = page.locator('#stream-btn');
+    await streamBtn.click(); // Disable streaming
+
+    for (let i = 0; i < 3; i++) {
+      await page.fill('#message-input', `Setup message ${i + 1}`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+    }
+
+    // Re-enable streaming
+    await streamBtn.click();
+
+    const messagesContainer = page.locator('#messages');
+
+    // Send a message to start streaming
+    await page.fill('#message-input', 'Tell me a very long story');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start (assistant message appears)
+    const assistantMessage = page.locator('.message.assistant').last();
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Wait for some content to arrive (so there's something to scroll away from)
+    await page.waitForTimeout(100);
+
+    // Scroll to the top to read the beginning of the message
+    // Use scrollTo() which more reliably triggers scroll events across browsers
+    await messagesContainer.evaluate((el) => {
+      el.scrollTo({ top: 0, behavior: 'instant' });
+    });
+
+    // Wait for the scroll event to be processed by our scroll listener
+    // This is necessary because scroll events are asynchronous and webkit
+    // may process them differently than chromium
+    await page.waitForTimeout(50);
+
+    // Record the scroll position
+    const scrollTopAfterUserScroll = await messagesContainer.evaluate((el) => el.scrollTop);
+    expect(scrollTopAfterUserScroll).toBe(0);
+
+    // Wait for more tokens to arrive while we're scrolled up
+    // Without the fix, these tokens would trigger auto-scroll and bring us back to bottom
+    await page.waitForTimeout(200);
+
+    // Verify we're still at the position we scrolled to (not brought back to bottom)
+    const scrollTopAfterTokens = await messagesContainer.evaluate((el) => el.scrollTop);
+
+    // We should still be near the top (allowing some tolerance for layout changes)
+    // The key assertion: we should NOT have been scrolled to the bottom
+    expect(scrollTopAfterTokens).toBeLessThan(100);
+
+    // Wait for streaming to complete
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // After streaming completes, verify we're still near where we scrolled to
+    const scrollTopAfterComplete = await messagesContainer.evaluate((el) => el.scrollTop);
+    expect(scrollTopAfterComplete).toBeLessThan(100);
+  });
+
+  test('rapid scrolling during streaming does not cause flicker or unexpected scroll jumps', async ({ page }) => {
+    // This test verifies that the scroll behavior is smooth and predictable
+    // when the user scrolls multiple times during streaming
+
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+
+    // First, create some messages to have scrollable content
+    await streamBtn.click(); // Disable streaming temporarily
+    for (let i = 0; i < 2; i++) {
+      await page.fill('#message-input', `Setup message ${i + 1}`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+    }
+    await streamBtn.click(); // Re-enable streaming
+
+    const messagesContainer = page.locator('#messages');
+
+    // Send a message to start streaming
+    await page.fill('#message-input', 'Tell me a story');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start
+    const assistantMessage = page.locator('.message.assistant').last();
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Perform rapid scroll up/down movements during streaming
+    // This simulates a user browsing during an active stream
+    // Use scrollTo() which more reliably triggers scroll events across browsers
+    for (let i = 0; i < 3; i++) {
+      // Scroll up
+      await messagesContainer.evaluate((el) => {
+        el.scrollTo({ top: 0, behavior: 'instant' });
+      });
+      await page.waitForTimeout(100); // Wait for scroll event to be processed
+
+      // Verify we stayed at the top (not brought back by auto-scroll)
+      let scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);
+      expect(scrollTop).toBeLessThan(100);
+
+      // Scroll to middle
+      await messagesContainer.evaluate((el) => {
+        el.scrollTo({ top: el.scrollHeight / 2, behavior: 'instant' });
+      });
+      await page.waitForTimeout(100); // Wait for scroll event to be processed
+    }
+
+    // Finally scroll back to bottom to resume auto-scroll
+    await messagesContainer.evaluate((el) => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
+    });
+    await page.waitForTimeout(200); // Wait for debounce to re-enable auto-scroll
+
+    // Wait for streaming to complete
+    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+
+    // After scrolling to bottom and streaming completing, should be at bottom
+    const scrollInfo = await messagesContainer.evaluate((el) => ({
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    const distanceFromBottom =
+      scrollInfo.scrollHeight - scrollInfo.scrollTop - scrollInfo.clientHeight;
+    expect(distanceFromBottom).toBeLessThan(150);
+  });
 });
 
 test.describe('Chat - Message Retry', () => {

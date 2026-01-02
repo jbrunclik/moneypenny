@@ -428,7 +428,11 @@ let currentStreamingContext: StreamingMessageContext | null = null;
 
 // Constants for streaming scroll behavior
 const STREAMING_SCROLL_THRESHOLD_PX = 100; // Distance from bottom to consider "at bottom"
-const STREAMING_SCROLL_CHECK_DEBOUNCE_MS = 50; // Debounce for scroll detection
+const STREAMING_SCROLL_RESUME_DEBOUNCE_MS = 150; // Debounce only for RE-ENABLING auto-scroll (when user scrolls back to bottom)
+
+// Track the previous scroll position to detect scroll direction
+// Used to distinguish user scrolls (up) from our programmatic scrolls (always to bottom)
+let previousScrollTop = 0;
 
 /**
  * Add a streaming message placeholder
@@ -491,8 +495,13 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
 
 /**
  * Set up a scroll listener for streaming that:
- * 1. Disables auto-scroll when user scrolls up (away from bottom)
- * 2. Re-enables auto-scroll when user scrolls back to bottom
+ * 1. IMMEDIATELY disables auto-scroll when user scrolls up (away from bottom)
+ * 2. Re-enables auto-scroll (with debounce) when user scrolls back to bottom
+ *
+ * CRITICAL: We must distinguish between user scrolls and our programmatic scrolls.
+ * Our scrollToBottom() always scrolls DOWN (increases scrollTop), so if scrollTop
+ * DECREASES, it must be a user scroll. This direction-based detection is more
+ * reliable than time-based detection because it works regardless of event timing.
  */
 function setupStreamingScrollListener(container: HTMLElement): void {
   if (!currentStreamingContext) return;
@@ -502,39 +511,64 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     currentStreamingContext.scrollListenerCleanup();
   }
 
-  let debounceTimeout: number | undefined;
+  // Initialize previous scroll position
+  previousScrollTop = container.scrollTop;
+
+  // Debounce timeout is ONLY used for re-enabling auto-scroll (when user scrolls back to bottom)
+  // This prevents rapid re-enabling when user is scrolling around near the bottom
+  let resumeDebounceTimeout: number | undefined;
 
   const scrollHandler = (): void => {
     if (!currentStreamingContext) return;
 
-    // Debounce the scroll check to avoid excessive processing
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout);
+    const currentScrollTop = container.scrollTop;
+    const scrolledUp = currentScrollTop < previousScrollTop;
+    previousScrollTop = currentScrollTop;
+
+    // If user scrolled UP, they want to read earlier content - disable auto-scroll immediately
+    // Our programmatic scrollToBottom() never scrolls up, so this is definitely a user action
+    if (scrolledUp && currentStreamingContext.shouldAutoScroll) {
+      currentStreamingContext.shouldAutoScroll = false;
+      log.debug('Streaming auto-scroll paused (user scrolled up)');
+
+      // Clear any pending resume timeout
+      if (resumeDebounceTimeout) {
+        clearTimeout(resumeDebounceTimeout);
+        resumeDebounceTimeout = undefined;
+      }
+      return;
     }
 
-    debounceTimeout = window.setTimeout(() => {
-      if (!currentStreamingContext) return;
+    // Check if at bottom for re-enabling auto-scroll
+    const atBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
 
-      const atBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
-
-      if (atBottom && !currentStreamingContext.shouldAutoScroll) {
-        // User scrolled back to bottom - resume auto-scroll
-        currentStreamingContext.shouldAutoScroll = true;
-        log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
-      } else if (!atBottom && currentStreamingContext.shouldAutoScroll) {
-        // User scrolled away from bottom - disable auto-scroll
-        currentStreamingContext.shouldAutoScroll = false;
-        log.debug('Streaming auto-scroll paused (user scrolled up)');
+    if (atBottom && !currentStreamingContext.shouldAutoScroll) {
+      // User scrolled back to bottom - use debounce to re-enable auto-scroll
+      // This prevents rapid toggling when user is scrolling around near the bottom
+      if (resumeDebounceTimeout) {
+        clearTimeout(resumeDebounceTimeout);
       }
-    }, STREAMING_SCROLL_CHECK_DEBOUNCE_MS);
+
+      resumeDebounceTimeout = window.setTimeout(() => {
+        if (!currentStreamingContext) return;
+
+        // Re-check position after debounce (user might have scrolled away again)
+        const stillAtBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
+        if (stillAtBottom && !currentStreamingContext.shouldAutoScroll) {
+          currentStreamingContext.shouldAutoScroll = true;
+          log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
+        }
+        resumeDebounceTimeout = undefined;
+      }, STREAMING_SCROLL_RESUME_DEBOUNCE_MS);
+    }
   };
 
   container.addEventListener('scroll', scrollHandler, { passive: true });
 
   // Store cleanup function
   currentStreamingContext.scrollListenerCleanup = () => {
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout);
+    if (resumeDebounceTimeout) {
+      clearTimeout(resumeDebounceTimeout);
     }
     container.removeEventListener('scroll', scrollHandler);
   };
@@ -646,15 +680,20 @@ export function restoreStreamingMessage(conversationId: string, content: string,
 
 /**
  * Auto-scroll to keep the thinking indicator visible during streaming.
- * Only scrolls if auto-scroll is enabled (user hasn't scrolled away).
+ * Only scrolls if auto-scroll is enabled (controlled by the scroll listener).
+ *
+ * Note: We CANNOT check isScrolledToBottom() here because when new content is added,
+ * scrollHeight increases, making the user appear "not at bottom" even though they
+ * never scrolled. The scroll listener handles detecting actual user scrolls by
+ * checking scroll direction (scrollTop decreasing = user scrolled up).
  */
 function autoScrollForStreaming(): void {
   if (!currentStreamingContext?.shouldAutoScroll) return;
 
   const messagesContainer = getElementById('messages');
-  if (messagesContainer) {
-    scrollToBottom(messagesContainer);
-  }
+  if (!messagesContainer) return;
+
+  scrollToBottom(messagesContainer);
 }
 
 /**

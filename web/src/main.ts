@@ -368,8 +368,8 @@ async function updateConversationCost(convId: string | null): Promise<void> {
 }
 
 // Switch to a conversation and update UI
-function switchToConversation(conv: Conversation): void {
-  log.debug('Switching to conversation', { conversationId: conv.id, title: conv.title });
+function switchToConversation(conv: Conversation, totalMessageCount?: number): void {
+  log.debug('Switching to conversation', { conversationId: conv.id, title: conv.title, totalMessageCount });
   const store = useStore.getState();
 
   // Clean up streaming context only if switching to a DIFFERENT conversation
@@ -422,7 +422,10 @@ function switchToConversation(conv: Conversation): void {
   updateConversationCost(conv.id);
 
   // Mark conversation as read in sync manager and re-render sidebar to clear badge
-  const messageCount = conv.messages?.length || 0;
+  // Use totalMessageCount if provided (from pagination), otherwise fall back to messages.length
+  // This is critical for correct sync behavior: using messages.length when pagination is active
+  // would set localMessageCount too low, causing false "new messages available" banners
+  const messageCount = totalMessageCount ?? conv.messages?.length ?? 0;
   getSyncManager()?.markConversationRead(conv.id, messageCount);
   renderConversationsList();
 }
@@ -459,7 +462,8 @@ async function selectConversation(convId: string): Promise<void> {
       updated_at: response.updated_at,
       messages: response.messages,
     };
-    switchToConversation(conv);
+    // Pass total message count from pagination for correct sync behavior
+    switchToConversation(conv, response.message_pagination.total_count);
   } catch (error) {
     log.error('Failed to load conversation', { error, conversationId: convId });
     hideConversationLoader();
@@ -755,8 +759,8 @@ async function sendMessage(): Promise<void> {
     // Clear draft on successful send
     useStore.getState().clearDraft();
 
-    // Update sync manager's local message count (user message + assistant response = 2)
-    getSyncManager()?.incrementLocalMessageCount(conv.id, 2);
+    // Note: incrementLocalMessageCount is handled inside sendStreamingMessage (in finally block)
+    // and sendBatchMessage (after success) to avoid race conditions with sync
   } catch (error) {
     log.error('Failed to send message', { error, conversationId: conv.id });
     hideLoadingIndicator();
@@ -964,6 +968,8 @@ async function sendStreamingMessage(
   };
   const requestId = `stream-${convId}-${Date.now()}`;
   const abortController = new AbortController();
+  // Track if message was successfully sent (for incrementing count in finally block)
+  let messageSuccessful = false;
 
   // Track this request with abort controller
   const request: ActiveRequest = {
@@ -1102,6 +1108,9 @@ async function sendStreamingMessage(
 
           // Update conversation cost
           await updateConversationCost(convId);
+
+          // Mark as successful for message count increment in finally block
+          messageSuccessful = true;
         }
       } else if (event.type === 'error') {
         log.error('Stream error', { message: event.message, conversationId: convId });
@@ -1167,6 +1176,13 @@ async function sendStreamingMessage(
 
     // Remove active request from store
     useStore.getState().removeActiveRequest(convId);
+
+    // IMPORTANT: Increment local message count BEFORE clearing streaming flag
+    // This prevents a race condition where sync happens between clearing the flag
+    // and incrementing the count, causing false "new messages available" banner
+    if (messageSuccessful) {
+      getSyncManager()?.incrementLocalMessageCount(convId, 2);
+    }
 
     // Clear streaming flag so sync can update this conversation again
     getSyncManager()?.setConversationStreaming(convId, false);
@@ -1288,6 +1304,10 @@ async function sendBatchMessage(
 
     // Update conversation cost
     await updateConversationCost(convId);
+
+    // Update sync manager's local message count (user message + assistant response = 2)
+    // This is done here (after success) to ensure the count is updated before any sync
+    getSyncManager()?.incrementLocalMessageCount(convId, 2);
   } catch (error) {
     hideLoadingIndicator();
 
@@ -1887,7 +1907,9 @@ function hideLoginOverlay(): void {
 }
 
 // Show banner when new messages are available from another device
-function showNewMessagesAvailableBanner(messageCount: number): void {
+// Note: We don't use the messageCount parameter from the callback because
+// we get the accurate total_count from the API when reloading the conversation
+function showNewMessagesAvailableBanner(_messageCount: number): void {
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (!messagesContainer) return;
 
@@ -1918,6 +1940,8 @@ function showNewMessagesAvailableBanner(messageCount: number): void {
         store.setMessages(currentConvId, response.messages, response.message_pagination);
 
         // Convert response to Conversation object for switchToConversation
+        // Use the actual total_count from the response, not the passed messageCount
+        // The passed messageCount is from the sync callback and may be stale
         const conv: Conversation = {
           id: response.id,
           title: response.title,
@@ -1926,10 +1950,9 @@ function showNewMessagesAvailableBanner(messageCount: number): void {
           updated_at: response.updated_at,
           messages: response.messages,
         };
-        switchToConversation(conv);
-
-        // Mark as read in sync manager
-        getSyncManager()?.markConversationRead(currentConvId, messageCount);
+        // Pass total message count from pagination for correct sync behavior
+        const totalCount = response.message_pagination.total_count;
+        switchToConversation(conv, totalCount);
       } catch (error) {
         log.error('Failed to reload conversation', { error, conversationId: currentConvId });
         toast.error('Failed to reload conversation.');

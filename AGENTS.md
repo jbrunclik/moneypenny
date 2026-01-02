@@ -1166,21 +1166,29 @@ During streaming responses, a separate scroll system manages auto-scrolling to k
 1. **Initial state**: When `addStreamingMessage()` is called, it checks if user is at bottom
 2. **Scroll listener**: A streaming-specific scroll listener is set up to detect user scroll
 3. **Auto-scroll during streaming**: `autoScrollForStreaming()` scrolls to bottom after each content update (thinking, tool, token)
-4. **User interruption**: If user scrolls up (away from bottom), auto-scroll is paused
-5. **Auto-scroll resume**: If user scrolls back to bottom, auto-scroll resumes automatically
+4. **User interruption**: If user scrolls up (scrollTop decreases), auto-scroll is paused **immediately**
+5. **Auto-scroll resume**: If user scrolls back to bottom, auto-scroll resumes automatically (with debounce)
 6. **Cleanup**: When streaming ends (success or error), the scroll listener is cleaned up
 
 **Key behaviors:**
-- **Interruptible**: User can scroll up during streaming to read history - auto-scroll pauses
-- **Resumable**: User can scroll back to bottom to resume auto-scroll
-- **Threshold-based**: Uses 100px threshold to determine "at bottom" state (more lenient than 200px used for image loading)
-- **Debounced**: 50ms debounce on scroll detection to avoid excessive processing
+- **Interruptible**: User can scroll up during streaming to read history - auto-scroll pauses immediately
+- **Resumable**: User can scroll back to bottom to resume auto-scroll (with 150ms debounce)
+- **Threshold-based**: Uses 100px threshold to determine "at bottom" state for resume detection
+- **Direction-based detection**: Detects user scroll-up by tracking if `scrollTop` decreases (more reliable than position checks)
+
+**Why direction-based detection:**
+The scroll listener must distinguish user scrolls from our programmatic `scrollToBottom()` calls. Position-based detection has issues:
+1. When new content is added, `scrollHeight` increases
+2. User appears "not at bottom" even though they never scrolled (just not at NEW bottom)
+3. This could incorrectly disable auto-scroll
+
+Direction-based detection solves this: our `scrollToBottom()` always increases `scrollTop`, so if `scrollTop` decreases, it must be a user scroll up. This works reliably regardless of content additions or scroll event timing.
 
 **User message scroll:**
 When user sends a message, the app scrolls to bottom immediately after adding the user message to the UI. This ensures the user's message is visible before the assistant's response starts streaming.
 
 **Key files:**
-- [Messages.ts](web/src/components/Messages.ts) - `addStreamingMessage()`, `setupStreamingScrollListener()`, `autoScrollForStreaming()`, `cleanupStreamingContext()`
+- [Messages.ts](web/src/components/Messages.ts) - `addStreamingMessage()`, `setupStreamingScrollListener()`, `autoScrollForStreaming()`, `cleanupStreamingContext()`, `previousScrollTop` tracking
 - [main.ts](web/src/main.ts) - `sendMessage()` scrolls after adding user message, `sendStreamingMessage()` cleans up context in finally block
 
 **Testing:**
@@ -1188,6 +1196,8 @@ E2E tests for streaming auto-scroll are in [chat.spec.ts](web/tests/e2e/chat.spe
 - `scrolls to bottom when sending a new message`
 - `auto-scroll can be interrupted by scrolling up during streaming`
 - `auto-scroll resumes when scrolling back to bottom during streaming`
+- `scroll position is maintained when scrolling up during active token streaming` (tests the direction-based detection)
+- `rapid scrolling during streaming does not cause flicker or unexpected scroll jumps`
 
 ### Cursor-Based Pagination
 
@@ -1298,6 +1308,31 @@ The SyncManager handles several race conditions:
 2. **Streaming protection**: Conversations being actively streamed are skipped during sync to prevent false unread counts
 3. **Clock skew**: Always uses `server_time` from response, never client time
 4. **Message boundary**: Server returns `server_time` that becomes next sync's `since` param
+5. **Streaming completion race**: When streaming completes, the local message count must be incremented BEFORE clearing the streaming flag. This prevents a race where sync happens between clearing the flag and incrementing the count, which would cause a false "new messages available" banner
+6. **Pagination count mismatch**: When opening an existing conversation with pagination, use `message_pagination.total_count` (NOT `conv.messages.length`) to set the baseline message count. Using the paginated subset count would cause false external update detection after streaming
+
+**Critical ordering in `sendStreamingMessage()` finally block:**
+```typescript
+// CORRECT ORDER - prevents race condition
+if (messageSuccessful) {
+  getSyncManager()?.incrementLocalMessageCount(convId, 2);  // 1. Increment count FIRST
+}
+getSyncManager()?.setConversationStreaming(convId, false);   // 2. THEN clear streaming flag
+```
+
+The same pattern applies to `sendBatchMessage()` where `incrementLocalMessageCount()` is called after successful response processing, before the function returns.
+
+**Critical: Use total_count for marking conversations as read:**
+```typescript
+// In selectConversation() - use pagination total, NOT messages.length
+switchToConversation(conv, response.message_pagination.total_count);
+
+// In switchToConversation() - use provided total or fall back to messages.length
+const messageCount = totalMessageCount ?? conv.messages?.length ?? 0;
+getSyncManager()?.markConversationRead(conv.id, messageCount);
+```
+
+Without this, an existing conversation with 100 messages but only 50 loaded (pagination) would set `localMessageCount=50`. After streaming adds 2 messages, `localCount=52` but `serverCount=102` → false "new messages available" banner.
 
 ### Configuration
 
