@@ -520,6 +520,240 @@ class TestGenerateImage:
         assert "error" in parsed
         assert "too long" in parsed["error"].lower()
 
+    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.get_current_message_files")
+    def test_reference_images_all(
+        self, mock_get_files: MagicMock, mock_client_class: MagicMock
+    ) -> None:
+        """Should include all uploaded images when reference_images='all'."""
+        # Mock uploaded files in context
+        mock_get_files.return_value = [
+            {"type": "image/png", "data": "base64data1", "name": "img1.png"},
+            {"type": "image/jpeg", "data": "base64data2", "name": "img2.jpg"},
+        ]
+
+        # Mock successful generation response
+        mock_part = MagicMock()
+        mock_part.inline_data = MagicMock()
+        mock_part.inline_data.data = b"output_image"
+        mock_part.inline_data.mime_type = "image/png"
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = MagicMock()
+        mock_candidate.content.parts = [mock_part]
+
+        mock_response = MagicMock()
+        mock_response.candidates = [mock_candidate]
+        mock_response.usage_metadata = None
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        result = generate_image.invoke({"prompt": "Edit this image", "reference_images": "all"})
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+        # Verify generate_content was called with multimodal contents
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs["contents"]
+        assert isinstance(contents, list)
+        assert contents[0] == "Edit this image"
+        assert len(contents) == 3  # prompt + 2 images
+        assert contents[1]["inline_data"]["data"] == "base64data1"
+        assert contents[2]["inline_data"]["data"] == "base64data2"
+
+    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.get_current_message_files")
+    def test_reference_images_specific_index(
+        self, mock_get_files: MagicMock, mock_client_class: MagicMock
+    ) -> None:
+        """Should include only specified images when using indices."""
+        mock_get_files.return_value = [
+            {"type": "image/png", "data": "base64data1", "name": "img1.png"},
+            {"type": "image/jpeg", "data": "base64data2", "name": "img2.jpg"},
+            {"type": "image/png", "data": "base64data3", "name": "img3.png"},
+        ]
+
+        mock_part = MagicMock()
+        mock_part.inline_data = MagicMock()
+        mock_part.inline_data.data = b"output_image"
+        mock_part.inline_data.mime_type = "image/png"
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = MagicMock()
+        mock_candidate.content.parts = [mock_part]
+
+        mock_response = MagicMock()
+        mock_response.candidates = [mock_candidate]
+        mock_response.usage_metadata = None
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        # Test with index "0"
+        result = generate_image.invoke({"prompt": "Edit first image", "reference_images": "0"})
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs["contents"]
+        assert len(contents) == 2  # prompt + 1 image
+        assert contents[1]["inline_data"]["data"] == "base64data1"
+
+    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.get_current_message_files")
+    def test_reference_images_multiple_indices(
+        self, mock_get_files: MagicMock, mock_client_class: MagicMock
+    ) -> None:
+        """Should include multiple specified images."""
+        mock_get_files.return_value = [
+            {"type": "image/png", "data": "base64data1", "name": "img1.png"},
+            {"type": "image/jpeg", "data": "base64data2", "name": "img2.jpg"},
+            {"type": "image/png", "data": "base64data3", "name": "img3.png"},
+        ]
+
+        mock_part = MagicMock()
+        mock_part.inline_data = MagicMock()
+        mock_part.inline_data.data = b"output_image"
+        mock_part.inline_data.mime_type = "image/png"
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = MagicMock()
+        mock_candidate.content.parts = [mock_part]
+
+        mock_response = MagicMock()
+        mock_response.candidates = [mock_candidate]
+        mock_response.usage_metadata = None
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        # Test with indices "0,2"
+        result = generate_image.invoke(
+            {"prompt": "Combine these images", "reference_images": "0,2"}
+        )
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs["contents"]
+        assert len(contents) == 3  # prompt + 2 images
+        assert contents[1]["inline_data"]["data"] == "base64data1"
+        assert contents[2]["inline_data"]["data"] == "base64data3"
+
+    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.get_current_message_files")
+    def test_reference_images_filters_non_images(
+        self, mock_get_files: MagicMock, mock_client_class: MagicMock
+    ) -> None:
+        """Should filter out non-image files."""
+        mock_get_files.return_value = [
+            {"type": "text/plain", "data": "textdata", "name": "file.txt"},
+            {"type": "image/png", "data": "imagedata", "name": "img.png"},
+            {"type": "application/pdf", "data": "pdfdata", "name": "doc.pdf"},
+        ]
+
+        mock_part = MagicMock()
+        mock_part.inline_data = MagicMock()
+        mock_part.inline_data.data = b"output_image"
+        mock_part.inline_data.mime_type = "image/png"
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = MagicMock()
+        mock_candidate.content.parts = [mock_part]
+
+        mock_response = MagicMock()
+        mock_response.candidates = [mock_candidate]
+        mock_response.usage_metadata = None
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        result = generate_image.invoke({"prompt": "Edit the image", "reference_images": "all"})
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs["contents"]
+        # Only the image should be included, not text or PDF
+        assert len(contents) == 2  # prompt + 1 image
+        assert contents[1]["inline_data"]["data"] == "imagedata"
+
+    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.get_current_message_files")
+    def test_reference_images_no_files_in_context(
+        self, mock_get_files: MagicMock, mock_client_class: MagicMock
+    ) -> None:
+        """Should fall back to text-only when no files in context."""
+        mock_get_files.return_value = None
+
+        mock_part = MagicMock()
+        mock_part.inline_data = MagicMock()
+        mock_part.inline_data.data = b"output_image"
+        mock_part.inline_data.mime_type = "image/png"
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = MagicMock()
+        mock_candidate.content.parts = [mock_part]
+
+        mock_response = MagicMock()
+        mock_response.candidates = [mock_candidate]
+        mock_response.usage_metadata = None
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        result = generate_image.invoke({"prompt": "Generate something", "reference_images": "all"})
+        parsed = json.loads(result)
+
+        # Should still succeed with text-only prompt
+        assert parsed["success"] is True
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs["contents"]
+        # Falls back to text-only
+        assert contents == "Generate something"
+
+    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.get_current_message_files")
+    def test_reference_images_invalid_index_ignored(
+        self, mock_get_files: MagicMock, mock_client_class: MagicMock
+    ) -> None:
+        """Should ignore invalid indices and use valid ones."""
+        mock_get_files.return_value = [
+            {"type": "image/png", "data": "imagedata", "name": "img.png"},
+        ]
+
+        mock_part = MagicMock()
+        mock_part.inline_data = MagicMock()
+        mock_part.inline_data.data = b"output_image"
+        mock_part.inline_data.mime_type = "image/png"
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = MagicMock()
+        mock_candidate.content.parts = [mock_part]
+
+        mock_response = MagicMock()
+        mock_response.candidates = [mock_candidate]
+        mock_response.usage_metadata = None
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        # Index 5 doesn't exist, only index 0 should be used
+        result = generate_image.invoke({"prompt": "Edit image", "reference_images": "0,5"})
+        parsed = json.loads(result)
+
+        assert parsed["success"] is True
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs["contents"]
+        assert len(contents) == 2  # prompt + 1 valid image
+
 
 class TestGetMimeType:
     """Tests for _get_mime_type helper function."""

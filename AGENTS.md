@@ -450,7 +450,7 @@ The metadata block is always at the end of the LLM response and is stripped befo
 The app can generate images using Gemini's image generation model (`gemini-3-pro-image-preview`).
 
 ### How it works
-1. **Tool available**: `generate_image(prompt, aspect_ratio)` tool in [tools.py](src/agent/tools.py)
+1. **Tool available**: `generate_image(prompt, aspect_ratio, reference_images)` tool in [tools.py](src/agent/tools.py)
 2. **Tool returns JSON**: Returns `{"prompt": "...", "image": {"data": "base64...", "mime_type": "image/png"}}`
 3. **LLM appends metadata**: System prompt instructs LLM to include `"generated_images": [{"prompt": "..."}]` in the metadata block
 4. **Backend extracts images**: `extract_generated_images_from_tool_results()` in [routes.py](src/api/routes.py) parses tool results
@@ -458,11 +458,35 @@ The app can generate images using Gemini's image generation model (`gemini-3-pro
 6. **Metadata stored in DB**: Messages table has a `generated_images` column (JSON array)
 7. **UI shows sparkles button**: A sparkles icon appears in message actions when generated images exist, opening a popup showing the prompt used and the cost of image generation (excluding prompt tokens)
 
+### Image-to-Image Editing
+
+Users can upload images and ask the LLM to modify them. The uploaded images are passed to the Gemini image generation API as reference images.
+
+**How it works:**
+1. User uploads an image and requests a modification (e.g., "make me look like a wizard")
+2. LLM recognizes this as an image editing task
+3. LLM calls `generate_image(prompt="...", reference_images="all")` to include the uploaded image
+4. The tool retrieves uploaded images from a context variable set by the routes
+5. Images are passed to Gemini's `generate_content` API alongside the text prompt
+6. Gemini generates a modified version of the image
+
+**reference_images parameter options:**
+- `"all"` - Include all uploaded images
+- `"0"` - Include only the first uploaded image
+- `"0,1"` - Include specific images by index (comma-separated)
+- `None` - Generate from scratch (no reference images)
+
+**Context variable pattern:**
+- `set_current_message_files(files)` is called in routes.py before the agent runs
+- `get_current_message_files()` is called by the tool to access uploaded files
+- Only image files (MIME type starting with `image/`) are used as references
+- Non-image files (PDFs, text) are filtered out
+
 ### Key files
-- [tools.py](src/agent/tools.py) - `generate_image()` tool using google-genai SDK
-- [chat_agent.py](src/agent/chat_agent.py) - System prompt with metadata instructions, tool result capture during streaming
+- [tools.py](src/agent/tools.py) - `generate_image()` tool with `reference_images` parameter, `set_current_message_files()`, `get_current_message_files()`
+- [chat_agent.py](src/agent/chat_agent.py) - System prompt with image editing instructions
 - [models.py](src/db/models.py) - `Message.generated_images` field
-- [routes.py](src/api/routes.py) - Image extraction from tool results, API responses
+- [routes.py](src/api/routes.py) - Sets files context before agent call, image extraction from tool results
 - [ImageGenPopup.ts](web/src/components/ImageGenPopup.ts) - Popup showing generation info
 - [InfoPopup.ts](web/src/components/InfoPopup.ts) - Generic popup component used by both sources and image gen
 - [Messages.ts](web/src/components/Messages.ts) - Sparkles button rendering

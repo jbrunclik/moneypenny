@@ -1,6 +1,7 @@
 """Web tools for the AI agent."""
 
 import base64
+import contextvars
 import json
 import os as local_os
 import tempfile
@@ -20,6 +21,23 @@ from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Contextvar to hold the current message's files for tool access
+# This allows tools (like generate_image) to access uploaded images for image-to-image workflows
+_current_message_files: contextvars.ContextVar[list[dict[str, Any]] | None] = (
+    contextvars.ContextVar("_current_message_files", default=None)
+)
+
+
+def set_current_message_files(files: list[dict[str, Any]] | None) -> None:
+    """Set the current message's files for tool access."""
+    _current_message_files.set(files)
+
+
+def get_current_message_files() -> list[dict[str, Any]] | None:
+    """Get the current message's files (for tools like generate_image to access)."""
+    return _current_message_files.get()
+
 
 # Flag to track if Docker is available for code execution
 _docker_available: bool | None = None
@@ -330,18 +348,24 @@ VALID_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"}
 
 
 @tool
-def generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
-    """Generate an image using Gemini image generation.
+def generate_image(
+    prompt: str, aspect_ratio: str = "1:1", reference_images: str | None = None
+) -> str:
+    """Generate or edit an image using Gemini image generation.
 
     Use this tool when the user asks you to create, generate, draw, or make an image.
-    You should craft a detailed, descriptive prompt that captures what the user wants.
+    If the user uploaded an image and wants you to modify/edit it, use reference_images
+    to include the uploaded image(s) as reference for the generation.
 
     Args:
-        prompt: A detailed description of the image to generate. Be specific about
-                style, colors, composition, lighting, and any text to include.
+        prompt: A detailed description of the image to generate or the edit to make.
+                Be specific about style, colors, composition, lighting, and any text.
         aspect_ratio: The image aspect ratio. Options: 1:1 (square, default),
                      16:9 (landscape/widescreen), 9:16 (portrait/mobile),
                      4:3 (standard), 3:4 (portrait), 3:2, 2:3
+        reference_images: Which uploaded images to use as reference for editing.
+                         Options: "all" (use all uploaded images), "0" (first image),
+                         "0,1" (first and second), etc. None means generate from scratch.
 
     Returns:
         JSON with the prompt used and base64 image data, or an error message
@@ -369,17 +393,71 @@ def generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
     try:
         logger.debug(
             "Starting image generation",
-            extra={"model": Config.IMAGE_GENERATION_MODEL, "aspect_ratio": aspect_ratio},
+            extra={
+                "model": Config.IMAGE_GENERATION_MODEL,
+                "aspect_ratio": aspect_ratio,
+                "has_reference_images": reference_images is not None,
+            },
         )
         # Create client with API key
         client = genai.Client(api_key=Config.GEMINI_API_KEY)
+
+        # Build contents - either text-only or multimodal with reference images
+        contents: Any = prompt  # Default: text-only
+
+        if reference_images:
+            # Get files from context for image-to-image editing
+            files = get_current_message_files()
+            if files:
+                # Filter to only image files
+                image_files = [f for f in files if f.get("type", "").startswith("image/")]
+                if image_files:
+                    # Determine which images to include
+                    if reference_images.lower() == "all":
+                        indices = list(range(len(image_files)))
+                    else:
+                        # Parse comma-separated indices
+                        try:
+                            indices = [
+                                int(i.strip())
+                                for i in reference_images.split(",")
+                                if i.strip().isdigit()
+                            ]
+                        except ValueError:
+                            indices = []
+
+                    if indices:
+                        # Build multimodal contents list with text and images
+                        contents = [prompt]
+                        for idx in indices:
+                            if 0 <= idx < len(image_files):
+                                img = image_files[idx]
+                                contents.append(
+                                    {
+                                        "inline_data": {
+                                            "mime_type": img["type"],
+                                            "data": img["data"],  # Already base64
+                                        }
+                                    }
+                                )
+                        logger.debug(
+                            "Added reference images to generation request",
+                            extra={
+                                "reference_image_count": len(contents) - 1,
+                                "total_available_images": len(image_files),
+                            },
+                        )
+                else:
+                    logger.warning("reference_images specified but no image files found in uploads")
+            else:
+                logger.warning("reference_images specified but no files in current message")
 
         # Generate image using Gemini image generation model
         # The model generates one final image by default (uses internal "thinking" to iterate)
         logger.debug("Calling Gemini image generation API")
         response = client.models.generate_content(
             model=Config.IMAGE_GENERATION_MODEL,
-            contents=prompt,
+            contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
                 image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
@@ -430,6 +508,7 @@ def generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
                         "image_size_bytes": image_size,
                         "mime_type": image_data.mime_type,
                         "aspect_ratio": aspect_ratio,
+                        "used_reference_images": reference_images is not None,
                     },
                 )
                 # Return TWO things:

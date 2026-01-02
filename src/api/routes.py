@@ -18,6 +18,7 @@ from src.agent.chat_agent import (
     get_full_tool_results,
     set_current_request_id,
 )
+from src.agent.tools import set_current_message_files
 from src.api.errors import (
     raise_auth_forbidden_error,
     raise_auth_invalid_error,
@@ -515,6 +516,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # Generate a unique request ID for capturing full tool results
         request_id = str(uuid.uuid4())
         set_current_request_id(request_id)
+        # Set current message files for tools (like generate_image) to access
+        set_current_message_files(files if files else None)
 
         agent = ChatAgent(model_name=conv.model)
         raw_response, tool_results, usage_info = agent.chat_batch(
@@ -532,6 +535,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # chat_batch have already been stripped
         full_tool_results = get_full_tool_results(request_id)
         set_current_request_id(None)  # Clean up
+        set_current_message_files(None)  # Clean up
 
         logger.debug(
             "Chat agent completed",
@@ -817,6 +821,8 @@ def chat_stream(
         """
         # Set request ID for this streaming request to capture full tool results
         set_current_request_id(stream_request_id)
+        # Set current message files for tools (like generate_image) to access
+        set_current_message_files(files if files else None)
 
         # Use stream_chat_events for structured events including thinking/tool status
         agent = ChatAgent(model_name=conv.model, include_thoughts=True)
@@ -831,6 +837,7 @@ def chat_stream(
             """Background thread that streams events into the queue."""
             # Copy context from parent thread so contextvars are accessible
             set_current_request_id(stream_request_id)
+            set_current_message_files(files if files else None)
             try:
                 logger.debug(
                     "Stream thread started", extra={"user_id": user.id, "conversation_id": conv_id}
