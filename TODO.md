@@ -59,7 +59,6 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Automated currency rate updates** - Daily systemd timer fetches rates from open.er-api.com (free API), stores in DB. See "Currency Rate Updates" section in CLAUDE.md.
 
 ## CI/CD & DevOps
-- [ ] Docker image and docker-compose setup
 - [x] **GitHub Actions** - Workflow for linting and testing on PRs (runs backend + frontend tests)
 - [x] **Dependabot** - Configuration for automated dependency updates (pip, npm, github-actions)
 
@@ -114,7 +113,7 @@ This file tracks planned features, improvements, and technical debt.
 
 ### 🟢 Database
 - [x] **Pagination for conversations and messages** - Implemented cursor-based pagination for conversations list (`GET /api/conversations` with limit/cursor params) and messages (`GET /api/conversations/<id>` and `/messages` with limit/cursor/direction params). Frontend has infinite scroll in sidebar with dynamic page size calculation based on viewport. See "Cursor-Based Pagination" section in CLAUDE.md.
-- [ ] **Add database backup automation** - Automated daily backups of SQLite database
+- [x] **Add database backup automation** - Daily systemd timer creates timestamped snapshots of both databases, keeping 7 days of history. Uses SQLite's online backup API for consistent snapshots. See "Database Backup" section in CLAUDE.md.
 - [ ] **Add database connection pooling** - Each operation creates a new connection. Consider pooling for better performance under load
 - [x] **Add database indexes** - Add indexes on frequently queried columns (conversations.user_id, messages.conversation_id, etc.)
 - [x] **Add database query optimization** - Review and optimize N+1 query patterns (e.g., loading conversations with message counts) - Reviewed, all queries optimized

@@ -1,0 +1,26 @@
+# Systemd user service for AI Chatbot database backup
+# Install to: ~/.config/systemd/user/ai-chatbot-backup.service
+# This service is triggered by ai-chatbot-backup.timer
+
+[Unit]
+Description=AI Chatbot - Database backup (daily snapshots)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/ai-chatbot
+ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/backup_databases.py
+Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+# Load environment from .env file (for database paths)
+EnvironmentFile=%h/src/ai-chatbot/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Don't restart on failure (timer will retry next day)
+Restart=no
+
+[Install]
+WantedBy=default.target

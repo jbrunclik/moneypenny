@@ -18,6 +18,7 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+backups/
 
 # IDE
 .idea/

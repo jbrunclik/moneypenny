@@ -1,0 +1,18 @@
+# Systemd timer for AI Chatbot database backup
+# Install to: ~/.config/systemd/user/ai-chatbot-backup.timer
+# Enable with: systemctl --user enable ai-chatbot-backup.timer
+# Check status: systemctl --user list-timers
+
+[Unit]
+Description=Daily backup of AI Chatbot databases
+
+[Timer]
+# Run daily at 2:00 AM (before vacuum which runs at 3:00 AM on Sundays)
+OnCalendar=*-*-* 02:00:00
+# Add random delay up to 30 minutes to avoid exact timing
+RandomizedDelaySec=30m
+# Run immediately if we missed a scheduled run (e.g., system was off)
+Persistent=true
+
+[Install]
+WantedBy=timers.target

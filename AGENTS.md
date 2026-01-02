@@ -2666,6 +2666,41 @@ make vacuum  # Run vacuum immediately
 - [ai-chatbot-vacuum.service](systemd/ai-chatbot-vacuum.service) - Systemd service (oneshot)
 - [ai-chatbot-vacuum.timer](systemd/ai-chatbot-vacuum.timer) - Systemd timer (weekly)
 
+### Database Backup
+
+Daily automated backups create timestamped snapshots of both SQLite databases, keeping 7 days of history by default.
+
+**Automatic backup (systemd timer):**
+- Runs daily at 2:00 AM (with up to 30 min random delay)
+- Backs up both `chatbot.db` (main database) and `files.db` (blob storage)
+- Uses SQLite's online backup API for consistent snapshots even while the database is in use
+- Automatically enabled when running `make deploy`
+- Check timer status: `systemctl --user list-timers`
+- View backup logs: `journalctl --user -u ai-chatbot-backup`
+
+**Manual backup:**
+```bash
+make backup       # Create backup immediately
+make backup-list  # List existing backups with sizes and ages
+```
+
+**Backup location:**
+Backups are stored in `backups/{database_name}/` directories alongside the databases:
+- `backups/chatbot.db/chatbot-20240101-120000.db`
+- `backups/files.db/files-20240101-120000.db`
+
+**Retention:**
+- Default: 7 days (configurable via `--retention` flag)
+- Old backups are automatically cleaned up after each backup run
+
+**Key files:**
+- [backup_databases.py](scripts/backup_databases.py) - Python script for backup and cleanup
+- [ai-chatbot-backup.service](systemd/ai-chatbot-backup.service) - Systemd service (oneshot)
+- [ai-chatbot-backup.timer](systemd/ai-chatbot-backup.timer) - Systemd timer (daily)
+
+**Testing:**
+- Unit tests: [test_backup.py](tests/unit/test_backup.py)
+
 ### Database Best Practices
 
 When adding or modifying database code, follow these guidelines:

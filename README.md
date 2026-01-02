@@ -210,6 +210,8 @@ make reload     # Graceful reload - zero downtime (backend only)
 make update     # Full update with deps rebuild + graceful reload
 make vacuum     # Run database vacuum (reclaim space)
 make update-currency  # Update currency exchange rates
+make backup     # Create database backup manually
+make backup-list  # List existing database backups
 ```
 
 ## Testing
@@ -324,6 +326,26 @@ journalctl --user -u ai-chatbot-currency
 # Run update manually
 make update-currency
 ```
+
+### Database Backup
+
+A daily systemd timer creates timestamped snapshots of both SQLite databases (main database and blob storage), keeping 7 days of history by default. Backups use SQLite's online backup API for consistent snapshots even while the database is in use.
+
+```bash
+# Check timer status
+systemctl --user list-timers
+
+# View backup logs
+journalctl --user -u ai-chatbot-backup
+
+# Create backup manually
+make backup
+
+# List existing backups
+make backup-list
+```
+
+Backups are stored in `backups/{database_name}/` directories alongside the databases. Each backup file is named with a timestamp: `chatbot-20240101-120000.db`.
 
 ### Reverse Proxy (nginx)
 
@@ -445,13 +467,16 @@ ai-chatbot/
 │   └── manifest.json             # PWA manifest
 ├── scripts/                      # Utility scripts
 │   ├── vacuum_databases.py       # Database vacuum script
-│   └── update_currency_rates.py  # Currency rate update script
+│   ├── update_currency_rates.py  # Currency rate update script
+│   └── backup_databases.py       # Database backup script
 ├── systemd/                      # Systemd service files
 │   ├── ai-chatbot.service        # Main application service
 │   ├── ai-chatbot-vacuum.service # Database vacuum service
 │   ├── ai-chatbot-vacuum.timer   # Weekly vacuum timer
 │   ├── ai-chatbot-currency.service # Currency rate update service
-│   └── ai-chatbot-currency.timer # Daily currency timer
+│   ├── ai-chatbot-currency.timer # Daily currency timer
+│   ├── ai-chatbot-backup.service # Database backup service
+│   └── ai-chatbot-backup.timer   # Daily backup timer
 ├── Makefile                      # Build and run targets
 ├── pyproject.toml                # Python project configuration
 └── requirements.txt              # Python dependencies
