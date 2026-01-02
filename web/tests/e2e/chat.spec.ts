@@ -1578,6 +1578,166 @@ test.describe('Chat - Clipboard Paste', () => {
   });
 });
 
+test.describe('Chat - Copy to Clipboard', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Disable streaming for consistent tests
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Always clean up mock response after each test
+    await page.request.post('/test/clear-mock-response');
+  });
+
+  test('shows inline copy button on code blocks', async ({ page }) => {
+    // Set a response with a code block
+    await page.request.post('/test/set-mock-response', {
+      data: { response: '```python\nprint("Hello World")\n```' },
+    });
+
+    await page.fill('#message-input', 'Show me code');
+    await page.click('#send-btn');
+
+    // Wait for the code block wrapper to appear (includes markdown rendering)
+    const codeBlockWrapper = page.locator('.code-block-wrapper');
+    await expect(codeBlockWrapper).toBeVisible({ timeout: 10000 });
+
+    // Inline copy button should be present (visible on hover or touch)
+    const inlineCopyBtn = codeBlockWrapper.locator('.inline-copy-btn');
+    await expect(inlineCopyBtn).toBeAttached();
+
+    // Language label should be shown
+    const langLabel = codeBlockWrapper.locator('.code-language');
+    await expect(langLabel).toHaveText('python');
+  });
+
+  test('shows inline copy button on tables', async ({ page }) => {
+    // Set a response with a table
+    await page.request.post('/test/set-mock-response', {
+      data: { response: '| Name | Age |\n|------|-----|\n| Alice | 30 |\n| Bob | 25 |' },
+    });
+
+    await page.fill('#message-input', 'Show me a table');
+    await page.click('#send-btn');
+
+    // Wait for the table wrapper to appear (includes markdown rendering)
+    const tableWrapper = page.locator('.table-wrapper');
+    await expect(tableWrapper).toBeVisible({ timeout: 10000 });
+
+    // Inline copy button should be present
+    const inlineCopyBtn = tableWrapper.locator('.inline-copy-btn');
+    await expect(inlineCopyBtn).toBeAttached();
+
+    // Table should have correct content
+    const table = tableWrapper.locator('table');
+    await expect(table).toContainText('Alice');
+    await expect(table).toContainText('Bob');
+  });
+
+  // Skip clipboard tests on webkit - it doesn't support clipboard-write permission
+  test('inline copy button shows success feedback', async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'Webkit does not support clipboard permissions');
+
+    // Grant clipboard permissions for this test
+    await page.context().grantPermissions(['clipboard-write', 'clipboard-read']);
+
+    // Set a response with a code block
+    await page.request.post('/test/set-mock-response', {
+      data: { response: '```javascript\nconsole.log("test");\n```' },
+    });
+
+    await page.fill('#message-input', 'Show me code');
+    await page.click('#send-btn');
+
+    // Wait for the code block wrapper to appear
+    const codeBlockWrapper = page.locator('.code-block-wrapper');
+    await expect(codeBlockWrapper).toBeVisible({ timeout: 10000 });
+
+    // Hover to reveal the button
+    await codeBlockWrapper.hover();
+
+    // Click the copy button
+    const inlineCopyBtn = codeBlockWrapper.locator('.inline-copy-btn');
+    await inlineCopyBtn.click();
+
+    // Button should show copied state
+    await expect(inlineCopyBtn).toHaveClass(/copied/);
+
+    // After 2 seconds, copied state should be removed
+    await page.waitForTimeout(2100);
+    await expect(inlineCopyBtn).not.toHaveClass(/copied/);
+  });
+
+  test('message copy button excludes inline copy buttons and language labels', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName === 'webkit', 'Webkit does not support clipboard permissions');
+
+    // Grant clipboard permissions
+    await page.context().grantPermissions(['clipboard-write', 'clipboard-read']);
+
+    // Set a response with a code block
+    await page.request.post('/test/set-mock-response', {
+      data: { response: 'Here is some code:\n\n```python\nprint("test")\n```' },
+    });
+
+    await page.fill('#message-input', 'Show me code');
+    await page.click('#send-btn');
+
+    // Wait for the code block wrapper to appear
+    const codeBlockWrapper = page.locator('.code-block-wrapper');
+    await expect(codeBlockWrapper).toBeVisible({ timeout: 10000 });
+
+    // Hover over the assistant message to reveal actions
+    const assistantMessage = page.locator('.message.assistant');
+    await assistantMessage.hover();
+
+    // Click the message copy button
+    const messageCopyBtn = assistantMessage.locator('.message-copy-btn');
+    await messageCopyBtn.click();
+
+    // Button should show copied state
+    await expect(messageCopyBtn).toHaveClass(/copied/);
+
+    // Read clipboard and verify content is correct
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboardText).toContain('print("test")');
+    expect(clipboardText).toContain('Here is some code');
+    // The clipboard text should start with the message content, not the language label
+    expect(clipboardText.trim().startsWith('Here is some code')).toBe(true);
+  });
+
+  test('inline copy buttons are visible on mobile (touch devices)', async ({ page }) => {
+    // Set mobile viewport
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    // Set a response with a code block
+    await page.request.post('/test/set-mock-response', {
+      data: { response: '```python\nprint("Hello")\n```' },
+    });
+
+    await page.fill('#message-input', 'Show me code');
+    await page.click('#send-btn');
+
+    // Wait for the code block wrapper to appear
+    const codeBlockWrapper = page.locator('.code-block-wrapper');
+    await expect(codeBlockWrapper).toBeVisible({ timeout: 10000 });
+
+    // Inline copy button should be present
+    const inlineCopyBtn = codeBlockWrapper.locator('.inline-copy-btn');
+    await expect(inlineCopyBtn).toBeAttached();
+  });
+});
+
 test.describe('Chat - Conversation Switch During Active Request', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

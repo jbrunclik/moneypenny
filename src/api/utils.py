@@ -34,6 +34,35 @@ def get_request_json(request: Request) -> dict[str, Any] | None:
         return None
 
 
+def normalize_generated_images(
+    generated_images: list[Any] | None,
+) -> list[dict[str, str]]:
+    """Normalize generated_images to ensure each item has proper structure.
+
+    The LLM sometimes returns just prompt strings instead of {"prompt": "..."}
+    objects. This function normalizes both formats.
+
+    Args:
+        generated_images: List of generated image metadata, may contain strings or dicts
+
+    Returns:
+        List of dicts with "prompt" key
+    """
+    if not generated_images:
+        return []
+
+    normalized = []
+    for item in generated_images:
+        if isinstance(item, str):
+            # LLM returned just the prompt string
+            normalized.append({"prompt": item})
+        elif isinstance(item, dict) and "prompt" in item:
+            # Already in correct format
+            normalized.append(item)
+        # Skip invalid items silently
+    return normalized
+
+
 def extract_metadata_fields(
     metadata: dict[str, Any] | None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
@@ -48,7 +77,7 @@ def extract_metadata_fields(
     if not metadata:
         return [], []
     sources = metadata.get("sources", [])
-    generated_images = metadata.get("generated_images", [])
+    generated_images = normalize_generated_images(metadata.get("generated_images", []))
     return sources, generated_images
 
 

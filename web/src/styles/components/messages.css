@@ -455,6 +455,112 @@ a.document-name:hover {
     margin: var(--space-3) 0;
 }
 
+/* ----------------------------------------
+   Copyable Content (code blocks & tables)
+   ---------------------------------------- */
+
+.copyable-content {
+    position: relative;
+    margin: var(--space-3) 0;
+}
+
+.copyable-content > pre,
+.copyable-content > .message-content-scroll-wrapper {
+    margin: 0;
+}
+
+/* Code block wrapper */
+.code-block-wrapper {
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.code-block-wrapper > pre {
+    border-radius: 0;
+    margin: 0;
+    padding-top: var(--space-8);
+}
+
+/* Language label - positioned in header area */
+.code-language {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-3);
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-family: var(--font-family-mono);
+    text-transform: lowercase;
+    pointer-events: none;
+    z-index: 1;
+    line-height: 1;
+}
+
+/* Table wrapper */
+.table-wrapper {
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.table-wrapper .message-content-scroll-wrapper {
+    margin: 0;
+}
+
+.table-wrapper table {
+    margin: 0;
+}
+
+/* Inline copy button */
+.inline-copy-btn {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    opacity: 0;
+    z-index: 2;
+}
+
+.copyable-content:hover .inline-copy-btn {
+    opacity: 1;
+}
+
+.inline-copy-btn:hover {
+    color: var(--accent);
+    background-color: var(--bg-tertiary);
+    border-color: var(--accent);
+}
+
+.inline-copy-btn.copied {
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.inline-copy-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Touch devices: always show inline copy button */
+@media (hover: none) {
+    .inline-copy-btn {
+        opacity: 0.7;
+    }
+
+    .inline-copy-btn:active {
+        opacity: 1;
+    }
+}
+
 .message-content pre code {
     background: none;
     padding: 0;

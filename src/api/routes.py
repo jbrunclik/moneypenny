@@ -63,6 +63,7 @@ from src.api.utils import (
     calculate_and_save_message_cost,
     extract_memory_operations,
     extract_metadata_fields,
+    normalize_generated_images,
     process_memory_operations,
 )
 from src.api.validation import validate_request
@@ -298,7 +299,9 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         if m.sources:
             msg_data["sources"] = m.sources
         if m.generated_images:
-            msg_data["generated_images"] = m.generated_images
+            # Normalize generated_images to ensure proper structure
+            # (LLM sometimes returns just strings instead of {"prompt": "..."} objects)
+            msg_data["generated_images"] = normalize_generated_images(m.generated_images)
 
         optimized_messages.append(msg_data)
 

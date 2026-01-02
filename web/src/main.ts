@@ -1415,41 +1415,128 @@ function setupEventListeners(): void {
     const copyBtn = (e.target as HTMLElement).closest('.message-copy-btn');
     if (copyBtn) {
       copyMessageContent(copyBtn as HTMLButtonElement);
+      return;
+    }
+
+    // Inline copy button (code blocks, tables)
+    const inlineCopyBtn = (e.target as HTMLElement).closest('.inline-copy-btn');
+    if (inlineCopyBtn) {
+      copyInlineContent(inlineCopyBtn as HTMLButtonElement);
     }
   });
 }
 
-// Copy message content to clipboard
+// Copy message content to clipboard with rich text support
 async function copyMessageContent(button: HTMLButtonElement): Promise<void> {
   const messageEl = button.closest('.message');
   const contentEl = messageEl?.querySelector('.message-content');
 
   if (!contentEl) return;
 
-  // Clone the content and remove non-response elements (files, thinking/tool traces)
+  // Clone the content and remove non-response elements (files, thinking/tool traces, inline copy buttons)
   const clone = contentEl.cloneNode(true) as HTMLElement;
   clone.querySelectorAll('.message-files').forEach((el) => el.remove());
   clone.querySelectorAll('.thinking-indicator').forEach((el) => el.remove());
+  clone.querySelectorAll('.inline-copy-btn').forEach((el) => el.remove());
+  clone.querySelectorAll('.code-language').forEach((el) => el.remove());
 
   const textContent = clone.textContent?.trim();
   if (!textContent) return;
 
   try {
-    await navigator.clipboard.writeText(textContent);
-
-    // Show success feedback
-    const originalHtml = button.innerHTML;
-    button.innerHTML = CHECK_ICON;
-    button.classList.add('copied');
-
-    setTimeout(() => {
-      button.innerHTML = originalHtml;
-      button.classList.remove('copied');
-    }, 2000);
+    // Copy as both plain text and HTML for rich text support
+    await copyWithRichText(clone.innerHTML, textContent);
+    showCopySuccess(button);
   } catch (error) {
     log.error('Failed to copy to clipboard', { error });
     toast.error('Failed to copy to clipboard.');
   }
+}
+
+// Copy inline content (code blocks, tables) to clipboard
+async function copyInlineContent(button: HTMLButtonElement): Promise<void> {
+  const wrapper = button.closest('.copyable-content');
+  if (!wrapper) return;
+
+  const isCodeBlock = wrapper.classList.contains('code-block-wrapper');
+  const isTable = wrapper.classList.contains('table-wrapper');
+
+  let textContent: string;
+  let htmlContent: string;
+
+  if (isCodeBlock) {
+    // For code blocks, copy plain text only (no formatting needed)
+    const codeEl = wrapper.querySelector('code');
+    textContent = codeEl?.textContent?.trim() || '';
+    htmlContent = `<pre><code>${textContent}</code></pre>`;
+  } else if (isTable) {
+    // For tables, copy with HTML formatting
+    const tableEl = wrapper.querySelector('table');
+    if (!tableEl) return;
+    textContent = tableToPlainText(tableEl);
+    htmlContent = tableEl.outerHTML;
+  } else {
+    return;
+  }
+
+  if (!textContent) return;
+
+  try {
+    await copyWithRichText(htmlContent, textContent);
+    showCopySuccess(button);
+  } catch (error) {
+    log.error('Failed to copy to clipboard', { error });
+    toast.error('Failed to copy to clipboard.');
+  }
+}
+
+// Copy content with both HTML and plain text formats
+async function copyWithRichText(html: string, plainText: string): Promise<void> {
+  // Try to use the modern clipboard API with multiple formats
+  if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+    try {
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      const clipboardItem = new ClipboardItem({
+        'text/html': htmlBlob,
+        'text/plain': textBlob,
+      });
+      await navigator.clipboard.write([clipboardItem]);
+      return;
+    } catch {
+      // Fall back to plain text if ClipboardItem fails
+    }
+  }
+
+  // Fallback to plain text only
+  await navigator.clipboard.writeText(plainText);
+}
+
+// Convert table to plain text with tab-separated values
+function tableToPlainText(table: HTMLTableElement): string {
+  const rows: string[] = [];
+
+  table.querySelectorAll('tr').forEach((tr) => {
+    const cells: string[] = [];
+    tr.querySelectorAll('th, td').forEach((cell) => {
+      cells.push((cell.textContent || '').trim());
+    });
+    rows.push(cells.join('\t'));
+  });
+
+  return rows.join('\n');
+}
+
+// Show copy success feedback on button
+function showCopySuccess(button: HTMLButtonElement): void {
+  const originalHtml = button.innerHTML;
+  button.innerHTML = CHECK_ICON;
+  button.classList.add('copied');
+
+  setTimeout(() => {
+    button.innerHTML = originalHtml;
+    button.classList.remove('copied');
+  }, 2000);
 }
 
 // Setup touch gestures

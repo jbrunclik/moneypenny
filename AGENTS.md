@@ -69,7 +69,7 @@ ai-chatbot/
 │       ├── gestures/swipe.ts     # Touch handlers
 │       ├── utils/
 │       │   ├── dom.ts            # DOM helpers, escapeHtml
-│       │   ├── markdown.ts       # marked + highlight.js, table scroll wrapper
+│       │   ├── markdown.ts       # marked + highlight.js, inline copy buttons
 │       │   ├── thumbnails.ts     # Intersection Observer lazy loading
 │       │   ├── icons.ts          # SVG icon constants
 │       │   └── logger.ts         # Structured logging utility
@@ -414,6 +414,45 @@ Users can paste screenshots directly from the clipboard into the message input (
 **Testing:**
 - Unit tests: `handlePaste` describe block in [message-input.test.ts](web/tests/unit/message-input.test.ts)
 - E2E tests: "Chat - Clipboard Paste" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
+
+### Copy to Clipboard
+
+The app provides copy-to-clipboard functionality at two levels:
+
+1. **Message-level copy**: Copy button in message actions copies the entire message content
+2. **Inline copy**: Individual copy buttons on code blocks and tables
+
+**Rich text support:**
+- Copies both HTML and plain text formats using the Clipboard API
+- When pasted into rich text editors (Word, Google Docs, etc.), formatting is preserved
+- Tables are copied as HTML tables (preserves structure when pasted)
+- Code blocks are copied as plain text (no syntax highlighting in clipboard)
+- Plain text fallback for applications that don't support rich text
+
+**Message-level copy behavior:**
+- Excludes file attachments, thinking/tool traces, inline copy buttons, and language labels
+- Available on both user and assistant messages
+- Shows checkmark feedback for 2 seconds after successful copy
+
+**Inline copy buttons:**
+- Appear on hover (desktop) or always visible at 70% opacity (touch devices)
+- Code blocks: Shows language label (e.g., "python") in top-left corner
+- Tables: Wrapped in a bordered container for visual distinction
+- Copy button positioned in top-right corner of each block
+
+**Implementation details:**
+- `copyWithRichText()` in [main.ts](web/src/main.ts) handles dual-format clipboard writing
+- `tableToPlainText()` converts tables to tab-separated values for plain text
+- Uses `ClipboardItem` API with fallback to `writeText()` for older browsers
+- Markdown renderer in [markdown.ts](web/src/utils/markdown.ts) wraps code/tables in `.copyable-content` containers
+
+**Key files:**
+- [markdown.ts](web/src/utils/markdown.ts) - Custom renderers for code blocks and tables with copy button injection
+- [main.ts](web/src/main.ts) - `copyMessageContent()`, `copyInlineContent()`, `copyWithRichText()`
+- [messages.css](web/src/styles/components/messages.css) - `.copyable-content`, `.inline-copy-btn`, `.code-language` styles
+
+**Testing:**
+- E2E tests: "Chat - Copy to Clipboard" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
 
 ## Web Search Sources
 

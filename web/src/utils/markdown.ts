@@ -1,5 +1,7 @@
 import { marked } from 'marked';
 import hljs from 'highlight.js/lib/core';
+import { COPY_ICON } from './icons';
+import { escapeHtml } from './dom';
 
 // Import only the languages we need
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -56,12 +58,15 @@ hljs.registerLanguage('swift', swift);
 hljs.registerLanguage('kotlin', kotlin);
 hljs.registerLanguage('kt', kotlin);
 
-// Configure marked with custom renderer for tables
+// Copy button HTML for inline copy functionality
+const copyButtonHtml = `<button class="inline-copy-btn" title="Copy">${COPY_ICON}</button>`;
+
+// Configure marked with custom renderer for tables and code blocks
 marked.use({
   breaks: true,
   gfm: true,
   renderer: {
-    // Wrap tables in scroll container for horizontal scrolling on mobile
+    // Wrap tables in container with copy button
     table(token): string {
       // Build table header
       let headerHtml = '<thead><tr>';
@@ -83,7 +88,17 @@ marked.use({
       }
       bodyHtml += '</tbody>';
 
-      return `<div class="message-content-scroll-wrapper"><table>${headerHtml}${bodyHtml}</table></div>`;
+      return `<div class="copyable-content table-wrapper">${copyButtonHtml}<div class="message-content-scroll-wrapper"><table>${headerHtml}${bodyHtml}</table></div></div>`;
+    },
+
+    // Wrap code blocks in container with copy button and language label
+    code(token): string {
+      const lang = token.lang || '';
+      const langClass = lang ? `language-${escapeHtml(lang)}` : '';
+      const langLabel = lang ? `<span class="code-language">${escapeHtml(lang)}</span>` : '';
+      // Don't escape the code here - highlightAllCodeBlocks will handle it
+      const codeHtml = escapeHtml(token.text);
+      return `<div class="copyable-content code-block-wrapper">${langLabel}${copyButtonHtml}<pre><code class="${langClass}">${codeHtml}</code></pre></div>`;
     },
   },
 });
