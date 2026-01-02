@@ -3,7 +3,7 @@ import 'highlight.js/styles/github-dark.css';
 
 import { useStore } from './state/store';
 import { createLogger } from './utils/logger';
-import { conversations, chat, models, config, costs, ApiError } from './api/client';
+import { conversations, chat, models, config, costs, messages, ApiError } from './api/client';
 import { initToast, toast } from './components/Toast';
 import { initModal, showConfirm, showPrompt } from './components/Modal';
 import { initGoogleSignIn, renderGoogleButton, checkAuth, logout } from './auth/google';
@@ -281,6 +281,13 @@ async function init(): Promise<void> {
     }
   });
 
+  // Listen for message delete events
+  window.addEventListener('message:delete', (event: Event) => {
+    const customEvent = event as CustomEvent<{ messageId: string }>;
+    const { messageId } = customEvent.detail;
+    deleteMessage(messageId);
+  });
+
 }
 
 // Load initial data after authentication
@@ -541,6 +548,32 @@ async function deleteConversation(convId: string): Promise<void> {
   } catch (error) {
     log.error('Failed to delete conversation', { error, conversationId: convId });
     toast.error('Failed to delete conversation. Please try again.');
+  }
+}
+
+// Delete a message
+async function deleteMessage(messageId: string): Promise<void> {
+  const confirmed = await showConfirm({
+    title: 'Delete Message',
+    message: 'Are you sure you want to delete this message? This cannot be undone.',
+    confirmLabel: 'Delete',
+    cancelLabel: 'Cancel',
+    danger: true,
+  });
+
+  if (!confirmed) return;
+
+  try {
+    await messages.delete(messageId);
+    // Remove the message element from the DOM
+    const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    if (messageEl) {
+      messageEl.remove();
+    }
+    toast.success('Message deleted.');
+  } catch (error) {
+    log.error('Failed to delete message', { error, messageId });
+    toast.error('Failed to delete message. Please try again.');
   }
 }
 

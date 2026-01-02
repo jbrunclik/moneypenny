@@ -12,7 +12,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] Markdown rendering
 
 ## Phase 2 - Streaming & Polish
-- [ ] **Message delete button** - Add delete button to message actions (three-dot menu) to allow users to delete individual messages. Useful for cleaning up partial messages from aborted streams or removing unwanted messages
+- [x] **Message delete button** - Delete button in message actions allows users to delete individual messages. Shows confirmation dialog. Useful for cleaning up partial messages from aborted streams or removing unwanted messages. Delete button turns red on hover.
 - [ ] **Thinking mode toggle** - Allow enabling Gemini thinking mode with configurable level (minimal/low/medium/high) using long-press UI similar to voice input language selector
 - [x] **Streaming responses** - Display tokens as they arrive from Gemini (with toggle)
 - [x] **Show thinking/tool details** - Display model thinking and tool execution trace during streaming with auto-collapse to "Show details" toggle. Shows search queries, URLs, and image prompts with markdown formatting

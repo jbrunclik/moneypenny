@@ -712,6 +712,47 @@ class Database:
             conn.commit()
             return cursor.rowcount > 0
 
+    def delete_message(self, message_id: str, user_id: str) -> bool:
+        """Delete a message by ID.
+
+        Verifies that the message belongs to a conversation owned by the user.
+        Also deletes associated blobs (files, thumbnails).
+        Note: Message costs are intentionally preserved for accurate reporting.
+
+        Args:
+            message_id: The message ID to delete
+            user_id: The user ID (for ownership verification)
+
+        Returns:
+            True if the message was deleted, False if not found or not owned
+        """
+        with self._get_conn() as conn:
+            # Verify user owns the conversation containing this message
+            row = self._execute_with_timing(
+                conn,
+                """
+                SELECT m.id FROM messages m
+                JOIN conversations c ON m.conversation_id = c.id
+                WHERE m.id = ? AND c.user_id = ?
+                """,
+                (message_id, user_id),
+            ).fetchone()
+
+            if not row:
+                return False
+
+            # Delete associated blobs (files, thumbnails)
+            delete_message_blobs(message_id)
+
+            # Delete the message
+            cursor = self._execute_with_timing(
+                conn,
+                "DELETE FROM messages WHERE id = ?",
+                (message_id,),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     # Message operations
     def add_message(
         self,

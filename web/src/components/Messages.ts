@@ -17,6 +17,7 @@ import {
   SOURCES_ICON,
   SPARKLES_ICON,
   COST_ICON,
+  DELETE_ICON,
 } from '../utils/icons';
 import { costs } from '../api/client';
 import { useStore } from '../state/store';
@@ -216,10 +217,23 @@ export function addMessageToUI(
     ${hasSources ? `<button class="message-sources-btn" title="View sources (${message.sources!.length})">${SOURCES_ICON}</button>` : ''}
     ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
     ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
+    <button class="message-delete-btn" title="Delete message">
+      ${DELETE_ICON}
+    </button>
     <button class="message-copy-btn" title="Copy message">
       ${COPY_ICON}
     </button>
   `;
+
+  // Add delete button click handler
+  const deleteBtn = actions.querySelector('.message-delete-btn');
+  deleteBtn?.addEventListener('click', () => {
+    window.dispatchEvent(
+      new CustomEvent('message:delete', {
+        detail: { messageId: message.id },
+      })
+    );
+  });
 
   // Add sources button click handler
   if (hasSources) {
@@ -783,10 +797,23 @@ export function finalizeStreamingMessage(
       ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
       ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
       ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
+      <button class="message-delete-btn" title="Delete message">
+        ${DELETE_ICON}
+      </button>
       <button class="message-copy-btn" title="Copy message">
         ${COPY_ICON}
       </button>
     `;
+
+    // Add delete button click handler
+    const deleteBtn = actions.querySelector('.message-delete-btn');
+    deleteBtn?.addEventListener('click', () => {
+      window.dispatchEvent(
+        new CustomEvent('message:delete', {
+          detail: { messageId },
+        })
+      );
+    });
 
     // Add sources button click handler
     if (hasSources) {

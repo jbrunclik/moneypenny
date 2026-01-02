@@ -434,6 +434,17 @@ export const conversations = {
   },
 };
 
+// Message endpoints
+export const messages = {
+  async delete(id: string): Promise<void> {
+    // DELETE is idempotent (deleting already deleted = same result), safe to retry
+    await request<{ status: string }>(`/api/messages/${id}`, {
+      method: 'DELETE',
+      retry: true,
+    });
+  },
+};
+
 // Chat endpoints
 export const chat = {
   async sendBatch(

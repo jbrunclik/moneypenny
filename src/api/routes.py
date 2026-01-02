@@ -464,6 +464,29 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
     return {"status": "deleted"}, 200
 
 
+@api.route("/messages/<message_id>", methods=["DELETE"])
+@api.output(StatusResponse)
+@api.doc(responses=[404])
+@require_auth
+def delete_message(user: User, message_id: str) -> tuple[dict[str, str], int]:
+    """Delete a message.
+
+    Deletes a single message and its associated files/thumbnails.
+    The message must belong to a conversation owned by the authenticated user.
+    Cost data is intentionally preserved for accurate reporting.
+    """
+    logger.debug("Deleting message", extra={"user_id": user.id, "message_id": message_id})
+    if not db.delete_message(message_id, user.id):
+        logger.warning(
+            "Message not found for deletion",
+            extra={"user_id": user.id, "message_id": message_id},
+        )
+        raise_not_found_error("Message")
+
+    logger.info("Message deleted", extra={"user_id": user.id, "message_id": message_id})
+    return {"status": "deleted"}, 200
+
+
 @api.route("/conversations/<conv_id>/messages", methods=["GET"])
 @api.output(MessagesListResponse)
 @api.doc(responses=[404])

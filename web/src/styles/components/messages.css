@@ -152,7 +152,8 @@
 .message-copy-btn,
 .message-sources-btn,
 .message-imagegen-btn,
-.message-cost-btn {
+.message-cost-btn,
+.message-delete-btn {
     background: none;
     border: none;
     color: var(--text-muted);
@@ -173,6 +174,11 @@
     background-color: var(--bg-tertiary);
 }
 
+.message-delete-btn:hover {
+    color: var(--color-error-400);
+    background-color: var(--bg-tertiary);
+}
+
 .message-copy-btn.copied {
     color: var(--success);
 }
@@ -180,7 +186,8 @@
 .message-copy-btn svg,
 .message-sources-btn svg,
 .message-imagegen-btn svg,
-.message-cost-btn svg {
+.message-cost-btn svg,
+.message-delete-btn svg {
     width: 16px;
     height: 16px;
 }
