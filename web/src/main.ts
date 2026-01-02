@@ -35,6 +35,8 @@ import {
   hideConversationLoader,
   updateChatTitle,
   updateUserMessageId,
+  setupOlderMessagesScrollListener,
+  cleanupOlderMessagesScrollListener,
 } from './components/Messages';
 import {
   initMessageInput,
@@ -264,9 +266,10 @@ async function init(): Promise<void> {
   });
 
   window.addEventListener('auth:logout', () => {
-    // Stop sync manager and infinite scroll on logout
+    // Stop sync manager and scroll listeners on logout
     stopSyncManager();
     cleanupInfiniteScroll();
+    cleanupOlderMessagesScrollListener();
 
     showLoginOverlay();
     useStore.getState().setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
@@ -394,6 +397,11 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
   enableScrollOnImageLoad();
 
   renderMessages(conv.messages || []);
+
+  // Set up scroll listener for loading older messages (if not a temp conversation)
+  if (!isTempConversation(conv.id)) {
+    setupOlderMessagesScrollListener(conv.id);
+  }
 
   // Check if there's an active request for this conversation and restore UI state
   const activeRequest = store.getActiveRequest(conv.id);

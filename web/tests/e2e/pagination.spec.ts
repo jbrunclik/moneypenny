@@ -343,3 +343,117 @@ test.describe('Pagination Edge Cases', () => {
     await expect(emptyState).toBeVisible();
   });
 });
+
+test.describe('Messages Pagination', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test('messages are displayed in correct order', async ({ page }) => {
+    // Create a conversation with multiple messages
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    await page.fill('#message-input', 'Second message');
+    await page.click('#send-btn');
+    // Wait for the second assistant message (there will be 4 messages total: 2 user + 2 assistant)
+    await page.waitForFunction(() => {
+      const messages = document.querySelectorAll('.message.assistant');
+      return messages.length >= 2;
+    }, { timeout: 10000 });
+
+    // Verify messages are in chronological order (oldest first)
+    const userMessages = page.locator('.message.user');
+    await expect(userMessages.first()).toContainText('First message');
+    await expect(userMessages.last()).toContainText('Second message');
+  });
+
+  test('older messages loader is not shown when not loading', async ({ page }) => {
+    // Create a conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Test message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // The older messages loader should not be visible
+    const loader = page.locator('.older-messages-loader');
+    await expect(loader).toHaveCount(0);
+  });
+
+  test('scroll position is at bottom when opening conversation', async ({ page }) => {
+    // Create a conversation with a few messages
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Message 1');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    await page.fill('#message-input', 'Message 2');
+    await page.click('#send-btn');
+    await page.waitForFunction(() => {
+      const messages = document.querySelectorAll('.message.assistant');
+      return messages.length >= 2;
+    }, { timeout: 10000 });
+
+    // Create another conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Different conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Switch back to first conversation
+    const convItems = page.locator('.conversation-item-wrapper');
+    await convItems.last().click();
+
+    // Wait for messages to load
+    await page.waitForFunction(() => {
+      const messages = document.querySelectorAll('.message.user');
+      return messages.length >= 2;
+    }, { timeout: 10000 });
+
+    // Verify we're at the bottom (latest messages visible)
+    const messagesContainer = page.locator('#messages');
+    const isAtBottom = await messagesContainer.evaluate((el) => {
+      const threshold = 100;
+      return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    });
+    expect(isAtBottom).toBe(true);
+  });
+
+  test('messages pagination state is maintained when switching conversations', async ({ page }) => {
+    // Create first conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First conv message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Create second conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Second conv message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Switch to first conversation
+    const convItems = page.locator('.conversation-item-wrapper');
+    await convItems.last().click();
+
+    // Verify first conversation's messages are shown
+    const userMessage = page.locator('.message.user');
+    await expect(userMessage).toContainText('First conv message');
+
+    // Switch back to second conversation
+    await convItems.first().click();
+
+    // Verify second conversation's messages are shown
+    await expect(userMessage).toContainText('Second conv message');
+  });
+});

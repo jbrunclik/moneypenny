@@ -727,6 +727,18 @@ a.document-name:hover {
     margin: 0;
 }
 
+/* Older messages loader (at top of messages) */
+.older-messages-loader {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-4) 0;
+    margin-bottom: var(--space-2);
+}
+
+.older-messages-loader .loading-dots {
+    justify-content: center;
+}
+
 /* ----------------------------------------
    Mobile Adjustments
    ---------------------------------------- */

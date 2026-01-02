@@ -226,8 +226,11 @@ export const MESSAGES_MIN_PAGE_SIZE = 20;
 /** Buffer multiplier for viewport-based page size calculation */
 export const VIEWPORT_BUFFER_MULTIPLIER = 1.5;
 
-/** Distance from bottom of scroll container to trigger loading more (in pixels) */
+/** Distance from bottom of scroll container to trigger loading more conversations (in pixels) */
 export const LOAD_MORE_THRESHOLD_PX = 200;
+
+/** Distance from top of scroll container to trigger loading older messages (in pixels) */
+export const LOAD_OLDER_MESSAGES_THRESHOLD_PX = 200;
 
 /** Debounce delay for infinite scroll scroll event handler */
 export const INFINITE_SCROLL_DEBOUNCE_MS = 100;

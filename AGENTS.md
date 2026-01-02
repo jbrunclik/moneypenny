@@ -1238,7 +1238,16 @@ The app uses cursor-based pagination for both conversations and messages to effi
    - Shows loading spinner during fetch
    - Debounced scroll handler (100ms) to avoid excessive checks
 
-2. **Dynamic page sizing**:
+2. **Messages older pagination** ([Messages.ts](web/src/components/Messages.ts)):
+   - Scroll listener detects when user scrolls near the top (within 200px)
+   - Automatically fetches older messages when threshold reached
+   - Prepends messages to UI while maintaining scroll position
+   - Shows loading indicator at top during fetch
+   - Debounced scroll handler (100ms) to avoid excessive checks
+   - **Disabled during streaming**: Older messages loading is skipped when streaming is active to prevent interference with streaming auto-scroll
+   - Cleanup function ensures proper listener removal on conversation switch
+
+3. **Dynamic page sizing**:
    - Conversations: Based on viewport height, ~60px per item, minimum 15 items
    - Messages: ~120px per message estimate, minimum 20 items
    - Buffer multiplier (1.5x) ensures smooth scrolling without gaps
@@ -1257,14 +1266,16 @@ Frontend ([config.ts](web/src/config.ts)):
 - `CONVERSATIONS_MIN_PAGE_SIZE`: Minimum items (15)
 - `MESSAGES_MIN_PAGE_SIZE`: Minimum items (20)
 - `VIEWPORT_BUFFER_MULTIPLIER`: Buffer for page size calculation (1.5x)
-- `LOAD_MORE_THRESHOLD_PX`: Distance from bottom to trigger load (200px)
+- `LOAD_MORE_THRESHOLD_PX`: Distance from bottom to trigger loading more conversations (200px)
+- `LOAD_OLDER_MESSAGES_THRESHOLD_PX`: Distance from top to trigger loading older messages (200px)
 - `INFINITE_SCROLL_DEBOUNCE_MS`: Scroll handler debounce (100ms)
 
 **Key files:**
 - [models.py](src/db/models.py) - `build_cursor()`, `parse_cursor()`, `list_conversations_paginated()`, `get_messages_paginated()`
 - [routes.py](src/api/routes.py) - Pagination endpoints with query param validation
 - [schemas.py](src/api/schemas.py) - Pagination response schemas
-- [Sidebar.ts](web/src/components/Sidebar.ts) - Infinite scroll implementation
+- [Sidebar.ts](web/src/components/Sidebar.ts) - Conversations infinite scroll
+- [Messages.ts](web/src/components/Messages.ts) - Messages older pagination (`setupOlderMessagesScrollListener()`, `loadOlderMessages()`)
 - [store.ts](web/src/state/store.ts) - Pagination state management
 - [client.ts](web/src/api/client.ts) - Pagination API methods
 

@@ -19,9 +19,11 @@ import {
   COST_ICON,
   DELETE_ICON,
 } from '../utils/icons';
-import { costs } from '../api/client';
+import { costs, conversations } from '../api/client';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
+import { LOAD_OLDER_MESSAGES_THRESHOLD_PX, INFINITE_SCROLL_DEBOUNCE_MS } from '../config';
+import { PaginationDirection } from '../types/api';
 import {
   createThinkingIndicator,
   updateThinkingIndicator,
@@ -1038,4 +1040,210 @@ export function updateUserMessageId(tempId: string, realId: string): void {
   });
 
   log.debug('Updated user message ID', { tempId, realId, imageCount: images.length });
+}
+
+// =============================================================================
+// Older Messages Pagination
+// =============================================================================
+
+/** Cleanup function for the older messages scroll listener */
+let olderMessagesScrollCleanup: (() => void) | null = null;
+
+/**
+ * Set up a scroll listener to load older messages when user scrolls near the top.
+ * Should be called after rendering messages for a conversation.
+ * @param conversationId - The ID of the current conversation
+ */
+export function setupOlderMessagesScrollListener(conversationId: string): void {
+  const container = getElementById<HTMLDivElement>('messages');
+  if (!container) return;
+
+  // Clean up any existing listener first
+  cleanupOlderMessagesScrollListener();
+
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const handleScroll = (): void => {
+    // Debounce the scroll handler
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+
+    debounceTimeout = setTimeout(() => {
+      const store = useStore.getState();
+
+      // Don't load older messages during active streaming
+      // This prevents interference with streaming auto-scroll behavior
+      if (store.streamingConversationId === conversationId) {
+        return;
+      }
+
+      const pagination = store.getMessagesPagination(conversationId);
+
+      // Don't load more if already loading or no more older messages
+      if (!pagination || pagination.isLoadingOlder || !pagination.hasOlder) {
+        return;
+      }
+
+      // Check if user is near the top
+      const scrollTop = container.scrollTop;
+
+      if (scrollTop < LOAD_OLDER_MESSAGES_THRESHOLD_PX) {
+        loadOlderMessages(conversationId, container);
+      }
+    }, INFINITE_SCROLL_DEBOUNCE_MS);
+  };
+
+  container.addEventListener('scroll', handleScroll, { passive: true });
+
+  // Store cleanup function
+  olderMessagesScrollCleanup = () => {
+    container.removeEventListener('scroll', handleScroll);
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+  };
+
+  log.debug('Older messages scroll listener set up', { conversationId });
+}
+
+/**
+ * Clean up the older messages scroll listener.
+ * Should be called when switching conversations or unmounting.
+ */
+export function cleanupOlderMessagesScrollListener(): void {
+  if (olderMessagesScrollCleanup) {
+    olderMessagesScrollCleanup();
+    olderMessagesScrollCleanup = null;
+    log.debug('Older messages scroll listener cleaned up');
+  }
+}
+
+/**
+ * Load older messages for a conversation and prepend them to the UI.
+ */
+async function loadOlderMessages(conversationId: string, container: HTMLElement): Promise<void> {
+  const store = useStore.getState();
+  const pagination = store.getMessagesPagination(conversationId);
+
+  if (!pagination || !pagination.hasOlder || pagination.isLoadingOlder) {
+    return;
+  }
+
+  log.debug('Loading older messages', { conversationId, cursor: pagination.olderCursor });
+
+  // Set loading state
+  store.setLoadingOlderMessages(conversationId, true);
+
+  // Show loading indicator at top
+  showOlderMessagesLoader(container);
+
+  // Record the current scroll height and position to maintain scroll position after prepending
+  const previousScrollHeight = container.scrollHeight;
+
+  try {
+    const result = await conversations.getMessages(
+      conversationId,
+      undefined, // use default limit
+      pagination.olderCursor,
+      PaginationDirection.OLDER
+    );
+
+    // Update store with new messages prepended
+    store.prependMessages(conversationId, result.messages, result.pagination);
+
+    // Prepend messages to the UI
+    prependMessagesToUI(result.messages, container);
+
+    // Restore scroll position so the user stays at the same place
+    // After prepending, scrollHeight increases, so we need to adjust scrollTop
+    requestAnimationFrame(() => {
+      const newScrollHeight = container.scrollHeight;
+      const scrollHeightDiff = newScrollHeight - previousScrollHeight;
+      container.scrollTop = container.scrollTop + scrollHeightDiff;
+    });
+
+    log.info('Loaded older messages', {
+      conversationId,
+      count: result.messages.length,
+      hasOlder: result.pagination.has_older,
+    });
+  } catch (error) {
+    log.error('Failed to load older messages', { error, conversationId });
+    // Reset loading state on error
+    store.setLoadingOlderMessages(conversationId, false);
+  } finally {
+    hideOlderMessagesLoader();
+  }
+}
+
+/**
+ * Show a loading indicator at the top of the messages container.
+ */
+function showOlderMessagesLoader(container: HTMLElement): void {
+  // Remove any existing loader
+  hideOlderMessagesLoader();
+
+  const loader = document.createElement('div');
+  loader.className = 'older-messages-loader';
+  loader.innerHTML = `
+    <div class="loading-dots">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  `;
+
+  // Insert at the beginning of the container
+  container.insertBefore(loader, container.firstChild);
+}
+
+/**
+ * Hide the older messages loading indicator.
+ */
+function hideOlderMessagesLoader(): void {
+  const loader = document.querySelector('.older-messages-loader');
+  loader?.remove();
+}
+
+/**
+ * Prepend messages to the UI at the top of the messages container.
+ * Uses addMessageToUI for each message to avoid code duplication.
+ * @param messages - Messages to prepend (should be in chronological order, oldest first)
+ * @param container - The messages container element
+ */
+function prependMessagesToUI(messages: Message[], container: HTMLElement): void {
+  if (messages.length === 0) return;
+
+  // Find the first message element (skip loaders/welcome messages)
+  const firstMessage = container.querySelector('.message');
+
+  // Add messages in chronological order, each one inserted before the first existing message
+  // This maintains chronological order: oldest prepended message ends up first
+  messages.forEach((msg) => {
+    // Create a temporary container to hold the new message
+    const tempContainer = document.createElement('div');
+    addMessageToUI(msg, tempContainer);
+    const messageEl = tempContainer.firstElementChild;
+
+    if (messageEl) {
+      if (firstMessage) {
+        // Insert before the first existing message
+        container.insertBefore(messageEl, firstMessage);
+      } else {
+        // No messages yet, just append
+        container.appendChild(messageEl);
+      }
+    }
+  });
+
+  // Observe any new images for lazy loading
+  const newImages = container.querySelectorAll<HTMLImageElement>(
+    'img[data-message-id][data-file-index]:not([src])'
+  );
+  newImages.forEach((img) => {
+    observeThumbnail(img);
+  });
+
+  log.debug('Prepended messages to UI', { count: messages.length });
 }
