@@ -8,8 +8,10 @@ Usage:
     python tests/e2e-server.py
 """
 
+import atexit
 import base64
 import os
+import signal
 import sys
 import time
 import uuid
@@ -38,6 +40,9 @@ E2E_DB_PATH = PROJECT_ROOT / "tests" / f"e2e-test-{DB_ID}.db"
 E2E_BLOB_PATH = PROJECT_ROOT / "tests" / f"e2e-test-{DB_ID}-blobs.db"
 os.environ["DATABASE_PATH"] = str(E2E_DB_PATH)
 os.environ["BLOB_STORAGE_PATH"] = str(E2E_BLOB_PATH)
+
+# PID file for cleanup
+E2E_PID_FILE = PROJECT_ROOT / ".e2e-server.pid"
 
 # Mock configuration (inline - no external files needed)
 MOCK_CONFIG: dict[str, Any] = {
@@ -316,11 +321,36 @@ def create_mock_stream_chat_events() -> Any:
     return mock_stream_chat_events
 
 
+def cleanup_pid_file() -> None:
+    """Remove PID file on exit."""
+    if E2E_PID_FILE.exists():
+        try:
+            E2E_PID_FILE.unlink()
+        except Exception:
+            pass
+
+
+def signal_handler(signum: int, frame: Any) -> None:
+    """Handle signals and cleanup PID file."""
+    cleanup_pid_file()
+    sys.exit(0)
+
+
 def main() -> None:
     """Start the E2E test server with all mocks applied."""
     import contextlib
 
     from flask import Blueprint
+
+    # Write PID file
+    try:
+        E2E_PID_FILE.write_text(str(os.getpid()))
+        atexit.register(cleanup_pid_file)
+        # Also register signal handlers for cleanup
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+    except Exception as e:
+        print(f"Warning: Could not write PID file: {e}")
 
     print("E2E Test Server starting...")
     print(f"Database: {E2E_DB_PATH}")
@@ -473,6 +503,8 @@ def main() -> None:
                 threaded=True,
             )
         finally:
+            # Clean up PID file
+            cleanup_pid_file()
             # Clean up database files on shutdown
             for path, name in [(E2E_DB_PATH, "database"), (E2E_BLOB_PATH, "blob store")]:
                 if path.exists():

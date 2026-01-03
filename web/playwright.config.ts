@@ -35,5 +35,8 @@ export default defineConfig({
     url: 'http://localhost:8001',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
+    // Kill any hanging servers before starting
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
 });

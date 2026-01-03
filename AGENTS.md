@@ -1237,9 +1237,9 @@ The app uses cursor-based pagination for both conversations and messages to effi
 
 1. **Conversations infinite scroll** ([Sidebar.ts](web/src/components/Sidebar.ts)):
    - Calculates optimal page size based on viewport height (`calculatePageSize()`)
-   - Uses `IntersectionObserver` to detect when user scrolls near bottom
+   - Uses scroll listener to detect when user scrolls near bottom
    - Automatically fetches next page when threshold reached (200px from bottom)
-   - Shows loading spinner during fetch
+   - Shows loading dots animation during fetch (same animation as messages pagination)
    - Debounced scroll handler (100ms) to avoid excessive checks
 
 2. **Messages older pagination** ([Messages.ts](web/src/components/Messages.ts)):
@@ -1286,6 +1286,7 @@ Frontend ([config.ts](web/src/config.ts)):
 **Testing:**
 - Backend integration tests: [test_routes_pagination.py](tests/integration/test_routes_pagination.py)
 - E2E tests: [pagination.spec.ts](web/tests/e2e/pagination.spec.ts)
+- Component tests: [Sidebar.test.ts](web/tests/component/Sidebar.test.ts) - Tests loader visibility and loading dots structure
 
 ## Real-time Synchronization
 
@@ -1952,6 +1953,12 @@ The E2E test server (`tests/e2e-server.py`) is a Flask app that mocks external s
 - **Auth bypass**: `E2E_TESTING=true` skips Google auth and JWT validation
 - **Database reset**: `/test/reset` endpoint clears database between tests
 - **Isolated DB**: Each test run uses a unique database file
+- **PID file cleanup**: Server writes `.e2e-server.pid` on startup; `make test-fe-e2e` automatically kills any hanging servers before running tests
+
+**Automatic cleanup:**
+- The Makefile target `test-fe-e2e` checks for `.e2e-server.pid` and kills the process if it exists
+- This prevents hanging servers from previous test runs from blocking new tests
+- The PID file is automatically cleaned up on server shutdown (normal exit or signals)
 
 To run E2E tests manually:
 ```bash
@@ -1960,6 +1967,15 @@ cd web && python ../tests/e2e-server.py
 
 # Terminal 2: Run tests
 cd web && npx playwright test
+```
+
+**Note:** If you encounter test timeouts, check for hanging servers:
+```bash
+# Kill any hanging e2e servers
+if [ -f .e2e-server.pid ]; then
+  kill $(cat .e2e-server.pid) 2>/dev/null || true
+  rm -f .e2e-server.pid
+fi
 ```
 
 ### Visual Regression Tests

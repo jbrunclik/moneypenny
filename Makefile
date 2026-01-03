@@ -107,6 +107,17 @@ test-fe-component:
 	cd web && $(NPM) run test:component
 
 test-fe-e2e:
+	@echo "Cleaning up any hanging e2e servers..."
+	@if [ -f .e2e-server.pid ]; then \
+		PID=$$(cat .e2e-server.pid 2>/dev/null); \
+		if [ -n "$$PID" ] && kill -0 $$PID 2>/dev/null; then \
+			echo "Killing e2e server (PID: $$PID)..."; \
+			kill $$PID 2>/dev/null || true; \
+			sleep 1; \
+		fi; \
+		rm -f .e2e-server.pid; \
+	fi
+	@echo "Running E2E tests..."
 	cd web && $(NPM) run test:e2e
 
 test-fe-visual:

@@ -165,6 +165,122 @@ describe('Sidebar', () => {
       const deleteBtn = document.querySelector('.conversation-delete');
       expect(deleteBtn?.getAttribute('data-delete-id')).toBe('conv-123');
     });
+
+    it('shows load more indicator when hasMore is true', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Test')],
+        conversationsPagination: {
+          nextCursor: 'cursor-123',
+          hasMore: true,
+          totalCount: 10,
+          isLoadingMore: false,
+        },
+      });
+
+      renderConversationsList();
+
+      const loadMore = document.querySelector('.conversations-load-more');
+      expect(loadMore).not.toBeNull();
+      expect(loadMore?.classList.contains('loading')).toBe(false);
+    });
+
+    it('shows loading dots when isLoadingMore is true', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Test')],
+        conversationsPagination: {
+          nextCursor: 'cursor-123',
+          hasMore: true,
+          totalCount: 10,
+          isLoadingMore: true,
+        },
+      });
+
+      renderConversationsList();
+
+      const loadMore = document.querySelector('.conversations-load-more');
+      expect(loadMore?.classList.contains('loading')).toBe(true);
+
+      const loadingDots = loadMore?.querySelector('.loading-dots');
+      expect(loadingDots).not.toBeNull();
+      expect(loadingDots?.querySelectorAll('span')).toHaveLength(3);
+    });
+
+    it('does not show load more indicator when hasMore is false', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Test')],
+        conversationsPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 1,
+          isLoadingMore: false,
+        },
+      });
+
+      renderConversationsList();
+
+      const loadMore = document.querySelector('.conversations-load-more');
+      expect(loadMore).toBeNull();
+    });
+
+    it('loader visibility updates when loading state changes', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Test')],
+        conversationsPagination: {
+          nextCursor: 'cursor-123',
+          hasMore: true,
+          totalCount: 10,
+          isLoadingMore: false,
+        },
+      });
+
+      renderConversationsList();
+
+      // Initially not loading
+      const loadMore = document.querySelector('.conversations-load-more');
+      expect(loadMore?.classList.contains('loading')).toBe(false);
+
+      // Set loading state
+      useStore.getState().setLoadingMoreConversations(true);
+      renderConversationsList();
+
+      // Should now show loading
+      const loadMoreLoading = document.querySelector('.conversations-load-more');
+      expect(loadMoreLoading?.classList.contains('loading')).toBe(true);
+
+      // Reset loading state
+      useStore.getState().setLoadingMoreConversations(false);
+      renderConversationsList();
+
+      // Should no longer show loading
+      const loadMoreDone = document.querySelector('.conversations-load-more');
+      expect(loadMoreDone?.classList.contains('loading')).toBe(false);
+    });
+
+    it('loader state persists correctly after re-render', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Test')],
+        conversationsPagination: {
+          nextCursor: 'cursor-123',
+          hasMore: true,
+          totalCount: 10,
+          isLoadingMore: true, // Start in loading state
+        },
+      });
+
+      renderConversationsList();
+
+      // Should show loading
+      const loadMore = document.querySelector('.conversations-load-more');
+      expect(loadMore?.classList.contains('loading')).toBe(true);
+
+      // Re-render without changing state
+      renderConversationsList();
+
+      // Should still show loading (regression: state should persist)
+      const loadMoreAfterRerender = document.querySelector('.conversations-load-more');
+      expect(loadMoreAfterRerender?.classList.contains('loading')).toBe(true);
+      expect(useStore.getState().conversationsPagination.isLoadingMore).toBe(true);
+    });
   });
 
   describe('renderUserInfo', () => {

@@ -64,7 +64,11 @@ export function renderConversationsList(): void {
   // Render loading indicator for "load more" if there are more pages
   const loadMoreHtml = conversationsPagination.hasMore
     ? `<div class="conversations-load-more ${conversationsPagination.isLoadingMore ? 'loading' : ''}">
-        <div class="loading-spinner-small"></div>
+        <div class="loading-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
       </div>`
     : '';
 
@@ -340,10 +344,8 @@ async function loadMoreConversations(container: HTMLDivElement): Promise<void> {
 
   // Set loading state
   store.setLoadingMoreConversations(true);
-
-  // Show loading indicator
-  const loadMoreEl = container.querySelector('.conversations-load-more');
-  loadMoreEl?.classList.add('loading');
+  // Re-render to show loading indicator
+  renderConversationsList();
 
   try {
     // Calculate page size based on container height
@@ -358,13 +360,11 @@ async function loadMoreConversations(container: HTMLDivElement): Promise<void> {
       count: result.conversations.length,
       hasMore: result.pagination.has_more,
     });
-
-    // Re-render the list (this will also update the load-more indicator)
-    renderConversationsList();
   } catch (error) {
     log.error('Failed to load more conversations', { error });
-    // Reset loading state on error
+  } finally {
+    // Reset loading state and re-render
     store.setLoadingMoreConversations(false);
-    loadMoreEl?.classList.remove('loading');
+    renderConversationsList();
   }
 }
