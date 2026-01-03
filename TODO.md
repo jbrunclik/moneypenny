@@ -123,6 +123,7 @@ This file tracks planned features, improvements, and technical debt.
 - [x] **Add database connectivity check** - Verify database is accessible at startup with clear error message
 
 ### 🔵 Frontend Performance & UX
+- [ ] **Deep linking for conversations** - Implement client-side deep linking so users can reload the page and return to the same conversation. Use hash-based routing (`#/conversations/{conversationId}`). Key considerations: (1) Handle initial route on page load in `loadInitialData()` before sync manager starts to prevent false "new messages" banners, (2) Update hash when switching conversations and when temp conversations are persisted, (3) Clear hash for temp conversations and deleted conversations, (4) Handle browser back/forward navigation via `hashchange` event listener, (5) Ensure conversation is added to store with `messageCount` when loaded via deep link so sync manager can initialize correctly, (6) Handle race conditions: temp conversations, deleted conversations, conversations not in initial paginated list.
 - [ ] **iPad Safari keyboard bar gap** - When focusing input on iPad with external keyboard, the system keyboard accessory bar pushes content up, revealing a gap below the app. CSS cannot paint outside the viewport iOS reveals. Need to investigate workarounds.
 - [ ] **Add service worker** - Implement service worker for offline support and better caching
 - [ ] **Add file upload progress** - Show upload progress indicator for large file uploads

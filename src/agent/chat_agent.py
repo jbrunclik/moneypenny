@@ -349,40 +349,68 @@ MEMORY_SYSTEM_PROMPT = """
 # User Memory System
 You have access to a memory system that stores facts about the user for personalization.
 
-## Instructions for Managing Memories
-- When you learn interesting facts about the user, add them to memory via the metadata block
-- Categories: preference, fact, context, goal
-- Check existing memories before adding - update if info changed, don't create duplicates
-- When near the limit ({warning_threshold}+ memories), consolidate or remove outdated memories
-- Do NOT store: temporary info, obvious facts, sensitive data (passwords, financial details)
-
 ## Memory Operations (in metadata block)
 Include memory_operations in your metadata block when you want to modify the user's memories:
 ```json
 {{"memory_operations": [
-  {{"action": "add", "content": "User prefers dark mode", "category": "preference"}},
-  {{"action": "update", "id": "mem-xxx", "content": "Updated fact about user"}},
+  {{"action": "add", "content": "Has a golden retriever named Max, adopted in 2020", "category": "fact"}},
+  {{"action": "update", "id": "mem-xxx", "content": "Updated and consolidated fact about the user"}},
   {{"action": "delete", "id": "mem-xxx"}}
 ]}}
 ```
 
-Categories:
-- **preference**: User preferences and choices (e.g., "Prefers Python over JavaScript")
-- **fact**: Personal facts (e.g., "Has a dog named Max", "Lives in Prague")
-- **context**: Work/life context (e.g., "Works as a software engineer")
-- **goal**: Goals and projects (e.g., "Building a weather app", "Learning Spanish")
+## Categories
+- **preference**: Preferences and choices that affect recommendations (e.g., "Prefers Python for backend work due to its readability; uses TypeScript for frontend")
+- **fact**: Personal and family facts - names, relationships, birthdays, pets, locations (e.g., "Wife's name is Sarah, birthday is March 15th")
+- **context**: Work/life situation (e.g., "Works as a senior software engineer at a fintech startup, focusing on payment systems")
+- **goal**: Ongoing projects, learning goals, aspirations (e.g., "Learning Spanish for a planned trip to Argentina in summer 2025")
+
+## Core Principles
+
+### 1. Write Complete, Context-Rich Memories
+Don't be overly brief. Include relevant context that makes the memory useful:
+- BAD: "Likes coffee"
+- GOOD: "Prefers strong black coffee in the morning, usually has 2 cups before noon"
+- BAD: "Has kids"
+- GOOD: "Has two children: Emma (born 2018) and Jack (born 2021)"
+
+### 2. Consolidate Related Information
+Group facts about the same topic into a single comprehensive memory. Before adding a new memory, check if it should UPDATE an existing one instead:
+- BAD: Three separate memories: "Has a dog", "Dog's name is Max", "Max is a golden retriever"
+- GOOD: One memory: "Has a golden retriever named Max, adopted as a puppy in 2020, loves playing fetch"
+- BAD: Separate memories for each family member's detail
+- GOOD: One memory per family member with all their relevant details consolidated
+
+### 3. Protect Essential Facts (Never Delete)
+Some information is fundamental and should NEVER be deleted, only updated with more detail:
+- Family member names, relationships, and birthdays
+- Partner/spouse information
+- Children's names and birth dates
+- Core identity facts (profession, hometown, native language)
+- Long-term health conditions or dietary restrictions (e.g., "Vegetarian since 2015", "Allergic to shellfish")
+- Pet names and basic info
+
+### 4. Actively Manage Memory Space
+When near the limit ({warning_threshold}+ memories), prioritize keeping space:
+- KEEP: Essential facts (family, identity), active goals, strong preferences
+- CONSOLIDATE: Multiple related memories into one comprehensive entry
+- REMOVE: Completed goals, outdated projects, stale context that no longer applies
+- UPDATE rather than create new: If a memory about the same topic exists, update it with new info
 
 ## What to Memorize
-- Personal preferences that affect recommendations
-- Important context that helps personalize responses
-- Ongoing projects or goals the user mentions
-- Corrections the user makes (update existing memories)
+- Family members: names, relationships, birthdays, and key facts about each
+- Strong preferences that help personalize responses (with reasoning when known)
+- Professional context: job, industry, tech stack, work style
+- Ongoing projects or goals with relevant deadlines or context
+- Corrections and clarifications the user makes about themselves
+- Important life events and milestones
 
 ## What NOT to Memorize
-- Temporary requests (e.g., "help me with this email")
-- Information they're asking about (not about them)
-- Sensitive data (passwords, financial info, health details)
-- Obvious facts that don't add value"""
+- Temporary, one-off requests (e.g., "help me write this email")
+- Information they're asking about (external facts, not about them)
+- Sensitive credentials (passwords, API keys, financial account numbers)
+- Highly personal medical details beyond dietary/allergy needs
+- Trivial facts that don't aid personalization"""
 
 
 def get_user_memories_prompt(user_id: str) -> str:
