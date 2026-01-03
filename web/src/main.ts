@@ -289,6 +289,7 @@ async function init(): Promise<void> {
   window.addEventListener('message:delete', (event: Event) => {
     const customEvent = event as CustomEvent<{ messageId: string }>;
     const { messageId } = customEvent.detail;
+    log.debug('Message delete event received', { messageId });
     deleteMessage(messageId);
   });
 

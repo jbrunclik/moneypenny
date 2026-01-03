@@ -148,6 +148,142 @@ export function renderMessages(messages: Message[]): void {
 }
 
 /**
+ * Create message actions container with all buttons and handlers.
+ * This centralizes the logic for creating message action buttons (sources, imagegen, cost, delete, copy)
+ * to avoid duplication between addMessageToUI() and finalizeStreamingMessage().
+ */
+function createMessageActions(
+  messageId: string,
+  createdAt: string | undefined,
+  sources: Source[] | undefined,
+  generatedImages: GeneratedImage[] | undefined,
+  role: 'user' | 'assistant'
+): HTMLElement {
+  const actions = document.createElement('div');
+  actions.className = 'message-actions';
+  const timeStr = createdAt ? formatMessageTime(createdAt) : '';
+  const hasSources = sources && sources.length > 0;
+  const hasGeneratedImages = generatedImages && generatedImages.length > 0;
+  // Only show cost button for assistant messages (they have costs)
+  const showCostButton = role === 'assistant';
+  actions.innerHTML = `
+    ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
+    ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
+    ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
+    ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
+    <button class="message-delete-btn" title="Delete message">
+      ${DELETE_ICON}
+    </button>
+    <button class="message-copy-btn" title="Copy message">
+      ${COPY_ICON}
+    </button>
+  `;
+
+  // Attach delete button handler
+  // IMPORTANT: Reads messageId from data-message-id attribute, not from closure,
+  // to ensure we use the real ID even after updateUserMessageId() updates it.
+  const deleteBtn = actions.querySelector('.message-delete-btn');
+  deleteBtn?.addEventListener('click', (e) => {
+    // Get the current message ID from the DOM (may have been updated from temp to real ID)
+    // Use getAttribute for reliability (works even if dataset isn't set)
+    // IMPORTANT: closest() must find the .message element that contains this button
+    // We use the event target to ensure we're getting the right element
+    const button = e.currentTarget as HTMLElement;
+    const messageEl = button.closest('.message') as HTMLElement;
+    if (!messageEl) {
+      log.error('Failed to find message element for deletion', { messageId, button });
+      return;
+    }
+    // Read the attribute directly - this will have the updated ID if updateUserMessageId() was called
+    // IMPORTANT: getAttribute reads the actual HTML attribute, which is updated by dataset.messageId =
+    const attrValue = messageEl.getAttribute('data-message-id');
+    const datasetValue = messageEl.dataset.messageId;
+    const currentMessageId = attrValue || datasetValue;
+
+    if (!currentMessageId) {
+      log.error('Failed to get message ID from DOM attribute', {
+        messageId,
+        element: messageEl,
+        hasAttribute: messageEl.hasAttribute('data-message-id'),
+        attrValue,
+        datasetValue,
+      });
+      return;
+    }
+
+    // CRITICAL: If we're still getting the temp ID, something is wrong
+    // The DOM should have been updated by updateUserMessageId()
+    if (currentMessageId.startsWith('temp-')) {
+      log.error('Delete handler still seeing temp ID - DOM not updated?', {
+        currentMessageId,
+        closureId: messageId,
+        attrValue,
+        datasetValue,
+      });
+      // Don't return - try to delete anyway, but log the issue
+    }
+
+    // Always use the ID from the DOM - never use the fallback from closure
+    // This ensures we use the real ID even after updateUserMessageId() updates it
+    log.debug('Deleting message', { messageId: currentMessageId, fromDOM: true, closureId: messageId });
+    window.dispatchEvent(
+      new CustomEvent('message:delete', {
+        detail: { messageId: currentMessageId },
+      })
+    );
+  });
+
+  // Attach sources button handler
+  if (hasSources) {
+    const sourcesBtn = actions.querySelector('.message-sources-btn');
+    sourcesBtn?.addEventListener('click', () => {
+      window.dispatchEvent(
+        new CustomEvent('sources:open', {
+          detail: sources,
+        })
+      );
+    });
+  }
+
+  // Attach generated images button handler
+  if (hasGeneratedImages) {
+    const imagegenBtn = actions.querySelector('.message-imagegen-btn');
+    imagegenBtn?.addEventListener('click', () => {
+      // Add message_id to generated images for cost lookup
+      const imagesWithMessageId = generatedImages!.map(img => ({
+        ...img,
+        message_id: messageId,
+      }));
+      window.dispatchEvent(
+        new CustomEvent('imagegen:open', {
+          detail: imagesWithMessageId,
+        })
+      );
+    });
+  }
+
+  // Attach cost button handler
+  if (showCostButton) {
+    const costBtn = actions.querySelector('.message-cost-btn');
+    costBtn?.addEventListener('click', async () => {
+      try {
+        const costData = await costs.getMessageCost(messageId);
+        window.dispatchEvent(
+          new CustomEvent('message-cost:open', {
+            detail: costData,
+          })
+        );
+      } catch (error) {
+        log.warn('Failed to fetch message cost', { error, messageId });
+        // Silently fail - cost display is optional
+      }
+    });
+  }
+
+  return actions;
+}
+
+/**
  * Add a single message to the UI
  */
 export function addMessageToUI(
@@ -206,83 +342,14 @@ export function addMessageToUI(
     contentWrapper.appendChild(content);
   }
 
-  // Add message actions (timestamp + sources/imagegen/cost buttons + copy button)
-  const actions = document.createElement('div');
-  actions.className = 'message-actions';
-  const timeStr = message.created_at ? formatMessageTime(message.created_at) : '';
-  const hasSources = message.sources && message.sources.length > 0;
-  const hasGeneratedImages = message.generated_images && message.generated_images.length > 0;
-  // Only show cost button for assistant messages (they have costs)
-  const showCostButton = message.role === 'assistant';
-  actions.innerHTML = `
-    ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
-    ${hasSources ? `<button class="message-sources-btn" title="View sources (${message.sources!.length})">${SOURCES_ICON}</button>` : ''}
-    ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
-    ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
-    <button class="message-delete-btn" title="Delete message">
-      ${DELETE_ICON}
-    </button>
-    <button class="message-copy-btn" title="Copy message">
-      ${COPY_ICON}
-    </button>
-  `;
-
-  // Add delete button click handler
-  const deleteBtn = actions.querySelector('.message-delete-btn');
-  deleteBtn?.addEventListener('click', () => {
-    window.dispatchEvent(
-      new CustomEvent('message:delete', {
-        detail: { messageId: message.id },
-      })
-    );
-  });
-
-  // Add sources button click handler
-  if (hasSources) {
-    const sourcesBtn = actions.querySelector('.message-sources-btn');
-    sourcesBtn?.addEventListener('click', () => {
-      window.dispatchEvent(
-        new CustomEvent('sources:open', {
-          detail: message.sources,
-        })
-      );
-    });
-  }
-
-  // Add generated images button click handler
-  if (hasGeneratedImages) {
-    const imagegenBtn = actions.querySelector('.message-imagegen-btn');
-    imagegenBtn?.addEventListener('click', () => {
-      // Add message_id to generated images for cost lookup
-      const imagesWithMessageId = message.generated_images!.map(img => ({
-        ...img,
-        message_id: message.id,
-      }));
-      window.dispatchEvent(
-        new CustomEvent('imagegen:open', {
-          detail: imagesWithMessageId,
-        })
-      );
-    });
-  }
-
-  // Add cost button click handler
-  if (showCostButton) {
-    const costBtn = actions.querySelector('.message-cost-btn');
-    costBtn?.addEventListener('click', async () => {
-      try {
-        const costData = await costs.getMessageCost(message.id);
-        window.dispatchEvent(
-          new CustomEvent('message-cost:open', {
-            detail: costData,
-          })
-        );
-      } catch (error) {
-        log.warn('Failed to fetch message cost', { error, messageId: message.id });
-        // Silently fail - cost display is optional
-      }
-    });
-  }
+  // Create message actions with all buttons and handlers
+  const actions = createMessageActions(
+    message.id,
+    message.created_at,
+    message.sources,
+    message.generated_images,
+    message.role
+  );
 
   contentWrapper.appendChild(actions);
 
@@ -853,83 +920,13 @@ export function finalizeStreamingMessage(
   // Add message actions (timestamp + sources/imagegen buttons + copy button)
   const contentWrapper = messageEl.querySelector('.message-content-wrapper');
   if (contentWrapper && !contentWrapper.querySelector('.message-actions')) {
-    const actions = document.createElement('div');
-    actions.className = 'message-actions';
-    const timeStr = createdAt ? formatMessageTime(createdAt) : '';
-    const hasSources = sources && sources.length > 0;
-    const hasGeneratedImages = generatedImages && generatedImages.length > 0;
-    // Only show cost button for assistant messages (they have costs)
-    const showCostButton = role === 'assistant';
-    actions.innerHTML = `
-      ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
-      ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
-      ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
-      ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
-      <button class="message-delete-btn" title="Delete message">
-        ${DELETE_ICON}
-      </button>
-      <button class="message-copy-btn" title="Copy message">
-        ${COPY_ICON}
-      </button>
-    `;
-
-    // Add delete button click handler
-    const deleteBtn = actions.querySelector('.message-delete-btn');
-    deleteBtn?.addEventListener('click', () => {
-      window.dispatchEvent(
-        new CustomEvent('message:delete', {
-          detail: { messageId },
-        })
-      );
-    });
-
-    // Add sources button click handler
-    if (hasSources) {
-      const sourcesBtn = actions.querySelector('.message-sources-btn');
-      sourcesBtn?.addEventListener('click', () => {
-        window.dispatchEvent(
-          new CustomEvent('sources:open', {
-            detail: sources,
-          })
-        );
-      });
-    }
-
-    // Add generated images button click handler
-    if (hasGeneratedImages) {
-      const imagegenBtn = actions.querySelector('.message-imagegen-btn');
-      imagegenBtn?.addEventListener('click', () => {
-        // Add message_id to generated images for cost lookup
-        const imagesWithMessageId = generatedImages!.map(img => ({
-          ...img,
-          message_id: messageId,
-        }));
-        window.dispatchEvent(
-          new CustomEvent('imagegen:open', {
-            detail: imagesWithMessageId,
-          })
-        );
-      });
-    }
-
-    // Add cost button click handler
-    if (showCostButton) {
-      const costBtn = actions.querySelector('.message-cost-btn');
-      costBtn?.addEventListener('click', async () => {
-        try {
-          const costData = await costs.getMessageCost(messageId);
-          window.dispatchEvent(
-            new CustomEvent('message-cost:open', {
-              detail: costData,
-            })
-          );
-        } catch (error) {
-          log.warn('Failed to fetch message cost', { error, messageId });
-          // Silently fail - cost display is optional
-        }
-      });
-    }
-
+    const actions = createMessageActions(
+      messageId,
+      createdAt,
+      sources,
+      generatedImages,
+      role
+    );
     contentWrapper.appendChild(actions);
   }
 

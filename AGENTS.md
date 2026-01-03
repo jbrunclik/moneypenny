@@ -2961,12 +2961,15 @@ This prevents the "Failed to load image" error when clicking images before the r
 | Batch | Before response | Click is ignored (pending state) |
 | Batch | After response | Lightbox opens successfully |
 
+**Message deletion with temp IDs:**
+When a user message is created, it initially has a temp ID (`temp-{timestamp}`). The delete button handler must read the current message ID from the DOM attribute (`data-message-id`) rather than from the closure, because `updateUserMessageId()` updates the attribute after the real ID is received from the server. Without this fix, deletion would fail until the conversation was reloaded.
+
 **Key files:**
 - [routes.py](src/api/routes.py) - Sends `user_message_saved` SSE event early in streaming
 - [utils.py](src/api/utils.py) - `build_chat_response()` and `build_stream_done_event()` accept `user_message_id`
 - [schemas.py](src/api/schemas.py) - `ChatBatchResponse.user_message_id` field
 - [api.ts](web/src/types/api.ts) - `StreamEvent` type includes `user_message_saved` event
-- [Messages.ts](web/src/components/Messages.ts) - `updateUserMessageId()` updates DOM and removes pending state
+- [Messages.ts](web/src/components/Messages.ts) - `updateUserMessageId()` updates DOM and removes pending state, `createMessageActions()` reads message ID from DOM for delete handler
 - [messages.css](web/src/styles/components/messages.css) - `.message-image[data-pending="true"]` styles
 - [main.ts](web/src/main.ts) - Handles `user_message_saved` event and calls `updateUserMessageId()`
 
