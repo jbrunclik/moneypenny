@@ -75,6 +75,12 @@
     height: 20px;
 }
 
+.message-avatar .ai-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
 .message.assistant .message-avatar {
     background: var(--gradient-assistant-avatar);
     box-shadow: var(--shadow-glow-accent);

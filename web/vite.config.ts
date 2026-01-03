@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   root: '.',
-  base: '/static/',
+  // Only use /static/ base in production builds, not dev server
+  base: command === 'build' ? '/static/' : '/',
   build: {
     outDir: '../static/assets',
     emptyOutDir: true,
@@ -35,6 +36,10 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      '/static': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
-});
+}));

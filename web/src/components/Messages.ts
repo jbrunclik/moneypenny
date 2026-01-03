@@ -10,7 +10,7 @@ import {
 import { createUserAvatarElement } from '../utils/avatar';
 import { checkScrollButtonVisibility } from './ScrollToBottom';
 import {
-  AI_AVATAR_SVG,
+  AI_AVATAR,
   getFileIcon,
   DOWNLOAD_ICON,
   COPY_ICON,
@@ -298,7 +298,7 @@ export function addMessageToUI(
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
   if (message.role === 'assistant') {
-    avatar.innerHTML = AI_AVATAR_SVG;
+    avatar.innerHTML = AI_AVATAR;
   } else {
     // User avatar - show picture or initials
     const user = useStore.getState().user;
@@ -520,7 +520,7 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
   const thinkingState = createThinkingState();
 
   messageEl.innerHTML = `
-    <div class="message-avatar">${AI_AVATAR_SVG}</div>
+    <div class="message-avatar">${AI_AVATAR}</div>
     <div class="message-content-wrapper">
       <div class="message-content">
         <span class="streaming-cursor"></span>
@@ -694,7 +694,7 @@ export function restoreStreamingMessage(conversationId: string, content: string,
   const restoredThinkingState = thinkingState ?? createThinkingState();
 
   messageEl.innerHTML = `
-    <div class="message-avatar">${AI_AVATAR_SVG}</div>
+    <div class="message-avatar">${AI_AVATAR}</div>
     <div class="message-content-wrapper">
       <div class="message-content">
         <span class="streaming-cursor"></span>
@@ -949,7 +949,7 @@ export function showLoadingIndicator(): void {
   const loading = document.createElement('div');
   loading.className = 'message-loading';
   loading.innerHTML = `
-    <div class="message-avatar">${AI_AVATAR_SVG}</div>
+    <div class="message-avatar">${AI_AVATAR}</div>
     <div class="loading-dots">
       <span></span>
       <span></span>

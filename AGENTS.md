@@ -71,7 +71,7 @@ ai-chatbot/
 │       │   ├── dom.ts            # DOM helpers, escapeHtml
 │       │   ├── markdown.ts       # marked + highlight.js, inline copy buttons
 │       │   ├── thumbnails.ts     # Intersection Observer lazy loading
-│       │   ├── icons.ts          # SVG icon constants
+│       │   ├── icons.ts          # Icon constants (SVG icons + AI avatar)
 │       │   └── logger.ts         # Structured logging utility
 │       └── styles/               # CSS files (modular structure)
 │           ├── main.css          # Entry point, imports all modules
@@ -87,9 +87,12 @@ ai-chatbot/
 │               └── thinking.css
 └── static/                       # Build output + PWA assets
     ├── assets/                   # Vite output (hashed JS/CSS)
-    ├── openapi.json              # OpenAPI spec (make openapi)
-    ├── manifest.json
-    └── icons/
+    ├── avatar.png                # AI assistant avatar (64x64, transparent)
+    ├── icon-180.png              # Apple touch icon
+    ├── icon-192.png              # PWA icon + favicon
+    ├── icon-512.png              # PWA icon (large)
+    ├── manifest.json             # PWA manifest
+    └── openapi.json              # OpenAPI spec (make openapi)
 ```
 
 ## Key Files
@@ -1769,6 +1772,17 @@ Edit [config.py](src/config.py) `MODELS` dict.
 
 ### Add new icons
 Add SVG constants to [icons.ts](web/src/utils/icons.ts) and import where needed.
+
+### Icon Assets
+
+| File | Size | Usage |
+|------|------|-------|
+| `static/icon-180.png` | 180×180 | Apple touch icon (iOS home screen) |
+| `static/icon-192.png` | 192×192 | PWA icon (Android) + browser favicon |
+| `static/icon-512.png` | 512×512 | PWA icon (large, splash screens) |
+| `static/avatar.png` | 64×64 | AI assistant avatar in messages (transparent background) |
+
+**AI Avatar**: The `AI_AVATAR` constant in [icons.ts](web/src/utils/icons.ts) renders an `<img>` tag pointing to `/static/avatar.png`. The avatar has a transparent background and displays on the purple gradient avatar container in messages.
 
 ## CSS Architecture
 

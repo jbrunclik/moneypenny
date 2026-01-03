@@ -1,13 +1,9 @@
 // SVG icons used throughout the app
 
 /**
- * AI assistant avatar icon (sparkle)
+ * AI assistant avatar (robot image)
  */
-export const AI_AVATAR_SVG = `<svg viewBox="0 0 24 24" fill="none">
-  <path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill="white"/>
-  <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" fill="white" opacity="0.7"/>
-  <path d="M6 16L6.5 17.5L8 18L6.5 18.5L6 20L5.5 18.5L4 18L5.5 17.5L6 16Z" fill="white" opacity="0.5"/>
-</svg>`;
+export const AI_AVATAR = `<img src="/static/avatar.png" alt="AI" class="ai-avatar-img">`;
 
 /**
  * Get SVG icon for file type
