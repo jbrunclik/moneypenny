@@ -1369,6 +1369,55 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
 - E2E: [sync.spec.ts](web/tests/e2e/sync.spec.ts) - Multi-tab and visibility scenarios
 - Visual: [chat.visual.ts](web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge, banner)
 
+## Deep Linking
+
+The app supports hash-based routing (`#/conversations/{conversationId}`) for deep linking to specific conversations.
+
+### Features
+
+- **Bookmarkable URLs**: Each conversation has a unique URL that can be bookmarked or shared
+- **Browser history**: Back/forward navigation works between conversations
+- **Page refresh**: Reloading the page returns to the same conversation
+- **Initial route handling**: Deep links are processed before sync manager starts to prevent false "new messages" banners
+
+### How it works
+
+1. **Hash format**: `#/conversations/{conversationId}` (e.g., `#/conversations/abc-123-def`)
+2. **Route parsing**: `parseHash()` extracts conversation ID from URL hash
+3. **Initial load**: `initDeepLinking()` returns the initial conversation ID for `loadInitialData()` to handle
+4. **Hash updates**: `setConversationHash()` updates URL when switching conversations
+5. **Browser navigation**: `hashchange` event listener handles back/forward navigation
+
+### URL update behavior
+
+| Action | Hash behavior | History |
+|--------|---------------|---------|
+| Click conversation in sidebar | `pushState(#/conversations/{id})` | Added to history |
+| Click "New Chat" | `pushState("")` - clears hash | Added to history |
+| Temp conversation persisted | `replaceState(#/conversations/{id})` | Replaces empty hash |
+| Conversation deleted | `replaceState("")` - clears hash | No new entry |
+
+### Edge cases handled
+
+1. **Temp conversation IDs in URL**: IDs starting with `temp-` are ignored and hash is cleared
+2. **Deleted conversations**: If deep-linked conversation doesn't exist, shows error toast and clears hash
+3. **Conversations not in paginated list**: Fetches conversation from API if not found in local store
+4. **Malformed hashes**: Invalid routes are ignored (app shows home view)
+
+### Key files
+
+**Router module:**
+- [deeplink.ts](web/src/router/deeplink.ts) - Router functions (`parseHash`, `setConversationHash`, `clearConversationHash`, `pushEmptyHash`, `initDeepLinking`, `isValidConversationId`)
+
+**Integration:**
+- [main.ts](web/src/main.ts) - `handleDeepLinkNavigation()`, `loadDeepLinkedConversation()`, integration with `loadInitialData()` and `switchToConversation()`
+- [store.ts](web/src/state/store.ts) - `currentConversationId` persisted to localStorage
+
+### Testing
+
+- Unit tests: [deeplink.test.ts](web/tests/unit/deeplink.test.ts) - Router function tests
+- E2E tests: [deeplink.spec.ts](web/tests/e2e/deeplink.spec.ts) - Full deep linking scenarios including browser navigation, edge cases, and pagination
+
 ## Version Update Banner
 
 The app detects when a new version is deployed and shows a banner prompting users to reload.

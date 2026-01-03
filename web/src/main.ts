@@ -63,6 +63,15 @@ import { getElementById, isScrolledToBottom, clearElement, scrollToBottom } from
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from './utils/thumbnails';
 import { initializeTheme } from './utils/theme';
 import { initPopupEscapeListener } from './utils/popupEscapeHandler';
+import {
+  initDeepLinking,
+  cleanupDeepLinking,
+  getConversationIdFromHash,
+  setConversationHash,
+  clearConversationHash,
+  pushEmptyHash,
+  isValidConversationId,
+} from './router/deeplink';
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
@@ -237,14 +246,19 @@ async function init(): Promise<void> {
   // Initialize toolbar buttons
   initToolbarButtons();
 
+  // Initialize deep linking and capture initial conversation ID from URL
+  const initialConversationId = initDeepLinking(handleDeepLinkNavigation);
+
   // Check authentication
   const isAuthenticated = await checkAuth();
 
   if (isAuthenticated) {
     hideLoginOverlay();
-    await loadInitialData();
+    await loadInitialData(initialConversationId);
   } else {
     showLoginOverlay();
+    // Clear any conversation hash since user isn't authenticated
+    clearConversationHash();
     await initGoogleSignIn();
     const loginBtn = getElementById<HTMLDivElement>('google-login-btn');
     if (loginBtn) {
@@ -256,7 +270,9 @@ async function init(): Promise<void> {
   window.addEventListener('auth:login', async () => {
     hideLoginOverlay();
     try {
-      await loadInitialData();
+      // Check URL hash again in case user logged out then back in on a deep link
+      const conversationId = getConversationIdFromHash();
+      await loadInitialData(conversationId);
     } catch (error) {
       log.error('Failed to load data after login', { error });
       toast.error('Failed to load data. Please refresh the page.', {
@@ -271,6 +287,10 @@ async function init(): Promise<void> {
     cleanupInfiniteScroll();
     cleanupOlderMessagesScrollListener();
 
+    // Clear URL hash and clean up deep linking
+    clearConversationHash();
+    cleanupDeepLinking();
+
     showLoginOverlay();
     useStore.getState().setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
     useStore.getState().setCurrentConversation(null);
@@ -283,6 +303,9 @@ async function init(): Promise<void> {
       clearElement(loginBtn);
       renderGoogleButton(loginBtn);
     }
+
+    // Re-initialize deep linking for next login
+    initDeepLinking(handleDeepLinkNavigation);
   });
 
   // Listen for message delete events
@@ -296,8 +319,9 @@ async function init(): Promise<void> {
 }
 
 // Load initial data after authentication
-async function loadInitialData(): Promise<void> {
-  log.debug('Loading initial data');
+// If initialConversationId is provided (from URL hash), load that conversation BEFORE starting sync
+async function loadInitialData(initialConversationId?: string | null): Promise<void> {
+  log.debug('Loading initial data', { initialConversationId });
   const store = useStore.getState();
   store.setLoading(true);
 
@@ -318,7 +342,13 @@ async function loadInitialData(): Promise<void> {
     renderUserInfo();
     renderModelDropdown();
 
-    // Initialize sync manager after data is loaded
+    // Handle initial conversation from URL hash BEFORE starting sync manager
+    // This prevents false "new messages available" banners for the deep-linked conversation
+    if (initialConversationId && isValidConversationId(initialConversationId)) {
+      await loadDeepLinkedConversation(initialConversationId);
+    }
+
+    // Initialize sync manager after data is loaded AND initial conversation is handled
     initSyncManager({
       onConversationsUpdated: () => {
         renderConversationsList();
@@ -327,6 +357,8 @@ async function loadInitialData(): Promise<void> {
         store.setCurrentConversation(null);
         renderMessages([]);
         updateChatTitle('AI Chatbot');
+        // Clear the hash since conversation no longer exists
+        clearConversationHash();
       },
       onCurrentConversationExternalUpdate: (messageCount: number) => {
         // Show banner that new messages are available
@@ -371,6 +403,126 @@ async function updateConversationCost(convId: string | null): Promise<void> {
   }
 }
 
+/**
+ * Load a conversation from a deep link URL.
+ * Handles conversations that may not be in the initially paginated list.
+ * Called BEFORE sync manager starts to prevent false "new messages available" banners.
+ */
+async function loadDeepLinkedConversation(conversationId: string): Promise<void> {
+  log.info('Loading deep-linked conversation', { conversationId });
+  const store = useStore.getState();
+
+  // Check if conversation is already in the store (from initial list)
+  const existingConv = store.conversations.find((c) => c.id === conversationId);
+
+  if (existingConv) {
+    // Conversation is in the list, fetch full details and switch
+    log.debug('Deep-linked conversation found in store', { conversationId });
+    try {
+      showConversationLoader();
+      const response = await conversations.get(conversationId);
+      hideConversationLoader();
+
+      // Store messages and pagination
+      store.setMessages(conversationId, response.messages, response.message_pagination);
+
+      const conv: Conversation = {
+        id: response.id,
+        title: response.title,
+        model: response.model,
+        created_at: response.created_at,
+        updated_at: response.updated_at,
+        messages: response.messages,
+      };
+      // Use total message count from pagination for correct sync behavior
+      switchToConversation(conv, response.message_pagination.total_count);
+    } catch (error) {
+      log.error('Failed to load deep-linked conversation', { error, conversationId });
+      hideConversationLoader();
+      // Clear the invalid hash and show error
+      clearConversationHash();
+      toast.error('Failed to load conversation from URL.', {
+        action: { label: 'Retry', onClick: () => loadDeepLinkedConversation(conversationId) },
+      });
+    }
+  } else {
+    // Conversation not in paginated list - fetch directly from API
+    // This handles conversations beyond the initial page load
+    log.debug('Deep-linked conversation not in store, fetching from API', { conversationId });
+    try {
+      showConversationLoader();
+      const response = await conversations.get(conversationId);
+      hideConversationLoader();
+
+      // Add conversation to store (it wasn't in the initial list)
+      // This is important for sync manager to track it correctly
+      const conv: Conversation = {
+        id: response.id,
+        title: response.title,
+        model: response.model,
+        created_at: response.created_at,
+        updated_at: response.updated_at,
+        messages: response.messages,
+        // Set messageCount from pagination for sync manager
+        messageCount: response.message_pagination.total_count,
+      };
+      store.addConversation(conv);
+      store.setMessages(conversationId, response.messages, response.message_pagination);
+      renderConversationsList();
+
+      // Switch to the conversation
+      switchToConversation(conv, response.message_pagination.total_count);
+    } catch (error) {
+      log.error('Failed to load deep-linked conversation from API', { error, conversationId });
+      hideConversationLoader();
+      // Clear the invalid hash - conversation likely doesn't exist or user doesn't have access
+      clearConversationHash();
+      toast.error('Conversation not found or you don\'t have access to it.');
+    }
+  }
+}
+
+/**
+ * Handle deep link navigation (browser back/forward buttons).
+ * This is called when the URL hash changes via browser navigation.
+ */
+function handleDeepLinkNavigation(conversationId: string | null): void {
+  log.debug('Deep link navigation', { conversationId });
+  const store = useStore.getState();
+
+  if (!conversationId) {
+    // User navigated to home (no conversation selected)
+    // Clear current conversation but don't navigate away if there's an active request
+    const currentConv = store.currentConversation;
+    if (currentConv && !store.getActiveRequest(currentConv.id)) {
+      store.setCurrentConversation(null);
+      renderMessages([]);
+      updateChatTitle('AI Chatbot');
+      setActiveConversation('');
+      renderConversationsList();
+      focusMessageInput();
+    }
+    return;
+  }
+
+  // Navigate to the specified conversation
+  // Skip if already viewing this conversation
+  if (store.currentConversation?.id === conversationId) {
+    return;
+  }
+
+  // Check if conversation is in store
+  const conv = store.conversations.find((c) => c.id === conversationId);
+  if (conv) {
+    // Conversation is known, use selectConversation to load it
+    selectConversation(conversationId);
+  } else {
+    // Conversation not in store - try to load it from API
+    // This handles going back to a conversation that was beyond the paginated list
+    loadDeepLinkedConversation(conversationId);
+  }
+}
+
 // Switch to a conversation and update UI
 function switchToConversation(conv: Conversation, totalMessageCount?: number): void {
   log.debug('Switching to conversation', { conversationId: conv.id, title: conv.title, totalMessageCount });
@@ -390,6 +542,9 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
   store.setCurrentConversation(conv);
   setActiveConversation(conv.id);
   updateChatTitle(conv.title);
+
+  // Update URL hash for deep linking (skips temp conversations automatically)
+  setConversationHash(conv.id);
 
   // Hide any existing new messages banner when switching conversations
   hideNewMessagesAvailableBanner();
@@ -523,6 +678,10 @@ function createConversation(): void {
   renderModelDropdown();
   closeSidebar();
   focusMessageInput();
+
+  // Push empty hash to history so back button works (navigates to previous conversation)
+  // The real hash will be set when the conversation is persisted
+  pushEmptyHash();
 }
 
 // Remove conversation from UI and clear if it was current
@@ -535,6 +694,8 @@ function removeConversationFromUI(convId: string): void {
     store.setCurrentConversation(null);
     renderMessages([]);
     updateChatTitle('AI Chatbot');
+    // Clear the hash since conversation no longer exists
+    clearConversationHash();
   }
 }
 
@@ -714,6 +875,11 @@ async function sendMessage(): Promise<void> {
       renderConversationsList();
       setActiveConversation(persistedConv.id);
       conv = persistedConv;
+
+      // Update URL hash with the real (persisted) conversation ID
+      // Use replaceState to replace the empty hash (from createConversation) with the real ID
+      // This prevents empty hash entries from cluttering browser history
+      setConversationHash(persistedConv.id, { replace: true });
     } catch (error) {
       log.error('Failed to create conversation', { error });
       toast.error('Failed to create conversation. Please try again.');
