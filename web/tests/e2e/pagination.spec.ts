@@ -43,27 +43,27 @@ test.describe('Conversations Pagination', () => {
   });
 
   test('loads more conversations on scroll', async ({ page }) => {
-    // Create many conversations to trigger pagination
-    // The default page size is 30, so we need to create more than that
-    // For E2E tests, we'll create a smaller number but force a small page size
+    // Seed conversations directly into database for faster test setup
     const numConversations = 20;
+    const conversations = Array.from({ length: numConversations }, (_, i) => ({
+      title: `Conversation ${i + 1}`,
+      messages: [
+        { role: 'user', content: `User message ${i + 1}` },
+        { role: 'assistant', content: `Assistant response ${i + 1}` },
+      ],
+    }));
 
-    for (let i = 0; i < numConversations; i++) {
-      await page.click('#new-chat-btn');
-      await page.fill('#message-input', `Conversation ${i + 1}`);
-      await page.click('#send-btn');
-      await page.waitForSelector('.message.assistant', { timeout: 15000 });
-    }
+    const seedResponse = await page.request.post('/test/seed', {
+      data: { conversations },
+    });
+    expect(seedResponse.ok()).toBeTruthy();
 
-    // Verify all conversations are in sidebar
-    const convItems = page.locator('.conversation-item-wrapper');
-    await expect(convItems).toHaveCount(numConversations);
-
-    // Reload page to test fresh load
+    // Reload to see seeded conversations
     await page.reload();
     await page.waitForSelector('#new-chat-btn');
 
-    // All conversations should be loaded (less than default page size)
+    // Verify all conversations are in sidebar
+    const convItems = page.locator('.conversation-item-wrapper');
     await expect(convItems).toHaveCount(numConversations, { timeout: 10000 });
   });
 
@@ -172,14 +172,27 @@ test.describe('Conversations Pagination - Load More', () => {
   });
 
   test('sidebar scroll position is maintained after load more', async ({ page }) => {
-    // Create several conversations
+    // Seed conversations directly into database for faster test setup
     const numConversations = 10;
-    for (let i = 0; i < numConversations; i++) {
-      await page.click('#new-chat-btn');
-      await page.fill('#message-input', `Conversation ${i + 1}`);
-      await page.click('#send-btn');
-      await page.waitForSelector('.message.assistant', { timeout: 15000 });
-    }
+    const conversations = Array.from({ length: numConversations }, (_, i) => ({
+      title: `Conversation ${i + 1}`,
+      messages: [
+        { role: 'user', content: `User message ${i + 1}` },
+        { role: 'assistant', content: `Assistant response ${i + 1}` },
+      ],
+    }));
+
+    await page.request.post('/test/seed', {
+      data: { conversations },
+    });
+
+    // Reload to see seeded conversations
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+
+    // Verify initial conversations loaded
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(numConversations, { timeout: 10000 });
 
     // Get the sidebar/conversations list
     const convList = page.locator('.conversations-list');
@@ -200,7 +213,6 @@ test.describe('Conversations Pagination - Load More', () => {
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
     // Verify conversations increased
-    const convItems = page.locator('.conversation-item-wrapper');
     await expect(convItems).toHaveCount(numConversations + 1);
   });
 
@@ -217,17 +229,22 @@ test.describe('Conversations Pagination - Load More', () => {
   });
 
   test('conversations loader shows loading dots when loading more', async ({ page }) => {
-    // Create enough conversations to trigger pagination
-    // Default page size is 30, so create 35 to ensure pagination
+    // Seed 35 conversations directly into database for faster test setup
+    // Default page size is 30, so 35 ensures pagination
     const numConversations = 35;
-    for (let i = 0; i < numConversations; i++) {
-      await page.click('#new-chat-btn');
-      await page.fill('#message-input', `Conversation ${i + 1}`);
-      await page.click('#send-btn');
-      await page.waitForSelector('.message.assistant', { timeout: 10000 });
-    }
+    const conversations = Array.from({ length: numConversations }, (_, i) => ({
+      title: `Conversation ${i + 1}`,
+      messages: [
+        { role: 'user', content: `User message ${i + 1}` },
+        { role: 'assistant', content: `Assistant response ${i + 1}` },
+      ],
+    }));
 
-    // Reload to get fresh pagination state
+    await page.request.post('/test/seed', {
+      data: { conversations },
+    });
+
+    // Reload to see seeded conversations
     await page.reload();
     await page.waitForSelector('#new-chat-btn');
 
@@ -297,16 +314,21 @@ test.describe('Pagination with Sync', () => {
   });
 
   test('pagination works after page reload', async ({ page }) => {
-    // Create conversations
+    // Seed conversations directly into database for faster test setup
     const numConversations = 5;
-    for (let i = 0; i < numConversations; i++) {
-      await page.click('#new-chat-btn');
-      await page.fill('#message-input', `Conversation ${i + 1}`);
-      await page.click('#send-btn');
-      await page.waitForSelector('.message.assistant', { timeout: 10000 });
-    }
+    const conversations = Array.from({ length: numConversations }, (_, i) => ({
+      title: `Conversation ${i + 1}`,
+      messages: [
+        { role: 'user', content: `User message ${i + 1}` },
+        { role: 'assistant', content: `Assistant response ${i + 1}` },
+      ],
+    }));
 
-    // Reload page
+    await page.request.post('/test/seed', {
+      data: { conversations },
+    });
+
+    // Reload page to see seeded conversations
     await page.reload();
     await page.waitForSelector('#new-chat-btn');
 

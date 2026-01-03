@@ -71,7 +71,7 @@ ai-chatbot/
 │       │   ├── dom.ts            # DOM helpers, escapeHtml
 │       │   ├── markdown.ts       # marked + highlight.js, inline copy buttons
 │       │   ├── thumbnails.ts     # Intersection Observer lazy loading
-│       │   ├── icons.ts          # Icon constants (SVG icons + AI avatar)
+│       │   ├── icons.ts          # SVG icon constants
 │       │   └── logger.ts         # Structured logging utility
 │       └── styles/               # CSS files (modular structure)
 │           ├── main.css          # Entry point, imports all modules
@@ -87,12 +87,9 @@ ai-chatbot/
 │               └── thinking.css
 └── static/                       # Build output + PWA assets
     ├── assets/                   # Vite output (hashed JS/CSS)
-    ├── avatar.png                # AI assistant avatar (64x64, transparent)
-    ├── icon-180.png              # Apple touch icon
-    ├── icon-192.png              # PWA icon + favicon
-    ├── icon-512.png              # PWA icon (large)
-    ├── manifest.json             # PWA manifest
-    └── openapi.json              # OpenAPI spec (make openapi)
+    ├── openapi.json              # OpenAPI spec (make openapi)
+    ├── manifest.json
+    └── icons/
 ```
 
 ## Key Files
@@ -198,7 +195,6 @@ The backend returns distinct error codes for authentication failures:
 - Conventional Commits: `type(scope): description`
   - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 - **Test all UI changes on both desktop and mobile** - The app has a responsive layout with different behavior at 768px breakpoint. Always verify changes work on both layouts.
-- **No trailing whitespace** - ESLint (`no-trailing-spaces`) and Ruff (W291, W293) automatically catch trailing whitespace. Always run `make lint` before committing.
 
 ### Constants and Configuration
 
@@ -1174,9 +1170,6 @@ During streaming responses, a separate scroll system manages auto-scrolling to k
 5. **Auto-scroll resume**: If user scrolls back to bottom, auto-scroll resumes automatically (with debounce)
 6. **Cleanup**: When streaming ends (success or error), the scroll listener is cleaned up
 
-**Race condition fix:**
-`autoScrollForStreaming()` includes a synchronous check before scrolling: if `scrollTop` has decreased since the last check, the user has scrolled up and auto-scroll is disabled immediately. This prevents a race condition where `autoScrollForStreaming()` is called (from a token update) before the scroll event handler has fired to disable auto-scroll. Without this check, the function would scroll to bottom even though the user had just scrolled up.
-
 **Key behaviors:**
 - **Interruptible**: User can scroll up during streaming to read history - auto-scroll pauses immediately
 - **Resumable**: User can scroll back to bottom to resume auto-scroll (with 150ms debounce)
@@ -1240,9 +1233,9 @@ The app uses cursor-based pagination for both conversations and messages to effi
 
 1. **Conversations infinite scroll** ([Sidebar.ts](web/src/components/Sidebar.ts)):
    - Calculates optimal page size based on viewport height (`calculatePageSize()`)
-   - Uses scroll listener to detect when user scrolls near bottom
+   - Uses `IntersectionObserver` to detect when user scrolls near bottom
    - Automatically fetches next page when threshold reached (200px from bottom)
-   - Shows loading dots animation during fetch (same animation as messages pagination)
+   - Shows loading spinner during fetch
    - Debounced scroll handler (100ms) to avoid excessive checks
 
 2. **Messages older pagination** ([Messages.ts](web/src/components/Messages.ts)):
@@ -1289,7 +1282,6 @@ Frontend ([config.ts](web/src/config.ts)):
 **Testing:**
 - Backend integration tests: [test_routes_pagination.py](tests/integration/test_routes_pagination.py)
 - E2E tests: [pagination.spec.ts](web/tests/e2e/pagination.spec.ts)
-- Component tests: [Sidebar.test.ts](web/tests/component/Sidebar.test.ts) - Tests loader visibility and loading dots structure
 
 ## Real-time Synchronization
 
@@ -1307,16 +1299,7 @@ Chosen **polling over SSE/WebSockets** because:
 ### How it works
 
 1. **Full sync**: On initial load or after >5 minutes hidden, fetches all conversations with message counts
-   - **IMPORTANT**: Full sync only updates EXISTING conversations and detects deletions
-   - Full sync does NOT add new conversations to the store (they come via pagination or incremental sync)
-   - This preserves pagination - conversations are only added via:
-     - Initial pagination load (`loadInitialData`)
-     - User scrolling to load more (pagination)
-     - Incremental sync adding genuinely new conversations (created on another device)
 2. **Incremental sync**: Every 60 seconds, fetches only conversations updated since last sync
-   - Adds genuinely new conversations (created/updated after initial page load)
-   - Distinguishes between pagination-discovered (older) and actually new (recent) conversations
-   - Only actually new conversations are added to the store (pagination-discovered come via pagination)
 3. **Unread count**: `unreadCount = server_message_count - local_message_count`
 4. **Delete detection**: Full sync compares local IDs with server response; missing = deleted
 5. **Visibility-aware**: Polling pauses when tab is hidden, syncs immediately on refocus
@@ -1339,13 +1322,6 @@ The SyncManager handles several race conditions:
 5. **Streaming completion race**: When streaming completes, the local message count must be incremented BEFORE clearing the streaming flag. This prevents a race where sync happens between clearing the flag and incrementing the count, which would cause a false "new messages available" banner
 6. **Pagination count mismatch**: When opening an existing conversation with pagination, use `message_pagination.total_count` (NOT `conv.messages.length`) to set the baseline message count. Using the paginated subset count would cause false external update detection after streaming
 7. **Paginated fullSync discovery**: When fullSync returns conversations beyond the initial paginated load (e.g., user's 50th conversation when only 30 were loaded), these are NOT "unread" - they're newly discovered. The SyncManager initializes `localMessageCounts` to the server's count for these conversations, preventing false unread badges. The store's `addConversation()` inserts at the correct sorted position (by `updated_at` DESC) rather than prepending
-8. **Pagination-discovered vs actually new distinction**: The SyncManager distinguishes between two types of newly discovered conversations:
-   - **Pagination-discovered**: Older conversations that existed before the initial page load but weren't in the initial paginated results (identified by `updated_at < initialLoadTime - 1 minute buffer`). These get `unreadCount: 0` (no badge) since the user just hasn't scrolled to see them yet.
-   - **Actually new**: Conversations created/updated after the initial page load (e.g., on another device, identified by `updated_at >= initialLoadTime - 1 minute buffer`). These get `unreadCount: message_count` (shows badge with message count) to indicate new messages from another device.
-   - The distinction uses server time comparison (`updated_at` and `initialLoadTime` are both server time) to avoid clock skew issues. The `initialLoadTime` is set to the server time from the first full sync, with a 1-minute buffer to account for timing differences
-9. **Actually new conversation localMessageCount preservation**: When an actually new conversation is discovered, `localMessageCount` is initialized to `0` (user hasn't seen any messages). The `shouldUpdateLocalCount` logic must NOT overwrite this `0` value during full sync, even though full syncs normally update all local counts. This ensures that when more messages arrive for an actually new conversation before the user views it, the unread count correctly shows the total (all messages unread), not just the new ones. The fix detects actually new conversations by checking `!existing && currentLocalCount === 0 && serverConv.message_count > 0` and excludes them from the full sync update logic
-10. **Full sync architecture**: Full sync (`applyFullSync()`) explicitly filters server conversations to only include those already present in the store. This ensures full syncs only update existing conversations and detect deletions, but do NOT add new conversations. New conversations come via pagination (when user scrolls) or incremental sync (genuinely new conversations from another device). This architecture preserves pagination while still allowing efficient sync of currently loaded conversations.
-11. **Pagination-discovered conversation loop continuation**: When processing conversations in incremental sync, pagination-discovered conversations use `continue` (not `return`) to skip to the next conversation in the loop. Using `return` would exit the entire function, preventing subsequent conversations from being processed. This bug was fixed to ensure all conversations in the sync response are processed correctly.
 
 **Critical ordering in `sendStreamingMessage()` finally block:**
 ```typescript
@@ -1389,13 +1365,7 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
 ### Testing
 
 - Backend: [test_routes_sync.py](tests/integration/test_routes_sync.py) - Integration tests for sync endpoint
-- Frontend: [sync-manager.test.ts](web/tests/unit/sync-manager.test.ts) - SyncManager unit tests with comprehensive coverage:
-  - Pagination-discovered vs actually new distinction (boundary cases, timestamp parsing errors)
-  - `initialLoadTime` preservation across multiple full syncs
-  - Incremental sync always treats conversations as actually new
-  - Unread count updates for actually new conversations when more messages arrive (race condition)
-  - Unread count updates for pagination-discovered conversations when more messages arrive
-  - Pagination count mismatch bug (using total_count vs paginated count)
+- Frontend: [sync-manager.test.ts](web/tests/unit/sync-manager.test.ts) - SyncManager unit tests
 - E2E: [sync.spec.ts](web/tests/e2e/sync.spec.ts) - Multi-tab and visibility scenarios
 - Visual: [chat.visual.ts](web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge, banner)
 
@@ -1773,17 +1743,6 @@ Edit [config.py](src/config.py) `MODELS` dict.
 ### Add new icons
 Add SVG constants to [icons.ts](web/src/utils/icons.ts) and import where needed.
 
-### Icon Assets
-
-| File | Size | Usage |
-|------|------|-------|
-| `static/icon-180.png` | 180×180 | Apple touch icon (iOS home screen) |
-| `static/icon-192.png` | 192×192 | PWA icon (Android) + browser favicon |
-| `static/icon-512.png` | 512×512 | PWA icon (large, splash screens) |
-| `static/avatar.png` | 64×64 | AI assistant avatar in messages (transparent background) |
-
-**AI Avatar**: The `AI_AVATAR` constant in [icons.ts](web/src/utils/icons.ts) renders an `<img>` tag pointing to `/static/avatar.png`. The avatar has a transparent background and displays on the purple gradient avatar container in messages.
-
 ## CSS Architecture
 
 The frontend uses a modular CSS architecture with design tokens for consistency.
@@ -1963,16 +1922,35 @@ make test-fe-visual-update  # Update baselines after UI changes
 The E2E test server (`tests/e2e-server.py`) is a Flask app that mocks external services:
 
 - **Mock LLM**: Returns mock responses with proper AIMessage objects for LangGraph
-- **SSE Streaming**: Custom endpoint streams tokens word-by-word via Server-Sent Events
+- **SSE Streaming**: Custom endpoint streams tokens word-by-word via Server-Sent Events (default 10ms delay between tokens)
 - **Auth bypass**: `E2E_TESTING=true` skips Google auth and JWT validation
 - **Database reset**: `/test/reset` endpoint clears database between tests
+- **Database seeding**: `/test/seed` endpoint creates conversations/messages directly (faster than UI interactions)
 - **Isolated DB**: Each test run uses a unique database file
-- **PID file cleanup**: Server writes `.e2e-server.pid` on startup; `make test-fe-e2e` automatically kills any hanging servers before running tests
 
-**Automatic cleanup:**
-- The Makefile target `test-fe-e2e` checks for `.e2e-server.pid` and kills the process if it exists
-- This prevents hanging servers from previous test runs from blocking new tests
-- The PID file is automatically cleaned up on server shutdown (normal exit or signals)
+**Test endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/test/reset` | POST | Clear database for test isolation |
+| `/test/seed` | POST | Seed conversations/messages directly |
+| `/test/set-stream-delay` | POST | Set delay between streamed tokens (ms) |
+| `/test/set-batch-delay` | POST | Set delay for batch responses (ms) |
+| `/test/set-mock-response` | POST | Set custom response text |
+| `/test/set-emit-thinking` | POST | Enable/disable thinking events |
+
+**Using `/test/seed` for faster tests:**
+```typescript
+// Seed 20 conversations directly instead of creating via UI
+const conversations = Array.from({ length: 20 }, (_, i) => ({
+  title: `Conversation ${i + 1}`,
+  messages: [
+    { role: 'user', content: `User message ${i + 1}` },
+    { role: 'assistant', content: `Response ${i + 1}` },
+  ],
+}));
+await page.request.post('/test/seed', { data: { conversations } });
+await page.reload(); // Reload to see seeded data
+```
 
 To run E2E tests manually:
 ```bash
@@ -1981,15 +1959,6 @@ cd web && python ../tests/e2e-server.py
 
 # Terminal 2: Run tests
 cd web && npx playwright test
-```
-
-**Note:** If you encounter test timeouts, check for hanging servers:
-```bash
-# Kill any hanging e2e servers
-if [ -f .e2e-server.pid ]; then
-  kill $(cat .e2e-server.pid) 2>/dev/null || true
-  rm -f .e2e-server.pid
-fi
 ```
 
 ### Visual Regression Tests
@@ -2991,12 +2960,110 @@ This prevents the "Failed to load image" error when clicking images before the r
 | Batch | Before response | Click is ignored (pending state) |
 | Batch | After response | Lightbox opens successfully |
 
-**Message deletion with temp IDs:**
-When a user message is created, it initially has a temp ID (`temp-{timestamp}`). The delete button handler must read the current message ID from the DOM attribute (`data-message-id`) rather than from the closure, because `updateUserMessageId()` updates the attribute after the real ID is received from the server. Without this fix, deletion would fail until the conversation was reloaded.
-
 **Key files:**
 - [routes.py](src/api/routes.py) - Sends `user_message_saved` SSE event early in streaming
 - [utils.py](src/api/utils.py) - `build_chat_response()` and `build_stream_done_event()` accept `user_message_id`
+- [schemas.py](src/api/schemas.py) - `ChatBatchResponse.user_message_id` field
+- [api.ts](web/src/types/api.ts) - `StreamEvent` type includes `user_message_saved` event
+- [Messages.ts](web/src/components/Messages.ts) - `updateUserMessageId()` updates DOM and removes pending state
+- [messages.css](web/src/styles/components/messages.css) - `.message-image[data-pending="true"]` styles
+- [main.ts](web/src/main.ts) - Handles `user_message_saved` event and calls `updateUserMessageId()`
+
+**E2E test coverage:**
+- [chat.spec.ts](web/tests/e2e/chat.spec.ts) - "Chat - Lightbox" test suite includes:
+  - `clicking image in message opens lightbox with full image` - batch mode
+  - `clicking image during streaming opens lightbox after user_message_saved event` - streaming mode
+  - `image shows wait cursor before user_message_saved event` - pending state verification
+
+### Concurrent Request Handling
+
+The app supports multiple active requests across different conversations simultaneously. Requests continue processing in the background even when users switch conversations or disconnect.
+
+**Client-side behavior:**
+- **Request tracking**: Active requests are tracked per conversation in `activeRequests` map in [main.ts](web/src/main.ts)
+- **Conversation switching**: When switching conversations, active requests are NOT cancelled - they continue in the background
+- **UI updates**: Requests only update the UI if their conversation is still the current conversation. If the user switched away, the request completes silently and the message is saved to the database
+- **Error handling**: Errors are only shown to the user if the conversation is still current when the error occurs
+
+**Server-side behavior:**
+- **Client disconnection detection**: Streaming generator catches `BrokenPipeError`, `ConnectionError`, and `OSError` when yielding to detect client disconnections
+- **Background completion**: Background thread continues processing even if client disconnects. A cleanup thread ensures the message is saved to the database even if the generator stops early
+- **Message persistence**: Both streaming and batch requests save messages to the database before returning responses, ensuring data is never lost even if the client disconnects
+
+**Key implementation details:**
+- **Streaming**: Background thread (`stream_tokens`) processes LLM tokens and stores final results. Cleanup thread monitors completion and saves message if generator stopped early
+- **Batch**: Message is saved before returning response, so disconnection doesn't affect persistence
+- **Request tracking**: Client tracks requests with unique IDs (`stream-{convId}-{timestamp}` or `batch-{convId}-{timestamp}`) to allow multiple concurrent requests
+
+**When adding new request types:**
+1. Track requests in `activeRequests` map with unique IDs
+2. Check `isCurrentConversation` before updating UI
+3. Clean up request tracking in `finally` blocks
+4. On server, ensure operations complete even if client disconnects (catch disconnection errors, use cleanup threads if needed)
+
+**Key files:**
+- [main.ts](web/src/main.ts) - Request tracking, conversation switching logic, UI update guards
+- [routes.py](src/api/routes.py) - Client disconnection detection, cleanup threads, message persistence
+
+### Seamless Conversation Switching
+
+When a user switches away from a conversation with an active request (streaming or batch) and switches back, the UI state is seamlessly restored.
+
+**How it works:**
+1. **State tracking in store**: `ActiveRequestState` in Zustand store tracks content and thinking state per conversation
+2. **Local state updates**: During streaming, `localThinkingState` is maintained in `main.ts` independent of Messages.ts context
+3. **Store sync**: After each streaming event (thinking, tool_start, tool_end, token), state is synced to store via `updateActiveRequestContent()`
+4. **Streaming context cleanup**: When switching to a DIFFERENT conversation, `cleanupStreamingContext()` is called. When switching BACK to the streaming conversation, the context is NOT cleaned up
+5. **UI restoration**: `switchToConversation()` checks for active requests and calls `restoreStreamingMessage()` to recreate the streaming UI
+
+**Key state management:**
+- `activeRequests` Map in store: Tracks `{conversationId, type, content, thinkingState}` per conversation
+- `streamingMessageElements` Map in main.ts: Tracks DOM element references for continued updates
+- `currentStreamingContext` in Messages.ts: Tracks the current streaming UI context with conversation ID
+
+**Conversation ID tracking:**
+The streaming context (`currentStreamingContext`) includes a `conversationId` field to determine whether to clean up when switching:
+- `getStreamingContextConversationId()` returns the ID of the conversation being streamed
+- `switchToConversation()` only calls `cleanupStreamingContext()` when switching to a DIFFERENT conversation
+- This allows seamless restoration when switching back to the streaming conversation
+
+**Testing:**
+E2E tests for conversation switching are in [chat.spec.ts](web/tests/e2e/chat.spec.ts) under "Chat - Conversation Switch During Active Request" describe block.
+
+**Key files:**
+- [store.ts](web/src/state/store.ts) - `ActiveRequestState` interface, `activeRequests` Map, actions
+- [main.ts](web/src/main.ts) - `sendStreamingMessage()` local state tracking, `switchToConversation()` restoration logic
+- [Messages.ts](web/src/components/Messages.ts) - `restoreStreamingMessage()`, streaming context with conversation ID
+
+### @require_auth Injects User
+
+The `@require_auth` decorator injects the authenticated `User` as the first argument to route handlers. This eliminates the need for `get_current_user()` calls and makes the contract explicit in the function signature.
+
+**Pattern:**
+```python
+@api.route("/endpoint", methods=["GET"])
+@require_auth
+def my_endpoint(user: User) -> dict:
+    # user is guaranteed to be a valid User - decorator handles auth errors
+    return {"user_id": user.id}
+```
+
+**With `@validate_request`:**
+When combined with `@validate_request`, user comes first, then validated data:
+```python
+@api.route("/endpoint", methods=["POST"])
+@require_auth
+@validate_request(MySchema)
+def my_endpoint(user: User, data: MySchema) -> dict:
+    # user from @require_auth, data from @validate_request
+    return {"user_id": user.id, "value": data.value}
+```
+
+**Key files:**
+- [jwt_auth.py](src/auth/jwt_auth.py) - `@require_auth` decorator injects user
+- [validation.py](src/api/validation.py) - `@validate_request` appends validated data after user
+- [routes.py](src/api/routes.py) - All routes follow this pattern
+ `build_stream_done_event()` accept `user_message_id`
 - [schemas.py](src/api/schemas.py) - `ChatBatchResponse.user_message_id` field
 - [api.ts](web/src/types/api.ts) - `StreamEvent` type includes `user_message_saved` event
 - [Messages.ts](web/src/components/Messages.ts) - `updateUserMessageId()` updates DOM and removes pending state, `createMessageActions()` reads message ID from DOM for delete handler

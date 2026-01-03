@@ -335,10 +335,7 @@ export class SyncManager {
         // Incremental sync: Distinguish between:
         // 1. Pagination-discovered: Older conversations that weren't in initial page load
         // 2. Actually new: Created/updated after initial page load (e.g., on another device)
-        const isPaginationDiscovered = this.isPaginationDiscovered(
-          serverConv.updated_at,
-          false // Always false for incremental sync
-        );
+        const isPaginationDiscovered = this.isPaginationDiscovered(serverConv.updated_at);
 
         // For actually new conversations, show unread badge with message count
         // For pagination-discovered, no badge (user just hasn't scrolled to see it yet)
@@ -492,23 +489,18 @@ export class SyncManager {
   /**
    * Determine if a conversation was discovered via pagination (not actually new).
    *
-   * Uses server time comparison to avoid clock skew issues. For full syncs: Compares
-   * updated_at (server time) to initialLoadTime (server time from first sync). If older,
-   * it's pagination discovery. For incremental syncs: All conversations are genuinely
-   * new (filtered by since timestamp, which is also server time).
+   * Compares updated_at (server time) to initialLoadTime (server time from first sync).
+   * If older than initialLoadTime minus a buffer, it's pagination discovery.
+   *
+   * Note: This is only called for incremental sync now, since full sync no longer adds
+   * new conversations. Incremental syncs only return conversations updated since lastSyncTime,
+   * so most will be actually new. But we still check the timestamp to handle edge cases
+   * (invalid timestamps or conversations updated but still older than initialLoadTime).
    *
    * @param updatedAt ISO timestamp of when conversation was last updated (server time)
-   * @param isFullSync Whether this is a full sync operation
    * @returns true if conversation is pagination-discovered, false if actually new
    */
-  private isPaginationDiscovered(updatedAt: string, _isFullSync: boolean): boolean {
-    // For incremental syncs, we still need to check if the conversation is pagination-discovered
-    // (older than initialLoadTime) vs actually new (created on another device).
-    // However, incremental syncs only return conversations updated since lastSyncTime,
-    // so most will be actually new. But we still check the timestamp to be safe.
-    // (This handles edge cases like invalid timestamps or conversations that were updated
-    // but are still older than initialLoadTime)
-
+  private isPaginationDiscovered(updatedAt: string): boolean {
     // We need initialLoadTime (server time) to compare
     if (!this.initialLoadTime) {
       // If we don't have initialLoadTime yet (first sync), we can't distinguish.

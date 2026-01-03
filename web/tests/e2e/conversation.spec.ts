@@ -682,7 +682,7 @@ test.describe('Scroll to bottom behavior', () => {
     const messagesContainer = page.locator('#messages');
 
     // Wait for initial scroll to complete and image to be rendered
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(300);
 
     // Scroll to the top of the conversation (user browsing history)
     await messagesContainer.evaluate((el) => {
@@ -727,7 +727,7 @@ test.describe('Scroll to bottom behavior', () => {
     // Wait for image to actually load (src attribute set and image rendered)
     // This tests the race condition: image finishes loading while user is scrolled up
     // The fix should prevent scroll hijacking even if the image loads quickly
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
 
     // Verify we're still at the same scroll position (not hijacked back to bottom)
     // This is the critical assertion - even though the image loaded, we shouldn't scroll
@@ -820,7 +820,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Wait for image to load (this might happen before scroll listener processes)
     // The fix should check scroll position when image finishes, not just the flag
-    await page.waitForTimeout(2000); // Give image time to load
+    await page.waitForTimeout(800); // Give image time to load
 
     // CRITICAL: Verify scroll position hasn't changed (race condition fix worked)
     const scrollTopAfterLoad = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -1183,9 +1183,8 @@ test.describe('Scroll to bottom behavior', () => {
 
     // STEP 4: Wait for scroll to happen after images load
     // The scroll happens in triple RAF (requestAnimationFrame) to ensure layout has settled
-    // Also wait for any delayed retries (300ms * 3 max attempts = 900ms max) in case images
-    // loaded in quick succession and need retry checks
-    await page.waitForTimeout(1000);
+    // Also wait for any delayed retries in case images loaded in quick succession
+    await page.waitForTimeout(500);
 
     // STEP 5: Verify final scroll position
     // After all images load, we should be scrolled to the bottom

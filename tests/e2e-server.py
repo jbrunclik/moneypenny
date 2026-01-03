@@ -49,7 +49,7 @@ MOCK_CONFIG: dict[str, Any] = {
     "response_prefix": "This is a mock response to: ",
     "input_tokens": 100,
     "output_tokens": 50,
-    "stream_delay_ms": 30,  # Delay between streamed tokens (fast for tests)
+    "stream_delay_ms": 10,  # Delay between streamed tokens (very fast for tests)
     "batch_delay_ms": 0,  # Delay before batch response (for testing conversation switching)
     "custom_response": None,  # If set, use this instead of prefix + message
     "emit_thinking": False,  # If True, emit thinking events during streaming
@@ -429,6 +429,54 @@ def main() -> None:
                 conn.commit()
 
             return {"status": "reset"}, 200
+
+        @test_bp.route("/test/seed", methods=["POST"])
+        def seed_data() -> tuple[dict[str, Any], int]:
+            """Seed test data directly into database for faster test setup.
+
+            Request body:
+            {
+                "conversations": [
+                    {
+                        "title": "Optional title",
+                        "messages": [
+                            {"role": "user", "content": "Hello"},
+                            {"role": "assistant", "content": "Hi there!"}
+                        ]
+                    }
+                ]
+            }
+
+            Returns created conversation IDs.
+            """
+            from flask import request
+
+            data = request.get_json() or {}
+            conversations_data = data.get("conversations", [])
+            created_ids = []
+
+            # Get or create the same user that auth bypass uses
+            # This must match the user in jwt_auth.py's bypass_auth logic
+            user = test_db.get_or_create_user(
+                email="local@localhost",
+                name="Local User",
+            )
+
+            for conv_data in conversations_data:
+                # Create conversation
+                title = conv_data.get("title", "Test Conversation")
+                conv = test_db.create_conversation(user.id, title=title)
+                created_ids.append(conv.id)
+
+                # Add messages
+                messages = conv_data.get("messages", [])
+                for msg in messages:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    files = msg.get("files")
+                    test_db.add_message(conv.id, role, content, files=files)
+
+            return {"status": "seeded", "conversation_ids": created_ids}, 200
 
         @test_bp.route("/test/simulate-error", methods=["POST"])
         def simulate_error() -> tuple[dict[str, Any], int]:

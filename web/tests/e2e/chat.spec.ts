@@ -191,11 +191,10 @@ test.describe('Chat - Model Selection', () => {
     expect(newModelName).toBe(differentModelName);
 
     // No error toast should appear (this was the bug)
-    // Wait a moment for any async error handling
-    await page.waitForTimeout(500);
     // Toast has class "toast toast-error" for error type
     const errorToast = page.locator('.toast-error');
-    await expect(errorToast).toHaveCount(0);
+    // Use a short timeout since we're asserting absence
+    await expect(errorToast).toHaveCount(0, { timeout: 200 });
 
     // Now send a message - the conversation should be created with the selected model
     // Disable streaming for reliable response
@@ -404,9 +403,6 @@ test.describe('Chat - Model Selection', () => {
 
     // Now click New Chat - the selected model should be preserved
     await page.click('#new-chat-btn');
-
-    // Wait for conversation to be created
-    await page.waitForTimeout(100);
 
     // Model should still be the one we selected
     expect(await page.locator('#current-model-name').textContent()).toBe(differentModelName);
@@ -779,8 +775,8 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
     await page.click('#send-btn');
     // Wait for streaming to complete (message appears in UI)
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
-    // Wait a bit more for cleanup thread to save to DB (1s delay + buffer)
-    await page.waitForTimeout(2000);
+    // Wait for cleanup thread to save to DB
+    await page.waitForTimeout(500);
 
     // Create second conversation and send message
     await page.click('#new-chat-btn');
@@ -788,8 +784,8 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
     await page.click('#send-btn');
     // Wait for streaming to complete
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
-    // Wait a bit more for cleanup thread to save to DB
-    await page.waitForTimeout(2000);
+    // Wait for cleanup thread to save to DB
+    await page.waitForTimeout(500);
 
     // Both conversations should have responses
     const convItems = page.locator('.conversation-item-wrapper');
@@ -1714,11 +1710,8 @@ test.describe('Chat - Clipboard Paste', () => {
       buffer: pngBuffer,
     });
 
-    // Wait for file to be processed
-    await page.waitForTimeout(500);
-
     // Send button should be enabled now (has file)
-    await expect(sendBtn).not.toBeDisabled();
+    await expect(sendBtn).not.toBeDisabled({ timeout: 500 });
   });
 });
 
@@ -1941,16 +1934,16 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Reset stream delay to default
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 30 },
+      data: { delay_ms: 10 },
     });
   });
 
   test('restores batch loading indicator when switching back to conversation with active batch request', async ({
     page,
   }) => {
-    // Configure slow response for batch mode (long delay simulates slow processing)
+    // Configure slow response for batch mode (delay gives time to switch conversations)
     await page.request.post('/test/set-batch-delay', {
-      data: { delay_ms: 2000 },
+      data: { delay_ms: 500 },
     });
 
     // Disable streaming for batch mode
@@ -1980,9 +1973,6 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
     await expect(convItems).toHaveCount(2);
     await convItems.last().click(); // First conversation
 
-    // Give time for the conversation to load
-    await page.waitForTimeout(500);
-
     // Either the loading indicator should be visible again OR the response should be complete
     // (depending on timing)
     const assistantMessage = page.locator('.message.assistant');
@@ -2001,9 +1991,9 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
   test('streaming continues and completes when switching back to conversation', async ({
     page,
   }) => {
-    // Configure slow streaming delay
+    // Configure streaming delay (enough time to switch conversations)
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 150 },
+      data: { delay_ms: 50 },
     });
 
     // Enable streaming mode
@@ -2042,14 +2032,14 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Reset stream delay
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 30 },
+      data: { delay_ms: 10 },
     });
   });
 
   test('multiple rapid conversation switches preserve streaming state', async ({ page }) => {
-    // Configure moderate streaming delay
+    // Configure streaming delay (enough time for rapid switching)
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 100 },
+      data: { delay_ms: 30 },
     });
 
     // Enable streaming mode
@@ -2091,16 +2081,16 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Reset stream delay
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 30 },
+      data: { delay_ms: 10 },
     });
   });
 
   test('preserves thinking indicator state when switching back to streaming conversation', async ({
     page,
   }) => {
-    // Configure slow streaming delay to ensure we catch the thinking state
+    // Configure streaming delay to catch thinking state
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 200 },
+      data: { delay_ms: 50 },
     });
 
     // Enable thinking events
@@ -2138,9 +2128,6 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
     await expect(convItems).toHaveCount(2);
     await convItems.last().click();
 
-    // Give time for the conversation to load and streaming to restore
-    await page.waitForTimeout(500);
-
     // Either the thinking indicator should still be visible (streaming ongoing)
     // or the response is complete with a "Show details" toggle
     const thinkingOrDetails = page.locator('.thinking-indicator, .thinking-toggle');
@@ -2152,7 +2139,7 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Reset settings
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 30 },
+      data: { delay_ms: 10 },
     });
     await page.request.post('/test/set-emit-thinking', {
       data: { emit: false },
@@ -2162,9 +2149,9 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
   test('preserves accumulated content when switching back to streaming conversation', async ({
     page,
   }) => {
-    // Configure slow streaming to accumulate content before switching
+    // Configure streaming to accumulate content before switching
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 100 },
+      data: { delay_ms: 30 },
     });
 
     // Enable streaming mode
@@ -2183,8 +2170,8 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
     const streamingMessage = page.locator('.message.assistant.streaming');
     await expect(streamingMessage).toBeVisible({ timeout: 5000 });
 
-    // Wait for some content to accumulate (at 100ms/token, should have ~8 tokens after 800ms)
-    await page.waitForTimeout(800);
+    // Wait for some content to accumulate (at 30ms/token, should have ~5-6 tokens after 200ms)
+    await page.waitForTimeout(200);
 
     // Verify some content has accumulated (the mock response starts with "This is a mock response")
     const messageContent = page.locator('.message.assistant .message-content');
@@ -2209,7 +2196,7 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Reset stream delay
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 30 },
+      data: { delay_ms: 10 },
     });
   });
 });
