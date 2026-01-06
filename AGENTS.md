@@ -3138,104 +3138,51 @@ def my_endpoint(user: User, data: MySchema) -> dict:
 - [jwt_auth.py](src/auth/jwt_auth.py) - `@require_auth` decorator injects user
 - [validation.py](src/api/validation.py) - `@validate_request` appends validated data after user
 - [routes.py](src/api/routes.py) - All routes follow this pattern
- `build_stream_done_event()` accept `user_message_id`
-- [schemas.py](src/api/schemas.py) - `ChatBatchResponse.user_message_id` field
-- [api.ts](web/src/types/api.ts) - `StreamEvent` type includes `user_message_saved` event
-- [Messages.ts](web/src/components/Messages.ts) - `updateUserMessageId()` updates DOM and removes pending state, `createMessageActions()` reads message ID from DOM for delete handler
-- [messages.css](web/src/styles/components/messages.css) - `.message-image[data-pending="true"]` styles
-- [main.ts](web/src/main.ts) - Handles `user_message_saved` event and calls `updateUserMessageId()`
 
-**E2E test coverage:**
-- [chat.spec.ts](web/tests/e2e/chat.spec.ts) - "Chat - Lightbox" test suite includes:
-  - `clicking image in message opens lightbox with full image` - batch mode
-  - `clicking image during streaming opens lightbox after user_message_saved event` - streaming mode
-  - `image shows wait cursor before user_message_saved event` - pending state verification
+### Conversation Selection Race Condition
 
-### Concurrent Request Handling
+When selecting a conversation, the API call to fetch messages is async. The user might click "New Chat" or select a different conversation before the API response arrives. Without proper guards, the stale API response would overwrite the current view with old messages.
 
-The app supports multiple active requests across different conversations simultaneously. Requests continue processing in the background even when users switch conversations or disconnect.
-
-**Client-side behavior:**
-- **Request tracking**: Active requests are tracked per conversation in `activeRequests` map in [main.ts](web/src/main.ts)
-- **Conversation switching**: When switching conversations, active requests are NOT cancelled - they continue in the background
-- **UI updates**: Requests only update the UI if their conversation is still the current conversation. If the user switched away, the request completes silently and the message is saved to the database
-- **Error handling**: Errors are only shown to the user if the conversation is still current when the error occurs
-
-**Server-side behavior:**
-- **Client disconnection detection**: Streaming generator catches `BrokenPipeError`, `ConnectionError`, and `OSError` when yielding to detect client disconnections
-- **Background completion**: Background thread continues processing even if client disconnects. A cleanup thread ensures the message is saved to the database even if the generator stops early
-- **Message persistence**: Both streaming and batch requests save messages to the database before returning responses, ensuring data is never lost even if the client disconnects
-
-**Key implementation details:**
-- **Streaming**: Background thread (`stream_tokens`) processes LLM tokens and stores final results. Cleanup thread monitors completion and saves message if generator stopped early
-- **Batch**: Message is saved before returning response, so disconnection doesn't affect persistence
-- **Request tracking**: Client tracks requests with unique IDs (`stream-{convId}-{timestamp}` or `batch-{convId}-{timestamp}`) to allow multiple concurrent requests
-
-**When adding new request types:**
-1. Track requests in `activeRequests` map with unique IDs
-2. Check `isCurrentConversation` before updating UI
-3. Clean up request tracking in `finally` blocks
-4. On server, ensure operations complete even if client disconnects (catch disconnection errors, use cleanup threads if needed)
-
-**Key files:**
-- [main.ts](web/src/main.ts) - Request tracking, conversation switching logic, UI update guards
-- [routes.py](src/api/routes.py) - Client disconnection detection, cleanup threads, message persistence
-
-### Seamless Conversation Switching
-
-When a user switches away from a conversation with an active request (streaming or batch) and switches back, the UI state is seamlessly restored.
+**The fix:**
+A module-level `pendingConversationId` variable tracks which conversation the user most recently clicked. When an API call completes, we check if it matches - if not, the user navigated elsewhere and we cancel.
 
 **How it works:**
-1. **State tracking in store**: `ActiveRequestState` in Zustand store tracks content and thinking state per conversation
-2. **Local state updates**: During streaming, `localThinkingState` is maintained in `main.ts` independent of Messages.ts context
-3. **Store sync**: After each streaming event (thinking, tool_start, tool_end, token), state is synced to store via `updateActiveRequestContent()`
-4. **Streaming context cleanup**: When switching to a DIFFERENT conversation, `cleanupStreamingContext()` is called. When switching BACK to the streaming conversation, the context is NOT cleaned up
-5. **UI restoration**: `switchToConversation()` checks for active requests and calls `restoreStreamingMessage()` to recreate the streaming UI
+1. User clicks conversation A → `pendingConversationId = A`, API call starts
+2. User clicks conversation B while A is loading → `pendingConversationId = B`
+3. A's API returns → check `pendingConversationId !== A` → cancel, don't switch
+4. B's API returns → check `pendingConversationId === B` → proceed with switch
 
-**Key state management:**
-- `activeRequests` Map in store: Tracks `{conversationId, type, content, thinkingState}` per conversation
-- `streamingMessageElements` Map in main.ts: Tracks DOM element references for continued updates
-- `currentStreamingContext` in Messages.ts: Tracks the current streaming UI context with conversation ID
+**Key behaviors:**
+- Clicking "New Chat" sets `pendingConversationId = null` to cancel any pending loads
+- Temp conversations set and immediately clear `pendingConversationId` (no API call needed)
+- Works correctly for all scenarios: temp→persisted, persisted→persisted, persisted→temp
 
-**Conversation ID tracking:**
-The streaming context (`currentStreamingContext`) includes a `conversationId` field to determine whether to clean up when switching:
-- `getStreamingContextConversationId()` returns the ID of the conversation being streamed
-- `switchToConversation()` only calls `cleanupStreamingContext()` when switching to a DIFFERENT conversation
-- This allows seamless restoration when switching back to the streaming conversation
+**Callers that check `pendingConversationId`:**
+- `selectConversation()` - checks after API call returns
+- `loadDeepLinkedConversation()` - checks after API call returns
 
-**Testing:**
-E2E tests for conversation switching are in [chat.spec.ts](web/tests/e2e/chat.spec.ts) under "Chat - Conversation Switch During Active Request" describe block.
+Note: `switchToConversation()` does NOT check `pendingConversationId` - the guard is at the caller level only. This is intentional because `switchToConversation()` is also called from other contexts (e.g., banner reload, message send) where no navigation is involved.
 
-**Key files:**
-- [store.ts](web/src/state/store.ts) - `ActiveRequestState` interface, `activeRequests` Map, actions
-- [main.ts](web/src/main.ts) - `sendStreamingMessage()` local state tracking, `switchToConversation()` restoration logic
-- [Messages.ts](web/src/components/Messages.ts) - `restoreStreamingMessage()`, streaming context with conversation ID
+**Example:**
+```typescript
+let pendingConversationId: string | null = null;
 
-### @require_auth Injects User
+async function selectConversation(convId: string): Promise<void> {
+  pendingConversationId = convId;  // Track what user clicked
 
-The `@require_auth` decorator injects the authenticated `User` as the first argument to route handlers. This eliminates the need for `get_current_user()` calls and makes the contract explicit in the function signature.
+  const response = await conversations.get(convId);
 
-**Pattern:**
-```python
-@api.route("/endpoint", methods=["GET"])
-@require_auth
-def my_endpoint(user: User) -> dict:
-    # user is guaranteed to be a valid User - decorator handles auth errors
-    return {"user_id": user.id}
+  // Check if user navigated away during API call
+  if (pendingConversationId !== convId) {
+    log.debug('Conversation selection cancelled - user navigated away');
+    return;
+  }
+
+  switchToConversation(response);
+}
 ```
 
-**With `@validate_request`:**
-When combined with `@validate_request`, user comes first, then validated data:
-```python
-@api.route("/endpoint", methods=["POST"])
-@require_auth
-@validate_request(MySchema)
-def my_endpoint(user: User, data: MySchema) -> dict:
-    # user from @require_auth, data from @validate_request
-    return {"user_id": user.id, "value": data.value}
-```
-
-**Key files:**
-- [jwt_auth.py](src/auth/jwt_auth.py) - `@require_auth` decorator injects user
-- [validation.py](src/api/validation.py) - `@validate_request` appends validated data after user
-- [routes.py](src/api/routes.py) - All routes follow this pattern
+**E2E test coverage:**
+- [conversation.spec.ts](web/tests/e2e/conversation.spec.ts) - `new chat should not show old messages when clicked during pending conversation load`
+- [conversation.spec.ts](web/tests/e2e/conversation.spec.ts) - `clicking temp conversation after navigating to another should switch back correctly`
+- [conversation.spec.ts](web/tests/e2e/conversation.spec.ts) - `can switch between conversations`

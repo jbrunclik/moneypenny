@@ -1269,6 +1269,18 @@ export function cleanupOlderMessagesScrollListener(): void {
  */
 async function loadOlderMessages(conversationId: string, container: HTMLElement): Promise<void> {
   const store = useStore.getState();
+
+  // Guard: Only load if this is still the current conversation
+  // This prevents race conditions where the scroll listener fires after
+  // the user has already switched to a different conversation
+  if (store.currentConversation?.id !== conversationId) {
+    log.debug('Skipping older messages load - conversation changed', {
+      requestedId: conversationId,
+      currentId: store.currentConversation?.id,
+    });
+    return;
+  }
+
   const pagination = store.getMessagesPagination(conversationId);
 
   if (!pagination || !pagination.hasOlder || pagination.isLoadingOlder) {
@@ -1293,6 +1305,17 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
       pagination.olderCursor,
       PaginationDirection.OLDER
     );
+
+    // Guard again after async operation - user might have switched conversations
+    if (store.currentConversation?.id !== conversationId) {
+      log.debug('Discarding older messages - conversation changed during load', {
+        requestedId: conversationId,
+        currentId: store.currentConversation?.id,
+      });
+      store.setLoadingOlderMessages(conversationId, false);
+      hideOlderMessagesLoader();
+      return;
+    }
 
     // Update store with new messages prepended
     store.prependMessages(conversationId, result.messages, result.pagination);

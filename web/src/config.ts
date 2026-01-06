@@ -323,12 +323,27 @@ export const LOG_LEVELS: Record<LogLevel, number> = {
  * Current log level.
  * In development mode, defaults to 'debug' to show all logs.
  * In production, defaults to 'warn' to reduce noise.
- * Can be overridden by setting window.__LOG_LEVEL__ before app loads.
+ * Can be overridden by:
+ * 1. localStorage.setItem('log-level', 'debug') - persists across reloads
+ * 2. window.__LOG_LEVEL__ = 'debug' before app loads
  */
 export const LOG_LEVEL: LogLevel = (() => {
+  if (typeof window === 'undefined') {
+    return 'warn';
+  }
+
+  // Check localStorage first (persists across reloads)
+  try {
+    const stored = localStorage.getItem('log-level');
+    if (stored && stored in LOG_LEVELS) {
+      return stored as LogLevel;
+    }
+  } catch {
+    // localStorage may be unavailable
+  }
+
   // Allow runtime override via window property
   if (
-    typeof window !== 'undefined' &&
     '__LOG_LEVEL__' in window &&
     typeof (window as Record<string, unknown>).__LOG_LEVEL__ === 'string'
   ) {
@@ -337,6 +352,7 @@ export const LOG_LEVEL: LogLevel = (() => {
       return level as LogLevel;
     }
   }
+
   // Default based on environment
   return import.meta.env.DEV ? 'debug' : 'warn';
 })();

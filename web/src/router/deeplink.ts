@@ -83,9 +83,19 @@ export function setConversationHash(
   conversationId: string | null,
   options: { replace?: boolean } = {}
 ): void {
-  // Don't set hash for temp conversations
+  // For temp conversations, clear the hash instead of setting it
+  // This ensures the URL accurately reflects that no persisted conversation is selected
+  // Using replaceState to avoid cluttering browser history
   if (conversationId && conversationId.startsWith('temp-')) {
-    log.debug('Skipping hash update for temp conversation', { conversationId });
+    log.debug('Clearing hash for temp conversation', { conversationId });
+    const currentHash = window.location.hash;
+    if (currentHash && currentHash !== '') {
+      isIgnoringHashChange = true;
+      history.replaceState(null, '', window.location.pathname);
+      setTimeout(() => {
+        isIgnoringHashChange = false;
+      }, 0);
+    }
     return;
   }
 

@@ -64,6 +64,7 @@ from langgraph.prebuilt import ToolNode as BaseToolNode
 
 from src.agent.tools import TOOLS
 from src.config import Config
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -181,7 +182,8 @@ def get_full_tool_results(request_id: str) -> list[dict[str, Any]]:
     with _full_tool_results_lock:
         entry = _full_tool_results.pop(request_id, None)
         if entry is not None:
-            return entry.get("results", [])
+            results: list[dict[str, Any]] = entry.get("results", [])
+            return results
         return []
 
 

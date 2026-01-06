@@ -80,6 +80,12 @@ import type { Conversation, Message } from './types/api';
 
 const log = createLogger('main');
 
+// Track the most recently requested conversation ID to handle race conditions
+// When user clicks a conversation, we store its ID. If they click another
+// conversation before the first loads, we update this. When an API call completes,
+// we check if it matches - if not, the user navigated away and we should cancel.
+let pendingConversationId: string | null = null;
+
 // App HTML template
 function renderAppShell(): string {
   return `
@@ -415,6 +421,9 @@ async function loadDeepLinkedConversation(conversationId: string): Promise<void>
   log.info('Loading deep-linked conversation', { conversationId });
   const store = useStore.getState();
 
+  // Track that we're trying to load this conversation
+  pendingConversationId = conversationId;
+
   // Check if conversation is already in the store (from initial list)
   const existingConv = store.conversations.find((c) => c.id === conversationId);
 
@@ -425,6 +434,15 @@ async function loadDeepLinkedConversation(conversationId: string): Promise<void>
       showConversationLoader();
       const response = await conversations.get(conversationId);
       hideConversationLoader();
+
+      // Check if user navigated away during API call
+      if (pendingConversationId !== conversationId) {
+        log.debug('Deep-link navigation cancelled - user navigated away', {
+          requestedId: conversationId,
+          pendingId: pendingConversationId,
+        });
+        return;
+      }
 
       // Store messages and pagination
       store.setMessages(conversationId, response.messages, response.message_pagination);
@@ -456,6 +474,15 @@ async function loadDeepLinkedConversation(conversationId: string): Promise<void>
       showConversationLoader();
       const response = await conversations.get(conversationId);
       hideConversationLoader();
+
+      // Check if user navigated away during API call
+      if (pendingConversationId !== conversationId) {
+        log.debug('Deep-link navigation cancelled - user navigated away', {
+          requestedId: conversationId,
+          pendingId: pendingConversationId,
+        });
+        return;
+      }
 
       // Add conversation to store (it wasn't in the initial list)
       // This is important for sync manager to track it correctly
@@ -609,10 +636,16 @@ async function selectConversation(convId: string): Promise<void> {
   if (isTempConversation(convId)) {
     const conv = store.conversations.find((c) => c.id === convId);
     if (conv) {
+      pendingConversationId = convId;
       switchToConversation(conv);
+      pendingConversationId = null;
     }
     return;
   }
+
+  // Track that we're trying to load this conversation
+  // If user clicks another conversation before this loads, pendingConversationId will change
+  pendingConversationId = convId;
 
   store.setLoading(true);
   showConversationLoader();
@@ -620,6 +653,23 @@ async function selectConversation(convId: string): Promise<void> {
   try {
     const response = await conversations.get(convId);
     hideConversationLoader();
+
+    // IMPORTANT: Check if the user is still trying to view this conversation
+    // During the API call, the user might have clicked "New Chat" or selected
+    // a different conversation. If so, we should NOT switch to this conversation
+    // as it would overwrite the current view with stale data.
+    //
+    // We check pendingConversationId because:
+    // - If user clicked conv A, pendingConversationId = A
+    // - If user then clicked conv B while A is loading, pendingConversationId = B
+    // - When A's API returns, we check: is pendingConversationId still A? No → cancel
+    if (pendingConversationId !== convId) {
+      log.debug('Conversation selection cancelled - user navigated away', {
+        requestedId: convId,
+        pendingId: pendingConversationId,
+      });
+      return;
+    }
 
     // Store messages and pagination in the per-conversation Maps
     store.setMessages(convId, response.messages, response.message_pagination);
@@ -655,6 +705,13 @@ function isTempConversation(convId: string): boolean {
 function createConversation(): void {
   log.debug('Creating new conversation');
   const store = useStore.getState();
+
+  // Clear any pending conversation load - user clicked "New Chat"
+  pendingConversationId = null;
+
+  // Clean up scroll listener from previous conversation to prevent it from
+  // loading old messages after we switch to the new conversation
+  cleanupOlderMessagesScrollListener();
 
   // Create a local-only conversation with a temp ID
   const tempId = `temp-${Date.now()}`;
@@ -2123,6 +2180,16 @@ function showNewMessagesAvailableBanner(_messageCount: number): void {
       try {
         const store = useStore.getState();
         const response = await conversations.get(currentConvId);
+
+        // Check if user switched away during API call
+        const currentConv = useStore.getState().currentConversation;
+        if (currentConv?.id !== currentConvId) {
+          log.debug('Reload cancelled - user switched away', {
+            requestedId: currentConvId,
+            currentId: currentConv?.id,
+          });
+          return;
+        }
 
         // Store messages and pagination in the per-conversation Maps
         store.setMessages(currentConvId, response.messages, response.message_pagination);

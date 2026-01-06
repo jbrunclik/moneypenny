@@ -172,9 +172,9 @@ test.describe('Conversations', () => {
     // Click on first conversation (the older one, which is at the bottom after ordering by updated_at)
     await convItems.last().click();
 
-    // Messages should contain "First conversation"
-    const userMessage = page.locator('.message.user');
-    await expect(userMessage).toContainText('First conversation');
+    // Wait for the conversation to load and messages to update
+    // The first conversation should show "First conversation" as the user message
+    await expect(page.locator('.message.user')).toContainText('First conversation', { timeout: 10000 });
   });
 
   test('shows message after sending', async ({ page }) => {
@@ -243,6 +243,125 @@ test.describe('Conversations', () => {
     // Message should not be sent yet
     const messages = page.locator('.message');
     await expect(messages).toHaveCount(0);
+  });
+
+  /**
+   * Regression test for: clicking "New Chat" during pending conversation selection
+   * shows old messages instead of welcome message.
+   *
+   * The bug occurred because selectConversation() didn't check if the user had
+   * navigated away (to a new chat) during the async API call. When the API response
+   * arrived, it would overwrite the new chat's welcome message with the old messages.
+   */
+  test('new chat should not show old messages when clicked during pending conversation load', async ({ page }) => {
+    // First create a conversation with messages so we have something to test with
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First conversation message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Get the conversation ID for routing
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    const convId = await convItem.getAttribute('data-conv-id');
+
+    // Now create a second conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Second conversation message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // We should now have 2 conversations
+    await expect(page.locator('.conversation-item-wrapper')).toHaveCount(2);
+
+    // Intercept the API call for loading the first conversation to add delay
+    let apiCallPending = false;
+    let resolveApiCall: () => void;
+    const apiCallPromise = new Promise<void>((resolve) => {
+      resolveApiCall = resolve;
+    });
+
+    await page.route(`**/api/conversations/${convId}`, async (route) => {
+      apiCallPending = true;
+      // Wait until the test allows the response to complete
+      await apiCallPromise;
+      // Continue with the real response
+      await route.continue();
+    });
+
+    // Click on the first conversation in the sidebar (this will trigger a slow API call)
+    await convItem.click();
+
+    // Wait for the API call to be in flight
+    await page.waitForFunction(() => true, {}, { timeout: 500 });
+
+    // Now quickly click "New Chat" before the API response arrives
+    await page.click('#new-chat-btn');
+
+    // The welcome message should be visible (not the old conversation messages)
+    const welcomeMessage = page.locator('.welcome-message');
+    await expect(welcomeMessage).toBeVisible();
+
+    // Verify we're NOT showing any messages from the old conversation
+    const messagesContainer = page.locator('#messages');
+    await expect(messagesContainer).not.toContainText('First conversation message');
+
+    // Now allow the delayed API response to complete
+    resolveApiCall!();
+
+    // Give a moment for any erroneous state update
+    await page.waitForTimeout(500);
+
+    // The welcome message should STILL be visible (regression test - this used to fail)
+    await expect(welcomeMessage).toBeVisible();
+    await expect(messagesContainer).not.toContainText('First conversation message');
+  });
+
+  /**
+   * Regression test: clicking back on a temp "New Conversation" after navigating away
+   * should switch back to that temp conversation, not load a different one.
+   */
+  test('clicking temp conversation after navigating to another should switch back correctly', async ({ page }) => {
+    // First create a persisted conversation with messages
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Now create a NEW temp conversation (don't send a message)
+    await page.click('#new-chat-btn');
+
+    // Verify we're in a new empty conversation
+    const welcomeMessage = page.locator('.welcome-message');
+    await expect(welcomeMessage).toBeVisible();
+
+    // We should have 2 conversations: the temp one at top, persisted one below
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(2);
+
+    // The temp conversation should be at the top with default title
+    const tempConvItem = convItems.first();
+    await expect(tempConvItem).toContainText('New Conversation');
+    const tempConvId = await tempConvItem.getAttribute('data-conv-id');
+    expect(tempConvId).toMatch(/^temp-/);
+
+    // Navigate to the persisted conversation
+    await convItems.last().click();
+
+    // Verify we switched: messages should be visible
+    await expect(page.locator('.message.user')).toContainText('First conversation');
+
+    // Now click back on the temp conversation
+    await tempConvItem.click();
+
+    // Should be back to the empty temp conversation
+    await expect(welcomeMessage).toBeVisible();
+    await expect(page.locator('.message')).toHaveCount(0);
+
+    // Note: The URL will still point to the persisted conversation because
+    // we don't update the hash when switching to a temp conversation.
+    // This is intentional - temp conversations are not persisted and shouldn't
+    // have URLs. If the user refreshes, they'll load the persisted conversation
+    // from the URL, which is acceptable behavior.
   });
 });
 
@@ -529,9 +648,10 @@ test.describe('Scroll to bottom behavior', () => {
     const convItems = page.locator('.conversation-item-wrapper');
     await convItems.last().click();
 
-    // Wait for the short conversation to load - should have exactly 1 user message
+    // Wait for the short conversation to load - the message should contain "Short conversation"
+    // Use toContainText with timeout as the conversation switch is async
+    await expect(page.locator('.message.user').first()).toContainText('Short conversation', { timeout: 10000 });
     await expect(page.locator('.message.user')).toHaveCount(1);
-    await expect(page.locator('.message.user').first()).toContainText('Short conversation');
 
     // Now switch back to the long conversation (should be at top of list)
     await convItems.first().click();
@@ -1245,8 +1365,9 @@ test.describe('Scroll to bottom behavior', () => {
     const convItems = page.locator('.conversation-item-wrapper');
     await convItems.last().click(); // First conversation is at the bottom
 
-    // Wait for messages to render
-    await page.waitForSelector('.message.user >> text=Message with image', { timeout: 10000 });
+    // Wait for the conversation to switch and messages to render
+    // First wait for the message text to appear (confirms conversation switched)
+    await expect(page.locator('.message.user')).toContainText('Message with image', { timeout: 10000 });
 
     // Wait for image to start loading
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
