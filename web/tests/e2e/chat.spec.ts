@@ -1597,6 +1597,10 @@ test.describe('Chat - Stop Streaming', () => {
   });
 
   test('abort handles quick stop during thinking phase', async ({ page }) => {
+    // Use a longer stream delay to ensure we have time to click stop
+    // This is especially needed on webkit in CI environments
+    await page.request.post('/test/set-stream-delay', { data: { delay_ms: 100 } });
+
     const sendBtn = page.locator('#send-btn');
 
     // Type a message that triggers thinking
@@ -1625,6 +1629,9 @@ test.describe('Chat - Stop Streaming', () => {
 
     // Button should revert
     await expect(sendBtn).toHaveClass(/btn-send/);
+
+    // Reset stream delay to default
+    await page.request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
   });
 });
 

@@ -2,7 +2,7 @@
  * Unit tests for MessageInput component utilities
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { isIOSPWA, isMobileViewport, handlePaste } from '@/components/MessageInput';
+import { isIOSPWA, isIOS, shouldAutoFocusInput, isMobileViewport, handlePaste } from '@/components/MessageInput';
 import { MOBILE_BREAKPOINT_PX } from '@/config';
 import { useStore } from '@/state/store';
 
@@ -153,6 +153,163 @@ describe('isIOSPWA', () => {
       mockMatchMedia(true);
       expect(isIOSPWA()).toBe(true);
     });
+  });
+});
+
+describe('isIOS', () => {
+  const originalNavigator = window.navigator;
+
+  // Helper to mock navigator properties
+  function mockNavigator(props: { userAgent?: string; platform?: string; maxTouchPoints?: number }): void {
+    Object.defineProperty(window, 'navigator', {
+      value: {
+        ...originalNavigator,
+        userAgent: props.userAgent ?? originalNavigator.userAgent,
+        platform: props.platform ?? originalNavigator.platform,
+        maxTouchPoints: props.maxTouchPoints ?? 0,
+      },
+      configurable: true,
+      writable: true,
+    });
+  }
+
+  afterEach(() => {
+    Object.defineProperty(window, 'navigator', {
+      value: originalNavigator,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  describe('legacy iOS detection', () => {
+    it('returns true for iPhone user agent', () => {
+      mockNavigator({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' });
+      expect(isIOS()).toBe(true);
+    });
+
+    it('returns true for iPad user agent', () => {
+      mockNavigator({ userAgent: 'Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X)' });
+      expect(isIOS()).toBe(true);
+    });
+
+    it('returns true for iPod user agent', () => {
+      mockNavigator({ userAgent: 'Mozilla/5.0 (iPod; CPU iPhone OS 15_0 like Mac OS X)' });
+      expect(isIOS()).toBe(true);
+    });
+  });
+
+  describe('iPadOS 13+ detection (MacIntel with touch)', () => {
+    it('returns true for MacIntel with touch points (iPadOS 13+)', () => {
+      mockNavigator({
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        platform: 'MacIntel',
+        maxTouchPoints: 5,
+      });
+      expect(isIOS()).toBe(true);
+    });
+
+    it('returns false for real Mac (MacIntel without touch)', () => {
+      mockNavigator({
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        platform: 'MacIntel',
+        maxTouchPoints: 0,
+      });
+      expect(isIOS()).toBe(false);
+    });
+
+    it('returns false for Mac with 1 touch point (trackpad)', () => {
+      mockNavigator({
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        platform: 'MacIntel',
+        maxTouchPoints: 1,
+      });
+      expect(isIOS()).toBe(false);
+    });
+  });
+
+  describe('non-iOS platforms', () => {
+    it('returns false for Android', () => {
+      mockNavigator({ userAgent: 'Mozilla/5.0 (Linux; Android 14)' });
+      expect(isIOS()).toBe(false);
+    });
+
+    it('returns false for Windows', () => {
+      mockNavigator({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        platform: 'Win32',
+      });
+      expect(isIOS()).toBe(false);
+    });
+
+    it('returns false for Linux', () => {
+      mockNavigator({
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
+        platform: 'Linux x86_64',
+      });
+      expect(isIOS()).toBe(false);
+    });
+  });
+});
+
+describe('shouldAutoFocusInput', () => {
+  const originalNavigator = window.navigator;
+
+  // Helper to mock navigator properties
+  function mockNavigator(props: { userAgent?: string; platform?: string; maxTouchPoints?: number }): void {
+    Object.defineProperty(window, 'navigator', {
+      value: {
+        ...originalNavigator,
+        userAgent: props.userAgent ?? originalNavigator.userAgent,
+        platform: props.platform ?? originalNavigator.platform,
+        maxTouchPoints: props.maxTouchPoints ?? 0,
+      },
+      configurable: true,
+      writable: true,
+    });
+  }
+
+  afterEach(() => {
+    Object.defineProperty(window, 'navigator', {
+      value: originalNavigator,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  it('returns false on iOS (iPhone)', () => {
+    mockNavigator({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' });
+    expect(shouldAutoFocusInput()).toBe(false);
+  });
+
+  it('returns false on iPadOS 13+ (MacIntel with touch)', () => {
+    mockNavigator({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      platform: 'MacIntel',
+      maxTouchPoints: 5,
+    });
+    expect(shouldAutoFocusInput()).toBe(false);
+  });
+
+  it('returns true on desktop Mac (MacIntel without touch)', () => {
+    mockNavigator({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      platform: 'MacIntel',
+      maxTouchPoints: 0,
+    });
+    expect(shouldAutoFocusInput()).toBe(true);
+  });
+
+  it('returns true on Windows', () => {
+    mockNavigator({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      platform: 'Win32',
+    });
+    expect(shouldAutoFocusInput()).toBe(true);
+  });
+
+  it('returns true on Android', () => {
+    mockNavigator({ userAgent: 'Mozilla/5.0 (Linux; Android 14)' });
+    expect(shouldAutoFocusInput()).toBe(true);
   });
 });
 

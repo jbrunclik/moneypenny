@@ -45,6 +45,7 @@ import {
   clearMessageInput,
   focusMessageInput,
   setInputLoading,
+  shouldAutoFocusInput,
 } from './components/MessageInput';
 import { initModelSelector, renderModelDropdown } from './components/ModelSelector';
 import { initFileUpload, clearPendingFiles, getPendingFiles } from './components/FileUpload';
@@ -141,7 +142,7 @@ function renderAppShell(): string {
           <div id="file-preview" class="file-preview hidden"></div>
           <input type="file" id="file-input" multiple>
           <div class="input-container">
-            <textarea id="message-input" placeholder="Type your message..." rows="1" autofocus></textarea>
+            <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
             <button id="send-btn" class="btn btn-send" disabled>
               ${SEND_ICON}
             </button>
@@ -502,7 +503,9 @@ function handleDeepLinkNavigation(conversationId: string | null): void {
       updateChatTitle('AI Chatbot');
       setActiveConversation('');
       renderConversationsList();
-      focusMessageInput();
+      if (shouldAutoFocusInput()) {
+        focusMessageInput();
+      }
     }
     return;
   }
@@ -582,7 +585,9 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
 
   renderModelDropdown();
   closeSidebar();
-  focusMessageInput();
+  if (shouldAutoFocusInput()) {
+    focusMessageInput();
+  }
 
   // Update conversation cost
   updateConversationCost(conv.id);
@@ -679,7 +684,9 @@ function createConversation(): void {
   renderMessages([]);
   renderModelDropdown();
   closeSidebar();
-  focusMessageInput();
+  if (shouldAutoFocusInput()) {
+    focusMessageInput();
+  }
 
   // Push empty hash to history so back button works (navigates to previous conversation)
   // The real hash will be set when the conversation is persisted
@@ -969,7 +976,9 @@ async function sendMessage(): Promise<void> {
     }
   } finally {
     setInputLoading(false);
-    focusMessageInput();
+    if (shouldAutoFocusInput()) {
+      focusMessageInput();
+    }
   }
 }
 
@@ -992,8 +1001,10 @@ function retryFromDraft(): void {
     });
     // Clear draft after restoring
     useStore.getState().clearDraft();
-    // Focus input
-    focusMessageInput();
+    // Focus input - user explicitly clicked retry, so it's intentional even on iOS
+    if (shouldAutoFocusInput()) {
+      focusMessageInput();
+    }
   }
 }
 

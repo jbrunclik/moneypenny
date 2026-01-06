@@ -33,7 +33,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Add database connection pooling** - Each operation creates a new connection. Consider pooling for better performance under load
 
 ### Frontend Performance & UX
-- [ ] **iPad Safari keyboard bar gap** - When focusing input on iPad with external keyboard, the system keyboard accessory bar pushes content up, revealing a gap below the app. CSS cannot paint outside the viewport iOS reveals. Need to investigate workarounds.
 - [ ] **Add service worker** - Implement service worker for offline support and better caching
 - [ ] **Add file upload progress** - Show upload progress indicator for large file uploads
 - [ ] **Frontend code splitting** - Split frontend code into chunks for better initial load performance

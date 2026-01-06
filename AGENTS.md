@@ -934,6 +934,15 @@ When working on mobile/PWA features, beware of these iOS Safari issues:
 
 8. **Orientation change scroll position** - Device orientation changes cause layout reflows that can lose scroll position. The `initOrientationChangeHandler()` in [Messages.ts](web/src/components/Messages.ts) saves scroll position as a percentage before orientation change and restores it after layout settles. Also handles resize events as a fallback for devices that don't fire `orientationchange`.
 
+9. **Auto-focus causes viewport jumping** - On iOS/iPad, focusing the textarea triggers the keyboard or accessory bar, causing the viewport to shift up. When switching conversations, this creates jarring up-down-up jumps: open conversation → viewport up, switch away → viewport down, new conversation → viewport up again. The fix is to **never auto-focus on iOS**, only on desktop. See `shouldAutoFocusInput()` in [MessageInput.ts](web/src/components/MessageInput.ts).
+
+   **Key implementation details:**
+   - `isIOS()` detects all iOS devices including iPadOS 13+ (which reports as `MacIntel` but has `maxTouchPoints > 1`)
+   - `shouldAutoFocusInput()` returns `false` on iOS, `true` on desktop
+   - All `focusMessageInput()` calls are wrapped with `if (shouldAutoFocusInput())`
+   - For iPad + hardware keyboard users: a global `keydown` listener focuses the input when the user starts typing anywhere (so they can type immediately without tapping)
+   - This provides stable UX (no jumping) while preserving "type immediately" for hardware keyboard users
+
 ## Performance Optimizations
 
 ### Conversation Loading

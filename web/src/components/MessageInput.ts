@@ -23,6 +23,28 @@ export function isIOSPWA(): boolean {
 }
 
 /**
+ * Detect any iOS/iPadOS device (including iPadOS 13+ which reports as MacIntel).
+ * Exported for testing.
+ */
+export function isIOS(): boolean {
+  const ua = navigator.userAgent;
+  const isLegacyIOS = /iPad|iPhone|iPod/.test(ua);
+  // iPadOS 13+ reports as MacIntel but has touch support
+  const isIPadOS13Plus = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return isLegacyIOS || isIPadOS13Plus;
+}
+
+/**
+ * Should we auto-focus the input programmatically?
+ * - Yes on desktop / non-iOS.
+ * - No on iOS/iPad to avoid jarring keyboard/accessory bar viewport jumps.
+ * Exported for testing.
+ */
+export function shouldAutoFocusInput(): boolean {
+  return !isIOS();
+}
+
+/**
  * Check if the current viewport width is mobile-sized.
  * Uses the same breakpoint as CSS media queries (768px).
  * Exported for testing.
@@ -140,6 +162,49 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
     };
 
     viewport.addEventListener('resize', handleViewportChange);
+  }
+
+  // Global keydown listener for hardware keyboard users on iOS/iPad
+  // Allows typing anywhere to focus the input without needing to tap it first
+  // This provides a good UX for iPad with external keyboard users while
+  // still avoiding the jarring keyboard popup on conversation switch
+  if (isIOS()) {
+    document.addEventListener('keydown', (e) => {
+      // Skip if already focused on an input/textarea/contenteditable
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Skip modifier-only keys and special keys
+      if (
+        e.key === 'Shift' ||
+        e.key === 'Control' ||
+        e.key === 'Alt' ||
+        e.key === 'Meta' ||
+        e.key === 'Escape' ||
+        e.key === 'Tab' ||
+        e.key === 'CapsLock' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight'
+      ) {
+        return;
+      }
+
+      // Skip if a modifier is held (except Shift for typing capitals)
+      if (e.ctrlKey || e.altKey || e.metaKey) {
+        return;
+      }
+
+      // Focus the input - the key event will naturally flow to it
+      input.focus();
+    });
   }
 }
 
