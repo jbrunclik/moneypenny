@@ -1,7 +1,11 @@
 import { getElementById, isScrolledToBottom, scrollToBottom } from '../utils/dom';
 import { CHEVRON_DOWN_ICON } from '../utils/icons';
+import { SCROLL_BUTTON_SHOW_THRESHOLD_PX } from '../config';
 
 let scrollButton: HTMLButtonElement | null = null;
+
+// Track whether streaming is active and auto-scroll is paused
+let isStreamingPaused = false;
 
 /**
  * Initialize the scroll-to-bottom button
@@ -47,8 +51,8 @@ export function initScrollToBottom(): void {
 function updateScrollButtonVisibility(container: HTMLElement): void {
   if (!scrollButton) return;
 
-  // Use a larger threshold (200px) to show button earlier
-  const atBottom = isScrolledToBottom(container, 200);
+  // Use a larger threshold to show button earlier
+  const atBottom = isScrolledToBottom(container, SCROLL_BUTTON_SHOW_THRESHOLD_PX);
   scrollButton.classList.toggle('hidden', atBottom);
 }
 
@@ -60,4 +64,24 @@ export function checkScrollButtonVisibility(): void {
   if (messagesContainer) {
     updateScrollButtonVisibility(messagesContainer);
   }
+}
+
+/**
+ * Set the streaming paused state for the scroll button.
+ * When streaming is active and auto-scroll is paused (user scrolled up),
+ * the button gets a highlighted appearance to indicate new content is available.
+ * @param paused - Whether streaming auto-scroll is paused
+ */
+export function setStreamingPausedIndicator(paused: boolean): void {
+  isStreamingPaused = paused;
+  if (scrollButton) {
+    scrollButton.classList.toggle('streaming-paused', paused);
+  }
+}
+
+/**
+ * Get the current streaming paused state
+ */
+export function isStreamingAutoScrollPaused(): boolean {
+  return isStreamingPaused;
 }

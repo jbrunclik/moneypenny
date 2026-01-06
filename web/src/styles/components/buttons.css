@@ -330,7 +330,7 @@
 
 .scroll-to-bottom {
     position: sticky;
-    bottom: var(--space-4);
+    bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
     left: 50%;
     transform: translateX(-50%);
     width: 36px;
@@ -370,4 +370,26 @@
 .scroll-to-bottom.hidden {
     opacity: 0;
     pointer-events: none;
+}
+
+/* Streaming paused indicator - highlighted state when user scrolled up during streaming */
+.scroll-to-bottom.streaming-paused {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    animation: scroll-button-pulse 1.5s ease-in-out infinite;
+}
+
+.scroll-to-bottom.streaming-paused:hover {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+@keyframes scroll-button-pulse {
+    0%, 100% {
+        box-shadow: var(--shadow-scroll-btn), 0 0 0 0 rgba(99, 102, 241, 0.4);
+    }
+    50% {
+        box-shadow: var(--shadow-scroll-btn), 0 0 0 8px rgba(99, 102, 241, 0);
+    }
 }

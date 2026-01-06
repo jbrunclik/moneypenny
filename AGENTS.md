@@ -928,6 +928,12 @@ When working on mobile/PWA features, beware of these iOS Safari issues:
 
 5. **PWA keyboard scroll miscalculation** - iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens, causing the cursor to appear below the input initially. The fix uses the `visualViewport` API to detect when the keyboard opens (viewport height shrinks) and scrolls the input area into view. See `isIOSPWA()` in [MessageInput.ts](web/src/components/MessageInput.ts).
 
+6. **Momentum scroll rubber-banding** - iOS Safari uses momentum scrolling with rubber-banding at scroll boundaries. This can cause `scrollTop` to temporarily go negative or exceed `scrollHeight - clientHeight`. The streaming scroll listener ignores these out-of-bounds values to prevent false user-scroll detection.
+
+7. **Background/foreground viewport changes** - When PWA goes to background and returns, `visualViewport` resize events may fire. The keyboard handler tracks `visibilitychange` events and ignores viewport resizes within 500ms of visibility changes.
+
+8. **Orientation change scroll position** - Device orientation changes cause layout reflows that can lose scroll position. The `initOrientationChangeHandler()` in [Messages.ts](web/src/components/Messages.ts) saves scroll position as a percentage before orientation change and restores it after layout settles. Also handles resize events as a fallback for devices that don't fire `orientationchange`.
+
 ## Performance Optimizations
 
 ### Conversation Loading
@@ -1034,13 +1040,15 @@ The app implements several optimizations to minimize token costs:
 | **Sending a new message (batch)** | User message added → scroll to bottom → assistant response added → scroll to bottom → if images, smooth scroll after they load | `sendBatchMessage()`, `addMessageToUI()` |
 | **Sending a new message (streaming)** | User message added → scroll to bottom → auto-scroll during streaming → if images in final message, smooth scroll after load | `sendStreamingMessage()`, `autoScrollForStreaming()` |
 | **Auto-scroll during streaming** | Content auto-scrolls as tokens arrive, keeping latest content visible | `autoScrollForStreaming()` in `Messages.ts` |
-| **User scrolls up during streaming** | Auto-scroll pauses immediately (user is reading history) | `setupStreamingScrollListener()` |
-| **User scrolls back to bottom during streaming** | Auto-scroll resumes automatically | streaming scroll listener threshold check |
+| **User scrolls up during streaming** | Auto-scroll pauses immediately, scroll button highlights with pulsing animation | `setupStreamingScrollListener()`, `setStreamingPausedIndicator()` |
+| **User scrolls back to bottom during streaming** | Auto-scroll resumes automatically, scroll button returns to normal | streaming scroll listener threshold check |
+| **Streaming completes** | Scroll button indicator cleared automatically | `cleanupStreamingContext()` |
 | **Click scroll-to-bottom button** | Smooth animated scroll to bottom | `ScrollToBottom.ts`, `scrollToBottom()` |
 | **Images loading after initial render** | Track all pending images, smooth scroll only after ALL finish loading | `pendingImageLoads` counter, `scheduleScrollAfterImageLoad()` |
 | **User scrolled up when images finish loading** | NO scroll (user is browsing history, don't hijack position) | `safelyDisableScrollOnImageLoad()` |
 | **PWA keyboard opens** | Scroll input into view using visualViewport API | `MessageInput.ts` `isIOSPWA()` check |
 | **Conversation switch during streaming** | Clean up streaming context if switching away, restore if switching back | `cleanupStreamingContext()`, `restoreStreamingMessage()` |
+| **Loading older messages with images** | Track image loads and re-adjust scroll position as images load | `trackPrependedImagesForScrollAdjustment()` |
 
 **Race conditions handled:**
 - Image load timing vs scroll listener debounce
@@ -1052,6 +1060,8 @@ The app implements several optimizations to minimize token costs:
 - `web/tests/e2e/chat.spec.ts` - "Chat - Streaming Auto-Scroll" describe block
 - `web/tests/e2e/chat.spec.ts` - "Chat - Scroll to Bottom" describe block
 - `web/tests/e2e/chat.spec.ts` - "Chat - Conversation Switch During Active Request" describe block
+- `web/tests/e2e/chat.spec.ts` - "Chat - Streaming Scroll Pause Indicator" describe block
+- `web/tests/e2e/chat.spec.ts` - "Chat - Conversation Switch During Streaming Scroll" describe block
 
 ### Scroll-to-Bottom Behavior
 
@@ -1086,7 +1096,9 @@ When a new message with images is added (via `sendBatchMessage()` or `finalizeSt
 **User scroll detection:**
 The app tracks user scrolls to disable auto-scroll when the user is browsing history:
 - A scroll listener is set up when `enableScrollOnImageLoad()` is called
-- If the user scrolls more than 200px from the bottom, auto-scroll is disabled
+- Uses **direction-based detection**: only disables scroll mode when `scrollTop` DECREASES (user scrolled up)
+- This prevents false positives when images loading above viewport increase `scrollHeight` (which increases distance from bottom but doesn't change `scrollTop`)
+- Tracks `previousScrollTopForImageLoad` to detect scroll direction
 - This prevents hijacking the scroll position when the user is viewing older messages
 - **Critical**: The scroll listener distinguishes between user scrolls and programmatic scrolls (see Programmatic Scroll Wrapper below)
 
@@ -1104,7 +1116,11 @@ When images load while the user is scrolled up, the system checks scroll positio
 
 2. **Layout shift false positives**: When images load, they cause layout shifts that can temporarily make it appear the user has scrolled away from the bottom (scrollHeight increases, making distanceFromBottom > 200px). The `isSchedulingScroll` flag prevents the user scroll listener from disabling scroll mode during these layout shifts, and `scheduleScrollAfterImageLoad()` ignores scroll-away checks when `isSchedulingScroll` is true.
 
-3. **Cached images on initial load**: On initial load, images may load instantly from cache before IntersectionObserver fires or before we can count them. The system checks ALL images (not just tracked ones) when `pendingImageLoads` is 0, and verifies all tracked images are actually loaded before scheduling scroll. This handles race conditions where multiple images load instantly (most commonly observed with 2 images, but applies to any number).
+3. **Cached images on initial load**: On initial load, images may load instantly from cache before IntersectionObserver fires or before we can count them. The system verifies all tracked images are actually loaded before scheduling scroll.
+
+4. **Images above viewport**: When loading a conversation with images at the TOP (above viewport), only VISIBLE images are tracked and waited for. The `checkTrackedImagesLoaded()` function only checks images marked with `data-scroll-tracked` (visible images), not all images. Images above the viewport will lazy-load when the user scrolls up, but they don't block the initial scroll to bottom.
+
+5. **img.complete quirk**: Per MDN, `img.complete` returns `true` for images without a `src` attribute. When counting visible images, we check `img.src && img.complete` (not `img.src || img.complete`) to correctly identify cached images that are actually loaded.
 
 **Key files:**
 - [thumbnails.ts](web/src/utils/thumbnails.ts) - Image load tracking, `enableScrollOnImageLoad()`, `scheduleScrollAfterImageLoad()`, `programmaticScrollToBottom()`, user scroll detection

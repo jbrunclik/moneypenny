@@ -1,192 +1,51 @@
-# AI Chatbot - TODO / Memory Bank
+# AI Chatbot - TODO
 
 This file tracks planned features, improvements, and technical debt.
 
-## Phase 1 - MVP (Current)
-- [x] Project structure and configuration
-- [x] Flask backend with Gemini integration
-- [x] SQLite chat storage
-- [x] Google Sign In with email whitelist
-- [x] Basic dark theme UI
-- [x] Model selection (Pro/Flash)
-- [x] Markdown rendering
-
-## Phase 2 - Streaming & Polish
-- [x] **Message delete button** - Delete button in message actions allows users to delete individual messages. Shows confirmation dialog. Useful for cleaning up partial messages from aborted streams or removing unwanted messages. Delete button turns red on hover.
+## Features
 - [ ] **Thinking mode toggle** - Allow enabling Gemini thinking mode with configurable level (minimal/low/medium/high) using long-press UI similar to voice input language selector
-- [x] **Streaming responses** - Display tokens as they arrive from Gemini (with toggle)
-- [x] **Show thinking/tool details** - Display model thinking and tool execution trace during streaming with auto-collapse to "Show details" toggle. Shows search queries, URLs, and image prompts with markdown formatting
-- [x] **Improve error handling and user feedback** - Toast notifications, custom modals, retry logic, draft message preservation
-- [x] **Add loading states and animations** - Conversation loading spinner, thumbnail loading indicators
-- [x] Conversation delete functionality
-- [x] **Conversation rename functionality** - Rename via pencil icon on hover (desktop) or swipe actions (mobile). Updates sidebar and chat header in real-time
-- [x] Mobile gesture support (swipe to open sidebar, swipe to delete conversations)
-- [x] **Show message timestamps** - Display message timestamps on hover (locale-aware formatting)
-- [x] **Scroll to bottom button** - Floating button to jump to latest messages when scrolled up
-- [x] **Version update banner** - Show banner to user when new version is available, prompting to reload the page
-- [x] **Stop button for streaming** - Transform send button into stop button during streaming to allow interrupting responses. Button changes to red square icon, clicking aborts the stream and removes the streaming message from UI. Note: Partial messages may remain in backend database (see message delete button TODO)
-- [x] **Show search sources** - Display internet sources used by web_search tool in a popup accessible via message actions button
-
-## Phase 3 - Tools & Extensions
 - [ ] Text-to-speech tool
-- [x] **Tool framework** - Extensible system for adding agent tools
-- [x] Web search tool (DuckDuckGo)
-- [x] URL fetch tool (extract text from web pages)
-- [x] **Forcing search/browser tool** - Allow users to force the agent to use search or browser tools for specific queries
-- [x] Image generation tool (Gemini 3 Pro Image Preview)
-- [x] **Code execution sandbox** - Secure Python sandbox using llm-sandbox with Docker. No network access, configurable resource limits. Supports file output (PDFs, images), matplotlib plots. See CLAUDE.md "Code Execution Sandbox" section.
-- [x] File upload and processing (images, PDFs, text files)
-- [x] **Image thumbnails & lightbox** - Thumbnails in chat, click to view full-size with on-demand loading
-- [x] **Performance optimizations** - Optimized conversation payload (metadata only), parallel thumbnail fetching
-
-## Phase 4 - Advanced Features
-- [ ] Multiple AI providers (Anthropic Claude, OpenAI)
-- [ ] Custom system prompts per conversation
 - [ ] Conversation export (JSON, Markdown)
 - [ ] Conversation sharing (public links)
 - [ ] Keyboard shortcuts
 - [ ] **Voice conversation mode** - Full voice-based conversation with speech-to-text input and text-to-speech output
-- [x] **User memory** - LLM extracts interesting facts about the user and stores them in database. Memories are categorized (preference, fact, context, goal) and injected into system prompt for personalization. LLM can add/update/delete memories via metadata operations. Users can view memories via brain icon button in sidebar and delete with confirmation dialog. 100 memory limit with LLM-managed consolidation. See `src/agent/chat_agent.py` for `MEMORY_SYSTEM_PROMPT` and `get_user_memories_prompt()`, `web/src/components/MemoriesPopup.ts` for UI.
-- [x] **System prompt customization** - Custom instructions feature allows users to customize LLM behavior via free-text textarea in settings popup (accessible from sidebar). 2000 character limit, instructions are injected into system prompt. See `CUSTOM_INSTRUCTIONS_PROMPT` in `chat_agent.py` and `SettingsPopup.ts` for UI.
-- [x] Voice input (speech-to-text using Web Speech API)
-
-## Phase 5 - Production Hardening
-- [x] Backend test suite (pytest with unit and integration tests)
-- [x] Frontend test suite (Vitest unit/component tests + Playwright E2E tests)
-- [x] Request logging and monitoring
-- [x] Database migrations system (yoyo-migrations)
-- [x] **Cost tracking** - Track API costs per user and per conversation
-- [x] **Automated currency rate updates** - Daily systemd timer fetches rates from open.er-api.com (free API), stores in DB. See "Currency Rate Updates" section in CLAUDE.md.
-
-## CI/CD & DevOps
-- [x] **GitHub Actions** - Workflow for linting and testing on PRs (runs backend + frontend tests)
-- [x] **Dependabot** - Configuration for automated dependency updates (pip, npm, github-actions)
+- [ ] **Automated memory defragmentation** - Nightly systemd timer that uses LLM to consolidate, deduplicate, and clean up user memories. Merge similar memories, remove outdated ones, and ensure the 100-memory limit is used efficiently.
+- [ ] **LLM file/image retrieval tool** - Add tool for LLM to explicitly fetch any previous file/image from conversation history by message ID and file index. Enables referencing past uploads for context or passing to `generate_image` as reference images without user re-uploading.
 
 ## Technical Debt
 
-### 🔴 Connection Resilience (Slow/Unreliable Networks)
+### Connection Resilience (Slow/Unreliable Networks)
 - [ ] **Detect and handle offline state** - Show offline indicator when network is unavailable. Queue messages locally and sync when connection returns.
 - [ ] **Handle partial file uploads** - Large file uploads can fail mid-transfer. Consider chunked uploads with resume capability, or at minimum show clear error and allow retry.
 - [ ] **Add connection quality indicator** - Show visual feedback when connection is slow (e.g., SSE keepalives arriving but no tokens for extended period).
-- [x] **Save streaming responses on connection failure** - Implemented via cleanup thread that saves message to DB even if client disconnects mid-stream. See `cleanup_and_save()` in routes.py.
-- [x] **Push title updates in streaming `done` event** - The `done` SSE event now includes `title` field when a title is auto-generated. Client uses title directly from response, falling back to API call only if not present.
-- [x] **Add retry logic for failed API calls** - Frontend automatically retries GET requests with exponential backoff. POST requests show toast with manual retry button.
-- [x] **Handle stale JWT on reconnect** - Frontend detects `AUTH_EXPIRED` error code and shows toast prompting re-login instead of failing silently.
-- [x] **Persist unsent messages locally** - Draft messages preserved in store and restored on send failure.
-- [x] **Real-time data synchronization** - Implemented timestamp-based polling sync (60s interval) via SyncManager. Shows unread badges on conversations, "New messages available" banner when current conversation has updates. Handles race conditions (concurrent sync lock, streaming protection). Chose polling over SSE/WebSockets for simplicity - appropriate for single-user app. See [SyncManager.ts](web/src/sync/SyncManager.ts) and `/api/conversations/sync` endpoint. Note: Unread counts may be temporarily inaccurate if sync happens mid-message-exchange (timing race), but corrects on next sync cycle.
 
-### 🔴 Critical / High Priority
-- [x] **Refactor @require_auth to inject user** - `@require_auth` decorator now injects the authenticated `User` as the first argument to route handlers. `@validate_request` appends validated data after user. No more `get_current_user()` + assert pattern.
-- [x] **Add backend test suite** - Created `tests/` directory with unit and integration tests covering auth, API routes, database, tools, and utilities.
-- [x] **Add frontend test suite** - Created `web/tests/` with Vitest (unit/component) and Playwright (E2E/visual) tests. Mock server for E2E tests in `tests/e2e-server.py`.
-- [x] **Catch specific exceptions** - Replaced bare `except Exception:` with specific exceptions (`binascii.Error`, `DDGSException`, `genai_errors.ClientError`, etc.) where appropriate. Kept broad handlers only for top-level error recovery (streaming threads, request handlers).
-
-### 🟠 Security
+### Security
 - [ ] **Add request size limits** - Enforce request body size limits in Flask to prevent DoS. Set `app.config['MAX_CONTENT_LENGTH']`
-- [ ] **Add CORS configuration** - Explicitly configure CORS if needed for cross-origin requests
 - [ ] **Add rate limiting** - Add Flask-Limiter or similar to prevent abuse/DoS
-- [x] **Whitelist columns in update_conversation()** - Added `_CONVERSATION_UPDATE_COLUMNS` frozenset in `models.py` to validate column names before building SQL. Raises `ValueError` for invalid columns
-- [x] **Add server-side file type validation** - File upload validates content via magic bytes (python-magic). Prevents MIME type spoofing for images/PDF. Text-based formats (text/plain, json, csv, markdown) skip magic validation as libmagic detection is unreliable for these.
-- [x] **Improve JWT token handling** - Added token refresh mechanism (proactive refresh when 2 days remain) and enforced minimum secret length (32+ chars in production)
 
-### 🟡 Code Quality
+### Code Quality
 - [ ] Consider async Flask (quart) for better concurrency
 - [ ] **`_full_tool_results` global dict can leak** - In `chat_agent.py`, `_full_tool_results` stores tool results keyed by request ID. If `get_full_tool_results()` is not called (error path, client disconnect before completion), entries accumulate forever. **Fix**: Add TTL-based cleanup or clear entries after a timeout (e.g., 10 minutes) using a background thread or periodic cleanup in the request handler.
 - [ ] **Context variable not cleared after use** - In `tools.py`, `_current_message_files` contextvar is set before agent runs but never explicitly cleared after. While contextvars are per-context, explicit cleanup is safer. **Fix**: Use try/finally pattern to clear `_current_message_files` after agent execution completes.
-- [x] **Extract shared `_execute_with_timing()` helper** - Extracted to `src/utils/db_helpers.py` with `execute_with_timing()` and `init_query_logging()` functions. Both `models.py` and `blob_store.py` now delegate to the shared implementation
-- [x] **Add datetime validation in sync endpoint** - Added try/except around `datetime.fromisoformat()` in sync endpoint, returns 400 VALIDATION_ERROR for invalid timestamps
-- [x] **Frontend event listener cleanup** - Created centralized `popupEscapeHandler.ts` with single document-level Escape key listener for all popups (MemoriesPopup, SettingsPopup, InfoPopup, Lightbox). Popups register via `registerPopupEscapeHandler()`. Reduces 5+ listeners to 1
-- [x] Add proper database migrations (yoyo-migrations)
-- [x] Add request validation (pydantic or marshmallow) - Implemented Pydantic v2 with `@validate_request` decorator
-- [x] **Add OpenAPI/Swagger documentation** - APIFlask generates OpenAPI 3.0 spec at `/api/openapi.json` with Swagger UI at `/api/docs`. Response schemas defined in `schemas.py` with `@api.output()` decorators. TypeScript types auto-generated via `openapi-typescript`. See "OpenAPI Documentation" section in CLAUDE.md.
-- [x] **Store files and thumbnails outside DB** - Moved to separate SQLite blob store (`files.db`) for better performance. See [Blob Storage](CLAUDE.md#blob-storage) section
-- [x] **Split JavaScript into modules** - Migrated to Vite + TypeScript with modular components in `web/src/`
-- [x] **Add structured logging** - Replace print statements with proper logging framework (Python logging module). Currently `images.py:69` uses `print()`.
-- [x] **Error handling standardization** - Consistent error response format with ErrorCode enum, retryable flag, and structured responses across all API endpoints
-- [x] **Frontend error boundaries** - ApiError class with error categorization, retry logic for GET requests, toast notifications for all API errors
-- [x] **Remove inline onclick handlers** - Migrated to event delegation in TypeScript components
-- [x] **Add request timeout handling** - CHAT_TIMEOUT (5 min) for batch requests, DEFAULT_TIMEOUT (30s) for other requests. Streaming needs per-read timeout (TODO).
-- [x] **TypeScript migration** - Frontend migrated to TypeScript with strict mode
-- [x] **Extract magic numbers and strings to constants** - Created centralized `constants.{ts,py}` for unit conversions and `config.{ts,py}` for developer-configurable values. See CLAUDE.md "Constants and Configuration" section for guidelines.
-- [x] **Remove console.log statements** - Implemented structured frontend logging in `web/src/utils/logger.ts` with `createLogger()` factory. All console statements replaced with structured logs. See CLAUDE.md "Frontend Logging" section.
-- [x] **Reduce innerHTML usage** - Added `clearElement()` helper to replace `innerHTML = ''`. Documented acceptable vs avoidable innerHTML patterns in AGENTS.md. Remaining innerHTML uses are legitimate (SVG icons, markdown rendering, complex HTML structures).
-- [x] **Audit unused CSS classes** - Removed unused classes (.settings-toggle, .toggle-*, .btn-google, .model-options, .btn-attach) after TypeScript migration
-- [x] **Create design system / color palette** - Consolidated colors into variables.css with semantic naming (--color-neutral-*, --color-brand-*, --color-success-*, etc.). Split CSS into modular files: variables.css, base.css, layout.css, components/*.css. See "CSS Architecture" section in CLAUDE.md.
+- [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing (100ms, 150ms, RAF). **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.
 
-### 🟢 Database
-- [x] **Pagination for conversations and messages** - Implemented cursor-based pagination for conversations list (`GET /api/conversations` with limit/cursor params) and messages (`GET /api/conversations/<id>` and `/messages` with limit/cursor/direction params). Frontend has infinite scroll in sidebar with dynamic page size calculation based on viewport. See "Cursor-Based Pagination" section in CLAUDE.md.
-- [x] **Add database backup automation** - Daily systemd timer creates timestamped snapshots of both databases, keeping 7 days of history. Uses SQLite's online backup API for consistent snapshots. See "Database Backup" section in CLAUDE.md.
+### Database
 - [ ] **Add database connection pooling** - Each operation creates a new connection. Consider pooling for better performance under load
-- [x] **Add database indexes** - Add indexes on frequently queried columns (conversations.user_id, messages.conversation_id, etc.)
-- [x] **Add database query optimization** - Review and optimize N+1 query patterns (e.g., loading conversations with message counts) - Reviewed, all queries optimized
-- [x] **Batch blob deletions in delete_conversation()** - Uses `delete_by_prefixes()` to delete all blobs for all messages in a single SQL query instead of N queries
-- [x] **Add database vacuum** - Weekly systemd timer runs VACUUM on both databases. See "Database Vacuum" section in CLAUDE.md.
-- [x] **Add database query logging** - Log slow queries for optimization (in development/debug mode)
-- [x] **Add database connectivity check** - Verify database is accessible at startup with clear error message
 
-### 🟠 Pagination & Sync Architecture
-
+### Pagination & Sync Architecture
+- [ ] **New chat notifications broken after pagination** - Notifications about new chats from other devices stopped working after introducing pagination. The sync system assumes all conversations are loaded, but with pagination only a subset is available. Need to revisit the sync architecture to handle paginated conversation lists properly.
 - [ ] **Double query inefficiency in `list_conversations`** - The endpoint fetches paginated conversations, then fetches ALL conversations again just to get message counts. For users with 1000 conversations, this is very slow. **Fix**: Create `list_conversations_paginated_with_counts()` that combines pagination with COUNT in a single query using a correlated subquery: `SELECT c.*, (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count`.
 - [ ] **Concurrent pagination + sync race condition** - If user scrolls to load more conversations while an incremental sync runs, both may try to add the same conversation. The `applyChanges` checks for existing IDs, but if pagination's `appendConversations` hasn't committed yet, duplicates can occur. **Fix**: Add deduplication check in `appendConversations` that filters out conversations already in the store before appending.
 - [ ] **`localMessageCounts` memory leak** - The SyncManager's `localMessageCounts` Map grows unbounded as conversations are discovered via pagination. Never cleaned up except on `stop()`. **Fix**: Add `removeLocalMessageCount(convId)` method to SyncManager and call it from store's `removeConversation` action.
 - [ ] **`isPaginationDiscovered` buffer too aggressive** - The 1-minute buffer in SyncManager's `isPaginationDiscovered()` might be too long, marking conversations as "actually new" when they were just updated. **Fix**: Consider reducing buffer to 10-15 seconds.
 
-### 🔵 Frontend Performance & UX
-- [x] **Deep linking for conversations** - Hash-based routing (`#/conversations/{conversationId}`) allows users to bookmark, share, and navigate conversations via browser history. Key features: (1) Initial route handled in `loadInitialData()` before sync manager starts, (2) Hash updates on conversation switch and temp→persisted transitions, (3) Browser back/forward navigation via `hashchange` event listener, (4) Handles deleted conversations, temp IDs in URL (cleared), and conversations not in initial paginated list (fetched from API). See `web/src/router/deeplink.ts` for router module and AGENTS.md "Deep Linking" section.
+### Frontend Performance & UX
 - [ ] **iPad Safari keyboard bar gap** - When focusing input on iPad with external keyboard, the system keyboard accessory bar pushes content up, revealing a gap below the app. CSS cannot paint outside the viewport iOS reveals. Need to investigate workarounds.
 - [ ] **Add service worker** - Implement service worker for offline support and better caching
 - [ ] **Add file upload progress** - Show upload progress indicator for large file uploads
-- [ ] **Accessibility improvements** - Add ARIA labels, improve keyboard navigation, ensure screen reader compatibility
 - [ ] **Frontend code splitting** - Split frontend code into chunks for better initial load performance
 - [ ] **Frontend error reporting** - Add error reporting service (Sentry, Rollbar) for production error tracking
-- [ ] **Frontend performance monitoring** - Add performance monitoring (Web Vitals, custom metrics)
 - [ ] **Frontend bundle analysis** - Analyze bundle size and identify optimization opportunities
 - [ ] **Blob URL memory leak in thumbnails** - In `thumbnails.ts`, blob URLs created with `URL.createObjectURL()` rely on MutationObserver to detect DOM removal for cleanup. If parent element is removed directly or observer doesn't fire (e.g., rapid conversation switches), blob URLs leak. **Fix**: Track all created blob URLs in a Set keyed by message ID. Add cleanup function called on conversation switch that revokes all URLs for that conversation's messages.
 - [ ] **Multiple scroll listeners possible** - In `thumbnails.ts`, `enableScrollOnImageLoad()` can be called multiple times without cleanup if conversation switching is rapid. Each call adds a new scroll listener via `setupUserScrollListener()`. While `removeUserScrollListener()` is called first, rapid calls could race. **Fix**: Use a debounced enable function or add a guard to prevent re-enabling within a short window.
 - [ ] **Streaming context state inconsistency** - In `main.ts`, `streamingMessageElements` Map and `currentStreamingContext` in `Messages.ts` can become inconsistent if user rapidly switches conversations during streaming. Both track streaming state but are not synchronized atomically. **Fix**: Consolidate streaming state into a single source of truth, or add explicit synchronization between the two.
-- [x] **Allow switching conversations without interrupting active requests/SSE** - Requests continue in background when switching conversations. UI guards with `isCurrentConversation` checks prevent updates to wrong conversation. See "Concurrent Request Handling" in CLAUDE.md.
-- [x] **Replace native browser dialogs** - Custom Modal component (showAlert, showConfirm, showPrompt) replaces all native dialogs. Toast notifications for transient messages.
-- [x] **Frontend bundle optimization** - Migrated to Vite, bundles marked.js and highlight.js from npm
-- [x] **Frontend state management** - Migrated to Zustand for state management
-
-### 🟠 Auto-Scroll Behavior
-
-- [ ] **Scroll constants defined but not used** - `config.ts` defines `SCROLL_USER_DETECTION_THRESHOLD_PX`, `SCROLL_BOTTOM_THRESHOLD_PX`, and `SCROLL_BUTTON_SHOW_THRESHOLD_PX`, but the actual code in `thumbnails.ts` and `Messages.ts` hardcodes these values. **Fix**: Import and use the constants from `config.ts` instead of hardcoding duplicate values.
-- [ ] **Inconsistent scroll detection thresholds** - Different components use different thresholds for "at bottom" detection: `thumbnails.ts` uses 200px, `Messages.ts` uses 100px, `ScrollToBottom.ts` uses 200px, `isScrolledToBottom()` defaults to 100px. This causes confusing UX where button visibility differs from auto-scroll pause/resume behavior. **Fix**: Unify to a single threshold value (suggest 150px).
-- [ ] **Pagination scroll position drift with images** - In `loadOlderMessages()`, scroll position is restored after prepending messages using a single RAF. If prepended messages contain lazy-loaded images, `scrollHeight` changes after images load, causing scroll position to drift. **Fix**: Track image loads and re-adjust scroll position after all images in prepended batch have loaded.
-- [ ] **Missing `previousScrollTop` reset on conversation restore** - In `restoreStreamingMessage()`, the streaming context is restored but `previousScrollTop` (used for scroll direction detection) is never reset to current scroll position. First scroll event after restore may incorrectly detect "user scrolled up". **Fix**: Add `previousScrollTop = container.scrollTop` after `scrollToBottom()` call in `restoreStreamingMessage()`.
-- [ ] **Inconsistent programmatic scroll marking** - Some scrolls are properly marked with `programmaticScrollToBottom()` (e.g., in `sendBatchMessage`), but others use raw `scrollToBottom()`: `addStreamingMessage()`, `restoreStreamingMessage()`, `showLoadingIndicator()`, `sendMessage()`. Raw calls could trigger the image-load scroll listener's user-scroll detection. **Fix**: Use `programmaticScrollToBottom()` consistently for all app-initiated scrolls.
-- [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing (100ms, 150ms, RAF). **Fix**: Consider consolidating into a single scroll manager that dispatches to subsystems.
-- [ ] **Missing error recovery for `isSchedulingScroll` flag** - In `scheduleScrollAfterImageLoad()`, if the nested RAF callbacks throw, `isSchedulingScroll` stays `true` forever, permanently blocking user scroll detection. **Fix**: Wrap RAF callback bodies in try/finally to ensure `isSchedulingScroll = false` on error.
-- [ ] **No visual indicator when streaming auto-scroll paused** - When user scrolls up during streaming, auto-scroll pauses silently. Industry best practice (Slack, Discord, ChatGPT) shows visual feedback: highlighted scroll button, "New messages" badge, or animation. **Fix**: Add visual feedback to scroll-to-bottom button when streaming is active and auto-scroll is paused.
-- [ ] **Missing E2E tests for pagination scroll with images** - No test coverage for scroll position after loading older messages that contain images. **Fix**: Add E2E test that loads older messages with images and verifies scroll position stability.
-- [ ] **Missing E2E tests for conversation switch during streaming scroll** - No test coverage for scroll state restoration when switching back to a streaming conversation. **Fix**: Add E2E test that switches away from and back to a streaming conversation and verifies scroll behavior.
-
-### ⚙️ Configuration & Operations
-- [ ] **Remove unused dependencies** - Audit and remove any unused npm/Python dependencies
-- [x] **Environment variable validation** - Validate all required env vars at startup with clear error messages
-- [x] **Add health check endpoint** - `/api/health` (liveness) and `/api/ready` (readiness) endpoints for monitoring and load balancer checks
-- [x] **Add request/response logging middleware** - Log all API requests and responses (with sensitive data redaction)
-- [x] **Add request ID tracking** - Include request IDs in logs and error responses for easier debugging
-- [x] **Add API response compression** - Enable gzip compression via nginx (see README deployment section)
-- [x] **Optimize image processing** - Background thumbnail generation using ThreadPoolExecutor, skip small images (<100KB), BILINEAR resampling for speed. Frontend polls with exponential backoff when thumbnails are pending. Lazy recovery regenerates thumbnails if pending >60s (server death recovery). See "Background Thumbnail Generation" section in CLAUDE.md.
-- [x] **Make HTTP timeout configurable** - `tools.py` uses `Config.TOOL_TIMEOUT` (default 90s)
-- [x] **Make thumbnail dimensions configurable** - `Config.THUMBNAIL_MAX_SIZE` (default 400x400) and `Config.THUMBNAIL_QUALITY` (default 85)
-
-## Notes
-
-### Gemini API Data Privacy
-- Logs are NOT used for training by default on billing-enabled projects
-- Logs auto-expire after 55 days
-- No explicit opt-out parameter, but data sharing requires explicit opt-in
-
-### Model IDs (as of Dec 2025)
-- `gemini-3-pro-preview` - Best for complex reasoning
-- `gemini-3-flash-preview` - Faster and cheaper
-
-### Thinking Level Parameter
-Gemini 3 uses `thinking_level` instead of `thinking_budget`:
-- `minimal` - Fastest, least reasoning
-- `low` - Good for simple tasks
-- `medium` - Balanced
-- `high` - Maximum reasoning depth (default)

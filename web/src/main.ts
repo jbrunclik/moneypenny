@@ -37,6 +37,7 @@ import {
   updateUserMessageId,
   setupOlderMessagesScrollListener,
   cleanupOlderMessagesScrollListener,
+  initOrientationChangeHandler,
 } from './components/Messages';
 import {
   initMessageInput,
@@ -59,7 +60,7 @@ import { initScrollToBottom, checkScrollButtonVisibility } from './components/Sc
 import { initVersionBanner } from './components/VersionBanner';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/swipe';
 import { initSyncManager, stopSyncManager, getSyncManager } from './sync/SyncManager';
-import { getElementById, isScrolledToBottom, clearElement, scrollToBottom } from './utils/dom';
+import { getElementById, isScrolledToBottom, clearElement } from './utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from './utils/thumbnails';
 import { initializeTheme } from './utils/theme';
 import { initPopupEscapeListener } from './utils/popupEscapeHandler';
@@ -239,6 +240,7 @@ async function init(): Promise<void> {
   initMemoriesPopup();
   initSettingsPopup();
   initScrollToBottom();
+  initOrientationChangeHandler();
   initVersionBanner();
   setupEventListeners();
   setupTouchGestures();
@@ -911,7 +913,7 @@ async function sendMessage(): Promise<void> {
     }
     addMessageToUI(userMessage, messagesContainer);
     // Scroll to bottom after adding user message so it's visible
-    scrollToBottom(messagesContainer);
+    programmaticScrollToBottom(messagesContainer);
     // Update scroll button visibility after adding user message
     requestAnimationFrame(() => {
       checkScrollButtonVisibility();

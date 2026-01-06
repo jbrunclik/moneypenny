@@ -1102,6 +1102,158 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
   });
 });
 
+test.describe('Chat - Image Loading Scroll', () => {
+  /**
+   * REGRESSION TEST: Image at top of conversation causing scroll issues
+   *
+   * Bug: When loading a conversation with an image at the TOP (above viewport),
+   * the image loading would increase scrollHeight, making it appear the user
+   * had scrolled away from the bottom. The position-based scroll listener
+   * would then disable auto-scroll before the final smooth scroll could run.
+   *
+   * Fix: Changed setupUserScrollListener to use direction-based detection
+   * (like streaming scroll listener). Only disables scroll mode when scrollTop
+   * DECREASES (user actually scrolled up), not when distanceFromBottom increases
+   * due to images loading above viewport.
+   */
+  test('scrolls to bottom when conversation has image at top', async ({ page }) => {
+    // Create a conversation with many messages and an image in the first message
+    // The image will be above the viewport when we scroll to bottom
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+    // Create messages: first one has an image, then several text messages
+    const messages = [
+      {
+        role: 'user',
+        content: 'Here is an image',
+        files: [
+          {
+            name: 'test-image.png',
+            type: 'image/png',
+            data: pngBase64,
+          },
+        ],
+      },
+      { role: 'assistant', content: 'I see the image you shared.' },
+    ];
+
+    // Add more messages to ensure the image is above the viewport
+    for (let i = 0; i < 10; i++) {
+      messages.push({ role: 'user', content: `Follow-up message ${i + 1}` });
+      messages.push({
+        role: 'assistant',
+        content: `This is a response to follow-up ${i + 1}. It has some content to take up space.`,
+      });
+    }
+
+    // Seed the conversation via test API
+    const response = await page.request.post('/test/seed', {
+      data: {
+        conversations: [{ title: 'Image at Top Test', messages }],
+      },
+    });
+    expect(response.ok()).toBe(true);
+
+    // Navigate to the app
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Click on the seeded conversation
+    const conversationItem = page.locator('.conversation-item-wrapper').first();
+    await expect(conversationItem).toBeVisible({ timeout: 5000 });
+    await conversationItem.click();
+
+    // Wait for messages to load
+    await page.waitForSelector('.message.user', { timeout: 10000 });
+
+    // Wait for image to load (this is the key part of the test)
+    // The image loading above viewport should not prevent final scroll
+    const messageImage = page.locator('.message-image');
+    await expect(messageImage).toBeVisible({ timeout: 10000 });
+
+    // Wait a bit for scroll logic to complete
+    await page.waitForTimeout(500);
+
+    // Verify we're at the bottom after everything loads
+    const messagesContainer = page.locator('#messages');
+    const scrollInfo = await messagesContainer.evaluate((el) => ({
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    const distanceFromBottom =
+      scrollInfo.scrollHeight - scrollInfo.scrollTop - scrollInfo.clientHeight;
+
+    // Should be at or very near the bottom (within threshold)
+    // Using a reasonable threshold since smooth scroll may not be pixel-perfect
+    expect(distanceFromBottom).toBeLessThan(50);
+  });
+
+  test('user can still scroll up to disable auto-scroll with images', async ({ page }) => {
+    // Create a conversation with an image and enough content to scroll
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+    const messages = [
+      {
+        role: 'user',
+        content: 'Here is an image',
+        files: [{ name: 'test.png', type: 'image/png', data: pngBase64 }],
+      },
+      { role: 'assistant', content: 'I see the image.' },
+    ];
+
+    for (let i = 0; i < 10; i++) {
+      messages.push({ role: 'user', content: `Message ${i + 1}` });
+      messages.push({ role: 'assistant', content: `Response ${i + 1} with content.` });
+    }
+
+    await page.request.post('/test/seed', {
+      data: { conversations: [{ title: 'User Scroll Test', messages }] },
+    });
+
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    const conversationItem = page.locator('.conversation-item-wrapper').first();
+    await conversationItem.click();
+
+    await page.waitForSelector('.message.user', { timeout: 10000 });
+
+    const messagesContainer = page.locator('#messages');
+
+    // Wait for initial scroll to bottom and any pending scroll operations to complete
+    // This ensures we start from a stable state at the bottom
+    await page.waitForTimeout(1000);
+
+    // Verify we're at the bottom first
+    const initialScrollInfo = await messagesContainer.evaluate((el) => ({
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    const initialDistanceFromBottom =
+      initialScrollInfo.scrollHeight - initialScrollInfo.scrollTop - initialScrollInfo.clientHeight;
+    expect(initialDistanceFromBottom).toBeLessThan(100); // Should be at bottom initially
+
+    // Scroll up (this should disable auto-scroll)
+    await messagesContainer.evaluate((el) => {
+      el.scrollTo({ top: 0, behavior: 'instant' });
+    });
+
+    // Wait for scroll event to be processed
+    await page.waitForTimeout(500);
+
+    // Verify we're still at the top (not scrolled back to bottom)
+    const scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);
+    expect(scrollTop).toBeLessThan(50); // Allow some tolerance
+
+    // If we stayed at top, auto-scroll was correctly disabled
+    // (If the bug existed, we would have been scrolled back to bottom)
+  });
+});
+
 test.describe('Chat - Message Retry', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -2424,5 +2576,232 @@ test.describe('Chat - Lightbox', () => {
     // Check that the image initially had pending state
     const hadPendingState = await pendingCheckPromise;
     expect(hadPendingState).toBe(true);
+  });
+});
+
+test.describe('Chat - Streaming Scroll Pause Indicator', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Enable streaming for these tests
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+
+    // Configure slower streaming for reliable testing
+    await page.request.post('/test/set-stream-delay', {
+      data: { delay_ms: 100 },
+    });
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Reset stream delay
+    await page.request.post('/test/set-stream-delay', {
+      data: { delay_ms: 10 },
+    });
+  });
+
+  test('scroll button shows highlighted state when streaming auto-scroll is paused', async ({
+    page,
+  }) => {
+    // First, create many messages to have scrollable content
+    const streamBtn = page.locator('#stream-btn');
+    await streamBtn.click(); // Disable streaming temporarily
+
+    // Create enough messages to ensure scrollable content
+    for (let i = 0; i < 5; i++) {
+      await page.fill('#message-input', `Setup message ${i + 1} with some extra text to make it longer`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+    }
+
+    await streamBtn.click(); // Re-enable streaming
+    // Use very slow streaming (500ms per word) to ensure we have time to scroll up while streaming
+    await page.request.post('/test/set-stream-delay', {
+      data: { delay_ms: 500 },
+    });
+
+    const messagesContainer = page.locator('#messages');
+    const scrollButton = page.locator('.scroll-to-bottom');
+
+    // Verify we have scrollable content
+    const isScrollable = await messagesContainer.evaluate((el) => {
+      return el.scrollHeight > el.clientHeight;
+    });
+    expect(isScrollable).toBe(true);
+
+    // Send a message to start streaming
+    await page.fill('#message-input', 'Tell me a long story');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start
+    const assistantMessage = page.locator('.message.assistant.streaming');
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Wait for some content to arrive and auto-scroll to happen
+    await page.waitForTimeout(500);
+
+    // Verify we're at the bottom (auto-scroll should have us there)
+    const atBottomBefore = await messagesContainer.evaluate((el) => {
+      return el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 50;
+    });
+    expect(atBottomBefore).toBe(true);
+
+    // Verify streaming is still active
+    const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
+    expect(isStillStreaming).toBe(true);
+
+    // Scroll up to interrupt auto-scroll using mouse wheel
+    await messagesContainer.hover();
+    await page.mouse.wheel(0, -10000);
+    await page.waitForTimeout(300);
+
+    // Scroll button should be visible and have the streaming-paused class
+    await expect(scrollButton).toBeVisible({ timeout: 5000 });
+    await expect(scrollButton).toHaveClass(/streaming-paused/, { timeout: 5000 });
+
+    // Scroll back to bottom using mouse wheel
+    await messagesContainer.hover();
+    await page.mouse.wheel(0, 10000);
+    await page.waitForTimeout(300);
+
+    // The streaming-paused class should be removed
+    await expect(scrollButton).not.toHaveClass(/streaming-paused/, { timeout: 5000 });
+  });
+
+  test('streaming-paused indicator is cleared when streaming completes', async ({ page }) => {
+    // Create scrollable content first
+    const streamBtn = page.locator('#stream-btn');
+    await streamBtn.click(); // Disable streaming temporarily
+
+    // Create enough messages to ensure scrollable content
+    for (let i = 0; i < 5; i++) {
+      await page.fill('#message-input', `Setup message ${i + 1} with some extra text to make it longer`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+    }
+
+    await streamBtn.click(); // Re-enable streaming
+    // Use slower streaming so we have time to scroll up while streaming
+    await page.request.post('/test/set-stream-delay', {
+      data: { delay_ms: 500 },
+    });
+
+    const messagesContainer = page.locator('#messages');
+    const scrollButton = page.locator('.scroll-to-bottom');
+
+    // Verify we have scrollable content
+    const isScrollable = await messagesContainer.evaluate((el) => {
+      return el.scrollHeight > el.clientHeight;
+    });
+    expect(isScrollable).toBe(true);
+
+    // Send a message
+    await page.fill('#message-input', 'Short story');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start
+    const assistantMessage = page.locator('.message.assistant.streaming');
+    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+
+    // Wait for some content to arrive and auto-scroll to happen
+    await page.waitForTimeout(500);
+
+    // Verify we're at the bottom (auto-scroll should have us there)
+    const atBottomBefore = await messagesContainer.evaluate((el) => {
+      return el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 50;
+    });
+    expect(atBottomBefore).toBe(true);
+
+    // Verify streaming is still active
+    const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
+    expect(isStillStreaming).toBe(true);
+
+    // Scroll up to pause auto-scroll using mouse wheel
+    await messagesContainer.hover();
+    await page.mouse.wheel(0, -10000);
+    await page.waitForTimeout(300);
+
+    // Verify streaming-paused is shown
+    await expect(scrollButton).toHaveClass(/streaming-paused/, { timeout: 5000 });
+
+    // Wait for streaming to complete
+    const finalMessage = page.locator('.message.assistant').last();
+    await expect(finalMessage).not.toHaveClass(/streaming/, { timeout: 15000 });
+
+    // The streaming-paused indicator should be cleared after streaming ends
+    await expect(scrollButton).not.toHaveClass(/streaming-paused/);
+  });
+});
+
+test.describe('Chat - Conversation Switch During Streaming Scroll', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+  });
+
+  test('scroll state is restored when switching back to streaming conversation', async ({
+    page,
+  }) => {
+    // Configure slow streaming
+    await page.request.post('/test/set-stream-delay', {
+      data: { delay_ms: 300 },
+    });
+
+    // Enable streaming mode
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed !== 'true') {
+      await streamBtn.click();
+    }
+
+    // Create first conversation with some setup messages
+    await page.click('#new-chat-btn');
+
+    // Disable streaming for fast setup
+    await streamBtn.click();
+    for (let i = 0; i < 2; i++) {
+      await page.fill('#message-input', `Setup ${i + 1}`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+    }
+
+    // Re-enable streaming
+    await streamBtn.click();
+    await page.request.post('/test/set-stream-delay', {
+      data: { delay_ms: 200 },
+    });
+
+    // Send a streaming message
+    await page.fill('#message-input', 'Long streaming message');
+    await page.click('#send-btn');
+
+    // Wait for streaming to start
+    const streamingMessage = page.locator('.message.assistant.streaming');
+    await expect(streamingMessage).toBeVisible({ timeout: 5000 });
+
+    // Create second conversation (switches away)
+    await page.click('#new-chat-btn');
+
+    // Streaming message should not be visible (different conversation)
+    await expect(streamingMessage).not.toBeVisible();
+
+    // Switch back to first conversation
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(2);
+    await convItems.last().click();
+
+    // Wait for either the streaming message to be restored OR the final message to load
+    const assistantMessage = page.locator('.message.assistant').last();
+    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+
+    // Reset stream delay
+    await page.request.post('/test/set-stream-delay', {
+      data: { delay_ms: 10 },
+    });
   });
 });

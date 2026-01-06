@@ -104,8 +104,23 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
   if (isIOSPWA() && window.visualViewport) {
     const viewport = window.visualViewport;
     let lastHeight = viewport.height;
+    let lastVisibilityChangeTime = 0;
+
+    // Track visibility changes to avoid triggering on background/foreground transitions
+    // When PWA goes to background and returns, visualViewport resize may fire
+    document.addEventListener('visibilitychange', () => {
+      lastVisibilityChangeTime = Date.now();
+    });
 
     const handleViewportChange = () => {
+      // Ignore viewport changes within 500ms of visibility change
+      // This prevents false keyboard detection on background/foreground transitions
+      const timeSinceVisibilityChange = Date.now() - lastVisibilityChangeTime;
+      if (timeSinceVisibilityChange < 500) {
+        lastHeight = viewport.height;
+        return;
+      }
+
       // Only act when viewport shrinks (keyboard opening) and input is focused
       const currentHeight = viewport.height;
       const keyboardOpening = currentHeight < lastHeight;
@@ -116,7 +131,7 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
         requestAnimationFrame(() => {
           // Scroll the messages container to the bottom
           // This ensures the input stays visible above the keyboard
-          const messagesContainer = document.querySelector('.messages');
+          const messagesContainer = getElementById('messages');
           if (messagesContainer) {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
           }

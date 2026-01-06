@@ -158,6 +158,19 @@ export const INTERSECTION_OBSERVER_THRESHOLD = 0.1;
 /** Default threshold for isScrolledToBottom check */
 export const SCROLL_BOTTOM_THRESHOLD_PX = 100;
 
+/**
+ * Unified threshold for streaming auto-scroll detection.
+ * Used consistently across:
+ * - addStreamingMessage: Initial "at bottom" check
+ * - setupStreamingScrollListener: Re-enable auto-scroll detection
+ * - autoScrollForStreaming: Pause detection
+ * - restoreStreamingMessage: Restored state "at bottom" check
+ */
+export const STREAMING_SCROLL_THRESHOLD_PX = SCROLL_USER_DETECTION_THRESHOLD_PX;
+
+/** Debounce delay for re-enabling streaming auto-scroll when user scrolls back to bottom */
+export const STREAMING_SCROLL_RESUME_DEBOUNCE_MS = 150;
+
 /** Distance from bottom to show scroll-to-bottom button */
 export const SCROLL_BUTTON_SHOW_THRESHOLD_PX = 200;
 

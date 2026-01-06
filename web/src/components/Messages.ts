@@ -6,9 +6,10 @@ import {
   markProgrammaticScrollEnd,
   countVisibleImagesForScroll,
   setDeferImageObservation,
+  programmaticScrollToBottom,
 } from '../utils/thumbnails';
 import { createUserAvatarElement } from '../utils/avatar';
-import { checkScrollButtonVisibility } from './ScrollToBottom';
+import { checkScrollButtonVisibility, setStreamingPausedIndicator } from './ScrollToBottom';
 import {
   AI_AVATAR,
   getFileIcon,
@@ -22,7 +23,12 @@ import {
 import { costs, conversations } from '../api/client';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { LOAD_OLDER_MESSAGES_THRESHOLD_PX, INFINITE_SCROLL_DEBOUNCE_MS } from '../config';
+import {
+  LOAD_OLDER_MESSAGES_THRESHOLD_PX,
+  INFINITE_SCROLL_DEBOUNCE_MS,
+  STREAMING_SCROLL_THRESHOLD_PX,
+  STREAMING_SCROLL_RESUME_DEBOUNCE_MS,
+} from '../config';
 import { PaginationDirection } from '../types/api';
 import {
   createThinkingIndicator,
@@ -145,6 +151,104 @@ export function renderMessages(messages: Message[]): void {
       checkScrollButtonVisibility();
     });
   });
+}
+
+// Track scroll position for orientation change handling
+let savedScrollPercentage: number | null = null;
+let orientationChangeCleanup: (() => void) | null = null;
+
+/**
+ * Initialize orientation change handler to preserve scroll position.
+ * When device orientation changes, layout reflows can cause scroll position loss.
+ * This saves the scroll position as a percentage before orientation change and
+ * restores it after layout settles.
+ */
+export function initOrientationChangeHandler(): void {
+  // Clean up any existing handler
+  if (orientationChangeCleanup) {
+    orientationChangeCleanup();
+  }
+
+  const handleOrientationChange = (): void => {
+    const container = getElementById<HTMLDivElement>('messages');
+    if (!container) return;
+
+    // Save scroll position as a percentage of total scrollable height
+    const maxScrollTop = container.scrollHeight - container.clientHeight;
+    if (maxScrollTop > 0) {
+      savedScrollPercentage = container.scrollTop / maxScrollTop;
+    } else {
+      savedScrollPercentage = 1; // At bottom if no scrollable content
+    }
+
+    log.debug('Orientation change: saved scroll percentage', { savedScrollPercentage });
+
+    // After orientation change, layout will reflow. Wait for it to settle and restore position.
+    // Use multiple RAFs + timeout to ensure layout has fully settled
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (savedScrollPercentage !== null) {
+            const newMaxScrollTop = container.scrollHeight - container.clientHeight;
+            if (newMaxScrollTop > 0) {
+              container.scrollTop = savedScrollPercentage * newMaxScrollTop;
+              log.debug('Orientation change: restored scroll position', {
+                savedScrollPercentage,
+                newScrollTop: container.scrollTop,
+              });
+            }
+            savedScrollPercentage = null;
+          }
+        }, 100); // Small delay to ensure layout has fully settled
+      });
+    });
+  };
+
+  window.addEventListener('orientationchange', handleOrientationChange);
+
+  // Also handle resize as fallback (some devices don't fire orientationchange)
+  let resizeTimeout: number | undefined;
+  let lastWidth = window.innerWidth;
+  let lastHeight = window.innerHeight;
+
+  const handleResize = (): void => {
+    // Only act on significant dimension changes that indicate orientation change
+    // (width/height swap, not keyboard opening which only changes height)
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+
+    const widthChanged = Math.abs(currentWidth - lastWidth) > 100;
+    const heightChanged = Math.abs(currentHeight - lastHeight) > 100;
+    const dimensionsSwapped =
+      (lastWidth > lastHeight && currentHeight > currentWidth) ||
+      (lastHeight > lastWidth && currentWidth > currentHeight);
+
+    if (dimensionsSwapped || (widthChanged && heightChanged)) {
+      // Clear any pending timeout and handle immediately
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = window.setTimeout(() => {
+        handleOrientationChange();
+        lastWidth = currentWidth;
+        lastHeight = currentHeight;
+      }, 50);
+    } else {
+      // Just update the last dimensions for future comparison
+      lastWidth = currentWidth;
+      lastHeight = currentHeight;
+    }
+  };
+
+  window.addEventListener('resize', handleResize);
+
+  orientationChangeCleanup = () => {
+    window.removeEventListener('orientationchange', handleOrientationChange);
+    window.removeEventListener('resize', handleResize);
+    if (resizeTimeout) {
+      clearTimeout(resizeTimeout);
+    }
+  };
 }
 
 /**
@@ -495,10 +599,6 @@ interface StreamingMessageContext {
 // Global context for the current streaming message
 let currentStreamingContext: StreamingMessageContext | null = null;
 
-// Constants for streaming scroll behavior
-const STREAMING_SCROLL_THRESHOLD_PX = 100; // Distance from bottom to consider "at bottom"
-const STREAMING_SCROLL_RESUME_DEBOUNCE_MS = 150; // Debounce only for RE-ENABLING auto-scroll (when user scrolls back to bottom)
-
 // Track the previous scroll position to detect scroll direction
 // Used to distinguish user scrolls (up) from our programmatic scrolls (always to bottom)
 let previousScrollTop = 0;
@@ -548,7 +648,7 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
   };
 
   container.appendChild(messageEl);
-  scrollToBottom(container);
+  programmaticScrollToBottom(container);
 
   // Set up scroll listener to detect user scroll during streaming
   // This allows interrupting auto-scroll when scrolling up and resuming when scrolling back to bottom
@@ -591,6 +691,15 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     if (!currentStreamingContext) return;
 
     const currentScrollTop = container.scrollTop;
+
+    // iOS Safari momentum scroll can cause scrollTop to temporarily go negative
+    // (rubber-banding at top) or past the max (rubber-banding at bottom).
+    // Ignore these out-of-bounds values to prevent false user-scroll detection.
+    const maxScrollTop = container.scrollHeight - container.clientHeight;
+    if (currentScrollTop < 0 || currentScrollTop > maxScrollTop) {
+      return; // Ignore rubber-banding scroll events
+    }
+
     const scrolledUp = currentScrollTop < previousScrollTop;
     previousScrollTop = currentScrollTop;
 
@@ -599,6 +708,9 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     if (scrolledUp && currentStreamingContext.shouldAutoScroll) {
       currentStreamingContext.shouldAutoScroll = false;
       log.debug('Streaming auto-scroll paused (user scrolled up)');
+
+      // Show visual indicator on scroll button
+      setStreamingPausedIndicator(true);
 
       // Clear any pending resume timeout
       if (resumeDebounceTimeout) {
@@ -626,6 +738,9 @@ function setupStreamingScrollListener(container: HTMLElement): void {
         if (stillAtBottom && !currentStreamingContext.shouldAutoScroll) {
           currentStreamingContext.shouldAutoScroll = true;
           log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
+
+          // Clear the visual indicator
+          setStreamingPausedIndicator(false);
         }
         resumeDebounceTimeout = undefined;
       }, STREAMING_SCROLL_RESUME_DEBOUNCE_MS);
@@ -654,6 +769,8 @@ export function cleanupStreamingContext(): void {
     }
     currentStreamingContext = null;
   }
+  // Always clear the streaming paused indicator when streaming ends
+  setStreamingPausedIndicator(false);
 }
 
 /**
@@ -732,7 +849,13 @@ export function restoreStreamingMessage(conversationId: string, content: string,
   updateThinkingIndicator(thinkingIndicator, restoredThinkingState);
 
   container.appendChild(messageEl);
-  scrollToBottom(container);
+  programmaticScrollToBottom(container);
+
+  // Reset previousScrollTop to current position AFTER scroll completes
+  // This prevents the first scroll event after restore from incorrectly detecting "user scrolled up"
+  requestAnimationFrame(() => {
+    previousScrollTop = container.scrollTop;
+  });
 
   // Set up scroll listener
   setupStreamingScrollListener(container);
@@ -758,6 +881,10 @@ export function restoreStreamingMessage(conversationId: string, content: string,
  *
  * However, we DO check if scrollTop has decreased since last check to catch cases
  * where the user scrolled up but the scroll event hasn't fired yet (race condition).
+ *
+ * IMPORTANT: Both this function and setupStreamingScrollListener() can detect user
+ * scroll-up. Both MUST call setStreamingPausedIndicator() to keep the visual state
+ * consistent with shouldAutoScroll.
  */
 function autoScrollForStreaming(): void {
   if (!currentStreamingContext?.shouldAutoScroll) return;
@@ -772,6 +899,10 @@ function autoScrollForStreaming(): void {
     // User scrolled up - disable auto-scroll immediately
     currentStreamingContext.shouldAutoScroll = false;
     log.debug('Streaming auto-scroll paused (detected user scroll up synchronously)');
+
+    // Show visual indicator on scroll button (same as scroll handler)
+    setStreamingPausedIndicator(true);
+
     previousScrollTop = currentScrollTop;
     return;
   }
@@ -957,7 +1088,7 @@ export function showLoadingIndicator(): void {
     </div>
   `;
   container.appendChild(loading);
-  scrollToBottom(container);
+  programmaticScrollToBottom(container);
 }
 
 /**
@@ -1171,10 +1302,16 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
 
     // Restore scroll position so the user stays at the same place
     // After prepending, scrollHeight increases, so we need to adjust scrollTop
+    // We also need to track image loads and re-adjust after images load to prevent drift
     requestAnimationFrame(() => {
       const newScrollHeight = container.scrollHeight;
       const scrollHeightDiff = newScrollHeight - previousScrollHeight;
-      container.scrollTop = container.scrollTop + scrollHeightDiff;
+      const targetScrollTop = container.scrollTop + scrollHeightDiff;
+      container.scrollTop = targetScrollTop;
+
+      // Track images in the prepended batch and re-adjust scroll position after they load
+      // This prevents scroll drift when lazy-loaded images change the scrollHeight
+      trackPrependedImagesForScrollAdjustment(container, targetScrollTop);
     });
 
     log.info('Loaded older messages', {
@@ -1260,4 +1397,57 @@ function prependMessagesToUI(messages: Message[], container: HTMLElement): void 
   });
 
   log.debug('Prepended messages to UI', { count: messages.length });
+}
+
+/**
+ * Track images in prepended messages and re-adjust scroll position after they load.
+ * This prevents scroll drift when lazy-loaded images change the scrollHeight.
+ *
+ * @param container - The messages container element
+ * @param initialScrollTop - The scroll position to maintain
+ */
+function trackPrependedImagesForScrollAdjustment(container: HTMLElement, _initialScrollTop: number): void {
+  // Find all images that may still be loading (either no src or not complete)
+  const images = container.querySelectorAll<HTMLImageElement>(
+    'img[data-message-id][data-file-index]'
+  );
+
+  if (images.length === 0) return;
+
+  let pendingLoads = 0;
+  let previousScrollHeight = container.scrollHeight;
+
+  const adjustScrollPosition = (): void => {
+    // Calculate how much the scroll height changed and adjust scroll position
+    const currentScrollHeight = container.scrollHeight;
+    const heightDiff = currentScrollHeight - previousScrollHeight;
+    if (heightDiff !== 0) {
+      container.scrollTop = container.scrollTop + heightDiff;
+      previousScrollHeight = currentScrollHeight;
+    }
+  };
+
+  const handleImageLoad = (): void => {
+    pendingLoads--;
+    // Adjust scroll position after each image loads
+    requestAnimationFrame(() => {
+      adjustScrollPosition();
+    });
+  };
+
+  images.forEach((img) => {
+    // Skip already-loaded images
+    if (img.complete && img.naturalHeight > 0) return;
+
+    pendingLoads++;
+    img.addEventListener('load', handleImageLoad, { once: true });
+    img.addEventListener('error', handleImageLoad, { once: true });
+  });
+
+  // If no images are pending, nothing to do
+  if (pendingLoads === 0) {
+    log.debug('No pending images in prepended batch');
+  } else {
+    log.debug('Tracking prepended images for scroll adjustment', { pendingLoads });
+  }
 }
