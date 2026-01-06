@@ -133,6 +133,27 @@ export class SyncManager {
   }
 
   /**
+   * Prune localMessageCounts to remove entries for conversations no longer in the store.
+   * This prevents memory leaks when conversations are deleted locally.
+   */
+  private pruneLocalMessageCounts(): void {
+    const store = useStore.getState();
+    const existingIds = new Set(store.conversations.map((c) => c.id));
+    let pruned = 0;
+
+    for (const id of this.localMessageCounts.keys()) {
+      if (!existingIds.has(id)) {
+        this.localMessageCounts.delete(id);
+        pruned++;
+      }
+    }
+
+    if (pruned > 0) {
+      log.debug('Pruned stale localMessageCounts entries', { pruned });
+    }
+  }
+
+  /**
    * Perform a full sync - fetches all conversations for delete detection.
    */
   async fullSync(): Promise<void> {
@@ -146,6 +167,9 @@ export class SyncManager {
     log.debug('Performing full sync');
 
     try {
+      // Prune stale entries before syncing
+      this.pruneLocalMessageCounts();
+
       const result = await conversationsApi.sync(null, true);
       this.lastSyncTime = result.server_time;
 
@@ -409,6 +433,21 @@ export class SyncManager {
   }
 
   /**
+   * Initialize local message count for a conversation discovered via pagination.
+   * Only sets the count if we don't already have a baseline for this conversation.
+   * Call this after loading more conversations via pagination.
+   */
+  initializeLocalMessageCount(convId: string, messageCount: number): void {
+    if (!this.localMessageCounts.has(convId)) {
+      this.localMessageCounts.set(convId, messageCount);
+      log.debug('Initialized local message count for paginated conversation', {
+        convId,
+        messageCount,
+      });
+    }
+  }
+
+  /**
    * Update local message count after sending a message.
    * Call this after successfully sending a message.
    */
@@ -527,9 +566,10 @@ export class SyncManager {
       }
 
       // If updated_at is older than initial load time, it's pagination discovery
-      // Add a small buffer (1 minute) to account for timing differences between
+      // Add a small buffer (5 seconds) to account for timing differences between
       // when the conversation was last updated and when the initial page load happened
-      const bufferMs = 60 * 1000; // 1 minute
+      // Both timestamps are server time, so minimal buffer needed
+      const bufferMs = 5 * 1000; // 5 seconds
       return updatedDate.getTime() < (initialDate.getTime() - bufferMs);
     } catch (error) {
       // If timestamp parsing fails, default to pagination-discovered to be safe

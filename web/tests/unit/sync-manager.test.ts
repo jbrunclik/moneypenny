@@ -1007,10 +1007,10 @@ describe('SyncManager', () => {
       expect(newConv?.messageCount).toBe(15);
     });
 
-    it('handles boundary case: conversation updated exactly at initialLoadTime - 1 minute buffer', async () => {
+    it('handles boundary case: conversation updated exactly at initialLoadTime - 5 second buffer', async () => {
       // Test the boundary case where updated_at is exactly at the buffer threshold
-      // updated_at = initialLoadTime - 1 minute should be treated as actually new (not <)
-      // updated_at = initialLoadTime - 1 minute - 1 second should be pagination-discovered (<)
+      // updated_at = initialLoadTime - 5 seconds should be treated as actually new (not <)
+      // updated_at = initialLoadTime - 5 seconds - 1 second should be pagination-discovered (<)
       // Note: With new architecture, we test via incremental sync (full sync doesn't add conversations)
 
       const existingConv = createConversation('existing-conv', 'Existing', 5);
@@ -1028,10 +1028,10 @@ describe('SyncManager', () => {
       syncManager = new SyncManager(callbacks);
       await syncManager.start();
 
-      // Test case 1: updated_at exactly at buffer boundary (initialLoadTime - 1 minute)
+      // Test case 1: updated_at exactly at buffer boundary (initialLoadTime - 5 seconds)
       // Should be actually new (>= initialLoadTime - buffer) and added via incremental sync
       const boundaryConv1 = createConversationSummary('boundary-conv-1', 'Boundary 1', 10);
-      boundaryConv1.updated_at = '2024-01-10T12:04:00Z'; // Exactly 1 minute before server time
+      boundaryConv1.updated_at = '2024-01-10T12:04:55Z'; // Exactly 5 seconds before server time
 
       mockSync.mockResolvedValue({
         conversations: [boundaryConv1],
@@ -1045,10 +1045,10 @@ describe('SyncManager', () => {
       expect(conv1).toBeDefined();
       expect(conv1?.unreadCount).toBe(10); // Actually new (shows badge)
 
-      // Test case 2: updated_at just before buffer boundary (initialLoadTime - 1 minute - 1 second)
+      // Test case 2: updated_at just before buffer boundary (initialLoadTime - 5 seconds - 1 second)
       // Should be pagination-discovered (< initialLoadTime - buffer) and NOT added
       const boundaryConv2 = createConversationSummary('boundary-conv-2', 'Boundary 2', 10);
-      boundaryConv2.updated_at = '2024-01-10T12:03:59Z'; // 1 minute 1 second before server time
+      boundaryConv2.updated_at = '2024-01-10T12:04:54Z'; // 6 seconds before server time
 
       mockSync.mockResolvedValue({
         conversations: [boundaryConv2],

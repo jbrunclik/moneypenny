@@ -1383,6 +1383,7 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000;  // 5 minutes
 - Backend: [test_routes_sync.py](tests/integration/test_routes_sync.py) - Integration tests for sync endpoint
 - Frontend: [sync-manager.test.ts](web/tests/unit/sync-manager.test.ts) - SyncManager unit tests
 - E2E: [sync.spec.ts](web/tests/e2e/sync.spec.ts) - Multi-tab and visibility scenarios
+- E2E: [pagination.spec.ts](web/tests/e2e/pagination.spec.ts) - "Pagination with Sync - Edge Cases" describe block
 - Visual: [chat.visual.ts](web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge, banner)
 
 ## Deep Linking

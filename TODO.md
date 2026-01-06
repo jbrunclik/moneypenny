@@ -32,13 +32,6 @@ This file tracks planned features, improvements, and technical debt.
 ### Database
 - [ ] **Add database connection pooling** - Each operation creates a new connection. Consider pooling for better performance under load
 
-### Pagination & Sync Architecture
-- [ ] **New chat notifications broken after pagination** - Notifications about new chats from other devices stopped working after introducing pagination. The sync system assumes all conversations are loaded, but with pagination only a subset is available. Need to revisit the sync architecture to handle paginated conversation lists properly.
-- [ ] **Double query inefficiency in `list_conversations`** - The endpoint fetches paginated conversations, then fetches ALL conversations again just to get message counts. For users with 1000 conversations, this is very slow. **Fix**: Create `list_conversations_paginated_with_counts()` that combines pagination with COUNT in a single query using a correlated subquery: `SELECT c.*, (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count`.
-- [ ] **Concurrent pagination + sync race condition** - If user scrolls to load more conversations while an incremental sync runs, both may try to add the same conversation. The `applyChanges` checks for existing IDs, but if pagination's `appendConversations` hasn't committed yet, duplicates can occur. **Fix**: Add deduplication check in `appendConversations` that filters out conversations already in the store before appending.
-- [ ] **`localMessageCounts` memory leak** - The SyncManager's `localMessageCounts` Map grows unbounded as conversations are discovered via pagination. Never cleaned up except on `stop()`. **Fix**: Add `removeLocalMessageCount(convId)` method to SyncManager and call it from store's `removeConversation` action.
-- [ ] **`isPaginationDiscovered` buffer too aggressive** - The 1-minute buffer in SyncManager's `isPaginationDiscovered()` might be too long, marking conversations as "actually new" when they were just updated. **Fix**: Consider reducing buffer to 10-15 seconds.
-
 ### Frontend Performance & UX
 - [ ] **iPad Safari keyboard bar gap** - When focusing input on iPad with external keyboard, the system keyboard accessory bar pushes content up, revealing a gap below the app. CSS cannot paint outside the viewport iOS reveals. Need to investigate workarounds.
 - [ ] **Add service worker** - Implement service worker for offline support and better caching

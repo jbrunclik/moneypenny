@@ -238,17 +238,42 @@ export const useStore = create<AppState>()(
           },
         }),
       appendConversations: (newConversations, pagination) =>
-        set((state) => ({
-          conversations: [...state.conversations, ...newConversations],
-          conversationsPagination: {
-            nextCursor: pagination.next_cursor,
-            hasMore: pagination.has_more,
-            totalCount: pagination.total_count,
-            isLoadingMore: false,
-          },
-        })),
+        set((state) => {
+          // Deduplicate: filter out conversations already in the store
+          const existingIds = new Set(state.conversations.map((c) => c.id));
+          const filtered = newConversations.filter((c) => !existingIds.has(c.id));
+
+          return {
+            conversations: [...state.conversations, ...filtered],
+            conversationsPagination: {
+              nextCursor: pagination.next_cursor,
+              hasMore: pagination.has_more,
+              totalCount: pagination.total_count,
+              isLoadingMore: false,
+            },
+          };
+        }),
       addConversation: (conversation) =>
         set((state) => {
+          // Idempotent: If conversation already exists, update it instead of adding duplicate
+          const existingIndex = state.conversations.findIndex((c) => c.id === conversation.id);
+          if (existingIndex !== -1) {
+            // Merge with existing, preserving unreadCount if not provided in new data
+            const existing = state.conversations[existingIndex];
+            const merged = {
+              ...existing,
+              ...conversation,
+              // Preserve unreadCount if the new conversation doesn't specify it
+              unreadCount: conversation.unreadCount ?? existing.unreadCount,
+            };
+            const newConvs = [...state.conversations];
+            newConvs[existingIndex] = merged;
+            return {
+              conversations: newConvs,
+              conversationsPagination: state.conversationsPagination, // Don't increment count
+            };
+          }
+
           // Insert conversation at correct sorted position (by updated_at DESC)
           // This ensures conversations discovered via sync appear in correct order
           // For temp conversations (newly created), always prepend to ensure they appear at top

@@ -572,6 +572,96 @@ class Database:
 
             return conversations, next_cursor, has_more, total_count
 
+    def list_conversations_paginated_with_counts(
+        self,
+        user_id: str,
+        limit: int = 30,
+        cursor: str | None = None,
+    ) -> tuple[list[tuple[Conversation, int]], str | None, bool, int]:
+        """List conversations for a user with cursor-based pagination and message counts.
+
+        Combines pagination with message counting in a single query for efficiency.
+        Returns conversations ordered by updated_at DESC (most recent first).
+
+        Args:
+            user_id: The user ID
+            limit: Maximum number of conversations to return
+            cursor: Optional cursor from previous page (format: '{updated_at}:{id}')
+
+        Returns:
+            Tuple of:
+            - List of (Conversation, message_count) tuples
+            - Next cursor (None if no more pages)
+            - has_more: True if there are more pages
+            - total_count: Total number of conversations for this user
+        """
+        with self._get_conn() as conn:
+            # Get total count for this user
+            total_row = self._execute_with_timing(
+                conn,
+                "SELECT COUNT(*) as count FROM conversations WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            total_count = int(total_row["count"]) if total_row else 0
+
+            # Build the query with JOIN for message counts
+            if cursor:
+                cursor_timestamp, cursor_id = parse_cursor(cursor)
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ?
+                         AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC, c.id DESC
+                       LIMIT ?""",
+                    (user_id, cursor_timestamp, cursor_timestamp, cursor_id, limit + 1),
+                ).fetchall()
+            else:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ?
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC, c.id DESC
+                       LIMIT ?""",
+                    (user_id, limit + 1),
+                ).fetchall()
+
+            # Check if there are more pages
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]
+
+            # Build cursor for next page from last item
+            next_cursor = None
+            if has_more and rows:
+                last_row = rows[-1]
+                next_cursor = build_cursor(last_row["updated_at"], last_row["id"])
+
+            conversations_with_counts = [
+                (
+                    Conversation(
+                        id=row["id"],
+                        user_id=row["user_id"],
+                        title=row["title"],
+                        model=row["model"],
+                        created_at=datetime.fromisoformat(row["created_at"]),
+                        updated_at=datetime.fromisoformat(row["updated_at"]),
+                    ),
+                    int(row["message_count"]),
+                )
+                for row in rows
+            ]
+
+            return conversations_with_counts, next_cursor, has_more, total_count
+
     def list_conversations_with_message_count(self, user_id: str) -> list[tuple[Conversation, int]]:
         """List all conversations for a user with message counts.
 

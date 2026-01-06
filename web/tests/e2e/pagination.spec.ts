@@ -537,3 +537,162 @@ test.describe('Messages Pagination', () => {
     await expect(userMessage).toContainText('Second conv message');
   });
 });
+
+test.describe('Pagination with Sync - Edge Cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test('no duplicate conversations when sync and pagination overlap', async ({ page }) => {
+    // Seed conversations directly
+    const numConversations = 5;
+    const conversations = Array.from({ length: numConversations }, (_, i) => ({
+      title: `Conversation ${i + 1}`,
+      messages: [
+        { role: 'user', content: `User message ${i + 1}` },
+        { role: 'assistant', content: `Assistant response ${i + 1}` },
+      ],
+    }));
+
+    await page.request.post('/test/seed', {
+      data: { conversations },
+    });
+
+    // Reload to see seeded conversations
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+
+    // Wait for conversations to load
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(numConversations, { timeout: 10000 });
+
+    // Trigger a full sync (simulates sync returning same conversations)
+    await page.evaluate(() => window.__testFullSync());
+
+    // Wait for sync to complete
+    await page.waitForTimeout(500);
+
+    // Should still have the same number of conversations (no duplicates)
+    await expect(convItems).toHaveCount(numConversations);
+
+    // Verify all IDs are unique by checking for duplicate titles
+    const titles = await convItems.locator('.conversation-title').allTextContents();
+    const uniqueTitles = new Set(titles);
+    expect(uniqueTitles.size).toBe(titles.length);
+  });
+
+  test('conversation IDs are unique after rapid pagination and sync', async ({ page }) => {
+    // Seed 10 conversations
+    const numConversations = 10;
+    const conversations = Array.from({ length: numConversations }, (_, i) => ({
+      title: `Conv ${i + 1}`,
+      messages: [
+        { role: 'user', content: `User message ${i + 1}` },
+        { role: 'assistant', content: `Response ${i + 1}` },
+      ],
+    }));
+
+    await page.request.post('/test/seed', {
+      data: { conversations },
+    });
+
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(numConversations, { timeout: 10000 });
+
+    // Trigger multiple syncs rapidly (stress test for race conditions)
+    for (let i = 0; i < 3; i++) {
+      await page.evaluate(() => window.__testFullSync());
+      await page.waitForTimeout(100);
+    }
+
+    // Wait for all syncs to complete
+    await page.waitForTimeout(500);
+
+    // Verify no duplicates
+    const count = await convItems.count();
+    expect(count).toBe(numConversations);
+
+    // Get all conversation IDs and verify uniqueness
+    const ids = await convItems.evaluateAll((items) =>
+      items.map((item) => item.getAttribute('data-conv-id'))
+    );
+    const uniqueIds = new Set(ids);
+    expect(uniqueIds.size).toBe(ids.length);
+  });
+
+  test('paginated conversations do not show incorrect unread badges', async ({ page }) => {
+    // Seed conversations with known message counts
+    const conversations = [
+      {
+        title: 'Recent Conv',
+        messages: [
+          { role: 'user', content: 'Recent message' },
+          { role: 'assistant', content: 'Recent response' },
+        ],
+      },
+      {
+        title: 'Older Conv',
+        messages: [
+          { role: 'user', content: 'Old message 1' },
+          { role: 'assistant', content: 'Old response 1' },
+          { role: 'user', content: 'Old message 2' },
+          { role: 'assistant', content: 'Old response 2' },
+        ],
+      },
+    ];
+
+    await page.request.post('/test/seed', {
+      data: { conversations },
+    });
+
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(2, { timeout: 10000 });
+
+    // None of the conversations should have unread badges
+    // (we just loaded them, so they're all "read")
+    const unreadBadges = page.locator('.unread-badge');
+    await expect(unreadBadges).toHaveCount(0);
+  });
+
+  test('switching to paginated conversation clears unread badge', async ({ page }) => {
+    // Create a conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'First conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Create another conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Second conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(2);
+
+    // Switch to the first (older) conversation
+    await convItems.last().click();
+    await page.waitForSelector('.message.user >> text=First conversation');
+
+    // The first conversation should now be active and have no unread badge
+    const activeItem = page.locator('.conversation-item-wrapper.active');
+    await expect(activeItem).toBeVisible();
+
+    const unreadBadge = activeItem.locator('.unread-badge');
+    await expect(unreadBadge).toHaveCount(0);
+  });
+});

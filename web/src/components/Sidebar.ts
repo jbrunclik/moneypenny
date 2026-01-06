@@ -6,6 +6,7 @@ import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
 import { costs, conversations as conversationsApi } from '../api/client';
 import { createLogger } from '../utils/logger';
+import { getSyncManager } from '../sync/SyncManager';
 import {
   LOAD_MORE_THRESHOLD_PX,
   INFINITE_SCROLL_DEBOUNCE_MS,
@@ -355,6 +356,17 @@ async function loadMoreConversations(container: HTMLDivElement): Promise<void> {
 
     // Append conversations to the store
     store.appendConversations(result.conversations, result.pagination);
+
+    // Initialize local message counts for newly paginated conversations
+    // This prevents false unread badges when sync runs
+    const syncManager = getSyncManager();
+    if (syncManager) {
+      for (const conv of result.conversations) {
+        if (conv.messageCount !== undefined) {
+          syncManager.initializeLocalMessageCount(conv.id, conv.messageCount);
+        }
+      }
+    }
 
     log.info('Loaded more conversations', {
       count: result.conversations.length,

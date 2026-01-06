@@ -224,21 +224,16 @@ def list_conversations(user: User) -> dict[str, Any]:
         extra={"user_id": user.id, "limit": limit, "cursor": cursor_param},
     )
 
-    # Get paginated results
-    conversations, next_cursor, has_more, total_count = db.list_conversations_paginated(
-        user.id, limit=limit, cursor=cursor_param
+    # Get paginated results with message counts in a single efficient query
+    conv_with_counts, next_cursor, has_more, total_count = (
+        db.list_conversations_paginated_with_counts(user.id, limit=limit, cursor=cursor_param)
     )
-
-    # We need message counts for sync initialization
-    # Note: Currently fetches counts for all conversations; see TODO.md for optimization ideas
-    conv_with_counts = db.list_conversations_with_message_count(user.id)
-    count_map = {c.id: count for c, count in conv_with_counts}
 
     logger.info(
         "Conversations listed",
         extra={
             "user_id": user.id,
-            "returned": len(conversations),
+            "returned": len(conv_with_counts),
             "total": total_count,
             "has_more": has_more,
         },
@@ -252,9 +247,9 @@ def list_conversations(user: User) -> dict[str, Any]:
                 "model": c.model,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat(),
-                "message_count": count_map.get(c.id, 0),
+                "message_count": message_count,
             }
-            for c in conversations
+            for c, message_count in conv_with_counts
         ],
         "pagination": {
             "next_cursor": next_cursor,
