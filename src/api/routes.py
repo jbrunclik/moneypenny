@@ -1238,6 +1238,7 @@ def chat_stream(
                 # NOTE: get_full_tool_results() POPS the results, so we can only call it once!
                 full_tool_results = get_full_tool_results(stream_request_id)
                 set_current_request_id(None)  # Clean up
+                set_current_message_files(None)  # Clean up
 
                 # Extract generated files from FULL tool results (before stripping)
                 gen_image_files = extract_generated_images_from_tool_results(full_tool_results)

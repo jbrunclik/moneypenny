@@ -432,12 +432,15 @@ class TestChatWithGeneratedImages:
 
             # Mock chat_batch to return the response AND simulate tool node capture
             def mock_chat_batch(*args: Any, **kwargs: Any) -> Any:
+                import time
+
                 # Simulate what the tool node does: capture full results
                 request_id = _current_request_id.get()
                 if request_id:
-                    _full_tool_results[request_id] = [
-                        {"type": "tool", "content": tool_result_content}
-                    ]
+                    _full_tool_results[request_id] = {
+                        "results": [{"type": "tool", "content": tool_result_content}],
+                        "created_at": time.time(),
+                    }
                 return (
                     'Here is the image I generated for you.\n\n<!-- METADATA:\n{"generated_images": [{"prompt": "a red square"}]}\n-->',
                     [{"type": "tool", "content": tool_result_content}],
@@ -524,9 +527,10 @@ class TestChatWithGeneratedImages:
                 # This happens during graph execution (before yielding final tuple)
                 request_id = _current_request_id.get()
                 if request_id:
-                    _full_tool_results[request_id] = [
-                        {"type": "tool", "content": tool_result_content}
-                    ]
+                    _full_tool_results[request_id] = {
+                        "results": [{"type": "tool", "content": tool_result_content}],
+                        "created_at": time.time(),
+                    }
 
                 yield {"type": "token", "text": "Here"}
                 yield {"type": "token", "text": " is"}

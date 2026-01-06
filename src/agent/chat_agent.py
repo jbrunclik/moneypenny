@@ -38,9 +38,12 @@ Components:
           Also includes metadata like 'extras', 'signature' which are skipped
 """
 
+import atexit
 import contextvars
 import json
 import re
+import threading
+import time
 from collections.abc import Generator
 from datetime import datetime
 from typing import Annotated, Any, Literal, TypedDict, cast
@@ -61,7 +64,6 @@ from langgraph.prebuilt import ToolNode as BaseToolNode
 
 from src.agent.tools import TOOLS
 from src.config import Config
-from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -99,17 +101,88 @@ _current_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar
 # Global storage for full tool results before stripping (keyed by thread/request)
 # This allows us to capture the full results for server-side extraction while
 # still stripping them before sending to the LLM
-_full_tool_results: dict[str, list[dict[str, Any]]] = {}
+# Format: {request_id: {"results": [...], "created_at": timestamp}}
+_full_tool_results: dict[str, dict[str, Any]] = {}
+_full_tool_results_lock = threading.Lock()
+
+# Cleanup thread state
+_cleanup_thread: threading.Thread | None = None
+_cleanup_thread_stop_event = threading.Event()
+
+
+def _cleanup_stale_tool_results() -> None:
+    """Background thread that periodically cleans up stale tool results.
+
+    Runs every TOOL_RESULTS_CLEANUP_INTERVAL_SECONDS and removes entries older than
+    TOOL_RESULTS_TTL_SECONDS. This prevents memory leaks when get_full_tool_results()
+    is not called (e.g., error paths, client disconnects before completion).
+    """
+    while not _cleanup_thread_stop_event.is_set():
+        # Wait for cleanup interval or until stop event is set
+        if _cleanup_thread_stop_event.wait(timeout=Config.TOOL_RESULTS_CLEANUP_INTERVAL_SECONDS):
+            # Stop event was set, exit
+            break
+
+        current_time = time.time()
+        stale_keys: list[str] = []
+
+        with _full_tool_results_lock:
+            for request_id, entry in _full_tool_results.items():
+                created_at = entry.get("created_at", 0)
+                if current_time - created_at > Config.TOOL_RESULTS_TTL_SECONDS:
+                    stale_keys.append(request_id)
+
+            if stale_keys:
+                for key in stale_keys:
+                    del _full_tool_results[key]
+                logger.debug(
+                    "Cleaned up stale tool results",
+                    extra={"count": len(stale_keys), "remaining": len(_full_tool_results)},
+                )
+
+
+def _start_cleanup_thread() -> None:
+    """Start the background cleanup thread if not already running."""
+    global _cleanup_thread
+    if _cleanup_thread is None or not _cleanup_thread.is_alive():
+        _cleanup_thread_stop_event.clear()
+        _cleanup_thread = threading.Thread(
+            target=_cleanup_stale_tool_results,
+            daemon=True,
+            name="tool-results-cleanup",
+        )
+        _cleanup_thread.start()
+        logger.debug("Started tool results cleanup thread")
+
+
+def _stop_cleanup_thread() -> None:
+    """Stop the background cleanup thread gracefully."""
+    global _cleanup_thread
+    if _cleanup_thread is not None and _cleanup_thread.is_alive():
+        _cleanup_thread_stop_event.set()
+        _cleanup_thread.join(timeout=5)
+        logger.debug("Stopped tool results cleanup thread")
+
+
+# Register cleanup on module exit
+atexit.register(_stop_cleanup_thread)
 
 
 def set_current_request_id(request_id: str | None) -> None:
     """Set the current request ID for tool result capture."""
     _current_request_id.set(request_id)
+    # Start cleanup thread when we start capturing results
+    if request_id is not None:
+        _start_cleanup_thread()
 
 
 def get_full_tool_results(request_id: str) -> list[dict[str, Any]]:
     """Get and clear full tool results for a request."""
-    return _full_tool_results.pop(request_id, [])
+    with _full_tool_results_lock:
+        entry = _full_tool_results.pop(request_id, None)
+        if entry is not None:
+            return entry.get("results", [])
+        return []
 
 
 def create_tool_node(tools: list[Any]) -> Any:
@@ -142,11 +215,15 @@ def create_tool_node(tools: list[Any]) -> Any:
                 if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
                     # Store the ORIGINAL content for server-side extraction
                     if request_id is not None:
-                        if request_id not in _full_tool_results:
-                            _full_tool_results[request_id] = []
-                        _full_tool_results[request_id].append(
-                            {"type": "tool", "content": msg.content}
-                        )
+                        with _full_tool_results_lock:
+                            if request_id not in _full_tool_results:
+                                _full_tool_results[request_id] = {
+                                    "results": [],
+                                    "created_at": time.time(),
+                                }
+                            _full_tool_results[request_id]["results"].append(
+                                {"type": "tool", "content": msg.content}
+                            )
 
                     # Now strip _full_result for the LLM
                     content_len_before = len(msg.content)

@@ -65,6 +65,14 @@ class Config:
         os.getenv("STREAM_CLEANUP_WAIT_DELAY", "1.0")
     )  # 1 second delay before checking if message was saved
 
+    # Tool results cleanup (prevents memory leaks from orphaned tool results)
+    TOOL_RESULTS_TTL_SECONDS: int = int(
+        os.getenv("TOOL_RESULTS_TTL_SECONDS", "600")
+    )  # 10 minutes TTL for stale tool results
+    TOOL_RESULTS_CLEANUP_INTERVAL_SECONDS: int = int(
+        os.getenv("TOOL_RESULTS_CLEANUP_INTERVAL_SECONDS", "60")
+    )  # Run cleanup every 60 seconds
+
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 

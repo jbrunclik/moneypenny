@@ -25,8 +25,6 @@ This file tracks planned features, improvements, and technical debt.
 
 ### Code Quality
 - [ ] Consider async Flask (quart) for better concurrency
-- [ ] **`_full_tool_results` global dict can leak** - In `chat_agent.py`, `_full_tool_results` stores tool results keyed by request ID. If `get_full_tool_results()` is not called (error path, client disconnect before completion), entries accumulate forever. **Fix**: Add TTL-based cleanup or clear entries after a timeout (e.g., 10 minutes) using a background thread or periodic cleanup in the request handler.
-- [ ] **Context variable not cleared after use** - In `tools.py`, `_current_message_files` contextvar is set before agent runs but never explicitly cleared after. While contextvars are per-context, explicit cleanup is safer. **Fix**: Use try/finally pattern to clear `_current_message_files` after agent execution completes.
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing (100ms, 150ms, RAF). **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.
 
 ### Database
