@@ -4,39 +4,71 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 
 ## Screenshots
 
-<p align="center">
-  <img src="web/tests/visual/chat.visual.ts-snapshots/conversation-with-messages-chromium-darwin.png" alt="Desktop chat interface" width="600">
-</p>
+### Desktop Interface
 
 <p align="center">
-  <img src="web/tests/visual/chat.visual.ts-snapshots/sidebar-conversations-chromium-darwin.png" alt="Sidebar with conversations" width="280">
-  <img src="web/tests/visual/mobile.visual.ts-snapshots/mobile-sidebar-open-chromium-darwin.png" alt="Mobile layout" width="200">
+  <img src="web/tests/visual/chat.visual.ts-snapshots/conversation-with-messages-chromium-darwin.png" alt="Desktop chat interface" width="700">
 </p>
+<p align="center"><em>Chat interface with message history, markdown rendering, and syntax highlighting</em></p>
 
-<sub>Screenshots from visual regression tests - always up-to-date with the latest UI.</sub>
+### Sidebar & Mobile
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="web/tests/visual/chat.visual.ts-snapshots/sidebar-conversations-chromium-darwin.png" alt="Sidebar with conversations" width="280">
+      <br><em>Conversation list with search</em>
+    </td>
+    <td align="center">
+      <img src="web/tests/visual/mobile.visual.ts-snapshots/mobile-sidebar-open-chromium-darwin.png" alt="Mobile layout" width="200">
+      <br><em>Mobile-responsive layout</em>
+    </td>
+  </tr>
+</table>
+
+<p align="center"><sub>Screenshots from visual regression tests - always up-to-date with the latest UI.</sub></p>
 
 ## Features
 
+### Chat & AI
 - Chat with Google Gemini AI models (Pro and Flash)
 - **Streaming responses**: Real-time token-by-token display (toggleable) with thinking indicator showing model processing and tool activity
-- **File uploads**: Images, PDFs, and text files with multimodal AI analysis
-- **Image generation**: Generate images from text descriptions using Gemini
-- **Image lightbox**: Click thumbnails to view full-size images, with loading indicator and on-demand thumbnail loading
-- **Web tools**: Real-time web search (DuckDuckGo) and URL fetching
-- **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
-- Multiple conversations with history
+- **Stop streaming**: Abort streaming responses mid-generation
 - Model selection (Gemini 3 Pro for complex tasks, Flash for speed)
 - Markdown rendering with syntax highlighting
-- **Copy messages**: One-click copy button on messages (excludes file attachments)
+
+### Tools & Capabilities
+- **File uploads**: Images, PDFs, and text files with multimodal AI analysis
+- **Clipboard paste**: Paste screenshots directly from clipboard (Cmd+V / Ctrl+V)
+- **Image generation**: Generate images from text descriptions, or edit uploaded images
+- **Image lightbox**: Click thumbnails to view full-size images, with loading indicator and on-demand thumbnail loading
+- **Web tools**: Real-time web search (DuckDuckGo) and URL fetching with source citations
+- **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
+
+### Personalization
+- **User memory**: AI learns and remembers facts about you across conversations (viewable/deletable via brain icon)
+- **Custom instructions**: Customize AI behavior via settings (e.g., "respond in Czech", "be concise")
+- **User context**: Location-aware responses with appropriate units, currency, and local recommendations
+
+### Conversation Management
+- Multiple conversations with history
+- **Deep linking**: Bookmarkable URLs for specific conversations (`#/conversations/{id}`)
+- **Real-time sync**: Multi-device/tab synchronization with unread message badges
+- **Infinite scroll**: Cursor-based pagination for conversations and messages
+- **Copy messages**: One-click copy button on messages with rich text support
+
+### UI & Experience
+- **Color scheme**: Light, Dark, and System modes with instant switching
 - **Version update banner**: Automatic detection of new deployments with reload prompt
 - **Cost tracking**: Track API costs per conversation and per month with currency conversion
-- Google Sign In authentication with email whitelist
-- **Color scheme**: Light, Dark, and System modes with instant switching
 - Mobile-first responsive design
 - **Voice input**: Speech-to-text using Web Speech API (Chrome, Safari), with language selection
-- **Touch gestures**: Swipe left on conversations to delete, swipe from left edge to open sidebar
+- **Touch gestures**: Swipe left on conversations to rename/delete, swipe from left edge to open sidebar
 - **Error handling**: Toast notifications, retry on network errors, draft message preservation
 - iOS Safari and PWA compatible
+
+### Authentication & Security
+- Google Sign In authentication with email whitelist
 - Local development mode (no auth required)
 
 ## Tech Stack
@@ -106,6 +138,9 @@ SSE_KEEPALIVE_INTERVAL=15           # Heartbeat interval for streaming
 
 # Cost tracking (optional)
 COST_CURRENCY=CZK                   # Display currency (USD, CZK, EUR, GBP)
+
+# User context (optional)
+USER_LOCATION=Prague, Czech Republic  # For localized units, currency, recommendations
 ```
 
 ### Setting up Code Execution (Docker)
@@ -212,6 +247,7 @@ make vacuum     # Run database vacuum (reclaim space)
 make update-currency  # Update currency exchange rates
 make backup     # Create database backup manually
 make backup-list  # List existing database backups
+make defrag-memories  # Run memory defragmentation (consolidate user memories)
 ```
 
 ## Testing
@@ -347,6 +383,23 @@ make backup-list
 
 Backups are stored in `backups/{database_name}/` directories alongside the databases. Each backup file is named with a timestamp: `chatbot-20240101-120000.db`.
 
+### Memory Defragmentation
+
+A nightly systemd timer consolidates and cleans up user memories using an LLM. This merges related memories, removes duplicates, and keeps memory banks efficient.
+
+```bash
+# View defrag logs
+journalctl --user -u ai-chatbot-memory-defrag
+
+# Run defragmentation manually
+make defrag-memories
+
+# Preview changes without applying (dry run)
+make defrag-memories -- --dry-run
+```
+
+Only users with 50+ memories are processed by default.
+
 ### Reverse Proxy (nginx)
 
 If running behind nginx, ensure timeouts and compression are configured:
@@ -468,15 +521,14 @@ ai-chatbot/
 ├── scripts/                      # Utility scripts
 │   ├── vacuum_databases.py       # Database vacuum script
 │   ├── update_currency_rates.py  # Currency rate update script
-│   └── backup_databases.py       # Database backup script
+│   ├── backup_databases.py       # Database backup script
+│   └── defragment_memories.py    # Memory defragmentation script
 ├── systemd/                      # Systemd service files
 │   ├── ai-chatbot.service        # Main application service
-│   ├── ai-chatbot-vacuum.service # Database vacuum service
-│   ├── ai-chatbot-vacuum.timer   # Weekly vacuum timer
-│   ├── ai-chatbot-currency.service # Currency rate update service
-│   ├── ai-chatbot-currency.timer # Daily currency timer
-│   ├── ai-chatbot-backup.service # Database backup service
-│   └── ai-chatbot-backup.timer   # Daily backup timer
+│   ├── ai-chatbot-vacuum.*       # Weekly database vacuum
+│   ├── ai-chatbot-currency.*     # Daily currency rate updates
+│   ├── ai-chatbot-backup.*       # Daily database backups
+│   └── ai-chatbot-memory-defrag.* # Nightly memory defragmentation
 ├── Makefile                      # Build and run targets
 ├── pyproject.toml                # Python project configuration
 └── requirements.txt              # Python dependencies
