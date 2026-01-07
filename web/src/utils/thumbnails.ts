@@ -18,9 +18,87 @@ const log = createLogger('thumbnails');
 const loadingQueue: Array<() => Promise<void>> = [];
 let activeFetches = 0;
 
+// Track blob URLs per message ID for cleanup on conversation switch
+// Map<messageId, Set<blobUrl>>
+const blobUrlsByMessage = new Map<string, Set<string>>();
+
+// Track all blob URLs for the current conversation for bulk cleanup
+let currentConversationId: string | null = null;
+
 // Flag to indicate we should scroll to bottom after images load
 // This is set when opening a conversation and cleared when switching away
 let shouldScrollOnImageLoad = false;
+
+// Guard to prevent multiple concurrent enableScrollOnImageLoad calls
+let isEnablingScrollMode = false;
+
+/**
+ * Track a blob URL for a message.
+ * This allows cleanup when the conversation is switched.
+ */
+function trackBlobUrl(messageId: string, url: string): void {
+    let urls = blobUrlsByMessage.get(messageId);
+    if (!urls) {
+        urls = new Set();
+        blobUrlsByMessage.set(messageId, urls);
+    }
+    urls.add(url);
+}
+
+/**
+ * Untrack a blob URL when it's been cleaned up via MutationObserver.
+ */
+function untrackBlobUrl(messageId: string, url: string): void {
+    const urls = blobUrlsByMessage.get(messageId);
+    if (urls) {
+        urls.delete(url);
+        if (urls.size === 0) {
+            blobUrlsByMessage.delete(messageId);
+        }
+    }
+}
+
+/**
+ * Clean up all tracked blob URLs for a conversation.
+ * Called when switching conversations to prevent memory leaks.
+ * @param conversationId - Optional: the conversation ID being switched away from (for logging)
+ */
+export function cleanupBlobUrlsForConversation(conversationId?: string): void {
+    if (blobUrlsByMessage.size === 0) {
+        return;
+    }
+
+    let cleanedCount = 0;
+    for (const urls of blobUrlsByMessage.values()) {
+        for (const url of urls) {
+            URL.revokeObjectURL(url);
+            cleanedCount++;
+        }
+    }
+    blobUrlsByMessage.clear();
+
+    if (cleanedCount > 0) {
+        log.debug('Cleaned up blob URLs on conversation switch', {
+            conversationId,
+            cleanedCount,
+        });
+    }
+
+    // Update the current conversation tracking
+    currentConversationId = null;
+}
+
+/**
+ * Set the current conversation ID for blob URL tracking.
+ * Called when switching to a new conversation.
+ */
+export function setCurrentConversationForBlobs(conversationId: string | null): void {
+    // If switching to a different conversation, clean up the old one's blob URLs
+    if (currentConversationId && currentConversationId !== conversationId) {
+        cleanupBlobUrlsForConversation(currentConversationId);
+    }
+    currentConversationId = conversationId;
+}
 
 // Flag to defer image observation until after counting
 // Used in renderMessages() to prevent IntersectionObserver from firing before we count
@@ -98,28 +176,45 @@ export function programmaticScrollToBottom(element: HTMLElement, smooth = false)
  * Automatically disables when user scrolls (indicating they want to view history).
  */
 export function enableScrollOnImageLoad(): void {
-    shouldScrollOnImageLoad = true;
-    pendingImageLoads = 0;
-    deferImageObservation = false;
-    isSchedulingScroll = false; // Reset scheduling flag
-    if (scrollTimeout) {
-        cancelAnimationFrame(scrollTimeout);
-        scrollTimeout = undefined;
+    // Guard against rapid concurrent calls during conversation switching
+    // This prevents multiple scroll listeners from being set up during a single call
+    if (isEnablingScrollMode) {
+        log.debug('enableScrollOnImageLoad: already enabling, skipping');
+        return;
     }
+    isEnablingScrollMode = true;
 
-    // Initialize previous scroll position for direction-based detection
-    const messagesContainer = getElementById<HTMLDivElement>('messages');
-    if (messagesContainer) {
-        previousScrollTopForImageLoad = messagesContainer.scrollTop;
+    try {
+        // First, clean up any existing scroll listener to prevent duplicates
+        removeUserScrollListener();
+
+        shouldScrollOnImageLoad = true;
+        pendingImageLoads = 0;
+        deferImageObservation = false;
+        isSchedulingScroll = false; // Reset scheduling flag
+        if (scrollTimeout) {
+            cancelAnimationFrame(scrollTimeout);
+            scrollTimeout = undefined;
+        }
+
+        // Initialize previous scroll position for direction-based detection
+        const messagesContainer = getElementById<HTMLDivElement>('messages');
+        if (messagesContainer) {
+            previousScrollTopForImageLoad = messagesContainer.scrollTop;
+        }
+
+        // Track when scroll mode was enabled to prevent false positives from initial scroll
+        if (typeof window !== 'undefined') {
+            (window as Window & { __scrollModeEnabledTime?: number }).__scrollModeEnabledTime = Date.now();
+        }
+
+        // Set up listener to disable scroll mode when user scrolls
+        setupUserScrollListener();
+    } finally {
+        // Clear the guard immediately after the synchronous operation completes
+        // The guard only prevents concurrent re-entry, not sequential calls
+        isEnablingScrollMode = false;
     }
-
-    // Track when scroll mode was enabled to prevent false positives from initial scroll
-    if (typeof window !== 'undefined') {
-        (window as Window & { __scrollModeEnabledTime?: number }).__scrollModeEnabledTime = Date.now();
-    }
-
-    // Set up listener to disable scroll mode when user scrolls
-    setupUserScrollListener();
 }
 
 /**
@@ -754,6 +849,9 @@ export function createThumbnailObserver(): IntersectionObserver {
                                 const url = URL.createObjectURL(blob);
                                 img.src = url;
 
+                                // Track blob URL for cleanup on conversation switch
+                                trackBlobUrl(messageId, url);
+
                                 // Wait for the image to actually load and render
                                 await new Promise<void>((resolve) => {
                                     if (img.complete && img.naturalHeight !== 0) {
@@ -783,6 +881,7 @@ export function createThumbnailObserver(): IntersectionObserver {
 
                                 // Clean up blob URL when image is removed from DOM
                                 const cleanup = () => {
+                                    untrackBlobUrl(messageId, url);
                                     URL.revokeObjectURL(url);
                                 };
 

@@ -28,6 +28,7 @@ import {
   cleanupStreamingContext,
   hasActiveStreamingContext,
   getStreamingContextConversationId,
+  getStreamingMessageElement,
   restoreStreamingMessage,
   showLoadingIndicator,
   hideLoadingIndicator,
@@ -62,7 +63,7 @@ import { initVersionBanner } from './components/VersionBanner';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/swipe';
 import { initSyncManager, stopSyncManager, getSyncManager } from './sync/SyncManager';
 import { getElementById, isScrolledToBottom, clearElement } from './utils/dom';
-import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from './utils/thumbnails';
+import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom, setCurrentConversationForBlobs } from './utils/thumbnails';
 import { initializeTheme } from './utils/theme';
 import { initPopupEscapeListener } from './utils/popupEscapeHandler';
 import {
@@ -560,6 +561,10 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
   log.debug('Switching to conversation', { conversationId: conv.id, title: conv.title, totalMessageCount });
   const store = useStore.getState();
 
+  // Clean up blob URLs from the previous conversation to prevent memory leaks
+  // This must happen before we set the new conversation ID
+  setCurrentConversationForBlobs(conv.id);
+
   // Clean up streaming context only if switching to a DIFFERENT conversation
   // If switching back to the streaming conversation, we want to restore the UI state instead
   const streamingConvId = getStreamingContextConversationId();
@@ -597,13 +602,12 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
     log.debug('Restoring active request UI', { conversationId: conv.id, type: activeRequest.type });
     if (activeRequest.type === 'stream') {
       // Restore streaming message UI with accumulated content
-      const messageEl = restoreStreamingMessage(
+      // The element is tracked in Messages.ts via currentStreamingContext
+      restoreStreamingMessage(
         conv.id,
         activeRequest.content || '',
         activeRequest.thinkingState
       );
-      // Store the element reference for continued updates
-      streamingMessageElements.set(conv.id, messageEl);
     } else if (activeRequest.type === 'batch') {
       // Show loading indicator for batch requests
       showLoadingIndicator();
@@ -712,6 +716,9 @@ function createConversation(): void {
   // Clean up scroll listener from previous conversation to prevent it from
   // loading old messages after we switch to the new conversation
   cleanupOlderMessagesScrollListener();
+
+  // Clean up blob URLs from the previous conversation to prevent memory leaks
+  setCurrentConversationForBlobs(null);
 
   // Create a local-only conversation with a temp ID
   const tempId = `temp-${Date.now()}`;
@@ -1074,8 +1081,8 @@ interface ActiveRequest {
 
 const activeRequests = new Map<string, ActiveRequest>();
 
-// Track streaming message elements per conversation for UI updates when switching back
-const streamingMessageElements = new Map<string, HTMLElement>();
+// Note: Streaming message elements are tracked in Messages.ts via currentStreamingContext
+// Use getStreamingMessageElement(convId) to get the element for a conversation
 
 /**
  * Abort a streaming request for a conversation.
@@ -1224,8 +1231,8 @@ async function sendStreamingMessage(
   };
   activeRequests.set(requestId, request);
 
-  // Store the message element for UI updates when switching back
-  streamingMessageElements.set(convId, messageEl);
+  // Note: The message element is tracked in Messages.ts via currentStreamingContext
+  // (set by addStreamingMessage). Use getStreamingMessageElement(convId) to retrieve it.
 
   // Register active request in store for UI restoration on conversation switch
   useStore.getState().setActiveRequest(convId, {
@@ -1248,8 +1255,9 @@ async function sendStreamingMessage(
       const store = useStore.getState();
       const isCurrentConversation = store.currentConversation?.id === convId;
 
-      // Get the current message element (may have been restored after conversation switch)
-      const currentMessageEl = streamingMessageElements.get(convId);
+      // Get the current message element from Messages.ts (may have been restored after conversation switch)
+      // This is the single source of truth for the streaming element
+      const currentMessageEl = getStreamingMessageElement(convId);
       if (currentMessageEl) {
         messageEl = currentMessageEl;
       }
@@ -1416,7 +1424,7 @@ async function sendStreamingMessage(
   } finally {
     // Clean up request tracking and streaming context
     activeRequests.delete(requestId);
-    streamingMessageElements.delete(convId);
+    // Note: cleanupStreamingContext() handles clearing the element reference in Messages.ts
     cleanupStreamingContext();
 
     // Remove active request from store

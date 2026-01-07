@@ -789,6 +789,17 @@ export function getStreamingContextConversationId(): string | null {
 }
 
 /**
+ * Get the current streaming message element, if any.
+ * This is the single source of truth for the streaming element.
+ * @param conversationId - Optional: only return element if it matches this conversation
+ */
+export function getStreamingMessageElement(conversationId?: string): HTMLElement | null {
+  if (!currentStreamingContext) return null;
+  if (conversationId && currentStreamingContext.conversationId !== conversationId) return null;
+  return currentStreamingContext.element;
+}
+
+/**
  * Restore a streaming message UI when switching back to a conversation with an active stream.
  * This re-creates the streaming message element with the accumulated content and thinking state.
  * @param conversationId - The ID of the conversation this streaming message belongs to
