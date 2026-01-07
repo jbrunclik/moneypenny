@@ -1,5 +1,6 @@
 """Unit tests for src/agent/tools.py."""
 
+import base64
 import json
 from unittest.mock import MagicMock, patch
 
@@ -22,6 +23,8 @@ from src.agent.tools import (
     fetch_url,
     generate_image,
     is_code_sandbox_available,
+    retrieve_file,
+    set_conversation_context,
     web_search,
 )
 
@@ -715,8 +718,8 @@ class TestGenerateImage:
         assert parsed["success"] is True
         call_args = mock_client.models.generate_content.call_args
         contents = call_args.kwargs["contents"]
-        # Falls back to text-only
-        assert contents == "Generate something"
+        # Falls back to list with just prompt when reference_images specified but no files
+        assert contents == ["Generate something"]
 
     @patch("src.agent.tools.genai.Client")
     @patch("src.agent.tools.get_current_message_files")
@@ -1363,3 +1366,279 @@ class TestBuildExecutionResponse:
         )
 
         assert response["stderr"] == ""
+
+
+# ============================================================================
+# Tests for File Retrieval Tool
+# ============================================================================
+
+
+class TestRetrieveFile:
+    """Tests for retrieve_file tool."""
+
+    def test_returns_error_without_context(self) -> None:
+        """Should return error when no conversation context is set."""
+        set_conversation_context(None, None)
+        result = retrieve_file.invoke({"list_files": True})
+        parsed = json.loads(result)
+        assert "error" in parsed
+        assert "No conversation context" in parsed["error"]
+
+    @patch("src.db.models.db")
+    def test_returns_error_for_unauthorized_conversation(self, mock_db: MagicMock) -> None:
+        """Should return error when user doesn't own conversation."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = None
+
+        result = retrieve_file.invoke({"list_files": True})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "not authorized" in parsed["error"]
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_lists_files_in_conversation(self, mock_db: MagicMock) -> None:
+        """Should list all files in conversation."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        # Mock messages with files
+        mock_msg1 = MagicMock()
+        mock_msg1.id = "msg-1"
+        mock_msg1.files = [
+            {"name": "photo.jpg", "type": "image/jpeg", "size": 1000},
+        ]
+        mock_msg1.role = MagicMock(value="user")
+
+        mock_msg2 = MagicMock()
+        mock_msg2.id = "msg-2"
+        mock_msg2.files = [
+            {"name": "result.png", "type": "image/png", "size": 2000},
+        ]
+        mock_msg2.role = MagicMock(value="assistant")
+
+        mock_msg3 = MagicMock()
+        mock_msg3.id = "msg-3"
+        mock_msg3.files = []  # No files
+        mock_msg3.role = MagicMock(value="user")
+
+        mock_db.get_messages.return_value = [mock_msg1, mock_msg2, mock_msg3]
+
+        result = retrieve_file.invoke({"list_files": True})
+        parsed = json.loads(result)
+
+        assert parsed["count"] == 2
+        assert len(parsed["files"]) == 2
+        assert parsed["files"][0]["message_id"] == "msg-1"
+        assert parsed["files"][0]["name"] == "photo.jpg"
+        assert parsed["files"][0]["role"] == "user"
+        assert parsed["files"][1]["message_id"] == "msg-2"
+        assert parsed["files"][1]["name"] == "result.png"
+        assert parsed["files"][1]["role"] == "assistant"
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_lists_empty_files(self, mock_db: MagicMock) -> None:
+        """Should return empty list when no files in conversation."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        mock_msg = MagicMock()
+        mock_msg.files = []
+        mock_msg.role = MagicMock(value="user")
+        mock_db.get_messages.return_value = [mock_msg]
+
+        result = retrieve_file.invoke({"list_files": True})
+        parsed = json.loads(result)
+
+        assert parsed["count"] == 0
+        assert parsed["files"] == []
+        assert "No files found" in parsed["message"]
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_requires_message_id_for_retrieval(self, mock_db: MagicMock) -> None:
+        """Should require message_id when not listing files."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        result = retrieve_file.invoke({})  # No message_id
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "message_id is required" in parsed["error"]
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_returns_error_for_nonexistent_message(self, mock_db: MagicMock) -> None:
+        """Should return error when message doesn't exist."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+        mock_db.get_message_by_id.return_value = None
+
+        result = retrieve_file.invoke({"message_id": "msg-999"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "Message not found" in parsed["error"]
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_returns_error_for_wrong_conversation(self, mock_db: MagicMock) -> None:
+        """Should return error when message belongs to different conversation."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.conversation_id = "conv-different"
+        mock_db.get_message_by_id.return_value = mock_message
+
+        result = retrieve_file.invoke({"message_id": "msg-1"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "does not belong to this conversation" in parsed["error"]
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_returns_error_for_invalid_file_index(self, mock_db: MagicMock) -> None:
+        """Should return error when file index is out of bounds."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.conversation_id = "conv-123"
+        mock_message.files = [{"name": "only_one.jpg"}]
+        mock_db.get_message_by_id.return_value = mock_message
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 5})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "File index 5 not found" in parsed["error"]
+        assert "has 1 file(s)" in parsed["error"]
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.blob_store.get_blob_store")
+    @patch("src.db.models.db")
+    def test_retrieves_image_as_multimodal(
+        self, mock_db: MagicMock, mock_get_blob_store: MagicMock
+    ) -> None:
+        """Should return image as multimodal content."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.conversation_id = "conv-123"
+        mock_message.files = [{"name": "photo.jpg", "type": "image/jpeg", "size": 1000}]
+        mock_db.get_message_by_id.return_value = mock_message
+
+        # Mock blob store
+        mock_blob_store = MagicMock()
+        mock_blob_store.get.return_value = (b"fake_image_data", "image/jpeg")
+        mock_get_blob_store.return_value = mock_blob_store
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+
+        # Should return multimodal content
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert result[0]["type"] == "text"
+        assert "photo.jpg" in result[0]["text"]
+        assert result[1]["type"] == "image"
+        assert result[1]["mime_type"] == "image/jpeg"
+        assert result[1]["base64"] == base64.b64encode(b"fake_image_data").decode("utf-8")
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.blob_store.get_blob_store")
+    @patch("src.db.models.db")
+    def test_retrieves_text_file_as_text(
+        self, mock_db: MagicMock, mock_get_blob_store: MagicMock
+    ) -> None:
+        """Should return text file content as plain text."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.conversation_id = "conv-123"
+        mock_message.files = [{"name": "data.txt", "type": "text/plain", "size": 100}]
+        mock_db.get_message_by_id.return_value = mock_message
+
+        # Mock blob store
+        mock_blob_store = MagicMock()
+        mock_blob_store.get.return_value = (b"Hello, world!", "text/plain")
+        mock_get_blob_store.return_value = mock_blob_store
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+
+        # Should return text content as string
+        assert isinstance(result, str)
+        assert "Hello, world!" in result
+        assert "data.txt" in result
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.blob_store.get_blob_store")
+    @patch("src.db.models.db")
+    def test_falls_back_to_legacy_data(
+        self, mock_db: MagicMock, mock_get_blob_store: MagicMock
+    ) -> None:
+        """Should fall back to legacy base64 data when blob store returns None."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        # Legacy data in message
+        legacy_data = base64.b64encode(b"legacy_image_data").decode("utf-8")
+        mock_message = MagicMock()
+        mock_message.conversation_id = "conv-123"
+        mock_message.files = [{"name": "old_photo.jpg", "type": "image/jpeg", "data": legacy_data}]
+        mock_db.get_message_by_id.return_value = mock_message
+
+        # Blob store returns None
+        mock_blob_store = MagicMock()
+        mock_blob_store.get.return_value = None
+        mock_get_blob_store.return_value = mock_blob_store
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+
+        assert isinstance(result, list)
+        assert result[1]["base64"] == legacy_data
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.blob_store.get_blob_store")
+    @patch("src.db.models.db")
+    def test_returns_error_when_no_data_available(
+        self, mock_db: MagicMock, mock_get_blob_store: MagicMock
+    ) -> None:
+        """Should return error when neither blob store nor legacy data is available."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+
+        mock_message = MagicMock()
+        mock_message.conversation_id = "conv-123"
+        mock_message.files = [
+            {"name": "missing.jpg", "type": "image/jpeg"}  # No "data" key
+        ]
+        mock_db.get_message_by_id.return_value = mock_message
+
+        # Blob store returns None
+        mock_blob_store = MagicMock()
+        mock_blob_store.get.return_value = None
+        mock_get_blob_store.return_value = mock_blob_store
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "not found in storage" in parsed["error"]
+
+        set_conversation_context(None, None)

@@ -18,7 +18,7 @@ from src.agent.chat_agent import (
     get_full_tool_results,
     set_current_request_id,
 )
-from src.agent.tools import set_current_message_files
+from src.agent.tools import set_conversation_context, set_current_message_files
 from src.api.errors import (
     raise_auth_forbidden_error,
     raise_auth_invalid_error,
@@ -740,6 +740,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         set_current_request_id(request_id)
         # Set current message files for tools (like generate_image) to access
         set_current_message_files(files if files else None)
+        # Set conversation context for tools (like retrieve_file) to access history
+        set_conversation_context(conv_id, user.id)
 
         agent = ChatAgent(model_name=conv.model)
         raw_response, tool_results, usage_info = agent.chat_batch(
@@ -758,6 +760,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         full_tool_results = get_full_tool_results(request_id)
         set_current_request_id(None)  # Clean up
         set_current_message_files(None)  # Clean up
+        set_conversation_context(None, None)  # Clean up
 
         logger.debug(
             "Chat agent completed",
@@ -1048,6 +1051,8 @@ def chat_stream(
         set_current_request_id(stream_request_id)
         # Set current message files for tools (like generate_image) to access
         set_current_message_files(files if files else None)
+        # Set conversation context for tools (like retrieve_file) to access history
+        set_conversation_context(conv_id, user.id)
 
         # Use stream_chat_events for structured events including thinking/tool status
         agent = ChatAgent(model_name=conv.model, include_thoughts=True)
@@ -1063,6 +1068,7 @@ def chat_stream(
             # Copy context from parent thread so contextvars are accessible
             set_current_request_id(stream_request_id)
             set_current_message_files(files if files else None)
+            set_conversation_context(conv_id, user.id)
             try:
                 logger.debug(
                     "Stream thread started", extra={"user_id": user.id, "conversation_id": conv_id}
@@ -1239,6 +1245,7 @@ def chat_stream(
                 full_tool_results = get_full_tool_results(stream_request_id)
                 set_current_request_id(None)  # Clean up
                 set_current_message_files(None)  # Clean up
+                set_conversation_context(None, None)  # Clean up
 
                 # Extract generated files from FULL tool results (before stripping)
                 gen_image_files = extract_generated_images_from_tool_results(full_tool_results)

@@ -28,6 +28,15 @@ _current_message_files: contextvars.ContextVar[list[dict[str, Any]] | None] = (
     contextvars.ContextVar("_current_message_files", default=None)
 )
 
+# Contextvars to hold conversation context for tools that need to access history
+# This allows tools (like retrieve_file) to access files from previous messages
+_current_conversation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_conversation_id", default=None
+)
+_current_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_user_id", default=None
+)
+
 
 def set_current_message_files(files: list[dict[str, Any]] | None) -> None:
     """Set the current message's files for tool access."""
@@ -37,6 +46,20 @@ def set_current_message_files(files: list[dict[str, Any]] | None) -> None:
 def get_current_message_files() -> list[dict[str, Any]] | None:
     """Get the current message's files (for tools like generate_image to access)."""
     return _current_message_files.get()
+
+
+def set_conversation_context(conversation_id: str | None, user_id: str | None) -> None:
+    """Set the conversation context for tool access.
+
+    This allows tools to access files from conversation history.
+    """
+    _current_conversation_id.set(conversation_id)
+    _current_user_id.set(user_id)
+
+
+def get_conversation_context() -> tuple[str | None, str | None]:
+    """Get the current conversation context (conversation_id, user_id)."""
+    return _current_conversation_id.get(), _current_user_id.get()
 
 
 # Flag to track if Docker is available for code execution
@@ -349,7 +372,11 @@ VALID_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"}
 
 @tool
 def generate_image(
-    prompt: str, aspect_ratio: str = "1:1", reference_images: str | None = None
+    prompt: str,
+    aspect_ratio: str = "1:1",
+    reference_images: str | None = None,
+    history_image_message_id: str | None = None,
+    history_image_file_index: int = 0,
 ) -> str:
     """Generate or edit an image using Gemini image generation.
 
@@ -357,15 +384,22 @@ def generate_image(
     If the user uploaded an image and wants you to modify/edit it, use reference_images
     to include the uploaded image(s) as reference for the generation.
 
+    To use an image from earlier in the conversation, use history_image_message_id and
+    history_image_file_index to reference a previously uploaded image. Use retrieve_file
+    with list_files=True first to see what images are available.
+
     Args:
         prompt: A detailed description of the image to generate or the edit to make.
                 Be specific about style, colors, composition, lighting, and any text.
         aspect_ratio: The image aspect ratio. Options: 1:1 (square, default),
                      16:9 (landscape/widescreen), 9:16 (portrait/mobile),
                      4:3 (standard), 3:4 (portrait), 3:2, 2:3
-        reference_images: Which uploaded images to use as reference for editing.
+        reference_images: Which uploaded images FROM THE CURRENT MESSAGE to use as reference.
                          Options: "all" (use all uploaded images), "0" (first image),
                          "0,1" (first and second), etc. None means generate from scratch.
+        history_image_message_id: Message ID of a previously uploaded image to use as reference.
+                                 Use retrieve_file(list_files=True) to find available images.
+        history_image_file_index: File index within the message (default 0 for first file).
 
     Returns:
         JSON with the prompt used and base64 image data, or an error message
@@ -397,6 +431,7 @@ def generate_image(
                 "model": Config.IMAGE_GENERATION_MODEL,
                 "aspect_ratio": aspect_ratio,
                 "has_reference_images": reference_images is not None,
+                "has_history_image": history_image_message_id is not None,
             },
         )
         # Create client with API key
@@ -404,31 +439,123 @@ def generate_image(
 
         # Build contents - either text-only or multimodal with reference images
         contents: Any = prompt  # Default: text-only
+        history_image_data: dict[str, str] | None = None
 
-        if reference_images:
-            # Get files from context for image-to-image editing
-            files = get_current_message_files()
-            if files:
-                # Filter to only image files
-                image_files = [f for f in files if f.get("type", "").startswith("image/")]
-                if image_files:
-                    # Determine which images to include
-                    if reference_images.lower() == "all":
-                        indices = list(range(len(image_files)))
-                    else:
-                        # Parse comma-separated indices
-                        try:
-                            indices = [
-                                int(i.strip())
-                                for i in reference_images.split(",")
-                                if i.strip().isdigit()
-                            ]
-                        except ValueError:
-                            indices = []
+        # Handle history image reference (from earlier in conversation)
+        if history_image_message_id:
+            # Import here to avoid circular imports
+            from src.db.blob_store import get_blob_store
+            from src.db.models import db, make_blob_key
 
-                    if indices:
-                        # Build multimodal contents list with text and images
-                        contents = [prompt]
+            conv_id, user_id = get_conversation_context()
+
+            if not conv_id or not user_id:
+                return json.dumps(
+                    {
+                        "error": "Cannot access conversation history. No conversation context available."
+                    }
+                )
+
+            # Get the message
+            message = db.get_message_by_id(history_image_message_id)
+            if not message:
+                return json.dumps({"error": f"Message not found: {history_image_message_id}"})
+
+            # Verify message belongs to this conversation
+            if message.conversation_id != conv_id:
+                return json.dumps({"error": "Message does not belong to this conversation."})
+
+            # Check file exists and is an image
+            if not message.files or history_image_file_index >= len(message.files):
+                return json.dumps(
+                    {
+                        "error": f"File index {history_image_file_index} not found in message. "
+                        f"Message has {len(message.files) if message.files else 0} file(s)."
+                    }
+                )
+
+            file_meta = message.files[history_image_file_index]
+            mime_type = file_meta.get("type", "")
+
+            if not mime_type.startswith("image/"):
+                return json.dumps(
+                    {
+                        "error": f"File is not an image (type: {mime_type}). Only images can be used as references."
+                    }
+                )
+
+            # Get file data from blob store
+            blob_store = get_blob_store()
+            blob_key = make_blob_key(history_image_message_id, history_image_file_index)
+            blob_result = blob_store.get(blob_key)
+
+            if blob_result:
+                binary_data, stored_mime_type = blob_result
+                if stored_mime_type:
+                    mime_type = stored_mime_type
+            elif "data" in file_meta:
+                try:
+                    binary_data = base64.b64decode(file_meta["data"])
+                except Exception:
+                    return json.dumps(
+                        {"error": "Failed to read image data from conversation history."}
+                    )
+            else:
+                return json.dumps({"error": "Image data not found in storage."})
+
+            # Store the history image data to be added to contents
+            history_image_data = {
+                "mime_type": mime_type,
+                "data": base64.b64encode(binary_data).decode("utf-8"),
+            }
+            logger.debug(
+                "Retrieved history image for generation",
+                extra={
+                    "message_id": history_image_message_id,
+                    "file_index": history_image_file_index,
+                    "mime_type": mime_type,
+                    "size": len(binary_data),
+                },
+            )
+
+        if reference_images or history_image_data:
+            # Start building multimodal contents
+            contents = [prompt]
+
+            # Add history image first if present
+            if history_image_data:
+                contents.append(
+                    {
+                        "inline_data": {
+                            "mime_type": history_image_data["mime_type"],
+                            "data": history_image_data["data"],
+                        }
+                    }
+                )
+                logger.debug("Added history image to generation request")
+
+            # Add current message reference images if specified
+            if reference_images:
+                # Get files from context for image-to-image editing
+                files = get_current_message_files()
+                if files:
+                    # Filter to only image files
+                    image_files = [f for f in files if f.get("type", "").startswith("image/")]
+                    if image_files:
+                        # Determine which images to include
+                        if reference_images.lower() == "all":
+                            indices = list(range(len(image_files)))
+                        else:
+                            # Parse comma-separated indices
+                            try:
+                                indices = [
+                                    int(i.strip())
+                                    for i in reference_images.split(",")
+                                    if i.strip().isdigit()
+                                ]
+                            except ValueError:
+                                indices = []
+
                         for idx in indices:
                             if 0 <= idx < len(image_files):
                                 img = image_files[idx]
@@ -440,17 +567,30 @@ def generate_image(
                                         }
                                     }
                                 )
-                        logger.debug(
-                            "Added reference images to generation request",
-                            extra={
-                                "reference_image_count": len(contents) - 1,
-                                "total_available_images": len(image_files),
-                            },
+                        if indices:
+                            logger.debug(
+                                "Added current message reference images to generation request",
+                                extra={
+                                    "reference_image_count": len(
+                                        [idx for idx in indices if 0 <= idx < len(image_files)]
+                                    ),
+                                    "total_available_images": len(image_files),
+                                },
+                            )
+                    else:
+                        logger.warning(
+                            "reference_images specified but no image files found in uploads"
                         )
                 else:
-                    logger.warning("reference_images specified but no image files found in uploads")
-            else:
-                logger.warning("reference_images specified but no files in current message")
+                    logger.warning("reference_images specified but no files in current message")
+
+            # Log total reference images
+            total_refs = len(contents) - 1  # Subtract 1 for the prompt
+            if total_refs > 0:
+                logger.debug(
+                    "Total reference images for generation",
+                    extra={"count": total_refs},
+                )
 
         # Generate image using Gemini image generation model
         # The model generates one final image by default (uses internal "thinking" to iterate)
@@ -1019,12 +1159,253 @@ def execute_code(code: str) -> str:
         return json.dumps({"error": f"Code execution failed: {error_msg}"})
 
 
+# ============================================================================
+# File Retrieval Tool
+# ============================================================================
+
+
+@tool
+def retrieve_file(
+    message_id: str | None = None,
+    file_index: int = 0,
+    list_files: bool = False,
+) -> str | list[dict[str, Any]]:
+    """Retrieve a file from conversation history or list all available files.
+
+    Use this tool to:
+    - List all files in the conversation to see what's available
+    - Retrieve a specific file by message_id and file_index for analysis
+    - Get images from earlier messages to use with generate_image as references
+
+    Args:
+        message_id: The message ID containing the file. Required unless list_files=True.
+        file_index: Index of the file in the message (0-based, default 0).
+        list_files: If True, returns a list of all files in the conversation.
+                   Ignores message_id and file_index when True.
+
+    Returns:
+        For list_files=True: JSON with files array containing message_id, file_index,
+                            name, type, and size for each file.
+        For file retrieval: Multimodal content with the file data for analysis,
+                           or JSON with error field if not found.
+
+    Examples:
+        - retrieve_file(list_files=True) - List all files in conversation
+        - retrieve_file(message_id="msg-abc123", file_index=0) - Get first file from message
+        - retrieve_file(message_id="msg-abc123") - Same as above (file_index defaults to 0)
+
+    After retrieving an image, you can pass it to generate_image using:
+        generate_image(prompt="...", retrieved_file_message_id="msg-abc123", retrieved_file_index=0)
+    """
+    # Import here to avoid circular imports
+    from src.db.blob_store import get_blob_store
+    from src.db.models import db, make_blob_key
+
+    conv_id, user_id = get_conversation_context()
+
+    if not conv_id or not user_id:
+        logger.warning("retrieve_file called without conversation context")
+        return json.dumps(
+            {
+                "error": "No conversation context available. This tool can only be used during a chat."
+            }
+        )
+
+    # Verify user owns the conversation
+    conv = db.get_conversation(conv_id, user_id)
+    if not conv:
+        logger.warning(
+            "retrieve_file: conversation not found or not authorized",
+            extra={"conv_id": conv_id, "user_id": user_id},
+        )
+        return json.dumps({"error": "Conversation not found or not authorized."})
+
+    # List all files in conversation
+    if list_files:
+        logger.info(
+            "retrieve_file: listing files",
+            extra={"conv_id": conv_id, "user_id": user_id},
+        )
+        messages = db.get_messages(conv_id)
+        all_files: list[dict[str, Any]] = []
+
+        for msg in messages:
+            if msg.files:
+                for idx, file in enumerate(msg.files):
+                    all_files.append(
+                        {
+                            "message_id": msg.id,
+                            "file_index": idx,
+                            "name": file.get("name", f"file_{idx}"),
+                            "type": file.get("type", "application/octet-stream"),
+                            "size": file.get("size", 0),
+                            "role": msg.role.value,  # user or assistant
+                        }
+                    )
+
+        logger.info(
+            "retrieve_file: found files",
+            extra={"conv_id": conv_id, "file_count": len(all_files)},
+        )
+        return json.dumps(
+            {
+                "files": all_files,
+                "count": len(all_files),
+                "message": f"Found {len(all_files)} file(s) in conversation."
+                if all_files
+                else "No files found in conversation.",
+            }
+        )
+
+    # Retrieve specific file
+    if not message_id:
+        return json.dumps(
+            {
+                "error": "message_id is required to retrieve a file. Use list_files=True to see available files."
+            }
+        )
+
+    logger.info(
+        "retrieve_file: retrieving file",
+        extra={
+            "conv_id": conv_id,
+            "message_id": message_id,
+            "file_index": file_index,
+        },
+    )
+
+    # Get the message
+    message = db.get_message_by_id(message_id)
+    if not message:
+        logger.warning(
+            "retrieve_file: message not found",
+            extra={"message_id": message_id},
+        )
+        return json.dumps({"error": f"Message not found: {message_id}"})
+
+    # Verify message belongs to this conversation
+    if message.conversation_id != conv_id:
+        logger.warning(
+            "retrieve_file: message belongs to different conversation",
+            extra={
+                "message_id": message_id,
+                "message_conv_id": message.conversation_id,
+                "current_conv_id": conv_id,
+            },
+        )
+        return json.dumps({"error": "Message does not belong to this conversation."})
+
+    # Check file exists
+    if not message.files or file_index >= len(message.files):
+        logger.warning(
+            "retrieve_file: file not found",
+            extra={
+                "message_id": message_id,
+                "file_index": file_index,
+                "file_count": len(message.files) if message.files else 0,
+            },
+        )
+        return json.dumps(
+            {
+                "error": f"File index {file_index} not found in message. Message has {len(message.files) if message.files else 0} file(s)."
+            }
+        )
+
+    file_meta = message.files[file_index]
+    file_name = file_meta.get("name", f"file_{file_index}")
+    mime_type = file_meta.get("type", "application/octet-stream")
+    file_size = file_meta.get("size", 0)
+
+    # Get file data from blob store
+    blob_store = get_blob_store()
+    blob_key = make_blob_key(message_id, file_index)
+    blob_result = blob_store.get(blob_key)
+
+    if blob_result:
+        binary_data, stored_mime_type = blob_result
+        # Use stored MIME type if available
+        if stored_mime_type:
+            mime_type = stored_mime_type
+    else:
+        # Fall back to legacy base64 data in message
+        if "data" in file_meta:
+            try:
+                binary_data = base64.b64decode(file_meta["data"])
+            except Exception:
+                logger.error(
+                    "retrieve_file: failed to decode legacy base64 data",
+                    extra={"message_id": message_id, "file_index": file_index},
+                )
+                return json.dumps({"error": "Failed to read file data."})
+        else:
+            logger.warning(
+                "retrieve_file: no file data found",
+                extra={"message_id": message_id, "file_index": file_index},
+            )
+            return json.dumps({"error": "File data not found in storage."})
+
+    # Encode as base64 for return
+    file_base64 = base64.b64encode(binary_data).decode("utf-8")
+    file_size = len(binary_data)
+
+    logger.info(
+        "retrieve_file: file retrieved successfully",
+        extra={
+            "message_id": message_id,
+            "file_index": file_index,
+            "file_name": file_name,
+            "mime_type": mime_type,
+            "size": file_size,
+        },
+    )
+
+    # For images and PDFs, return multimodal content for analysis
+    if mime_type.startswith("image/") or mime_type == "application/pdf":
+        return [
+            {
+                "type": "text",
+                "text": f"Here is {file_name} ({mime_type}, {file_size} bytes) from message {message_id}:",
+            },
+            {
+                "type": "image",  # LangChain uses "image" type for both images and PDFs
+                "base64": file_base64,
+                "mime_type": mime_type,
+            },
+        ]
+
+    # For text files, decode and return as text
+    if mime_type.startswith("text/") or mime_type in (
+        "application/json",
+        "application/xml",
+    ):
+        try:
+            text_content = binary_data.decode("utf-8")
+            return f"Here is the content of {file_name} ({mime_type}):\n\n{text_content}"
+        except UnicodeDecodeError:
+            pass  # Fall through to base64 return
+
+    # For other files, return metadata with base64
+    return json.dumps(
+        {
+            "success": True,
+            "file": {
+                "message_id": message_id,
+                "file_index": file_index,
+                "name": file_name,
+                "type": mime_type,
+                "size": file_size,
+                "data": file_base64,
+            },
+        }
+    )
+
+
 def get_available_tools() -> list[Any]:
     """Get the list of available tools, including execute_code if Docker is available.
 
     This function checks Docker availability on first call and caches the result.
     """
-    tools = [fetch_url, web_search, generate_image]
+    tools = [fetch_url, web_search, generate_image, retrieve_file]
 
     # Only add execute_code if sandbox is enabled and Docker is available
     if Config.CODE_SANDBOX_ENABLED:

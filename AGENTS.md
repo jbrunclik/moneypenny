@@ -33,7 +33,7 @@ ai-chatbot/
 │   │   └── utils.py              # API response building utilities
 │   ├── agent/
 │   │   ├── chat_agent.py         # LangGraph agent with Gemini
-│   │   └── tools.py              # Agent tools (fetch_url, web_search, generate_image, execute_code)
+│   │   └── tools.py              # Agent tools (fetch_url, web_search, generate_image, execute_code, retrieve_file)
 │   ├── db/
 │   │   ├── models.py             # SQLite: User, Conversation, Message
 │   │   └── blob_store.py         # Blob storage for files and thumbnails
@@ -553,7 +553,7 @@ The metadata block is always at the end of the LLM response and is stripped befo
 The app can generate images using Gemini's image generation model (`gemini-3-pro-image-preview`).
 
 ### How it works
-1. **Tool available**: `generate_image(prompt, aspect_ratio, reference_images)` tool in [tools.py](src/agent/tools.py)
+1. **Tool available**: `generate_image(prompt, aspect_ratio, reference_images, history_image_message_id, history_image_file_index)` tool in [tools.py](src/agent/tools.py)
 2. **Tool returns JSON**: Returns `{"prompt": "...", "image": {"data": "base64...", "mime_type": "image/png"}}`
 3. **LLM appends metadata**: System prompt instructs LLM to include `"generated_images": [{"prompt": "..."}]` in the metadata block
 4. **Backend extracts images**: `extract_generated_images_from_tool_results()` in [routes.py](src/api/routes.py) parses tool results
@@ -585,11 +585,59 @@ Users can upload images and ask the LLM to modify them. The uploaded images are 
 - Only image files (MIME type starting with `image/`) are used as references
 - Non-image files (PDFs, text) are filtered out
 
+### History Image References
+
+The LLM can also reference images from earlier in the conversation history (not just the current message) using the `history_image_*` parameters or the `retrieve_file` tool.
+
+**How it works:**
+1. LLM calls `retrieve_file(list_files=true)` to see all files in the conversation
+2. LLM identifies the desired image by its message_id and file_index from the listing
+3. LLM calls `generate_image(prompt="...", history_image_message_id="msg-xxx", history_image_file_index=0)`
+4. The tool retrieves the image from blob storage (or legacy base64) using conversation context
+5. Image is passed to Gemini's API as a reference image
+
+**history_image parameters:**
+- `history_image_message_id` - The message ID containing the historical image
+- `history_image_file_index` - The file index within that message (default: 0)
+
+**Context variable pattern for history:**
+- `set_conversation_context(conversation_id, user_id)` is called in routes.py before the agent runs
+- `get_conversation_context()` returns the current conversation/user IDs for ownership verification
+- The tool verifies the message belongs to the current conversation before retrieving
+
+### File Retrieval Tool
+
+The `retrieve_file` tool allows the LLM to access any file from the conversation history.
+
+**Tool signature:**
+```python
+retrieve_file(
+    message_id: str | None = None,     # Message ID to retrieve file from
+    file_index: int = 0,               # File index within the message
+    list_files: bool = False,          # If true, list all files in conversation
+) -> str | list[dict]
+```
+
+**Two modes:**
+1. **List mode** (`list_files=true`): Returns a JSON list of all files in the conversation with metadata (message_id, file_index, name, type, size)
+2. **Retrieve mode** (`message_id="..."`, `file_index=N`): Returns the file content - multimodal for images, text for PDFs/documents
+
+**Use cases:**
+- Analyze or describe an image from earlier in the conversation
+- Compare multiple uploaded files across messages
+- Use a historical image as a reference for image generation
+- Re-read a document that was uploaded earlier
+
+**Security:**
+- Verifies message belongs to the current conversation
+- Verifies conversation belongs to the current user
+- Returns error for unauthorized access attempts
+
 ### Key files
-- [tools.py](src/agent/tools.py) - `generate_image()` tool with `reference_images` parameter, `set_current_message_files()`, `get_current_message_files()`
-- [chat_agent.py](src/agent/chat_agent.py) - System prompt with image editing instructions
+- [tools.py](src/agent/tools.py) - `generate_image()` tool with `reference_images` and `history_image_*` parameters, `retrieve_file()` tool, context variable helpers (`set_current_message_files()`, `set_conversation_context()`)
+- [chat_agent.py](src/agent/chat_agent.py) - System prompt with image editing and file retrieval instructions
 - [models.py](src/db/models.py) - `Message.generated_images` field
-- [routes.py](src/api/routes.py) - Sets files context before agent call, image extraction from tool results
+- [routes.py](src/api/routes.py) - Sets files and conversation context before agent call, image extraction from tool results
 - [ImageGenPopup.ts](web/src/components/ImageGenPopup.ts) - Popup showing generation info
 - [InfoPopup.ts](web/src/components/InfoPopup.ts) - Generic popup component used by both sources and image gen
 - [Messages.ts](web/src/components/Messages.ts) - Sparkles button rendering
