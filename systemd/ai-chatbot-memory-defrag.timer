@@ -1,0 +1,18 @@
+# Systemd timer for AI Chatbot memory defragmentation
+# Install to: ~/.config/systemd/user/ai-chatbot-memory-defrag.timer
+# Enable with: systemctl --user enable ai-chatbot-memory-defrag.timer
+# Check status: systemctl --user list-timers
+
+[Unit]
+Description=Nightly defragmentation of user memories
+
+[Timer]
+# Run nightly at 3:30 AM (after vacuum at 3:00, before currency at 4:00)
+OnCalendar=*-*-* 03:30:00
+# Add random delay up to 30 minutes to avoid exact timing
+RandomizedDelaySec=30m
+# Run immediately if we missed a scheduled run (e.g., system was off)
+Persistent=true
+
+[Install]
+WantedBy=timers.target

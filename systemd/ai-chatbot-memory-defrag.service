@@ -1,0 +1,30 @@
+# Systemd user service for AI Chatbot memory defragmentation
+# Install to: ~/.config/systemd/user/ai-chatbot-memory-defrag.service
+# This service is triggered by ai-chatbot-memory-defrag.timer
+
+[Unit]
+Description=AI Chatbot - Defragment user memories
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/ai-chatbot
+ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/defragment_memories.py
+Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+# Load environment from .env file (for API keys, database paths)
+EnvironmentFile=%h/src/ai-chatbot/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Don't restart on failure (timer will retry tomorrow)
+Restart=no
+
+# Allow longer runtime for LLM processing (30 minutes max)
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=default.target

@@ -1598,6 +1598,119 @@ class Database:
 
             return int(row["count"]) if row else 0
 
+    def get_users_with_memory_counts(self, min_memories: int = 0) -> list[tuple[User, int]]:
+        """Get all users with their memory counts.
+
+        Used by memory defragmentation to find users who need cleanup.
+
+        Args:
+            min_memories: Only return users with at least this many memories
+
+        Returns:
+            List of (User, memory_count) tuples, ordered by memory count descending
+        """
+        with self._get_conn() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """
+                SELECT u.*, COUNT(m.id) as memory_count
+                FROM users u
+                LEFT JOIN user_memories m ON u.id = m.user_id
+                GROUP BY u.id
+                HAVING COUNT(m.id) >= ?
+                ORDER BY memory_count DESC
+                """,
+                (min_memories,),
+            ).fetchall()
+
+            return [
+                (
+                    User(
+                        id=row["id"],
+                        email=row["email"],
+                        name=row["name"],
+                        picture=row["picture"],
+                        created_at=datetime.fromisoformat(row["created_at"]),
+                        custom_instructions=row["custom_instructions"],
+                    ),
+                    int(row["memory_count"]),
+                )
+                for row in rows
+            ]
+
+    def bulk_update_memories(
+        self,
+        user_id: str,
+        to_delete: list[str],
+        to_update: list[tuple[str, str, str | None]],
+        to_add: list[tuple[str, str | None]],
+    ) -> dict[str, int]:
+        """Bulk update memories for a user (used by defragmentation).
+
+        Performs deletions, updates, and additions in a single transaction.
+
+        Args:
+            user_id: The user ID
+            to_delete: List of memory IDs to delete
+            to_update: List of (memory_id, new_content, category) tuples
+            to_add: List of (content, category) tuples for new memories
+
+        Returns:
+            Dict with counts: {"deleted": N, "updated": N, "added": N}
+        """
+        now = datetime.utcnow().isoformat()
+        result = {"deleted": 0, "updated": 0, "added": 0}
+
+        with self._get_conn() as conn:
+            # Delete memories
+            for memory_id in to_delete:
+                cursor = self._execute_with_timing(
+                    conn,
+                    "DELETE FROM user_memories WHERE id = ? AND user_id = ?",
+                    (memory_id, user_id),
+                )
+                result["deleted"] += cursor.rowcount
+
+            # Update memories
+            for memory_id, content, category in to_update:
+                cursor = self._execute_with_timing(
+                    conn,
+                    """
+                    UPDATE user_memories
+                    SET content = ?, category = ?, updated_at = ?
+                    WHERE id = ? AND user_id = ?
+                    """,
+                    (content, category, now, memory_id, user_id),
+                )
+                result["updated"] += cursor.rowcount
+
+            # Add new memories
+            for content, category in to_add:
+                memory_id = str(uuid.uuid4())
+                self._execute_with_timing(
+                    conn,
+                    """
+                    INSERT INTO user_memories (id, user_id, content, category, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (memory_id, user_id, content, category, now, now),
+                )
+                result["added"] += 1
+
+            conn.commit()
+
+        logger.info(
+            "Bulk memory update completed",
+            extra={
+                "user_id": user_id,
+                "deleted": result["deleted"],
+                "updated": result["updated"],
+                "added": result["added"],
+            },
+        )
+
+        return result
+
     # ============================================================================
     # App Settings
     # ============================================================================

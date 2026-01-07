@@ -1628,6 +1628,44 @@ The LLM includes memory operations in the metadata block:
 - Backend integration tests: [test_routes_memories.py](tests/integration/test_routes_memories.py)
 - Visual tests: `popup-memories.png`, `popup-memories-empty.png`, `mobile-popup-memories.png` in [popups.visual.ts](web/tests/visual/popups.visual.ts)
 
+### Memory Defragmentation
+
+A nightly systemd timer consolidates and cleans up user memories using an LLM to keep memory banks efficient.
+
+**When it runs:**
+- Nightly at 3:30 AM (with up to 30 min random delay)
+- Only processes users with >= 50 memories (configurable via `MEMORY_DEFRAG_THRESHOLD`)
+- Uses the advanced model (`gemini-3-pro-preview` by default) for quality consolidation
+
+**What it does:**
+1. **Merges related memories**: Combines memories about the same topic into one
+2. **Removes duplicates**: Deletes memories that say essentially the same thing
+3. **Updates outdated info**: Keeps newer information when there's a contradiction
+4. **Removes irrelevant memories**: Cleans up vague or temporary memories
+5. **Preserves important facts**: Never deletes family info, identity facts, strong preferences
+
+**Manual execution:**
+```bash
+make defrag-memories              # Run defragmentation
+make defrag-memories -- --dry-run # Preview changes without applying
+```
+
+**Configuration:**
+```bash
+MEMORY_DEFRAG_THRESHOLD=50        # Only defrag users with >= this many memories
+MEMORY_DEFRAG_MODEL=gemini-3-pro-preview  # LLM model to use
+```
+
+**Key files:**
+- [defragment_memories.py](scripts/defragment_memories.py) - Main defragmentation script
+- [ai-chatbot-memory-defrag.service](systemd/ai-chatbot-memory-defrag.service) - Systemd service
+- [ai-chatbot-memory-defrag.timer](systemd/ai-chatbot-memory-defrag.timer) - Nightly timer
+- [config.py](src/config.py) - `MEMORY_DEFRAG_THRESHOLD`, `MEMORY_DEFRAG_MODEL`
+- [models.py](src/db/models.py) - `get_users_with_memory_counts()`, `bulk_update_memories()`
+
+**Testing:**
+- Unit tests: [test_defragment_memories.py](tests/unit/test_defragment_memories.py)
+
 ## Custom Instructions
 
 Users can customize LLM behavior via a free-text custom instructions field in the settings popup.

@@ -1,4 +1,4 @@
-.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy reload update vacuum update-currency backup backup-list
+.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -54,6 +54,7 @@ help:
 	@echo "  update-currency       Update currency exchange rates manually"
 	@echo "  backup                Create database backup manually"
 	@echo "  backup-list           List existing database backups"
+	@echo "  defrag-memories       Run memory defragmentation manually"
 
 setup:
 	python3 -m venv $(VENV)
@@ -186,14 +187,18 @@ deploy:
 	cp -f systemd/ai-chatbot-currency.timer ~/.config/systemd/user/
 	cp -f systemd/ai-chatbot-backup.service ~/.config/systemd/user/
 	cp -f systemd/ai-chatbot-backup.timer ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-memory-defrag.service ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-memory-defrag.timer ~/.config/systemd/user/
 	systemctl --user daemon-reload
 	systemctl --user enable ai-chatbot
 	systemctl --user enable ai-chatbot-vacuum.timer
 	systemctl --user enable ai-chatbot-currency.timer
 	systemctl --user enable ai-chatbot-backup.timer
+	systemctl --user enable ai-chatbot-memory-defrag.timer
 	systemctl --user start ai-chatbot-vacuum.timer
 	systemctl --user start ai-chatbot-currency.timer
 	systemctl --user start ai-chatbot-backup.timer
+	systemctl --user start ai-chatbot-memory-defrag.timer
 	systemctl --user restart ai-chatbot
 	@echo "Deployed. View logs with: journalctl --user -u ai-chatbot -f"
 	@echo "Timers enabled. Check with: systemctl --user list-timers"
@@ -221,3 +226,6 @@ backup:
 
 backup-list:
 	$(PYTHON) scripts/backup_databases.py --list
+
+defrag-memories:
+	$(PYTHON) scripts/defragment_memories.py

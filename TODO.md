@@ -9,7 +9,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] Conversation sharing (public links)
 - [ ] Keyboard shortcuts
 - [ ] **Voice conversation mode** - Full voice-based conversation with speech-to-text input and text-to-speech output
-- [ ] **Automated memory defragmentation** - Nightly systemd timer that uses LLM to consolidate, deduplicate, and clean up user memories. Merge similar memories, remove outdated ones, and ensure the 100-memory limit is used efficiently.
 - [ ] **LLM file/image retrieval tool** - Add tool for LLM to explicitly fetch any previous file/image from conversation history by message ID and file index. Enables referencing past uploads for context or passing to `generate_image` as reference images without user re-uploading.
 
 ## Technical Debt
