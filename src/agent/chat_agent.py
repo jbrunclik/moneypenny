@@ -162,7 +162,9 @@ def _stop_cleanup_thread() -> None:
     if _cleanup_thread is not None and _cleanup_thread.is_alive():
         _cleanup_thread_stop_event.set()
         _cleanup_thread.join(timeout=5)
-        logger.debug("Stopped tool results cleanup thread")
+        # Note: We don't log here because during Python shutdown (atexit),
+        # logging streams may already be closed, causing "I/O operation on
+        # closed file" errors that can't be caught (logging handles them internally)
 
 
 # Register cleanup on module exit

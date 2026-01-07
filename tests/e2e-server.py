@@ -414,7 +414,7 @@ def main() -> None:
         def reset_database() -> tuple[dict[str, str], int]:
             """Reset database and blob store to clean state for test isolation."""
             # Reset main database
-            with test_db._get_conn() as conn:
+            with test_db._pool.get_connection() as conn:
                 # Delete all data but keep tables
                 conn.execute("DELETE FROM message_costs")
                 conn.execute("DELETE FROM messages")
@@ -424,7 +424,7 @@ def main() -> None:
                 conn.commit()
 
             # Reset blob store
-            with test_blob_store._get_conn() as conn:
+            with test_blob_store._pool.get_connection() as conn:
                 conn.execute("DELETE FROM blobs")
                 conn.commit()
 

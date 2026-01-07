@@ -2767,6 +2767,40 @@ Existing messages are migrated via yoyo migration `0012_migrate_files_to_blob_st
 
 The application includes several features to optimize database performance and help diagnose issues.
 
+### Connection Pooling
+
+The application uses thread-local connection pooling to avoid the overhead of repeatedly opening and closing database connections.
+
+**How it works:**
+1. Each thread gets its own connection that's reused for all operations
+2. Connections are stored in a thread-local variable and tracked for cleanup
+3. Broken connections are detected and replaced automatically
+4. WAL (Write-Ahead Logging) mode is enabled for better concurrent read/write performance
+
+**Why thread-local instead of a traditional pool:**
+- SQLite uses file-level locking, so connection pools don't improve concurrency
+- Reusing connections within a thread avoids open/close overhead
+- Thread-local connections avoid thread-safety issues without explicit locking
+
+**Key features:**
+- Automatic connection health checking (verifies connection with `SELECT 1`)
+- Graceful handling of broken connections (creates new connection if broken)
+- Rollback on exceptions (uncommitted transactions are rolled back)
+- Proper cleanup on shutdown (`close()` method closes all connections)
+
+**Usage in code:**
+```python
+# Both Database and BlobStore use the same pattern
+with self._pool.get_connection() as conn:
+    conn.execute("SELECT * FROM users")
+    conn.commit()
+```
+
+**Key files:**
+- [connection_pool.py](src/utils/connection_pool.py) - `ConnectionPool` class
+- [models.py](src/db/models.py) - `Database` class uses `self._pool`
+- [blob_store.py](src/db/blob_store.py) - `BlobStore` class uses `self._pool`
+
 ### Database Indexes
 
 The following indexes are defined to optimize common query patterns:

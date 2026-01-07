@@ -143,7 +143,7 @@ class TestGetMessageThumbnail:
         stale_time = datetime.now() - timedelta(
             seconds=Config.THUMBNAIL_STALE_THRESHOLD_SECONDS + 10
         )
-        with test_database._get_conn() as conn:
+        with test_database._pool.get_connection() as conn:
             conn.execute(
                 "UPDATE messages SET created_at = ? WHERE id = ?",
                 (stale_time.isoformat(), message.id),

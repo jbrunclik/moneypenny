@@ -23,6 +23,34 @@ os.environ["ALLOWED_EMAILS"] = "test@example.com,allowed@example.com"
 
 
 # -----------------------------------------------------------------------------
+# Global cleanup fixture
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_global_connections() -> Generator[None]:
+    """Clean up global database connections after all tests complete.
+
+    The global `db` instance in src.db.models and `_blob_store` in src.db.blob_store
+    create connection pools at import time. This fixture ensures they are properly
+    closed to avoid "too many open files" errors during test runs.
+    """
+    yield
+    # Import here to avoid side effects during fixture setup
+    from src.db import blob_store as blob_store_module
+    from src.db import models as models_module
+
+    # Close global database connection pool
+    if hasattr(models_module, "db"):
+        models_module.db.close()
+
+    # Close global blob store connection pool if it was initialized
+    if blob_store_module._blob_store is not None:
+        blob_store_module._blob_store.close()
+        blob_store_module._blob_store = None
+
+
+# -----------------------------------------------------------------------------
 # Database fixtures
 # -----------------------------------------------------------------------------
 
@@ -56,7 +84,8 @@ def test_database(test_db_path: Path) -> Generator[Database]:
 
     db = Database(db_path=test_db_path)
     yield db
-    # Cleanup happens automatically when temp dir is removed
+    # Close connection pool to release resources
+    db.close()
 
 
 @pytest.fixture
@@ -73,6 +102,8 @@ def test_blob_store(test_blob_path: Path):
     # Patch get_blob_store in models.py so add_message etc. use test blob store
     with patch("src.db.models.get_blob_store", return_value=blob_store):
         yield blob_store
+    # Close connection pool to release resources
+    blob_store.close()
 
 
 # -----------------------------------------------------------------------------

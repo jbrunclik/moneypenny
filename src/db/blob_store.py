@@ -10,12 +10,11 @@ Key format:
 """
 
 import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from src.config import Config
+from src.utils.connection_pool import ConnectionPool
 from src.utils.db_helpers import execute_with_timing, init_query_logging
 from src.utils.logging import get_logger
 
@@ -33,17 +32,16 @@ class BlobStore:
         """
         self.db_path = db_path or Config.BLOB_STORAGE_PATH
         self._should_log_queries, self._slow_query_threshold_ms = init_query_logging()
+        # Use connection pool for efficient connection reuse
+        self._pool = ConnectionPool(self.db_path)
         self._init_db()
 
-    @contextmanager
-    def _get_conn(self) -> Generator[sqlite3.Connection]:
-        """Get a database connection."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-        finally:
-            conn.close()
+    def close(self) -> None:
+        """Close all connections in the pool.
+
+        Call this on application shutdown.
+        """
+        self._pool.close_all()
 
     def _execute_with_timing(
         self,
@@ -67,7 +65,7 @@ class BlobStore:
     def _init_db(self) -> None:
         """Initialize the blob database schema."""
         logger.debug("Initializing blob store", extra={"db_path": str(self.db_path)})
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS blobs (
                     key TEXT PRIMARY KEY,
@@ -93,7 +91,7 @@ class BlobStore:
             "Saving blob",
             extra={"key": key, "size": len(data), "mime_type": mime_type},
         )
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT OR REPLACE INTO blobs (key, data, mime_type, size, created_at)
@@ -111,7 +109,7 @@ class BlobStore:
         Returns:
             Tuple of (data, mime_type) if found, None otherwise
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT data, mime_type FROM blobs WHERE key = ?",
@@ -133,7 +131,7 @@ class BlobStore:
             True if deleted, False if not found
         """
         logger.debug("Deleting blob", extra={"key": key})
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM blobs WHERE key = ?",
@@ -158,7 +156,7 @@ class BlobStore:
             Number of blobs deleted
         """
         logger.debug("Deleting blobs by prefix", extra={"prefix": prefix})
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM blobs WHERE key LIKE ?",
@@ -186,7 +184,7 @@ class BlobStore:
             return 0
 
         logger.debug("Deleting blobs by prefixes", extra={"prefix_count": len(prefixes)})
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Build OR conditions for each prefix
             conditions = " OR ".join(["key LIKE ?" for _ in prefixes])
             params = tuple(prefix + "%" for prefix in prefixes)
@@ -214,7 +212,7 @@ class BlobStore:
         Returns:
             True if exists, False otherwise
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT 1 FROM blobs WHERE key = ?",
@@ -231,7 +229,7 @@ class BlobStore:
         Returns:
             Size in bytes if found, None otherwise
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT size FROM blobs WHERE key = ?",

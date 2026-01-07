@@ -1,6 +1,7 @@
 """Unit tests for database query logging."""
 
 import logging
+from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -122,7 +123,7 @@ class TestSlowQueryLogging:
         """Should return valid cursor from _execute_with_timing."""
         test_database._should_log_queries = True
 
-        with test_database._get_conn() as conn:
+        with test_database._pool.get_connection() as conn:
             cursor = test_database._execute_with_timing(conn, "SELECT 1 as result", ())
             row = cursor.fetchone()
             assert row["result"] == 1
@@ -132,7 +133,7 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 0
 
-        with test_database._get_conn() as conn:
+        with test_database._pool.get_connection() as conn:
             cursor = test_database._execute_with_timing(conn, "SELECT 1")
             row = cursor.fetchone()
             assert row[0] == 1
@@ -147,7 +148,10 @@ class TestSlowQueryLogging:
             from src.db.models import Database
 
             db = Database(db_path=tmp_path / "threshold.db")
-            assert db._slow_query_threshold_ms == 500
+            try:
+                assert db._slow_query_threshold_ms == 500
+            finally:
+                db.close()
 
     def test_query_logging_enabled_in_development(self, tmp_path: Path) -> None:
         """Should enable query logging in development mode."""
@@ -159,7 +163,10 @@ class TestSlowQueryLogging:
             from src.db.models import Database
 
             db = Database(db_path=tmp_path / "dev.db")
-            assert db._should_log_queries is True
+            try:
+                assert db._should_log_queries is True
+            finally:
+                db.close()
 
     def test_query_logging_enabled_for_debug_level(self, tmp_path: Path) -> None:
         """Should enable query logging when LOG_LEVEL is DEBUG."""
@@ -171,7 +178,10 @@ class TestSlowQueryLogging:
             from src.db.models import Database
 
             db = Database(db_path=tmp_path / "debug.db")
-            assert db._should_log_queries is True
+            try:
+                assert db._should_log_queries is True
+            finally:
+                db.close()
 
     def test_query_logging_disabled_in_production(self, tmp_path: Path) -> None:
         """Should disable query logging in production with non-DEBUG level."""
@@ -183,13 +193,18 @@ class TestSlowQueryLogging:
             from src.db.models import Database
 
             db = Database(db_path=tmp_path / "prod.db")
-            assert db._should_log_queries is False
+            try:
+                assert db._should_log_queries is False
+            finally:
+                db.close()
 
 
 # Import after patching environment
 @pytest.fixture
-def test_database(tmp_path: Path) -> Database:
+def test_database(tmp_path: Path) -> Generator[Database]:
     """Create isolated test database for each test."""
     from src.db.models import Database
 
-    return Database(db_path=tmp_path / "test.db")
+    db = Database(db_path=tmp_path / "test.db")
+    yield db
+    db.close()

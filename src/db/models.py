@@ -3,8 +3,6 @@ import json
 import os
 import sqlite3
 import uuid
-from collections.abc import Generator
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +13,7 @@ from yoyo import get_backend, read_migrations
 from src.api.schemas import MessageRole, PaginationDirection, ThumbnailStatus
 from src.config import Config
 from src.db.blob_store import get_blob_store
+from src.utils.connection_pool import ConnectionPool
 from src.utils.db_helpers import execute_with_timing, init_query_logging
 from src.utils.logging import get_logger
 
@@ -274,16 +273,16 @@ class Database:
         self.db_path = db_path or Config.DATABASE_PATH
         # Query logging is only active in development/debug mode
         self._should_log_queries, self._slow_query_threshold_ms = init_query_logging()
+        # Use connection pool for efficient connection reuse
+        self._pool = ConnectionPool(self.db_path)
         self._init_db()
 
-    @contextmanager
-    def _get_conn(self) -> Generator[sqlite3.Connection]:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-        finally:
-            conn.close()
+    def close(self) -> None:
+        """Close all connections in the pool.
+
+        Call this on application shutdown.
+        """
+        self._pool.close_all()
 
     def _execute_with_timing(
         self,
@@ -322,7 +321,7 @@ class Database:
     # User operations
     def get_or_create_user(self, email: str, name: str, picture: str | None = None) -> User:
         logger.debug("Getting or creating user", extra={"email": email})
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Use INSERT OR IGNORE to handle race conditions when multiple
             # concurrent requests try to create the same user
             user_id = str(uuid.uuid4())
@@ -365,7 +364,7 @@ class Database:
             )
 
     def get_user_by_id(self, user_id: str) -> User | None:
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn, "SELECT * FROM users WHERE id = ?", (user_id,)
             ).fetchone()
@@ -397,7 +396,7 @@ class Database:
             extra={"user_id": user_id, "has_instructions": bool(instructions)},
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET custom_instructions = ? WHERE id = ?",
@@ -430,7 +429,7 @@ class Database:
             extra={"user_id": user_id, "conversation_id": conv_id, "model": model},
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT INTO conversations (id, user_id, title, model, created_at, updated_at)
@@ -450,7 +449,7 @@ class Database:
         )
 
     def get_conversation(self, conv_id: str, user_id: str) -> Conversation | None:
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT * FROM conversations WHERE id = ? AND user_id = ?",
@@ -470,7 +469,7 @@ class Database:
             )
 
     def list_conversations(self, user_id: str) -> list[Conversation]:
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 """SELECT * FROM conversations WHERE user_id = ?
@@ -513,7 +512,7 @@ class Database:
             - has_more: True if there are more pages
             - total_count: Total number of conversations for this user
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Get total count for this user
             total_row = self._execute_with_timing(
                 conn,
@@ -595,7 +594,7 @@ class Database:
             - has_more: True if there are more pages
             - total_count: Total number of conversations for this user
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Get total count for this user
             total_row = self._execute_with_timing(
                 conn,
@@ -674,7 +673,7 @@ class Database:
         Returns:
             List of tuples containing (Conversation, message_count)
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
@@ -717,7 +716,7 @@ class Database:
         Returns:
             List of tuples containing (Conversation, message_count)
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
@@ -766,7 +765,7 @@ class Database:
 
         params.extend([conv_id, user_id])
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 f"UPDATE conversations SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
@@ -776,7 +775,7 @@ class Database:
             return cursor.rowcount > 0
 
     def delete_conversation(self, conv_id: str, user_id: str) -> bool:
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Note: We intentionally keep message_costs even after conversation deletion
             # to preserve accurate cost reporting (the money was already spent)
 
@@ -816,7 +815,7 @@ class Database:
         Returns:
             True if the message was deleted, False if not found or not owned
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Verify user owns the conversation containing this message
             row = self._execute_with_timing(
                 conn,
@@ -900,7 +899,7 @@ class Database:
             },
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, created_at)
@@ -939,7 +938,7 @@ class Database:
         )
 
     def get_messages(self, conversation_id: str) -> list[Message]:
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at",
@@ -986,7 +985,7 @@ class Database:
             - List of Message objects (oldest first within the returned page)
             - MessagePagination info with cursors and flags
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Get total count
             total_row = self._execute_with_timing(
                 conn,
@@ -1101,7 +1100,7 @@ class Database:
 
     def get_message_by_id(self, message_id: str) -> Message | None:
         """Get a single message by its ID."""
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT * FROM messages WHERE id = ?",
@@ -1151,7 +1150,7 @@ class Database:
             extra={"message_id": message_id, "file_index": file_index, "status": status.value},
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Get current files JSON
             cursor = self._execute_with_timing(
                 conn,
@@ -1257,7 +1256,7 @@ class Database:
             },
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT INTO message_costs (
@@ -1290,7 +1289,7 @@ class Database:
         Returns:
             Dict with 'cost_usd', 'input_tokens', 'output_tokens', 'model', 'image_generation_cost_usd', or None if not found
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 """SELECT cost_usd, input_tokens, output_tokens, model, image_generation_cost_usd
@@ -1323,7 +1322,7 @@ class Database:
         Returns:
             Total cost in USD
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT SUM(cost_usd) as total FROM message_costs WHERE conversation_id = ?",
@@ -1357,7 +1356,7 @@ class Database:
         else:
             end_date = datetime(year, month + 1, 1).isoformat()
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Get total cost and message count
             total_row = self._execute_with_timing(
                 conn,
@@ -1404,7 +1403,7 @@ class Database:
         Returns:
             List of dicts with 'year', 'month', 'total_usd', 'message_count'
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 """SELECT
@@ -1452,7 +1451,7 @@ class Database:
             extra={"user_id": user_id, "memory_id": memory_id, "category": category},
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT INTO user_memories (id, user_id, content, category, created_at, updated_at)
@@ -1491,7 +1490,7 @@ class Database:
             extra={"user_id": user_id, "memory_id": memory_id},
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             if category is not None:
                 cursor = self._execute_with_timing(
                     conn,
@@ -1533,7 +1532,7 @@ class Database:
             extra={"user_id": user_id, "memory_id": memory_id},
         )
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM user_memories WHERE id = ? AND user_id = ?",
@@ -1560,7 +1559,7 @@ class Database:
         Returns:
             List of Memory objects, ordered by updated_at DESC
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 """SELECT * FROM user_memories WHERE user_id = ?
@@ -1589,7 +1588,7 @@ class Database:
         Returns:
             Number of memories
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT COUNT(*) as count FROM user_memories WHERE user_id = ?",
@@ -1609,7 +1608,7 @@ class Database:
         Returns:
             List of (User, memory_count) tuples, ordered by memory count descending
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 """
@@ -1661,7 +1660,7 @@ class Database:
         now = datetime.utcnow().isoformat()
         result = {"deleted": 0, "updated": 0, "added": 0}
 
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             # Delete memories
             for memory_id in to_delete:
                 cursor = self._execute_with_timing(
@@ -1724,7 +1723,7 @@ class Database:
         Returns:
             The setting value, or None if not found
         """
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 "SELECT value FROM app_settings WHERE key = ?",
@@ -1741,7 +1740,7 @@ class Database:
             value: The setting value (must be a string, use JSON for complex values)
         """
         now = datetime.utcnow().isoformat()
-        with self._get_conn() as conn:
+        with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """

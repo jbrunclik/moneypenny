@@ -16,7 +16,9 @@ class TestBlobStore:
         """Create a blob store with a temporary database."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test_blobs.db"
-            yield BlobStore(db_path)
+            store = BlobStore(db_path)
+            yield store
+            store.close()
 
     def test_save_and_get(self, blob_store):
         """Test basic save and retrieve."""
@@ -246,6 +248,7 @@ class TestDeleteMessagesBlobs:
                 # msg-ccc should still exist
                 assert blob_store.exists("msg-ccc/0")
             finally:
+                blob_store.close()
                 models_module.get_blob_store = original_get_blob_store
                 reset_blob_store()
 
