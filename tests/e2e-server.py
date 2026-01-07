@@ -53,6 +53,8 @@ MOCK_CONFIG: dict[str, Any] = {
     "batch_delay_ms": 0,  # Delay before batch response (for testing conversation switching)
     "custom_response": None,  # If set, use this instead of prefix + message
     "emit_thinking": False,  # If True, emit thinking events during streaming
+    "search_results": None,  # If set, return these instead of real search results
+    "search_total": 0,  # Total count for mocked search results
 }
 
 
@@ -537,7 +539,65 @@ def main() -> None:
             MOCK_CONFIG["batch_delay_ms"] = delay_ms
             return {"status": "set", "batch_delay_ms": delay_ms}, 200
 
+        @test_bp.route("/test/set-search-results", methods=["POST"])
+        def set_search_results() -> tuple[dict[str, Any], int]:
+            """Set custom search results for testing search UI.
+
+            Request body:
+            {
+                "results": [
+                    {
+                        "conversation_id": "conv-123",
+                        "conversation_title": "Test Conversation",
+                        "message_id": "msg-456",  // optional
+                        "message_snippet": "...matching text...",  // optional
+                        "match_type": "message",  // or "conversation"
+                        "created_at": "2024-01-01T12:00:00"  // optional
+                    }
+                ],
+                "total": 1
+            }
+
+            If not set, the real search endpoint is used.
+            """
+            from flask import request
+
+            data = request.get_json() or {}
+            MOCK_CONFIG["search_results"] = data.get("results")
+            MOCK_CONFIG["search_total"] = data.get("total", 0)
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/clear-search-results", methods=["POST"])
+        def clear_search_results() -> tuple[dict[str, str], int]:
+            """Clear custom search results to restore default behavior."""
+            MOCK_CONFIG["search_results"] = None
+            MOCK_CONFIG["search_total"] = 0
+            return {"status": "cleared"}, 200
+
         app.register_blueprint(test_bp)
+
+        # Override search endpoint using before_request to intercept /api/search
+        # This must be done AFTER blueprint registration so it takes priority
+        @app.before_request
+        def intercept_search() -> Any | None:
+            """Intercept /api/search requests to return mock results if configured.
+
+            If MOCK_CONFIG["search_results"] is set, returns those results.
+            Otherwise, lets the request continue to the real search endpoint.
+            """
+            from flask import jsonify, request
+
+            if request.path == "/api/search" and request.method == "GET":
+                if MOCK_CONFIG["search_results"] is not None:
+                    query = request.args.get("q", "")
+                    return jsonify(
+                        {
+                            "results": MOCK_CONFIG["search_results"],
+                            "total": MOCK_CONFIG["search_total"],
+                            "query": query,
+                        }
+                    )
+            return None  # Continue to normal handling
 
         print("Starting E2E test server on http://localhost:8001")
         print("Press Ctrl+C to stop")

@@ -1527,6 +1527,88 @@ The app supports hash-based routing (`#/conversations/{conversationId}`) for dee
 - Unit tests: [deeplink.test.ts](web/tests/unit/deeplink.test.ts) - Router function tests
 - E2E tests: [deeplink.spec.ts](web/tests/e2e/deeplink.spec.ts) - Full deep linking scenarios including browser navigation, edge cases, and pagination
 
+## Full-Text Search
+
+The app supports cross-conversation full-text search using SQLite FTS5.
+
+### How it works
+
+1. **FTS5 virtual table**: `search_index` table using FTS5 with Porter stemmer and Unicode support
+2. **Trigger-based sync**: Database triggers keep the search index in sync when conversations/messages are created, updated, or deleted
+3. **API endpoint**: `GET /api/search?q=query&limit=20&offset=0` returns matching results
+4. **Frontend**: Search box in sidebar header, results replace conversation list while searching
+
+### Search index design
+
+```sql
+CREATE VIRTUAL TABLE search_index USING fts5(
+    user_id UNINDEXED,      -- For filtering, not searching
+    conversation_id UNINDEXED,
+    message_id UNINDEXED,
+    type UNINDEXED,         -- 'conversation' or 'message'
+    title,                  -- Conversation title (searchable)
+    content,                -- Message content (searchable)
+    tokenize='porter unicode61 remove_diacritics 2'
+);
+```
+
+**Tokenizer features:**
+- Porter stemmer: "running" matches "run", "programming" matches "program"
+- Unicode support: Handles international characters correctly
+- Diacritic removal: "cafe" matches "café"
+
+### UI behavior
+
+1. **Search activation**: Focus on search input activates search mode
+2. **Debounced input**: 300ms debounce prevents excessive API calls
+3. **Result display**: Results replace conversation list with count header
+4. **Highlighting**: Matched text wrapped in `[[HIGHLIGHT]]...[[/HIGHLIGHT]]` markers, converted to `<mark>` tags
+5. **Navigation**: Click result to navigate to conversation, scroll to message, and highlight (2s animation)
+6. **Deactivation**: Press Escape or click clear button to exit search mode
+
+### Key files
+
+**Backend:**
+- [migrations/0015_add_full_text_search.py](migrations/0015_add_full_text_search.py) - FTS5 table creation and triggers
+- [models.py](src/db/models.py) - `SearchResult` dataclass, `search()` method with query escaping
+- [routes.py](src/api/routes.py) - `GET /api/search` endpoint with validation
+- [schemas.py](src/api/schemas.py) - `SearchResultResponse`, `SearchResultsResponse` schemas
+- [config.py](src/config.py) - `SEARCH_MAX_QUERY_LENGTH`, `SEARCH_MAX_LIMIT` constants
+
+**Frontend:**
+- [SearchInput.ts](web/src/components/SearchInput.ts) - Search input component with debounce
+- [SearchResults.ts](web/src/components/SearchResults.ts) - Results display and subscription
+- [store.ts](web/src/state/store.ts) - Search state (`searchQuery`, `searchResults`, `isSearching`, `isSearchActive`)
+- [client.ts](web/src/api/client.ts) - `search.query()` API method
+- [api.ts](web/src/types/api.ts) - `SearchResult`, `SearchResponse` types
+- [main.ts](web/src/main.ts) - `navigateToSearchResult()`, message scroll and highlight logic
+- [config.ts](web/src/config.ts) - `SEARCH_DEBOUNCE_MS`, `SEARCH_HIGHLIGHT_DURATION_MS` constants
+
+**Styles:**
+- [sidebar.css](web/src/styles/components/sidebar.css) - Search input, results, and highlight styles
+
+### Configuration
+
+**Backend:**
+```python
+SEARCH_MAX_QUERY_LENGTH = 200  # Maximum query length
+SEARCH_MAX_LIMIT = 50          # Maximum results per page
+```
+
+**Frontend:**
+```typescript
+SEARCH_DEBOUNCE_MS = 300              // Input debounce delay
+SEARCH_HIGHLIGHT_DURATION_MS = 2000   // Message highlight animation duration
+```
+
+### Testing
+
+- Backend unit tests: [test_search.py](tests/unit/test_search.py) - Query escaping, user boundaries
+- Backend integration tests: [test_routes_search.py](tests/integration/test_routes_search.py) - API endpoint tests
+- E2E tests: [search.spec.ts](web/tests/e2e/search.spec.ts) - Full search flow
+- Visual tests: [search.visual.ts](web/tests/visual/search.visual.ts) - Search UI screenshots
+- Mock server: [e2e-server.py](tests/e2e-server.py) - `/test/set-search-results` and `/test/clear-search-results` endpoints
+
 ## Version Update Banner
 
 The app detects when a new version is deployed and shows a banner prompting users to reload.

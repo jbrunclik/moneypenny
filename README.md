@@ -52,6 +52,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 
 ### Conversation Management
 - Multiple conversations with history
+- **Full-text search**: Search across all conversations and messages with highlighted results
 - **Deep linking**: Bookmarkable URLs for specific conversations (`#/conversations/{id}`)
 - **Real-time sync**: Multi-device/tab synchronization with unread message badges
 - **Infinite scroll**: Cursor-based pagination for conversations and messages

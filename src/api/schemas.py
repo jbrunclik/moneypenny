@@ -587,3 +587,38 @@ class MessagesListResponse(BaseModel):
 
     messages: list[MessageResponse]
     pagination: MessagesPaginationResponse
+
+
+# -----------------------------------------------------------------------------
+# Search Schemas
+# -----------------------------------------------------------------------------
+
+
+class SearchResultResponse(BaseModel):
+    """Single search result."""
+
+    conversation_id: str = Field(..., description="ID of the conversation containing the match")
+    conversation_title: str = Field(..., description="Title of the conversation")
+    message_id: str | None = Field(
+        default=None, description="Message ID if match is in a message (null for title matches)"
+    )
+    message_snippet: str | None = Field(
+        default=None,
+        description="Snippet of matching text with [[HIGHLIGHT]] markers (null for title matches)",
+    )
+    match_type: Literal["conversation", "message"] = Field(
+        ..., description="Whether the match is in conversation title or message content"
+    )
+    created_at: str | None = Field(
+        default=None, description="Message timestamp (null for title matches)"
+    )
+
+
+class SearchResultsResponse(BaseModel):
+    """Search results response."""
+
+    results: list[SearchResultResponse] = Field(
+        ..., description="List of search results ordered by relevance"
+    )
+    total: int = Field(..., description="Total number of matching results")
+    query: str = Field(..., description="The search query that was executed")

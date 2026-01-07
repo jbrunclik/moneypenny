@@ -16,6 +16,8 @@ import {
   updateMonthlyCost,
   cleanupInfiniteScroll,
 } from './components/Sidebar';
+import { initSearchInput, clearSearch } from './components/SearchInput';
+import { subscribeToSearchChanges } from './components/SearchResults';
 import {
   renderMessages,
   addMessageToUI,
@@ -81,6 +83,7 @@ import {
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
+import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_MAX_MESSAGE_LOAD_BATCHES } from './config';
 
 const log = createLogger('main');
 
@@ -99,6 +102,7 @@ function renderAppShell(): string {
         <h1>AI Chatbot</h1>
         <button id="new-chat-btn" class="btn btn-primary">${PLUS_ICON} New Chat</button>
       </div>
+      <div id="search-container" class="search-container"></div>
       <div id="conversations-list" class="conversations-list"></div>
       <div class="sidebar-footer">
         <div id="user-info" class="user-info"></div>
@@ -257,6 +261,8 @@ async function init(): Promise<void> {
   initScrollToBottom();
   initOrientationChangeHandler();
   initVersionBanner();
+  initSearchInput();
+  subscribeToSearchChanges(handleSearchResultClick);
   setupEventListeners();
   setupTouchGestures();
 
@@ -710,6 +716,122 @@ async function selectConversation(convId: string): Promise<void> {
 // Check if a conversation ID is temporary (not yet saved to DB)
 function isTempConversation(convId: string): boolean {
   return convId.startsWith('temp-');
+}
+
+/**
+ * Handle click on a search result - navigate to conversation and optionally scroll to message
+ */
+async function handleSearchResultClick(convId: string, messageId: string | null): Promise<void> {
+  log.debug('Search result clicked', { convId, messageId });
+
+  // Clear search and deactivate search mode
+  clearSearch();
+
+  // Close sidebar on mobile
+  closeSidebar();
+
+  // Navigate to the conversation
+  await navigateToSearchResult(convId, messageId);
+}
+
+/**
+ * Navigate to a conversation from search result and highlight the matching message
+ */
+async function navigateToSearchResult(convId: string, messageId: string | null): Promise<void> {
+  const store = useStore.getState();
+  const { currentConversation } = store;
+
+  // Check if we're already viewing this conversation
+  if (currentConversation?.id === convId) {
+    // Already viewing - just scroll to message if provided
+    if (messageId) {
+      await scrollToAndHighlightMessage(messageId);
+    }
+    return;
+  }
+
+  // Load and switch to the conversation
+  await selectConversation(convId);
+
+  // After loading, scroll to and highlight the message if provided
+  if (messageId) {
+    // Use setTimeout to ensure DOM has updated after conversation switch
+    setTimeout(async () => {
+      await scrollToAndHighlightMessage(messageId);
+    }, 100);
+  }
+}
+
+/**
+ * Scroll to a message and apply highlight animation
+ * If the message isn't in the current DOM (due to pagination), load older messages until found
+ */
+async function scrollToAndHighlightMessage(messageId: string): Promise<void> {
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  if (!messagesContainer) return;
+
+  // Try to find the message element
+  let messageEl = messagesContainer.querySelector<HTMLDivElement>(`.message[data-message-id="${messageId}"]`);
+
+  // If not found, may need to load older messages (up to max batches)
+  if (!messageEl) {
+    const store = useStore.getState();
+    const { currentConversation } = store;
+    if (!currentConversation) return;
+
+    let batchesLoaded = 0;
+    while (!messageEl && batchesLoaded < SEARCH_MAX_MESSAGE_LOAD_BATCHES) {
+      const pagination = store.getMessagesPagination(currentConversation.id);
+      if (!pagination?.hasOlder || !pagination.olderCursor) {
+        log.debug('No more older messages to load, message not found', { messageId });
+        break;
+      }
+
+      // Load older messages
+      try {
+        log.debug('Loading older messages to find search result', { messageId, batch: batchesLoaded + 1 });
+        const response = await conversations.getMessages(
+          currentConversation.id,
+          50,
+          pagination.olderCursor,
+          'older'
+        );
+        store.prependMessages(currentConversation.id, response.messages, response.pagination);
+
+        // Re-render messages
+        const allMessages = store.getMessages(currentConversation.id);
+        renderMessages(allMessages);
+
+        batchesLoaded++;
+
+        // Try to find the message again
+        messageEl = messagesContainer.querySelector<HTMLDivElement>(`.message[data-message-id="${messageId}"]`);
+      } catch (error) {
+        log.error('Failed to load older messages for search result', { error, messageId });
+        break;
+      }
+    }
+  }
+
+  // If still not found, show a toast
+  if (!messageEl) {
+    log.warn('Message not found in conversation', { messageId });
+    toast.info('Message not found in this conversation.');
+    return;
+  }
+
+  // Scroll the message into view
+  messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  // Apply highlight animation
+  messageEl.classList.add('search-highlight');
+
+  // Remove highlight class after animation completes
+  setTimeout(() => {
+    messageEl?.classList.remove('search-highlight');
+  }, SEARCH_HIGHLIGHT_DURATION_MS);
+
+  log.debug('Scrolled to and highlighted message', { messageId });
 }
 
 // Create a new conversation (local only - saved to DB on first message)

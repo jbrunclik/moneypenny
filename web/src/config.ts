@@ -298,6 +298,19 @@ export const UPLOAD_ALLOWED_TYPES = [
 ];
 
 // =============================================================================
+// Search Configuration
+// =============================================================================
+
+/** Debounce delay for search input (ms) */
+export const SEARCH_DEBOUNCE_MS = 300;
+
+/** Duration for search result highlight animation (ms) */
+export const SEARCH_HIGHLIGHT_DURATION_MS = 2 * MS_PER_SECOND;
+
+/** Maximum message batches to load when searching for a message in history */
+export const SEARCH_MAX_MESSAGE_LOAD_BATCHES = 10;
+
+// =============================================================================
 // Default Values
 // =============================================================================
 

@@ -274,6 +274,11 @@ class Config:
     MESSAGES_DEFAULT_PAGE_SIZE: int = int(os.getenv("MESSAGES_DEFAULT_PAGE_SIZE", "50"))
     MESSAGES_MAX_PAGE_SIZE: int = int(os.getenv("MESSAGES_MAX_PAGE_SIZE", "200"))
 
+    # Search settings
+    SEARCH_MAX_QUERY_LENGTH: int = int(os.getenv("SEARCH_MAX_QUERY_LENGTH", "200"))
+    SEARCH_MAX_LIMIT: int = int(os.getenv("SEARCH_MAX_LIMIT", "50"))
+    SEARCH_DEFAULT_LIMIT: int = int(os.getenv("SEARCH_DEFAULT_LIMIT", "20"))
+
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"

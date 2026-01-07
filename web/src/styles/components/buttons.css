@@ -42,6 +42,7 @@
     background-color: var(--accent);
     color: white;
     width: 100%;
+    padding: var(--space-2) var(--space-3);
     display: flex;
     align-items: center;
     justify-content: center;

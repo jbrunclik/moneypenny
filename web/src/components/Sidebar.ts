@@ -7,6 +7,7 @@ import type { Conversation } from '../types/api';
 import { costs, conversations as conversationsApi } from '../api/client';
 import { createLogger } from '../utils/logger';
 import { getSyncManager } from '../sync/SyncManager';
+import { isSearchResultsVisible, renderSearchResults } from './SearchResults';
 import {
   LOAD_MORE_THRESHOLD_PX,
   INFINITE_SCROLL_DEBOUNCE_MS,
@@ -31,10 +32,17 @@ function calculatePageSize(containerHeight: number): number {
 
 /**
  * Render the conversations list in the sidebar
+ * If search is active, renders search results instead
  */
 export function renderConversationsList(): void {
   const container = getElementById<HTMLDivElement>('conversations-list');
   if (!container) return;
+
+  // If search is active, render search results instead
+  if (isSearchResultsVisible()) {
+    renderSearchResults();
+    return;
+  }
 
   const { conversations, currentConversation, isLoading, conversationsPagination } = useStore.getState();
 

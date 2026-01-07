@@ -268,6 +268,22 @@ class MessagePagination:
     total_count: int  # Total message count in conversation
 
 
+@dataclass
+class SearchResult:
+    """A single search result from full-text search.
+
+    Can be either a conversation title match or a message content match.
+    """
+
+    conversation_id: str
+    conversation_title: str
+    message_id: str | None  # None if match is on conversation title
+    message_content: str | None  # Snippet with highlight markers
+    match_type: str  # "conversation" or "message"
+    rank: float  # BM25 relevance score (lower is better)
+    created_at: datetime | None  # Message timestamp (None for title matches)
+
+
 class Database:
     def __init__(self, db_path: Path | None = None) -> None:
         self.db_path = db_path or Config.DATABASE_PATH
@@ -1709,6 +1725,128 @@ class Database:
         )
 
         return result
+
+    # ============================================================================
+    # Full-Text Search
+    # ============================================================================
+
+    def search(
+        self,
+        user_id: str,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[SearchResult], int]:
+        """Search conversations and messages using FTS5 full-text search.
+
+        Uses BM25 ranking algorithm for relevance scoring. Searches both
+        conversation titles and message content. Results are ordered by
+        relevance (best matches first).
+
+        The query supports prefix matching - each word is automatically
+        treated as a prefix (e.g., "hel wor" matches "hello world").
+
+        Args:
+            user_id: The user ID (only searches this user's data)
+            query: Search query text
+            limit: Maximum number of results to return (default: 20)
+            offset: Number of results to skip for pagination (default: 0)
+
+        Returns:
+            Tuple of:
+            - List of SearchResult objects ordered by relevance
+            - Total count of matching results (for pagination UI)
+        """
+        # Clean and validate query
+        query = query.strip()
+        if not query:
+            return [], 0
+
+        # Escape FTS5 special characters to prevent query syntax errors
+        # FTS5 special chars: " * ( ) : ^ -
+        escaped_query = query.replace('"', '""')
+
+        # Build prefix-matching query: "hello world" -> "hello"* "world"*
+        # This provides better type-ahead search experience
+        words = escaped_query.split()
+        fts_query = " ".join(f'"{word}"*' for word in words if word)
+
+        if not fts_query:
+            return [], 0
+
+        with self._pool.get_connection() as conn:
+            # Get total count of matches
+            count_row = self._execute_with_timing(
+                conn,
+                """
+                SELECT COUNT(*) as count
+                FROM search_index
+                WHERE user_id = ? AND search_index MATCH ?
+                """,
+                (user_id, fts_query),
+            ).fetchone()
+            total_count = int(count_row["count"]) if count_row else 0
+
+            if total_count == 0:
+                return [], 0
+
+            # Get ranked results with conversation titles
+            # bm25() returns negative scores where more negative = better match
+            # snippet() returns text with highlight markers around matches
+            rows = self._execute_with_timing(
+                conn,
+                """
+                SELECT
+                    si.conversation_id,
+                    c.title as conversation_title,
+                    si.message_id,
+                    CASE
+                        WHEN si.type = 'message' THEN snippet(
+                            search_index, 5, '[[HIGHLIGHT]]', '[[/HIGHLIGHT]]', '...', 32
+                        )
+                        ELSE NULL
+                    END as message_snippet,
+                    si.type as match_type,
+                    bm25(search_index) as rank,
+                    m.created_at as message_created_at
+                FROM search_index si
+                JOIN conversations c ON c.id = si.conversation_id
+                LEFT JOIN messages m ON m.id = si.message_id
+                WHERE si.user_id = ? AND search_index MATCH ?
+                ORDER BY rank ASC, message_created_at DESC NULLS LAST
+                LIMIT ? OFFSET ?
+                """,
+                (user_id, fts_query, limit, offset),
+            ).fetchall()
+
+            results = [
+                SearchResult(
+                    conversation_id=row["conversation_id"],
+                    conversation_title=row["conversation_title"],
+                    message_id=row["message_id"],
+                    message_content=row["message_snippet"],
+                    match_type=row["match_type"],
+                    rank=float(row["rank"]),
+                    created_at=(
+                        datetime.fromisoformat(row["message_created_at"])
+                        if row["message_created_at"]
+                        else None
+                    ),
+                )
+                for row in rows
+            ]
+
+            logger.debug(
+                "Search completed",
+                extra={
+                    "user_id": user_id,
+                    "query": query,
+                    "results": len(results),
+                    "total": total_count,
+                },
+            )
+
+            return results, total_count
 
     # ============================================================================
     # App Settings

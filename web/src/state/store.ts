@@ -7,6 +7,7 @@ import type {
   Message,
   MessagesPagination,
   Model,
+  SearchResult,
   UploadConfig,
   User,
   ThinkingState,
@@ -102,6 +103,13 @@ interface AppState {
   draftMessage: string;
   draftFiles: FileUpload[];
 
+  // Search state
+  searchQuery: string;
+  searchResults: SearchResult[];
+  searchTotal: number;
+  isSearching: boolean;
+  isSearchActive: boolean; // True when search UI is shown (even with empty query)
+
   // Actions - Auth
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
@@ -163,6 +171,14 @@ interface AppState {
   // Actions - Draft
   setDraft: (message: string, files: FileUpload[]) => void;
   clearDraft: () => void;
+
+  // Actions - Search
+  setSearchQuery: (query: string) => void;
+  setSearchResults: (results: SearchResult[], total: number) => void;
+  setIsSearching: (searching: boolean) => void;
+  activateSearch: () => void;
+  deactivateSearch: () => void;
+  clearSearch: () => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -217,6 +233,11 @@ export const useStore = create<AppState>()(
       notifications: [],
       draftMessage: '',
       draftFiles: [],
+      searchQuery: '',
+      searchResults: [],
+      searchTotal: 0,
+      isSearching: false,
+      isSearchActive: false,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -479,6 +500,14 @@ export const useStore = create<AppState>()(
       // Draft actions (for error recovery)
       setDraft: (draftMessage, draftFiles) => set({ draftMessage, draftFiles }),
       clearDraft: () => set({ draftMessage: '', draftFiles: [] }),
+
+      // Search actions
+      setSearchQuery: (searchQuery) => set({ searchQuery }),
+      setSearchResults: (searchResults, searchTotal) => set({ searchResults, searchTotal }),
+      setIsSearching: (isSearching) => set({ isSearching }),
+      activateSearch: () => set({ isSearchActive: true }),
+      deactivateSearch: () => set({ isSearchActive: false, searchQuery: '', searchResults: [], searchTotal: 0 }),
+      clearSearch: () => set({ searchQuery: '', searchResults: [], searchTotal: 0, isSearching: false, isSearchActive: false }),
     }),
     {
       name: 'ai-chatbot-storage',

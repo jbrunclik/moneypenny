@@ -333,3 +333,22 @@ export interface MemoriesResponse {
 export interface UserSettings {
   custom_instructions: string;
 }
+
+// =============================================================================
+// Search types
+// =============================================================================
+
+export interface SearchResult {
+  conversation_id: string;
+  conversation_title: string;
+  message_id: string | null;
+  message_snippet: string | null;
+  match_type: 'conversation' | 'message';
+  created_at: string | null;
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  total: number;
+  query: string;
+}

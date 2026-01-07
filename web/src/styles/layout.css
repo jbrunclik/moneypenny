@@ -26,15 +26,14 @@
 }
 
 .sidebar-header {
-    padding: var(--space-4);
-    border-bottom: 1px solid var(--border);
+    padding: var(--space-3) var(--space-3) var(--space-2);
     flex-shrink: 0;
 }
 
 .sidebar-header h1 {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-base);
     font-weight: 600;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
 }
 
 .sidebar-footer {
