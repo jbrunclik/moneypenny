@@ -47,6 +47,9 @@ import {
   focusMessageInput,
   setInputLoading,
   shouldAutoFocusInput,
+  showUploadProgress,
+  hideUploadProgress,
+  updateUploadProgress,
 } from './components/MessageInput';
 import { initModelSelector, renderModelDropdown } from './components/ModelSelector';
 import { initFileUpload, clearPendingFiles, getPendingFiles } from './components/FileUpload';
@@ -148,6 +151,10 @@ function renderAppShell(): string {
           </div>
           <div id="file-preview" class="file-preview hidden"></div>
           <input type="file" id="file-input" multiple>
+          <div id="upload-progress" class="upload-progress hidden">
+            <div class="upload-progress-bar"></div>
+            <span class="upload-progress-text">Uploading...</span>
+          </div>
           <div class="input-container">
             <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
             <button id="send-btn" class="btn btn-send" disabled>
@@ -1248,9 +1255,30 @@ async function sendStreamingMessage(
   // Set streaming state in store for UI updates (stop button)
   useStore.getState().setStreamingConversation(convId);
 
+  // Show upload progress for requests with files (indeterminate since fetch doesn't support progress)
+  const hasFiles = files && files.length > 0;
+  if (hasFiles) {
+    showUploadProgress();
+    // Show indeterminate progress (no percentage available with fetch)
+    updateUploadProgress(0);
+    const progressText = document.querySelector('.upload-progress-text');
+    if (progressText) {
+      progressText.textContent = 'Uploading...';
+    }
+  }
+
   try {
+    // Hide upload progress once streaming starts (upload complete)
+    let uploadProgressHidden = false;
+
     // Check if conversation is still current before processing each event
     for await (const event of chat.stream(convId, message, files, forceTools, abortController)) {
+      // Hide upload progress on first event (means upload is complete)
+      if (hasFiles && !uploadProgressHidden) {
+        hideUploadProgress();
+        useStore.getState().setUploadProgress(null);
+        uploadProgressHidden = true;
+      }
       // Check if user switched conversations - if so, update store but don't update UI
       const store = useStore.getState();
       const isCurrentConversation = store.currentConversation?.id === convId;
@@ -1430,6 +1458,10 @@ async function sendStreamingMessage(
     // Remove active request from store
     useStore.getState().removeActiveRequest(convId);
 
+    // Ensure upload progress is hidden (safety net)
+    hideUploadProgress();
+    useStore.getState().setUploadProgress(null);
+
     // IMPORTANT: Increment local message count BEFORE clearing streaming flag
     // This prevents a race condition where sync happens between clearing the flag
     // and incrementing the count, causing false "new messages available" banner
@@ -1468,10 +1500,22 @@ async function sendBatchMessage(
     type: 'batch',
   });
 
-  showLoadingIndicator();
+  // Show upload progress for requests with files
+  const hasFiles = files && files.length > 0;
+  if (hasFiles) {
+    showUploadProgress();
+  } else {
+    showLoadingIndicator();
+  }
 
   try {
-    const response = await chat.sendBatch(convId, message, files, forceTools);
+    // Pass progress callback for requests with files
+    const onUploadProgress = hasFiles ? (progress: number) => {
+      updateUploadProgress(progress);
+      useStore.getState().setUploadProgress(progress);
+    } : undefined;
+
+    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
 
     // Update user message ID from temp to real ID (for file fetching in lightbox)
@@ -1486,10 +1530,14 @@ async function sendBatchMessage(
     if (!isCurrentConversation) {
       // User switched conversations - message is saved to DB, just hide loading
       hideLoadingIndicator();
+      hideUploadProgress();
+      useStore.getState().setUploadProgress(null);
       return;
     }
 
     hideLoadingIndicator();
+    hideUploadProgress();
+    useStore.getState().setUploadProgress(null);
 
     const assistantMessage: Message = {
       id: response.id,
@@ -1563,6 +1611,8 @@ async function sendBatchMessage(
     getSyncManager()?.incrementLocalMessageCount(convId, 2);
   } catch (error) {
     hideLoadingIndicator();
+    hideUploadProgress();
+    useStore.getState().setUploadProgress(null);
 
     // Check if conversation is still current before showing errors
     const store = useStore.getState();
@@ -1579,6 +1629,9 @@ async function sendBatchMessage(
     activeRequests.delete(requestId);
     // Remove active request from store
     useStore.getState().removeActiveRequest(convId);
+    // Ensure upload progress is hidden (safety net)
+    hideUploadProgress();
+    useStore.getState().setUploadProgress(null);
   }
 }
 

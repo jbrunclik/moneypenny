@@ -308,6 +308,66 @@
 }
 
 /* ----------------------------------------
+   Upload Progress
+   ---------------------------------------- */
+
+.upload-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 0;
+}
+
+.upload-progress.hidden {
+    display: none;
+}
+
+.upload-progress-bar {
+    flex: 1;
+    height: 4px;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    position: relative;
+}
+
+.upload-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: var(--progress, 0%);
+    background-color: var(--accent);
+    border-radius: var(--radius-full);
+    transition: width 0.15s ease-out;
+}
+
+.upload-progress-text {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    min-width: 90px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Adjust input container when progress is shown */
+.upload-progress:not(.hidden) ~ .input-container {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-top: none;
+}
+
+/* When both file preview and progress are shown */
+.file-preview:not(.hidden) ~ .upload-progress {
+    border-top: none;
+}
+
+/* ----------------------------------------
    Drag and Drop
    ---------------------------------------- */
 

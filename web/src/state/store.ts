@@ -84,6 +84,7 @@ interface AppState {
   forceTools: string[];
   streamingConversationId: string | null; // Which conversation is currently streaming
   activeRequests: Map<string, ActiveRequestState>; // Active requests by conversation ID
+  uploadProgress: number | null; // Upload progress 0-100, null when not uploading
 
   // File upload
   pendingFiles: FileUpload[];
@@ -141,6 +142,7 @@ interface AppState {
   updateActiveRequestContent: (convId: string, content: string, thinkingState?: ThinkingState) => void;
   removeActiveRequest: (convId: string) => void;
   getActiveRequest: (convId: string) => ActiveRequestState | undefined;
+  setUploadProgress: (progress: number | null) => void;
 
   // Actions - Files
   addPendingFile: (file: FileUpload) => void;
@@ -206,6 +208,7 @@ export const useStore = create<AppState>()(
       forceTools: [],
       streamingConversationId: null,
       activeRequests: new Map(),
+      uploadProgress: null,
       pendingFiles: [],
       uploadConfig: DEFAULT_UPLOAD_CONFIG,
       appVersion: null,
@@ -443,6 +446,7 @@ export const useStore = create<AppState>()(
           return { activeRequests: newMap };
         }),
       getActiveRequest: (convId) => get().activeRequests.get(convId),
+      setUploadProgress: (uploadProgress) => set({ uploadProgress }),
 
       // File actions
       addPendingFile: (file) =>

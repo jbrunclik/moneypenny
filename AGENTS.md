@@ -479,6 +479,41 @@ Users can paste screenshots directly from the clipboard into the message input (
 - Unit tests: `handlePaste` describe block in [message-input.test.ts](web/tests/unit/message-input.test.ts)
 - E2E tests: "Chat - Clipboard Paste" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
 
+### Upload Progress
+
+When sending messages with file attachments, an upload progress indicator shows the upload status.
+
+**How it works:**
+1. When files are attached and the user clicks send, `showUploadProgress()` is called
+2. In batch mode: Uses XMLHttpRequest with `upload.onprogress` to track actual upload progress (0-100%)
+3. In streaming mode: Shows indeterminate progress ("Uploading...") since fetch doesn't support upload progress
+4. Progress bar updates in real-time showing percentage and "Processing..." at 100%
+5. `hideUploadProgress()` is called in the finally block to ensure cleanup
+
+**UI behavior:**
+- Progress bar appears below file preview, above input container
+- Shows percentage text (e.g., "Uploading 75%") during upload
+- Shows "Processing..." when upload reaches 100% (server is processing)
+- Hidden when not uploading (uses `.hidden` class)
+- CSS transition animates the progress bar smoothly
+
+**Implementation details:**
+- `requestWithProgress<T>()` in [client.ts](web/src/api/client.ts) wraps XHR for upload progress tracking
+- `chat.sendBatch()` accepts optional `onUploadProgress` callback, uses XHR when files are present
+- `showUploadProgress()`, `hideUploadProgress()`, `updateUploadProgress()` in [MessageInput.ts](web/src/components/MessageInput.ts)
+- `uploadProgress` state in Zustand store (not currently used for display, but available for future use)
+- CSS styles in [input.css](web/src/styles/components/input.css) using `--progress` custom property
+
+**Key files:**
+- [client.ts](web/src/api/client.ts) - `requestWithProgress()` XHR wrapper
+- [MessageInput.ts](web/src/components/MessageInput.ts) - Progress UI functions
+- [main.ts](web/src/main.ts) - Integration in `sendBatchMessage()` and `sendStreamingMessage()`
+- [input.css](web/src/styles/components/input.css) - `.upload-progress` styles
+
+**Testing:**
+- Unit tests: "Upload Progress UI Functions" describe block in [message-input.test.ts](web/tests/unit/message-input.test.ts)
+- E2E tests: "Chat - Upload Progress" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
+
 ### Copy to Clipboard
 
 The app provides copy-to-clipboard functionality at two levels:

@@ -288,6 +288,84 @@ async function requestWithRetry<T>(
   return request<T>(url, { ...options, retry: true });
 }
 
+/**
+ * Options for XHR requests with upload progress support.
+ */
+interface XhrRequestOptions {
+  /** Request timeout in milliseconds */
+  timeout?: number;
+  /** Callback for upload progress (0-100) */
+  onUploadProgress?: (progress: number) => void;
+}
+
+/**
+ * Make a POST request using XMLHttpRequest for upload progress support.
+ * Used when files are attached to get upload progress feedback.
+ */
+function requestWithProgress<T>(
+  url: string,
+  body: unknown,
+  options: XhrRequestOptions = {}
+): Promise<T> {
+  const { timeout = API_CHAT_TIMEOUT_MS, onUploadProgress } = options;
+  const token = getToken();
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+    xhr.timeout = timeout;
+
+    // Track upload progress
+    if (onUploadProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onUploadProgress(progress);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      let data: unknown;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        data = null;
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        log.debug('XHR response', { url, status: xhr.status });
+        resolve(data as T);
+      } else {
+        reject(parseErrorResponse(data, xhr.status));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new ApiError(
+        'Network error. Please check your connection.',
+        0,
+        { code: 'NETWORK_ERROR', retryable: true, isNetworkError: true }
+      ));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new ApiError(
+        'Request timed out. Please try again.',
+        0,
+        { code: 'TIMEOUT', retryable: true, isTimeout: true }
+      ));
+    };
+
+    log.debug('XHR request', { url });
+    xhr.send(JSON.stringify(body));
+  });
+}
+
 // Auth endpoints
 export const auth = {
   async getClientId(): Promise<string> {
@@ -451,22 +529,32 @@ export const chat = {
     conversationId: string,
     message: string,
     files?: FileUpload[],
-    forceTools?: string[]
+    forceTools?: string[],
+    onUploadProgress?: (progress: number) => void
   ): Promise<ChatResponse> {
     // POST - no retry (not idempotent - could duplicate message)
     // Use longer timeout for chat (image generation, complex tool chains)
-    return request<ChatResponse>(
-      `/api/conversations/${conversationId}/chat/batch`,
-      {
-        method: 'POST',
+    const url = `/api/conversations/${conversationId}/chat/batch`;
+    const body = {
+      message,
+      files,
+      force_tools: forceTools?.length ? forceTools : undefined,
+    };
+
+    // Use XHR with progress callback when files are attached
+    if (files && files.length > 0 && onUploadProgress) {
+      return requestWithProgress<ChatResponse>(url, body, {
         timeout: API_CHAT_TIMEOUT_MS,
-        body: JSON.stringify({
-          message,
-          files,
-          force_tools: forceTools?.length ? forceTools : undefined,
-        }),
-      }
-    );
+        onUploadProgress,
+      });
+    }
+
+    // Use standard fetch for requests without files
+    return request<ChatResponse>(url, {
+      method: 'POST',
+      timeout: API_CHAT_TIMEOUT_MS,
+      body: JSON.stringify(body),
+    });
   },
 
   async *stream(

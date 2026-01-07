@@ -353,6 +353,46 @@ function renderFilePreviewItem(file: FileUpload, index: number): string {
 }
 
 /**
+ * Show upload progress indicator
+ */
+export function showUploadProgress(): void {
+  const container = getElementById<HTMLDivElement>('upload-progress');
+  if (container) {
+    container.classList.remove('hidden');
+    updateUploadProgress(0);
+  }
+}
+
+/**
+ * Hide upload progress indicator
+ */
+export function hideUploadProgress(): void {
+  const container = getElementById<HTMLDivElement>('upload-progress');
+  if (container) {
+    container.classList.add('hidden');
+  }
+}
+
+/**
+ * Update upload progress indicator
+ * @param progress - Progress value from 0 to 100
+ */
+export function updateUploadProgress(progress: number): void {
+  const container = getElementById<HTMLDivElement>('upload-progress');
+  if (!container) return;
+
+  const bar = container.querySelector<HTMLDivElement>('.upload-progress-bar');
+  const text = container.querySelector<HTMLSpanElement>('.upload-progress-text');
+
+  if (bar) {
+    bar.style.setProperty('--progress', `${progress}%`);
+  }
+  if (text) {
+    text.textContent = progress < 100 ? `Uploading ${progress}%` : 'Processing...';
+  }
+}
+
+/**
  * Handle paste event on the message input.
  * Extracts image files from clipboard and adds them to pending files.
  * Text paste is handled normally by the browser.

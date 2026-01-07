@@ -2745,6 +2745,144 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
   });
 });
 
+test.describe('Chat - Upload Progress', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+  });
+
+  test('upload progress element exists and is initially hidden', async ({ page }) => {
+    const uploadProgress = page.locator('#upload-progress');
+
+    // Upload progress should exist in the DOM
+    await expect(uploadProgress).toBeAttached();
+
+    // Upload progress should be hidden initially
+    await expect(uploadProgress).toHaveClass(/hidden/);
+
+    // Should have progress bar and text elements
+    const progressBar = uploadProgress.locator('.upload-progress-bar');
+    const progressText = uploadProgress.locator('.upload-progress-text');
+    await expect(progressBar).toBeAttached();
+    await expect(progressText).toBeAttached();
+  });
+
+  test('upload progress shows briefly when sending message with files', async ({ page }) => {
+    const uploadProgress = page.locator('#upload-progress');
+
+    // Upload an image
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngBuffer = Buffer.from(pngBase64, 'base64');
+    await fileChooser.setFiles({
+      name: 'test-image.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+
+    // Verify file preview is shown
+    const filePreview = page.locator('#file-preview');
+    await expect(filePreview).not.toHaveClass(/hidden/, { timeout: 3000 });
+
+    // Add a batch delay to slow down the response so we can observe the progress
+    await page.request.post('/test/set-batch-delay', {
+      data: { delay_ms: 1000 },
+    });
+
+    // Set up a MutationObserver before clicking send to catch the progress indicator
+    const progressWasShown = page.evaluate(() => {
+      return new Promise<boolean>((resolve) => {
+        const uploadEl = document.getElementById('upload-progress');
+        if (!uploadEl) {
+          resolve(false);
+          return;
+        }
+
+        // If already visible, we caught it
+        if (!uploadEl.classList.contains('hidden')) {
+          resolve(true);
+          return;
+        }
+
+        // Watch for the hidden class to be removed
+        const observer = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            if (
+              mutation.type === 'attributes' &&
+              mutation.attributeName === 'class' &&
+              !uploadEl.classList.contains('hidden')
+            ) {
+              observer.disconnect();
+              resolve(true);
+              return;
+            }
+          }
+        });
+
+        observer.observe(uploadEl, { attributes: true, attributeFilter: ['class'] });
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          observer.disconnect();
+          resolve(false);
+        }, 5000);
+      });
+    });
+
+    // Click send to start the upload
+    await page.click('#send-btn');
+
+    // Check if progress was shown during the request
+    const wasShown = await progressWasShown;
+    expect(wasShown).toBe(true);
+
+    // Wait for the message to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+
+    // Progress should be hidden after completion
+    await expect(uploadProgress).toHaveClass(/hidden/);
+
+    // Reset batch delay
+    await page.request.post('/test/set-batch-delay', {
+      data: { delay_ms: 0 },
+    });
+  });
+
+  test('upload progress is hidden after completion', async ({ page }) => {
+    const uploadProgress = page.locator('#upload-progress');
+
+    // Upload an image
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngBuffer = Buffer.from(pngBase64, 'base64');
+    await fileChooser.setFiles({
+      name: 'test-image.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+
+    // Send the message
+    await page.click('#send-btn');
+
+    // Wait for the message to complete
+    const assistantMessage = page.locator('.message.assistant');
+    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+
+    // Progress should be hidden after completion
+    await expect(uploadProgress).toHaveClass(/hidden/);
+  });
+});
+
 test.describe('Chat - Conversation Switch During Streaming Scroll', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

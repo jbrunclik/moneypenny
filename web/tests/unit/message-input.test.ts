@@ -2,7 +2,16 @@
  * Unit tests for MessageInput component utilities
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { isIOSPWA, isIOS, shouldAutoFocusInput, isMobileViewport, handlePaste } from '@/components/MessageInput';
+import {
+  isIOSPWA,
+  isIOS,
+  shouldAutoFocusInput,
+  isMobileViewport,
+  handlePaste,
+  showUploadProgress,
+  hideUploadProgress,
+  updateUploadProgress,
+} from '@/components/MessageInput';
 import { MOBILE_BREAKPOINT_PX } from '@/config';
 import { useStore } from '@/state/store';
 
@@ -615,6 +624,151 @@ describe('handlePaste', () => {
 
       const passedFile = mockedAddFilesToPending.mock.calls[0][0][0];
       expect(passedFile.size).toBe(imageFile.size);
+    });
+  });
+});
+
+describe('Upload Progress UI Functions', () => {
+  let container: HTMLDivElement;
+
+  beforeEach(() => {
+    // Create the upload progress container DOM structure
+    container = document.createElement('div');
+    container.id = 'upload-progress';
+    container.className = 'upload-progress hidden';
+    container.innerHTML = `
+      <div class="upload-progress-bar"></div>
+      <span class="upload-progress-text">Uploading...</span>
+    `;
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    // Clean up DOM
+    container.remove();
+  });
+
+  describe('showUploadProgress', () => {
+    it('removes hidden class from container', () => {
+      expect(container.classList.contains('hidden')).toBe(true);
+
+      showUploadProgress();
+
+      expect(container.classList.contains('hidden')).toBe(false);
+    });
+
+    it('resets progress to 0%', () => {
+      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
+      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
+
+      showUploadProgress();
+
+      expect(bar.style.getPropertyValue('--progress')).toBe('0%');
+      expect(text.textContent).toBe('Uploading 0%');
+    });
+
+    it('does nothing if container not found', () => {
+      container.remove();
+
+      // Should not throw
+      expect(() => showUploadProgress()).not.toThrow();
+    });
+  });
+
+  describe('hideUploadProgress', () => {
+    it('adds hidden class to container', () => {
+      container.classList.remove('hidden');
+      expect(container.classList.contains('hidden')).toBe(false);
+
+      hideUploadProgress();
+
+      expect(container.classList.contains('hidden')).toBe(true);
+    });
+
+    it('does nothing if already hidden', () => {
+      expect(container.classList.contains('hidden')).toBe(true);
+
+      hideUploadProgress();
+
+      expect(container.classList.contains('hidden')).toBe(true);
+    });
+
+    it('does nothing if container not found', () => {
+      container.remove();
+
+      // Should not throw
+      expect(() => hideUploadProgress()).not.toThrow();
+    });
+  });
+
+  describe('updateUploadProgress', () => {
+    it('updates progress bar CSS custom property', () => {
+      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
+
+      updateUploadProgress(50);
+
+      expect(bar.style.getPropertyValue('--progress')).toBe('50%');
+    });
+
+    it('updates text to show percentage', () => {
+      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
+
+      updateUploadProgress(75);
+
+      expect(text.textContent).toBe('Uploading 75%');
+    });
+
+    it('shows "Processing..." at 100%', () => {
+      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
+
+      updateUploadProgress(100);
+
+      expect(text.textContent).toBe('Processing...');
+    });
+
+    it('handles 0% progress', () => {
+      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
+      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
+
+      updateUploadProgress(0);
+
+      expect(bar.style.getPropertyValue('--progress')).toBe('0%');
+      expect(text.textContent).toBe('Uploading 0%');
+    });
+
+    it('handles intermediate values', () => {
+      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
+      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
+
+      updateUploadProgress(33);
+
+      expect(bar.style.getPropertyValue('--progress')).toBe('33%');
+      expect(text.textContent).toBe('Uploading 33%');
+    });
+
+    it('does nothing if container not found', () => {
+      container.remove();
+
+      // Should not throw
+      expect(() => updateUploadProgress(50)).not.toThrow();
+    });
+
+    it('handles missing bar element gracefully', () => {
+      container.innerHTML = '<span class="upload-progress-text">Uploading...</span>';
+      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
+
+      // Should not throw, but still update text
+      expect(() => updateUploadProgress(50)).not.toThrow();
+      expect(text.textContent).toBe('Uploading 50%');
+    });
+
+    it('handles missing text element gracefully', () => {
+      container.innerHTML = '<div class="upload-progress-bar"></div>';
+      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
+
+      // Should not throw, but still update bar
+      expect(() => updateUploadProgress(50)).not.toThrow();
+      expect(bar.style.getPropertyValue('--progress')).toBe('50%');
     });
   });
 });
