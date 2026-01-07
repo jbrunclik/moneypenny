@@ -26,9 +26,18 @@ def get_request_json(request: Request) -> dict[str, Any] | None:
         This function catches JSONDecodeError to prevent 500 errors from
         malformed JSON requests. Callers should handle None return by
         using the invalid_json_error() response.
+
+        HTTPException subclasses (like RequestEntityTooLarge for 413) are
+        re-raised so Flask can handle them with proper error responses.
     """
+    from werkzeug.exceptions import HTTPException
+
     try:
         return request.get_json(silent=True) or {}
+    except HTTPException:
+        # Re-raise HTTP exceptions (e.g., 413 Request Entity Too Large)
+        # so Flask's error handler can return the appropriate response
+        raise
     except Exception:
         # Catches any JSON parsing errors
         return None

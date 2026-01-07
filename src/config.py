@@ -157,6 +157,10 @@ class Config:
     DATABASE_PATH: Path = BASE_DIR / os.getenv("DATABASE_PATH", "chatbot.db")
     BLOB_STORAGE_PATH: Path = BASE_DIR / os.getenv("BLOB_STORAGE_PATH", "files.db")
 
+    # Request size limits (DoS protection)
+    # Must be larger than MAX_FILE_SIZE * MAX_FILES_PER_MESSAGE to allow multi-file uploads
+    MAX_REQUEST_SIZE: int = int(os.getenv("MAX_REQUEST_SIZE", str(250 * BYTES_PER_MB)))  # 250 MB
+
     # File upload settings
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", str(20 * BYTES_PER_MB)))  # 20 MB default
     MAX_FILES_PER_MESSAGE: int = int(os.getenv("MAX_FILES_PER_MESSAGE", "10"))

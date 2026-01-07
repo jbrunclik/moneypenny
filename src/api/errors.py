@@ -38,6 +38,7 @@ class ErrorCode(str, Enum):
     # Resource errors
     NOT_FOUND = "NOT_FOUND"  # Resource doesn't exist
     CONFLICT = "CONFLICT"  # Resource state conflict
+    PAYLOAD_TOO_LARGE = "PAYLOAD_TOO_LARGE"  # Request body exceeds size limit
 
     # Server errors (potentially retryable)
     SERVER_ERROR = "SERVER_ERROR"  # Generic server error
@@ -239,6 +240,15 @@ def raise_external_service_error(
 def raise_invalid_json_error() -> NoReturn:
     """Raise an invalid JSON error (400)."""
     raise APIError(400, ErrorCode.INVALID_FORMAT, "Invalid JSON in request body")
+
+
+def raise_payload_too_large_error(
+    max_size_bytes: int | None = None,
+) -> NoReturn:
+    """Raise a payload too large error (413)."""
+    message = "Request body is too large."
+    details = {"max_size_bytes": max_size_bytes} if max_size_bytes else None
+    raise APIError(413, ErrorCode.PAYLOAD_TOO_LARGE, message, details)
 
 
 # =============================================================================

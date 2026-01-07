@@ -39,6 +39,9 @@ def create_app() -> APIFlask:
     # Error responses are returned as Flask Response objects to bypass this serialization.
     # See errors.py for details.
 
+    # Set max request size to prevent DoS attacks
+    app.config["MAX_CONTENT_LENGTH"] = Config.MAX_REQUEST_SIZE
+
     # Request ID middleware - must be before blueprints
     @app.before_request
     def add_request_id() -> None:
@@ -104,6 +107,7 @@ def create_app() -> APIFlask:
             401: ErrorCode.AUTH_REQUIRED,
             403: ErrorCode.AUTH_FORBIDDEN,
             404: ErrorCode.NOT_FOUND,
+            413: ErrorCode.PAYLOAD_TOO_LARGE,
             429: ErrorCode.RATE_LIMITED,
             500: ErrorCode.SERVER_ERROR,
             502: ErrorCode.EXTERNAL_SERVICE_ERROR,

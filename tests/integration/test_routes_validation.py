@@ -7,6 +7,7 @@ and returns correct error responses.
 import json
 from typing import TYPE_CHECKING
 
+from flask import Flask
 from flask.testing import FlaskClient
 
 if TYPE_CHECKING:
@@ -358,3 +359,44 @@ class TestValidationErrorFormat:
         assert not message.startswith("Value error")
         # But should contain the actual validation message
         assert "Invalid model" in message or "Choose from" in message
+
+
+class TestRequestSizeLimit:
+    """Tests for request body size limits (DoS protection)."""
+
+    def test_payload_too_large_returns_413(self, app: Flask, auth_headers: dict[str, str]) -> None:
+        """Should return 413 when request body exceeds MAX_CONTENT_LENGTH."""
+        # Temporarily set a very low limit on the app
+        original_limit = app.config.get("MAX_CONTENT_LENGTH")
+        app.config["MAX_CONTENT_LENGTH"] = 100  # 100 bytes
+
+        try:
+            client = app.test_client()
+            large_data = "x" * 200  # 200 bytes > 100 byte limit
+            response = client.post(
+                "/api/conversations",
+                headers=auth_headers,
+                data=large_data,
+                content_type="application/json",
+            )
+
+            # Flask raises RequestEntityTooLarge which becomes 413
+            assert response.status_code == 413
+            data = json.loads(response.data)
+            assert data["error"]["code"] == "PAYLOAD_TOO_LARGE"
+            assert data["error"]["retryable"] is False
+        finally:
+            app.config["MAX_CONTENT_LENGTH"] = original_limit
+
+    def test_normal_request_succeeds(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        """Should accept normal-sized requests."""
+        response = client.post(
+            "/api/conversations",
+            headers=auth_headers,
+            json={"model": "gemini-3-flash-preview"},
+        )
+
+        # Should succeed (201 for create)
+        assert response.status_code == 201
