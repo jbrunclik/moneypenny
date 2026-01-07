@@ -9,9 +9,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] Keyboard shortcuts
 - [ ] **Voice conversation mode** - Full voice-based conversation with speech-to-text input and text-to-speech output
 
-### Security
-- [ ] **Add rate limiting** - Add Flask-Limiter or similar to prevent abuse/DoS
-
 ### Code Quality
 - [ ] Consider async Flask (quart) for better concurrency
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing (100ms, 150ms, RAF). **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.

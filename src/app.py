@@ -6,6 +6,7 @@ from pathlib import Path
 from apiflask import APIFlask
 from flask import Response, render_template, request, send_from_directory
 
+from src.api.rate_limiting import init_rate_limiting
 from src.api.routes import api, auth
 from src.config import Config
 from src.utils.logging import get_logger, set_request_id, setup_logging
@@ -80,6 +81,10 @@ def create_app() -> APIFlask:
             },
         )
         return response
+
+    # Initialize rate limiting before registering blueprints
+    # This ensures the limiter is available when routes are registered
+    init_rate_limiting(app)
 
     # Register blueprints
     app.register_blueprint(api)

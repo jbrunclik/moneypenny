@@ -1,5 +1,6 @@
 # Core dependencies
 flask>=3.0
+flask-limiter>=3.5
 apiflask>=2.0
 pydantic>=2.0
 pillow>=10.0

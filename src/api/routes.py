@@ -27,6 +27,13 @@ from src.api.errors import (
     raise_server_error,
     raise_validation_error,
 )
+from src.api.rate_limiting import (
+    exempt_from_rate_limit,
+    rate_limit_auth,
+    rate_limit_chat,
+    rate_limit_conversations,
+    rate_limit_files,
+)
 from src.api.schemas import (
     # Response schemas
     AuthResponse,
@@ -103,7 +110,8 @@ auth = APIBlueprint("auth", __name__, url_prefix="/auth", tag="Auth")
 
 @auth.route("/google", methods=["POST"])
 @auth.output(AuthResponse, status_code=200)
-@auth.doc(responses=[400, 401, 403])
+@auth.doc(responses=[400, 401, 403, 429])
+@rate_limit_auth
 @validate_request(GoogleAuthRequest)
 def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
     """Authenticate with Google ID token from Sign In with Google."""
@@ -195,6 +203,8 @@ def refresh_token(user: User) -> dict[str, str]:
 
 @api.route("/conversations", methods=["GET"])
 @api.output(ConversationsListPaginatedResponse)
+@api.doc(responses=[429])
+@rate_limit_conversations
 @require_auth
 def list_conversations(user: User) -> dict[str, Any]:
     """List conversations for the current user with pagination.
@@ -261,6 +271,8 @@ def list_conversations(user: User) -> dict[str, Any]:
 
 @api.route("/conversations", methods=["POST"])
 @api.output(ConversationResponse, status_code=201)
+@api.doc(responses=[429])
+@rate_limit_conversations
 @require_auth
 @validate_request(CreateConversationRequest)
 def create_conversation(user: User, data: CreateConversationRequest) -> tuple[dict[str, str], int]:
@@ -285,7 +297,8 @@ def create_conversation(user: User, data: CreateConversationRequest) -> tuple[di
 
 @api.route("/conversations/<conv_id>", methods=["GET"])
 @api.output(ConversationDetailPaginatedResponse)
-@api.doc(responses=[404])
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
 @require_auth
 def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     """Get a conversation with its messages (paginated).
@@ -415,7 +428,8 @@ def _optimize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
 
 @api.route("/conversations/<conv_id>", methods=["PATCH"])
 @api.output(StatusResponse)
-@api.doc(responses=[404])
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
 @require_auth
 @validate_request(UpdateConversationRequest)
 def update_conversation(
@@ -443,7 +457,8 @@ def update_conversation(
 
 @api.route("/conversations/<conv_id>", methods=["DELETE"])
 @api.output(StatusResponse)
-@api.doc(responses=[404])
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
 @require_auth
 def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
     """Delete a conversation."""
@@ -461,7 +476,8 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 
 @api.route("/messages/<message_id>", methods=["DELETE"])
 @api.output(StatusResponse)
-@api.doc(responses=[404])
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
 @require_auth
 def delete_message(user: User, message_id: str) -> tuple[dict[str, str], int]:
     """Delete a message.
@@ -484,7 +500,8 @@ def delete_message(user: User, message_id: str) -> tuple[dict[str, str], int]:
 
 @api.route("/conversations/<conv_id>/messages", methods=["GET"])
 @api.output(MessagesListResponse)
-@api.doc(responses=[404])
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
 @require_auth
 def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     """Get paginated messages for a conversation.
@@ -574,6 +591,8 @@ def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
 
 @api.route("/conversations/sync", methods=["GET"])
 @api.output(SyncResponse)
+@api.doc(responses=[429])
+@rate_limit_conversations
 @require_auth
 def sync_conversations(user: User) -> dict[str, Any]:
     """Sync conversations - returns conversations updated since a given timestamp.
@@ -646,7 +665,8 @@ def sync_conversations(user: User) -> dict[str, Any]:
 
 @api.route("/conversations/<conv_id>/chat/batch", methods=["POST"])
 @api.output(ChatBatchResponse)
-@api.doc(responses=[400, 404, 500])
+@api.doc(responses=[400, 404, 429, 500])
+@rate_limit_chat
 @require_auth
 @validate_request(ChatRequest)
 def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, str], int]:
@@ -938,7 +958,9 @@ Returns text/event-stream with the following event types:
 
 Uses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.
 """,
+    responses=[429],
 )
+@rate_limit_chat
 @require_auth
 @validate_request(ChatRequest)
 def chat_stream(
@@ -1559,6 +1581,7 @@ def get_upload_config(user: User) -> dict[str, Any]:
 
 @api.route("/version", methods=["GET"])
 @api.output(VersionResponse)
+@exempt_from_rate_limit
 def get_version() -> dict[str, str | None]:
     """Get current app version (JS bundle hash).
 
@@ -1578,6 +1601,7 @@ def get_version() -> dict[str, str | None]:
 
 @api.route("/health", methods=["GET"])
 @api.output(HealthResponse)
+@exempt_from_rate_limit
 def health_check() -> tuple[dict[str, str | None], int]:
     """Liveness probe - checks if the application process is running.
 
@@ -1600,6 +1624,7 @@ def health_check() -> tuple[dict[str, str | None], int]:
 @api.route("/ready", methods=["GET"])
 @api.output(ReadinessResponse)
 @api.doc(responses=[503])
+@exempt_from_rate_limit
 def readiness_check() -> tuple[dict[str, Any], int]:
     """Readiness probe - checks if the application can serve traffic.
 
@@ -1652,8 +1677,9 @@ def readiness_check() -> tuple[dict[str, Any], int]:
 @api.doc(
     summary="Get thumbnail for an image file",
     description="Returns thumbnail binary data (200) or pending status (202).",
-    responses=[202, 403, 404],
+    responses=[202, 403, 404, 429],
 )
+@rate_limit_files
 @require_auth
 def get_message_thumbnail(
     user: User, message_id: str, file_index: int
@@ -1877,8 +1903,9 @@ def get_message_thumbnail(
 @api.doc(
     summary="Get full file from a message",
     description="Returns the file as binary data with appropriate content-type header.",
-    responses=[403, 404],
+    responses=[403, 404, 429],
 )
+@rate_limit_files
 @require_auth
 def get_message_file(
     user: User, message_id: str, file_index: int

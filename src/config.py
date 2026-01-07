@@ -274,6 +274,26 @@ class Config:
     MESSAGES_DEFAULT_PAGE_SIZE: int = int(os.getenv("MESSAGES_DEFAULT_PAGE_SIZE", "50"))
     MESSAGES_MAX_PAGE_SIZE: int = int(os.getenv("MESSAGES_MAX_PAGE_SIZE", "200"))
 
+    # Rate limiting settings
+    # Enable/disable rate limiting (disabled in development by default)
+    RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"
+    # Storage backend: "memory" (single-process), "redis" (distributed), or "memcached"
+    RATE_LIMIT_STORAGE_URI: str = os.getenv("RATE_LIMIT_STORAGE_URI", "memory://")
+
+    # Default rate limits (format: "count per period" e.g., "100 per hour", "10 per minute")
+    # These apply to authenticated endpoints by default
+    RATE_LIMIT_DEFAULT: str = os.getenv("RATE_LIMIT_DEFAULT", "200 per minute")
+
+    # Specific endpoint rate limits (stricter for sensitive/expensive operations)
+    # Authentication - stricter to prevent brute force
+    RATE_LIMIT_AUTH: str = os.getenv("RATE_LIMIT_AUTH", "10 per minute")
+    # Chat endpoints - moderate to prevent runaway clients while allowing normal use
+    RATE_LIMIT_CHAT: str = os.getenv("RATE_LIMIT_CHAT", "30 per minute")
+    # Conversation list/get - generous for normal browsing
+    RATE_LIMIT_CONVERSATIONS: str = os.getenv("RATE_LIMIT_CONVERSATIONS", "60 per minute")
+    # File downloads - generous but capped to prevent abuse
+    RATE_LIMIT_FILES: str = os.getenv("RATE_LIMIT_FILES", "120 per minute")
+
     @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of errors with clear guidance."""

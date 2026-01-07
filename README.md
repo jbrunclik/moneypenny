@@ -70,6 +70,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 ### Authentication & Security
 - Google Sign In authentication with email whitelist
 - Local development mode (no auth required)
+- **Rate limiting**: Per-user/per-IP rate limits to prevent abuse and protect against runaway clients
 
 ## Tech Stack
 
@@ -141,6 +142,15 @@ COST_CURRENCY=CZK                   # Display currency (USD, CZK, EUR, GBP)
 
 # User context (optional)
 USER_LOCATION=Prague, Czech Republic  # For localized units, currency, recommendations
+
+# Rate limiting (optional)
+RATE_LIMITING_ENABLED=true            # Enable/disable rate limiting
+RATE_LIMIT_STORAGE_URI=memory://      # Storage backend (memory://, redis://host:port)
+RATE_LIMIT_DEFAULT=200 per minute     # Default limit for all endpoints
+RATE_LIMIT_AUTH=10 per minute         # Auth endpoints (brute force protection)
+RATE_LIMIT_CHAT=30 per minute         # Chat endpoints (expensive LLM calls)
+RATE_LIMIT_CONVERSATIONS=60 per minute  # Conversation CRUD
+RATE_LIMIT_FILES=120 per minute       # File downloads
 ```
 
 ### Setting up Code Execution (Docker)
