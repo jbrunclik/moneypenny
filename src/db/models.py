@@ -1897,24 +1897,14 @@ class Database:
             return [], 0
 
         with self._pool.get_connection() as conn:
-            # Get total count of matches
-            count_row = self._execute_with_timing(
-                conn,
-                """
-                SELECT COUNT(*) as count
-                FROM search_index
-                WHERE user_id = ? AND search_index MATCH ?
-                """,
-                (user_id, fts_query),
-            ).fetchone()
-            total_count = int(count_row["count"]) if count_row else 0
-
-            if total_count == 0:
-                return [], 0
-
             # Get ranked results with conversation titles
             # bm25() returns negative scores where more negative = better match
             # snippet() returns text with highlight markers around matches
+            #
+            # Note: We fetch ALL matching results and deduplicate in Python because:
+            # 1. FTS5's bm25() and snippet() functions don't work with GROUP BY
+            # 2. The search index may have duplicate entries for the same message
+            # 3. We need accurate total counts after deduplication
             rows = self._execute_with_timing(
                 conn,
                 """
@@ -1936,39 +1926,60 @@ class Database:
                 LEFT JOIN messages m ON m.id = si.message_id
                 WHERE si.user_id = ? AND search_index MATCH ?
                 ORDER BY rank ASC, message_created_at DESC NULLS LAST
-                LIMIT ? OFFSET ?
                 """,
-                (user_id, fts_query, limit, offset),
+                (user_id, fts_query),
             ).fetchall()
 
-            results = [
-                SearchResult(
-                    conversation_id=row["conversation_id"],
-                    conversation_title=row["conversation_title"],
-                    message_id=row["message_id"],
-                    message_content=row["message_snippet"],
-                    match_type=row["match_type"],
-                    rank=float(row["rank"]),
-                    created_at=(
-                        datetime.fromisoformat(row["message_created_at"])
-                        if row["message_created_at"]
-                        else None
-                    ),
+            if not rows:
+                return [], 0
+
+            # Deduplicate results in Python by message_id (for message matches)
+            # or conversation_id (for title matches). This handles duplicate
+            # index entries that can occur due to trigger timing or other issues.
+            seen: set[str] = set()
+            unique_results: list[SearchResult] = []
+
+            for row in rows:
+                # Use message_id as unique key for message matches,
+                # conversation_id for title matches
+                unique_key = row["message_id"] or row["conversation_id"]
+                if unique_key in seen:
+                    continue
+                seen.add(unique_key)
+
+                unique_results.append(
+                    SearchResult(
+                        conversation_id=row["conversation_id"],
+                        conversation_title=row["conversation_title"],
+                        message_id=row["message_id"],
+                        message_content=row["message_snippet"],
+                        match_type=row["match_type"],
+                        rank=float(row["rank"]),
+                        created_at=(
+                            datetime.fromisoformat(row["message_created_at"])
+                            if row["message_created_at"]
+                            else None
+                        ),
+                    )
                 )
-                for row in rows
-            ]
+
+            # Total count is the number of unique results
+            total_count = len(unique_results)
+
+            # Apply pagination after deduplication
+            paginated_results = unique_results[offset : offset + limit]
 
             logger.debug(
                 "Search completed",
                 extra={
                     "user_id": user_id,
                     "query": query,
-                    "results": len(results),
+                    "results": len(paginated_results),
                     "total": total_count,
                 },
             )
 
-            return results, total_count
+            return paginated_results, total_count
 
     # ============================================================================
     # App Settings

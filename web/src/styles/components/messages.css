@@ -847,15 +847,25 @@ a.document-name:hover {
 
 .message.search-highlight {
     animation: search-highlight-pulse 2s ease-out;
+    border-radius: var(--radius-md);
+    position: relative;
 }
 
 @keyframes search-highlight-pulse {
     0% {
-        background-color: var(--color-brand-400);
-        box-shadow: 0 0 0 4px var(--color-brand-400);
+        /* Subtle outline glow that doesn't affect layout */
+        outline: 2px solid var(--color-brand-400);
+        outline-offset: 4px;
+        background-color: color-mix(in srgb, var(--color-brand-400) 10%, transparent);
+    }
+    50% {
+        outline: 2px solid var(--color-brand-400);
+        outline-offset: 4px;
+        background-color: color-mix(in srgb, var(--color-brand-400) 10%, transparent);
     }
     100% {
+        outline: 2px solid transparent;
+        outline-offset: 4px;
         background-color: transparent;
-        box-shadow: none;
     }
 }

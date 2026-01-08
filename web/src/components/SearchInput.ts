@@ -46,7 +46,10 @@ export function renderSearchInput(): void {
   const container = getElementById<HTMLDivElement>('search-container');
   if (!container) return;
 
-  const { searchQuery } = useStore.getState();
+  const { searchQuery, isSearchActive } = useStore.getState();
+
+  // Show clear button when search is active (even with empty query) so mobile users can exit
+  const showClearBtn = isSearchActive || searchQuery;
 
   container.innerHTML = `
     <div class="search-input-wrapper">
@@ -62,7 +65,7 @@ export function renderSearchInput(): void {
       />
       <button
         type="button"
-        class="search-clear-btn ${searchQuery ? '' : 'hidden'}"
+        class="search-clear-btn ${showClearBtn ? '' : 'hidden'}"
         aria-label="Clear search"
       >
         ${CLOSE_ICON}
@@ -134,9 +137,9 @@ function handleClick(event: MouseEvent): void {
   if (clearBtn) {
     event.preventDefault();
     clearSearch();
-    // Refocus the input after clearing
+    // Blur the input to fully exit search mode (consistent with Escape key behavior)
     const input = getElementById<HTMLInputElement>('search-input');
-    input?.focus();
+    input?.blur();
   }
 }
 

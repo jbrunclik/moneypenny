@@ -155,8 +155,12 @@ test.describe('Search - Results', () => {
     // Click the result
     await resultItem.click();
 
-    // Should navigate to the conversation - search should be cleared
-    await expect(searchInput).toHaveValue('');
+    // Should navigate to the conversation - search query should persist
+    await expect(searchInput).toHaveValue('Unique search test');
+
+    // Search results should still be visible with the clicked result highlighted
+    await expect(resultItem).toBeVisible();
+    await expect(resultItem).toHaveClass(/active/);
 
     // Should show the conversation with the matching message
     const userMessage = page.locator('.message.user');
@@ -289,7 +293,7 @@ test.describe('Search - Navigation', () => {
     }
   });
 
-  test('clears search when clicking on result', async ({ page }) => {
+  test('keeps search results visible after clicking on result', async ({ page }) => {
     // Create a conversation
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Navigation test message');
@@ -306,12 +310,12 @@ test.describe('Search - Navigation', () => {
     await expect(resultItem).toBeVisible({ timeout: 5000 });
     await resultItem.click();
 
-    // Search should be cleared
-    await expect(searchInput).toHaveValue('');
+    // Search query should persist
+    await expect(searchInput).toHaveValue('Navigation test');
 
-    // Conversation list should be visible (not search results)
-    const conversationsList = page.locator('.conversation-item-wrapper');
-    await expect(conversationsList.first()).toBeVisible();
+    // Search results should still be visible with the clicked result highlighted
+    await expect(resultItem).toBeVisible();
+    await expect(resultItem).toHaveClass(/active/);
   });
 
   test('returns to conversation list when search is cleared', async ({ page }) => {
@@ -540,15 +544,14 @@ test.describe('Search - Navigation with Pagination', () => {
     await expect(resultItem).toBeVisible({ timeout: 5000 });
 
     // Double-click the result (simulates user accidentally double-clicking)
-    // The first click processes the navigation, second click should be ignored
-    // since search mode is cleared and the element is removed
+    // Both clicks process navigation to the same result (idempotent)
     await resultItem.dblclick();
 
     // Wait for navigation to complete
     await page.waitForTimeout(1000);
 
-    // Should have navigated successfully with no error
-    await expect(searchInput).toHaveValue('');
+    // Should have navigated successfully - search query persists
+    await expect(searchInput).toHaveValue('RAPID_CLICK_TEST');
 
     // The target message should be visible
     const targetMessage = page.locator('.message.user:has-text("RAPID_CLICK_TEST")');

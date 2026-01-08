@@ -16,7 +16,7 @@ import {
   updateMonthlyCost,
   cleanupInfiniteScroll,
 } from './components/Sidebar';
-import { initSearchInput, clearSearch } from './components/SearchInput';
+import { initSearchInput } from './components/SearchInput';
 import { subscribeToSearchChanges } from './components/SearchResults';
 import {
   renderMessages,
@@ -745,14 +745,15 @@ function isTempConversation(convId: string): boolean {
 
 /**
  * Handle click on a search result - navigate to conversation and optionally scroll to message
+ * Search results stay visible so user can try other results
  */
-async function handleSearchResultClick(convId: string, messageId: string | null): Promise<void> {
-  log.debug('Search result clicked', { convId, messageId });
+async function handleSearchResultClick(convId: string, messageId: string | null, resultIndex: number): Promise<void> {
+  log.debug('Search result clicked', { convId, messageId, resultIndex });
 
-  // Clear search and deactivate search mode
-  clearSearch();
+  // Track which result is being viewed (by index, not by message_id to handle duplicates)
+  useStore.getState().setViewedSearchResult(resultIndex);
 
-  // Close sidebar on mobile
+  // Close sidebar on mobile (user can reopen to see results)
   closeSidebar();
 
   // Navigate to the conversation
@@ -924,8 +925,9 @@ async function scrollToAndHighlightMessage(messageId: string): Promise<void> {
     return;
   }
 
-  // Scroll the message into view - use 'center' to position it in the middle of the viewport
-  messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Scroll the message into view - use 'start' to position it at the top of the viewport
+  // This is better UX for long messages where 'center' would show the middle of the message
+  messageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   // Apply highlight animation
   messageEl.classList.add('search-highlight');

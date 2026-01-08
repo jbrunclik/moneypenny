@@ -32,7 +32,7 @@ export function renderSearchResults(): void {
   const container = getElementById<HTMLDivElement>('conversations-list');
   if (!container) return;
 
-  const { searchQuery, searchResults, searchTotal, isSearching, isSearchActive } = useStore.getState();
+  const { searchQuery, searchResults, searchTotal, isSearching, isSearchActive, viewedSearchResultId } = useStore.getState();
 
   // If search is not active, don't render
   if (!isSearchActive) {
@@ -70,8 +70,8 @@ export function renderSearchResults(): void {
     return;
   }
 
-  // Render results
-  const resultsHtml = searchResults.map(renderSearchResultItem).join('');
+  // Render results with active state (use index for unique identification)
+  const resultsHtml = searchResults.map((result, index) => renderSearchResultItem(result, index, viewedSearchResultId)).join('');
   const countText = searchTotal === 1 ? '1 result' : `${searchTotal} results`;
 
   container.innerHTML = `
@@ -89,7 +89,7 @@ export function renderSearchResults(): void {
 /**
  * Render a single search result item
  */
-function renderSearchResultItem(result: SearchResult): string {
+function renderSearchResultItem(result: SearchResult, index: number, viewedResultIndex: number | null): string {
   const title = escapeHtml(result.conversation_title);
   const isMessageMatch = result.match_type === 'message';
 
@@ -99,13 +99,16 @@ function renderSearchResultItem(result: SearchResult): string {
     snippetHtml = formatSnippet(result.message_snippet);
   }
 
-  // Build data attributes for navigation
-  const dataAttrs = `data-conv-id="${result.conversation_id}"${
+  // Check if this result is currently being viewed (by index, not by message_id)
+  const isActive = viewedResultIndex === index;
+
+  // Build data attributes for navigation (include index for click handler)
+  const dataAttrs = `data-conv-id="${result.conversation_id}" data-result-index="${index}"${
     result.message_id ? ` data-message-id="${result.message_id}"` : ''
   }`;
 
   return `
-    <div class="search-result-item" ${dataAttrs}>
+    <div class="search-result-item${isActive ? ' active' : ''}" ${dataAttrs}>
       <div class="search-result-title">${title}</div>
       ${snippetHtml ? `<div class="search-result-snippet">${snippetHtml}</div>` : ''}
       <div class="search-result-meta">
@@ -162,7 +165,7 @@ function formatDate(isoDate: string): string {
 /**
  * Subscribe to store changes and re-render when search state changes
  */
-export function subscribeToSearchChanges(onResultClick: (convId: string, messageId: string | null) => void): () => void {
+export function subscribeToSearchChanges(onResultClick: (convId: string, messageId: string | null, resultIndex: number) => void): () => void {
   // Track previous search active state to detect when search is deactivated
   let wasSearchActive = useStore.getState().isSearchActive;
 
@@ -173,6 +176,7 @@ export function subscribeToSearchChanges(onResultClick: (convId: string, message
       searchResults: state.searchResults,
       isSearching: state.isSearching,
       searchQuery: state.searchQuery,
+      viewedSearchResultId: state.viewedSearchResultId,
     }),
     (state) => {
       // If search was active and now it's not, re-render conversation list
@@ -192,7 +196,8 @@ export function subscribeToSearchChanges(onResultClick: (convId: string, message
       a.isSearchActive === b.isSearchActive &&
       a.searchResults === b.searchResults &&
       a.isSearching === b.isSearching &&
-      a.searchQuery === b.searchQuery
+      a.searchQuery === b.searchQuery &&
+      a.viewedSearchResultId === b.viewedSearchResultId
     }
   );
 
@@ -206,10 +211,11 @@ export function subscribeToSearchChanges(onResultClick: (convId: string, message
       if (resultItem) {
         const convId = resultItem.dataset.convId;
         const messageId = resultItem.dataset.messageId || null;
+        const resultIndex = resultItem.dataset.resultIndex;
 
-        if (convId) {
-          log.debug('Search result clicked', { convId, messageId });
-          onResultClick(convId, messageId);
+        if (convId && resultIndex !== undefined) {
+          log.debug('Search result clicked', { convId, messageId, resultIndex });
+          onResultClick(convId, messageId, parseInt(resultIndex, 10));
         }
       }
     };

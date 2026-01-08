@@ -110,6 +110,7 @@ interface AppState {
   searchTotal: number;
   isSearching: boolean;
   isSearchActive: boolean; // True when search UI is shown (even with empty query)
+  viewedSearchResultId: number | null; // Index of currently viewed search result (unique per result list)
 
   // Actions - Auth
   setToken: (token: string | null) => void;
@@ -182,6 +183,7 @@ interface AppState {
   activateSearch: () => void;
   deactivateSearch: () => void;
   clearSearch: () => void;
+  setViewedSearchResult: (resultIndex: number | null) => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -241,6 +243,7 @@ export const useStore = create<AppState>()(
       searchTotal: 0,
       isSearching: false,
       isSearchActive: false,
+      viewedSearchResultId: null,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -536,8 +539,9 @@ export const useStore = create<AppState>()(
       setSearchResults: (searchResults, searchTotal) => set({ searchResults, searchTotal }),
       setIsSearching: (isSearching) => set({ isSearching }),
       activateSearch: () => set({ isSearchActive: true }),
-      deactivateSearch: () => set({ isSearchActive: false, searchQuery: '', searchResults: [], searchTotal: 0 }),
-      clearSearch: () => set({ searchQuery: '', searchResults: [], searchTotal: 0, isSearching: false, isSearchActive: false }),
+      deactivateSearch: () => set({ isSearchActive: false, searchQuery: '', searchResults: [], searchTotal: 0, viewedSearchResultId: null }),
+      clearSearch: () => set({ searchQuery: '', searchResults: [], searchTotal: 0, isSearching: false, isSearchActive: false, viewedSearchResultId: null }),
+      setViewedSearchResult: (viewedSearchResultId) => set({ viewedSearchResultId }),
     }),
     {
       name: 'ai-chatbot-storage',

@@ -439,6 +439,10 @@
     background-color: var(--bg-hover);
 }
 
+.search-result-item.active {
+    background-color: var(--bg-tertiary);
+}
+
 .search-result-title {
     font-size: var(--font-size-base);
     font-weight: 500;
@@ -481,8 +485,8 @@
     text-transform: capitalize;
 }
 
-/* Separator dot between type and date */
-.search-result-type::after {
+/* Separator dot between type and date - only show when date follows */
+.search-result-meta:has(.search-result-date) .search-result-type::after {
     content: "·";
     margin-left: var(--space-2);
     color: var(--text-muted);
