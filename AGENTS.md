@@ -947,8 +947,8 @@ The `getTextContentForTTS()` function excludes from reading:
 - Copyable header elements (`.copyable-header`)
 
 ### Toggle behavior
-- Click the speak button to start reading
-- Click again while speaking to stop
+- Click the speak button to start reading - button transforms to red pulsing stop icon
+- Click stop button to stop reading - button transforms back to speaker icon
 - Starting a new message's speech automatically stops the current one
 
 ### Language migration
@@ -963,7 +963,7 @@ For existing messages without language data:
 - [utils.py](src/api/utils.py) - `extract_language_from_metadata()`
 - [chat_agent.py](src/agent/chat_agent.py) - System prompt requiring language in metadata
 - [messages.css](web/src/styles/components/messages.css) - `.message-speak-btn` styles
-- [icons.ts](web/src/utils/icons.ts) - `SPEAKER_ICON`
+- [icons.ts](web/src/utils/icons.ts) - `SPEAKER_ICON`, `STOP_ICON`
 
 ## Thinking Indicator
 

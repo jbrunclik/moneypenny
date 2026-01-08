@@ -83,7 +83,7 @@ import {
   pushEmptyHash,
   isValidConversationId,
 } from './router/deeplink';
-import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
+import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, SPEAKER_ICON, STOP_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
 import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_RESULT_MESSAGES_LIMIT } from './config';
@@ -1111,14 +1111,16 @@ function speakMessage(messageId: string, language?: string): void {
       const speakingMsgId = speakingButton.closest('.message')?.getAttribute('data-message-id');
       if (speakingMsgId === messageId) {
         speakingButton.classList.remove('speaking');
+        speakingButton.innerHTML = SPEAKER_ICON;
         return;
       }
     }
   }
 
-  // Clear any previous speaking state
+  // Clear any previous speaking state and restore icons
   document.querySelectorAll('.message-speak-btn.speaking').forEach(btn => {
     btn.classList.remove('speaking');
+    btn.innerHTML = SPEAKER_ICON;
   });
 
   // Get the message content
@@ -1158,21 +1160,29 @@ function speakMessage(messageId: string, language?: string): void {
     }
   }
 
-  // Mark button as speaking
+  // Mark button as speaking and swap to stop icon
   const speakBtn = messageEl.querySelector('.message-speak-btn');
   if (speakBtn) {
     speakBtn.classList.add('speaking');
+    speakBtn.innerHTML = STOP_ICON;
   }
 
-  // Handle end of speech
+  // Handle end of speech - restore speaker icon
   utterance.onend = () => {
     speakBtn?.classList.remove('speaking');
+    if (speakBtn) {
+      speakBtn.innerHTML = SPEAKER_ICON;
+    }
   };
 
   utterance.onerror = (event) => {
     log.error('TTS error', { error: event.error, messageId });
     speakBtn?.classList.remove('speaking');
-    if (event.error !== 'canceled') {
+    if (speakBtn) {
+      speakBtn.innerHTML = SPEAKER_ICON;
+    }
+    // Don't show error for user-initiated cancellation or interruption
+    if (event.error !== 'canceled' && event.error !== 'interrupted') {
       toast.error('Failed to read message aloud.');
     }
   };

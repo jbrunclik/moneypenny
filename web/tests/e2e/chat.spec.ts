@@ -1466,6 +1466,16 @@ test.describe('Chat - Stop Streaming', () => {
     if (isPressed !== 'true') {
       await streamBtn.click();
     }
+
+    // Set a very slow stream delay so there's time to click the stop button
+    // Default is 10ms which is too fast for tests that need to interact with the stop button
+    // With ~10 words in the response and 1000ms per word, we get ~10 seconds of streaming
+    await page.request.post('/test/set-stream-delay', { data: { delay_ms: 1000 } });
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Reset stream delay to default after each test
+    await page.request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
   });
 
   test('send button shows send icon initially', async ({ page }) => {
@@ -1497,11 +1507,11 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(sendBtn).not.toHaveClass(/btn-send/);
     await expect(sendBtn).toHaveAttribute('title', 'Stop generating');
 
-    // Wait for streaming to complete naturally
-    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
-
-    // After streaming, should revert to send button
-    await expect(sendBtn).toHaveClass(/btn-send/);
+    // Wait for streaming to complete naturally by waiting for the button to revert
+    // With 1000ms delay per word (set in beforeEach), streaming takes ~10-12 seconds
+    // Note: We wait for btn-send class instead of text because the response text
+    // ("mock response") appears early in the stream, before it's complete
+    await expect(sendBtn).toHaveClass(/btn-send/, { timeout: 15000 });
     await expect(sendBtn).not.toHaveClass(/btn-stop/);
     await expect(sendBtn).toHaveAttribute('title', 'Send message');
   });
@@ -1519,11 +1529,10 @@ test.describe('Chat - Stop Streaming', () => {
     const assistantMessage = page.locator('.message.assistant');
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
 
-    // Wait for stop button to appear
-    await expect(sendBtn).toHaveClass(/btn-stop/, { timeout: 2000 });
-
-    // Click the stop button
-    await sendBtn.click();
+    // Click the stop button - use selector with class to ensure atomicity
+    // This waits for the button to have btn-stop class before clicking
+    // Use force:true to skip stability check (button has pulsing animation)
+    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
 
     // Toast should appear confirming the action
     const toast = page.locator('.toast-info');
@@ -1597,12 +1606,7 @@ test.describe('Chat - Stop Streaming', () => {
   });
 
   test('abort handles quick stop during thinking phase', async ({ page }) => {
-    // Use a longer stream delay to ensure we have time to click stop
-    // This is especially needed on webkit in CI environments
-    await page.request.post('/test/set-stream-delay', { data: { delay_ms: 100 } });
-
-    const sendBtn = page.locator('#send-btn');
-
+    // beforeEach already sets a slow stream delay (500ms)
     // Type a message that triggers thinking
     await page.fill('#message-input', 'Let me think about this');
 
@@ -1613,11 +1617,9 @@ test.describe('Chat - Stop Streaming', () => {
     const assistantMessage = page.locator('.message.assistant');
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
 
-    // Wait for stop button
-    await expect(sendBtn).toHaveClass(/btn-stop/, { timeout: 2000 });
-
-    // Click stop immediately (during early phase)
-    await sendBtn.click();
+    // Click stop button - use selector with class to ensure atomicity
+    // Use force:true to skip stability check (button has pulsing animation)
+    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
 
     // Should show toast
     const toast = page.locator('.toast-info');
@@ -1628,10 +1630,9 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(assistantMessage).toHaveCount(0, { timeout: 2000 });
 
     // Button should revert
+    const sendBtn = page.locator('#send-btn');
     await expect(sendBtn).toHaveClass(/btn-send/);
-
-    // Reset stream delay to default
-    await page.request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
+    // afterEach resets stream delay to default
   });
 });
 

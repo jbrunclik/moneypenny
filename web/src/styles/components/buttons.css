@@ -170,6 +170,18 @@
     border: none;
     cursor: pointer;
     transition: background-color var(--transition-fast);
+    animation: stop-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes stop-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
 }
 
 .btn-stop svg {
