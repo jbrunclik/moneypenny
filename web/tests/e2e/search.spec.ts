@@ -49,30 +49,94 @@ test.describe('Search - Input', () => {
     await expect(searchEmpty).not.toBeVisible({ timeout: 2000 });
   });
 
-  test('clear button appears when typing and clears on click', async ({ page }) => {
+  test('clear button appears when typing and clears text on click', async ({ page }) => {
+    const searchInput = page.locator('#search-input');
+    const clearBtn = page.locator('.search-clear-btn');
+
+    // Clear button should be hidden initially (before focus)
+    await expect(clearBtn).toHaveClass(/hidden/);
+
+    // Type something (this focuses the input)
+    await searchInput.fill('test');
+
+    // Clear button should be visible
+    await expect(clearBtn).not.toHaveClass(/hidden/);
+
+    // Click clear button - first click clears text but keeps search mode active
+    await clearBtn.click();
+
+    // Input should be cleared
+    await expect(searchInput).toHaveValue('');
+
+    // Clear button should still be visible (search mode is still active)
+    await expect(clearBtn).not.toHaveClass(/hidden/);
+
+    // Focus should remain on input
+    await expect(searchInput).toBeFocused();
+
+    // Search mode should still be active (search empty state visible)
+    const searchEmpty = page.locator('.search-empty');
+    await expect(searchEmpty).toBeVisible();
+  });
+
+  test('clear button is visible immediately when search is focused', async ({ page }) => {
     const searchInput = page.locator('#search-input');
     const clearBtn = page.locator('.search-clear-btn');
 
     // Clear button should be hidden initially
     await expect(clearBtn).toHaveClass(/hidden/);
 
-    // Type something
-    await searchInput.fill('test');
+    // Focus the search input (without typing)
+    await searchInput.focus();
 
-    // Clear button should be visible
+    // Clear button should now be visible (so user can exit search mode)
+    await expect(clearBtn).not.toHaveClass(/hidden/);
+  });
+
+  test('clear button exits search mode when clicked with empty input', async ({ page }) => {
+    const searchInput = page.locator('#search-input');
+    const clearBtn = page.locator('.search-clear-btn');
+    const searchEmpty = page.locator('.search-empty');
+
+    // Focus to activate search mode
+    await searchInput.focus();
+
+    // Verify search mode is active
+    await expect(searchEmpty).toBeVisible();
     await expect(clearBtn).not.toHaveClass(/hidden/);
 
-    // Click clear button
+    // Click clear button with empty input - should exit search mode
     await clearBtn.click();
 
-    // Input should be cleared
-    await expect(searchInput).toHaveValue('');
+    // Search mode should be deactivated
+    await expect(searchEmpty).not.toBeVisible({ timeout: 2000 });
 
-    // Clear button should be hidden again
+    // Clear button should be hidden
     await expect(clearBtn).toHaveClass(/hidden/);
 
-    // Focus should remain on input
-    await expect(searchInput).toBeFocused();
+    // Input should be blurred
+    await expect(searchInput).not.toBeFocused();
+  });
+
+  test('two clicks exits search mode when input has text', async ({ page }) => {
+    const searchInput = page.locator('#search-input');
+    const clearBtn = page.locator('.search-clear-btn');
+    const searchEmpty = page.locator('.search-empty');
+
+    // Type something to activate search with text
+    await searchInput.fill('test query');
+
+    // First click - clears text, keeps search mode active
+    await clearBtn.click();
+    await expect(searchInput).toHaveValue('');
+    await expect(searchEmpty).toBeVisible();
+    await expect(clearBtn).not.toHaveClass(/hidden/);
+
+    // Second click - exits search mode entirely
+    await clearBtn.click();
+    await expect(searchEmpty).not.toBeVisible({ timeout: 2000 });
+    await expect(clearBtn).toHaveClass(/hidden/);
+    await expect(searchInput).not.toBeFocused();
   });
 });
 

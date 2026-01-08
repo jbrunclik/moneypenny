@@ -4,7 +4,6 @@ This file tracks planned features, improvements, and technical debt.
 
 ## Features
 - [ ] **Thinking mode toggle** - Allow enabling Gemini thinking mode with configurable level (minimal/low/medium/high) using long-press UI similar to voice input language selector
-- [ ] Text-to-speech tool
 - [ ] Conversation sharing (public links)
 - [ ] Keyboard shortcuts
 - [ ] **Voice conversation mode** - Full voice-based conversation with speech-to-text input and text-to-speech output

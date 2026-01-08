@@ -124,11 +124,20 @@ function handleFocus(event: FocusEvent): void {
   if (target.id !== 'search-input') return;
 
   useStore.getState().activateSearch();
+
+  // Show clear button so user can exit search mode
+  const clearBtn = document.querySelector('.search-clear-btn');
+  clearBtn?.classList.remove('hidden');
+
   log.debug('Search activated');
 }
 
 /**
  * Handle click events (clear button)
+ *
+ * UX behavior:
+ * - If there's text in the input: clear it but keep search mode active (user might want to search again)
+ * - If input is empty (button shown because search is active): exit search mode entirely
  */
 function handleClick(event: MouseEvent): void {
   const target = event.target as HTMLElement;
@@ -136,10 +145,18 @@ function handleClick(event: MouseEvent): void {
 
   if (clearBtn) {
     event.preventDefault();
-    clearSearch();
-    // Re-focus the input so user can continue typing a new search
     const input = getElementById<HTMLInputElement>('search-input');
-    input?.focus();
+    const hasText = input && input.value.trim().length > 0;
+
+    if (hasText) {
+      // Clear text but keep search mode active for a new search
+      clearSearchText();
+      input?.focus();
+    } else {
+      // No text - exit search mode entirely
+      clearSearch();
+      input?.blur();
+    }
   }
 }
 
@@ -184,6 +201,31 @@ async function performSearch(query: string): Promise<void> {
       useStore.getState().setIsSearching(false);
     }
   }
+}
+
+/**
+ * Clear search text but keep search mode active (for typing a new query)
+ */
+function clearSearchText(): void {
+  // Cancel any pending debounced search
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = null;
+  }
+
+  currentSearchQuery = '';
+
+  // Clear results but keep search active
+  useStore.getState().setSearchQuery('');
+  useStore.getState().setSearchResults([], 0);
+
+  // Update input
+  const input = getElementById<HTMLInputElement>('search-input');
+  if (input) {
+    input.value = '';
+  }
+
+  log.debug('Search text cleared, search mode still active');
 }
 
 /**
