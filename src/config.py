@@ -274,6 +274,11 @@ class Config:
     MESSAGES_DEFAULT_PAGE_SIZE: int = int(os.getenv("MESSAGES_DEFAULT_PAGE_SIZE", "50"))
     MESSAGES_MAX_PAGE_SIZE: int = int(os.getenv("MESSAGES_MAX_PAGE_SIZE", "200"))
 
+    # "Around" pagination for search result navigation
+    # These control how many messages are loaded before/after a target message
+    MESSAGES_AROUND_BEFORE_DEFAULT: int = int(os.getenv("MESSAGES_AROUND_BEFORE_DEFAULT", "25"))
+    MESSAGES_AROUND_AFTER_DEFAULT: int = int(os.getenv("MESSAGES_AROUND_AFTER_DEFAULT", "25"))
+
     # Search settings
     SEARCH_MAX_QUERY_LENGTH: int = int(os.getenv("SEARCH_MAX_QUERY_LENGTH", "200"))
     SEARCH_MAX_LIMIT: int = int(os.getenv("SEARCH_MAX_LIMIT", "50"))

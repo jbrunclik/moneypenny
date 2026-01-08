@@ -1563,8 +1563,49 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 2. **Debounced input**: 300ms debounce prevents excessive API calls
 3. **Result display**: Results replace conversation list with count header
 4. **Highlighting**: Matched text wrapped in `[[HIGHLIGHT]]...[[/HIGHLIGHT]]` markers, converted to `<mark>` tags
-5. **Navigation**: Click result to navigate to conversation, scroll to message, and highlight (2s animation)
+5. **Navigation**: Click result to navigate to conversation, load messages centered on target using `around_message_id`, scroll to message, and highlight (2s animation)
 6. **Deactivation**: Press Escape or click clear button to exit search mode
+
+### Search result navigation (O(1) optimization)
+
+When navigating to a search result in a large conversation, the app uses `around_message_id` to load messages centered around the target in a single API call, rather than loading from newest until finding the target (which was O(n)).
+
+**How it works:**
+1. User clicks search result with `message_id`
+2. Frontend calls `GET /api/conversations/{id}/messages?around_message_id={message_id}&limit=100`
+3. Backend's `get_messages_around()` loads ~50 messages before and ~50 after the target
+4. Frontend replaces current messages with the centered page
+5. Both scroll listeners (older/newer) are set up for bi-directional pagination
+6. User can scroll up to load older messages, or down to load newer messages
+
+**Edge cases handled:**
+- **Sending message after search navigation**: If `hasNewer` is true, `loadAllRemainingNewerMessages()` is called before sending to ensure no gap in the conversation
+- **Rapid search result clicks**: `pendingSearchNavigationMessageId` tracking variable prevents stale API responses from rendering
+- **Conversation switch during navigation**: Guards check `currentConversation.id` after API call returns
+- **Image scroll interference**: `disableScrollOnImageLoad()` is called before `renderMessages()` so images don't override the scroll-to-target behavior
+- **Sync manager false unread badges**: `markConversationRead()` is called with `total_count` after loading around messages to prevent false badges
+- **Scroll-to-bottom in partial view**: The scroll-to-bottom button callback loads all remaining newer messages first via `setBeforeScrollToBottomCallback`
+- **Newer scroll listener cleanup**: `cleanupNewerMessagesScrollListener()` is called in `switchToConversation()` to prevent old listeners from firing
+- **Search navigation during streaming**: If streaming is active in the same conversation, search navigation is blocked with a toast message
+
+**Key functions:**
+- `scrollToAndHighlightMessage()` in [main.ts](web/src/main.ts) - Orchestrates the navigation
+- `loadAllRemainingNewerMessages()` in [Messages.ts](web/src/components/Messages.ts) - Loads all newer messages before send
+- `get_messages_around()` in [models.py](src/db/models.py) - Backend method for centered pagination
+- `getMessagesAround()` in [client.ts](web/src/api/client.ts) - Frontend API method
+
+**Configuration:**
+```typescript
+// web/src/config.ts
+SEARCH_RESULT_MESSAGES_LIMIT = 100;        // Messages to load when navigating to search result
+LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200;    // Scroll threshold for loading newer messages
+```
+
+```python
+# src/config.py
+MESSAGES_AROUND_BEFORE_DEFAULT = 50        # Messages before target
+MESSAGES_AROUND_AFTER_DEFAULT = 50         # Messages after target
+```
 
 ### Key files
 
@@ -1604,8 +1645,10 @@ SEARCH_HIGHLIGHT_DURATION_MS = 2000   // Message highlight animation duration
 ### Testing
 
 - Backend unit tests: [test_search.py](tests/unit/test_search.py) - Query escaping, user boundaries
+- Backend unit tests: [test_messages_around.py](tests/unit/test_messages_around.py) - `get_messages_around()` method
 - Backend integration tests: [test_routes_search.py](tests/integration/test_routes_search.py) - API endpoint tests
-- E2E tests: [search.spec.ts](web/tests/e2e/search.spec.ts) - Full search flow
+- Backend integration tests: [test_routes_messages_around.py](tests/integration/test_routes_messages_around.py) - `around_message_id` endpoint tests
+- E2E tests: [search.spec.ts](web/tests/e2e/search.spec.ts) - Full search flow including pagination navigation
 - Visual tests: [search.visual.ts](web/tests/visual/search.visual.ts) - Search UI screenshots
 - Mock server: [e2e-server.py](tests/e2e-server.py) - `/test/set-search-results` and `/test/clear-search-results` endpoints
 

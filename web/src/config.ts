@@ -307,8 +307,14 @@ export const SEARCH_DEBOUNCE_MS = 300;
 /** Duration for search result highlight animation (ms) */
 export const SEARCH_HIGHLIGHT_DURATION_MS = 2 * MS_PER_SECOND;
 
-/** Maximum message batches to load when searching for a message in history */
+/** Maximum message batches to load when searching for a message in history (legacy fallback) */
 export const SEARCH_MAX_MESSAGE_LOAD_BATCHES = 10;
+
+/** Number of messages to load when navigating to a search result (split between before/after) */
+export const SEARCH_RESULT_MESSAGES_LIMIT = 100;
+
+/** Distance from bottom of scroll container to trigger loading newer messages (in pixels) */
+export const LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200;
 
 // =============================================================================
 // Default Values

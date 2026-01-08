@@ -471,6 +471,27 @@ export const conversations = {
     );
   },
 
+  /**
+   * Get messages around a specific message (for search result navigation).
+   * Loads a window of messages centered on the target message, enabling
+   * bi-directional pagination from that position.
+   * @param id - Conversation ID
+   * @param messageId - Target message ID to center around
+   * @param limit - Total messages to return (split between before/after target)
+   */
+  async getMessagesAround(
+    id: string,
+    messageId: string,
+    limit?: number
+  ): Promise<{ messages: Message[]; pagination: MessagesPagination }> {
+    const params = new URLSearchParams();
+    params.set('around_message_id', messageId);
+    if (limit) params.set('limit', limit.toString());
+    return requestWithRetry<MessagesResponse>(
+      `/api/conversations/${id}/messages?${params.toString()}`
+    );
+  },
+
   async create(model?: string): Promise<Conversation> {
     // POST - no retry (not idempotent - creates new resource)
     return request<Conversation>('/api/conversations', {

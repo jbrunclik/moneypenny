@@ -40,6 +40,9 @@ import {
   updateUserMessageId,
   setupOlderMessagesScrollListener,
   cleanupOlderMessagesScrollListener,
+  setupNewerMessagesScrollListener,
+  cleanupNewerMessagesScrollListener,
+  loadAllRemainingNewerMessages,
   initOrientationChangeHandler,
 } from './components/Messages';
 import {
@@ -63,12 +66,12 @@ import { costHistoryPopup, getCostHistoryPopupHtml } from './components/CostHist
 import { initMemoriesPopup, getMemoriesPopupHtml, openMemoriesPopup } from './components/MemoriesPopup';
 import { initSettingsPopup, getSettingsPopupHtml, openSettingsPopup } from './components/SettingsPopup';
 import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
-import { initScrollToBottom, checkScrollButtonVisibility } from './components/ScrollToBottom';
+import { initScrollToBottom, checkScrollButtonVisibility, setBeforeScrollToBottomCallback } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/swipe';
 import { initSyncManager, stopSyncManager, getSyncManager } from './sync/SyncManager';
 import { getElementById, isScrolledToBottom, clearElement } from './utils/dom';
-import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom, setCurrentConversationForBlobs } from './utils/thumbnails';
+import { enableScrollOnImageLoad, disableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom, setCurrentConversationForBlobs } from './utils/thumbnails';
 import { initializeTheme } from './utils/theme';
 import { initPopupEscapeListener } from './utils/popupEscapeHandler';
 import {
@@ -83,7 +86,7 @@ import {
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
-import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_MAX_MESSAGE_LOAD_BATCHES } from './config';
+import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_RESULT_MESSAGES_LIMIT } from './config';
 
 const log = createLogger('main');
 
@@ -259,6 +262,23 @@ async function init(): Promise<void> {
   initMemoriesPopup();
   initSettingsPopup();
   initScrollToBottom();
+  // Set up callback to load remaining newer messages before scrolling to bottom
+  // This ensures clicking scroll-to-bottom in a partial view (after search navigation)
+  // loads all missing messages first, so the user sees the actual latest messages
+  setBeforeScrollToBottomCallback(async () => {
+    const store = useStore.getState();
+    const { currentConversation } = store;
+    if (!currentConversation) return;
+
+    const pagination = store.getMessagesPagination(currentConversation.id);
+    if (pagination?.hasNewer) {
+      log.debug('Loading remaining newer messages before scroll-to-bottom', {
+        conversationId: currentConversation.id,
+      });
+      await loadAllRemainingNewerMessages(currentConversation.id);
+      cleanupNewerMessagesScrollListener();
+    }
+  });
   initOrientationChangeHandler();
   initVersionBanner();
   initSearchInput();
@@ -309,6 +329,7 @@ async function init(): Promise<void> {
     stopSyncManager();
     cleanupInfiniteScroll();
     cleanupOlderMessagesScrollListener();
+    cleanupNewerMessagesScrollListener();
 
     // Clear URL hash and clean up deep linking
     clearConversationHash();
@@ -578,6 +599,10 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
   // This must happen before we set the new conversation ID
   setCurrentConversationForBlobs(conv.id);
 
+  // Clean up newer messages scroll listener from previous conversation
+  // This must happen before setting up listeners for the new conversation
+  cleanupNewerMessagesScrollListener();
+
   // Clean up streaming context only if switching to a DIFFERENT conversation
   // If switching back to the streaming conversation, we want to restore the UI state instead
   const streamingConvId = getStreamingContextConversationId();
@@ -739,10 +764,17 @@ async function handleSearchResultClick(convId: string, messageId: string | null)
  */
 async function navigateToSearchResult(convId: string, messageId: string | null): Promise<void> {
   const store = useStore.getState();
-  const { currentConversation } = store;
+  const { currentConversation, streamingConversationId } = store;
 
   // Check if we're already viewing this conversation
   if (currentConversation?.id === convId) {
+    // If streaming is active in this conversation, don't navigate away from the current view
+    // as it would break the streaming UI. Just show a toast instead.
+    if (streamingConversationId === convId && messageId) {
+      toast.info('Please wait for the response to complete.');
+      return;
+    }
+
     // Already viewing - just scroll to message if provided
     if (messageId) {
       await scrollToAndHighlightMessage(messageId);
@@ -762,65 +794,137 @@ async function navigateToSearchResult(convId: string, messageId: string | null):
   }
 }
 
+// Track the most recently requested message ID for search navigation
+// This prevents stale API responses from rendering when user clicks multiple search results quickly
+let pendingSearchNavigationMessageId: string | null = null;
+
 /**
- * Scroll to a message and apply highlight animation
- * If the message isn't in the current DOM (due to pagination), load older messages until found
+ * Scroll to a message and apply highlight animation.
+ * If the message isn't in the current DOM (due to pagination), loads messages
+ * centered around the target in a single API call using around_message_id.
  */
 async function scrollToAndHighlightMessage(messageId: string): Promise<void> {
   const messagesContainer = getElementById<HTMLDivElement>('messages');
-  if (!messagesContainer) return;
+  if (!messagesContainer) {
+    return;
+  }
 
-  // Try to find the message element
+  const store = useStore.getState();
+  const { currentConversation, streamingConversationId } = store;
+  if (!currentConversation) {
+    return;
+  }
+
+  // Don't perform search navigation while streaming is active in this conversation
+  // as loading messages around the target would break the streaming UI
+  if (streamingConversationId === currentConversation.id) {
+    log.debug('Skipping search navigation while streaming is active', {
+      conversationId: currentConversation.id,
+    });
+    return;
+  }
+
+  // Track this navigation request - if another navigation starts, we'll abort this one
+  pendingSearchNavigationMessageId = messageId;
+
+  // Try to find the message element in the current DOM first
   let messageEl = messagesContainer.querySelector<HTMLDivElement>(`.message[data-message-id="${messageId}"]`);
 
-  // If not found, may need to load older messages (up to max batches)
+  // If not found in DOM, use around_message_id to load messages centered on the target
   if (!messageEl) {
-    const store = useStore.getState();
-    const { currentConversation } = store;
-    if (!currentConversation) return;
+    log.debug('Message not in DOM, loading messages around target', { messageId });
 
-    let batchesLoaded = 0;
-    while (!messageEl && batchesLoaded < SEARCH_MAX_MESSAGE_LOAD_BATCHES) {
-      const pagination = store.getMessagesPagination(currentConversation.id);
-      if (!pagination?.hasOlder || !pagination.olderCursor) {
-        log.debug('No more older messages to load, message not found', { messageId });
-        break;
+    try {
+      // Single API call to get messages centered around the target
+      const response = await conversations.getMessagesAround(
+        currentConversation.id,
+        messageId,
+        SEARCH_RESULT_MESSAGES_LIMIT
+      );
+
+      // Guard: Check if user clicked a different search result during the API call
+      if (pendingSearchNavigationMessageId !== messageId) {
+        log.debug('Search navigation cancelled - user clicked different result', {
+          originalMessageId: messageId,
+          newMessageId: pendingSearchNavigationMessageId,
+        });
+        return;
       }
 
-      // Load older messages
-      try {
-        log.debug('Loading older messages to find search result', { messageId, batch: batchesLoaded + 1 });
-        const response = await conversations.getMessages(
-          currentConversation.id,
-          50,
-          pagination.olderCursor,
-          'older'
-        );
-        store.prependMessages(currentConversation.id, response.messages, response.pagination);
-
-        // Re-render messages
-        const allMessages = store.getMessages(currentConversation.id);
-        renderMessages(allMessages);
-
-        batchesLoaded++;
-
-        // Try to find the message again
-        messageEl = messagesContainer.querySelector<HTMLDivElement>(`.message[data-message-id="${messageId}"]`);
-      } catch (error) {
-        log.error('Failed to load older messages for search result', { error, messageId });
-        break;
+      // Guard: Check if user switched conversations during the API call
+      const currentConvNow = useStore.getState().currentConversation;
+      if (!currentConvNow || currentConvNow.id !== currentConversation.id) {
+        log.debug('Conversation changed during search navigation, aborting', {
+          originalConvId: currentConversation.id,
+          currentConvId: currentConvNow?.id,
+        });
+        return;
       }
+
+      // Replace messages in store with the new page centered on target
+      store.setMessages(currentConversation.id, response.messages, response.pagination);
+
+      // Update sync manager's local message count to match the total from pagination.
+      // This prevents false unread badges when sync runs after search navigation.
+      // We use the total_count from pagination, which represents ALL messages in the conversation,
+      // not just the subset we loaded around the target.
+      getSyncManager()?.markConversationRead(currentConversation.id, response.pagination.total_count);
+
+      // IMPORTANT: Disable scroll-on-image-load BEFORE rendering.
+      // We want to scroll to the target message, not to the bottom.
+      // renderMessages() normally enables scroll-on-image-load, but we need to override that.
+      disableScrollOnImageLoad();
+
+      // Re-render messages with skipScrollToBottom: true
+      // This prevents the default scroll-to-bottom behavior so we can scroll to the target instead
+      renderMessages(response.messages, { skipScrollToBottom: true });
+
+      // Set up both scroll listeners for bi-directional pagination
+      // These will be cleaned up on conversation switch
+      setupOlderMessagesScrollListener(currentConversation.id);
+      setupNewerMessagesScrollListener(currentConversation.id);
+
+      // Wait for layout to settle (including lazy-loaded images) before finding and scrolling
+      // Use multiple RAFs to ensure images have started rendering
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+      });
+
+      // Guard again after RAFs - user might have clicked another search result
+      if (pendingSearchNavigationMessageId !== messageId) {
+        log.debug('Search navigation cancelled during layout - user clicked different result', {
+          originalMessageId: messageId,
+          newMessageId: pendingSearchNavigationMessageId,
+        });
+        return;
+      }
+
+      // Try to find the message element again after rendering
+      messageEl = messagesContainer.querySelector<HTMLDivElement>(`.message[data-message-id="${messageId}"]`);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        log.warn('Message not found via around_message_id', { messageId });
+        toast.info('Message not found in this conversation.');
+        return;
+      }
+      log.error('Failed to load messages around search result', { error, messageId });
+      toast.error('Failed to navigate to message.');
+      return;
     }
   }
 
-  // If still not found, show a toast
+  // If still not found after loading, show a toast
   if (!messageEl) {
-    log.warn('Message not found in conversation', { messageId });
+    log.warn('Message element not found after loading around page', { messageId });
     toast.info('Message not found in this conversation.');
     return;
   }
 
-  // Scroll the message into view
+  // Scroll the message into view - use 'center' to position it in the middle of the viewport
   messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
   // Apply highlight animation
@@ -842,9 +946,10 @@ function createConversation(): void {
   // Clear any pending conversation load - user clicked "New Chat"
   pendingConversationId = null;
 
-  // Clean up scroll listener from previous conversation to prevent it from
-  // loading old messages after we switch to the new conversation
+  // Clean up scroll listeners from previous conversation to prevent them from
+  // loading messages after we switch to the new conversation
   cleanupOlderMessagesScrollListener();
+  cleanupNewerMessagesScrollListener();
 
   // Clean up blob URLs from the previous conversation to prevent memory leaks
   setCurrentConversationForBlobs(null);
@@ -1085,6 +1190,29 @@ async function sendMessage(): Promise<void> {
     } catch (error) {
       log.error('Failed to create conversation', { error });
       toast.error('Failed to create conversation. Please try again.');
+      return;
+    }
+  }
+
+  // If we're in a partial view (e.g., after search navigation), load all remaining
+  // newer messages first to ensure there's no gap when the new message is added.
+  // This prevents the scenario where user searches, navigates to message 50, and sends
+  // a new message which would appear after message 60 with a gap of 140 missing messages.
+  const pagination = store.getMessagesPagination(conv.id);
+  if (pagination?.hasNewer) {
+    log.info('In partial view, loading remaining messages before send', {
+      conversationId: conv.id,
+      hasNewer: pagination.hasNewer,
+    });
+    setInputLoading(true);
+    try {
+      await loadAllRemainingNewerMessages(conv.id);
+      // Clean up the newer messages scroll listener since we've loaded everything
+      cleanupNewerMessagesScrollListener();
+    } catch (error) {
+      log.error('Failed to load remaining messages before send', { error, conversationId: conv.id });
+      setInputLoading(false);
+      toast.error('Failed to load conversation history. Please try again.');
       return;
     }
   }

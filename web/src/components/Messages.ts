@@ -25,6 +25,7 @@ import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import {
   LOAD_OLDER_MESSAGES_THRESHOLD_PX,
+  LOAD_NEWER_MESSAGES_THRESHOLD_PX,
   INFINITE_SCROLL_DEBOUNCE_MS,
   STREAMING_SCROLL_THRESHOLD_PX,
   STREAMING_SCROLL_RESUME_DEBOUNCE_MS,
@@ -77,8 +78,19 @@ function formatMessageTime(isoString: string): string {
 /**
  * Render all messages in the container
  */
-export function renderMessages(messages: Message[]): void {
-  log.debug('Rendering messages', { count: messages.length });
+/**
+ * Options for rendering messages
+ */
+interface RenderMessagesOptions {
+  /**
+   * If true, skip the automatic scroll-to-bottom after rendering.
+   * Useful when the caller wants to scroll to a specific message (e.g., search navigation).
+   */
+  skipScrollToBottom?: boolean;
+}
+
+export function renderMessages(messages: Message[], options: RenderMessagesOptions = {}): void {
+  log.debug('Rendering messages', { count: messages.length, skipScrollToBottom: options.skipScrollToBottom });
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) return;
 
@@ -102,21 +114,25 @@ export function renderMessages(messages: Message[]): void {
     addMessageToUI(msg, container);
   });
 
-  // Always scroll to bottom first - this ensures:
-  // 1. User sees the latest messages immediately
-  // 2. Images at the bottom become visible
-  // Mark as programmatic so the user scroll listener doesn't disable auto-scroll
-  // Wait for layout to settle before scrolling (scrollHeight needs to be accurate)
-  requestAnimationFrame(() => {
+  // Scroll to bottom by default, unless caller wants to scroll to a specific element
+  // (e.g., search navigation scrolls to the target message instead)
+  if (!options.skipScrollToBottom) {
+    // Always scroll to bottom first - this ensures:
+    // 1. User sees the latest messages immediately
+    // 2. Images at the bottom become visible
+    // Mark as programmatic so the user scroll listener doesn't disable auto-scroll
+    // Wait for layout to settle before scrolling (scrollHeight needs to be accurate)
     requestAnimationFrame(() => {
-      markProgrammaticScrollStart();
-      scrollToBottom(container);
-      // Wait for scroll to complete before clearing the programmatic flag
       requestAnimationFrame(() => {
-        markProgrammaticScrollEnd();
+        markProgrammaticScrollStart();
+        scrollToBottom(container);
+        // Wait for scroll to complete before clearing the programmatic flag
+        requestAnimationFrame(() => {
+          markProgrammaticScrollEnd();
+        });
       });
     });
-  });
+  }
 
   // Count visible images after scroll completes and layout has settled
   // Use double requestAnimationFrame to ensure layout is fully settled
@@ -1483,5 +1499,296 @@ function trackPrependedImagesForScrollAdjustment(container: HTMLElement, _initia
     log.debug('No pending images in prepended batch');
   } else {
     log.debug('Tracking prepended images for scroll adjustment', { pendingLoads });
+  }
+}
+
+// =============================================================================
+// Newer Messages Pagination
+// =============================================================================
+
+/** Cleanup function for the newer messages scroll listener */
+let newerMessagesScrollCleanup: (() => void) | null = null;
+
+/**
+ * Set up a scroll listener to load newer messages when user scrolls near the bottom.
+ * Used after navigating to a search result in the middle of conversation history.
+ * Should be called after loading messages with around_message_id.
+ * @param conversationId - The ID of the current conversation
+ */
+export function setupNewerMessagesScrollListener(conversationId: string): void {
+  const container = getElementById<HTMLDivElement>('messages');
+  if (!container) return;
+
+  // Clean up any existing listener first
+  cleanupNewerMessagesScrollListener();
+
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const handleScroll = (): void => {
+    // Debounce the scroll handler
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+
+    debounceTimeout = setTimeout(() => {
+      const store = useStore.getState();
+
+      // Don't load newer messages during active streaming
+      // This prevents interference with streaming auto-scroll behavior
+      if (store.streamingConversationId === conversationId) {
+        return;
+      }
+
+      const pagination = store.getMessagesPagination(conversationId);
+
+      // Don't load more if already loading or no more newer messages
+      if (!pagination || pagination.isLoadingNewer || !pagination.hasNewer) {
+        return;
+      }
+
+      // Check if user is near the bottom
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom < LOAD_NEWER_MESSAGES_THRESHOLD_PX) {
+        loadNewerMessages(conversationId, container);
+      }
+    }, INFINITE_SCROLL_DEBOUNCE_MS);
+  };
+
+  container.addEventListener('scroll', handleScroll, { passive: true });
+
+  // Store cleanup function
+  newerMessagesScrollCleanup = () => {
+    container.removeEventListener('scroll', handleScroll);
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+  };
+
+  log.debug('Newer messages scroll listener set up', { conversationId });
+}
+
+/**
+ * Clean up the newer messages scroll listener.
+ * Should be called when switching conversations or unmounting.
+ */
+export function cleanupNewerMessagesScrollListener(): void {
+  if (newerMessagesScrollCleanup) {
+    newerMessagesScrollCleanup();
+    newerMessagesScrollCleanup = null;
+    log.debug('Newer messages scroll listener cleaned up');
+  }
+}
+
+/**
+ * Load newer messages for a conversation and append them to the UI.
+ */
+async function loadNewerMessages(conversationId: string, container: HTMLElement): Promise<void> {
+  const store = useStore.getState();
+
+  // Guard: Only load if this is still the current conversation
+  // This prevents race conditions where the scroll listener fires after
+  // the user has already switched to a different conversation
+  if (store.currentConversation?.id !== conversationId) {
+    log.debug('Skipping newer messages load - conversation changed', {
+      requestedId: conversationId,
+      currentId: store.currentConversation?.id,
+    });
+    return;
+  }
+
+  const pagination = store.getMessagesPagination(conversationId);
+
+  if (!pagination || !pagination.hasNewer || pagination.isLoadingNewer) {
+    return;
+  }
+
+  log.debug('Loading newer messages', { conversationId, cursor: pagination.newerCursor });
+
+  // Set loading state
+  store.setLoadingNewerMessages(conversationId, true);
+
+  // Show loading indicator at bottom
+  showNewerMessagesLoader(container);
+
+  try {
+    const result = await conversations.getMessages(
+      conversationId,
+      undefined, // use default limit
+      pagination.newerCursor,
+      PaginationDirection.NEWER
+    );
+
+    // Guard again after async operation - user might have switched conversations
+    if (store.currentConversation?.id !== conversationId) {
+      log.debug('Discarding newer messages - conversation changed during load', {
+        requestedId: conversationId,
+        currentId: store.currentConversation?.id,
+      });
+      store.setLoadingNewerMessages(conversationId, false);
+      hideNewerMessagesLoader();
+      return;
+    }
+
+    // Update store with new messages appended
+    store.appendMessages(conversationId, result.messages, result.pagination);
+
+    // Append messages to the UI
+    appendMessagesToUI(result.messages, container);
+
+    log.info('Loaded newer messages', {
+      conversationId,
+      count: result.messages.length,
+      hasNewer: result.pagination.has_newer,
+    });
+  } catch (error) {
+    log.error('Failed to load newer messages', { error, conversationId });
+    // Reset loading state on error
+    store.setLoadingNewerMessages(conversationId, false);
+  } finally {
+    hideNewerMessagesLoader();
+  }
+}
+
+/**
+ * Show a loading indicator at the bottom of the messages container.
+ */
+function showNewerMessagesLoader(container: HTMLElement): void {
+  // Remove any existing loader
+  hideNewerMessagesLoader();
+
+  const loader = document.createElement('div');
+  loader.className = 'newer-messages-loader';
+  loader.innerHTML = `
+    <div class="loading-dots">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  `;
+
+  // Insert at the end of the container
+  container.appendChild(loader);
+}
+
+/**
+ * Hide the newer messages loading indicator.
+ */
+function hideNewerMessagesLoader(): void {
+  const loader = document.querySelector('.newer-messages-loader');
+  loader?.remove();
+}
+
+/**
+ * Append messages to the UI at the bottom of the messages container.
+ * Uses addMessageToUI for each message to avoid code duplication.
+ * @param messages - Messages to append (should be in chronological order, oldest first)
+ * @param container - The messages container element
+ */
+function appendMessagesToUI(messages: Message[], container: HTMLElement): void {
+  if (messages.length === 0) return;
+
+  // Add messages in chronological order at the end
+  messages.forEach((msg) => {
+    addMessageToUI(msg, container);
+  });
+
+  // Observe any new images for lazy loading
+  const newImages = container.querySelectorAll<HTMLImageElement>(
+    'img[data-message-id][data-file-index]:not([src])'
+  );
+  newImages.forEach((img) => {
+    observeThumbnail(img);
+  });
+
+  log.debug('Appended messages to UI', { count: messages.length });
+}
+
+/**
+ * Load ALL remaining newer messages for a conversation.
+ * Used before sending a message when in a partial view (after search navigation).
+ * This ensures there's no gap between existing messages and the new message.
+ *
+ * @param conversationId - The conversation ID to load messages for
+ * @returns Promise that resolves when all newer messages are loaded, or rejects on error
+ */
+export async function loadAllRemainingNewerMessages(conversationId: string): Promise<void> {
+  const store = useStore.getState();
+  const container = getElementById<HTMLDivElement>('messages');
+
+  if (!container) {
+    throw new Error('Messages container not found');
+  }
+
+  let pagination = store.getMessagesPagination(conversationId);
+
+  // Nothing to load if no newer messages
+  if (!pagination || !pagination.hasNewer) {
+    log.debug('No newer messages to load', { conversationId });
+    return;
+  }
+
+  log.info('Loading all remaining newer messages before send', { conversationId });
+
+  // Show loading indicator at bottom while loading
+  showNewerMessagesLoader(container);
+
+  let totalLoaded = 0;
+  const maxBatches = 50; // Safety limit to prevent infinite loops
+  let batchCount = 0;
+
+  try {
+    while (pagination && pagination.hasNewer && pagination.newerCursor && batchCount < maxBatches) {
+      batchCount++;
+
+      // Guard: Check if conversation changed
+      if (store.currentConversation?.id !== conversationId) {
+        log.debug('Conversation changed during newer messages load', { conversationId });
+        throw new Error('Conversation changed');
+      }
+
+      const result = await conversations.getMessages(
+        conversationId,
+        undefined, // use default limit
+        pagination.newerCursor,
+        PaginationDirection.NEWER
+      );
+
+      // Guard again after async operation
+      if (store.currentConversation?.id !== conversationId) {
+        log.debug('Conversation changed during newer messages load (post-fetch)', { conversationId });
+        throw new Error('Conversation changed');
+      }
+
+      // Update store with new messages appended
+      store.appendMessages(conversationId, result.messages, result.pagination);
+
+      // Append messages to the UI
+      appendMessagesToUI(result.messages, container);
+
+      totalLoaded += result.messages.length;
+
+      // Get updated pagination state
+      pagination = store.getMessagesPagination(conversationId);
+
+      log.debug('Loaded batch of newer messages', {
+        conversationId,
+        batchCount,
+        batchSize: result.messages.length,
+        totalLoaded,
+        hasNewer: result.pagination.has_newer,
+      });
+    }
+
+    if (batchCount >= maxBatches) {
+      log.warn('Reached max batches while loading newer messages', { conversationId, maxBatches });
+    }
+
+    log.info('Finished loading all newer messages', { conversationId, totalLoaded, batchCount });
+  } finally {
+    hideNewerMessagesLoader();
   }
 }

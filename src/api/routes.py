@@ -587,6 +587,8 @@ def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     - limit: Number of messages to return (default: 50, max: 200)
     - cursor: Cursor for fetching older/newer messages
     - direction: "older" (default) or "newer" for pagination direction
+    - around_message_id: Load messages around a specific message (for search navigation)
+      When specified, cursor and direction are ignored.
 
     By default, returns the newest messages.
     """
@@ -594,6 +596,7 @@ def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     limit_param = request.args.get("limit")
     cursor_param = request.args.get("cursor")
     direction_param = request.args.get("direction", PaginationDirection.OLDER.value)
+    around_message_id = request.args.get("around_message_id")
 
     # Validate and clamp limit
     if limit_param:
@@ -619,6 +622,7 @@ def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
             "limit": limit,
             "cursor": cursor_param,
             "direction": direction.value,
+            "around_message_id": around_message_id,
         },
     )
 
@@ -631,10 +635,31 @@ def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         )
         raise_not_found_error("Conversation")
 
-    # Get paginated messages
-    messages, pagination = db.get_messages_paginated(
-        conv_id, limit=limit, cursor=cursor_param, direction=direction
-    )
+    # Get messages - either around a specific message or with standard pagination
+    if around_message_id:
+        # Load messages around the target message (for search result navigation)
+        # Split the limit between before and after the target
+        before_limit = limit // 2
+        after_limit = limit - before_limit
+        result = db.get_messages_around(
+            conv_id, around_message_id, before_limit=before_limit, after_limit=after_limit
+        )
+        if result is None:
+            logger.warning(
+                "Message not found for around query",
+                extra={
+                    "user_id": user.id,
+                    "conversation_id": conv_id,
+                    "around_message_id": around_message_id,
+                },
+            )
+            raise_not_found_error("Message")
+        messages, pagination = result
+    else:
+        # Standard cursor-based pagination
+        messages, pagination = db.get_messages_paginated(
+            conv_id, limit=limit, cursor=cursor_param, direction=direction
+        )
 
     logger.info(
         "Messages retrieved",

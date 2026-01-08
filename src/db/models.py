@@ -1114,6 +1114,128 @@ class Database:
 
             return messages, pagination
 
+    def get_messages_around(
+        self,
+        conversation_id: str,
+        message_id: str,
+        before_limit: int = 25,
+        after_limit: int = 25,
+    ) -> tuple[list[Message], MessagePagination] | None:
+        """Get messages around a specific message.
+
+        Loads messages before and after the target message to create a "window"
+        centered on the target. Used for efficient search result navigation.
+
+        Args:
+            conversation_id: The conversation ID
+            message_id: The target message ID to center around
+            before_limit: Number of messages to load before the target (inclusive)
+            after_limit: Number of messages to load after the target
+
+        Returns:
+            Tuple of (messages, pagination) or None if message not found.
+            Messages are returned in chronological order (oldest first).
+            Pagination includes both older_cursor and newer_cursor for
+            bi-directional pagination from the loaded window.
+        """
+        with self._pool.get_connection() as conn:
+            # Get total count
+            total_row = self._execute_with_timing(
+                conn,
+                "SELECT COUNT(*) as count FROM messages WHERE conversation_id = ?",
+                (conversation_id,),
+            ).fetchone()
+            total_count = int(total_row["count"]) if total_row else 0
+
+            # Get the target message to verify it exists and get its timestamp
+            target_row = self._execute_with_timing(
+                conn,
+                "SELECT id, created_at FROM messages WHERE id = ? AND conversation_id = ?",
+                (message_id, conversation_id),
+            ).fetchone()
+
+            if not target_row:
+                return None
+
+            target_timestamp = target_row["created_at"]
+            target_id = target_row["id"]
+
+            # Get messages before and including the target
+            # (created_at < target) OR (created_at = target AND id <= target_id)
+            # Order DESC to get the closest ones, then reverse
+            before_rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM messages
+                   WHERE conversation_id = ?
+                     AND (created_at < ? OR (created_at = ? AND id <= ?))
+                   ORDER BY created_at DESC, id DESC
+                   LIMIT ?""",
+                (conversation_id, target_timestamp, target_timestamp, target_id, before_limit + 1),
+            ).fetchall()
+
+            # Check if there are older messages beyond what we fetched
+            has_older = len(before_rows) > before_limit
+            if has_older:
+                before_rows = before_rows[:before_limit]
+
+            # Get messages after the target (excluding target itself)
+            # (created_at > target) OR (created_at = target AND id > target_id)
+            after_rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM messages
+                   WHERE conversation_id = ?
+                     AND (created_at > ? OR (created_at = ? AND id > ?))
+                   ORDER BY created_at ASC, id ASC
+                   LIMIT ?""",
+                (conversation_id, target_timestamp, target_timestamp, target_id, after_limit + 1),
+            ).fetchall()
+
+            # Check if there are newer messages beyond what we fetched
+            has_newer = len(after_rows) > after_limit
+            if has_newer:
+                after_rows = after_rows[:after_limit]
+
+            # Combine: reverse before_rows (they're DESC) + after_rows (already ASC)
+            all_rows = list(reversed(before_rows)) + list(after_rows)
+
+            # Convert to Message objects
+            messages = [
+                Message(
+                    id=row["id"],
+                    conversation_id=row["conversation_id"],
+                    role=MessageRole(row["role"]),
+                    content=row["content"],
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    files=json.loads(row["files"]) if row["files"] else [],
+                    sources=json.loads(row["sources"]) if row["sources"] else None,
+                    generated_images=json.loads(row["generated_images"])
+                    if row["generated_images"]
+                    else None,
+                )
+                for row in all_rows
+            ]
+
+            # Build pagination cursors
+            if messages:
+                first_msg = messages[0]
+                older_cursor = build_cursor(first_msg.created_at.isoformat(), first_msg.id)
+
+                last_msg = messages[-1]
+                newer_cursor = build_cursor(last_msg.created_at.isoformat(), last_msg.id)
+            else:
+                older_cursor = None
+                newer_cursor = None
+
+            pagination = MessagePagination(
+                older_cursor=older_cursor if has_older else None,
+                newer_cursor=newer_cursor if has_newer else None,
+                has_older=has_older,
+                has_newer=has_newer,
+                total_count=total_count,
+            )
+
+            return messages, pagination
+
     def get_message_by_id(self, message_id: str) -> Message | None:
         """Get a single message by its ID."""
         with self._pool.get_connection() as conn:

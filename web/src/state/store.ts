@@ -56,6 +56,7 @@ export interface MessagesPaginationState {
   hasNewer: boolean;
   totalCount: number;
   isLoadingOlder: boolean;
+  isLoadingNewer: boolean;
 }
 
 interface AppState {
@@ -128,9 +129,11 @@ interface AppState {
   // Actions - Messages
   setMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
   prependMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
+  appendMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
   appendMessage: (convId: string, message: Message) => void;
   clearMessages: (convId: string) => void;
   setLoadingOlderMessages: (convId: string, loading: boolean) => void;
+  setLoadingNewerMessages: (convId: string, loading: boolean) => void;
   getMessages: (convId: string) => Message[];
   getMessagesPagination: (convId: string) => MessagesPaginationState | undefined;
 
@@ -376,6 +379,7 @@ export const useStore = create<AppState>()(
             hasNewer: pagination.has_newer,
             totalCount: pagination.total_count,
             isLoadingOlder: false,
+            isLoadingNewer: false,
           });
           return { messages: newMessages, messagesPagination: newPagination };
         }),
@@ -392,6 +396,24 @@ export const useStore = create<AppState>()(
             hasNewer: pagination.has_newer,
             totalCount: pagination.total_count,
             isLoadingOlder: false,
+            isLoadingNewer: false,
+          });
+          return { messages: newMessages, messagesPagination: newPagination };
+        }),
+      appendMessages: (convId, newMsgs, pagination) =>
+        set((state) => {
+          const existing = state.messages.get(convId) || [];
+          const newMessages = new Map(state.messages);
+          newMessages.set(convId, [...existing, ...newMsgs]);
+          const newPagination = new Map(state.messagesPagination);
+          newPagination.set(convId, {
+            olderCursor: pagination.older_cursor,
+            newerCursor: pagination.newer_cursor,
+            hasOlder: pagination.has_older,
+            hasNewer: pagination.has_newer,
+            totalCount: pagination.total_count,
+            isLoadingOlder: false,
+            isLoadingNewer: false,
           });
           return { messages: newMessages, messagesPagination: newPagination };
         }),
@@ -423,6 +445,14 @@ export const useStore = create<AppState>()(
           if (!pag) return state;
           const newPagination = new Map(state.messagesPagination);
           newPagination.set(convId, { ...pag, isLoadingOlder: loading });
+          return { messagesPagination: newPagination };
+        }),
+      setLoadingNewerMessages: (convId, loading) =>
+        set((state) => {
+          const pag = state.messagesPagination.get(convId);
+          if (!pag) return state;
+          const newPagination = new Map(state.messagesPagination);
+          newPagination.set(convId, { ...pag, isLoadingNewer: loading });
           return { messagesPagination: newPagination };
         }),
       getMessages: (convId) => get().messages.get(convId) || [],

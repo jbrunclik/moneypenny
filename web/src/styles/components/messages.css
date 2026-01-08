@@ -745,6 +745,18 @@ a.document-name:hover {
     justify-content: center;
 }
 
+/* Newer messages loader (at bottom of messages) */
+.newer-messages-loader {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-4) 0;
+    margin-top: var(--space-2);
+}
+
+.newer-messages-loader .loading-dots {
+    justify-content: center;
+}
+
 /* ----------------------------------------
    Mobile Adjustments
    ---------------------------------------- */

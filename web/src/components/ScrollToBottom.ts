@@ -7,6 +7,18 @@ let scrollButton: HTMLButtonElement | null = null;
 // Track whether streaming is active and auto-scroll is paused
 let isStreamingPaused = false;
 
+// Optional callback called BEFORE scrolling - allows caller to load more messages if needed
+// Returns a promise that resolves when any async work is done
+let onBeforeScrollToBottom: (() => Promise<void>) | null = null;
+
+/**
+ * Set a callback that runs before scroll-to-bottom action.
+ * Useful for loading remaining messages when in a partial view.
+ */
+export function setBeforeScrollToBottomCallback(callback: (() => Promise<void>) | null): void {
+  onBeforeScrollToBottom = callback;
+}
+
 /**
  * Initialize the scroll-to-bottom button
  * Creates the button and sets up scroll listeners on the messages container
@@ -27,8 +39,16 @@ export function initScrollToBottom(): void {
     messagesContainer.nextSibling
   );
 
-  // Click handler
-  scrollButton.addEventListener('click', () => {
+  // Click handler - async to support loading messages before scroll
+  scrollButton.addEventListener('click', async () => {
+    // If there's a before-scroll callback (e.g., to load remaining messages), call it first
+    if (onBeforeScrollToBottom) {
+      try {
+        await onBeforeScrollToBottom();
+      } catch {
+        // If loading fails, still try to scroll to current bottom
+      }
+    }
     scrollToBottom(messagesContainer, true);
   });
 
