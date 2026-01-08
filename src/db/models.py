@@ -242,6 +242,7 @@ class Message:
     sources: list[dict[str, str]] | None = None  # Web sources for assistant messages
     generated_images: list[dict[str, str]] | None = None  # Generated image metadata
     has_cost: bool = False  # Whether cost tracking data exists for this message
+    language: str | None = None  # ISO 639-1 language code (e.g., "en", "cs") for TTS
 
 
 @dataclass
@@ -867,6 +868,7 @@ class Database:
         files: list[dict[str, Any]] | None = None,
         sources: list[dict[str, str]] | None = None,
         generated_images: list[dict[str, str]] | None = None,
+        language: str | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -880,6 +882,7 @@ class Database:
             files: Optional list of file attachments (with 'data' and optional 'thumbnail')
             sources: Optional list of web sources (for assistant messages)
             generated_images: Optional list of generated image metadata (for assistant messages)
+            language: Optional ISO 639-1 language code (e.g., "en", "cs") for TTS
 
         Returns:
             The created Message
@@ -918,8 +921,8 @@ class Database:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -928,6 +931,7 @@ class Database:
                     files_json,
                     sources_json,
                     generated_images_json,
+                    language,
                     now.isoformat(),
                 ),
             )
@@ -951,6 +955,7 @@ class Database:
             files=files_metadata,
             sources=sources,
             generated_images=generated_images,
+            language=language,
         )
 
     def get_messages(self, conversation_id: str) -> list[Message]:
@@ -973,6 +978,7 @@ class Database:
                     generated_images=json.loads(row["generated_images"])
                     if row["generated_images"]
                     else None,
+                    language=row["language"],
                 )
                 for row in rows
             ]
@@ -1067,6 +1073,7 @@ class Database:
                     generated_images=json.loads(row["generated_images"])
                     if row["generated_images"]
                     else None,
+                    language=row["language"],
                 )
                 for row in rows
             ]
@@ -1211,6 +1218,7 @@ class Database:
                     generated_images=json.loads(row["generated_images"])
                     if row["generated_images"]
                     else None,
+                    language=row["language"],
                 )
                 for row in all_rows
             ]
@@ -1259,6 +1267,7 @@ class Database:
                 generated_images=json.loads(row["generated_images"])
                 if row["generated_images"]
                 else None,
+                language=row["language"],
             )
 
     def update_message_file_thumbnail(

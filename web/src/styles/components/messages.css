@@ -159,6 +159,7 @@
 .message-sources-btn,
 .message-imagegen-btn,
 .message-cost-btn,
+.message-speak-btn,
 .message-delete-btn {
     background: none;
     border: none;
@@ -175,7 +176,8 @@
 .message-copy-btn:hover,
 .message-sources-btn:hover,
 .message-imagegen-btn:hover,
-.message-cost-btn:hover {
+.message-cost-btn:hover,
+.message-speak-btn:hover {
     color: var(--accent);
     background-color: var(--bg-tertiary);
 }
@@ -189,10 +191,15 @@
     color: var(--success);
 }
 
+.message-speak-btn.speaking {
+    color: var(--accent);
+}
+
 .message-copy-btn svg,
 .message-sources-btn svg,
 .message-imagegen-btn svg,
 .message-cost-btn svg,
+.message-speak-btn svg,
 .message-delete-btn svg {
     width: 16px;
     height: 16px;

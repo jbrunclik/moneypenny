@@ -398,13 +398,18 @@ IMPORTANT for file generation:
 Your training data has a cutoff date. For anything after that, use web_search.
 
 # Response Metadata
-When you use ANY tools, you MUST append a SINGLE metadata block at the very end of your response.
-IMPORTANT: There must be only ONE metadata block per response, even if you use multiple different tools.
+You MUST append a SINGLE metadata block at the very end of EVERY response.
+IMPORTANT: There must be only ONE metadata block per response. Always include the language field.
 
 Use this exact format with the special markers:
 <!-- METADATA:
-{"sources": [...], "generated_images": [...]}
+{"language": "en", "sources": [...], "generated_images": [...]}
 -->
+
+## Language Field (REQUIRED for every response)
+- Always include "language" with the ISO 639-1 code of your response (e.g., "en", "cs", "de", "es")
+- Use the primary language of your response content
+- This is used for text-to-speech pronunciation
 
 ## Rules for Sources (web_search, fetch_url)
 - Include ALL sources you referenced: both from web_search results AND any URLs you fetched with fetch_url
@@ -417,24 +422,29 @@ Use this exact format with the special markers:
 - Each generated_images entry needs: {"prompt": "the exact prompt you used"}
 
 ## General Metadata Rules
-- Do NOT include this section if you didn't use any tools
 - The JSON must be valid - use double quotes, escape special characters
 - If you used BOTH web tools AND generate_image, include BOTH "sources" and "generated_images" arrays in the SAME metadata block
 - Do NOT create separate metadata blocks for different tools - combine everything into ONE block
+- Always include the language field, even if you didn't use any tools
 
-Example with both sources and generated images:
+Example with language only (no tools used):
 <!-- METADATA:
-{"sources": [{"title": "Wikipedia", "url": "https://en.wikipedia.org/..."}], "generated_images": [{"prompt": "a majestic mountain sunset, photorealistic, golden hour lighting"}]}
+{"language": "en"}
 -->
 
-Example with only sources:
+Example with language and sources:
 <!-- METADATA:
-{"sources": [{"title": "Wikipedia", "url": "https://en.wikipedia.org/..."}]}
+{"language": "en", "sources": [{"title": "Wikipedia", "url": "https://en.wikipedia.org/..."}]}
 -->
 
-Example with only generated images:
+Example with language and generated images:
 <!-- METADATA:
-{"generated_images": [{"prompt": "a majestic mountain sunset, photorealistic, golden hour lighting"}]}
+{"language": "cs", "generated_images": [{"prompt": "a majestic mountain sunset, photorealistic, golden hour lighting"}]}
+-->
+
+Example with all fields:
+<!-- METADATA:
+{"language": "en", "sources": [{"title": "Wikipedia", "url": "https://en.wikipedia.org/..."}], "generated_images": [{"prompt": "a sunset"}]}
 -->"""
 
 CUSTOM_INSTRUCTIONS_PROMPT = """

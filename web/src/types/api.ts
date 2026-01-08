@@ -76,6 +76,7 @@ export interface Message {
   files?: FileMetadata[];
   sources?: Source[];
   generated_images?: GeneratedImage[];
+  language?: string; // ISO 639-1 language code for TTS (e.g., 'en', 'cs')
   created_at: string;
 }
 
@@ -134,6 +135,7 @@ export type StreamEvent =
       sources?: Source[];
       generated_images?: GeneratedImage[];
       files?: FileMetadata[];
+      language?: string; // ISO 639-1 language code for TTS
       title?: string;
       user_message_id?: string; // Real ID of the user message (kept for backwards compatibility)
     }

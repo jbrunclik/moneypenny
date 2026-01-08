@@ -90,6 +90,25 @@ def extract_metadata_fields(
     return sources, generated_images
 
 
+def extract_language_from_metadata(metadata: dict[str, Any] | None) -> str | None:
+    """Extract language code from metadata dict.
+
+    Args:
+        metadata: Metadata dict from extract_metadata_from_response, or None
+
+    Returns:
+        ISO 639-1 language code (e.g., "en", "cs") or None if not present
+    """
+    if not metadata:
+        return None
+    language = metadata.get("language")
+    if language and isinstance(language, str):
+        # Normalize to lowercase and handle edge cases like "EN" or "en-US"
+        normalized: str = language.lower().split("-")[0][:2]
+        return normalized
+    return None
+
+
 def extract_memory_operations(
     metadata: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
@@ -246,6 +265,7 @@ def build_chat_response(
     generated_images_meta: list[dict[str, str]],
     conversation_title: str | None = None,
     user_message_id: str | None = None,
+    language: str | None = None,
 ) -> dict[str, Any]:
     """Build chat response dictionary for batch endpoint.
 
@@ -257,9 +277,10 @@ def build_chat_response(
         generated_images_meta: List of generated image metadata dicts
         conversation_title: Optional conversation title (included if provided)
         user_message_id: Optional user message ID (for updating temp IDs in frontend)
+        language: Optional ISO 639-1 language code for TTS
 
     Returns:
-        Response dictionary with id, role, content, created_at, and optional files/sources/generated_images/title
+        Response dictionary with id, role, content, created_at, and optional files/sources/generated_images/title/language
     """
     response_data: dict[str, Any] = {
         "id": assistant_msg.id,
@@ -278,6 +299,8 @@ def build_chat_response(
         response_data["title"] = conversation_title
     if user_message_id:
         response_data["user_message_id"] = user_message_id
+    if language:
+        response_data["language"] = language
 
     return response_data
 
@@ -289,6 +312,7 @@ def build_stream_done_event(
     generated_images_meta: list[dict[str, str]],
     conversation_title: str | None = None,
     user_message_id: str | None = None,
+    language: str | None = None,
 ) -> dict[str, Any]:
     """Build done event dictionary for streaming endpoint.
 
@@ -299,9 +323,10 @@ def build_stream_done_event(
         generated_images_meta: List of generated image metadata dicts
         conversation_title: Optional conversation title (included if provided)
         user_message_id: Optional user message ID (for updating temp IDs in frontend)
+        language: Optional ISO 639-1 language code for TTS
 
     Returns:
-        Done event dictionary with type, id, created_at, and optional files/sources/generated_images/title
+        Done event dictionary with type, id, created_at, and optional files/sources/generated_images/title/language
     """
     done_data: dict[str, Any] = {
         "type": "done",
@@ -319,6 +344,8 @@ def build_stream_done_event(
         done_data["title"] = conversation_title
     if user_message_id:
         done_data["user_message_id"] = user_message_id
+    if language:
+        done_data["language"] = language
 
     return done_data
 

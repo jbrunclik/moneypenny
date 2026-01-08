@@ -281,6 +281,9 @@ class MessageResponse(BaseModel):
     files: list[FileMetadataResponse] | None = None
     sources: list[SourceResponse] | None = None
     generated_images: list[GeneratedImageResponse] | None = None
+    language: str | None = Field(
+        default=None, description="ISO 639-1 language code for TTS (e.g., 'en', 'cs')"
+    )
     created_at: str
 
 
@@ -293,6 +296,9 @@ class ChatBatchResponse(BaseModel):
     files: list[FileMetadataResponse] | None = None
     sources: list[SourceResponse] | None = None
     generated_images: list[GeneratedImageResponse] | None = None
+    language: str | None = Field(
+        default=None, description="ISO 639-1 language code for TTS (e.g., 'en', 'cs')"
+    )
     created_at: str
     title: str | None = Field(
         default=None, description="Auto-generated conversation title (first message only)"

@@ -19,6 +19,7 @@ import {
   SPARKLES_ICON,
   COST_ICON,
   DELETE_ICON,
+  SPEAKER_ICON,
 } from '../utils/icons';
 import { costs, conversations } from '../api/client';
 import { useStore } from '../state/store';
@@ -269,7 +270,7 @@ export function initOrientationChangeHandler(): void {
 
 /**
  * Create message actions container with all buttons and handlers.
- * This centralizes the logic for creating message action buttons (sources, imagegen, cost, delete, copy)
+ * This centralizes the logic for creating message action buttons (sources, imagegen, cost, speak, delete, copy)
  * to avoid duplication between addMessageToUI() and finalizeStreamingMessage().
  */
 function createMessageActions(
@@ -277,7 +278,8 @@ function createMessageActions(
   createdAt: string | undefined,
   sources: Source[] | undefined,
   generatedImages: GeneratedImage[] | undefined,
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant',
+  language?: string
 ): HTMLElement {
   const actions = document.createElement('div');
   actions.className = 'message-actions';
@@ -286,11 +288,14 @@ function createMessageActions(
   const hasGeneratedImages = generatedImages && generatedImages.length > 0;
   // Only show cost button for assistant messages (they have costs)
   const showCostButton = role === 'assistant';
+  // Only show speak button for assistant messages and when speechSynthesis is supported
+  const showSpeakButton = role === 'assistant' && typeof speechSynthesis !== 'undefined';
   actions.innerHTML = `
     ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
     ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
     ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
     ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
+    ${showSpeakButton ? `<button class="message-speak-btn" title="Read aloud">${SPEAKER_ICON}</button>` : ''}
     <button class="message-delete-btn" title="Delete message">
       ${DELETE_ICON}
     </button>
@@ -400,6 +405,35 @@ function createMessageActions(
     });
   }
 
+  // Attach speak button handler
+  if (showSpeakButton) {
+    const speakBtn = actions.querySelector('.message-speak-btn');
+    speakBtn?.addEventListener('click', (e) => {
+      const button = e.currentTarget as HTMLElement;
+      const messageEl = button.closest('.message') as HTMLElement;
+      if (!messageEl) {
+        log.error('Failed to find message element for speak', { messageId });
+        return;
+      }
+
+      const messageContent = messageEl.querySelector('.message-content');
+      if (!messageContent) {
+        log.error('Failed to find message content for speak', { messageId });
+        return;
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('message:speak', {
+          detail: {
+            messageId,
+            content: messageContent.textContent || '',
+            language,
+          },
+        })
+      );
+    });
+  }
+
   return actions;
 }
 
@@ -468,7 +502,8 @@ export function addMessageToUI(
     message.created_at,
     message.sources,
     message.generated_images,
-    message.role
+    message.role,
+    message.language
   );
 
   contentWrapper.appendChild(actions);
@@ -1040,7 +1075,8 @@ export function finalizeStreamingMessage(
   sources?: Source[],
   generatedImages?: GeneratedImage[],
   files?: FileMetadata[],
-  role: 'user' | 'assistant' = 'assistant'
+  role: 'user' | 'assistant' = 'assistant',
+  language?: string
 ): void {
   messageEl.classList.remove('streaming');
   messageEl.dataset.messageId = messageId;
@@ -1083,7 +1119,8 @@ export function finalizeStreamingMessage(
       createdAt,
       sources,
       generatedImages,
-      role
+      role,
+      language
     );
     contentWrapper.appendChild(actions);
   }

@@ -74,6 +74,7 @@ from src.api.utils import (
     build_chat_response,
     build_stream_done_event,
     calculate_and_save_message_cost,
+    extract_language_from_metadata,
     extract_memory_operations,
     extract_metadata_fields,
     normalize_generated_images,
@@ -495,6 +496,8 @@ def _optimize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
             # Normalize generated_images to ensure proper structure
             # (LLM sometimes returns just strings instead of {"prompt": "..."} objects)
             msg_data["generated_images"] = normalize_generated_images(m.generated_images)
+        if m.language:
+            msg_data["language"] = m.language
 
         optimized_messages.append(msg_data)
     return optimized_messages
@@ -898,6 +901,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # Extract metadata from response
         clean_response, metadata = extract_metadata_from_response(raw_response)
         sources, generated_images_meta = extract_metadata_fields(metadata)
+        language = extract_language_from_metadata(metadata)
         logger.debug(
             "Extracted metadata",
             extra={
@@ -907,6 +911,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
                 "generated_images_count": len(generated_images_meta)
                 if generated_images_meta
                 else 0,
+                "language": language,
             },
         )
 
@@ -958,6 +963,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             files=all_generated_files if all_generated_files else None,
             sources=sources if sources else None,
             generated_images=generated_images_meta if generated_images_meta else None,
+            language=language,
         )
 
         # Calculate and save cost (use full_tool_results for image generation cost)
@@ -1037,6 +1043,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         generated_images_meta,
         conversation_title=generated_title,
         user_message_id=user_msg.id,
+        language=language,
     )
 
     return response_data, 200
@@ -1315,12 +1322,14 @@ def chat_stream(
                 generated_images_meta: list[dict[str, str]],
                 all_generated_files: list[dict[str, Any]],
                 generated_title: str | None,
+                language: str | None,
             ) -> None:
                 self.message_id = message_id
                 self.sources = sources
                 self.generated_images_meta = generated_images_meta
                 self.all_generated_files = all_generated_files
                 self.generated_title = generated_title
+                self.language = language
 
         def save_message_to_db(
             content: str,
@@ -1335,6 +1344,7 @@ def chat_stream(
             try:
                 # Extract metadata fields
                 sources, generated_images_meta = extract_metadata_fields(meta)
+                language = extract_language_from_metadata(meta)
                 logger.debug(
                     "Extracted metadata from stream",
                     extra={
@@ -1344,6 +1354,7 @@ def chat_stream(
                         "generated_images_count": len(generated_images_meta)
                         if generated_images_meta
                         else 0,
+                        "language": language,
                     },
                 )
 
@@ -1397,6 +1408,7 @@ def chat_stream(
                     files=all_generated_files if all_generated_files else None,
                     sources=sources if sources else None,
                     generated_images=generated_images_meta if generated_images_meta else None,
+                    language=language,
                 )
 
                 # Calculate and save cost for streaming (use full_tool_results for image cost)
@@ -1447,6 +1459,7 @@ def chat_stream(
                     generated_images_meta=generated_images_meta,
                     all_generated_files=all_generated_files,
                     generated_title=generated_title,
+                    language=language,
                 )
             except Exception as e:
                 logger.error(
@@ -1572,6 +1585,7 @@ def chat_stream(
                             save_result.generated_images_meta,
                             conversation_title=save_result.generated_title,
                             user_message_id=user_msg.id,
+                            language=save_result.language,
                         )
 
                         # Try to send done event, but continue even if client disconnected

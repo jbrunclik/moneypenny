@@ -24,6 +24,9 @@ ddgs>=7.0
 # Code execution sandbox
 llm-sandbox[docker]>=0.1
 
+# Language detection
+langdetect>=1.0
+
 # Database migrations
 yoyo-migrations>=9.0
 

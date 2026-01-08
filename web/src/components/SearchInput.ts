@@ -137,9 +137,9 @@ function handleClick(event: MouseEvent): void {
   if (clearBtn) {
     event.preventDefault();
     clearSearch();
-    // Blur the input to fully exit search mode (consistent with Escape key behavior)
+    // Re-focus the input so user can continue typing a new search
     const input = getElementById<HTMLInputElement>('search-input');
-    input?.blur();
+    input?.focus();
   }
 }
 

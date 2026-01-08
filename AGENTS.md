@@ -922,6 +922,49 @@ The button shows a pulsing red indicator while recording. Transcribed text is ap
 
 **Auto-stop on send**: Voice recording is automatically stopped when a message is sent (via `stopVoiceRecording()` in `sendMessage()`), preventing transcribed text from being re-added to the cleared input.
 
+## Text-to-Speech (TTS)
+
+Assistant messages can be read aloud using the Web Speech API (`SpeechSynthesis`). A speaker icon button appears in the message actions for assistant messages.
+
+### How it works
+1. **Language detection**: The LLM includes an ISO 639-1 language code (e.g., "en", "cs") in the metadata block of every response
+2. **Language storage**: The language is stored in the `messages.language` column in the database
+3. **Voice selection**: When the speak button is clicked, `findVoiceForLanguage()` finds a voice matching the message's language
+4. **TTS playback**: Uses `SpeechSynthesisUtterance` with the selected voice and language
+
+### Browser support
+- **Chrome/Edge**: Voices load asynchronously (`voiceschanged` event). Good selection of voices.
+- **Safari (iOS/macOS)**: Uses system voices including Siri voices. Good Czech support.
+- **Firefox**: Supported but limited voice selection.
+- **Unsupported browsers**: Button is hidden entirely (no disabled state).
+
+### Content filtering
+The `getTextContentForTTS()` function excludes from reading:
+- Thinking indicator content (`.thinking-indicator`)
+- Inline copy buttons (`.inline-copy-btn`)
+- Code language labels (`.code-language`)
+- File attachment metadata (`.message-files`)
+- Copyable header elements (`.copyable-header`)
+
+### Toggle behavior
+- Click the speak button to start reading
+- Click again while speaking to stop
+- Starting a new message's speech automatically stops the current one
+
+### Language migration
+For existing messages without language data:
+- Migration `0017_detect_message_languages.py` uses `langdetect` library
+- Processes assistant messages in batches
+- Detects and stores ISO 639-1 language codes
+
+### Key files
+- [main.ts](web/src/main.ts) - `speakMessage()`, `findVoiceForLanguage()`, `initTTSVoices()`, `getTextContentForTTS()`
+- [Messages.ts](web/src/components/Messages.ts) - Speak button in `createMessageActions()`
+- [utils.py](src/api/utils.py) - `extract_language_from_metadata()`
+- [chat_agent.py](src/agent/chat_agent.py) - System prompt requiring language in metadata
+- [messages.css](web/src/styles/components/messages.css) - `.message-speak-btn` styles
+- [icons.ts](web/src/utils/icons.ts) - `SPEAKER_ICON`
+
 ## Thinking Indicator
 
 During streaming responses, a thinking indicator shows the model's thinking process and tool usage.
@@ -1563,8 +1606,20 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 2. **Debounced input**: 300ms debounce prevents excessive API calls
 3. **Result display**: Results replace conversation list with count header
 4. **Highlighting**: Matched text wrapped in `[[HIGHLIGHT]]...[[/HIGHLIGHT]]` markers, converted to `<mark>` tags
-5. **Navigation**: Click result to navigate to conversation, load messages centered on target using `around_message_id`, scroll to message, and highlight (2s animation)
-6. **Deactivation**: Press Escape or click clear button to exit search mode
+5. **Navigation**: Click result to navigate to conversation, load messages centered on target using `around_message_id`, scroll to message top, and highlight with outline animation (2s)
+6. **Persistent results**: Search results stay visible after clicking a result, allowing users to navigate between multiple results
+7. **Active result tracking**: Clicked result is highlighted with `.active` class, tracked by result index (not message ID) to handle duplicates
+8. **Deactivation**: Press Escape or click clear button (X) to exit search mode - works consistently on both desktop and mobile
+
+### Deduplication
+
+The search index may contain duplicate entries for the same message (due to trigger timing or other issues). Deduplication is handled in Python after fetching from the database because FTS5's `bm25()` and `snippet()` functions don't work with `GROUP BY`.
+
+**How it works:**
+1. Fetch all matching results from FTS5 (ordered by relevance)
+2. Deduplicate by `message_id` (for message matches) or `conversation_id` (for title matches)
+3. Apply pagination (offset/limit) after deduplication
+4. Return accurate total count of unique results
 
 ### Search result navigation (O(1) optimization)
 
@@ -1619,14 +1674,15 @@ MESSAGES_AROUND_AFTER_DEFAULT = 50         # Messages after target
 **Frontend:**
 - [SearchInput.ts](web/src/components/SearchInput.ts) - Search input component with debounce
 - [SearchResults.ts](web/src/components/SearchResults.ts) - Results display and subscription
-- [store.ts](web/src/state/store.ts) - Search state (`searchQuery`, `searchResults`, `isSearching`, `isSearchActive`)
+- [store.ts](web/src/state/store.ts) - Search state (`searchQuery`, `searchResults`, `isSearching`, `isSearchActive`, `viewedSearchResultId` as index)
 - [client.ts](web/src/api/client.ts) - `search.query()` API method
 - [api.ts](web/src/types/api.ts) - `SearchResult`, `SearchResponse` types
 - [main.ts](web/src/main.ts) - `navigateToSearchResult()`, message scroll and highlight logic
 - [config.ts](web/src/config.ts) - `SEARCH_DEBOUNCE_MS`, `SEARCH_HIGHLIGHT_DURATION_MS` constants
 
 **Styles:**
-- [sidebar.css](web/src/styles/components/sidebar.css) - Search input, results, and highlight styles
+- [sidebar.css](web/src/styles/components/sidebar.css) - Search input, results, active result, and meta (type/date with conditional dot separator)
+- [messages.css](web/src/styles/components/messages.css) - `.search-highlight` class with outline-based pulse animation
 
 ### Configuration
 
