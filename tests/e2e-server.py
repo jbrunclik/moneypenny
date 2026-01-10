@@ -13,8 +13,8 @@ import base64
 import os
 import signal
 import sys
+import threading
 import time
-import uuid
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -33,29 +33,115 @@ os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-e2e-testing"
 os.environ["ALLOWED_EMAILS"] = "*"  # Allow all emails in E2E tests
 os.environ["LOG_LEVEL"] = "WARNING"  # Reduce noise during E2E tests
+os.environ["RATE_LIMITING_ENABLED"] = "false"  # Disable rate limiting for parallel tests
 
-# Use unique database files per server run to avoid state pollution between test runs
-DB_ID = uuid.uuid4().hex[:8]
-E2E_DB_PATH = PROJECT_ROOT / "tests" / f"e2e-test-{DB_ID}.db"
-E2E_BLOB_PATH = PROJECT_ROOT / "tests" / f"e2e-test-{DB_ID}-blobs.db"
-os.environ["DATABASE_PATH"] = str(E2E_DB_PATH)
-os.environ["BLOB_STORAGE_PATH"] = str(E2E_BLOB_PATH)
+# Template databases are created once at startup with migrations applied
+# Test contexts copy the template instead of running migrations for each test
+TEMPLATE_DB_PATH = PROJECT_ROOT / "tests" / "e2e-template.db"
+TEMPLATE_BLOB_PATH = PROJECT_ROOT / "tests" / "e2e-template-blobs.db"
+# Set env vars to the template path - migrations will run on template
+os.environ["DATABASE_PATH"] = str(TEMPLATE_DB_PATH)
+os.environ["BLOB_STORAGE_PATH"] = str(TEMPLATE_BLOB_PATH)
+
+# Thread-local storage for context propagation
+_thread_context = threading.local()
+OriginalThread = threading.Thread
+
+
+class ContextPropagatingThread(OriginalThread):
+    """Thread that ensures the DB context is propagated to the child thread."""
+
+    def __init__(self, *args, **kwargs):
+        # Workaround for threading.Timer (and others) which inherit from Thread
+        # but call Thread.__init__(self). Since we patched threading.Thread,
+        # they end up calling THIS __init__.
+        # If 'self' is not an instance of ContextPropagatingThread, just call original init.
+        if not isinstance(self, ContextPropagatingThread):
+            OriginalThread.__init__(self, *args, **kwargs)
+            return
+
+        super().__init__(*args, **kwargs)
+        # Capture current context from parent thread
+        self.captured_db = getattr(_thread_context, "db", None)
+        self.captured_blob_store = getattr(_thread_context, "blob_store", None)
+        self.captured_config = getattr(_thread_context, "config", None)
+
+    def run(self):
+        # Restore context in child thread
+        if self.captured_db:
+            _thread_context.db = self.captured_db
+        if self.captured_blob_store:
+            _thread_context.blob_store = self.captured_blob_store
+        if self.captured_config:
+            _thread_context.config = self.captured_config
+        super().run()
+
+
+def set_thread_context(db, blob_store, config):
+    _thread_context.db = db
+    _thread_context.blob_store = blob_store
+    _thread_context.config = config
+
 
 # PID file for cleanup
 E2E_PID_FILE = PROJECT_ROOT / ".e2e-server.pid"
 
-# Mock configuration (inline - no external files needed)
-MOCK_CONFIG: dict[str, Any] = {
+
+# Default configuration
+DEFAULT_CONFIG = {
     "response_prefix": "This is a mock response to: ",
     "input_tokens": 100,
     "output_tokens": 50,
-    "stream_delay_ms": 10,  # Delay between streamed tokens (very fast for tests)
-    "batch_delay_ms": 0,  # Delay before batch response (for testing conversation switching)
-    "custom_response": None,  # If set, use this instead of prefix + message
-    "emit_thinking": False,  # If True, emit thinking events during streaming
-    "search_results": None,  # If set, return these instead of real search results
-    "search_total": 0,  # Total count for mocked search results
+    "stream_delay_ms": 10,
+    "batch_delay_ms": 0,
+    "custom_response": None,
+    "emit_thinking": False,
+    "search_results": None,
+    "search_total": 0,
 }
+
+# Global storage for isolated configs
+_isolated_configs = {}
+
+
+class ContextAwareConfig:
+    """A dict-like object that returns configuration isolated by X-Test-Execution-Id."""
+
+    def _get_current(self) -> dict[str, Any]:
+        # Check thread context first (populated by resolve_db)
+        if hasattr(_thread_context, "config") and _thread_context.config:
+            return _thread_context.config
+
+        from flask import has_request_context, request
+
+        if not has_request_context():
+            return DEFAULT_CONFIG
+
+        test_id = request.headers.get("X-Test-Execution-Id")
+        if not test_id:
+            return DEFAULT_CONFIG
+
+        if test_id not in _isolated_configs:
+            # Initialize with a copy of defaults
+            _isolated_configs[test_id] = DEFAULT_CONFIG.copy()
+
+        return _isolated_configs[test_id]
+
+    def __getitem__(self, key: str) -> Any:
+        return self._get_current()[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._get_current()[key] = value
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._get_current().get(key, default)
+
+    def copy(self) -> dict[str, Any]:
+        return self._get_current().copy()
+
+
+# Replace global dict with proxy
+MOCK_CONFIG = ContextAwareConfig()
 
 
 def create_mock_llm() -> MagicMock:
@@ -332,37 +418,79 @@ def cleanup_pid_file() -> None:
             pass
 
 
+def cleanup_databases() -> None:
+    """Remove all test database files (including template and test-specific files)."""
+    # Clean up template files and all test-specific files
+    patterns = ["e2e-template*.db*", "e2e-test-*.db*"]
+    for pattern in patterns:
+        for f in PROJECT_ROOT.glob(f"tests/{pattern}"):
+            try:
+                f.unlink()
+            except Exception:
+                pass  # Ignore errors (e.g. if file is still open)
+
+
 def signal_handler(signum: int, frame: Any) -> None:
     """Handle signals and cleanup PID file."""
     cleanup_pid_file()
+    cleanup_databases()
     sys.exit(0)
+
+
+class ProxyDatabase:
+    """Proxy that delegates to a thread-local Database instance based on request header."""
+
+    def __getattr__(self, name: str) -> Any:
+        if hasattr(_thread_context, "db"):
+            return getattr(_thread_context.db, name)
+
+        from flask import g, has_request_context
+
+        if has_request_context() and hasattr(g, "db"):
+            return getattr(g.db, name)
+
+        # Detail error about context
+        thread_name = threading.current_thread().name
+        raise RuntimeError(f"Database accessed outside of request context. Thread: {thread_name}")
+
+
+class ProxyBlobStore:
+    """Proxy that delegates to a thread-local BlobStore instance based on request header."""
+
+    def __getattr__(self, name: str) -> Any:
+        if hasattr(_thread_context, "blob_store"):
+            return getattr(_thread_context.blob_store, name)
+
+        from flask import g, has_request_context
+
+        if has_request_context() and hasattr(g, "blob_store"):
+            return getattr(g.blob_store, name)
+
+        raise RuntimeError(
+            "BlobStore accessed outside of request context or without X-Test-Execution-Id"
+        )
 
 
 def main() -> None:
     """Start the E2E test server with all mocks applied."""
     import contextlib
 
-    from flask import Blueprint
-
     # Write PID file
     try:
         E2E_PID_FILE.write_text(str(os.getpid()))
         atexit.register(cleanup_pid_file)
+        atexit.register(cleanup_databases)
         # Also register signal handlers for cleanup
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
     except Exception as e:
         print(f"Warning: Could not write PID file: {e}")
 
-    print("E2E Test Server starting...")
-    print(f"Database: {E2E_DB_PATH}")
-    print(f"Blob store: {E2E_BLOB_PATH}")
+    import shutil
 
-    # Remove old test database files for clean state
-    if E2E_DB_PATH.exists():
-        E2E_DB_PATH.unlink()
-    if E2E_BLOB_PATH.exists():
-        E2E_BLOB_PATH.unlink()
+    print("E2E Test Server starting...")
+    # Clean up any existing test databases
+    cleanup_databases()
 
     # Use ExitStack to avoid deep nesting of context managers
     with contextlib.ExitStack() as stack:
@@ -389,34 +517,90 @@ def main() -> None:
         from src.db.blob_store import BlobStore
         from src.db.models import Database
 
-        # Create test database using E2E_DB_PATH
-        test_db = Database(db_path=E2E_DB_PATH)
+        # Create template databases with all migrations applied (once at startup)
+        print("Creating template databases...")
+        Database(db_path=TEMPLATE_DB_PATH)
+        BlobStore(db_path=TEMPLATE_BLOB_PATH)
+        print(f"Template DB: {TEMPLATE_DB_PATH}")
+        print(f"Template Blob: {TEMPLATE_BLOB_PATH}")
 
-        # Create test blob store using E2E_BLOB_PATH
-        test_blob_store = BlobStore(db_path=E2E_BLOB_PATH)
+        # Create proxies for test isolation
+        proxy_db = ProxyDatabase()
+        proxy_blob_store = ProxyBlobStore()
 
-        # Patch database everywhere
-        stack.enter_context(patch("src.db.models.db", test_db))
-        stack.enter_context(patch("src.auth.jwt_auth.db", test_db))
-        stack.enter_context(patch("src.api.routes.db", test_db))
-        stack.enter_context(patch("src.agent.chat_agent.db", test_db))
+        # Patch database everywhere with proxy
+        stack.enter_context(patch("src.db.models.db", proxy_db))
+        stack.enter_context(patch("src.auth.jwt_auth.db", proxy_db))
+        stack.enter_context(patch("src.api.routes.db", proxy_db))
+        stack.enter_context(patch("src.agent.chat_agent.db", proxy_db))
 
-        # Patch blob store everywhere it's used
-        stack.enter_context(patch("src.db.blob_store._blob_store", test_blob_store))
-        stack.enter_context(patch("src.db.models.get_blob_store", return_value=test_blob_store))
-        stack.enter_context(patch("src.api.routes.get_blob_store", return_value=test_blob_store))
+        # Patch threading.Thread to propagate context
+        stack.enter_context(patch("src.api.routes.threading.Thread", ContextPropagatingThread))
+        stack.enter_context(
+            patch("src.agent.chat_agent.threading.Thread", ContextPropagatingThread)
+        )
+
+        # Patch blob store everywhere with proxy
+        stack.enter_context(patch("src.db.blob_store._blob_store", proxy_blob_store))
+        stack.enter_context(patch("src.db.models.get_blob_store", return_value=proxy_blob_store))
+        stack.enter_context(patch("src.api.routes.get_blob_store", return_value=proxy_blob_store))
 
         app = create_app()
         app.config["TESTING"] = True
 
+        # Import Flask globals for use in before_request and routes
+        from flask import g, request
+
+        # Map to store active DB connections: test_id -> (Database, BlobStore)
+        active_contexts: dict[str, tuple[Database, BlobStore]] = {}
+        active_contexts_lock = threading.Lock()
+
+        @app.before_request
+        def resolve_db():
+            test_id = request.headers.get("X-Test-Execution-Id")
+
+            # If no header (e.g. browser request without fixture), use default session
+            if not test_id:
+                test_id = "default-shared-session"
+
+            # Thread-safe creation of test context
+            with active_contexts_lock:
+                if test_id not in active_contexts:
+                    # Copy template databases for this test context (much faster than migrations)
+                    safe_id = "".join(c for c in test_id if c.isalnum() or c in "-_")
+                    db_path = PROJECT_ROOT / "tests" / f"e2e-test-{safe_id}.db"
+                    blob_path = PROJECT_ROOT / "tests" / f"e2e-test-{safe_id}-blobs.db"
+
+                    # Copy the template files
+                    shutil.copy2(TEMPLATE_DB_PATH, db_path)
+                    shutil.copy2(TEMPLATE_BLOB_PATH, blob_path)
+
+                    # Create Database/BlobStore instances (no migrations needed - schema is in the copy)
+                    db = Database(db_path=db_path)
+                    blob_store = BlobStore(db_path=blob_path)
+                    active_contexts[test_id] = (db, blob_store)
+
+            # Set in g for the proxies to find (outside lock - just dict lookup)
+            g.db, g.blob_store = active_contexts[test_id]
+
+            # Initialize mock config for this test context
+            with active_contexts_lock:
+                if test_id not in _isolated_configs:
+                    _isolated_configs[test_id] = DEFAULT_CONFIG.copy()
+            set_thread_context(g.db, g.blob_store, _isolated_configs[test_id])
+
         # Add test-only endpoint to reset database
+        from flask import Blueprint
+
         test_bp = Blueprint("test", __name__)
 
         @test_bp.route("/test/reset", methods=["POST"])
         def reset_database() -> tuple[dict[str, str], int]:
-            """Reset database and blob store to clean state for test isolation."""
-            # Reset main database
-            with test_db._pool.get_connection() as conn:
+            """Reset database, blob store, and mock config to clean state for test isolation."""
+            from flask import request
+
+            # Reset main database (g.db is already the correct tenant DB)
+            with g.db._pool.get_connection() as conn:
                 # Delete all data but keep tables
                 conn.execute("DELETE FROM message_costs")
                 conn.execute("DELETE FROM messages")
@@ -426,31 +610,19 @@ def main() -> None:
                 conn.commit()
 
             # Reset blob store
-            with test_blob_store._pool.get_connection() as conn:
+            with g.blob_store._pool.get_connection() as conn:
                 conn.execute("DELETE FROM blobs")
                 conn.commit()
+
+            # Reset mock config to defaults for this test context
+            test_id = request.headers.get("X-Test-Execution-Id", "default-shared-session")
+            _isolated_configs[test_id] = DEFAULT_CONFIG.copy()
 
             return {"status": "reset"}, 200
 
         @test_bp.route("/test/seed", methods=["POST"])
         def seed_data() -> tuple[dict[str, Any], int]:
-            """Seed test data directly into database for faster test setup.
-
-            Request body:
-            {
-                "conversations": [
-                    {
-                        "title": "Optional title",
-                        "messages": [
-                            {"role": "user", "content": "Hello"},
-                            {"role": "assistant", "content": "Hi there!"}
-                        ]
-                    }
-                ]
-            }
-
-            Returns created conversation IDs.
-            """
+            """Seed test data directly into database."""
             from flask import request
 
             data = request.get_json() or {}
@@ -458,8 +630,7 @@ def main() -> None:
             created_ids = []
 
             # Get or create the same user that auth bypass uses
-            # This must match the user in jwt_auth.py's bypass_auth logic
-            user = test_db.get_or_create_user(
+            user = g.db.get_or_create_user(
                 email="local@localhost",
                 name="Local User",
             )
@@ -467,7 +638,7 @@ def main() -> None:
             for conv_data in conversations_data:
                 # Create conversation
                 title = conv_data.get("title", "Test Conversation")
-                conv = test_db.create_conversation(user.id, title=title)
+                conv = g.db.create_conversation(user.id, title=title)
                 created_ids.append(conv.id)
 
                 # Add messages
@@ -476,7 +647,7 @@ def main() -> None:
                     role = msg.get("role", "user")
                     content = msg.get("content", "")
                     files = msg.get("files")
-                    test_db.add_message(conv.id, role, content, files=files)
+                    g.db.add_message(conv.id, role, content, files=files)
 
             return {"status": "seeded", "conversation_ids": created_ids}, 200
 
@@ -495,23 +666,35 @@ def main() -> None:
 
         @test_bp.route("/test/set-mock-response", methods=["POST"])
         def set_mock_response() -> tuple[dict[str, str], int]:
-            """Set a custom mock response for testing specific content."""
             from flask import request
 
             data = request.get_json() or {}
             response = data.get("response")
+            # Uses context-aware MOCK_CONFIG
             MOCK_CONFIG["custom_response"] = response
             return {"status": "set", "response": response or "(default)"}, 200
 
         @test_bp.route("/test/clear-mock-response", methods=["POST"])
         def clear_mock_response() -> tuple[dict[str, str], int]:
-            """Clear custom mock response to restore default behavior."""
             MOCK_CONFIG["custom_response"] = None
             return {"status": "cleared"}, 200
 
+        @test_bp.route("/test/set-stream-delay", methods=["POST"])
+        def set_stream_delay() -> tuple[dict[str, Any], int]:
+            from flask import request
+
+            data = request.get_json() or {}
+            # Support both delay_ms (int) and delay (float seconds)
+            if "delay_ms" in data:
+                delay_ms = float(data["delay_ms"])
+            else:
+                delay_ms = float(data.get("delay", 0.05)) * 1000
+            # Uses context-aware MOCK_CONFIG
+            MOCK_CONFIG["stream_delay_ms"] = delay_ms
+            return {"status": "set", "delay_ms": delay_ms}, 200
+
         @test_bp.route("/test/set-emit-thinking", methods=["POST"])
         def set_emit_thinking() -> tuple[dict[str, Any], int]:
-            """Enable/disable thinking events for testing thinking indicator UI."""
             from flask import request
 
             data = request.get_json() or {}
@@ -519,47 +702,22 @@ def main() -> None:
             MOCK_CONFIG["emit_thinking"] = emit
             return {"status": "set", "emit_thinking": emit}, 200
 
-        @test_bp.route("/test/set-stream-delay", methods=["POST"])
-        def set_stream_delay() -> tuple[dict[str, Any], int]:
-            """Set the delay between streamed tokens for testing conversation switching."""
-            from flask import request
-
-            data = request.get_json() or {}
-            delay_ms = data.get("delay_ms", 30)
-            MOCK_CONFIG["stream_delay_ms"] = delay_ms
-            return {"status": "set", "stream_delay_ms": delay_ms}, 200
-
         @test_bp.route("/test/set-batch-delay", methods=["POST"])
         def set_batch_delay() -> tuple[dict[str, Any], int]:
-            """Set the delay for batch responses for testing conversation switching."""
             from flask import request
 
             data = request.get_json() or {}
-            delay_ms = data.get("delay_ms", 0)
+            # Support both delay_ms (int) and delay (float seconds)
+            if "delay_ms" in data:
+                delay_ms = float(data["delay_ms"])
+            else:
+                delay_ms = float(data.get("delay", 0.05)) * 1000
             MOCK_CONFIG["batch_delay_ms"] = delay_ms
-            return {"status": "set", "batch_delay_ms": delay_ms}, 200
+            return {"status": "set", "delay_ms": delay_ms}, 200
 
         @test_bp.route("/test/set-search-results", methods=["POST"])
         def set_search_results() -> tuple[dict[str, Any], int]:
-            """Set custom search results for testing search UI.
-
-            Request body:
-            {
-                "results": [
-                    {
-                        "conversation_id": "conv-123",
-                        "conversation_title": "Test Conversation",
-                        "message_id": "msg-456",  // optional
-                        "message_snippet": "...matching text...",  // optional
-                        "match_type": "message",  // or "conversation"
-                        "created_at": "2024-01-01T12:00:00"  // optional
-                    }
-                ],
-                "total": 1
-            }
-
-            If not set, the real search endpoint is used.
-            """
+            """Set custom search results for testing search UI."""
             from flask import request
 
             data = request.get_json() or {}
@@ -577,50 +735,26 @@ def main() -> None:
         app.register_blueprint(test_bp)
 
         # Override search endpoint using before_request to intercept /api/search
-        # This must be done AFTER blueprint registration so it takes priority
         @app.before_request
         def intercept_search() -> Any | None:
-            """Intercept /api/search requests to return mock results if configured.
-
-            If MOCK_CONFIG["search_results"] is set, returns those results.
-            Otherwise, lets the request continue to the real search endpoint.
-            """
             from flask import jsonify, request
 
             if request.path == "/api/search" and request.method == "GET":
-                if MOCK_CONFIG["search_results"] is not None:
+                if MOCK_CONFIG.get("search_results") is not None:
                     query = request.args.get("q", "")
                     return jsonify(
                         {
                             "results": MOCK_CONFIG["search_results"],
-                            "total": MOCK_CONFIG["search_total"],
+                            "total": MOCK_CONFIG.get("search_total", 0),
                             "query": query,
                         }
                     )
-            return None  # Continue to normal handling
+            return None
 
         print("Starting E2E test server on http://localhost:8001")
         print("Press Ctrl+C to stop")
 
-        # Run with threading for better performance
-        try:
-            app.run(
-                host="0.0.0.0",
-                port=8001,
-                debug=False,
-                threaded=True,
-            )
-        finally:
-            # Clean up PID file
-            cleanup_pid_file()
-            # Clean up database files on shutdown
-            for path, name in [(E2E_DB_PATH, "database"), (E2E_BLOB_PATH, "blob store")]:
-                if path.exists():
-                    try:
-                        path.unlink()
-                        print(f"Cleaned up test {name}: {path}")
-                    except Exception as e:
-                        print(f"Warning: Could not delete test {name}: {e}")
+        app.run(host="0.0.0.0", port=8001, debug=False, threaded=True)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
  * E2E tests for chat functionality
  */
 import { test, expect } from '../global-setup';
+import { Buffer } from 'buffer';
 
 test.describe('Chat - Batch Mode', () => {
   test.beforeEach(async ({ page }) => {
@@ -2134,14 +2135,14 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Either the loading indicator should be visible again OR the response should be complete
     // (depending on timing)
-    const assistantMessage = page.locator('.message.assistant');
-    const loadingOrMessage = page.locator('.message-loading, .message.assistant');
+    const assistantMessage = page.locator('.message.assistant').last();
+    const loadingOrMessage = page.locator('.message-loading, .message.assistant').last();
     await expect(loadingOrMessage).toBeVisible({ timeout: 5000 });
 
     // Wait for the response to complete
     await expect(assistantMessage).toBeVisible({ timeout: 10000 });
 
-    // Reset batch delay to default
+    // Reset batch delay
     await page.request.post('/test/set-batch-delay', {
       data: { delay_ms: 0 },
     });
@@ -2152,7 +2153,7 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
   }) => {
     // Configure streaming delay (enough time to switch conversations)
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 50 },
+      data: { delay_ms: 100 },
     });
 
     // Enable streaming mode
@@ -2247,9 +2248,9 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
   test('preserves thinking indicator state when switching back to streaming conversation', async ({
     page,
   }) => {
-    // Configure streaming delay to catch thinking state
+    // Set a longer stream delay to ensure we can catch the streaming state
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 50 },
+      data: { delay_ms: 200 },
     });
 
     // Enable thinking events
@@ -2289,7 +2290,7 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Either the thinking indicator should still be visible (streaming ongoing)
     // or the response is complete with a "Show details" toggle
-    const thinkingOrDetails = page.locator('.thinking-indicator, .thinking-toggle');
+    const thinkingOrDetails = page.locator('.thinking-indicator').first();
     await expect(thinkingOrDetails).toBeVisible({ timeout: 5000 });
 
     // Wait for streaming to complete
@@ -2629,7 +2630,7 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     await streamBtn.click(); // Re-enable streaming
     // Use very slow streaming (500ms per word) to ensure we have time to scroll up while streaming
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 500 },
+      data: { delay_ms: 200 },
     });
 
     const messagesContainer = page.locator('#messages');
@@ -2695,7 +2696,7 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     await streamBtn.click(); // Re-enable streaming
     // Use slower streaming so we have time to scroll up while streaming
     await page.request.post('/test/set-stream-delay', {
-      data: { delay_ms: 500 },
+      data: { delay_ms: 200 },
     });
 
     const messagesContainer = page.locator('#messages');

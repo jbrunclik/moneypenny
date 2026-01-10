@@ -52,3 +52,7 @@ web/visual-gallery.html
 # OS
 .DS_Store
 Thumbs.db
+
+# E2E test databases
+tests/e2e-test-*.db*
+tests/e2e-template*.db*

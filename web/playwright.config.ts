@@ -3,13 +3,17 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   testMatch: ['e2e/**/*.spec.ts', 'visual/**/*.visual.ts'],
-  // E2E tests share a single server with mocked state, so we run tests serially
-  // to ensure test isolation. Different projects (chromium/webkit) still run sequentially.
-  fullyParallel: false,
+  // E2E tests share a single server with mocked state, but the server now supports
+  // multi-tenant isolation via X-Test-Execution-Id, so we can run in parallel.
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
-  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  timeout: 30000,
+  expect: {
+    timeout: 10000,
+  },
+  workers: '50%', // Don't saturate the CPU, leave room for the python server
+  reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']],
   use: {
     baseURL: 'http://localhost:8001',
     trace: 'on-first-retry',

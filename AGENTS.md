@@ -2398,9 +2398,21 @@ The E2E test server (`tests/e2e-server.py`) is a Flask app that mocks external s
 - **Mock LLM**: Returns mock responses with proper AIMessage objects for LangGraph
 - **SSE Streaming**: Custom endpoint streams tokens word-by-word via Server-Sent Events (default 10ms delay between tokens)
 - **Auth bypass**: `E2E_TESTING=true` skips Google auth and JWT validation
+- **Rate limiting disabled**: `RATE_LIMITING_ENABLED=false` prevents throttling during parallel test execution
 - **Database reset**: `/test/reset` endpoint clears database between tests
 - **Database seeding**: `/test/seed` endpoint creates conversations/messages directly (faster than UI interactions)
-- **Isolated DB**: Each test run uses a unique database file
+- **Parallel test isolation**: Each test gets its own database via `X-Test-Execution-Id` header
+
+**Parallel Test Execution:**
+
+Tests run in parallel with full isolation using the `X-Test-Execution-Id` header mechanism:
+
+1. **Test fixture**: `global-setup.ts` provides a `testExecutionId` fixture using UUID
+2. **Header propagation**: The ID is sent with all API requests via `extraHTTPHeaders`
+3. **Template databases**: A pre-migrated template DB is created once at startup
+4. **Per-test databases**: Each test context copies the template (fast) instead of running migrations
+5. **Thread-safe context**: A lock ensures concurrent test creation doesn't cause race conditions
+6. **Mock config isolation**: Each test context has its own mock configuration (delays, responses, etc.)
 
 **Test endpoints:**
 | Endpoint | Method | Description |
@@ -2411,6 +2423,8 @@ The E2E test server (`tests/e2e-server.py`) is a Flask app that mocks external s
 | `/test/set-batch-delay` | POST | Set delay for batch responses (ms) |
 | `/test/set-mock-response` | POST | Set custom response text |
 | `/test/set-emit-thinking` | POST | Enable/disable thinking events |
+| `/test/set-search-results` | POST | Set mock search results |
+| `/test/clear-search-results` | POST | Clear mock search results |
 
 **Using `/test/seed` for faster tests:**
 ```typescript

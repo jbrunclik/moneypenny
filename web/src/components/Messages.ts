@@ -1120,6 +1120,10 @@ export function finalizeStreamingMessage(
     if (currentStreamingContext.scrollListenerCleanup) {
       currentStreamingContext.scrollListenerCleanup();
     }
+
+    // Ensure the streaming paused indicator is cleared
+    setStreamingPausedIndicator(false);
+
     // Clear the context
     currentStreamingContext = null;
   }
