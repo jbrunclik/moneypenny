@@ -85,6 +85,7 @@ interface AppState {
   streamingEnabled: boolean;
   forceTools: string[];
   anonymousModeByConversation: Map<string, boolean>; // Anonymous mode per conversation
+  pendingAnonymousMode: boolean; // Anonymous mode when no conversation exists
   streamingConversationId: string | null; // Which conversation is currently streaming
   activeRequests: Map<string, ActiveRequestState>; // Active requests by conversation ID
   uploadProgress: number | null; // Upload progress 0-100, null when not uploading
@@ -153,6 +154,7 @@ interface AppState {
   clearForceTools: () => void;
   setAnonymousMode: (convId: string, enabled: boolean) => void;
   getAnonymousMode: (convId: string) => boolean;
+  setPendingAnonymousMode: (enabled: boolean) => void;
   setActiveRequest: (convId: string, state: ActiveRequestState) => void;
   updateActiveRequestContent: (convId: string, content: string, thinkingState?: ThinkingState) => void;
   removeActiveRequest: (convId: string) => void;
@@ -231,6 +233,7 @@ export const useStore = create<AppState>()(
       streamingEnabled: true,
       forceTools: [],
       anonymousModeByConversation: new Map(),
+      pendingAnonymousMode: false,
       streamingConversationId: null,
       activeRequests: new Map(),
       uploadProgress: null,
@@ -494,6 +497,7 @@ export const useStore = create<AppState>()(
           return { anonymousModeByConversation: newMap };
         }),
       getAnonymousMode: (convId) => get().anonymousModeByConversation.get(convId) ?? false,
+      setPendingAnonymousMode: (enabled) => set({ pendingAnonymousMode: enabled }),
       setActiveRequest: (convId, state) =>
         set((s) => {
           const newMap = new Map(s.activeRequests);

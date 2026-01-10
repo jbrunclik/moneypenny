@@ -1006,6 +1006,14 @@ function createConversation(): void {
   store.setCurrentConversation(conv);
   // Clear pending model since it's now used
   store.setPendingModel(null);
+
+  // Apply pending anonymous mode to the new conversation, then clear it
+  const pendingAnonymous = store.pendingAnonymousMode;
+  if (pendingAnonymous) {
+    store.setAnonymousMode(tempId, true);
+  }
+  store.setPendingAnonymousMode(false);
+
   renderConversationsList();
   setActiveConversation(conv.id);
   updateChatTitle(conv.title);
@@ -1016,10 +1024,10 @@ function createConversation(): void {
     focusMessageInput();
   }
 
-  // Reset anonymous button state for new conversation (defaults to OFF)
+  // Update anonymous button state (reflects pending state that was just applied)
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
-    updateAnonymousButtonState(anonymousBtn, false);
+    updateAnonymousButtonState(anonymousBtn, pendingAnonymous);
   }
 
   // Push empty hash to history so back button works (navigates to previous conversation)
@@ -2157,14 +2165,23 @@ function initToolbarButtons(): void {
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
     const currentConvId = store.currentConversation?.id;
-    const isAnonymous = currentConvId ? store.getAnonymousMode(currentConvId) : false;
+    const isAnonymous = currentConvId
+      ? store.getAnonymousMode(currentConvId)
+      : store.pendingAnonymousMode;
     updateAnonymousButtonState(anonymousBtn, isAnonymous);
     anonymousBtn.addEventListener('click', () => {
-      const convId = useStore.getState().currentConversation?.id;
-      if (!convId) return;
-      const currentState = useStore.getState().getAnonymousMode(convId);
+      const state = useStore.getState();
+      const convId = state.currentConversation?.id;
+      if (!convId) {
+        // No conversation exists, store as pending anonymous mode
+        const newState = !state.pendingAnonymousMode;
+        state.setPendingAnonymousMode(newState);
+        updateAnonymousButtonState(anonymousBtn, newState);
+        return;
+      }
+      const currentState = state.getAnonymousMode(convId);
       const newState = !currentState;
-      useStore.getState().setAnonymousMode(convId, newState);
+      state.setAnonymousMode(convId, newState);
       updateAnonymousButtonState(anonymousBtn, newState);
     });
   }

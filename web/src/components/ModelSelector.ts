@@ -148,7 +148,8 @@ export function renderModelDropdown(): void {
     .map(
       (model) => `
       <div class="model-option ${model.id === currentModelId ? 'selected' : ''}"
-           data-model-id="${model.id}">
+           data-model-id="${model.id}"
+           data-short-name="${escapeHtml(model.short_name)}">
         <span class="model-name">${escapeHtml(model.name)}</span>
         ${model.id === currentModelId ? `<span class="model-check">${CHECK_ICON}</span>` : ''}
       </div>

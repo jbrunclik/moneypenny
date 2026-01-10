@@ -152,8 +152,8 @@ test.describe('Chat - Model Selection', () => {
     const modelSelectorBtn = page.locator('#model-selector-btn');
     const modelDropdown = page.locator('#model-dropdown');
 
-    // Get initial model name
-    const initialModelName = await page.locator('#current-model-name').textContent();
+    // Get initial model short name (shown in button)
+    const initialModelShortName = await page.locator('#current-model-name').textContent();
 
     // Open dropdown
     await modelSelectorBtn.click();
@@ -166,20 +166,21 @@ test.describe('Chat - Model Selection', () => {
 
     // Find a model that is NOT currently selected (no .selected class)
     let differentModelOption = null;
-    let differentModelName = null;
+    let differentModelShortName = null;
     for (let i = 0; i < optionCount; i++) {
       const option = modelOptions.nth(i);
       const isSelected = await option.evaluate((el) => el.classList.contains('selected'));
       if (!isSelected) {
         differentModelOption = option;
-        differentModelName = await option.locator('.model-name').textContent();
+        // Get short name from data attribute (button shows short name, not full name)
+        differentModelShortName = await option.getAttribute('data-short-name');
         break;
       }
     }
 
     // Ensure we found a different model
     expect(differentModelOption).not.toBeNull();
-    expect(differentModelName).not.toBe(initialModelName);
+    expect(differentModelShortName).not.toBe(initialModelShortName);
 
     // Click on the different model
     await differentModelOption!.click();
@@ -187,9 +188,9 @@ test.describe('Chat - Model Selection', () => {
     // Dropdown should close
     await expect(modelDropdown).toHaveClass(/hidden/);
 
-    // Model name should be updated in the button
-    const newModelName = await page.locator('#current-model-name').textContent();
-    expect(newModelName).toBe(differentModelName);
+    // Model name should be updated in the button (shows short name)
+    const newModelShortName = await page.locator('#current-model-name').textContent();
+    expect(newModelShortName).toBe(differentModelShortName);
 
     // No error toast should appear (this was the bug)
     // Toast has class "toast toast-error" for error type
@@ -211,9 +212,9 @@ test.describe('Chat - Model Selection', () => {
     // Wait for response
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    // The model should still be the one we selected
-    const finalModelName = await page.locator('#current-model-name').textContent();
-    expect(finalModelName).toBe(differentModelName);
+    // The model should still be the one we selected (short name in button)
+    const finalModelShortName = await page.locator('#current-model-name').textContent();
+    expect(finalModelShortName).toBe(differentModelShortName);
   });
 
   test('model selection persists after sending first message', async ({ page }) => {
@@ -234,14 +235,15 @@ test.describe('Chat - Model Selection', () => {
     // Get all model options and find one that's not selected
     const modelOptions = modelDropdown.locator('.model-option');
     let targetOption = null;
-    let targetModelName = null;
+    let targetModelShortName = null;
     const optionCount = await modelOptions.count();
     for (let i = 0; i < optionCount; i++) {
       const option = modelOptions.nth(i);
       const isSelected = await option.evaluate((el) => el.classList.contains('selected'));
       if (!isSelected) {
         targetOption = option;
-        targetModelName = await option.locator('.model-name').textContent();
+        // Get short name from data attribute (button shows short name, not full name)
+        targetModelShortName = await option.getAttribute('data-short-name');
         break;
       }
     }
@@ -249,17 +251,17 @@ test.describe('Chat - Model Selection', () => {
     expect(targetOption).not.toBeNull();
     await targetOption!.click();
 
-    // Verify model is selected
-    const selectedModelName = await page.locator('#current-model-name').textContent();
-    expect(selectedModelName).toBe(targetModelName);
+    // Verify model is selected (button shows short name)
+    const selectedModelShortName = await page.locator('#current-model-name').textContent();
+    expect(selectedModelShortName).toBe(targetModelShortName);
 
     // Send first message (this persists the conversation)
     await page.fill('#message-input', 'First message with selected model');
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    // Model should still be the one we selected
-    expect(await page.locator('#current-model-name').textContent()).toBe(targetModelName);
+    // Model should still be the one we selected (short name in button)
+    expect(await page.locator('#current-model-name').textContent()).toBe(targetModelShortName);
 
     // Switch to another conversation and back
     await page.click('#new-chat-btn');
@@ -272,8 +274,8 @@ test.describe('Chat - Model Selection', () => {
     // Wait for conversation to load
     await page.waitForSelector('.message.user', { timeout: 10000 });
 
-    // Model should still be the one we selected for this conversation
-    expect(await page.locator('#current-model-name').textContent()).toBe(targetModelName);
+    // Model should still be the one we selected for this conversation (short name)
+    expect(await page.locator('#current-model-name').textContent()).toBe(targetModelShortName);
   });
 
   test('model selection persists after sending first message in streaming mode', async ({ page }) => {
@@ -294,14 +296,15 @@ test.describe('Chat - Model Selection', () => {
     // Get all model options and find one that's not selected
     const modelOptions = modelDropdown.locator('.model-option');
     let targetOption = null;
-    let targetModelName = null;
+    let targetModelShortName = null;
     const optionCount = await modelOptions.count();
     for (let i = 0; i < optionCount; i++) {
       const option = modelOptions.nth(i);
       const isSelected = await option.evaluate((el) => el.classList.contains('selected'));
       if (!isSelected) {
         targetOption = option;
-        targetModelName = await option.locator('.model-name').textContent();
+        // Get short name from data attribute (button shows short name, not full name)
+        targetModelShortName = await option.getAttribute('data-short-name');
         break;
       }
     }
@@ -309,9 +312,9 @@ test.describe('Chat - Model Selection', () => {
     expect(targetOption).not.toBeNull();
     await targetOption!.click();
 
-    // Verify model is selected
-    const selectedModelName = await page.locator('#current-model-name').textContent();
-    expect(selectedModelName).toBe(targetModelName);
+    // Verify model is selected (button shows short name)
+    const selectedModelShortName = await page.locator('#current-model-name').textContent();
+    expect(selectedModelShortName).toBe(targetModelShortName);
 
     // Send first message (this persists the conversation)
     await page.fill('#message-input', 'First message with selected model (streaming)');
@@ -321,8 +324,8 @@ test.describe('Chat - Model Selection', () => {
     const assistantMessage = page.locator('.message.assistant');
     await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
 
-    // Model should still be the one we selected
-    expect(await page.locator('#current-model-name').textContent()).toBe(targetModelName);
+    // Model should still be the one we selected (short name in button)
+    expect(await page.locator('#current-model-name').textContent()).toBe(targetModelShortName);
   });
 
   /**
@@ -352,8 +355,8 @@ test.describe('Chat - Model Selection', () => {
     const modelSelectorBtn = page.locator('#model-selector-btn');
     const modelDropdown = page.locator('#model-dropdown');
 
-    // Get initial model name (should be the default)
-    const initialModelName = await page.locator('#current-model-name').textContent();
+    // Get initial model short name (shown in button)
+    const initialModelShortName = await page.locator('#current-model-name').textContent();
 
     // Open dropdown
     await modelSelectorBtn.click();
@@ -362,7 +365,7 @@ test.describe('Chat - Model Selection', () => {
     // Find a model that is NOT currently selected
     const modelOptions = modelDropdown.locator('.model-option');
     let differentModelOption = null;
-    let differentModelName = null;
+    let differentModelShortName = null;
     let differentModelId = null;
     const optionCount = await modelOptions.count();
     for (let i = 0; i < optionCount; i++) {
@@ -370,22 +373,23 @@ test.describe('Chat - Model Selection', () => {
       const isSelected = await option.evaluate((el) => el.classList.contains('selected'));
       if (!isSelected) {
         differentModelOption = option;
-        differentModelName = await option.locator('.model-name').textContent();
+        // Get short name from data attribute (button shows short name, not full name)
+        differentModelShortName = await option.getAttribute('data-short-name');
         differentModelId = await option.getAttribute('data-model-id');
         break;
       }
     }
 
     expect(differentModelOption).not.toBeNull();
-    expect(differentModelName).not.toBe(initialModelName);
+    expect(differentModelShortName).not.toBe(initialModelShortName);
 
     // Select the different model
     await differentModelOption!.click();
     await expect(modelDropdown).toHaveClass(/hidden/);
 
-    // Model name should be updated in the button
-    const newModelName = await page.locator('#current-model-name').textContent();
-    expect(newModelName).toBe(differentModelName);
+    // Model short name should be updated in the button
+    const newModelShortName = await page.locator('#current-model-name').textContent();
+    expect(newModelShortName).toBe(differentModelShortName);
 
     // Re-open dropdown to verify checkmark is correct
     await modelSelectorBtn.click();
@@ -405,8 +409,8 @@ test.describe('Chat - Model Selection', () => {
     // Now click New Chat - the selected model should be preserved
     await page.click('#new-chat-btn');
 
-    // Model should still be the one we selected
-    expect(await page.locator('#current-model-name').textContent()).toBe(differentModelName);
+    // Model should still be the one we selected (short name in button)
+    expect(await page.locator('#current-model-name').textContent()).toBe(differentModelShortName);
 
     // Re-open dropdown to verify checkmark is still correct
     await modelSelectorBtn.click();
@@ -3108,5 +3112,91 @@ test.describe('Chat - Anonymous Mode', () => {
 
     // Anonymous mode should persist
     await expect(anonymousBtn).toHaveClass(/active/);
+  });
+
+});
+
+/**
+ * Anonymous Mode - Initial State Tests
+ *
+ * These tests verify anonymous mode behavior on initial page load WITHOUT
+ * clicking "New Chat" first. This is a separate describe block without
+ * beforeEach to test the true initial state.
+ */
+test.describe('Chat - Anonymous Mode Initial State', () => {
+  test('anonymous mode works on initial page load without clicking new chat (regression)', async ({
+    page,
+  }) => {
+    // This test covers the bug where anonymous mode did not work on initial page load.
+    // The issue was that when the page loads without a deeplink, there's no current
+    // conversation, and clicking the anonymous button did nothing because the click
+    // handler early-returned when convId was null.
+    // The fix uses pendingAnonymousMode state (similar to pendingModel) that gets
+    // applied when a conversation is created.
+
+    // Step 1: Go to root WITHOUT clicking new-chat-btn (fresh page state)
+    await page.goto('/');
+    await page.waitForSelector('#anonymous-btn');
+
+    // Step 2: Verify there's no current conversation (no hash in URL)
+    const urlBefore = new URL(page.url());
+    expect(urlBefore.hash).toBe('');
+
+    // Step 3: Click anonymous mode button - should work even without a conversation
+    const anonymousBtn = page.locator('#anonymous-btn');
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+    await anonymousBtn.click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Step 4: Send a message - this should create a conversation with anonymous mode ON
+    await page.request.post('/test/set-mock-response', {
+      data: { response: 'Anonymous mode activated on initial load!' },
+    });
+
+    await page.fill('#message-input', 'Test anonymous mode on initial load');
+    await page.click('#send-btn');
+
+    // Wait for response
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Step 5: Verify anonymous button is still active
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Step 6: Verify we now have a conversation with a real ID
+    const urlAfter = new URL(page.url());
+    expect(urlAfter.hash).toMatch(/#\/conversations\/[a-f0-9-]+/);
+  });
+
+  test('pending anonymous mode is cleared when creating new conversation', async ({ page }) => {
+    // This test ensures that when a user:
+    // 1. Enables anonymous mode without a conversation
+    // 2. The pending state is applied to the new conversation
+    // 3. The pending state is cleared after being applied
+    // So that subsequent new conversations default to non-anonymous
+
+    // Step 1: Go to root (no conversation)
+    await page.goto('/');
+    await page.waitForSelector('#anonymous-btn');
+
+    // Step 2: Enable anonymous mode in "pending" state
+    const anonymousBtn = page.locator('#anonymous-btn');
+    await anonymousBtn.click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Step 3: Click new-chat-btn - this creates conversation and consumes pending state
+    await page.click('#new-chat-btn');
+
+    // Anonymous mode should be active (pending state was applied)
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Step 4: Send a message to persist the conversation
+    await page.fill('#message-input', 'First conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Step 5: Click new-chat-btn AGAIN - this new conversation should be NON-anonymous
+    // because pending state was cleared when first conversation was created
+    await page.click('#new-chat-btn');
+    await expect(anonymousBtn).not.toHaveClass(/active/);
   });
 });
