@@ -1507,6 +1507,12 @@ def todoist(
     priority: int | None = None,
     labels: list[str] | None = None,
     filter_string: str | None = None,
+    project_name: str | None = None,
+    parent_project_id: str | None = None,
+    is_favorite: bool | None = None,
+    view_style: str | None = None,
+    color: str | None = None,
+    section_name: str | None = None,
 ) -> str:
     """Manage the user's Todoist tasks, projects, and sections.
 
@@ -1519,7 +1525,18 @@ def todoist(
       "overdue", "p1", "tomorrow", "#Work", "@urgent"). Without filter, returns all active tasks.
       Tasks include section_id and section_name for context.
     - "list_projects": List all projects.
+    - "get_project": Get a specific project by project_id.
+    - "add_project": Create a new project. Requires 'project_name'. Optional: color, view_style ("list" or
+      "board"), parent_project_id, is_favorite.
+    - "update_project": Update an existing project. Requires 'project_id' and at least one field to update
+      (project_name, color, view_style, parent_project_id, is_favorite).
+    - "delete_project": Delete a project permanently. Requires 'project_id'.
+    - "archive_project" / "unarchive_project": Archive or unarchive a project. Requires 'project_id'.
     - "list_sections": List sections for a project. Requires 'project_id'.
+    - "get_section": Get a section by section_id.
+    - "add_section": Create a new section in a project. Requires 'project_id' and 'section_name'.
+    - "update_section": Rename an existing section. Requires 'section_id' and new 'section_name'.
+    - "delete_section": Delete a section. Requires 'section_id'.
     - "get_task": Get a specific task by task_id.
     - "add_task": Create a new task. Requires 'content' (task title).
       Optional: description, project_id, section_id, due_string (natural language like "tomorrow at 3pm"),
@@ -1549,18 +1566,23 @@ def todoist(
     - 4 = Urgent (highest, shown in red)
 
     Args:
-        action: The action to perform (list_tasks, list_projects, list_sections, get_task,
-                add_task, update_task, complete_task, reopen_task, delete_task)
-        task_id: Task ID for get/update/complete/reopen/delete actions
+        action: The action to perform (task/project/section lifecycle actions listed above)
+        task_id: Task ID for task operations
         content: Task title/content for add_task or update_task
         description: Task description for add_task or update_task
-        project_id: Project ID for list_sections or to add task to (defaults to Inbox)
-        section_id: Section ID to add task to (optional, for organizing tasks within a project)
+        project_id: Project context for listing sections, adding sections, or task placement
+        section_id: Section ID for section operations or task placement
         due_string: Natural language due date (e.g., "tomorrow at 3pm", "next Monday")
         due_date: Due date in YYYY-MM-DD format
         priority: Priority level 1-4 (4 is highest)
         labels: List of label names to apply
         filter_string: Todoist filter syntax for list_tasks
+        project_name: Name used when creating or renaming a project
+        parent_project_id: Optional parent project when creating/moving a project under another
+        is_favorite: Whether the project should appear in favorites
+        view_style: Project view style ("list" or "board")
+        color: Project color name supported by Todoist
+        section_name: Name for section create/update actions
 
     Returns:
         JSON string with the result
@@ -1585,10 +1607,83 @@ def todoist(
         elif action == "list_projects":
             result = _todoist_list_projects(token)
 
+        elif action == "get_project":
+            if not project_id:
+                return json.dumps({"error": "project_id is required for get_project action"})
+            result = _todoist_get_project(token, project_id)
+
+        elif action == "add_project":
+            if not project_name:
+                return json.dumps({"error": "project_name is required for add_project action"})
+            result = _todoist_add_project(
+                token,
+                project_name,
+                color,
+                parent_project_id,
+                is_favorite,
+                view_style,
+            )
+
+        elif action == "update_project":
+            if not project_id:
+                return json.dumps({"error": "project_id is required for update_project action"})
+            result = _todoist_update_project(
+                token,
+                project_id,
+                project_name,
+                color,
+                parent_project_id,
+                is_favorite,
+                view_style,
+            )
+
+        elif action == "delete_project":
+            if not project_id:
+                return json.dumps({"error": "project_id is required for delete_project action"})
+            result = _todoist_delete_project(token, project_id)
+
+        elif action == "archive_project":
+            if not project_id:
+                return json.dumps({"error": "project_id is required for archive_project action"})
+            result = _todoist_archive_project(token, project_id)
+
+        elif action == "unarchive_project":
+            if not project_id:
+                return json.dumps({"error": "project_id is required for unarchive_project action"})
+            result = _todoist_unarchive_project(token, project_id)
+
         elif action == "list_sections":
             if not project_id:
                 return json.dumps({"error": "project_id is required for list_sections action"})
             result = _todoist_list_sections(token, project_id)
+
+        elif action == "get_section":
+            if not section_id:
+                return json.dumps({"error": "section_id is required for get_section action"})
+            result = _todoist_get_section(token, section_id)
+
+        elif action == "add_section":
+            if not project_id or not section_name:
+                return json.dumps(
+                    {
+                        "error": "project_id and section_name are required for add_section action",
+                    }
+                )
+            result = _todoist_add_section(token, project_id, section_name)
+
+        elif action == "update_section":
+            if not section_id or not section_name:
+                return json.dumps(
+                    {
+                        "error": "section_id and section_name are required for update_section action",
+                    }
+                )
+            result = _todoist_update_section(token, section_id, section_name)
+
+        elif action == "delete_section":
+            if not section_id:
+                return json.dumps({"error": "section_id is required for delete_section action"})
+            result = _todoist_delete_section(token, section_id)
 
         elif action == "get_task":
             if not task_id:
@@ -1800,6 +1895,103 @@ def _todoist_list_projects(token: str) -> dict[str, Any]:
     }
 
 
+def _todoist_get_project(token: str, project_id: str) -> dict[str, Any]:
+    """Fetch a single project by ID."""
+    project = _todoist_api_request("GET", f"/projects/{project_id}", token)
+    if not isinstance(project, dict):
+        raise Exception("Failed to fetch project")
+    return {"action": "get_project", "project": project}
+
+
+def _todoist_add_project(
+    token: str,
+    project_name: str,
+    color: str | None = None,
+    parent_project_id: str | None = None,
+    is_favorite: bool | None = None,
+    view_style: str | None = None,
+) -> dict[str, Any]:
+    """Create a new Todoist project."""
+    data: dict[str, Any] = {"name": project_name}
+    if color:
+        data["color"] = color
+    if parent_project_id:
+        data["parent_id"] = parent_project_id
+    if is_favorite is not None:
+        data["is_favorite"] = is_favorite
+    if view_style:
+        data["view_style"] = view_style
+
+    project = _todoist_api_request("POST", "/projects", token, data=data)
+    if not isinstance(project, dict):
+        raise Exception("Failed to create project")
+    return {"action": "add_project", "success": True, "project": project}
+
+
+def _todoist_update_project(
+    token: str,
+    project_id: str,
+    project_name: str | None = None,
+    color: str | None = None,
+    parent_project_id: str | None = None,
+    is_favorite: bool | None = None,
+    view_style: str | None = None,
+) -> dict[str, Any]:
+    """Update project metadata (name, color, favorite state, etc.)."""
+    data: dict[str, Any] = {}
+    if project_name:
+        data["name"] = project_name
+    if color:
+        data["color"] = color
+    if parent_project_id is not None:
+        data["parent_id"] = parent_project_id
+    if is_favorite is not None:
+        data["is_favorite"] = is_favorite
+    if view_style:
+        data["view_style"] = view_style
+
+    if not data:
+        return {"error": "No project fields provided for update"}
+
+    project = _todoist_api_request("POST", f"/projects/{project_id}", token, data=data)
+    if not isinstance(project, dict):
+        raise Exception("Failed to update project")
+    return {"action": "update_project", "success": True, "project": project}
+
+
+def _todoist_delete_project(token: str, project_id: str) -> dict[str, Any]:
+    """Delete a project permanently."""
+    _todoist_api_request("DELETE", f"/projects/{project_id}", token)
+    return {
+        "action": "delete_project",
+        "success": True,
+        "project_id": project_id,
+        "message": "Project deleted",
+    }
+
+
+def _todoist_archive_project(token: str, project_id: str) -> dict[str, Any]:
+    """Archive a project to hide it from active view."""
+    _todoist_api_request("POST", f"/projects/{project_id}/archive", token)
+    return {
+        "action": "archive_project",
+        "success": True,
+        "project_id": project_id,
+        "message": "Project archived",
+    }
+
+
+def _todoist_unarchive_project(token: str, project_id: str) -> dict[str, Any]:
+    """Bring an archived project back."""
+    _todoist_api_request("POST", f"/projects/{project_id}/unarchive", token)
+    return {
+        "action": "unarchive_project",
+        "success": True,
+        "project_id": project_id,
+        "message": "Project unarchived",
+    }
+
+
 def _todoist_list_sections(token: str, project_id: str) -> dict[str, Any]:
     """List all sections for a specific project.
 
@@ -1826,6 +2018,43 @@ def _todoist_list_sections(token: str, project_id: str) -> dict[str, Any]:
         "project_id": project_id,
         "count": len(formatted_sections),
         "sections": formatted_sections,
+    }
+
+
+def _todoist_get_section(token: str, section_id: str) -> dict[str, Any]:
+    """Fetch a section by ID."""
+    section = _todoist_api_request("GET", f"/sections/{section_id}", token)
+    if not isinstance(section, dict):
+        raise Exception("Failed to fetch section")
+    return {"action": "get_section", "section": section}
+
+
+def _todoist_add_section(token: str, project_id: str, section_name: str) -> dict[str, Any]:
+    """Create a new section inside a project."""
+    data = {"project_id": project_id, "name": section_name}
+    section = _todoist_api_request("POST", "/sections", token, data=data)
+    if not isinstance(section, dict):
+        raise Exception("Failed to create section")
+    return {"action": "add_section", "success": True, "section": section}
+
+
+def _todoist_update_section(token: str, section_id: str, section_name: str) -> dict[str, Any]:
+    """Rename an existing section."""
+    data = {"name": section_name}
+    section = _todoist_api_request("POST", f"/sections/{section_id}", token, data=data)
+    if not isinstance(section, dict):
+        raise Exception("Failed to update section")
+    return {"action": "update_section", "success": True, "section": section}
+
+
+def _todoist_delete_section(token: str, section_id: str) -> dict[str, Any]:
+    """Delete a section from a project."""
+    _todoist_api_request("DELETE", f"/sections/{section_id}", token)
+    return {
+        "action": "delete_section",
+        "success": True,
+        "section_id": section_id,
+        "message": "Section deleted",
     }
 
 
@@ -1936,7 +2165,17 @@ def _todoist_delete_task(token: str, task_id: str) -> dict[str, Any]:
 _TODOIST_ACTIONS = {
     "list_tasks",
     "list_projects",
+    "get_project",
+    "add_project",
+    "update_project",
+    "delete_project",
+    "archive_project",
+    "unarchive_project",
     "list_sections",
+    "get_section",
+    "add_section",
+    "update_section",
+    "delete_section",
     "get_task",
     "add_task",
     "update_task",

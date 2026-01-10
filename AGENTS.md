@@ -1981,8 +1981,8 @@ The app integrates with Todoist for AI-powered task management. Each user connec
 
 1. **OAuth Flow**: User clicks "Connect Todoist" in settings → redirected to Todoist OAuth → returns with auth code → exchanged for access token
 2. **Token Storage**: Access token stored in `users.todoist_access_token` column (per-user)
-3. **Tool Availability**: When user has connected Todoist, the `manage_todoist_tasks` tool is available to the LLM
-4. **Tool Capabilities**: List tasks, add tasks, complete/uncomplete tasks, update tasks, delete tasks, list projects
+3. **Tool Availability**: When user has connected Todoist, the `todoist` LangGraph tool is available to the LLM
+4. **Tool Capabilities**: Full task/project/section lifecycle management
 
 ### OAuth Flow Details
 
@@ -2004,17 +2004,40 @@ The app integrates with Todoist for AI-powered task management. Each user connec
 
 ### Todoist Tool Actions
 
-The `manage_todoist_tasks` tool supports these actions:
+The `todoist` tool exposes granular task, project, and section actions so the LLM can fully manage Todoist on the user's behalf.
+
+**Task actions**
 
 | Action | Parameters | Description |
 |--------|------------|-------------|
-| `list_tasks` | `filter` (optional) | List tasks using Todoist filter syntax |
-| `add_task` | `content`, `due_string`, `priority`, `project_id`, `description` | Create a new task |
-| `complete_task` | `task_id` | Mark task as complete |
-| `uncomplete_task` | `task_id` | Mark task as incomplete |
-| `update_task` | `task_id`, `content`, `due_string`, `priority`, `description` | Update task properties |
+| `list_tasks` | `filter_string` (optional), `project_id` (optional) | List tasks using Todoist filter syntax and enrich with project/section names |
+| `get_task` | `task_id` | Fetch a specific task |
+| `add_task` | `content`, optional `description`, `project_id`, `section_id`, `due_string`, `due_date`, `priority`, `labels` | Create a task |
+| `update_task` | `task_id`, optional task fields | Update task properties |
+| `complete_task` | `task_id` | Mark task complete |
+| `reopen_task` | `task_id` | Reopen a completed task |
 | `delete_task` | `task_id` | Delete a task |
-| `list_projects` | (none) | List all projects |
+
+**Project actions**
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `list_projects` | – | List all projects |
+| `get_project` | `project_id` | Fetch project metadata |
+| `add_project` | `project_name`, optional `color`, `view_style`, `parent_project_id`, `is_favorite` | Create a project |
+| `update_project` | `project_id`, any of the optional project fields | Rename or reconfigure a project |
+| `delete_project` | `project_id` | Permanently delete a project |
+| `archive_project` / `unarchive_project` | `project_id` | Toggle archive state |
+
+**Section actions**
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `list_sections` | `project_id` | List sections in a project |
+| `get_section` | `section_id` | Fetch a single section |
+| `add_section` | `project_id`, `section_name` | Create a section |
+| `update_section` | `section_id`, `section_name` | Rename a section |
+| `delete_section` | `section_id` | Delete a section |
 
 **Todoist Filter Syntax Examples:**
 - `today` - Tasks due today
