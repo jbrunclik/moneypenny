@@ -69,6 +69,72 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Tool metadata for display in the UI
+# Maps tool function name to display information
+# icon: key used by frontend to look up SVG icon (search, link, sparkles, code, checklist)
+# IMPORTANT: Tool names here must match the @tool decorated function names in tools.py
+TOOL_METADATA: dict[str, dict[str, str]] = {
+    "web_search": {
+        "label": "Searching the web",
+        "label_past": "Searched",
+        "icon": "search",
+    },
+    "fetch_url": {
+        "label": "Fetching page",
+        "label_past": "Fetched",
+        "icon": "link",
+    },
+    "generate_image": {
+        "label": "Generating image",
+        "label_past": "Generated image",
+        "icon": "sparkles",
+    },
+    "execute_code": {
+        "label": "Running code",
+        "label_past": "Ran code",
+        "icon": "code",
+    },
+    "todoist": {
+        "label": "Managing tasks",
+        "label_past": "Managed tasks",
+        "icon": "checklist",
+    },
+}
+
+# Tools that have custom detail extraction logic in _extract_tool_detail
+# IMPORTANT: Must match function names in tools.py - verified at import time below
+TOOLS_WITH_DETAIL_EXTRACTION = frozenset(
+    ["web_search", "fetch_url", "generate_image", "execute_code", "todoist"]
+)
+
+
+def _validate_tool_names() -> None:
+    """Validate that tool names in metadata and detail extraction match actual tools.
+
+    This runs at import time to catch mismatches early during development.
+    """
+    actual_tool_names = {tool.name for tool in TOOLS}
+
+    # Check TOOL_METADATA
+    invalid_metadata_names = set(TOOL_METADATA.keys()) - actual_tool_names
+    if invalid_metadata_names:
+        logger.warning(
+            f"TOOL_METADATA contains unknown tool names: {invalid_metadata_names}. "
+            f"Valid tools: {actual_tool_names}"
+        )
+
+    # Check TOOLS_WITH_DETAIL_EXTRACTION
+    invalid_detail_names = TOOLS_WITH_DETAIL_EXTRACTION - actual_tool_names
+    if invalid_detail_names:
+        logger.warning(
+            f"TOOLS_WITH_DETAIL_EXTRACTION contains unknown tool names: {invalid_detail_names}. "
+            f"Valid tools: {actual_tool_names}"
+        )
+
+
+# Validate at import time
+_validate_tool_names()
+
 
 def strip_full_result_from_tool_content(content: str) -> str:
     """Strip the _full_result field from tool result JSON to avoid sending large data to LLM.
@@ -394,6 +460,106 @@ IMPORTANT for file generation:
 - Files saved there will be returned to the user as downloadable attachments
 - Always tell the user what files were generated
 
+## Task Management (Todoist)
+- **todoist**: Manage tasks, projects, and sections in the user's Todoist account
+
+This tool is ONLY available if the user has connected their Todoist account in settings.
+If you get "Todoist not connected", tell the user they need to connect Todoist in settings first.
+
+### Your Role as a Task Management Expert
+You are not just a natural language interface for Todoist - you are a **productivity expert** who helps the user organize and manage their tasks effectively. Think like a personal assistant who understands GTD (Getting Things Done), time management best practices, and how to use Todoist's organizational features to maximum effect.
+
+### Understanding Todoist's Organizational Hierarchy
+Todoist uses a three-level hierarchy for organization:
+1. **Projects** - High-level categories (e.g., "Work", "Personal", "Finance", "Health")
+2. **Sections** - Subdivisions within projects (e.g., under "Work": "Active Projects", "Meetings", "Follow-ups")
+3. **Tasks** - Individual action items that belong to a project and optionally a section
+
+**IMPORTANT**: When listing tasks, pay attention to both `project_name` AND `section_name` in the response.
+Sections provide critical context for understanding how tasks are organized within a project.
+
+### Learning the User's Organization System
+When you first interact with a user's Todoist or periodically:
+1. Use `list_projects` to understand their project structure
+2. Use `list_sections` for each main project to understand their section organization
+3. **STORE this information in your memory** using memory_operations so you remember their setup:
+   - Example: "Todoist projects: Work (sections: Active, Meetings, Follow-ups), Personal (sections: Home, Errands, Health), Finance (no sections)"
+4. **Periodically revalidate** (especially after they mention creating new projects or sections) by re-querying and updating your memory
+
+### When to Use Todoist
+Use the todoist tool when the user:
+- Asks about their tasks, to-do list, or what's on their agenda
+- Wants to know what's overdue, due today, or coming up
+- Needs to add, update, complete, or delete tasks
+- Wants to prioritize or reorganize their tasks
+- Asks about their projects or sections
+- Wants to search or filter their tasks
+- Mentions something they need to do (proactively suggest adding it!)
+
+### Todoist Actions
+- **list_tasks**: List tasks. Use filter_string for powerful filtering. Returns project_name and section_name.
+- **list_projects**: List all projects.
+- **list_sections**: List sections within a specific project (requires project_id).
+- **add_task**: Create a new task with optional due date, priority, labels, project_id, and section_id.
+- **update_task**: Modify an existing task.
+- **complete_task**: Mark a task as done.
+- **reopen_task**: Reopen a completed task.
+- **delete_task**: Permanently delete a task.
+
+### CRITICAL: Smart Task Placement
+**NEVER just dump tasks into Inbox!** When adding a new task:
+1. **Analyze the task content** to determine the appropriate project and section
+2. **Use your knowledge of the user's organization** (from memory or by querying)
+3. **Ask for clarification if genuinely uncertain**, but make intelligent guesses based on context:
+   - Work-related task → Work project
+   - Shopping item → Personal/Errands section
+   - Bill to pay → Finance project
+   - Doctor appointment → Personal/Health section
+4. **When in doubt about the section**, at minimum place it in the correct project
+
+Examples of intelligent task placement:
+- "Add a task to review Q3 budget" → Work project, likely Financial Review or Active Projects section
+- "Remind me to buy milk" → Personal project, Errands or Shopping section
+- "Schedule dentist appointment" → Personal project, Health section
+- "Follow up with John about the proposal" → Work project, Follow-ups section
+
+### Filter Syntax Examples
+The filter_string parameter uses Todoist's powerful filter language:
+- `today` - Tasks due today
+- `overdue` - Overdue tasks
+- `overdue | today` - Overdue OR due today
+- `tomorrow` - Due tomorrow
+- `7 days` or `next 7 days` - Due in the next week
+- `no date` - Tasks without a due date
+- `p1` - Highest priority tasks (red)
+- `p1 | p2` - Priority 1 or 2
+- `#Work` - Tasks in the "Work" project
+- `@urgent` - Tasks with the "urgent" label
+- `today & p1` - Due today AND priority 1
+- `assigned to: me` - Tasks assigned to the user
+
+### Priority Levels
+- 1 = Normal (lowest, default)
+- 2 = Medium
+- 3 = High
+- 4 = Urgent (highest, shown in red in Todoist)
+
+### Best Practices for Task Management
+1. **Be proactive**: When the user asks "what's on my plate?", check both overdue and today.
+2. **Show full context**: When listing tasks, group by project AND section for clarity.
+3. **Natural language dates**: Use due_string for flexible dates like "tomorrow at 3pm", "next Monday".
+4. **Intelligent categorization**: Always try to place tasks in the right project and section, not Inbox.
+5. **Help organize**: If tasks seem disorganized or in wrong places, suggest reorganizing.
+6. **Confirm destructive actions**: Before deleting, confirm with the user.
+7. **Remember their system**: Use memory to store the user's project/section structure.
+8. **Proactive suggestions**: If the user mentions something they need to do, offer to add it as a task.
+9. **Present professionally**: Format task lists nicely with due dates, priorities, and organization info.
+10. **Suggest better organization**: When you notice the user's Todoist setup could be improved, proactively suggest creating new projects or sections. For example:
+    - If the Inbox has many tasks that could be categorized, suggest creating relevant projects
+    - If a project has many tasks without sections, suggest adding sections to organize them
+    - If you see opportunities to streamline their workflow (e.g., "You have several grocery-related tasks scattered across projects - would you like me to create a Shopping project with sections like Groceries, Household, etc.?")
+    - Be helpful but not pushy - offer suggestions once, and respect if the user prefers their current setup
+
 # Knowledge Cutoff
 Your training data has a cutoff date. For anything after that, use web_search.
 
@@ -658,6 +824,61 @@ def get_system_prompt(
         prompt += get_force_tools_prompt(force_tools)
 
     return prompt + date_context
+
+
+def _extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:
+    """Extract a human-readable detail string from complete tool arguments.
+
+    This is used when we have the complete tool_calls with parsed args dict.
+
+    Args:
+        tool_name: Name of the tool being called
+        tool_args: Parsed arguments dictionary
+
+    Returns:
+        Detail string to display in UI, or None if no detail available
+    """
+    if tool_name == "web_search" and "query" in tool_args:
+        return str(tool_args["query"])
+    elif tool_name == "fetch_url" and "url" in tool_args:
+        return str(tool_args["url"])
+    elif tool_name == "generate_image" and "prompt" in tool_args:
+        return str(tool_args["prompt"])
+    elif tool_name == "execute_code" and "code" in tool_args:
+        # Show first line of code as detail
+        code_preview = str(tool_args["code"]).split("\n")[0][:50]
+        return code_preview
+    elif tool_name == "todoist" and "action" in tool_args:
+        return _format_todoist_detail(tool_args)
+    return None
+
+
+def _format_todoist_detail(tool_args: dict[str, Any]) -> str:
+    """Format Todoist tool args into a human-readable detail string.
+
+    Args:
+        tool_args: Parsed arguments dictionary with 'action' and other params
+
+    Returns:
+        Detail string like "list_tasks: today" or "add_task: Buy milk"
+    """
+    action = str(tool_args.get("action", ""))
+    if action == "list_tasks":
+        filter_str = tool_args.get("filter_string") or tool_args.get("filter", "all")
+        return f"{action}: {filter_str}"
+    elif action == "list_sections":
+        project_id = tool_args.get("project_id", "")
+        return f"{action}: project {project_id}"
+    elif action == "add_task":
+        content = str(tool_args.get("content", ""))[:40]
+        return f"{action}: {content}"
+    elif action in ("complete_task", "uncomplete_task", "delete_task", "update_task"):
+        task_id = tool_args.get("task_id", "")
+        return f"{action}: {task_id}"
+    elif action == "list_projects":
+        return action
+    else:
+        return action
 
 
 def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:
@@ -1520,13 +1741,20 @@ class ChatAgent:
                                 if tc_name is not None and isinstance(tc_args, dict):
                                     tool_infos.append((tc_name, tc_args))
                         elif message_chunk.tool_call_chunks:
-                            # tool_call_chunks have args as string (partial JSON)
-                            # We can only get the tool name here, not args
+                            # tool_call_chunks have partial args - we just emit tool_start
+                            # when we see the tool name. Details will come from tool_calls later.
                             for tc_chunk in message_chunk.tool_call_chunks:
-                                chunk_name = tc_chunk.get("name")
-                                if chunk_name is not None:
-                                    # Empty args dict since chunks don't have complete args
-                                    tool_infos.append((chunk_name, {}))
+                                chunk_name: str | None = tc_chunk.get("name")
+                                if chunk_name and chunk_name not in pending_tool_calls:
+                                    pending_tool_calls.add(chunk_name)
+                                    tool_start_event: dict[str, Any] = {
+                                        "type": "tool_start",
+                                        "tool": chunk_name,
+                                    }
+                                    if chunk_name in TOOL_METADATA:
+                                        tool_start_event["metadata"] = TOOL_METADATA[chunk_name]
+                                    yield tool_start_event
+                            continue
 
                         for tool_name, tool_args in tool_infos:
                             if tool_name not in pending_tool_calls:
@@ -1537,16 +1765,12 @@ class ChatAgent:
                                     "tool": tool_name,
                                 }
                                 # Add tool-specific detail (only available from complete tool_calls)
-                                if tool_name == "web_search" and "query" in tool_args:
-                                    tool_event["detail"] = tool_args["query"]
-                                elif tool_name == "fetch_url" and "url" in tool_args:
-                                    tool_event["detail"] = tool_args["url"]
-                                elif tool_name == "generate_image" and "prompt" in tool_args:
-                                    tool_event["detail"] = tool_args["prompt"]
-                                elif tool_name == "execute_code" and "code" in tool_args:
-                                    # Show first line of code as detail
-                                    code_preview = tool_args["code"].split("\n")[0][:50]
-                                    tool_event["detail"] = code_preview
+                                detail = _extract_tool_detail(tool_name, tool_args)
+                                if detail:
+                                    tool_event["detail"] = detail
+                                # Include metadata for frontend display
+                                if tool_name in TOOL_METADATA:
+                                    tool_event["metadata"] = TOOL_METADATA[tool_name]
                                 yield tool_event
                         continue
 

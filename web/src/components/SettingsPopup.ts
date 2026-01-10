@@ -1,6 +1,14 @@
 import { getElementById } from '../utils/dom';
-import { SETTINGS_ICON, CLOSE_ICON, SUN_ICON, MOON_ICON, MONITOR_ICON } from '../utils/icons';
-import { settings } from '../api/client';
+import {
+  SETTINGS_ICON,
+  CLOSE_ICON,
+  SUN_ICON,
+  MOON_ICON,
+  MONITOR_ICON,
+  CHECK_ICON,
+  WARNING_ICON,
+} from '../utils/icons';
+import { settings, todoist } from '../api/client';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import {
@@ -11,17 +19,22 @@ import {
   setupSystemPreferenceListener,
 } from '../utils/theme';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
+import type { TodoistStatus } from '../types/api';
 
 const log = createLogger('settings-popup');
 
 const POPUP_ID = 'settings-popup';
 const CHAR_LIMIT = 2000;
+const TODOIST_STATE_KEY = 'todoist-oauth-state';
 
 /** Current custom instructions value */
 let currentInstructions = '';
 
 /** Current color scheme value */
 let currentColorScheme: ColorScheme = 'system';
+
+/** Current Todoist status */
+let todoistStatus: TodoistStatus | null = null;
 
 /**
  * Render color scheme option
@@ -45,9 +58,64 @@ function renderColorSchemeOption(
 }
 
 /**
+ * Render Todoist connection status
+ */
+function renderTodoistSection(status: TodoistStatus | null): string {
+  if (status === null) {
+    return `
+      <div class="settings-todoist-loading">Loading Todoist status...</div>
+    `;
+  }
+
+  // Token is invalid - show reconnection warning
+  if (status.connected && status.needs_reconnect) {
+    return `
+      <div class="settings-todoist-needs-reconnect">
+        <span class="settings-todoist-status">
+          <span class="settings-todoist-icon warning">${WARNING_ICON}</span>
+          Todoist access expired
+        </span>
+        <p class="settings-helper">Your Todoist connection has expired. Please reconnect to continue managing tasks.</p>
+        <div class="settings-todoist-actions">
+          <button type="button" class="btn btn-primary btn-sm settings-todoist-connect">
+            Reconnect
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm settings-todoist-disconnect">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (status.connected) {
+    return `
+      <div class="settings-todoist-connected">
+        <span class="settings-todoist-status">
+          <span class="settings-todoist-icon connected">${CHECK_ICON}</span>
+          Connected${status.todoist_email ? ` as ${status.todoist_email}` : ''}
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm settings-todoist-disconnect">
+          Disconnect
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="settings-todoist-disconnected">
+      <p class="settings-helper">Connect your Todoist account to manage tasks with AI</p>
+      <button type="button" class="btn btn-primary btn-sm settings-todoist-connect">
+        Connect Todoist
+      </button>
+    </div>
+  `;
+}
+
+/**
  * Render the popup content
  */
-function renderContent(instructions: string, colorScheme: ColorScheme): string {
+function renderContent(instructions: string, colorScheme: ColorScheme, todoistSt: TodoistStatus | null): string {
   const charCount = instructions.length;
   const charCountClass = charCount > CHAR_LIMIT ? 'error' : charCount > CHAR_LIMIT * 0.9 ? 'warning' : '';
 
@@ -60,6 +128,13 @@ function renderContent(instructions: string, colorScheme: ColorScheme): string {
           ${renderColorSchemeOption('dark', MOON_ICON, 'Dark', colorScheme === 'dark')}
           ${renderColorSchemeOption('system', MONITOR_ICON, 'System', colorScheme === 'system')}
         </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field">
+        <label class="settings-label">Todoist Integration</label>
+        ${renderTodoistSection(todoistSt)}
       </div>
 
       <div class="settings-divider"></div>
@@ -147,6 +222,117 @@ function handleColorSchemeClick(scheme: ColorScheme): void {
 }
 
 /**
+ * Handle Todoist connect button click - initiate OAuth flow
+ */
+async function handleTodoistConnect(): Promise<void> {
+  try {
+    log.debug('Starting Todoist OAuth flow');
+    const { auth_url, state } = await todoist.getAuthUrl();
+
+    // Store state for verification when user returns
+    sessionStorage.setItem(TODOIST_STATE_KEY, state);
+
+    // Redirect to Todoist OAuth page
+    window.location.href = auth_url;
+  } catch (error) {
+    log.error('Failed to start Todoist OAuth', { error });
+    toast.error('Failed to connect to Todoist');
+  }
+}
+
+/**
+ * Handle Todoist disconnect button click
+ */
+async function handleTodoistDisconnect(): Promise<void> {
+  try {
+    log.debug('Disconnecting Todoist');
+    await todoist.disconnect();
+    todoistStatus = { connected: false, todoist_email: null, connected_at: null, needs_reconnect: false };
+
+    // Update UI
+    const popup = getElementById<HTMLDivElement>(POPUP_ID);
+    if (popup) {
+      const todoistSection = popup.querySelector('.settings-field:has(.settings-todoist-connected), .settings-field:has(.settings-todoist-disconnected)');
+      if (todoistSection) {
+        const labelEl = todoistSection.querySelector('.settings-label');
+        if (labelEl) {
+          todoistSection.innerHTML = `
+            <label class="settings-label">Todoist Integration</label>
+            ${renderTodoistSection(todoistStatus)}
+          `;
+        }
+      }
+    }
+
+    toast.success('Todoist disconnected');
+    log.info('Todoist disconnected');
+  } catch (error) {
+    log.error('Failed to disconnect Todoist', { error });
+    toast.error('Failed to disconnect Todoist');
+  }
+}
+
+/**
+ * Check for OAuth callback and complete connection.
+ * Call this on app initialization to handle the OAuth redirect.
+ * Returns true if this was an OAuth callback (handled), false otherwise.
+ */
+export async function checkTodoistOAuthCallback(): Promise<boolean> {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const state = urlParams.get('state');
+  const error = urlParams.get('error');
+
+  // Check if this is a Todoist OAuth callback
+  if (!code && !error) {
+    return false;
+  }
+
+  // Clear URL params
+  window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+
+  if (error) {
+    log.error('Todoist OAuth error', { error });
+    toast.error('Failed to connect Todoist: ' + error);
+    sessionStorage.removeItem(TODOIST_STATE_KEY);
+    return true;
+  }
+
+  // Verify state
+  const storedState = sessionStorage.getItem(TODOIST_STATE_KEY);
+  if (state !== storedState) {
+    log.error('Todoist OAuth state mismatch', { expected: storedState, received: state });
+    toast.error('Failed to connect Todoist: Invalid state');
+    sessionStorage.removeItem(TODOIST_STATE_KEY);
+    return true;
+  }
+
+  sessionStorage.removeItem(TODOIST_STATE_KEY);
+
+  // Exchange code for token
+  try {
+    log.debug('Exchanging Todoist OAuth code for token');
+    const result = await todoist.connect(code as string, state as string);
+    todoistStatus = {
+      connected: result.connected,
+      todoist_email: result.todoist_email,
+      connected_at: new Date().toISOString(),
+      needs_reconnect: false,
+    };
+    toast.success('Todoist connected successfully');
+    log.info('Todoist connected', { email: result.todoist_email });
+
+    // Open settings popup to show the connected state
+    openSettingsPopup();
+  } catch (err) {
+    log.error('Failed to complete Todoist OAuth', { error: err });
+    toast.error('Failed to connect Todoist');
+  }
+
+  return true;
+}
+
+/**
  * Open the settings popup
  */
 export async function openSettingsPopup(): Promise<void> {
@@ -179,17 +365,30 @@ export async function openSettingsPopup(): Promise<void> {
 
   popup.classList.remove('hidden');
 
-  // Fetch settings
+  // Fetch settings and Todoist status in parallel
   try {
-    log.debug('Fetching settings');
-    const data = await settings.get();
-    currentInstructions = data.custom_instructions || '';
-    log.info('Settings loaded', { instructionsLength: currentInstructions.length });
+    log.debug('Fetching settings and Todoist status');
+
+    // Fetch both in parallel - Todoist status is optional, don't block on failure
+    const [settingsData, todoistData] = await Promise.all([
+      settings.get(),
+      todoist.getStatus().catch((err) => {
+        log.warn('Failed to fetch Todoist status', { error: err });
+        return null;
+      }),
+    ]);
+
+    currentInstructions = settingsData.custom_instructions || '';
+    todoistStatus = todoistData;
+    log.info('Settings loaded', {
+      instructionsLength: currentInstructions.length,
+      todoistConnected: todoistStatus?.connected ?? false,
+    });
 
     // Update popup body
     const body = popup.querySelector('.info-popup-body');
     if (body) {
-      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme)}</div>`;
+      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus)}</div>`;
     }
 
     // Enable save button and attach handlers
@@ -256,13 +455,23 @@ export function initSettingsPopup(): void {
   // Register with centralized Escape key handler
   registerPopupEscapeHandler(POPUP_ID, closeSettingsPopup);
 
-  // Event delegation for retry button
+  // Event delegation for buttons
   popup.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
 
     // Retry button
     if (target.classList.contains('settings-retry-btn')) {
       openSettingsPopup();
+    }
+
+    // Todoist connect button
+    if (target.classList.contains('settings-todoist-connect')) {
+      handleTodoistConnect();
+    }
+
+    // Todoist disconnect button
+    if (target.classList.contains('settings-todoist-disconnect')) {
+      handleTodoistDisconnect();
     }
   });
 

@@ -21,6 +21,9 @@ import {
   type SearchResponse,
   type StreamEvent,
   type SyncResponse,
+  type TodoistAuthUrl,
+  type TodoistConnectResponse,
+  type TodoistStatus,
   type UploadConfig,
   type User,
   type UserSettings,
@@ -887,6 +890,45 @@ export const settings = {
       body: JSON.stringify(data),
       retry: true,
     });
+  },
+};
+
+// Todoist integration endpoints
+export const todoist = {
+  /**
+   * Get the Todoist OAuth authorization URL.
+   * Returns a URL to redirect the user to and a state token for CSRF protection.
+   */
+  async getAuthUrl(): Promise<TodoistAuthUrl> {
+    return requestWithRetry<TodoistAuthUrl>('/auth/todoist/auth-url');
+  },
+
+  /**
+   * Exchange Todoist OAuth code for access token and connect the account.
+   * @param code - The authorization code from Todoist callback
+   * @param state - The state token for CSRF validation (client should verify this)
+   */
+  async connect(code: string, state: string): Promise<TodoistConnectResponse> {
+    return request<TodoistConnectResponse>('/auth/todoist/connect', {
+      method: 'POST',
+      body: JSON.stringify({ code, state }),
+    });
+  },
+
+  /**
+   * Disconnect the user's Todoist account.
+   */
+  async disconnect(): Promise<void> {
+    await request<{ status: string }>('/auth/todoist/disconnect', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Get the current Todoist connection status.
+   */
+  async getStatus(): Promise<TodoistStatus> {
+    return requestWithRetry<TodoistStatus>('/auth/todoist/status');
   },
 };
 

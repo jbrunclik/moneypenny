@@ -122,10 +122,18 @@ export interface UploadConfig {
 // Streaming types (SSE events - frontend only)
 // =============================================================================
 
+// Tool metadata provided by backend for display
+export interface ToolMetadata {
+  label: string; // Present tense label (e.g., "Searching the web")
+  label_past: string; // Past tense label (e.g., "Searched")
+  icon: string; // Icon key (search, link, sparkles, code, checklist)
+}
+
 export type StreamEvent =
   | { type: 'token'; text: string }
   | { type: 'thinking'; text: string }
-  | { type: 'tool_start'; tool: string; detail?: string }
+  | { type: 'tool_start'; tool: string; detail?: string; metadata?: ToolMetadata }
+  | { type: 'tool_detail'; tool: string; detail: string }
   | { type: 'tool_end'; tool: string }
   | { type: 'user_message_saved'; user_message_id: string } // Sent early so lightbox works during streaming
   | {
@@ -150,6 +158,7 @@ export interface ThinkingTraceItem {
   label: string;
   detail?: string;
   completed: boolean;
+  metadata?: ToolMetadata; // Backend-provided display metadata (label, icon)
 }
 
 export interface ThinkingState {
@@ -334,6 +343,27 @@ export interface MemoriesResponse {
 
 export interface UserSettings {
   custom_instructions: string;
+}
+
+// =============================================================================
+// Todoist types
+// =============================================================================
+
+export interface TodoistAuthUrl {
+  auth_url: string;
+  state: string;
+}
+
+export interface TodoistConnectResponse {
+  connected: boolean;
+  todoist_email: string | null;
+}
+
+export interface TodoistStatus {
+  connected: boolean;
+  todoist_email: string | null;
+  connected_at: string | null;
+  needs_reconnect: boolean;
 }
 
 // =============================================================================

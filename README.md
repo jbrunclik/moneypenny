@@ -44,6 +44,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Image lightbox**: Click thumbnails to view full-size images, with loading indicator and on-demand thumbnail loading
 - **Web tools**: Real-time web search (DuckDuckGo) and URL fetching with source citations
 - **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
+- **Todoist integration**: Manage tasks via AI - list, add, complete, prioritize, and organize tasks across projects
 
 ### Personalization
 - **User memory**: AI learns and remembers facts about you across conversations (viewable/deletable via brain icon)
@@ -152,6 +153,11 @@ RATE_LIMIT_AUTH=10 per minute         # Auth endpoints (brute force protection)
 RATE_LIMIT_CHAT=30 per minute         # Chat endpoints (expensive LLM calls)
 RATE_LIMIT_CONVERSATIONS=60 per minute  # Conversation CRUD
 RATE_LIMIT_FILES=120 per minute       # File downloads
+
+# Todoist integration (optional)
+TODOIST_CLIENT_ID=your-todoist-client-id
+TODOIST_CLIENT_SECRET=your-todoist-client-secret
+TODOIST_REDIRECT_URI=http://localhost:5173  # Your app URL (OAuth redirects here, use Vite port in dev)
 ```
 
 ### Setting up Code Execution (Docker)
@@ -204,6 +210,46 @@ The AI will gracefully handle this and won't offer code execution capabilities.
 - Containers have memory and CPU limits
 - Files are only accessible within the sandbox (`/output/` directory)
 - Each execution creates a fresh container that is destroyed after use
+
+### Setting up Todoist Integration
+
+The Todoist integration allows the AI to manage your tasks - list, add, complete, prioritize, and organize tasks across projects. Each user connects their own Todoist account via OAuth.
+
+**Prerequisites:**
+- A Todoist account
+- A registered Todoist OAuth app
+
+**Setup:**
+
+1. Go to [Todoist App Console](https://developer.todoist.com/appconsole.html)
+2. Click **Create a new app**
+3. Fill in the app details:
+   - **App name**: Your chatbot name
+   - **App service URL**: Your deployment URL (e.g., `https://yourdomain.com`)
+   - **OAuth redirect URL**: Your deployment URL (e.g., `https://yourdomain.com` for production, `http://localhost:5173` for development with Vite)
+4. Copy the **Client ID** and **Client Secret** to your `.env` file
+
+**Configuration:**
+```bash
+TODOIST_CLIENT_ID=your-client-id
+TODOIST_CLIENT_SECRET=your-client-secret
+TODOIST_REDIRECT_URI=http://localhost:5173  # Your app URL (use Vite port in dev)
+```
+
+**Usage:**
+1. Open Settings (gear icon in sidebar)
+2. Click "Connect Todoist" in the Todoist Integration section
+3. Authorize the app on Todoist's OAuth page
+4. Once connected, ask the AI to help manage your tasks:
+   - "Show me my tasks for today"
+   - "What's overdue?"
+   - "Add a task to buy groceries"
+   - "Mark the first task as complete"
+   - "Prioritize my work project tasks"
+
+**Disabling Todoist:**
+
+Simply leave `TODOIST_CLIENT_ID` empty - the integration won't appear in settings and the AI won't offer task management capabilities.
 
 ### Setting up Google Sign In
 

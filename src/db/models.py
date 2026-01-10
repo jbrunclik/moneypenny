@@ -219,6 +219,8 @@ class User:
     picture: str | None
     created_at: datetime
     custom_instructions: str | None = None
+    todoist_access_token: str | None = None
+    todoist_connected_at: datetime | None = None
 
 
 @dataclass
@@ -360,6 +362,8 @@ class Database:
                     picture=picture,
                     created_at=now,
                     custom_instructions=None,
+                    todoist_access_token=None,
+                    todoist_connected_at=None,
                 )
 
             # User already existed, fetch it
@@ -371,14 +375,23 @@ class Database:
                 # the user must exist. But handle it defensively.
                 raise RuntimeError(f"User with email {email} should exist but was not found")
             logger.debug("User found", extra={"user_id": row["id"], "email": email})
-            return User(
-                id=row["id"],
-                email=row["email"],
-                name=row["name"],
-                picture=row["picture"],
-                created_at=datetime.fromisoformat(row["created_at"]),
-                custom_instructions=row["custom_instructions"],
-            )
+            return self._row_to_user(row)
+
+    def _row_to_user(self, row: sqlite3.Row) -> User:
+        """Convert a database row to a User object."""
+        todoist_connected_at = None
+        if row["todoist_connected_at"]:
+            todoist_connected_at = datetime.fromisoformat(row["todoist_connected_at"])
+        return User(
+            id=row["id"],
+            email=row["email"],
+            name=row["name"],
+            picture=row["picture"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            custom_instructions=row["custom_instructions"],
+            todoist_access_token=row["todoist_access_token"],
+            todoist_connected_at=todoist_connected_at,
+        )
 
     def get_user_by_id(self, user_id: str) -> User | None:
         with self._pool.get_connection() as conn:
@@ -389,14 +402,7 @@ class Database:
             if not row:
                 return None
 
-            return User(
-                id=row["id"],
-                email=row["email"],
-                name=row["name"],
-                picture=row["picture"],
-                created_at=datetime.fromisoformat(row["created_at"]),
-                custom_instructions=row["custom_instructions"],
-            )
+            return self._row_to_user(row)
 
     def update_user_custom_instructions(self, user_id: str, instructions: str | None) -> bool:
         """Update a user's custom instructions.
@@ -430,6 +436,45 @@ class Database:
         else:
             logger.warning(
                 "User not found for custom instructions update",
+                extra={"user_id": user_id},
+            )
+        return updated
+
+    def update_user_todoist_token(self, user_id: str, access_token: str | None) -> bool:
+        """Update a user's Todoist access token.
+
+        Args:
+            user_id: The user ID
+            access_token: The Todoist access token (or None to disconnect)
+
+        Returns:
+            True if user was updated, False if not found
+        """
+        logger.debug(
+            "Updating user Todoist token",
+            extra={"user_id": user_id, "connecting": bool(access_token)},
+        )
+
+        connected_at = datetime.now().isoformat() if access_token else None
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET todoist_access_token = ?, todoist_connected_at = ? WHERE id = ?",
+                (access_token, connected_at, user_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            action = "connected" if access_token else "disconnected"
+            logger.info(
+                f"User Todoist {action}",
+                extra={"user_id": user_id},
+            )
+        else:
+            logger.warning(
+                "User not found for Todoist token update",
                 extra={"user_id": user_id},
             )
         return updated

@@ -15,34 +15,45 @@ import {
   CHEVRON_RIGHT_ICON,
   BRAIN_ICON,
   CODE_ICON,
+  CHECKLIST_ICON,
 } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { renderMarkdown } from '../utils/markdown';
 import type { ThinkingState, ThinkingTraceItem } from '../types/api';
 
-/** Map tool names to user-friendly labels */
-const TOOL_LABELS: Record<string, string> = {
-  web_search: 'Searching the web',
-  fetch_url: 'Fetching page',
-  generate_image: 'Generating image',
-  execute_code: 'Running code',
+/** Map icon keys to SVG strings - used by metadata from backend */
+const ICON_MAP: Record<string, string> = {
+  search: SEARCH_ICON,
+  link: LINK_ICON,
+  sparkles: SPARKLES_ICON,
+  code: CODE_ICON,
+  checklist: CHECKLIST_ICON,
+  brain: BRAIN_ICON,
 };
 
-/** Map tool names to past tense labels */
-const TOOL_LABELS_PAST: Record<string, string> = {
-  web_search: 'Searched',
-  fetch_url: 'Fetched',
-  generate_image: 'Generated image',
-  execute_code: 'Ran code',
-};
+/**
+ * Get icon for a trace item (prefers metadata, falls back to brain icon)
+ */
+function getToolIcon(item: ThinkingTraceItem): string {
+  if (item.type === 'thinking') return BRAIN_ICON;
+  if (item.metadata?.icon) return ICON_MAP[item.metadata.icon] || BRAIN_ICON;
+  return BRAIN_ICON;
+}
 
-/** Map tool names to icons */
-const TOOL_ICONS: Record<string, string> = {
-  web_search: SEARCH_ICON,
-  fetch_url: LINK_ICON,
-  generate_image: SPARKLES_ICON,
-  execute_code: CODE_ICON,
-};
+/**
+ * Get display label for a trace item (prefers metadata, falls back to tool name)
+ */
+function getToolLabel(item: ThinkingTraceItem): string {
+  if (item.type === 'thinking') return 'Thinking';
+
+  if (item.completed) {
+    // Use past tense label from metadata if available
+    return item.metadata?.label_past || `Used ${item.label}`;
+  } else {
+    // Use present tense label from metadata if available
+    return item.metadata?.label || `Running ${item.label}`;
+  }
+}
 
 /**
  * Truncate text to a maximum length with ellipsis
@@ -59,12 +70,8 @@ function truncateText(text: string, maxLength: number): string {
  * @param showFullDetail If true, don't truncate detail text (used in finalized view)
  */
 function renderTraceItem(item: ThinkingTraceItem, isActive: boolean, showFullDetail = false): string {
-  const icon = item.type === 'thinking' ? BRAIN_ICON : (TOOL_ICONS[item.label] || BRAIN_ICON);
-  const displayLabel = item.type === 'thinking'
-    ? 'Thinking'
-    : (item.completed
-        ? (TOOL_LABELS_PAST[item.label] || `Used ${item.label}`)
-        : (TOOL_LABELS[item.label] || `Running ${item.label}`));
+  const icon = getToolIcon(item);
+  const displayLabel = getToolLabel(item);
 
   const statusClass = item.completed ? 'completed' : (isActive ? 'active' : '');
   const dots = isActive && !item.completed
@@ -308,19 +315,25 @@ export function addThinkingToTrace(state: ThinkingState, text: string): void {
  * Add a tool start event to the trace
  * Tools are inserted BEFORE thinking to keep thinking at the end for auto-scroll
  */
-export function addToolStartToTrace(state: ThinkingState, tool: string, detail?: string): void {
+export function addToolStartToTrace(
+  state: ThinkingState,
+  tool: string,
+  detail?: string,
+  metadata?: import('../types/api').ToolMetadata
+): void {
   // Mark thinking as completed (tool is now active)
   const thinkingIndex = state.trace.findIndex(item => item.type === 'thinking');
   if (thinkingIndex !== -1) {
     state.trace[thinkingIndex].completed = true;
   }
 
-  // Create the new tool item
+  // Create the new tool item with metadata for display
   const toolItem: ThinkingTraceItem = {
     type: 'tool',
     label: tool,
     detail,
     completed: false,
+    metadata,
   };
 
   // Insert tool BEFORE thinking to keep thinking at the end for auto-scroll
@@ -334,6 +347,25 @@ export function addToolStartToTrace(state: ThinkingState, tool: string, detail?:
   state.activeTool = tool;
   state.activeToolDetail = detail;
   state.isThinking = false;
+}
+
+/**
+ * Update the detail for an active (non-completed) tool in the trace.
+ * Used when tool_call_chunks accumulate enough args to extract the detail.
+ */
+export function updateToolDetailInTrace(state: ThinkingState, tool: string, detail: string): void {
+  // Find the tool in trace that matches and is not completed
+  for (const item of state.trace) {
+    if (item.type === 'tool' && item.label === tool && !item.completed) {
+      item.detail = detail;
+      break;
+    }
+  }
+
+  // Update active tool detail if this is the currently active tool
+  if (state.activeTool === tool) {
+    state.activeToolDetail = detail;
+  }
 }
 
 /**

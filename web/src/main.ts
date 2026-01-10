@@ -26,6 +26,7 @@ import {
   finalizeStreamingMessage,
   updateStreamingThinking,
   updateStreamingToolStart,
+  updateStreamingToolDetail,
   updateStreamingToolEnd,
   cleanupStreamingContext,
   hasActiveStreamingContext,
@@ -64,7 +65,7 @@ import { initImageGenPopup } from './components/ImageGenPopup';
 import { initMessageCostPopup } from './components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from './components/CostHistoryPopup';
 import { initMemoriesPopup, getMemoriesPopupHtml, openMemoriesPopup } from './components/MemoriesPopup';
-import { initSettingsPopup, getSettingsPopupHtml, openSettingsPopup } from './components/SettingsPopup';
+import { initSettingsPopup, getSettingsPopupHtml, openSettingsPopup, checkTodoistOAuthCallback } from './components/SettingsPopup';
 import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
 import { initScrollToBottom, checkScrollButtonVisibility, setBeforeScrollToBottomCallback } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
@@ -298,6 +299,8 @@ async function init(): Promise<void> {
 
   if (isAuthenticated) {
     hideLoginOverlay();
+    // Check for Todoist OAuth callback (user returning from Todoist auth)
+    await checkTodoistOAuthCallback();
     await loadInitialData(initialConversationId);
   } else {
     showLoginOverlay();
@@ -1567,9 +1570,10 @@ function deepCopyThinkingState(state: import('./types/api').ThinkingState): impo
  */
 function updateLocalThinkingState(
   state: import('./types/api').ThinkingState,
-  eventType: 'thinking' | 'tool_start' | 'tool_end',
+  eventType: 'thinking' | 'tool_start' | 'tool_detail' | 'tool_end',
   toolOrText?: string,
-  detail?: string
+  detail?: string,
+  metadata?: import('./types/api').ToolMetadata
 ): void {
   if (eventType === 'thinking') {
     // Find existing thinking item or create one
@@ -1587,6 +1591,17 @@ function updateLocalThinkingState(
     }
     state.thinkingText = toolOrText || '';
     state.isThinking = true;
+  } else if (eventType === 'tool_detail') {
+    // Update detail for an existing tool
+    const toolItem = state.trace.find(
+      item => item.type === 'tool' && item.label === toolOrText && !item.completed
+    );
+    if (toolItem) {
+      toolItem.detail = detail;
+    }
+    if (state.activeTool === toolOrText) {
+      state.activeToolDetail = detail;
+    }
   } else if (eventType === 'tool_start') {
     // Mark thinking as completed
     const thinkingIndex = state.trace.findIndex(item => item.type === 'thinking');
@@ -1599,6 +1614,7 @@ function updateLocalThinkingState(
       label: toolOrText || '',
       detail,
       completed: false,
+      metadata, // Include metadata from backend for display
     };
     if (thinkingIndex !== -1) {
       state.trace.splice(thinkingIndex, 0, toolItem);
@@ -1727,10 +1743,19 @@ async function sendStreamingMessage(
         store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));
       } else if (event.type === 'tool_start') {
         // Update local thinking state (always, regardless of current conversation)
-        updateLocalThinkingState(localThinkingState, 'tool_start', event.tool, event.detail);
+        updateLocalThinkingState(localThinkingState, 'tool_start', event.tool, event.detail, event.metadata);
         // Tool execution started (with optional detail like search query, URL, or prompt)
         if (isCurrentConversation) {
-          updateStreamingToolStart(event.tool, event.detail);
+          updateStreamingToolStart(event.tool, event.detail, event.metadata);
+        }
+        // Sync the full thinking state to store for restoration when switching back
+        store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));
+      } else if (event.type === 'tool_detail') {
+        // Update local thinking state with the new detail (always, regardless of current conversation)
+        updateLocalThinkingState(localThinkingState, 'tool_detail', event.tool, event.detail);
+        // Update the tool detail in the UI (only if current conversation)
+        if (isCurrentConversation) {
+          updateStreamingToolDetail(event.tool, event.detail);
         }
         // Sync the full thinking state to store for restoration when switching back
         store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));

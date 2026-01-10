@@ -1405,6 +1405,113 @@
     }
 }
 
+/* Todoist integration section */
+.settings-todoist-loading {
+    padding: var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.settings-todoist-connected {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-todoist-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.settings-todoist-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-todoist-icon.connected {
+    color: var(--success);
+}
+
+.settings-todoist-icon.warning {
+    color: var(--warning);
+}
+
+.settings-todoist-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-todoist-disconnected {
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-todoist-disconnected .settings-helper {
+    margin-bottom: var(--space-3);
+}
+
+.settings-todoist-needs-reconnect {
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+}
+
+.settings-todoist-needs-reconnect .settings-todoist-status {
+    color: var(--warning);
+    margin-bottom: var(--space-1);
+}
+
+.settings-todoist-needs-reconnect .settings-helper {
+    margin-bottom: var(--space-3);
+}
+
+.settings-todoist-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.settings-todoist-connect,
+.settings-todoist-disconnect {
+    white-space: nowrap;
+}
+
+/* Mobile: stack Todoist connected state */
+@media (max-width: 480px) {
+    .settings-todoist-connected {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .settings-todoist-disconnect {
+        width: 100%;
+    }
+
+    .settings-todoist-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .settings-todoist-actions .btn {
+        width: 100%;
+    }
+}
+
 /* ----------------------------------------
    Login Overlay
    ---------------------------------------- */

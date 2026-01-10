@@ -1517,8 +1517,6 @@ test.describe('Chat - Stop Streaming', () => {
   });
 
   test('clicking stop button aborts stream and shows toast', async ({ page }) => {
-    const sendBtn = page.locator('#send-btn');
-
     // Type a message
     await page.fill('#message-input', 'Tell me a very long story please');
 
@@ -1553,6 +1551,7 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(assistantMessages).toHaveCount(0);
 
     // Send button should revert to send mode
+    const sendBtn = page.locator('#send-btn');
     await expect(sendBtn).toHaveClass(/btn-send/);
     await expect(sendBtn).not.toHaveClass(/btn-stop/);
   });

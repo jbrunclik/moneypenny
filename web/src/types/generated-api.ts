@@ -130,6 +130,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search across all conversations and messages.
+         * @description Uses full-text search with BM25 ranking. Searches both conversation
+         *     titles and message content. Results are ordered by relevance.
+         *
+         *     Query parameters:
+         *     - q: Search query (required, 1-200 characters)
+         *     - limit: Number of results to return (default: 20, max: 50)
+         *     - offset: Number of results to skip for pagination (default: 0)
+         *
+         *     Returns:
+         *     - results: Array of search results with conversation info and message snippets
+         *     - total: Total number of matching results
+         *     - query: The search query that was executed
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SearchResultsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/models": {
         parameters: {
             query?: never;
@@ -300,6 +368,15 @@ export interface paths {
                 };
                 /** @description Forbidden */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -507,6 +584,15 @@ export interface paths {
                         "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
                     };
                 };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -527,6 +613,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConversationResponse"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
             };
@@ -567,6 +662,116 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/todoist/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current Todoist connection status.
+         * @description Returns whether Todoist is connected, and if so, the connected email.
+         *     Also detects invalid tokens and reports needs_reconnect=True.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TodoistStatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/todoist/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect Todoist account by exchanging OAuth code for access token.
+         * @description The frontend should:
+         *     1. Call GET /auth/todoist/auth-url to get the authorization URL and state
+         *     2. Redirect user to the authorization URL
+         *     3. After user authorizes, Todoist redirects back with code and state
+         *     4. Frontend validates state matches, then calls this endpoint with code
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TodoistConnectResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -629,6 +834,55 @@ export interface paths {
         };
         trace?: never;
     };
+    "/auth/todoist/auth-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Todoist OAuth authorization URL.
+         * @description Returns a URL to redirect the user to for Todoist authorization.
+         *     The state token should be stored and validated on callback.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TodoistAuthUrlResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/sync": {
         parameters: {
             query?: never;
@@ -665,10 +919,68 @@ export interface paths {
                         "application/json": components["schemas"]["SyncResponse"];
                     };
                 };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
             };
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/todoist/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect Todoist account.
+         * @description Removes the stored access token. Note that the user must manually
+         *     revoke access in Todoist settings if they want to fully disconnect.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -760,6 +1072,15 @@ export interface paths {
                 };
                 /** @description Not found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -904,6 +1225,15 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -938,6 +1268,15 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
             };
         };
         options?: never;
@@ -965,6 +1304,15 @@ export interface paths {
                 };
                 /** @description Not found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1086,6 +1434,8 @@ export interface paths {
          *     - limit: Number of messages to return (default: 50, max: 200)
          *     - cursor: Cursor for fetching older/newer messages
          *     - direction: "older" (default) or "newer" for pagination direction
+         *     - around_message_id: Load messages around a specific message (for search navigation)
+         *     When specified, cursor and direction are ignored.
          *
          *     By default, returns the newest messages.
          */
@@ -1111,6 +1461,15 @@ export interface paths {
                 };
                 /** @description Not found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1182,6 +1541,15 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
                 /** @description Internal Server Error */
                 500: {
                     headers: {
@@ -1215,6 +1583,7 @@ export interface paths {
          *     Returns text/event-stream with the following event types:
          *     - `thinking`: LLM thinking text (if enabled) - `{"type": "thinking", "text": "..."}`
          *     - `tool_start`: Tool starting - `{"type": "tool_start", "tool": "web_search", "detail": "..."}`
+         *     - `tool_detail`: Tool detail update (for streaming args) - `{"type": "tool_detail", "tool": "...", "detail": "..."}`
          *     - `tool_end`: Tool completed - `{"type": "tool_end", "tool": "web_search"}`
          *     - `token`: Content token - `{"type": "token", "text": "..."}`
          *     - `error`: Error occurred - `{"type": "error", "message": "...", "code": "...", "retryable": bool}`
@@ -1233,17 +1602,17 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Successful response */
-                200: {
+                /** @description Not found */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
-                /** @description Not found */
-                404: {
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1293,6 +1662,15 @@ export interface paths {
                 };
                 /** @description Not found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1353,6 +1731,15 @@ export interface paths {
                 };
                 /** @description Not found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1434,6 +1821,67 @@ export interface components {
         HTTPError: {
             detail?: Record<string, never>;
             message?: string;
+        };
+        /**
+         * SearchResultResponse
+         * @description Single search result.
+         */
+        "SearchResultsResponse.SearchResultResponse": {
+            /**
+             * Conversation Id
+             * @description ID of the conversation containing the match
+             */
+            conversation_id: string;
+            /**
+             * Conversation Title
+             * @description Title of the conversation
+             */
+            conversation_title: string;
+            /**
+             * Message Id
+             * @description Message ID if match is in a message (null for title matches)
+             * @default null
+             */
+            message_id: string | null;
+            /**
+             * Message Snippet
+             * @description Snippet of matching text with [[HIGHLIGHT]] markers (null for title matches)
+             * @default null
+             */
+            message_snippet: string | null;
+            /**
+             * Match Type
+             * @description Whether the match is in conversation title or message content
+             * @enum {string}
+             */
+            match_type: "conversation" | "message";
+            /**
+             * Created At
+             * @description Message timestamp (null for title matches)
+             * @default null
+             */
+            created_at: string | null;
+        };
+        /**
+         * SearchResultsResponse
+         * @description Search results response.
+         */
+        SearchResultsResponse: {
+            /**
+             * Results
+             * @description List of search results ordered by relevance
+             */
+            results: components["schemas"]["SearchResultsResponse.SearchResultResponse"][];
+            /**
+             * Total
+             * @description Total number of matching results
+             */
+            total: number;
+            /**
+             * Query
+             * @description The search query that was executed
+             */
+            query: string;
         };
         /**
          * ModelResponse
@@ -1653,6 +2101,52 @@ export interface components {
             allowedFileTypes: string[];
         };
         /**
+         * TodoistStatusResponse
+         * @description Response containing Todoist connection status.
+         */
+        TodoistStatusResponse: {
+            /**
+             * Connected
+             * @description Whether Todoist is connected
+             */
+            connected: boolean;
+            /**
+             * Todoist Email
+             * @description Email of connected Todoist account
+             * @default null
+             */
+            todoist_email: string | null;
+            /**
+             * Connected At
+             * @description ISO timestamp when connected
+             * @default null
+             */
+            connected_at: string | null;
+            /**
+             * Needs Reconnect
+             * @description True if token is invalid and user needs to reconnect
+             * @default false
+             */
+            needs_reconnect: boolean;
+        };
+        /**
+         * TodoistConnectResponse
+         * @description Response from successful Todoist connection.
+         */
+        TodoistConnectResponse: {
+            /**
+             * Connected
+             * @description Whether connection was successful
+             */
+            connected: boolean;
+            /**
+             * Todoist Email
+             * @description Email of connected Todoist account
+             * @default null
+             */
+            todoist_email: string | null;
+        };
+        /**
          * UserSettingsResponse
          * @description User settings.
          */
@@ -1674,6 +2168,22 @@ export interface components {
              * @description Operation status (e.g., 'updated', 'deleted')
              */
             status: string;
+        };
+        /**
+         * TodoistAuthUrlResponse
+         * @description Response containing Todoist OAuth authorization URL.
+         */
+        TodoistAuthUrlResponse: {
+            /**
+             * Auth Url
+             * @description URL to redirect user for Todoist authorization
+             */
+            auth_url: string;
+            /**
+             * State
+             * @description CSRF state token to validate on callback
+             */
+            state: string;
         };
         /**
          * SyncConversationResponse
@@ -1841,6 +2351,12 @@ export interface components {
              * @default null
              */
             generated_images: components["schemas"]["ConversationDetailPaginatedResponse.GeneratedImageResponse"][] | null;
+            /**
+             * Language
+             * @description ISO 639-1 language code for TTS (e.g., 'en', 'cs')
+             * @default null
+             */
+            language: string | null;
             /** Created At */
             created_at: string;
         };
@@ -2027,6 +2543,12 @@ export interface components {
              * @default null
              */
             generated_images: components["schemas"]["MessagesListResponse.GeneratedImageResponse"][] | null;
+            /**
+             * Language
+             * @description ISO 639-1 language code for TTS (e.g., 'en', 'cs')
+             * @default null
+             */
+            language: string | null;
             /** Created At */
             created_at: string;
         };
@@ -2155,6 +2677,12 @@ export interface components {
              * @default null
              */
             generated_images: components["schemas"]["ChatBatchResponse.GeneratedImageResponse"][] | null;
+            /**
+             * Language
+             * @description ISO 639-1 language code for TTS (e.g., 'en', 'cs')
+             * @default null
+             */
+            language: string | null;
             /** Created At */
             created_at: string;
             /**

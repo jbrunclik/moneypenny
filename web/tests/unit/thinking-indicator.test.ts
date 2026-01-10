@@ -11,8 +11,18 @@ import {
   addThinkingToTrace,
   addToolStartToTrace,
   markToolCompletedInTrace,
+  updateToolDetailInTrace,
 } from '../../src/components/ThinkingIndicator';
-import type { ThinkingState } from '../../src/types/api';
+import type { ThinkingState, ToolMetadata } from '../../src/types/api';
+
+// Test metadata matching backend TOOL_METADATA
+const TOOL_METADATA: Record<string, ToolMetadata> = {
+  web_search: { label: 'Searching the web', label_past: 'Searched', icon: 'search' },
+  fetch_url: { label: 'Fetching page', label_past: 'Fetched', icon: 'link' },
+  generate_image: { label: 'Generating image', label_past: 'Generated image', icon: 'sparkles' },
+  execute_code: { label: 'Running code', label_past: 'Ran code', icon: 'code' },
+  todoist: { label: 'Managing tasks', label_past: 'Managed tasks', icon: 'checklist' },
+};
 
 describe('ThinkingIndicator', () => {
   describe('createThinkingIndicator', () => {
@@ -119,6 +129,51 @@ describe('ThinkingIndicator', () => {
       expect(state.trace[1].detail).toBe('More thinking after tool');
       expect(state.trace[1].completed).toBe(false); // Now active again
     });
+
+    describe('updateToolDetailInTrace', () => {
+      it('should update detail for active tool', () => {
+        addToolStartToTrace(state, 'todoist');
+        updateToolDetailInTrace(state, 'todoist', 'list_tasks: today');
+
+        expect(state.trace[0].detail).toBe('list_tasks: today');
+        expect(state.activeToolDetail).toBe('list_tasks: today');
+      });
+
+      it('should not update completed tool', () => {
+        addToolStartToTrace(state, 'web_search', 'initial query');
+        markToolCompletedInTrace(state, 'web_search');
+
+        updateToolDetailInTrace(state, 'web_search', 'new query');
+
+        // Detail unchanged because tool is completed
+        expect(state.trace[0].detail).toBe('initial query');
+      });
+
+      it('should update correct tool when multiple tools in trace', () => {
+        addThinkingToTrace(state, 'Thinking...');
+        addToolStartToTrace(state, 'web_search', 'query 1');
+        markToolCompletedInTrace(state, 'web_search');
+        addToolStartToTrace(state, 'todoist');
+
+        updateToolDetailInTrace(state, 'todoist', 'add_task: Buy milk');
+
+        // Second tool (todoist) at index 1 should be updated
+        expect(state.trace[1].label).toBe('todoist');
+        expect(state.trace[1].detail).toBe('add_task: Buy milk');
+        expect(state.activeToolDetail).toBe('add_task: Buy milk');
+      });
+
+      it('should not update detail for wrong tool name', () => {
+        addToolStartToTrace(state, 'web_search', 'initial query');
+
+        updateToolDetailInTrace(state, 'fetch_url', 'https://example.com');
+
+        // web_search unchanged - detail stays as 'initial query'
+        expect(state.trace[0].detail).toBe('initial query');
+        // activeToolDetail set by addToolStartToTrace, not changed by updateToolDetailInTrace for wrong tool
+        expect(state.activeToolDetail).toBe('initial query');
+      });
+    });
   });
 
   describe('updateThinkingIndicator', () => {
@@ -139,7 +194,7 @@ describe('ThinkingIndicator', () => {
     });
 
     it('should show active tool when activeTool is set via trace', () => {
-      addToolStartToTrace(state, 'web_search', 'test query');
+      addToolStartToTrace(state, 'web_search', 'test query', TOOL_METADATA.web_search);
       updateThinkingIndicator(indicator, state);
 
       const tool = indicator.querySelector('.thinking-trace-item.active');
@@ -163,7 +218,7 @@ describe('ThinkingIndicator', () => {
     });
 
     it('should use correct label for generate_image tool', () => {
-      addToolStartToTrace(state, 'generate_image', 'a blue circle');
+      addToolStartToTrace(state, 'generate_image', 'a blue circle', TOOL_METADATA.generate_image);
       updateThinkingIndicator(indicator, state);
 
       const label = indicator.querySelector('.thinking-trace-item.active .thinking-label');
@@ -171,7 +226,7 @@ describe('ThinkingIndicator', () => {
     });
 
     it('should use correct label for fetch_url tool', () => {
-      addToolStartToTrace(state, 'fetch_url', 'https://example.com');
+      addToolStartToTrace(state, 'fetch_url', 'https://example.com', TOOL_METADATA.fetch_url);
       updateThinkingIndicator(indicator, state);
 
       const label = indicator.querySelector('.thinking-trace-item.active .thinking-label');
@@ -184,6 +239,14 @@ describe('ThinkingIndicator', () => {
 
       const label = indicator.querySelector('.thinking-trace-item.active .thinking-label');
       expect(label?.textContent).toBe('Running unknown_tool');
+    });
+
+    it('should use correct label for todoist tool', () => {
+      addToolStartToTrace(state, 'todoist', 'list_tasks: today', TOOL_METADATA.todoist);
+      updateThinkingIndicator(indicator, state);
+
+      const label = indicator.querySelector('.thinking-trace-item.active .thinking-label');
+      expect(label?.textContent).toBe('Managing tasks');
     });
 
     it('should show tool detail when provided', () => {

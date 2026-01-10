@@ -284,6 +284,15 @@ class Config:
     SEARCH_MAX_LIMIT: int = int(os.getenv("SEARCH_MAX_LIMIT", "50"))
     SEARCH_DEFAULT_LIMIT: int = int(os.getenv("SEARCH_DEFAULT_LIMIT", "20"))
 
+    # Todoist integration
+    TODOIST_CLIENT_ID: str = os.getenv("TODOIST_CLIENT_ID", "")
+    TODOIST_CLIENT_SECRET: str = os.getenv("TODOIST_CLIENT_SECRET", "")
+    TODOIST_REDIRECT_URI: str = os.getenv(
+        "TODOIST_REDIRECT_URI", "http://localhost:8000/auth/todoist/callback"
+    )
+    TODOIST_API_TIMEOUT: int = int(os.getenv("TODOIST_API_TIMEOUT", "10"))  # seconds
+    TODOIST_API_BASE_URL: str = "https://api.todoist.com/rest/v2"
+
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"

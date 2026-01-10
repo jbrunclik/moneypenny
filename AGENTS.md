@@ -1973,6 +1973,95 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - E2E tests: [settings.spec.ts](web/tests/e2e/settings.spec.ts)
 - Visual tests: `popup-settings.png`, `popup-settings-empty.png`, `popup-settings-warning.png` in [popups.visual.ts](web/tests/visual/popups.visual.ts)
 
+## Todoist Integration
+
+The app integrates with Todoist for AI-powered task management. Each user connects their own Todoist account via OAuth 2.0.
+
+### How it works
+
+1. **OAuth Flow**: User clicks "Connect Todoist" in settings → redirected to Todoist OAuth → returns with auth code → exchanged for access token
+2. **Token Storage**: Access token stored in `users.todoist_access_token` column (per-user)
+3. **Tool Availability**: When user has connected Todoist, the `manage_todoist_tasks` tool is available to the LLM
+4. **Tool Capabilities**: List tasks, add tasks, complete/uncomplete tasks, update tasks, delete tasks, list projects
+
+### OAuth Flow Details
+
+1. **Authorization URL**: `GET /api/todoist/auth-url` returns `{auth_url, state}`
+2. **State Storage**: Frontend stores `state` in `sessionStorage` for CSRF protection
+3. **Redirect**: User authorizes on Todoist, redirected back to app with `?code=...&state=...`
+4. **Callback Handling**: `checkTodoistOAuthCallback()` in SettingsPopup.ts detects the callback
+5. **Token Exchange**: `POST /api/todoist/connect` with `{code, state}` exchanges code for token
+6. **User Info**: Backend fetches Todoist user email and stores it with the token
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/todoist/auth-url` | GET | Get OAuth authorization URL and state |
+| `/api/todoist/connect` | POST | Exchange auth code for token |
+| `/api/todoist/disconnect` | POST | Remove Todoist connection |
+| `/api/todoist/status` | GET | Check connection status |
+
+### Todoist Tool Actions
+
+The `manage_todoist_tasks` tool supports these actions:
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `list_tasks` | `filter` (optional) | List tasks using Todoist filter syntax |
+| `add_task` | `content`, `due_string`, `priority`, `project_id`, `description` | Create a new task |
+| `complete_task` | `task_id` | Mark task as complete |
+| `uncomplete_task` | `task_id` | Mark task as incomplete |
+| `update_task` | `task_id`, `content`, `due_string`, `priority`, `description` | Update task properties |
+| `delete_task` | `task_id` | Delete a task |
+| `list_projects` | (none) | List all projects |
+
+**Todoist Filter Syntax Examples:**
+- `today` - Tasks due today
+- `overdue` - Overdue tasks
+- `p1` - Priority 1 tasks
+- `#Work` - Tasks in Work project
+- `today | overdue` - Today's tasks or overdue
+
+### Configuration
+
+```bash
+# .env
+TODOIST_CLIENT_ID=your-client-id
+TODOIST_CLIENT_SECRET=your-client-secret
+TODOIST_REDIRECT_URI=http://localhost:5173  # Your app URL (use Vite port in dev)
+TODOIST_API_TIMEOUT=10  # API request timeout in seconds
+```
+
+**Important**: Keep `.env.example` updated when adding new environment variables.
+
+### Key files
+
+**Backend:**
+- [config.py](src/config.py) - `TODOIST_CLIENT_ID`, `TODOIST_CLIENT_SECRET`, `TODOIST_REDIRECT_URI`, `TODOIST_API_TIMEOUT`
+- [todoist_auth.py](src/auth/todoist_auth.py) - OAuth helpers (`get_authorization_url`, `exchange_code_for_token`, `get_user_info`, `revoke_token`)
+- [models.py](src/db/models.py) - `User.todoist_access_token`, `User.todoist_connected_at`, `update_user_todoist_token()`, `clear_user_todoist_token()`
+- [tools.py](src/agent/tools.py) - `todoist()` tool with `set_todoist_context()`, `get_todoist_context()`
+- [routes.py](src/api/routes.py) - Todoist OAuth endpoints, sets Todoist context before agent calls
+- [chat_agent.py](src/agent/chat_agent.py) - `TODOIST_SYSTEM_PROMPT` with usage instructions
+
+**Frontend:**
+- [SettingsPopup.ts](web/src/components/SettingsPopup.ts) - Todoist connect/disconnect UI, OAuth callback handling
+- [client.ts](web/src/api/client.ts) - `todoist.getAuthUrl()`, `todoist.connect()`, `todoist.disconnect()`, `todoist.getStatus()`
+- [api.ts](web/src/types/api.ts) - `TodoistStatus`, `TodoistAuthUrlResponse`, `TodoistConnectResponse` types
+- [popups.css](web/src/styles/components/popups.css) - `.settings-todoist-*` styles
+
+**Database:**
+- [migrations/0018_add_todoist_fields.py](migrations/0018_add_todoist_fields.py) - Adds `todoist_access_token` and `todoist_connected_at` columns to users table (email is fetched on-demand from Todoist API)
+
+### Security Notes
+
+- Access tokens are stored per-user in the database
+- OAuth state parameter prevents CSRF attacks
+- Tokens are validated by Todoist on each API call
+- Users can disconnect at any time (token is cleared from DB)
+- Todoist doesn't support token revocation via API (user must revoke in Todoist settings)
+
 ## Color Scheme
 
 The app supports three color scheme options: Light, Dark, and System (default).
@@ -2119,6 +2208,14 @@ Edit [config.py](src/config.py) `MODELS` dict.
 
 ### Add new icons
 Add SVG constants to [icons.ts](web/src/utils/icons.ts) and import where needed.
+
+### Add new environment variables
+1. Add the variable to [config.py](src/config.py) with a sensible default
+2. **Update [.env.example](.env.example)** with the new variable and documentation
+3. Document the variable in CLAUDE.md in the appropriate feature section
+4. If user-facing, document in README.md Configuration section
+
+**Important**: Always keep `.env.example` up-to-date when adding new environment variables. This file serves as documentation for all available configuration options.
 
 ## CSS Architecture
 

@@ -85,6 +85,13 @@ class GoogleAuthRequest(BaseModel):
     credential: str = Field(..., min_length=1)
 
 
+class TodoistConnectRequest(BaseModel):
+    """Schema for POST /auth/todoist/connect - Exchange OAuth code for token."""
+
+    code: str = Field(..., min_length=1, description="OAuth authorization code from Todoist")
+    state: str = Field(..., min_length=1, description="CSRF state token for validation")
+
+
 # -----------------------------------------------------------------------------
 # Conversation Schemas
 # -----------------------------------------------------------------------------
@@ -231,6 +238,31 @@ class TokenRefreshResponse(BaseModel):
     """Response from token refresh."""
 
     token: str = Field(..., description="New JWT token")
+
+
+class TodoistAuthUrlResponse(BaseModel):
+    """Response containing Todoist OAuth authorization URL."""
+
+    auth_url: str = Field(..., description="URL to redirect user for Todoist authorization")
+    state: str = Field(..., description="CSRF state token to validate on callback")
+
+
+class TodoistConnectResponse(BaseModel):
+    """Response from successful Todoist connection."""
+
+    connected: bool = Field(..., description="Whether connection was successful")
+    todoist_email: str | None = Field(None, description="Email of connected Todoist account")
+
+
+class TodoistStatusResponse(BaseModel):
+    """Response containing Todoist connection status."""
+
+    connected: bool = Field(..., description="Whether Todoist is connected")
+    todoist_email: str | None = Field(None, description="Email of connected Todoist account")
+    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    needs_reconnect: bool = Field(
+        False, description="True if token is invalid and user needs to reconnect"
+    )
 
 
 class ClientIdResponse(BaseModel):

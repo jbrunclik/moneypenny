@@ -1,6 +1,8 @@
 """Unit tests for helper functions in src/agent/chat_agent.py."""
 
 from src.agent.chat_agent import (
+    _extract_tool_detail,
+    _format_todoist_detail,
     clean_tool_call_json,
     extract_metadata_from_response,
     extract_text_content,
@@ -548,3 +550,110 @@ class TestGetSystemPromptWithUserContext:
             mock_config.USER_LOCATION = ""
             prompt = get_system_prompt(user_name=None)
             assert "# User Context" not in prompt
+
+
+class TestExtractToolDetail:
+    """Tests for _extract_tool_detail function."""
+
+    def test_web_search_extracts_query(self) -> None:
+        """Should extract query from web_search tool args."""
+        result = _extract_tool_detail("web_search", {"query": "best pizza in Prague"})
+        assert result == "best pizza in Prague"
+
+    def test_fetch_url_extracts_url(self) -> None:
+        """Should extract URL from fetch_url tool args."""
+        result = _extract_tool_detail("fetch_url", {"url": "https://example.com/page"})
+        assert result == "https://example.com/page"
+
+    def test_generate_image_extracts_prompt(self) -> None:
+        """Should extract prompt from generate_image tool args."""
+        result = _extract_tool_detail("generate_image", {"prompt": "A cat on a rainbow"})
+        assert result == "A cat on a rainbow"
+
+    def test_execute_code_extracts_first_line(self) -> None:
+        """Should extract first line of code from execute_code tool args."""
+        code = "print('Hello')\nprint('World')"
+        result = _extract_tool_detail("execute_code", {"code": code})
+        assert result == "print('Hello')"
+
+    def test_execute_code_truncates_long_lines(self) -> None:
+        """Should truncate long first lines to 50 chars."""
+        code = "x = " + "a" * 100 + "\nmore code"
+        result = _extract_tool_detail("execute_code", {"code": code})
+        assert result is not None
+        assert len(result) == 50
+
+    def test_todoist_list_tasks(self) -> None:
+        """Should extract action and filter for list_tasks."""
+        result = _extract_tool_detail("todoist", {"action": "list_tasks", "filter": "today"})
+        assert result == "list_tasks: today"
+
+    def test_todoist_list_tasks_default_filter(self) -> None:
+        """Should use 'all' as default filter for list_tasks."""
+        result = _extract_tool_detail("todoist", {"action": "list_tasks"})
+        assert result == "list_tasks: all"
+
+    def test_todoist_add_task(self) -> None:
+        """Should extract action and content for add_task."""
+        result = _extract_tool_detail("todoist", {"action": "add_task", "content": "Buy milk"})
+        assert result == "add_task: Buy milk"
+
+    def test_todoist_add_task_truncates(self) -> None:
+        """Should truncate long task content to 40 chars."""
+        long_content = "x" * 100
+        result = _extract_tool_detail("todoist", {"action": "add_task", "content": long_content})
+        assert result == f"add_task: {'x' * 40}"
+
+    def test_todoist_complete_task(self) -> None:
+        """Should extract action and task_id for complete_task."""
+        result = _extract_tool_detail("todoist", {"action": "complete_task", "task_id": "123456"})
+        assert result == "complete_task: 123456"
+
+    def test_todoist_list_projects(self) -> None:
+        """Should return just action for list_projects."""
+        result = _extract_tool_detail("todoist", {"action": "list_projects"})
+        assert result == "list_projects"
+
+    def test_unknown_tool_returns_none(self) -> None:
+        """Should return None for unknown tool."""
+        result = _extract_tool_detail("unknown_tool", {"data": "value"})
+        assert result is None
+
+    def test_missing_required_arg_returns_none(self) -> None:
+        """Should return None when required arg is missing."""
+        result = _extract_tool_detail("web_search", {})
+        assert result is None
+
+
+class TestFormatTodoistDetail:
+    """Tests for _format_todoist_detail function."""
+
+    def test_list_tasks_with_filter(self) -> None:
+        """Should format list_tasks with filter."""
+        result = _format_todoist_detail({"action": "list_tasks", "filter": "overdue"})
+        assert result == "list_tasks: overdue"
+
+    def test_list_tasks_without_filter(self) -> None:
+        """Should use 'all' default for list_tasks."""
+        result = _format_todoist_detail({"action": "list_tasks"})
+        assert result == "list_tasks: all"
+
+    def test_add_task(self) -> None:
+        """Should format add_task with content."""
+        result = _format_todoist_detail({"action": "add_task", "content": "Buy groceries"})
+        assert result == "add_task: Buy groceries"
+
+    def test_update_task(self) -> None:
+        """Should format update_task with task_id."""
+        result = _format_todoist_detail({"action": "update_task", "task_id": "abc123"})
+        assert result == "update_task: abc123"
+
+    def test_delete_task(self) -> None:
+        """Should format delete_task with task_id."""
+        result = _format_todoist_detail({"action": "delete_task", "task_id": "xyz789"})
+        assert result == "delete_task: xyz789"
+
+    def test_unknown_action(self) -> None:
+        """Should return just action for unknown actions."""
+        result = _format_todoist_detail({"action": "some_new_action"})
+        assert result == "some_new_action"

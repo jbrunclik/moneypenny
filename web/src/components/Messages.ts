@@ -39,6 +39,7 @@ import {
   createThinkingState,
   addThinkingToTrace,
   addToolStartToTrace,
+  updateToolDetailInTrace,
   markToolCompletedInTrace,
 } from './ThinkingIndicator';
 import type { Message, FileMetadata, Source, GeneratedImage, ThinkingState } from '../types/api';
@@ -999,11 +1000,35 @@ export function updateStreamingThinking(thinkingText?: string): void {
  * Signal that a tool has started executing
  * @param toolName The name of the tool
  * @param detail Optional detail (search query, URL, prompt)
+ * @param metadata Optional metadata from backend for display (label, icon)
  */
-export function updateStreamingToolStart(toolName: string, detail?: string): void {
+export function updateStreamingToolStart(
+  toolName: string,
+  detail?: string,
+  metadata?: import('../types/api').ToolMetadata
+): void {
   if (!currentStreamingContext) return;
 
-  addToolStartToTrace(currentStreamingContext.thinkingState, toolName, detail);
+  addToolStartToTrace(currentStreamingContext.thinkingState, toolName, detail, metadata);
+
+  updateThinkingIndicator(
+    currentStreamingContext.thinkingIndicator,
+    currentStreamingContext.thinkingState
+  );
+
+  // Auto-scroll to keep tool indicator visible
+  autoScrollForStreaming();
+}
+
+/**
+ * Update the detail for an active tool (e.g., when streaming args become available)
+ * @param toolName The name of the tool
+ * @param detail The detail to show (e.g., action, query)
+ */
+export function updateStreamingToolDetail(toolName: string, detail: string): void {
+  if (!currentStreamingContext) return;
+
+  updateToolDetailInTrace(currentStreamingContext.thinkingState, toolName, detail);
 
   updateThinkingIndicator(
     currentStreamingContext.thinkingIndicator,
