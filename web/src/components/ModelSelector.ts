@@ -90,8 +90,8 @@ async function selectModel(modelId: string): Promise<void> {
   const previousModelId = currentConversation?.model || store.pendingModel || store.defaultModel;
   const previousModel = models.find((m) => m.id === previousModelId);
 
-  // Update UI immediately (optimistic update)
-  updateCurrentModelDisplay(model.name);
+  // Update UI immediately (optimistic update) - show short name in button
+  updateCurrentModelDisplay(model.short_name);
   closeModelDropdown();
 
   // If no conversation exists, store as pending model
@@ -117,19 +117,19 @@ async function selectModel(modelId: string): Promise<void> {
     log.error('Failed to update model', { error, modelId, conversationId: currentConversation.id });
     // Revert optimistic update on failure
     if (previousModel) {
-      updateCurrentModelDisplay(previousModel.name);
+      updateCurrentModelDisplay(previousModel.short_name);
     }
     toast.error('Failed to change model. Please try again.');
   }
 }
 
 /**
- * Update current model display text
+ * Update current model display text (shows short name in button)
  */
-function updateCurrentModelDisplay(name: string): void {
+function updateCurrentModelDisplay(shortName: string): void {
   const display = getElementById<HTMLSpanElement>('current-model-name');
   if (display) {
-    display.textContent = name;
+    display.textContent = shortName;
   }
 }
 
@@ -156,9 +156,9 @@ export function renderModelDropdown(): void {
     )
     .join('');
 
-  // Update current model display
+  // Update current model display (show short name in button)
   const currentModel = models.find((m) => m.id === currentModelId);
   if (currentModel) {
-    updateCurrentModelDisplay(currentModel.name);
+    updateCurrentModelDisplay(currentModel.short_name);
   }
 }

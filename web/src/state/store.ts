@@ -84,6 +84,7 @@ interface AppState {
   isSidebarOpen: boolean;
   streamingEnabled: boolean;
   forceTools: string[];
+  anonymousModeByConversation: Map<string, boolean>; // Anonymous mode per conversation
   streamingConversationId: string | null; // Which conversation is currently streaming
   activeRequests: Map<string, ActiveRequestState>; // Active requests by conversation ID
   uploadProgress: number | null; // Upload progress 0-100, null when not uploading
@@ -150,6 +151,8 @@ interface AppState {
   setStreamingConversation: (convId: string | null) => void;
   toggleForceTool: (tool: string) => void;
   clearForceTools: () => void;
+  setAnonymousMode: (convId: string, enabled: boolean) => void;
+  getAnonymousMode: (convId: string) => boolean;
   setActiveRequest: (convId: string, state: ActiveRequestState) => void;
   updateActiveRequestContent: (convId: string, content: string, thinkingState?: ThinkingState) => void;
   removeActiveRequest: (convId: string) => void;
@@ -227,6 +230,7 @@ export const useStore = create<AppState>()(
       isSidebarOpen: false,
       streamingEnabled: true,
       forceTools: [],
+      anonymousModeByConversation: new Map(),
       streamingConversationId: null,
       activeRequests: new Map(),
       uploadProgress: null,
@@ -479,6 +483,17 @@ export const useStore = create<AppState>()(
             : [...state.forceTools, tool],
         })),
       clearForceTools: () => set({ forceTools: [] }),
+      setAnonymousMode: (convId, enabled) =>
+        set((s) => {
+          const newMap = new Map(s.anonymousModeByConversation);
+          if (enabled) {
+            newMap.set(convId, true);
+          } else {
+            newMap.delete(convId);
+          }
+          return { anonymousModeByConversation: newMap };
+        }),
+      getAnonymousMode: (convId) => get().anonymousModeByConversation.get(convId) ?? false,
       setActiveRequest: (convId, state) =>
         set((s) => {
           const newMap = new Map(s.activeRequests);

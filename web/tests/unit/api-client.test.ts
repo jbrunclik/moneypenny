@@ -256,7 +256,7 @@ describe('API Client', () => {
           '/api/conversations/conv-1/chat/batch',
           expect.objectContaining({
             method: 'POST',
-            body: JSON.stringify({ message: 'Hi there' }),
+            body: JSON.stringify({ message: 'Hi there', anonymous_mode: false }),
           })
         );
       });
@@ -270,7 +270,7 @@ describe('API Client', () => {
         expect(fetch).toHaveBeenCalledWith(
           '/api/conversations/conv-1/chat/batch',
           expect.objectContaining({
-            body: JSON.stringify({ message: 'Check this', files }),
+            body: JSON.stringify({ message: 'Check this', files, anonymous_mode: false }),
           })
         );
       });
@@ -283,7 +283,11 @@ describe('API Client', () => {
         expect(fetch).toHaveBeenCalledWith(
           '/api/conversations/conv-1/chat/batch',
           expect.objectContaining({
-            body: JSON.stringify({ message: 'Search for this', force_tools: ['web_search'] }),
+            body: JSON.stringify({
+              message: 'Search for this',
+              force_tools: ['web_search'],
+              anonymous_mode: false,
+            }),
           })
         );
       });
@@ -452,6 +456,7 @@ describe('API Client', () => {
             body: JSON.stringify({
               message: 'Search this',
               force_tools: ['web_search'],
+              anonymous_mode: false,
             }),
           })
         );

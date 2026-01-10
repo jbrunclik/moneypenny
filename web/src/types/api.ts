@@ -106,6 +106,7 @@ export interface FileUpload {
 export interface Model {
   id: string;
   name: string;
+  short_name: string; // Short display name for compact UI (e.g., 'Fast', 'Advanced')
 }
 
 // =============================================================================

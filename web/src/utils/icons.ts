@@ -326,3 +326,14 @@ export const MONITOR_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curren
   <line x1="8" y1="21" x2="16" y2="21"/>
   <line x1="12" y1="17" x2="12" y2="21"/>
 </svg>`;
+
+/**
+ * Incognito icon (detective/spy style - hat and glasses silhouette for anonymous mode)
+ */
+export const INCOGNITO_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2 12h20"/>
+  <path d="M5 12c0-4 3-8 7-8s7 4 7 8"/>
+  <circle cx="8" cy="17" r="3"/>
+  <circle cx="16" cy="17" r="3"/>
+  <path d="M11 17h2"/>
+</svg>`;

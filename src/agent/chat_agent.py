@@ -62,7 +62,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
-from src.agent.tools import TOOLS
+from src.agent.tools import TOOLS, get_tools_for_request
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -356,7 +356,7 @@ BASE_SYSTEM_PROMPT = """You are a helpful, harmless, and honest AI assistant.
 - For medical, legal, or financial questions, recommend consulting professionals.
 - If a request seems harmful, explain why you can't help and offer alternatives."""
 
-TOOLS_SYSTEM_PROMPT = """
+TOOLS_SYSTEM_PROMPT_BASE = """
 # Tools Available
 You have access to the following tools:
 
@@ -479,7 +479,10 @@ IMPORTANT for file generation:
 - Save generated files to `/output/` directory (e.g., `/output/report.pdf`)
 - Files saved there will be returned to the user as downloadable attachments
 - Always tell the user what files were generated
+"""
 
+# Productivity tools documentation (Todoist, Google Calendar) - only included when NOT in anonymous mode
+TOOLS_SYSTEM_PROMPT_PRODUCTIVITY = """
 ## Strategic Productivity Partner
 
 You are not just a task logger; you are an **Executive Strategist**. Your goal is to maximize the user's *impact per hour*, not just check off boxes. You blend **GTD capture** with **time-blocking execution**.
@@ -657,7 +660,10 @@ Act as a **defensive barrier** for the user's schedule:
 4. **Natural language**: Convert "Thursday 3-4pm" to ISO timestamps, confirm with user
 5. **Transparency**: After changes, recap what was scheduled (date, time, calendar, attendees)
 6. **Proactive time-blocking**: When adding high-priority tasks, suggest calendar blocks
+"""
 
+# Metadata section - always included when tools are available
+TOOLS_SYSTEM_PROMPT_METADATA = """
 # Knowledge Cutoff
 Your training data has a cutoff date. For anything after that, use web_search.
 
@@ -887,6 +893,7 @@ def get_system_prompt(
     user_name: str | None = None,
     user_id: str | None = None,
     custom_instructions: str | None = None,
+    anonymous_mode: bool = False,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -896,6 +903,7 @@ def get_system_prompt(
         user_name: The user's name from JWT authentication
         user_id: The user's ID for memory retrieval
         custom_instructions: User-provided custom instructions for LLM behavior
+        anonymous_mode: If True, skip memory retrieval and injection
     """
     date_context = f"\n\nCurrent date and time: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
@@ -905,7 +913,13 @@ def get_system_prompt(
     prompt += get_user_context(user_name)
 
     if with_tools and TOOLS:
-        prompt += TOOLS_SYSTEM_PROMPT
+        # Always include base tools documentation
+        prompt += TOOLS_SYSTEM_PROMPT_BASE
+        # Include productivity tools (Todoist, Calendar) docs only when NOT in anonymous mode
+        if not anonymous_mode:
+            prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
+        # Always include metadata section
+        prompt += TOOLS_SYSTEM_PROMPT_METADATA
 
     # Add custom instructions if provided
     if custom_instructions and custom_instructions.strip():
@@ -913,8 +927,8 @@ def get_system_prompt(
             instructions=custom_instructions.strip()
         )
 
-    # Add user memories if user_id is provided
-    if user_id:
+    # Add user memories if user_id is provided (skip in anonymous mode)
+    if user_id and not anonymous_mode:
         prompt += "\n\n" + get_user_memories_prompt(user_id)
 
     # Add force tools instruction if specified
@@ -1270,7 +1284,10 @@ class AgentState(TypedDict):
 
 
 def create_chat_model(
-    model_name: str, with_tools: bool = True, include_thoughts: bool = False
+    model_name: str,
+    with_tools: bool = True,
+    include_thoughts: bool = False,
+    tools: list[Any] | None = None,
 ) -> ChatGoogleGenerativeAI:
     """Create a Gemini chat model, optionally with tools bound.
 
@@ -1278,6 +1295,7 @@ def create_chat_model(
         model_name: The Gemini model to use
         with_tools: Whether to bind tools to the model
         include_thoughts: Whether to include thinking/reasoning summaries in responses
+        tools: Custom list of tools to bind (defaults to TOOLS if not provided)
     """
     model = ChatGoogleGenerativeAI(
         model=model_name,
@@ -1287,8 +1305,9 @@ def create_chat_model(
         include_thoughts=include_thoughts,
     )
 
-    if with_tools and TOOLS:
-        return model.bind_tools(TOOLS)  # type: ignore[return-value]
+    active_tools = tools if tools is not None else TOOLS
+    if with_tools and active_tools:
+        return model.bind_tools(active_tools)  # type: ignore[return-value]
 
     return model
 
@@ -1348,7 +1367,10 @@ def chat_node(state: AgentState, model: ChatGoogleGenerativeAI) -> dict[str, lis
 
 
 def create_chat_graph(
-    model_name: str, with_tools: bool = True, include_thoughts: bool = False
+    model_name: str,
+    with_tools: bool = True,
+    include_thoughts: bool = False,
+    tools: list[Any] | None = None,
 ) -> StateGraph[AgentState]:
     """Create a chat graph with optional tool support.
 
@@ -1356,8 +1378,12 @@ def create_chat_graph(
         model_name: The Gemini model to use
         with_tools: Whether to bind tools to the model
         include_thoughts: Whether to include thinking/reasoning summaries
+        tools: Custom list of tools to use (defaults to TOOLS if not provided)
     """
-    model = create_chat_model(model_name, with_tools=with_tools, include_thoughts=include_thoughts)
+    active_tools = tools if tools is not None else TOOLS
+    model = create_chat_model(
+        model_name, with_tools=with_tools, include_thoughts=include_thoughts, tools=active_tools
+    )
 
     # Define the graph
     graph: StateGraph[AgentState] = StateGraph(AgentState)
@@ -1365,9 +1391,9 @@ def create_chat_graph(
     # Add the chat node
     graph.add_node("chat", lambda state: chat_node(state, model))
 
-    if with_tools and TOOLS:
+    if with_tools and active_tools:
         # Add tool node with stripping of large results
-        tool_node = create_tool_node(TOOLS)
+        tool_node = create_tool_node(active_tools)
         graph.add_node("tools", tool_node)
 
         # Set entry point
@@ -1394,20 +1420,26 @@ class ChatAgent:
         model_name: str = Config.DEFAULT_MODEL,
         with_tools: bool = True,
         include_thoughts: bool = False,
+        anonymous_mode: bool = False,
     ) -> None:
         self.model_name = model_name
         self.with_tools = with_tools
         self.include_thoughts = include_thoughts
+        self.anonymous_mode = anonymous_mode
+        # Get filtered tools based on anonymous mode
+        tools = get_tools_for_request(anonymous_mode)
         logger.debug(
             "Creating ChatAgent",
             extra={
                 "model": model_name,
                 "with_tools": with_tools,
                 "include_thoughts": include_thoughts,
+                "anonymous_mode": anonymous_mode,
+                "tool_names": [t.name for t in tools],
             },
         )
         self.graph = create_chat_graph(
-            model_name, with_tools=with_tools, include_thoughts=include_thoughts
+            model_name, with_tools=with_tools, include_thoughts=include_thoughts, tools=tools
         ).compile()
 
     def _build_message_content(
@@ -1490,6 +1522,7 @@ class ChatAgent:
         messages: list[BaseMessage] = []
 
         # Always add system prompt (with tool instructions if tools are enabled)
+        # In anonymous mode, user memories are not included in the prompt
         messages.append(
             SystemMessage(
                 content=get_system_prompt(
@@ -1498,6 +1531,7 @@ class ChatAgent:
                     user_name=user_name,
                     user_id=user_id,
                     custom_instructions=custom_instructions,
+                    anonymous_mode=self.anonymous_mode,
                 )
             )
         )

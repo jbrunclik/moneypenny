@@ -1,5 +1,5 @@
 import { files } from '../api/client';
-import { getElementById, scrollToBottom, isScrolledToBottom } from './dom';
+import { getElementById, scrollToBottom, isScrolledToBottom, cancelSmoothScroll } from './dom';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { createLogger } from './logger';
 import {
@@ -543,6 +543,9 @@ function safelyDisableScrollOnImageLoad(reason: string): void {
         cancelAnimationFrame(scrollTimeout);
         scrollTimeout = undefined;
     }
+    // Cancel any ongoing smooth scroll animation to prevent it from
+    // fighting with user scroll or other scroll operations
+    cancelSmoothScroll();
     removeUserScrollListener();
 }
 

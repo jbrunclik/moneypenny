@@ -10,6 +10,7 @@ from google.genai import errors as genai_errors
 
 from src.agent.tools import (
     FETCHABLE_BINARY_TYPES,
+    TOOLS,
     VALID_ASPECT_RATIOS,
     _build_execution_response,
     _build_font_setup_code,
@@ -22,6 +23,7 @@ from src.agent.tools import (
     execute_code,
     fetch_url,
     generate_image,
+    get_tools_for_request,
     is_code_sandbox_available,
     retrieve_file,
     set_conversation_context,
@@ -1943,3 +1945,58 @@ class TestGoogleCalendarTool:
 
         assert "error" in parsed
         assert "response_status" in parsed["error"].lower()
+
+
+class TestGetToolsForRequest:
+    """Tests for get_tools_for_request function."""
+
+    def test_returns_all_tools_by_default(self) -> None:
+        """Should return all tools when anonymous_mode is False."""
+        tools = get_tools_for_request(anonymous_mode=False)
+        assert tools == TOOLS
+        # Core tools should always be present
+        tool_names = {t.name for t in tools}
+        assert "web_search" in tool_names
+        assert "fetch_url" in tool_names
+        assert "generate_image" in tool_names
+        assert "retrieve_file" in tool_names
+
+    def test_excludes_integration_tools_in_anonymous_mode(self) -> None:
+        """Should exclude todoist and google_calendar in anonymous mode."""
+        tools = get_tools_for_request(anonymous_mode=True)
+        tool_names = {t.name for t in tools}
+
+        # Integration tools should be excluded (even if they were available)
+        assert "todoist" not in tool_names
+        assert "google_calendar" not in tool_names
+
+        # Core tools should still be present
+        assert "web_search" in tool_names
+        assert "fetch_url" in tool_names
+        assert "generate_image" in tool_names
+        assert "retrieve_file" in tool_names
+
+    def test_returns_fewer_or_same_tools_in_anonymous_mode(self) -> None:
+        """Should return same or fewer tools in anonymous mode.
+
+        Note: The exact count depends on whether integration tools are configured.
+        If Todoist and Google Calendar are not configured, both modes return the same tools.
+        If they are configured, anonymous mode returns 2 fewer tools.
+        """
+        normal_tools = get_tools_for_request(anonymous_mode=False)
+        anonymous_tools = get_tools_for_request(anonymous_mode=True)
+
+        # Anonymous mode should have same or fewer tools
+        assert len(anonymous_tools) <= len(normal_tools)
+
+        # Count how many integration tools are actually configured
+        normal_tool_names = {t.name for t in normal_tools}
+        integration_tools_available = len({"todoist", "google_calendar"} & normal_tool_names)
+
+        # Should be exactly this many fewer
+        assert len(anonymous_tools) == len(normal_tools) - integration_tools_available
+
+    def test_default_parameter_is_false(self) -> None:
+        """Should default to anonymous_mode=False."""
+        tools = get_tools_for_request()
+        assert tools == TOOLS

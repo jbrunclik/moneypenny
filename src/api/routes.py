@@ -1112,9 +1112,15 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
     force_tools = data.force_tools
+    anonymous_mode = data.anonymous_mode
     log_payload_snippet(
         logger,
-        {"message_length": len(message_text), "file_count": len(files), "force_tools": force_tools},
+        {
+            "message_length": len(message_text),
+            "file_count": len(files),
+            "force_tools": force_tools,
+            "anonymous_mode": anonymous_mode,
+        },
     )
 
     # Content validation for files (base64 decoding, size) - structure already validated by Pydantic
@@ -1186,7 +1192,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # Set conversation context for tools (like retrieve_file) to access history
         set_conversation_context(conv_id, user.id)
 
-        agent = ChatAgent(model_name=conv.model)
+        agent = ChatAgent(model_name=conv.model, anonymous_mode=anonymous_mode)
         raw_response, tool_results, usage_info = agent.chat_batch(
             message_text,
             files,
@@ -1236,18 +1242,19 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             },
         )
 
-        # Process memory operations from metadata
-        memory_ops = extract_memory_operations(metadata)
-        if memory_ops:
-            logger.debug(
-                "Processing memory operations",
-                extra={
-                    "user_id": user.id,
-                    "conversation_id": conv_id,
-                    "operation_count": len(memory_ops),
-                },
-            )
-            process_memory_operations(user.id, memory_ops)
+        # Process memory operations from metadata (skip in anonymous mode)
+        if not anonymous_mode:
+            memory_ops = extract_memory_operations(metadata)
+            if memory_ops:
+                logger.debug(
+                    "Processing memory operations",
+                    extra={
+                        "user_id": user.id,
+                        "conversation_id": conv_id,
+                        "operation_count": len(memory_ops),
+                    },
+                )
+                process_memory_operations(user.id, memory_ops)
 
         # Extract generated files from FULL tool results (before stripping)
         # We need the full results because they contain the _full_result data
@@ -1415,9 +1422,15 @@ def chat_stream(
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
     force_tools = data.force_tools
+    anonymous_mode = data.anonymous_mode
     log_payload_snippet(
         logger,
-        {"message_length": len(message_text), "file_count": len(files), "force_tools": force_tools},
+        {
+            "message_length": len(message_text),
+            "file_count": len(files),
+            "force_tools": force_tools,
+            "anonymous_mode": anonymous_mode,
+        },
     )
 
     # Content validation for files (base64 decoding, size) - structure already validated by Pydantic
@@ -1504,7 +1517,9 @@ def chat_stream(
         set_conversation_context(conv_id, user.id)
 
         # Use stream_chat_events for structured events including thinking/tool status
-        agent = ChatAgent(model_name=conv.model, include_thoughts=True)
+        agent = ChatAgent(
+            model_name=conv.model, include_thoughts=True, anonymous_mode=anonymous_mode
+        )
         event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
         # Store user_id for use in nested functions
         stream_user_id = user.id
@@ -1679,18 +1694,19 @@ def chat_stream(
                     },
                 )
 
-                # Process memory operations from metadata
-                memory_ops = extract_memory_operations(meta)
-                if memory_ops:
-                    logger.debug(
-                        "Processing memory operations from stream",
-                        extra={
-                            "user_id": stream_user_id,
-                            "conversation_id": conv_id,
-                            "operation_count": len(memory_ops),
-                        },
-                    )
-                    process_memory_operations(stream_user_id, memory_ops)
+                # Process memory operations from metadata (skip in anonymous mode)
+                if not anonymous_mode:
+                    memory_ops = extract_memory_operations(meta)
+                    if memory_ops:
+                        logger.debug(
+                            "Processing memory operations from stream",
+                            extra={
+                                "user_id": stream_user_id,
+                                "conversation_id": conv_id,
+                                "operation_count": len(memory_ops),
+                            },
+                        )
+                        process_memory_operations(stream_user_id, memory_ops)
 
                 # Get the FULL tool results (with _full_result) captured before stripping
                 # This is needed for extracting generated images and code output files
@@ -1988,7 +2004,8 @@ def list_models(user: User) -> dict[str, Any]:
     _ = user
     return {
         "models": [
-            {"id": model_id, "name": model_name} for model_id, model_name in Config.MODELS.items()
+            {"id": model_id, "name": model_info["name"], "short_name": model_info["short_name"]}
+            for model_id, model_info in Config.MODELS.items()
         ],
         "default": Config.DEFAULT_MODEL,
     }

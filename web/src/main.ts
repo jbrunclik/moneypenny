@@ -90,7 +90,7 @@ import {
   pushEmptyHash,
   isValidConversationId,
 } from './router/deeplink';
-import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, SPEAKER_ICON, STOP_ICON } from './utils/icons';
+import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, SPEAKER_ICON, STOP_ICON, INCOGNITO_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
 import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_RESULT_MESSAGES_LIMIT } from './config';
@@ -152,6 +152,9 @@ function renderAppShell(): string {
               </button>
               <button id="imagegen-btn" class="btn-toolbar" title="Force image generation for next message">
                 ${SPARKLES_ICON}
+              </button>
+              <button id="anonymous-btn" class="btn-toolbar" title="Anonymous mode - disable memory and integrations">
+                ${INCOGNITO_ICON}
               </button>
             </div>
             <div class="toolbar-right">
@@ -677,6 +680,12 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
     focusMessageInput();
   }
 
+  // Update anonymous button state for the new conversation
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    updateAnonymousButtonState(anonymousBtn, store.getAnonymousMode(conv.id));
+  }
+
   // Update conversation cost
   updateConversationCost(conv.id);
 
@@ -1005,6 +1014,12 @@ function createConversation(): void {
   closeSidebar();
   if (shouldAutoFocusInput()) {
     focusMessageInput();
+  }
+
+  // Reset anonymous button state for new conversation (defaults to OFF)
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    updateAnonymousButtonState(anonymousBtn, false);
   }
 
   // Push empty hash to history so back button works (navigates to previous conversation)
@@ -1355,6 +1370,14 @@ async function sendMessage(): Promise<void> {
     try {
       const persistedConv = await conversations.create(conv.model);
       const tempId = conv.id;
+
+      // Migrate anonymous mode state from temp ID to persistent ID
+      // This must happen BEFORE removing the temp conversation from store
+      const wasAnonymous = store.getAnonymousMode(tempId);
+      if (wasAnonymous) {
+        store.setAnonymousMode(persistedConv.id, true);
+      }
+
       // Update store with real ID
       store.removeConversation(tempId);
       store.addConversation(persistedConv);
@@ -1433,13 +1456,16 @@ async function sendMessage(): Promise<void> {
   clearPendingFiles();
   setInputLoading(true);
   const forceTools = [...store.forceTools];
+  // Use fresh store reference to get anonymous mode (not the stale `store` from the beginning)
+  // This is critical because the conversation ID may have changed from temp-xxx to a real ID
+  const anonymousMode = useStore.getState().getAnonymousMode(conv.id);
   resetForceTools();
 
   try {
     if (store.streamingEnabled) {
-      await sendStreamingMessage(conv.id, messageText, files, forceTools, userMessage.id);
+      await sendStreamingMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode);
     } else {
-      await sendBatchMessage(conv.id, messageText, files, forceTools, userMessage.id);
+      await sendBatchMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode);
     }
     // Clear draft on successful send
     useStore.getState().clearDraft();
@@ -1655,7 +1681,8 @@ async function sendStreamingMessage(
   message: string,
   files: ReturnType<typeof getPendingFiles>,
   forceTools: string[],
-  tempUserMessageId: string
+  tempUserMessageId: string,
+  anonymousMode: boolean
 ): Promise<void> {
   let messageEl = addStreamingMessage(convId);
   let fullContent = '';
@@ -1715,7 +1742,7 @@ async function sendStreamingMessage(
     let uploadProgressHidden = false;
 
     // Check if conversation is still current before processing each event
-    for await (const event of chat.stream(convId, message, files, forceTools, abortController)) {
+    for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode)) {
       // Hide upload progress on first event (means upload is complete)
       if (hasFiles && !uploadProgressHidden) {
         hideUploadProgress();
@@ -1935,7 +1962,8 @@ async function sendBatchMessage(
   message: string,
   files: ReturnType<typeof getPendingFiles>,
   forceTools: string[],
-  tempUserMessageId: string
+  tempUserMessageId: string,
+  anonymousMode: boolean
 ): Promise<void> {
   const requestId = `batch-${convId}-${Date.now()}`;
 
@@ -1967,7 +1995,7 @@ async function sendBatchMessage(
       useStore.getState().setUploadProgress(progress);
     } : undefined;
 
-    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress);
+    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
 
     // Update user message ID from temp to real ID (for file fetching in lightbox)
@@ -2124,6 +2152,22 @@ function initToolbarButtons(): void {
       updateImagegenButtonState(imagegenBtn, isActive);
     });
   }
+
+  // Initialize anonymous mode button (per-conversation toggle)
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    const currentConvId = store.currentConversation?.id;
+    const isAnonymous = currentConvId ? store.getAnonymousMode(currentConvId) : false;
+    updateAnonymousButtonState(anonymousBtn, isAnonymous);
+    anonymousBtn.addEventListener('click', () => {
+      const convId = useStore.getState().currentConversation?.id;
+      if (!convId) return;
+      const currentState = useStore.getState().getAnonymousMode(convId);
+      const newState = !currentState;
+      useStore.getState().setAnonymousMode(convId, newState);
+      updateAnonymousButtonState(anonymousBtn, newState);
+    });
+  }
 }
 
 // Update stream button visual state
@@ -2144,6 +2188,12 @@ function updateSearchButtonState(btn: HTMLButtonElement, active: boolean): void 
 function updateImagegenButtonState(btn: HTMLButtonElement, active: boolean): void {
   btn.classList.toggle('active', active);
   btn.title = active ? 'Image generation will be used for next message' : 'Force image generation for next message';
+}
+
+// Update anonymous mode button visual state
+function updateAnonymousButtonState(btn: HTMLButtonElement, active: boolean): void {
+  btn.classList.toggle('active', active);
+  btn.title = active ? 'Anonymous mode enabled - memory and integrations disabled' : 'Anonymous mode - disable memory and integrations';
 }
 
 // Reset force tools and update UI after message is sent

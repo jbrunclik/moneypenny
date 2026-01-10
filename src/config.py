@@ -15,10 +15,10 @@ class Config:
     # Gemini API
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
-    # Available models
+    # Available models - each model has a full name and short name for compact display
     MODELS = {
-        "gemini-3-flash-preview": "Gemini 3 Flash (Fast)",
-        "gemini-3-pro-preview": "Gemini 3 Pro (Advanced)",
+        "gemini-3-flash-preview": {"name": "Gemini 3 Flash", "short_name": "Fast"},
+        "gemini-3-pro-preview": {"name": "Gemini 3 Pro", "short_name": "Advanced"},
     }
     DEFAULT_MODEL = "gemini-3-flash-preview"
 

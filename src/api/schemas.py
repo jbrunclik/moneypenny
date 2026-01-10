@@ -150,6 +150,7 @@ class ChatRequest(BaseModel):
     message: str = Field(default="")
     files: list[FileAttachment] = Field(default_factory=list)
     force_tools: list[str] = Field(default_factory=list)
+    anonymous_mode: bool = Field(default=False)
 
     @field_validator("files")
     @classmethod
@@ -435,6 +436,9 @@ class ModelResponse(BaseModel):
 
     id: str
     name: str
+    short_name: str = Field(
+        ..., description="Short display name for compact UI (e.g., 'Fast', 'Advanced')"
+    )
 
 
 class ModelsListResponse(BaseModel):

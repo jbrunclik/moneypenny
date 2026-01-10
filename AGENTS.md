@@ -1973,6 +1973,45 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - E2E tests: [settings.spec.ts](web/tests/e2e/settings.spec.ts)
 - Visual tests: `popup-settings.png`, `popup-settings-empty.png`, `popup-settings-warning.png` in [popups.visual.ts](web/tests/visual/popups.visual.ts)
 
+## Anonymous Mode
+
+Anonymous mode allows users to chat without memory retrieval/storage and without integration tools (Todoist, Google Calendar).
+
+### How it works
+
+1. **UI Toggle**: Incognito icon button in the input toolbar (rightmost position)
+2. **Per-conversation state**: Anonymous mode is stored per-conversation in Zustand store (`anonymousModeByConversation: Map`)
+3. **Runtime only**: Not persisted to DB - resets on page refresh
+4. **Default OFF**: New conversations start with anonymous mode disabled
+
+### What anonymous mode disables
+
+- **Memory retrieval**: User memories are not injected into the system prompt
+- **Memory storage**: Memory operations from LLM responses are ignored
+- **Integration tools**: Todoist and Google Calendar tools are excluded from the LLM's available tools
+- **Integration documentation**: System prompt excludes Todoist/Calendar documentation (the LLM doesn't even know these tools exist)
+
+### Key implementation details
+
+**Frontend:**
+- `anonymousModeByConversation: Map<string, boolean>` in [store.ts](web/src/state/store.ts)
+- Toggle button state in [main.ts](web/src/main.ts) via `initToolbarButtons()` and `updateAnonymousButtonState()`
+- `INCOGNITO_ICON` in [icons.ts](web/src/utils/icons.ts)
+- State migrates from temp ID to permanent ID when conversation is first persisted
+
+**Backend:**
+- `anonymous_mode` field in `ChatRequest` schema ([schemas.py](src/api/schemas.py))
+- `get_tools_for_request(anonymous_mode)` in [tools.py](src/agent/tools.py) filters integration tools
+- `ChatAgent.__init__()` passes filtered tools to graph creation
+- `get_system_prompt(anonymous_mode=True)` skips memory injection and excludes `TOOLS_SYSTEM_PROMPT_PRODUCTIVITY` (Todoist/Calendar docs)
+- Memory operations skipped in [routes.py](src/api/routes.py) when `anonymous_mode=True`
+
+### Testing
+- Backend unit tests: `TestGetToolsForRequest` in [test_tools.py](tests/unit/test_tools.py)
+- Backend unit tests: `TestGetSystemPromptAnonymousMode` in [test_chat_agent_helpers.py](tests/unit/test_chat_agent_helpers.py)
+- E2E tests: "Chat - Anonymous Mode" describe block in [chat.spec.ts](web/tests/e2e/chat.spec.ts)
+- Includes regression test for temp-to-permanent ID transition bug
+
 ## Todoist Integration
 
 The app integrates with Todoist for AI-powered task management. Each user connects their own Todoist account via OAuth 2.0.
@@ -2312,7 +2351,9 @@ Edit [routes.py](src/api/routes.py), add route to `api` blueprint.
 Edit [tools.py](src/agent/tools.py), add function with `@tool` decorator and add to `TOOLS` list.
 
 ### Change available models
-Edit [config.py](src/config.py) `MODELS` dict.
+Edit [config.py](src/config.py) `MODELS` dict. Each model has:
+- `name`: Full model name shown in dropdown (e.g., "Gemini 3 Flash")
+- `short_name`: Short label shown in collapsed button (e.g., "Fast")
 
 ### Add a new UI component
 1. Create TypeScript file in `web/src/components/`

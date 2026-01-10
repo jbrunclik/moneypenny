@@ -699,3 +699,78 @@ class TestFormatCalendarDetail:
     def test_respond_event(self) -> None:
         result = _format_calendar_detail({"action": "respond_event", "response_status": "accepted"})
         assert result == "respond_event: accepted"
+
+
+class TestGetSystemPromptAnonymousMode:
+    """Tests for get_system_prompt with anonymous_mode parameter."""
+
+    def test_excludes_memories_in_anonymous_mode(self) -> None:
+        """Should NOT include user memories when anonymous_mode is True."""
+        from unittest.mock import patch
+
+        with patch("src.agent.chat_agent.get_user_memories_prompt") as mock_memories:
+            mock_memories.return_value = "# User Memories\n- User prefers dark mode"
+
+            # With user_id and anonymous_mode=True, memories should be skipped
+            get_system_prompt(
+                with_tools=True,
+                user_id="user-123",
+                anonymous_mode=True,
+            )
+
+            # get_user_memories_prompt should NOT be called
+            mock_memories.assert_not_called()
+
+    def test_includes_memories_when_not_anonymous(self) -> None:
+        """Should include user memories when anonymous_mode is False."""
+        from unittest.mock import patch
+
+        with patch("src.agent.chat_agent.get_user_memories_prompt") as mock_memories:
+            mock_memories.return_value = "# User Memories\n- User prefers dark mode"
+
+            # With user_id and anonymous_mode=False (default), memories should be included
+            prompt = get_system_prompt(
+                with_tools=True,
+                user_id="user-123",
+                anonymous_mode=False,
+            )
+
+            # get_user_memories_prompt should be called
+            mock_memories.assert_called_once_with("user-123")
+            assert "User Memories" in prompt
+
+    def test_anonymous_mode_default_is_false(self) -> None:
+        """Should default to anonymous_mode=False (include memories)."""
+        from unittest.mock import patch
+
+        with patch("src.agent.chat_agent.get_user_memories_prompt") as mock_memories:
+            mock_memories.return_value = "# User Memories\n- Memory content"
+
+            # When anonymous_mode is not specified, memories should be included
+            get_system_prompt(
+                with_tools=True,
+                user_id="user-456",
+            )
+
+            mock_memories.assert_called_once_with("user-456")
+
+    def test_anonymous_mode_still_includes_other_features(self) -> None:
+        """Anonymous mode should still include tools, user context, etc."""
+        from unittest.mock import patch
+
+        with patch("src.agent.chat_agent.Config") as mock_config:
+            mock_config.USER_LOCATION = "Prague, Czech Republic"
+
+            prompt = get_system_prompt(
+                with_tools=True,
+                user_name="John",
+                anonymous_mode=True,
+            )
+
+            # Tools should still be included
+            assert "web_search" in prompt
+            assert "generate_image" in prompt
+
+            # User context (name, location) should still be included
+            assert "John" in prompt
+            assert "Prague" in prompt

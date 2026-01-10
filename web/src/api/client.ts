@@ -558,7 +558,8 @@ export const chat = {
     message: string,
     files?: FileUpload[],
     forceTools?: string[],
-    onUploadProgress?: (progress: number) => void
+    onUploadProgress?: (progress: number) => void,
+    anonymousMode?: boolean
   ): Promise<ChatResponse> {
     // POST - no retry (not idempotent - could duplicate message)
     // Use longer timeout for chat (image generation, complex tool chains)
@@ -567,6 +568,7 @@ export const chat = {
       message,
       files,
       force_tools: forceTools?.length ? forceTools : undefined,
+      anonymous_mode: anonymousMode ?? false,
     };
 
     // Use XHR with progress callback when files are attached
@@ -590,7 +592,8 @@ export const chat = {
     message: string,
     files?: FileUpload[],
     forceTools?: string[],
-    abortController?: AbortController
+    abortController?: AbortController,
+    anonymousMode?: boolean
   ): AsyncGenerator<StreamEvent> {
     log.debug('Starting stream', { conversationId, messageLength: message.length, fileCount: files?.length ?? 0 });
     const token = getToken();
@@ -616,6 +619,7 @@ export const chat = {
             message,
             files,
             force_tools: forceTools?.length ? forceTools : undefined,
+            anonymous_mode: anonymousMode ?? false,
           }),
           signal: controller.signal,
         }

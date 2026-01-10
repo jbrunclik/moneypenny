@@ -2952,3 +2952,161 @@ test.describe('Chat - Conversation Switch During Streaming Scroll', () => {
     });
   });
 });
+
+test.describe('Chat - Anonymous Mode', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+  });
+
+  test('anonymous button is visible', async ({ page }) => {
+    const anonymousBtn = page.locator('#anonymous-btn');
+    await expect(anonymousBtn).toBeVisible();
+  });
+
+  test('anonymous button toggles active state', async ({ page }) => {
+    const anonymousBtn = page.locator('#anonymous-btn');
+
+    // Initially not active
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+
+    // Click to activate
+    await anonymousBtn.click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Click to deactivate
+    await anonymousBtn.click();
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+  });
+
+  test('anonymous toggle state persists across messages (unlike force tools)', async ({ page }) => {
+    const anonymousBtn = page.locator('#anonymous-btn');
+
+    // Activate anonymous mode
+    await anonymousBtn.click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Send message
+    await page.fill('#message-input', 'Test message');
+    await page.click('#send-btn');
+
+    // Wait for response
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Anonymous button should STILL be active (persists, unlike force tools)
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Send another message
+    await page.fill('#message-input', 'Another test message');
+    await page.click('#send-btn');
+
+    // Wait for second response
+    await page.locator('.message.assistant').nth(1).waitFor({ timeout: 10000 });
+
+    // Anonymous button should still be active
+    await expect(anonymousBtn).toHaveClass(/active/);
+  });
+
+  test('anonymous toggle state resets on new conversation (defaults to off)', async ({ page }) => {
+    const anonymousBtn = page.locator('#anonymous-btn');
+
+    // Activate anonymous mode
+    await anonymousBtn.click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Send message to persist the conversation
+    await page.fill('#message-input', 'Test message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Create new conversation
+    await page.click('#new-chat-btn');
+
+    // Anonymous mode should be OFF by default for new conversations
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+  });
+
+  test('anonymous toggle state is independent per conversation', async ({ page }) => {
+    const anonymousBtn = page.locator('#anonymous-btn');
+
+    // Activate anonymous mode in first conversation
+    await anonymousBtn.click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Send message to persist the conversation
+    await page.fill('#message-input', 'First conversation message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Create second conversation (should be non-anonymous by default)
+    await page.click('#new-chat-btn');
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+
+    // Send message in second conversation (non-anonymous)
+    await page.fill('#message-input', 'Second conversation message');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Now we should have 2 conversations
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(2);
+
+    // Switch back to first conversation - should restore anonymous state
+    await convItems.last().click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Switch to second conversation - should be non-anonymous
+    await convItems.first().click();
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+  });
+
+  test('anonymous mode persists through temp-to-permanent conversation transition (regression)', async ({
+    page,
+  }) => {
+    // This test covers the bug where anonymous mode was lost when a temp conversation
+    // was persisted to the backend on the first message send.
+    // The anonymous state was stored under temp-xxx ID but the message was sent
+    // using the new real-yyy ID, causing anonymous_mode=false to be sent.
+
+    const anonymousBtn = page.locator('#anonymous-btn');
+
+    // Step 1: Enable anonymous mode in the NEW (temp) conversation
+    await anonymousBtn.click();
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Step 2: Verify we're in a temp conversation (no real ID yet)
+    // The URL hash should be empty or not have a conversation ID
+    const urlBeforeSend = new URL(page.url());
+    expect(urlBeforeSend.hash).toBe('');
+
+    // Step 3: Send a message - this triggers temp->permanent ID conversion
+    // Set a custom mock response to verify anonymous mode is working
+    await page.request.post('/test/set-mock-response', {
+      data: { response: 'Anonymous mode is working correctly!' },
+    });
+
+    await page.fill('#message-input', 'Test anonymous mode in new conversation');
+    await page.click('#send-btn');
+
+    // Wait for response
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Step 4: Verify the anonymous button is still active after the temp->permanent transition
+    await expect(anonymousBtn).toHaveClass(/active/);
+
+    // Step 5: Verify the conversation now has a real ID in the URL
+    const urlAfterSend = new URL(page.url());
+    expect(urlAfterSend.hash).toMatch(/#\/conversations\/[a-f0-9-]+/);
+
+    // Step 6: Send another message - should still be anonymous
+    await page.fill('#message-input', 'Second message still anonymous');
+    await page.click('#send-btn');
+
+    // Wait for second response
+    await page.locator('.message.assistant').nth(1).waitFor({ timeout: 10000 });
+
+    // Anonymous mode should persist
+    await expect(anonymousBtn).toHaveClass(/active/);
+  });
+});

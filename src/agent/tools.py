@@ -2852,3 +2852,20 @@ def get_available_tools() -> list[Any]:
 # List of all available tools for the agent
 # Note: Use get_available_tools() for dynamic tool list based on Docker availability
 TOOLS = get_available_tools()
+
+# Integration tools that are disabled in anonymous mode
+_INTEGRATION_TOOLS = {"todoist", "google_calendar"}
+
+
+def get_tools_for_request(anonymous_mode: bool = False) -> list[Any]:
+    """Get tools for a specific request, optionally excluding integration tools.
+
+    Args:
+        anonymous_mode: If True, excludes Todoist and Google Calendar tools.
+
+    Returns:
+        List of tools to bind to the LLM for this request.
+    """
+    if anonymous_mode:
+        return [t for t in TOOLS if t.name not in _INTEGRATION_TOOLS]
+    return TOOLS

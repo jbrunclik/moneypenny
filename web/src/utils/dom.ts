@@ -86,10 +86,27 @@ export function autoResizeTextarea(textarea: HTMLTextAreaElement): void {
   textarea.style.height = `${textarea.scrollHeight}px`;
 }
 
+// Track the current smooth scroll animation frame ID for cancellation
+let currentSmoothScrollAnimationId: number | null = null;
+
+/**
+ * Cancel any ongoing smooth scroll animation.
+ * Call this when user scrolls or when scroll mode is disabled.
+ */
+export function cancelSmoothScroll(): void {
+  if (currentSmoothScrollAnimationId !== null) {
+    cancelAnimationFrame(currentSmoothScrollAnimationId);
+    currentSmoothScrollAnimationId = null;
+  }
+}
+
 /**
  * Scroll element to bottom
  */
 export function scrollToBottom(element: HTMLElement, smooth = false): void {
+  // Cancel any ongoing smooth scroll animation before starting a new scroll
+  cancelSmoothScroll();
+
   if (!smooth) {
     element.scrollTo({
       top: element.scrollHeight,
@@ -118,11 +135,14 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
     element.scrollTop = start + distance * eased;
 
     if (progress < 1) {
-      requestAnimationFrame(animate);
+      currentSmoothScrollAnimationId = requestAnimationFrame(animate);
+    } else {
+      // Animation complete, clear the ID
+      currentSmoothScrollAnimationId = null;
     }
   };
 
-  requestAnimationFrame(animate);
+  currentSmoothScrollAnimationId = requestAnimationFrame(animate);
 }
 
 /**
