@@ -5,7 +5,7 @@ import queue
 import threading
 import uuid
 from collections.abc import Generator
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -48,6 +48,10 @@ from src.api.schemas import (
     CostHistoryResponse,
     CreateConversationRequest,
     GoogleAuthRequest,
+    GoogleCalendarAuthUrlResponse,
+    GoogleCalendarConnectRequest,
+    GoogleCalendarConnectResponse,
+    GoogleCalendarStatusResponse,
     HealthResponse,
     MemoriesListResponse,
     MessageCostResponse,
@@ -86,6 +90,21 @@ from src.api.utils import (
 )
 from src.api.validation import validate_request
 from src.auth.google_auth import GoogleAuthError, is_email_allowed, verify_google_id_token
+from src.auth.google_calendar import (
+    GoogleCalendarAuthError,
+)
+from src.auth.google_calendar import (
+    exchange_code_for_tokens as exchange_calendar_code_for_tokens,
+)
+from src.auth.google_calendar import (
+    get_authorization_url as get_google_calendar_auth_url,
+)
+from src.auth.google_calendar import (
+    get_user_info as get_google_calendar_user_info,
+)
+from src.auth.google_calendar import (
+    refresh_access_token as refresh_google_calendar_token,
+)
 from src.auth.jwt_auth import create_token, require_auth
 from src.auth.todoist_auth import (
     TodoistAuthError,
@@ -333,6 +352,168 @@ def get_todoist_status(user: User) -> dict[str, Any]:
     return {
         "connected": connected,
         "todoist_email": todoist_email,
+        "connected_at": connected_at,
+        "needs_reconnect": needs_reconnect,
+    }
+
+
+# ============================================================================
+# Google Calendar Integration Routes
+# ============================================================================
+
+
+def _is_google_calendar_configured() -> bool:
+    return bool(Config.GOOGLE_CALENDAR_CLIENT_ID and Config.GOOGLE_CALENDAR_CLIENT_SECRET)
+
+
+@auth.route("/calendar/auth-url", methods=["GET"])
+@auth.output(GoogleCalendarAuthUrlResponse)
+@auth.doc(responses=[401])
+@require_auth
+def get_calendar_auth_url(user: User) -> dict[str, str]:
+    """Return the Google Calendar OAuth URL."""
+    if not _is_google_calendar_configured():
+        raise_validation_error("Google Calendar integration is not configured")
+
+    state = str(uuid.uuid4())
+    auth_url = get_google_calendar_auth_url(state)
+    logger.debug("Generated Google Calendar auth URL", extra={"user_id": user.id})
+    return {"auth_url": auth_url, "state": state}
+
+
+def _compute_calendar_expiry(expires_in: Any) -> datetime:
+    try:
+        seconds = int(expires_in)
+    except (TypeError, ValueError):
+        seconds = 3600
+    # Subtract one minute to refresh proactively
+    seconds = max(60, seconds - 60)
+    return datetime.now() + timedelta(seconds=seconds)
+
+
+@auth.route("/calendar/connect", methods=["POST"])
+@auth.output(GoogleCalendarConnectResponse)
+@auth.doc(responses=[400, 401])
+@require_auth
+@validate_request(GoogleCalendarConnectRequest)
+def connect_google_calendar(user: User, data: GoogleCalendarConnectRequest) -> dict[str, Any]:
+    """Connect Google Calendar via OAuth."""
+    if not _is_google_calendar_configured():
+        raise_validation_error("Google Calendar integration is not configured")
+
+    logger.info("Google Calendar connection attempt", extra={"user_id": user.id})
+
+    try:
+        token_data = exchange_calendar_code_for_tokens(data.code)
+        access_token = token_data.get("access_token")
+        refresh_token = token_data.get("refresh_token")
+        if not access_token or not refresh_token:
+            raise GoogleCalendarAuthError("Missing tokens from Google response")
+
+        expires_at = _compute_calendar_expiry(token_data.get("expires_in"))
+
+        profile = get_google_calendar_user_info(access_token)
+        calendar_email = profile.get("email")
+
+        db.update_user_google_calendar_tokens(
+            user.id,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+            email=calendar_email,
+        )
+
+        logger.info(
+            "Google Calendar connected",
+            extra={"user_id": user.id, "calendar_email": calendar_email},
+        )
+        return {"connected": True, "calendar_email": calendar_email}
+
+    except GoogleCalendarAuthError as exc:
+        logger.warning(
+            "Google Calendar connection failed",
+            extra={"user_id": user.id, "error": str(exc)},
+        )
+        raise_validation_error(str(exc))
+
+
+@auth.route("/calendar/disconnect", methods=["POST"])
+@auth.output(StatusResponse)
+@auth.doc(responses=[401])
+@require_auth
+def disconnect_google_calendar(user: User) -> dict[str, str]:
+    """Disconnect Google Calendar tokens."""
+    logger.info("Google Calendar disconnection requested", extra={"user_id": user.id})
+    db.update_user_google_calendar_tokens(user.id, None)
+    logger.info("Google Calendar disconnected", extra={"user_id": user.id})
+    return {"status": "disconnected"}
+
+
+@auth.route("/calendar/status", methods=["GET"])
+@auth.output(GoogleCalendarStatusResponse)
+@auth.doc(responses=[401])
+@require_auth
+def get_google_calendar_status(user: User) -> dict[str, Any]:
+    """Return Google Calendar connection status."""
+    if not _is_google_calendar_configured():
+        return {
+            "connected": False,
+            "calendar_email": None,
+            "connected_at": None,
+            "needs_reconnect": False,
+        }
+
+    current_user = db.get_user_by_id(user.id)
+    if not current_user:
+        raise_not_found_error("User")
+
+    connected = bool(current_user.google_calendar_access_token)
+    calendar_email = current_user.google_calendar_email
+    connected_at = (
+        current_user.google_calendar_connected_at.isoformat()
+        if current_user.google_calendar_connected_at
+        else None
+    )
+    needs_reconnect = False
+
+    if connected and current_user.google_calendar_access_token:
+        access_token = current_user.google_calendar_access_token
+        expires_at = current_user.google_calendar_token_expires_at
+        refresh_token = current_user.google_calendar_refresh_token
+
+        # Proactively refresh if token expires within 5 minutes
+        refresh_threshold = datetime.now() + timedelta(minutes=5)
+        if expires_at and expires_at <= refresh_threshold:
+            if refresh_token:
+                try:
+                    refreshed = refresh_google_calendar_token(refresh_token)
+                    access_token = refreshed["access_token"]
+                    new_refresh = refreshed.get("refresh_token", refresh_token)
+                    expires_at = _compute_calendar_expiry(refreshed.get("expires_in"))
+                    db.update_user_google_calendar_tokens(
+                        user.id,
+                        access_token=access_token,
+                        refresh_token=new_refresh,
+                        expires_at=expires_at,
+                        email=calendar_email,
+                        connected_at=current_user.google_calendar_connected_at,
+                    )
+                except GoogleCalendarAuthError:
+                    needs_reconnect = True
+                    logger.warning("Google Calendar refresh failed", extra={"user_id": user.id})
+            else:
+                needs_reconnect = True
+
+        if not needs_reconnect:
+            try:
+                profile = get_google_calendar_user_info(access_token)
+                calendar_email = profile.get("email") or calendar_email
+            except GoogleCalendarAuthError:
+                needs_reconnect = True
+
+    return {
+        "connected": connected,
+        "calendar_email": calendar_email,
         "connected_at": connected_at,
         "needs_reconnect": needs_reconnect,
     }

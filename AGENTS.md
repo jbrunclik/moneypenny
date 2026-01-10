@@ -2085,6 +2085,96 @@ TODOIST_API_TIMEOUT=10  # API request timeout in seconds
 - Users can disconnect at any time (token is cleared from DB)
 - Todoist doesn't support token revocation via API (user must revoke in Todoist settings)
 
+## Google Calendar Integration
+
+The assistant can now orchestrate the user's calendars with the same UX patterns as Todoist. The system uses a strategic time-blocking approach where Todoist captures actions and Google Calendar blocks time for focused work and commitments.
+
+### How it works
+
+1. **OAuth Flow**: From Settings, the user clicks "Connect Google Calendar" and authenticates via Google's OAuth screen.
+2. **Tokens**: We request offline access and store access + refresh tokens plus the connected email in `users` table.
+3. **Tool Availability**: When tokens exist, the `google_calendar` tool is included in the LangGraph toolset.
+4. **Interplay with Todoist**: The system prompt coaches the LLM to decide whether a request belongs on the calendar, in Todoist, or both.
+
+### OAuth Flow Details
+
+1. `GET /auth/calendar/auth-url` → returns `{auth_url, state}`; frontend opens the URL.
+2. User authorizes, Google redirects back with `?code=...&state=...`.
+3. `checkCalendarOAuthCallback()` validates state and calls `POST /auth/calendar/connect` with `{code, state}`.
+4. Backend exchanges the code for tokens, fetches the user's Google email, and stores everything.
+5. Tokens are refreshed automatically in the tool/status endpoint whenever they are close to expiry.
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/calendar/auth-url` | GET | Generate Google OAuth URL + CSRF state |
+| `/auth/calendar/connect` | POST | Exchange authorization code for tokens |
+| `/auth/calendar/disconnect` | POST | Remove stored tokens |
+| `/auth/calendar/status` | GET | Report connection status (email, connected_at, needs_reconnect) |
+
+### Google Calendar Tool Actions
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `list_calendars` | – | Show calendars accessible to the user |
+| `list_events` | `calendar_id`, optional `time_min`, `time_max`, `max_results`, `query` | List upcoming events (defaults to next 7 days) |
+| `get_event` | `calendar_id`, `event_id` | Fetch a single event |
+| `create_event` | `calendar_id`, `summary`, `start_time`, `end_time` (or `all_day`), optional `timezone`, `attendees`, `location`, `reminders`, `recurrence`, `conference`, `send_updates` | Schedule new events or focus blocks |
+| `update_event` | `calendar_id`, `event_id`, any editable fields | Reschedule/rename/update attendees/reminders |
+| `delete_event` | `calendar_id`, `event_id`, optional `send_updates` | Delete an event (confirm first) |
+| `respond_event` | `calendar_id`, `event_id`, `response_status` | RSVP to invitations (accepted/tentative/declined) |
+
+> **Strategic guidance:** The LLM acts as an executive strategist, defending focus time and encouraging time-blocking for high-impact tasks. It assesses impact vs urgency before adding tasks, and proactively suggests calendar blocks for important work. When scheduling, it warns about conflicts with focus blocks and suggests alternatives.
+
+### Configuration
+
+```bash
+# .env
+GOOGLE_CALENDAR_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CALENDAR_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173   # Vite dev server in development
+GOOGLE_CALENDAR_API_TIMEOUT=10
+```
+
+### Billing & OAuth Client Reuse
+
+**Billing impact:** Google Calendar API is **free** for personal use with generous quotas (1,000,000 queries/day). There is no cost impact for enabling this integration.
+
+**OAuth client reuse:** The Google Calendar integration uses a **separate OAuth client** from Google Sign-In authentication. This is intentional:
+- **Sign-In client**: Only requests `openid email profile` scopes for authentication
+- **Calendar client**: Requests `calendar` and `calendar.events` scopes for full calendar access
+- **Why separate**: Combining scopes in a single client would require re-authenticating all users when adding calendar features. Separate clients allow incremental opt-in.
+
+If you're setting up a new deployment, you'll need to create two OAuth clients in Google Cloud Console:
+1. **Web application** for Sign-In (with `http://localhost:5173` and production URLs as authorized origins)
+2. **Web application** for Calendar (with `http://localhost:5173` and production URLs as authorized redirect URIs)
+
+Both clients can be in the same Google Cloud project and share the same OAuth consent screen.
+
+### Key files
+
+**Backend:**
+- [config.py](src/config.py) – Google Calendar client IDs/secrets and API base URLs
+- [google_calendar.py](src/auth/google_calendar.py) – OAuth helpers (authorize, exchange, refresh, userinfo)
+- [routes.py](src/api/routes.py) – Calendar OAuth endpoints + status helpers
+- [tools.py](src/agent/tools.py) – `google_calendar` LangGraph tool
+- [chat_agent.py](src/agent/chat_agent.py) – Prompt instructions for calendar + strategic productivity heuristics
+- [migrations/0019_add_google_calendar_fields.py](migrations/0019_add_google_calendar_fields.py) – DB columns for tokens/email/connected timestamp
+
+**Frontend:**
+- [SettingsPopup.ts](web/src/components/SettingsPopup.ts) – Calendar connect/disconnect UI + OAuth callback handling
+- [client.ts](web/src/api/client.ts) – `calendar.*` API helpers
+- [api.ts](web/src/types/api.ts) – Calendar DTOs
+- [popups.css](web/src/styles/components/popups.css) – `.settings-calendar-*` styles
+
+### UX Notes
+
+- The settings popup mirrors Todoist with a dedicated Google Calendar card (loading, connected, reconnect, disconnected states).
+- OAuth callbacks share the same pattern: store `state` in sessionStorage, validate on return, and show toasts for success or failure.
+- Thinking indicator metadata includes a `calendar` icon so users can see when the LLM is scheduling/rescheduling.
+
+
 ## Color Scheme
 
 The app supports three color scheme options: Light, Dark, and System (default).

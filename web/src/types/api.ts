@@ -367,6 +367,27 @@ export interface TodoistStatus {
 }
 
 // =============================================================================
+// Google Calendar types
+// =============================================================================
+
+export interface CalendarAuthUrl {
+  auth_url: string;
+  state: string;
+}
+
+export interface CalendarConnectResponse {
+  connected: boolean;
+  calendar_email: string | null;
+}
+
+export interface CalendarStatus {
+  connected: boolean;
+  calendar_email: string | null;
+  connected_at: string | null;
+  needs_reconnect: boolean;
+}
+
+// =============================================================================
 // Search types
 // =============================================================================
 

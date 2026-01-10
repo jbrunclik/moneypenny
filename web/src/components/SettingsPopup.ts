@@ -8,7 +8,7 @@ import {
   CHECK_ICON,
   WARNING_ICON,
 } from '../utils/icons';
-import { settings, todoist } from '../api/client';
+import { settings, todoist, calendar } from '../api/client';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import {
@@ -19,13 +19,14 @@ import {
   setupSystemPreferenceListener,
 } from '../utils/theme';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
-import type { TodoistStatus } from '../types/api';
+import type { TodoistStatus, CalendarStatus } from '../types/api';
 
 const log = createLogger('settings-popup');
 
 const POPUP_ID = 'settings-popup';
 const CHAR_LIMIT = 2000;
 const TODOIST_STATE_KEY = 'todoist-oauth-state';
+const CALENDAR_STATE_KEY = 'calendar-oauth-state';
 
 /** Current custom instructions value */
 let currentInstructions = '';
@@ -35,6 +36,9 @@ let currentColorScheme: ColorScheme = 'system';
 
 /** Current Todoist status */
 let todoistStatus: TodoistStatus | null = null;
+
+/** Current Google Calendar status */
+let calendarStatus: CalendarStatus | null = null;
 
 /**
  * Render color scheme option
@@ -112,10 +116,66 @@ function renderTodoistSection(status: TodoistStatus | null): string {
   `;
 }
 
+function renderCalendarSection(status: CalendarStatus | null): string {
+  if (status === null) {
+    return `
+      <div class="settings-calendar-loading">Loading Google Calendar status...</div>
+    `;
+  }
+
+  if (status.connected && status.needs_reconnect) {
+    return `
+      <div class="settings-calendar-needs-reconnect">
+        <span class="settings-calendar-status">
+          <span class="settings-calendar-icon warning">${WARNING_ICON}</span>
+          Google Calendar access expired
+        </span>
+        <p class="settings-helper">Your Google Calendar connection has expired. Please reconnect to keep scheduling events.</p>
+        <div class="settings-calendar-actions">
+          <button type="button" class="btn btn-primary btn-sm settings-calendar-connect">
+            Reconnect
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm settings-calendar-disconnect">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (status.connected) {
+    return `
+      <div class="settings-calendar-connected">
+        <span class="settings-calendar-status">
+          <span class="settings-calendar-icon connected">${CHECK_ICON}</span>
+          Connected${status.calendar_email ? ` as ${status.calendar_email}` : ''}
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm settings-calendar-disconnect">
+          Disconnect
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="settings-calendar-disconnected">
+      <p class="settings-helper">Connect Google Calendar to schedule events and focus blocks with AI</p>
+      <button type="button" class="btn btn-primary btn-sm settings-calendar-connect">
+        Connect Google Calendar
+      </button>
+    </div>
+  `;
+}
+
 /**
  * Render the popup content
  */
-function renderContent(instructions: string, colorScheme: ColorScheme, todoistSt: TodoistStatus | null): string {
+function renderContent(
+  instructions: string,
+  colorScheme: ColorScheme,
+  todoistSt: TodoistStatus | null,
+  calendarSt: CalendarStatus | null
+): string {
   const charCount = instructions.length;
   const charCountClass = charCount > CHAR_LIMIT ? 'error' : charCount > CHAR_LIMIT * 0.9 ? 'warning' : '';
 
@@ -132,9 +192,16 @@ function renderContent(instructions: string, colorScheme: ColorScheme, todoistSt
 
       <div class="settings-divider"></div>
 
-      <div class="settings-field">
+      <div class="settings-field" data-section="todoist">
         <label class="settings-label">Todoist Integration</label>
         ${renderTodoistSection(todoistSt)}
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field" data-section="calendar">
+        <label class="settings-label">Google Calendar Integration</label>
+        ${renderCalendarSection(calendarSt)}
       </div>
 
       <div class="settings-divider"></div>
@@ -248,27 +315,61 @@ async function handleTodoistDisconnect(): Promise<void> {
     log.debug('Disconnecting Todoist');
     await todoist.disconnect();
     todoistStatus = { connected: false, todoist_email: null, connected_at: null, needs_reconnect: false };
-
-    // Update UI
-    const popup = getElementById<HTMLDivElement>(POPUP_ID);
-    if (popup) {
-      const todoistSection = popup.querySelector('.settings-field:has(.settings-todoist-connected), .settings-field:has(.settings-todoist-disconnected)');
-      if (todoistSection) {
-        const labelEl = todoistSection.querySelector('.settings-label');
-        if (labelEl) {
-          todoistSection.innerHTML = `
-            <label class="settings-label">Todoist Integration</label>
-            ${renderTodoistSection(todoistStatus)}
-          `;
-        }
-      }
-    }
-
+    updateIntegrationSection('todoist');
     toast.success('Todoist disconnected');
     log.info('Todoist disconnected');
   } catch (error) {
     log.error('Failed to disconnect Todoist', { error });
     toast.error('Failed to disconnect Todoist');
+  }
+}
+
+async function handleCalendarConnect(): Promise<void> {
+  try {
+    log.debug('Starting Google Calendar OAuth flow');
+    const { auth_url, state } = await calendar.getAuthUrl();
+    sessionStorage.setItem(CALENDAR_STATE_KEY, state);
+    window.location.href = auth_url;
+  } catch (error) {
+    log.error('Failed to start Google Calendar OAuth', { error });
+    toast.error('Failed to connect Google Calendar');
+  }
+}
+
+async function handleCalendarDisconnect(): Promise<void> {
+  try {
+    log.debug('Disconnecting Google Calendar');
+    await calendar.disconnect();
+    calendarStatus = { connected: false, calendar_email: null, connected_at: null, needs_reconnect: false };
+    updateIntegrationSection('calendar');
+    toast.success('Google Calendar disconnected');
+    log.info('Google Calendar disconnected');
+  } catch (error) {
+    log.error('Failed to disconnect Google Calendar', { error });
+    toast.error('Failed to disconnect Google Calendar');
+  }
+}
+
+function updateIntegrationSection(section: 'todoist' | 'calendar'): void {
+  const popup = getElementById<HTMLDivElement>(POPUP_ID);
+  if (!popup) return;
+
+  const field = popup.querySelector(`.settings-field[data-section="${section}"]`);
+  if (!field) return;
+
+  const label = section === 'todoist' ? 'Todoist Integration' : 'Google Calendar Integration';
+  const content = section === 'todoist' ? renderTodoistSection(todoistStatus) : renderCalendarSection(calendarStatus);
+  field.innerHTML = `
+    <label class="settings-label">${label}</label>
+    ${content}
+  `;
+
+  if (section === 'todoist') {
+    field.querySelector('.settings-todoist-connect')?.addEventListener('click', handleTodoistConnect);
+    field.querySelector('.settings-todoist-disconnect')?.addEventListener('click', handleTodoistDisconnect);
+  } else {
+    field.querySelector('.settings-calendar-connect')?.addEventListener('click', handleCalendarConnect);
+    field.querySelector('.settings-calendar-disconnect')?.addEventListener('click', handleCalendarDisconnect);
   }
 }
 
@@ -283,7 +384,14 @@ export async function checkTodoistOAuthCallback(): Promise<boolean> {
   const state = urlParams.get('state');
   const error = urlParams.get('error');
 
-  // Check if this is a Todoist OAuth callback
+  // Check if we have a pending Todoist OAuth (state stored in sessionStorage)
+  const storedState = sessionStorage.getItem(TODOIST_STATE_KEY);
+  if (!storedState) {
+    // No Todoist OAuth in progress - let other handlers process this
+    return false;
+  }
+
+  // Check if this is an OAuth callback
   if (!code && !error) {
     return false;
   }
@@ -299,7 +407,6 @@ export async function checkTodoistOAuthCallback(): Promise<boolean> {
   }
 
   // Verify state
-  const storedState = sessionStorage.getItem(TODOIST_STATE_KEY);
   if (state !== storedState) {
     log.error('Todoist OAuth state mismatch', { expected: storedState, received: state });
     toast.error('Failed to connect Todoist: Invalid state');
@@ -327,6 +434,62 @@ export async function checkTodoistOAuthCallback(): Promise<boolean> {
   } catch (err) {
     log.error('Failed to complete Todoist OAuth', { error: err });
     toast.error('Failed to connect Todoist');
+  }
+
+  return true;
+}
+
+export async function checkCalendarOAuthCallback(): Promise<boolean> {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const state = urlParams.get('state');
+  const error = urlParams.get('error');
+
+  // Check if we have a pending Calendar OAuth (state stored in sessionStorage)
+  const storedState = sessionStorage.getItem(CALENDAR_STATE_KEY);
+  if (!storedState) {
+    // No Calendar OAuth in progress - let other handlers process this
+    return false;
+  }
+
+  if (!code && !error) {
+    return false;
+  }
+
+  window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+
+  if (error) {
+    log.error('Google Calendar OAuth error', { error });
+    toast.error('Failed to connect Google Calendar: ' + error);
+    sessionStorage.removeItem(CALENDAR_STATE_KEY);
+    return true;
+  }
+
+  // Verify state
+  if (state !== storedState) {
+    log.error('Google Calendar OAuth state mismatch', { expected: storedState, received: state });
+    toast.error('Failed to connect Google Calendar: Invalid state');
+    sessionStorage.removeItem(CALENDAR_STATE_KEY);
+    return true;
+  }
+
+  sessionStorage.removeItem(CALENDAR_STATE_KEY);
+
+  try {
+    log.debug('Exchanging Google Calendar OAuth code for token');
+    const result = await calendar.connect(code as string, state as string);
+    calendarStatus = {
+      connected: result.connected,
+      calendar_email: result.calendar_email,
+      connected_at: new Date().toISOString(),
+      needs_reconnect: false,
+    };
+    toast.success('Google Calendar connected successfully');
+    log.info('Google Calendar connected', { email: result.calendar_email });
+    openSettingsPopup();
+  } catch (err) {
+    log.error('Failed to complete Google Calendar OAuth', { error: err });
+    toast.error('Failed to connect Google Calendar');
   }
 
   return true;
@@ -369,26 +532,31 @@ export async function openSettingsPopup(): Promise<void> {
   try {
     log.debug('Fetching settings and Todoist status');
 
-    // Fetch both in parallel - Todoist status is optional, don't block on failure
-    const [settingsData, todoistData] = await Promise.all([
+    const [settingsData, todoistData, calendarData] = await Promise.all([
       settings.get(),
       todoist.getStatus().catch((err) => {
         log.warn('Failed to fetch Todoist status', { error: err });
+        return null;
+      }),
+      calendar.getStatus().catch((err) => {
+        log.warn('Failed to fetch Google Calendar status', { error: err });
         return null;
       }),
     ]);
 
     currentInstructions = settingsData.custom_instructions || '';
     todoistStatus = todoistData;
+    calendarStatus = calendarData;
     log.info('Settings loaded', {
       instructionsLength: currentInstructions.length,
       todoistConnected: todoistStatus?.connected ?? false,
+      calendarConnected: calendarStatus?.connected ?? false,
     });
 
     // Update popup body
     const body = popup.querySelector('.info-popup-body');
     if (body) {
-      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus)}</div>`;
+      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus, calendarStatus)}</div>`;
     }
 
     // Enable save button and attach handlers
@@ -414,6 +582,11 @@ export async function openSettingsPopup(): Promise<void> {
         handleColorSchemeClick(scheme);
       });
     });
+
+    popup.querySelector('.settings-todoist-connect')?.addEventListener('click', handleTodoistConnect);
+    popup.querySelector('.settings-todoist-disconnect')?.addEventListener('click', handleTodoistDisconnect);
+    popup.querySelector('.settings-calendar-connect')?.addEventListener('click', handleCalendarConnect);
+    popup.querySelector('.settings-calendar-disconnect')?.addEventListener('click', handleCalendarDisconnect);
   } catch (error) {
     log.error('Failed to load settings', { error });
     const body = popup.querySelector('.info-popup-body');
@@ -472,6 +645,14 @@ export function initSettingsPopup(): void {
     // Todoist disconnect button
     if (target.classList.contains('settings-todoist-disconnect')) {
       handleTodoistDisconnect();
+    }
+
+    if (target.classList.contains('settings-calendar-connect')) {
+      handleCalendarConnect();
+    }
+
+    if (target.classList.contains('settings-calendar-disconnect')) {
+      handleCalendarDisconnect();
     }
   });
 

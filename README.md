@@ -45,6 +45,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Web tools**: Real-time web search (DuckDuckGo) and URL fetching with source citations
 - **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
 - **Todoist integration**: Manage tasks via AI - list, add, complete, prioritize, and organize tasks across projects
+- **Google Calendar integration**: Schedule meetings/focus blocks, update events, and RSVP directly from the chat
 
 ### Personalization
 - **User memory**: AI learns and remembers facts about you across conversations (viewable/deletable via brain icon)
@@ -158,6 +159,11 @@ RATE_LIMIT_FILES=120 per minute       # File downloads
 TODOIST_CLIENT_ID=your-todoist-client-id
 TODOIST_CLIENT_SECRET=your-todoist-client-secret
 TODOIST_REDIRECT_URI=http://localhost:5173  # Your app URL (OAuth redirects here, use Vite port in dev)
+
+# Google Calendar integration (optional)
+GOOGLE_CALENDAR_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CALENDAR_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Same origin as your frontend
 ```
 
 ### Setting up Code Execution (Docker)
@@ -257,14 +263,63 @@ To enable authentication (required for production):
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 2. Create a new project (or select an existing one)
-3. Click **Create Credentials** → **OAuth client ID**
-4. Select **Web application** as the application type
-5. Add **Authorized JavaScript origins**:
-   - `http://localhost:8000` (for development)
-   - `https://yourdomain.com` (for production)
-6. Copy the **Client ID** to your `.env` file
+3. Configure the **OAuth consent screen**:
+   - Go to **APIs & Services** → **OAuth consent screen**
+   - Select **External** (or Internal for Google Workspace)
+   - Fill in required fields (app name, support email)
+   - Add your email(s) as test users (required while in "Testing" status)
+4. Create **OAuth credentials**:
+   - Click **Create Credentials** → **OAuth client ID**
+   - Select **Web application** as the application type
+   - Add **Authorized JavaScript origins**:
+     - `http://localhost:5173` (for development with Vite)
+     - `https://yourdomain.com` (for production)
+   - Copy the **Client ID** to your `.env` file
 
 No client secret is needed - the app uses Google Identity Services which validates tokens server-side.
+
+### Setting up Google Calendar Integration
+
+The Google Calendar integration allows the AI to schedule meetings, create focus blocks, update events, and RSVP to invitations. Each user connects their own Google Calendar account via OAuth.
+
+**Cost:** Google Calendar API is **free** for personal use with generous quotas (1,000,000 queries/day).
+
+**Setup:**
+
+1. Use the same Google Cloud project as your Sign-In client (or create a new one)
+2. Enable the **Google Calendar API**:
+   - Go to **APIs & Services** → **Library**
+   - Search for "Google Calendar API"
+   - Click **Enable**
+3. Create a **separate OAuth client** for Calendar:
+   - Go to **APIs & Services** → **Credentials**
+   - Click **Create Credentials** → **OAuth client ID**
+   - Select **Web application**
+   - Add **Authorized redirect URIs** (not JavaScript origins):
+     - `http://localhost:5173` (for development with Vite)
+     - `https://yourdomain.com` (for production)
+   - Copy the **Client ID** and **Client Secret**
+
+**Why a separate OAuth client?** The Sign-In client uses Google Identity Services (no secret needed), while Calendar uses standard OAuth with a secret. Separate clients let users use the chatbot without granting calendar access.
+
+**Configuration:**
+```bash
+GOOGLE_CALENDAR_CLIENT_ID=your-calendar-client-id
+GOOGLE_CALENDAR_CLIENT_SECRET=your-calendar-client-secret
+GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Use Vite port in dev
+```
+
+**Usage:**
+1. Open Settings (gear icon in sidebar)
+2. Click "Connect Google Calendar"
+3. Authorize on Google's OAuth page
+4. Ask the AI to manage your calendar:
+   - "What's on my calendar today?"
+   - "Schedule a meeting with John tomorrow at 2pm"
+   - "Block 2 hours for deep work on Monday morning"
+   - "Cancel my 3pm meeting"
+
+**Disabling:** Leave `GOOGLE_CALENDAR_CLIENT_ID` empty - the integration won't appear.
 
 ### Running
 

@@ -221,6 +221,11 @@ class User:
     custom_instructions: str | None = None
     todoist_access_token: str | None = None
     todoist_connected_at: datetime | None = None
+    google_calendar_access_token: str | None = None
+    google_calendar_refresh_token: str | None = None
+    google_calendar_token_expires_at: datetime | None = None
+    google_calendar_connected_at: datetime | None = None
+    google_calendar_email: str | None = None
 
 
 @dataclass
@@ -382,6 +387,15 @@ class Database:
         todoist_connected_at = None
         if row["todoist_connected_at"]:
             todoist_connected_at = datetime.fromisoformat(row["todoist_connected_at"])
+
+        calendar_connected_at = None
+        if row["google_calendar_connected_at"]:
+            calendar_connected_at = datetime.fromisoformat(row["google_calendar_connected_at"])
+
+        calendar_expires_at = None
+        if row["google_calendar_token_expires_at"]:
+            calendar_expires_at = datetime.fromisoformat(row["google_calendar_token_expires_at"])
+
         return User(
             id=row["id"],
             email=row["email"],
@@ -391,6 +405,11 @@ class Database:
             custom_instructions=row["custom_instructions"],
             todoist_access_token=row["todoist_access_token"],
             todoist_connected_at=todoist_connected_at,
+            google_calendar_access_token=row["google_calendar_access_token"],
+            google_calendar_refresh_token=row["google_calendar_refresh_token"],
+            google_calendar_token_expires_at=calendar_expires_at,
+            google_calendar_connected_at=calendar_connected_at,
+            google_calendar_email=row["google_calendar_email"],
         )
 
     def get_user_by_id(self, user_id: str) -> User | None:
@@ -477,6 +496,75 @@ class Database:
                 "User not found for Todoist token update",
                 extra={"user_id": user_id},
             )
+        return updated
+
+    def update_user_google_calendar_tokens(
+        self,
+        user_id: str,
+        access_token: str | None,
+        refresh_token: str | None = None,
+        expires_at: datetime | None = None,
+        email: str | None = None,
+        connected_at: datetime | None = None,
+    ) -> bool:
+        """Update a user's Google Calendar OAuth tokens."""
+        logger.debug(
+            "Updating user Google Calendar tokens",
+            extra={
+                "user_id": user_id,
+                "connecting": bool(access_token),
+                "has_refresh_token": bool(refresh_token),
+            },
+        )
+
+        connected_at_iso = None
+        if access_token:
+            connected_at_iso = (connected_at or datetime.now()).isoformat()
+        expires_at_str = expires_at.isoformat() if expires_at else None
+
+        if not access_token:
+            refresh_token = None
+            email = None
+            expires_at_str = None
+            connected_at_iso = None
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """
+                UPDATE users
+                SET
+                    google_calendar_access_token = ?,
+                    google_calendar_refresh_token = ?,
+                    google_calendar_token_expires_at = ?,
+                    google_calendar_connected_at = ?,
+                    google_calendar_email = ?
+                WHERE id = ?
+                """,
+                (
+                    access_token,
+                    refresh_token,
+                    expires_at_str,
+                    connected_at_iso,
+                    email,
+                    user_id,
+                ),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            action = "connected" if access_token else "disconnected"
+            logger.info(
+                f"User Google Calendar {action}",
+                extra={"user_id": user_id},
+            )
+        else:
+            logger.warning(
+                "User not found for Google Calendar token update",
+                extra={"user_id": user_id},
+            )
+
         return updated
 
     # Conversation operations

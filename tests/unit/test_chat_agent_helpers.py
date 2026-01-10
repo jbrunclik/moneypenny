@@ -2,6 +2,7 @@
 
 from src.agent.chat_agent import (
     _extract_tool_detail,
+    _format_calendar_detail,
     _format_todoist_detail,
     clean_tool_call_json,
     extract_metadata_from_response,
@@ -599,10 +600,10 @@ class TestExtractToolDetail:
         assert result == "add_task: Buy milk"
 
     def test_todoist_add_task_truncates(self) -> None:
-        """Should truncate long task content to 40 chars."""
+        """Should truncate long task content."""
         long_content = "x" * 100
         result = _extract_tool_detail("todoist", {"action": "add_task", "content": long_content})
-        assert result == f"add_task: {'x' * 40}"
+        assert result == f"add_task: {'x' * 60}"
 
     def test_todoist_complete_task(self) -> None:
         """Should extract action and task_id for complete_task."""
@@ -653,7 +654,48 @@ class TestFormatTodoistDetail:
         result = _format_todoist_detail({"action": "delete_task", "task_id": "xyz789"})
         assert result == "delete_task: xyz789"
 
+    def test_add_project(self) -> None:
+        result = _format_todoist_detail({"action": "add_project", "project_name": "Work"})
+        assert result == "add_project: Work"
+
+    def test_share_project(self) -> None:
+        result = _format_todoist_detail(
+            {"action": "share_project", "collaborator_email": "teammate@example.com"}
+        )
+        assert result == "share_project: teammate@example.com"
+
+    def test_add_section(self) -> None:
+        result = _format_todoist_detail({"action": "add_section", "section_name": "Backlog"})
+        assert result == "add_section: Backlog"
+
     def test_unknown_action(self) -> None:
         """Should return just action for unknown actions."""
         result = _format_todoist_detail({"action": "some_new_action"})
         assert result == "some_new_action"
+
+
+class TestFormatCalendarDetail:
+    """Tests for _format_calendar_detail function."""
+
+    def test_list_events_with_range(self) -> None:
+        result = _format_calendar_detail(
+            {
+                "action": "list_events",
+                "calendar_id": "work",
+                "time_min": "2024-01-01T00:00:00Z",
+                "time_max": "2024-01-07T00:00:00Z",
+            }
+        )
+        assert result == "list_events: work 2024-01-01T00:00:00Z → 2024-01-07T00:00:00Z"
+
+    def test_create_event(self) -> None:
+        result = _format_calendar_detail({"action": "create_event", "summary": "Sprint review"})
+        assert result == "create_event: Sprint review"
+
+    def test_delete_event(self) -> None:
+        result = _format_calendar_detail({"action": "delete_event", "event_id": "evt-1"})
+        assert result == "delete_event: evt-1"
+
+    def test_respond_event(self) -> None:
+        result = _format_calendar_detail({"action": "respond_event", "response_status": "accepted"})
+        assert result == "respond_event: accepted"

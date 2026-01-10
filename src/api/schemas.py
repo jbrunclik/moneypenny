@@ -92,6 +92,13 @@ class TodoistConnectRequest(BaseModel):
     state: str = Field(..., min_length=1, description="CSRF state token for validation")
 
 
+class GoogleCalendarConnectRequest(BaseModel):
+    """Schema for POST /auth/calendar/connect - Exchange OAuth code for token."""
+
+    code: str = Field(..., min_length=1, description="OAuth authorization code from Google")
+    state: str = Field(..., min_length=1, description="CSRF state token for validation")
+
+
 # -----------------------------------------------------------------------------
 # Conversation Schemas
 # -----------------------------------------------------------------------------
@@ -262,6 +269,33 @@ class TodoistStatusResponse(BaseModel):
     connected_at: str | None = Field(None, description="ISO timestamp when connected")
     needs_reconnect: bool = Field(
         False, description="True if token is invalid and user needs to reconnect"
+    )
+
+
+class GoogleCalendarAuthUrlResponse(BaseModel):
+    """Response containing Google Calendar OAuth authorization URL."""
+
+    auth_url: str = Field(..., description="URL to redirect user for Google authorization")
+    state: str = Field(..., description="CSRF state token to validate on callback")
+
+
+class GoogleCalendarConnectResponse(BaseModel):
+    """Response from successful Google Calendar connection."""
+
+    connected: bool = Field(..., description="Whether connection was successful")
+    calendar_email: str | None = Field(
+        None, description="Email of Google account granting Calendar access"
+    )
+
+
+class GoogleCalendarStatusResponse(BaseModel):
+    """Response containing Google Calendar connection status."""
+
+    connected: bool = Field(..., description="Whether Google Calendar is connected")
+    calendar_email: str | None = Field(None, description="Email of connected Google account")
+    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    needs_reconnect: bool = Field(
+        False, description="True if tokens are invalid/expired and user must reconnect"
     )
 
 

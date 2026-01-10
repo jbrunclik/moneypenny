@@ -996,7 +996,8 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     // Scroll to the top to read the beginning of the message
     // Use scrollTo() which more reliably triggers scroll events across browsers
     await messagesContainer.evaluate((el) => {
-      el.scrollTo({ top: 0, behavior: 'instant' });
+      el.scrollTop = 0;
+      el.dispatchEvent(new Event('scroll'));
     });
 
     // Wait for the scroll event to be processed by our scroll listener

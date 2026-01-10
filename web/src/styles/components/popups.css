@@ -1429,7 +1429,7 @@
     align-items: center;
     gap: var(--space-2);
     font-size: var(--font-size-sm);
-    color: var(--text-primary);
+    font-weight: 600;
 }
 
 .settings-todoist-icon {
@@ -1507,7 +1507,106 @@
         width: 100%;
     }
 
-    .settings-todoist-actions .btn {
+.settings-todoist-actions .btn {
+        width: 100%;
+    }
+}
+
+/* Google Calendar integration section */
+.settings-calendar-loading {
+    padding: var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.settings-calendar-connected {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-calendar-disconnected,
+.settings-calendar-needs-reconnect {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-calendar-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.settings-calendar-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-calendar-icon.connected {
+    color: var(--success);
+}
+
+.settings-calendar-icon.warning {
+    color: var(--warning);
+}
+
+.settings-calendar-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-calendar-needs-reconnect {
+    border-color: var(--warning);
+}
+
+.settings-calendar-needs-reconnect .settings-helper {
+    margin-bottom: 0;
+}
+
+.settings-calendar-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.settings-calendar-connect,
+.settings-calendar-disconnect {
+    white-space: nowrap;
+}
+
+/* Mobile: stack Calendar connected state */
+@media (max-width: 480px) {
+    .settings-calendar-connected {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .settings-calendar-disconnect {
+        width: 100%;
+    }
+
+    .settings-calendar-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .settings-calendar-actions .btn {
         width: 100%;
     }
 }

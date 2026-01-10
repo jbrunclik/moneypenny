@@ -29,7 +29,8 @@ test.describe('Settings', () => {
     await expect(popup.locator('h3')).toHaveText('Settings');
     await expect(popup.locator('.settings-label').first()).toHaveText('Appearance');
     await expect(popup.locator('.settings-label').nth(1)).toHaveText('Todoist Integration');
-    await expect(popup.locator('.settings-label').nth(2)).toHaveText('Custom Instructions');
+    await expect(popup.locator('.settings-label').nth(2)).toHaveText('Google Calendar Integration');
+    await expect(popup.locator('.settings-label').nth(3)).toHaveText('Custom Instructions');
     await expect(popup.locator('#custom-instructions')).toBeVisible();
     await expect(popup.locator('.settings-save-btn')).toBeVisible();
   });

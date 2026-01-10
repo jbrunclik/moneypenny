@@ -24,6 +24,9 @@ import {
   type TodoistAuthUrl,
   type TodoistConnectResponse,
   type TodoistStatus,
+  type CalendarAuthUrl,
+  type CalendarConnectResponse,
+  type CalendarStatus,
   type UploadConfig,
   type User,
   type UserSettings,
@@ -929,6 +932,30 @@ export const todoist = {
    */
   async getStatus(): Promise<TodoistStatus> {
     return requestWithRetry<TodoistStatus>('/auth/todoist/status');
+  },
+};
+
+// Google Calendar integration endpoints
+export const calendar = {
+  async getAuthUrl(): Promise<CalendarAuthUrl> {
+    return requestWithRetry<CalendarAuthUrl>('/auth/calendar/auth-url');
+  },
+
+  async connect(code: string, state: string): Promise<CalendarConnectResponse> {
+    return request<CalendarConnectResponse>('/auth/calendar/connect', {
+      method: 'POST',
+      body: JSON.stringify({ code, state }),
+    });
+  },
+
+  async disconnect(): Promise<void> {
+    await request<{ status: string }>('/auth/calendar/disconnect', {
+      method: 'POST',
+    });
+  },
+
+  async getStatus(): Promise<CalendarStatus> {
+    return requestWithRetry<CalendarStatus>('/auth/calendar/status');
   },
 };
 

@@ -1642,3 +1642,304 @@ class TestRetrieveFile:
         assert "not found in storage" in parsed["error"]
 
         set_conversation_context(None, None)
+
+
+# ============================================================================
+# Tests for Todoist Tool
+# ============================================================================
+
+
+class TestTodoistTool:
+    """Tests for todoist tool."""
+
+    @patch("src.agent.tools._get_todoist_token")
+    def test_returns_error_when_not_connected(self, mock_get_token: MagicMock) -> None:
+        """Should return error when Todoist is not connected."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = None
+
+        result = todoist.invoke({"action": "list_tasks"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "not connected" in parsed["error"].lower()
+
+    @patch("src.agent.tools._get_todoist_token")
+    def test_returns_error_for_unknown_action(self, mock_get_token: MagicMock) -> None:
+        """Should return error for unknown action."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+
+        result = todoist.invoke({"action": "unknown_action"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "Unknown action" in parsed["error"]
+
+    @patch("src.agent.tools._get_todoist_token")
+    @patch("src.agent.tools._todoist_api_request")
+    def test_list_tasks_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully list tasks."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = [
+            {
+                "id": "task-1",
+                "content": "Test task",
+                "project_id": "proj-1",
+                "section_id": None,
+                "priority": 1,
+                "due": None,
+            }
+        ]
+
+        result = todoist.invoke({"action": "list_tasks"})
+        parsed = json.loads(result)
+
+        assert "tasks" in parsed
+        assert len(parsed["tasks"]) == 1
+        assert parsed["tasks"][0]["id"] == "task-1"
+
+    @patch("src.agent.tools._get_todoist_token")
+    @patch("src.agent.tools._todoist_api_request")
+    def test_add_task_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully add a task."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = {
+            "id": "new-task-1",
+            "content": "New task",
+        }
+
+        result = todoist.invoke(
+            {
+                "action": "add_task",
+                "content": "New task",
+                "due_string": "tomorrow",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert parsed["action"] == "add_task"
+        assert parsed["success"] is True
+
+    @patch("src.agent.tools._get_todoist_token")
+    @patch("src.agent.tools._todoist_api_request")
+    def test_complete_task_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully complete a task."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = {}  # Close endpoint returns empty
+
+        result = todoist.invoke(
+            {
+                "action": "complete_task",
+                "task_id": "task-123",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert parsed["action"] == "complete_task"
+        assert parsed["success"] is True
+
+
+# ============================================================================
+# Tests for Google Calendar Tool
+# ============================================================================
+
+
+class TestGoogleCalendarTool:
+    """Tests for google_calendar tool."""
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "")
+    def test_returns_error_when_not_configured(self) -> None:
+        """Should return error when Google Calendar is not configured."""
+        from src.agent.tools import google_calendar
+
+        result = google_calendar.invoke({"action": "list_calendars"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "not configured" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    def test_returns_error_when_not_connected(self, mock_get_token: MagicMock) -> None:
+        """Should return error when Google Calendar is not connected."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = None
+
+        result = google_calendar.invoke({"action": "list_calendars"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "not connected" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    def test_returns_error_for_unknown_action(self, mock_get_token: MagicMock) -> None:
+        """Should return error for unknown action."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = ("valid-token", "user@example.com")
+
+        result = google_calendar.invoke({"action": "unknown_action"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "Unknown action" in parsed["error"]
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools._google_calendar_api_request")
+    def test_list_calendars_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully list calendars."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = ("valid-token", "user@example.com")
+        mock_api.return_value = {
+            "items": [
+                {"id": "primary", "summary": "Main Calendar"},
+                {"id": "work", "summary": "Work Calendar"},
+            ]
+        }
+
+        result = google_calendar.invoke({"action": "list_calendars"})
+        parsed = json.loads(result)
+
+        assert "calendars" in parsed
+        assert len(parsed["calendars"]) == 2
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools._google_calendar_api_request")
+    def test_list_events_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully list events."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = ("valid-token", "user@example.com")
+        mock_api.return_value = {
+            "items": [
+                {
+                    "id": "evt-1",
+                    "summary": "Team Meeting",
+                    "start": {"dateTime": "2024-01-15T10:00:00Z"},
+                    "end": {"dateTime": "2024-01-15T11:00:00Z"},
+                }
+            ]
+        }
+
+        result = google_calendar.invoke(
+            {
+                "action": "list_events",
+                "calendar_id": "primary",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert "events" in parsed
+        assert len(parsed["events"]) == 1
+        assert parsed["events"][0]["summary"] == "Team Meeting"
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools._google_calendar_api_request")
+    def test_create_event_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully create an event."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = ("valid-token", "user@example.com")
+        mock_api.return_value = {
+            "id": "new-evt-1",
+            "summary": "New Meeting",
+            "start": {"dateTime": "2024-01-16T14:00:00Z"},
+            "end": {"dateTime": "2024-01-16T15:00:00Z"},
+        }
+
+        result = google_calendar.invoke(
+            {
+                "action": "create_event",
+                "summary": "New Meeting",
+                "start_time": "2024-01-16T14:00:00Z",
+                "end_time": "2024-01-16T15:00:00Z",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert "event" in parsed
+        assert parsed["event"]["summary"] == "New Meeting"
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools._google_calendar_api_request")
+    def test_delete_event_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully delete an event."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = ("valid-token", "user@example.com")
+        mock_api.return_value = {}  # Delete returns empty
+
+        result = google_calendar.invoke(
+            {
+                "action": "delete_event",
+                "event_id": "evt-123",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert "action" in parsed
+        assert parsed["action"] == "delete_event"
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    def test_get_event_requires_event_id(self, mock_get_token: MagicMock) -> None:
+        """Should require event_id for get_event action."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = ("valid-token", "user@example.com")
+
+        result = google_calendar.invoke(
+            {
+                "action": "get_event",
+                # Missing event_id
+            }
+        )
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "event_id" in parsed["error"].lower()
+
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools._get_google_calendar_access_token")
+    def test_respond_event_requires_response_status(self, mock_get_token: MagicMock) -> None:
+        """Should require response_status for respond_event action."""
+        from src.agent.tools import google_calendar
+
+        mock_get_token.return_value = ("valid-token", "user@example.com")
+
+        result = google_calendar.invoke(
+            {
+                "action": "respond_event",
+                "event_id": "evt-123",
+                # Missing response_status
+            }
+        )
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "response_status" in parsed["error"].lower()

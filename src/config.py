@@ -293,6 +293,17 @@ class Config:
     TODOIST_API_TIMEOUT: int = int(os.getenv("TODOIST_API_TIMEOUT", "10"))  # seconds
     TODOIST_API_BASE_URL: str = "https://api.todoist.com/rest/v2"
 
+    # Google Calendar Integration
+    GOOGLE_CALENDAR_CLIENT_ID: str = os.getenv("GOOGLE_CALENDAR_CLIENT_ID", "")
+    GOOGLE_CALENDAR_CLIENT_SECRET: str = os.getenv("GOOGLE_CALENDAR_CLIENT_SECRET", "")
+    GOOGLE_CALENDAR_REDIRECT_URI: str = os.getenv(
+        "GOOGLE_CALENDAR_REDIRECT_URI", "http://localhost:5173"
+    )
+    GOOGLE_CALENDAR_API_TIMEOUT: int = int(os.getenv("GOOGLE_CALENDAR_API_TIMEOUT", "10"))
+    GOOGLE_CALENDAR_API_BASE_URL: str = "https://www.googleapis.com/calendar/v3"
+    GOOGLE_OAUTH_TOKEN_URL: str = "https://oauth2.googleapis.com/token"
+    GOOGLE_USERINFO_URL: str = "https://www.googleapis.com/oauth2/v2/userinfo"
+
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"

@@ -16,6 +16,7 @@ import {
   BRAIN_ICON,
   CODE_ICON,
   CHECKLIST_ICON,
+  CALENDAR_ICON,
 } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { renderMarkdown } from '../utils/markdown';
@@ -28,6 +29,7 @@ const ICON_MAP: Record<string, string> = {
   sparkles: SPARKLES_ICON,
   code: CODE_ICON,
   checklist: CHECKLIST_ICON,
+  calendar: CALENDAR_ICON,
   brain: BRAIN_ICON,
 };
 

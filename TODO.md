@@ -9,6 +9,7 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Voice conversation mode** - Full voice-based conversation with speech-to-text input and text-to-speech output
 
 ## Code Quality
+- [ ] **Split tools.py into separate modules** - The `src/agent/tools.py` file is over 2800 lines and growing. Split into separate modules per integration: `tools/todoist.py`, `tools/google_calendar.py`, `tools/web_search.py`, `tools/code_execution.py`, `tools/image_generation.py`, `tools/file_retrieval.py`. Keep a central `tools/__init__.py` that exports the combined `TOOLS` list.
 - [ ] **Refactor MIME type logic** - Replace manual `_get_mime_type` and maps in `src/agent/tools.py` with Python's standard `mimetypes` library.
 - [ ] Consider async Flask (quart) for better concurrency
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing. **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.

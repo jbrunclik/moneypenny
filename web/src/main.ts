@@ -65,7 +65,13 @@ import { initImageGenPopup } from './components/ImageGenPopup';
 import { initMessageCostPopup } from './components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from './components/CostHistoryPopup';
 import { initMemoriesPopup, getMemoriesPopupHtml, openMemoriesPopup } from './components/MemoriesPopup';
-import { initSettingsPopup, getSettingsPopupHtml, openSettingsPopup, checkTodoistOAuthCallback } from './components/SettingsPopup';
+import {
+  initSettingsPopup,
+  getSettingsPopupHtml,
+  openSettingsPopup,
+  checkTodoistOAuthCallback,
+  checkCalendarOAuthCallback,
+} from './components/SettingsPopup';
 import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
 import { initScrollToBottom, checkScrollButtonVisibility, setBeforeScrollToBottomCallback } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
@@ -299,8 +305,9 @@ async function init(): Promise<void> {
 
   if (isAuthenticated) {
     hideLoginOverlay();
-    // Check for Todoist OAuth callback (user returning from Todoist auth)
+    // Check for integration OAuth callbacks
     await checkTodoistOAuthCallback();
+    await checkCalendarOAuthCallback();
     await loadInitialData(initialConversationId);
   } else {
     showLoginOverlay();
