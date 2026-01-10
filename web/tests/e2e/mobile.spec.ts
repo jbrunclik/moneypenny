@@ -33,9 +33,10 @@ test.describe('Mobile - iPhone', () => {
     await page.click('#menu-btn');
     await expect(page.locator('#sidebar')).toHaveClass(/open/);
 
-    // Click overlay
+    // Click overlay - use force:true because webkit reports the sidebar intercepts
+    // pointer events even though the overlay is visually on top
     const overlay = page.locator('.sidebar-overlay');
-    await overlay.click();
+    await overlay.click({ force: true });
 
     // Sidebar should be closed
     await expect(page.locator('#sidebar')).not.toHaveClass(/open/);

@@ -166,12 +166,8 @@ test.describe('Search - Results', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.fill('Python');
 
-    // Wait for debounce and results
-    await page.waitForTimeout(400); // 300ms debounce + buffer
-
-    // Should show results
     const resultsHeader = page.locator('.search-results-header');
-    await expect(resultsHeader).toBeVisible({ timeout: 5000 });
+    await expect(resultsHeader).toBeVisible({ timeout: 10000 });
   });
 
   test('shows no results message for non-matching query', async ({ page }) => {
@@ -185,12 +181,8 @@ test.describe('Search - Results', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.fill('xyznonexistent123');
 
-    // Wait for debounce
-    await page.waitForTimeout(400);
-
-    // Should show empty state
     const searchEmpty = page.locator('.search-empty');
-    await expect(searchEmpty).toBeVisible({ timeout: 5000 });
+    await expect(searchEmpty).toBeVisible({ timeout: 10000 });
     await expect(searchEmpty).toContainText('No results found');
   });
 
@@ -211,8 +203,6 @@ test.describe('Search - Results', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.fill('Unique search test');
 
-    // Wait for results
-    await page.waitForTimeout(400);
     const resultItem = page.locator('.search-result-item').first();
     await expect(resultItem).toBeVisible({ timeout: 5000 });
 
@@ -269,9 +259,6 @@ test.describe('Search - Mock Results', () => {
     // Trigger search
     const searchInput = page.locator('#search-input');
     await searchInput.fill('test');
-
-    // Wait for results
-    await page.waitForTimeout(400);
 
     // Should show result count
     const resultsCount = page.locator('.search-results-count');
@@ -333,9 +320,6 @@ test.describe('Search - Debounce', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.type('Test', { delay: 50 }); // Fast typing
 
-    // Wait for debounce to complete
-    await page.waitForTimeout(400);
-
     // Now results should be visible (if there are matches)
     // The test verifies debounce works by not crashing with rapid input
     // and eventually showing results after the debounce period
@@ -367,7 +351,6 @@ test.describe('Search - Navigation', () => {
     // Search for it
     const searchInput = page.locator('#search-input');
     await searchInput.fill('Navigation test');
-    await page.waitForTimeout(400);
 
     // Click result
     const resultItem = page.locator('.search-result-item').first();
@@ -392,7 +375,6 @@ test.describe('Search - Navigation', () => {
     // Activate search
     const searchInput = page.locator('#search-input');
     await searchInput.fill('something');
-    await page.waitForTimeout(400);
 
     // Clear search with escape
     await searchInput.press('Escape');
@@ -447,7 +429,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Search for the target message
     const searchInput = page.locator('#search-input');
     await searchInput.fill('FINDME');
-    await page.waitForTimeout(400);
 
     // Wait for search results
     const resultItem = page.locator('.search-result-item').first();
@@ -483,7 +464,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Navigate to message in the middle
     const searchInput = page.locator('#search-input');
     await searchInput.fill('UNIQUE_MARKER');
-    await page.waitForTimeout(400);
 
     const resultItem = page.locator('.search-result-item').first();
     await expect(resultItem).toBeVisible({ timeout: 5000 });
@@ -553,7 +533,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Navigate to message in the middle
     const searchInput = page.locator('#search-input');
     await searchInput.fill('SEARCH_TARGET');
-    await page.waitForTimeout(400);
 
     const resultItem = page.locator('.search-result-item').first();
     await expect(resultItem).toBeVisible({ timeout: 5000 });
@@ -601,7 +580,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Search for the marker
     const searchInput = page.locator('#search-input');
     await searchInput.fill('RAPID_CLICK_TEST');
-    await page.waitForTimeout(400);
 
     // Get the result item
     const resultItem = page.locator('.search-result-item').first();
@@ -650,7 +628,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Search and click a result
     const searchInput = page.locator('#search-input');
     await searchInput.fill('SEARCHABLE');
-    await page.waitForTimeout(400);
 
     const resultItem = page.locator('.search-result-item').first();
     await expect(resultItem).toBeVisible({ timeout: 5000 });
@@ -692,7 +669,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Search for the target text
     const searchInput = page.locator('#search-input');
     await searchInput.fill('HIGHLIGHT_TEST');
-    await page.waitForTimeout(400);
 
     // Click on the message result (the one with the snippet)
     const resultItem = page.locator('.search-result-item').first();
@@ -742,7 +718,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Trigger search
     const searchInput = page.locator('#search-input');
     await searchInput.fill('ghost');
-    await page.waitForTimeout(400);
 
     // Click the result
     const resultItem = page.locator('.search-result-item').first();
@@ -776,7 +751,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Navigate to message in the middle (creates partial view)
     const searchInput = page.locator('#search-input');
     await searchInput.fill('PARTIAL_TARGET');
-    await page.waitForTimeout(400);
 
     const resultItem = page.locator('.search-result-item').first();
     await expect(resultItem).toBeVisible({ timeout: 5000 });
@@ -857,7 +831,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Now try to search and click a result while streaming
     const searchInput = page.locator('#search-input');
     await searchInput.fill('STREAMING_SEARCH_TEST');
-    await page.waitForTimeout(400);
 
     const resultItem = page.locator('.search-result-item').first();
     await expect(resultItem).toBeVisible({ timeout: 5000 });

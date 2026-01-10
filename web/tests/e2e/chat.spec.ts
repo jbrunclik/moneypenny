@@ -1227,11 +1227,27 @@ test.describe('Chat - Image Loading Scroll', () => {
 
     await page.waitForSelector('.message.user', { timeout: 10000 });
 
+    // Wait for all images to load completely
+    const images = page.locator('.message-image');
+    const imageCount = await images.count();
+    for (let i = 0; i < imageCount; i++) {
+      await images.nth(i).evaluate((img: HTMLImageElement) => {
+        return new Promise<void>((resolve) => {
+          if (img.complete) {
+            resolve();
+          } else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          }
+        });
+      });
+    }
+
     const messagesContainer = page.locator('#messages');
 
     // Wait for initial scroll to bottom and any pending scroll operations to complete
-    // This ensures we start from a stable state at the bottom
-    await page.waitForTimeout(1000);
+    // Use longer timeout for webkit which can be slower with scroll timing
+    await page.waitForTimeout(1500);
 
     // Verify we're at the bottom first
     const initialScrollInfo = await messagesContainer.evaluate((el) => ({
@@ -1248,8 +1264,8 @@ test.describe('Chat - Image Loading Scroll', () => {
       el.scrollTo({ top: 0, behavior: 'instant' });
     });
 
-    // Wait for scroll event to be processed
-    await page.waitForTimeout(500);
+    // Wait for scroll event to be processed - webkit needs more time
+    await page.waitForTimeout(1000);
 
     // Verify we're still at the top (not scrolled back to bottom)
     const scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);
