@@ -26,6 +26,13 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
   </tr>
 </table>
 
+### Planner Dashboard
+
+<p align="center">
+  <img src="web/tests/visual/planner.visual.ts-snapshots/dashboard-full-chromium-darwin.png" alt="Planner dashboard with tasks and events" width="700">
+</p>
+<p align="center"><em>Unified view of your schedule - combining Todoist tasks and Google Calendar events with priority indicators</em></p>
+
 <p align="center"><sub>Screenshots from visual regression tests - always up-to-date with the latest UI.</sub></p>
 
 ## Features
@@ -46,6 +53,14 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
 - **Todoist integration**: Manage tasks via AI - list, add, complete, prioritize, and organize tasks across projects
 - **Google Calendar integration**: Schedule meetings/focus blocks, update events, and RSVP directly from the chat
+
+### Planner Dashboard
+- **Unified schedule view**: See all your Todoist tasks and Google Calendar events in one place
+- **Smart organization**: Today, Tomorrow, and This Week sections with overdue task detection
+- **Priority indicators**: Visual badges for P1-P4 tasks with progressive prominence
+- **Interactive elements**: One-click copy, location links to Google Maps, collapsible sections
+- **Proactive AI analysis**: AI automatically analyzes your schedule and provides insights
+- **Real-time sync**: Refresh button fetches latest data; reset button clears and triggers fresh analysis
 
 ### Personalization
 - **User memory**: AI learns and remembers facts about you across conversations (viewable/deletable via brain icon)

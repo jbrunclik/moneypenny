@@ -61,6 +61,10 @@ from src.api.schemas import (
     ModelsListResponse,
     MonthlyCostResponse,
     PaginationDirection,
+    PlannerConversationResponse,
+    PlannerDashboardResponse,
+    PlannerResetResponse,
+    PlannerSyncResponse,
     ReadinessResponse,
     SearchResultsResponse,
     StatusResponse,
@@ -129,6 +133,7 @@ from src.utils.images import (
     extract_generated_images_from_tool_results,
 )
 from src.utils.logging import get_logger, log_payload_snippet
+from src.utils.planner_data import build_planner_dashboard
 
 logger = get_logger(__name__)
 
@@ -1082,6 +1087,304 @@ def sync_conversations(user: User) -> dict[str, Any]:
 
 
 # ============================================================================
+# Planner Routes
+# ============================================================================
+
+
+def _get_valid_calendar_access_token(user: User) -> str | None:
+    """Get a valid Google Calendar access token, refreshing if needed.
+
+    Returns the access token if valid, or None if not connected or needs reconnect.
+    """
+    if not user.google_calendar_access_token:
+        return None
+
+    access_token = user.google_calendar_access_token
+    expires_at = user.google_calendar_token_expires_at
+    refresh_token = user.google_calendar_refresh_token
+
+    # Proactively refresh if token expires within 5 minutes
+    refresh_threshold = datetime.now() + timedelta(minutes=5)
+    if expires_at and expires_at <= refresh_threshold:
+        if refresh_token:
+            try:
+                refreshed = refresh_google_calendar_token(refresh_token)
+                access_token = refreshed["access_token"]
+                new_refresh = refreshed.get("refresh_token", refresh_token)
+                expires_at = _compute_calendar_expiry(refreshed.get("expires_in"))
+                db.update_user_google_calendar_tokens(
+                    user.id,
+                    access_token=access_token,
+                    refresh_token=new_refresh,
+                    expires_at=expires_at,
+                    email=user.google_calendar_email,
+                    connected_at=user.google_calendar_connected_at,
+                )
+            except GoogleCalendarAuthError:
+                logger.warning(
+                    "Google Calendar refresh failed for planner",
+                    extra={"user_id": user.id},
+                )
+                return None
+        else:
+            return None
+
+    return access_token
+
+
+@api.route("/planner", methods=["GET"])
+@api.output(PlannerDashboardResponse)
+@api.doc(responses=[401, 429])
+@rate_limit_conversations
+@require_auth
+def get_planner_dashboard(user: User) -> dict[str, Any]:
+    """Get planner dashboard data for the next 7 days.
+
+    Returns events from Google Calendar and tasks from Todoist,
+    organized by day. Requires at least one integration to be connected.
+
+    The dashboard includes:
+    - days: Array of 7 days (Today, Tomorrow, then weekday names)
+    - Each day contains events and tasks for that date
+    - overdue_tasks: Tasks that are past their due date
+    - Connection status flags for both integrations
+    - server_time: Current server time for cache invalidation
+
+    Query parameters:
+    - force_refresh: Set to "true" to bypass cache and fetch fresh data
+    """
+    # Check for force_refresh parameter (for refresh button)
+    force_refresh = request.args.get("force_refresh", "false").lower() == "true"
+
+    logger.debug(
+        "Fetching planner dashboard",
+        extra={"user_id": user.id, "force_refresh": force_refresh},
+    )
+
+    # Refresh user data to get latest tokens
+    current_user = db.get_user_by_id(user.id)
+    if not current_user:
+        raise_not_found_error("User")
+
+    # Get valid tokens (with refresh if needed)
+    todoist_token = current_user.todoist_access_token
+    calendar_token = _get_valid_calendar_access_token(current_user)
+
+    # Build the dashboard with caching
+    dashboard = build_planner_dashboard(
+        todoist_token=todoist_token,
+        calendar_token=calendar_token,
+        user_id=user.id,
+        force_refresh=force_refresh,
+        db=db,
+    )
+
+    logger.info(
+        "Planner dashboard built",
+        extra={
+            "user_id": user.id,
+            "todoist_connected": dashboard.todoist_connected,
+            "calendar_connected": dashboard.calendar_connected,
+            "total_events": sum(len(d.events) for d in dashboard.days),
+            "total_tasks": sum(len(d.tasks) for d in dashboard.days),
+            "overdue_tasks": len(dashboard.overdue_tasks),
+        },
+    )
+
+    # Convert dataclasses to dict for response
+    return {
+        "days": [
+            {
+                "date": day.date,
+                "day_name": day.day_name,
+                "events": [
+                    {
+                        "id": e.id,
+                        "summary": e.summary,
+                        "description": e.description,
+                        "start": e.start,
+                        "end": e.end,
+                        "start_date": e.start_date,
+                        "end_date": e.end_date,
+                        "location": e.location,
+                        "html_link": e.html_link,
+                        "is_all_day": e.is_all_day,
+                        "attendees": e.attendees,
+                    }
+                    for e in day.events
+                ],
+                "tasks": [
+                    {
+                        "id": t.id,
+                        "content": t.content,
+                        "description": t.description,
+                        "due_date": t.due_date,
+                        "due_string": t.due_string,
+                        "priority": t.priority,
+                        "project_name": t.project_name,
+                        "section_name": t.section_name,
+                        "labels": t.labels,
+                        "is_recurring": t.is_recurring,
+                        "url": t.url,
+                    }
+                    for t in day.tasks
+                ],
+            }
+            for day in dashboard.days
+        ],
+        "overdue_tasks": [
+            {
+                "id": t.id,
+                "content": t.content,
+                "description": t.description,
+                "due_date": t.due_date,
+                "due_string": t.due_string,
+                "priority": t.priority,
+                "project_name": t.project_name,
+                "section_name": t.section_name,
+                "labels": t.labels,
+                "is_recurring": t.is_recurring,
+                "url": t.url,
+            }
+            for t in dashboard.overdue_tasks
+        ],
+        "todoist_connected": dashboard.todoist_connected,
+        "calendar_connected": dashboard.calendar_connected,
+        "todoist_error": dashboard.todoist_error,
+        "calendar_error": dashboard.calendar_error,
+        "server_time": dashboard.server_time,
+    }
+
+
+@api.route("/planner/conversation", methods=["GET"])
+@api.output(PlannerConversationResponse)
+@api.doc(responses=[401, 429])
+@rate_limit_conversations
+@require_auth
+def get_planner_conversation(user: User) -> dict[str, Any]:
+    """Get the planner conversation for the current user.
+
+    Creates a new planner conversation if one doesn't exist.
+    Automatically resets the conversation at 4am daily (lazy check).
+
+    The planner conversation is a single, special conversation per user:
+    - Excluded from search results
+    - Has ephemeral chat that resets daily
+    - Appears at the top of the conversation list with special treatment
+
+    Returns:
+    - The planner conversation with its messages
+    - was_reset: True if the conversation was auto-reset this request
+    """
+    logger.debug("Getting planner conversation", extra={"user_id": user.id})
+
+    # Get or create planner conversation with auto-reset check
+    conv, was_reset = db.get_planner_conversation_with_auto_reset(user, model=Config.DEFAULT_MODEL)
+
+    # Get messages for the conversation
+    messages = db.get_messages(conv.id)
+
+    # Optimize file data
+    optimized_messages = _optimize_messages_for_response(messages)
+
+    logger.info(
+        "Planner conversation retrieved",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv.id,
+            "message_count": len(messages),
+            "was_reset": was_reset,
+        },
+    )
+
+    return {
+        "id": conv.id,
+        "title": conv.title,
+        "model": conv.model,
+        "created_at": conv.created_at.isoformat(),
+        "updated_at": conv.updated_at.isoformat(),
+        "messages": optimized_messages,
+        "was_reset": was_reset,
+    }
+
+
+@api.route("/planner/reset", methods=["POST"])
+@api.output(PlannerResetResponse)
+@api.doc(responses=[401, 429])
+@rate_limit_conversations
+@require_auth
+def reset_planner_conversation(user: User) -> dict[str, Any]:
+    """Manually reset the planner conversation.
+
+    Physically deletes all messages from the planner conversation
+    (not soft delete). Message costs are preserved for accurate
+    cost tracking.
+
+    This also clears the dashboard cache so the next request fetches
+    fresh data.
+
+    Returns:
+    - success: True if reset was successful
+    - message: Human-readable status message
+    """
+    logger.info("Resetting planner conversation", extra={"user_id": user.id})
+
+    # Reset the planner conversation
+    db.reset_planner_conversation(user.id)
+
+    # Clear dashboard cache to ensure fresh data on next request
+    db.delete_cached_dashboard(user.id)
+
+    logger.info("Planner conversation reset complete", extra={"user_id": user.id})
+
+    return {
+        "success": True,
+        "message": "Planner conversation reset successfully",
+    }
+
+
+@api.route("/planner/sync", methods=["GET"])
+@api.output(PlannerSyncResponse)
+@api.doc(responses=[401])
+@require_auth
+def sync_planner_conversation(user: User) -> dict[str, Any]:
+    """Get planner conversation state for sync.
+
+    Returns the planner conversation state for real-time synchronization.
+    This allows the frontend to detect:
+    - New messages added in another tab/device
+    - Planner reset in another tab
+    - Planner deletion
+
+    Returns:
+    - conversation: Planner conversation state (id, updated_at, message_count, last_reset)
+      or null if no planner exists
+    - server_time: Server timestamp for clock-skew-proof comparisons
+    """
+    from datetime import datetime
+
+    # Get planner conversation without creating it (sync shouldn't create)
+    planner_conv = db.get_planner_conversation(user.id)
+
+    server_time = datetime.utcnow().isoformat()
+
+    if not planner_conv:
+        return {"conversation": None, "server_time": server_time}
+
+    message_count = db.count_messages(planner_conv.id)
+
+    return {
+        "conversation": {
+            "id": planner_conv.id,
+            "updated_at": planner_conv.updated_at.isoformat(),
+            "message_count": message_count,
+            "last_reset": planner_conv.last_reset.isoformat() if planner_conv.last_reset else None,
+        },
+        "server_time": server_time,
+    }
+
+
+# ============================================================================
 # Chat Routes
 # ============================================================================
 
@@ -1192,6 +1495,25 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # Set conversation context for tools (like retrieve_file) to access history
         set_conversation_context(conv_id, user.id)
 
+        # If this is a planner conversation, fetch dashboard data for context
+        dashboard_data = None
+        if conv.is_planning:
+            from dataclasses import asdict
+
+            from src.utils.planner_data import build_planner_dashboard
+
+            # Refresh calendar token if needed (expires hourly)
+            calendar_token = _get_valid_calendar_access_token(user)
+
+            dashboard_obj = build_planner_dashboard(
+                todoist_token=user.todoist_access_token,
+                calendar_token=calendar_token,
+                user_id=user.id,
+                force_refresh=False,
+                db=db,
+            )
+            dashboard_data = asdict(dashboard_obj)
+
         agent = ChatAgent(model_name=conv.model, anonymous_mode=anonymous_mode)
         raw_response, tool_results, usage_info = agent.chat_batch(
             message_text,
@@ -1201,6 +1523,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             user_name=user.name,
             user_id=user.id,
             custom_instructions=user.custom_instructions,
+            is_planning=conv.is_planning,
+            dashboard_data=dashboard_data,
         )
 
         # Get the FULL tool results (with _full_result) captured before stripping
@@ -1516,6 +1840,25 @@ def chat_stream(
         # Set conversation context for tools (like retrieve_file) to access history
         set_conversation_context(conv_id, user.id)
 
+        # If this is a planner conversation, fetch dashboard data for context
+        dashboard_data = None
+        if conv.is_planning:
+            from dataclasses import asdict
+
+            from src.utils.planner_data import build_planner_dashboard
+
+            # Refresh calendar token if needed (expires hourly)
+            calendar_token = _get_valid_calendar_access_token(user)
+
+            dashboard_obj = build_planner_dashboard(
+                todoist_token=user.todoist_access_token,
+                calendar_token=calendar_token,
+                user_id=user.id,
+                force_refresh=False,
+                db=db,
+            )
+            dashboard_data = asdict(dashboard_obj)
+
         # Use stream_chat_events for structured events including thinking/tool status
         agent = ChatAgent(
             model_name=conv.model, include_thoughts=True, anonymous_mode=anonymous_mode
@@ -1546,6 +1889,8 @@ def chat_stream(
                     user_name=user.name,
                     user_id=stream_user_id,
                     custom_instructions=user.custom_instructions,
+                    is_planning=conv.is_planning,
+                    dashboard_data=dashboard_data,
                 ):
                     event_count += 1
                     if event.get("type") == "final":
@@ -1581,66 +1926,8 @@ def chat_stream(
         )  # Non-daemon to ensure completion
         stream_thread.start()
 
-        # Start cleanup thread to ensure message is saved even if client disconnects
-        # This thread waits for stream_thread to complete, then saves the message if generator didn't
-        def cleanup_and_save() -> None:
-            """Wait for stream thread to complete, then save message if generator stopped early."""
-            try:
-                # Wait for stream thread to complete (with timeout to prevent hanging forever)
-                stream_thread.join(timeout=Config.STREAM_CLEANUP_THREAD_TIMEOUT)
-                if stream_thread.is_alive():
-                    logger.error(
-                        "Stream thread did not complete within timeout",
-                        extra={"user_id": user.id, "conversation_id": conv_id},
-                    )
-                    return
-
-                # Wait a bit for generator to process final tuple (if client still connected)
-                import time
-
-                time.sleep(Config.STREAM_CLEANUP_WAIT_DELAY)
-
-                # If final results are ready, save the message (generator may have stopped early)
-                # We check if message was already saved by trying to get the last message
-                # If it's the user message we just added, then assistant message wasn't saved yet
-                if final_results["ready"]:
-                    messages = db.get_messages(conv_id)
-                    # Check if last message is assistant (meaning it was already saved by generator)
-                    if not messages or messages[-1].role != MessageRole.ASSISTANT:
-                        logger.info(
-                            "Generator stopped early (client disconnected), saving message in cleanup thread",
-                            extra={"user_id": user.id, "conversation_id": conv_id},
-                        )
-                        # Save the message using final results
-                        save_message_to_db(
-                            final_results["clean_content"],
-                            final_results["metadata"],
-                            final_results["tool_results"],
-                            final_results["usage_info"],
-                        )
-            except Exception as e:
-                logger.error(
-                    "Error in cleanup thread",
-                    extra={
-                        "user_id": user.id,
-                        "conversation_id": conv_id,
-                        "error": str(e),
-                    },
-                    exc_info=True,
-                )
-
-        cleanup_thread = threading.Thread(target=cleanup_and_save, daemon=True)
-        cleanup_thread.start()
-
-        # Send user_message_saved event FIRST so frontend can update temp ID immediately
-        # This ensures image clicks work during streaming (before done event)
-        try:
-            yield f"data: {json.dumps({'type': 'user_message_saved', 'user_message_id': user_msg.id})}\n\n"
-        except (BrokenPipeError, ConnectionError, OSError):
-            # Client disconnected immediately - streaming will handle this
-            pass
-
         # Variables to capture final content, metadata, tool results, and usage info
+        # (Defined here so they're in scope for both cleanup_and_save and save_message_to_db)
         clean_content = ""
         metadata: dict[str, Any] = {}
         tool_results: list[dict[str, Any]] = []
@@ -1809,6 +2096,65 @@ def chat_stream(
                     exc_info=True,
                 )
                 return None
+
+        # Start cleanup thread to ensure message is saved even if client disconnects
+        # This thread waits for stream_thread to complete, then saves the message if generator didn't
+        def cleanup_and_save() -> None:
+            """Wait for stream thread to complete, then save message if generator stopped early."""
+            try:
+                # Wait for stream thread to complete (with timeout to prevent hanging forever)
+                stream_thread.join(timeout=Config.STREAM_CLEANUP_THREAD_TIMEOUT)
+                if stream_thread.is_alive():
+                    logger.error(
+                        "Stream thread did not complete within timeout",
+                        extra={"user_id": user.id, "conversation_id": conv_id},
+                    )
+                    return
+
+                # Wait a bit for generator to process final tuple (if client still connected)
+                import time
+
+                time.sleep(Config.STREAM_CLEANUP_WAIT_DELAY)
+
+                # If final results are ready, save the message (generator may have stopped early)
+                # We check if message was already saved by trying to get the last message
+                # If it's the user message we just added, then assistant message wasn't saved yet
+                if final_results["ready"]:
+                    messages = db.get_messages(conv_id)
+                    # Check if last message is assistant (meaning it was already saved by generator)
+                    if not messages or messages[-1].role != MessageRole.ASSISTANT:
+                        logger.info(
+                            "Generator stopped early (client disconnected), saving message in cleanup thread",
+                            extra={"user_id": user.id, "conversation_id": conv_id},
+                        )
+                        # Save the message using final results
+                        save_message_to_db(
+                            final_results["clean_content"],
+                            final_results["metadata"],
+                            final_results["tool_results"],
+                            final_results["usage_info"],
+                        )
+            except Exception as e:
+                logger.error(
+                    "Error in cleanup thread",
+                    extra={
+                        "user_id": user.id,
+                        "conversation_id": conv_id,
+                        "error": str(e),
+                    },
+                    exc_info=True,
+                )
+
+        cleanup_thread = threading.Thread(target=cleanup_and_save, daemon=True)
+        cleanup_thread.start()
+
+        # Send user_message_saved event FIRST so frontend can update temp ID immediately
+        # This ensures image clicks work during streaming (before done event)
+        try:
+            yield f"data: {json.dumps({'type': 'user_message_saved', 'user_message_id': user_msg.id})}\n\n"
+        except (BrokenPipeError, ConnectionError, OSError):
+            # Client disconnected immediately - streaming will handle this
+            pass
 
         try:
             while True:

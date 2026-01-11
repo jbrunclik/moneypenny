@@ -3,7 +3,7 @@ import 'highlight.js/styles/github-dark.css';
 
 import { useStore } from './state/store';
 import { createLogger } from './utils/logger';
-import { conversations, chat, models, config, costs, messages, ApiError } from './api/client';
+import { conversations, chat, models, config, costs, messages, planner, todoist, calendar, ApiError } from './api/client';
 import { initToast, toast } from './components/Toast';
 import { initModal, showConfirm, showPrompt } from './components/Modal';
 import { initGoogleSignIn, renderGoogleButton, checkAuth, logout } from './auth/google';
@@ -11,6 +11,7 @@ import {
   renderConversationsList,
   renderUserInfo,
   setActiveConversation,
+  setPlannerActive,
   toggleSidebar,
   closeSidebar,
   updateMonthlyCost,
@@ -73,6 +74,8 @@ import {
   checkCalendarOAuthCallback,
 } from './components/SettingsPopup';
 import { initVoiceInput, stopVoiceRecording } from './components/VoiceInput';
+// PlannerView is now integrated directly into the messages container
+import { createDashboardElement, createDashboardLoadingElement } from './components/PlannerDashboard';
 import { initScrollToBottom, checkScrollButtonVisibility, setBeforeScrollToBottomCallback } from './components/ScrollToBottom';
 import { initVersionBanner } from './components/VersionBanner';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from './gestures/swipe';
@@ -84,16 +87,18 @@ import { initPopupEscapeListener } from './utils/popupEscapeHandler';
 import {
   initDeepLinking,
   cleanupDeepLinking,
-  getConversationIdFromHash,
   setConversationHash,
   clearConversationHash,
   pushEmptyHash,
   isValidConversationId,
+  setPlannerHash,
+  parseHash,
 } from './router/deeplink';
+import type { InitialRoute } from './router/deeplink';
 import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, CHECK_ICON, MICROPHONE_ICON, STREAM_ICON, STREAM_OFF_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, SPEAKER_ICON, STOP_ICON, INCOGNITO_ICON } from './utils/icons';
 import { DEFAULT_CONVERSATION_TITLE } from './types/api';
 import type { Conversation, Message } from './types/api';
-import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_RESULT_MESSAGES_LIMIT } from './config';
+import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_RESULT_MESSAGES_LIMIT, PLANNER_DASHBOARD_CACHE_MS } from './config';
 
 const log = createLogger('main');
 
@@ -300,8 +305,8 @@ async function init(): Promise<void> {
   // Initialize toolbar buttons
   initToolbarButtons();
 
-  // Initialize deep linking and capture initial conversation ID from URL
-  const initialConversationId = initDeepLinking(handleDeepLinkNavigation);
+  // Initialize deep linking and capture initial route from URL
+  const initialRoute = initDeepLinking(handleDeepLinkNavigation);
 
   // Check authentication
   const isAuthenticated = await checkAuth();
@@ -311,7 +316,7 @@ async function init(): Promise<void> {
     // Check for integration OAuth callbacks
     await checkTodoistOAuthCallback();
     await checkCalendarOAuthCallback();
-    await loadInitialData(initialConversationId);
+    await loadInitialData(initialRoute);
   } else {
     showLoginOverlay();
     // Clear any conversation hash since user isn't authenticated
@@ -328,8 +333,12 @@ async function init(): Promise<void> {
     hideLoginOverlay();
     try {
       // Check URL hash again in case user logged out then back in on a deep link
-      const conversationId = getConversationIdFromHash();
-      await loadInitialData(conversationId);
+      const route = parseHash();
+      const initialRoute: InitialRoute = {
+        conversationId: route.type === 'conversation' ? route.conversationId ?? null : null,
+        isPlanner: route.type === 'planner',
+      };
+      await loadInitialData(initialRoute);
     } catch (error) {
       log.error('Failed to load data after login', { error });
       toast.error('Failed to load data. Please refresh the page.', {
@@ -385,33 +394,52 @@ async function init(): Promise<void> {
 }
 
 // Load initial data after authentication
-// If initialConversationId is provided (from URL hash), load that conversation BEFORE starting sync
-async function loadInitialData(initialConversationId?: string | null): Promise<void> {
-  log.debug('Loading initial data', { initialConversationId });
+// If initialRoute is provided (from URL hash), handle it BEFORE starting sync
+async function loadInitialData(initialRoute?: InitialRoute | null): Promise<void> {
+  log.debug('Loading initial data', { initialRoute });
   const store = useStore.getState();
   store.setLoading(true);
 
   try {
-    // Load data in parallel
-    const [convResult, modelsData, uploadConfig] = await Promise.all([
+    // Load data in parallel (including integration status for planner visibility)
+    const [convResult, modelsData, uploadConfig, todoistStatus, calendarStatus] = await Promise.all([
       conversations.list(),
       models.list(),
       config.getUploadConfig(),
+      todoist.getStatus().catch(() => ({ connected: false })),
+      calendar.getStatus().catch(() => ({ connected: false })),
     ]);
 
     store.setConversations(convResult.conversations, convResult.pagination);
     store.setModels(modelsData.models, modelsData.default);
     store.setUploadConfig(uploadConfig);
 
-    log.info('Initial data loaded', { conversationCount: convResult.conversations.length, modelCount: modelsData.models.length });
+    // Update user with integration status for planner visibility
+    const currentUser = store.user;
+    if (currentUser) {
+      store.setUser({
+        ...currentUser,
+        todoist_connected: todoistStatus.connected,
+        calendar_connected: calendarStatus.connected,
+      });
+    }
+
+    log.info('Initial data loaded', {
+      conversationCount: convResult.conversations.length,
+      modelCount: modelsData.models.length,
+      todoistConnected: todoistStatus.connected,
+      calendarConnected: calendarStatus.connected,
+    });
     renderConversationsList();
     renderUserInfo();
     renderModelDropdown();
 
-    // Handle initial conversation from URL hash BEFORE starting sync manager
+    // Handle initial route from URL hash BEFORE starting sync manager
     // This prevents false "new messages available" banners for the deep-linked conversation
-    if (initialConversationId && isValidConversationId(initialConversationId)) {
-      await loadDeepLinkedConversation(initialConversationId);
+    if (initialRoute?.isPlanner) {
+      await navigateToPlanner();
+    } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {
+      await loadDeepLinkedConversation(initialRoute.conversationId);
     }
 
     // Initialize sync manager after data is loaded AND initial conversation is handled
@@ -430,6 +458,27 @@ async function loadInitialData(initialConversationId?: string | null): Promise<v
         // Show banner that new messages are available
         // The user can click to reload messages
         showNewMessagesAvailableBanner(messageCount);
+      },
+      onPlannerDeleted: () => {
+        // Planner was deleted in another tab
+        if (store.isPlannerView) {
+          toast.info('Planning session was deleted.');
+          leavePlannerView();
+          pushEmptyHash();
+        }
+      },
+      onPlannerReset: () => {
+        // Planner was reset in another tab
+        if (store.isPlannerView) {
+          toast.info('Planning session was reset. Reloading...');
+          navigateToPlanner();
+        }
+      },
+      onPlannerExternalUpdate: (messageCount: number) => {
+        // New messages added to planner in another tab/device
+        if (store.isPlannerView) {
+          showNewMessagesAvailableBanner(messageCount);
+        }
       },
     });
     getSyncManager()?.start();
@@ -570,12 +619,233 @@ async function loadDeepLinkedConversation(conversationId: string): Promise<void>
 }
 
 /**
+ * Navigate to the planner view.
+ * The planner reuses the existing messages container and input area.
+ * Dashboard is rendered as a special element at the top that scrolls with messages.
+ */
+async function navigateToPlanner(forceRefresh: boolean = false): Promise<void> {
+  log.info('Navigating to planner', { forceRefresh });
+  const store = useStore.getState();
+
+  // Update state
+  store.setIsPlannerView(true);
+  setActiveConversation(null);
+  setPlannerActive(true);
+  setPlannerHash();
+
+  // Set a placeholder conversation immediately to prevent race condition
+  // This will be replaced with the real conversation once loaded
+  const placeholderConv: Conversation = {
+    id: 'planner-loading',
+    title: 'Planner',
+    model: 'gemini-3-flash-preview',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    messages: [],
+  };
+  store.setCurrentConversation(placeholderConv);
+
+  // Update header title
+  updateChatTitle('Planner');
+
+  // Get messages container
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  if (!messagesContainer) {
+    log.error('Messages container not found');
+    return;
+  }
+
+  // Clear messages and show loading state
+  clearElement(messagesContainer);
+  messagesContainer.appendChild(createDashboardLoadingElement());
+
+  closeSidebar();
+
+  // Load dashboard and conversation in parallel
+  try {
+    const cacheAge = Date.now() - (store.plannerDashboardLastFetch || 0);
+    const needsDashboardRefresh = !store.plannerDashboard || cacheAge > PLANNER_DASHBOARD_CACHE_MS;
+
+    const [dashboard, convResponse] = await Promise.all([
+      needsDashboardRefresh ? planner.getDashboard(forceRefresh) : Promise.resolve(store.plannerDashboard!),
+      planner.getConversation(),
+    ]);
+
+    // Update store
+    if (needsDashboardRefresh) {
+      store.setPlannerDashboard(dashboard);
+    }
+    store.setPlannerConversation(convResponse);
+
+    // Replace placeholder with real planner conversation
+    const plannerConv: Conversation = {
+      id: convResponse.id,
+      title: 'Planner',
+      model: convResponse.model,
+      created_at: convResponse.created_at || new Date().toISOString(),
+      updated_at: convResponse.updated_at || new Date().toISOString(),
+      messages: [],
+    };
+    store.setCurrentConversation(plannerConv);
+
+    // Clear loading state and render dashboard + messages
+    clearElement(messagesContainer);
+
+    // Create dashboard element with refresh and reset callbacks
+    const dashboardEl = createDashboardElement(dashboard, handlePlannerRefresh, handlePlannerReset);
+    messagesContainer.appendChild(dashboardEl);
+
+    // Render messages after dashboard
+    if (convResponse.messages.length > 0) {
+      convResponse.messages.forEach((msg) => {
+        addMessageToUI(msg, messagesContainer);
+      });
+    }
+
+    // For planner, scroll to top to show dashboard (different from normal chat)
+    messagesContainer.scrollTop = 0;
+
+    // If was_reset is true, the conversation was auto-reset
+    if (convResponse.was_reset) {
+      toast.info('Planning session has been reset for a new day.');
+    }
+
+    // Trigger proactive analysis if conversation is empty
+    if (convResponse.messages.length === 0) {
+      await triggerProactiveAnalysis(convResponse);
+    }
+  } catch (error) {
+    log.error('Failed to load planner', { error });
+    // Show error in the dashboard area
+    clearElement(messagesContainer);
+    const errorEl = document.createElement('div');
+    errorEl.className = 'planner-dashboard-message';
+    errorEl.innerHTML = `
+      <div class="dashboard-error">
+        <strong>Error:</strong> Failed to load your schedule. Please try again.
+      </div>
+    `;
+    messagesContainer.appendChild(errorEl);
+    toast.error('Failed to load planner.');
+  }
+}
+
+/**
+ * Trigger proactive analysis for the planner.
+ * This sends an automatic first message to get LLM insights on the user's schedule.
+ */
+async function triggerProactiveAnalysis(convResponse: { id: string; model: string }): Promise<void> {
+  log.info('Triggering proactive analysis for planner');
+  const store = useStore.getState();
+
+  // Set the planner conversation as current so sendMessage uses it
+  const plannerConv: Conversation = {
+    id: convResponse.id,
+    title: 'Planner',
+    model: convResponse.model,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    messages: [],
+  };
+  store.setCurrentConversation(plannerConv);
+
+  // Create a synthetic user message for proactive analysis
+  const proactiveMessage = 'Start my planning session';
+
+  // Add the message to the textarea and send it
+  const textarea = getElementById<HTMLTextAreaElement>('message-input');
+  if (textarea) {
+    textarea.value = proactiveMessage;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await sendMessage();
+  }
+}
+
+/**
+ * Handle refresh button click in planner dashboard.
+ */
+async function handlePlannerRefresh(): Promise<void> {
+  log.debug('Planner refresh clicked');
+  const store = useStore.getState();
+
+  // Invalidate frontend cache and re-navigate with force refresh
+  store.invalidatePlannerCache();
+  await navigateToPlanner(true); // Force backend to bypass cache too
+}
+
+/**
+ * Leave the planner view and return to normal chat.
+ */
+function leavePlannerView(): void {
+  log.debug('Leaving planner view');
+  const store = useStore.getState();
+
+  store.setIsPlannerView(false);
+  setPlannerActive(false);
+
+  // Clear the planner hash
+  clearConversationHash();
+
+  // Reset the header title
+  updateChatTitle('AI Chatbot');
+
+  // Clear messages to show welcome state
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  if (messagesContainer) {
+    messagesContainer.innerHTML = `
+      <div class="welcome-message">
+        <h2>Welcome to AI Chatbot</h2>
+        <p>Start a conversation with Gemini AI</p>
+      </div>
+    `;
+  }
+}
+
+/**
+ * Reset the planner conversation (clear all messages) and trigger fresh analysis.
+ * Called when user clicks the reset button in the dashboard header.
+ */
+async function handlePlannerReset(): Promise<void> {
+  const store = useStore.getState();
+
+  try {
+    // Reset conversation on server
+    await planner.reset();
+
+    // Clear the stored planner conversation
+    store.setPlannerConversation(null);
+
+    // Invalidate dashboard cache
+    store.invalidatePlannerCache();
+
+    toast.success('Planning session cleared.');
+
+    // Re-navigate to planner (will fetch fresh data and trigger proactive analysis)
+    await navigateToPlanner();
+  } catch (error) {
+    log.error('Failed to reset planner', { error });
+    toast.error('Failed to clear planning session.');
+  }
+}
+
+/**
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-function handleDeepLinkNavigation(conversationId: string | null): void {
-  log.debug('Deep link navigation', { conversationId });
+function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean): void {
+  log.debug('Deep link navigation', { conversationId, isPlanner });
   const store = useStore.getState();
+
+  // Handle planner navigation
+  if (isPlanner) {
+    navigateToPlanner();
+    return;
+  }
+
+  // If we were in planner view and navigating away, leave planner
+  if (store.isPlannerView) {
+    leavePlannerView();
+  }
 
   if (!conversationId) {
     // User navigated to home (no conversation selected)
@@ -702,6 +972,12 @@ function switchToConversation(conv: Conversation, totalMessageCount?: number): v
 async function selectConversation(convId: string): Promise<void> {
   const store = useStore.getState();
 
+  // If we're in planner view, leave it first
+  if (store.isPlannerView) {
+    store.setIsPlannerView(false);
+    setPlannerActive(false);
+  }
+
   // For temp conversations, just switch to them locally (no API call needed)
   if (isTempConversation(convId)) {
     const conv = store.conversations.find((c) => c.id === convId);
@@ -767,8 +1043,8 @@ async function selectConversation(convId: string): Promise<void> {
 }
 
 // Check if a conversation ID is temporary (not yet saved to DB)
-function isTempConversation(convId: string): boolean {
-  return convId.startsWith('temp-');
+function isTempConversation(convId: string | undefined): boolean {
+  return convId?.startsWith('temp-') ?? false;
 }
 
 /**
@@ -972,6 +1248,12 @@ async function scrollToAndHighlightMessage(messageId: string): Promise<void> {
 function createConversation(): void {
   log.debug('Creating new conversation');
   const store = useStore.getState();
+
+  // If we're in planner view, leave it first
+  if (store.isPlannerView) {
+    store.setIsPlannerView(false);
+    setPlannerActive(false);
+  }
 
   // Clear any pending conversation load - user clicked "New Chat"
   pendingConversationId = null;
@@ -1363,6 +1645,13 @@ async function sendMessage(): Promise<void> {
     fileCount: files.length,
     streaming: store.streamingEnabled,
   });
+
+  // If planner is still loading (placeholder conversation), block sending
+  if (store.currentConversation?.id === 'planner-loading') {
+    log.warn('Cannot send message while planner is loading');
+    toast.info('Please wait for planner to finish loading...');
+    return;
+  }
 
   // Create local conversation if none selected
   if (!store.currentConversation) {
@@ -2283,6 +2572,14 @@ function setupEventListeners(): void {
         resetSwipeStates();
         deleteConversation(id);
       }
+      return;
+    }
+
+    // Handle planner entry click
+    const plannerEntry = (e.target as HTMLElement).closest('.planner-entry');
+    if (plannerEntry) {
+      resetSwipeStates();
+      navigateToPlanner();
       return;
     }
 

@@ -7,6 +7,8 @@ import type {
   Message,
   MessagesPagination,
   Model,
+  PlannerConversation,
+  PlannerDashboard,
   SearchResult,
   UploadConfig,
   User,
@@ -114,6 +116,12 @@ interface AppState {
   isSearchActive: boolean; // True when search UI is shown (even with empty query)
   viewedSearchResultId: number | null; // Index of currently viewed search result (unique per result list)
 
+  // Planner state
+  plannerDashboard: PlannerDashboard | null;
+  plannerConversation: PlannerConversation | null;
+  plannerDashboardLastFetch: number | null; // Timestamp for cache invalidation
+  isPlannerView: boolean;
+
   // Actions - Auth
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
@@ -189,6 +197,13 @@ interface AppState {
   deactivateSearch: () => void;
   clearSearch: () => void;
   setViewedSearchResult: (resultIndex: number | null) => void;
+
+  // Actions - Planner
+  setPlannerDashboard: (dashboard: PlannerDashboard | null) => void;
+  setPlannerConversation: (conversation: PlannerConversation | null) => void;
+  setIsPlannerView: (active: boolean) => void;
+  invalidatePlannerCache: () => void;
+  clearPlannerState: () => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -251,6 +266,12 @@ export const useStore = create<AppState>()(
       isSearching: false,
       isSearchActive: false,
       viewedSearchResultId: null,
+
+      // Planner state
+      plannerDashboard: null,
+      plannerConversation: null,
+      plannerDashboardLastFetch: null,
+      isPlannerView: false,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -561,6 +582,20 @@ export const useStore = create<AppState>()(
       deactivateSearch: () => set({ isSearchActive: false, searchQuery: '', searchResults: [], searchTotal: 0, viewedSearchResultId: null }),
       clearSearch: () => set({ searchQuery: '', searchResults: [], searchTotal: 0, isSearching: false, isSearchActive: false, viewedSearchResultId: null }),
       setViewedSearchResult: (viewedSearchResultId) => set({ viewedSearchResultId }),
+
+      // Planner actions
+      setPlannerDashboard: (plannerDashboard) =>
+        set({ plannerDashboard, plannerDashboardLastFetch: plannerDashboard ? Date.now() : null }),
+      setPlannerConversation: (plannerConversation) => set({ plannerConversation }),
+      setIsPlannerView: (isPlannerView) => set({ isPlannerView }),
+      invalidatePlannerCache: () => set({ plannerDashboardLastFetch: null }),
+      clearPlannerState: () =>
+        set({
+          plannerDashboard: null,
+          plannerConversation: null,
+          plannerDashboardLastFetch: null,
+          isPlannerView: false,
+        }),
     }),
     {
       name: 'ai-chatbot-storage',

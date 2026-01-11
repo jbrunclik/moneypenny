@@ -32,6 +32,9 @@ export interface User {
   email: string;
   name: string;
   picture: string | null;
+  // Integration status - populated client-side after fetching status endpoints
+  todoist_connected?: boolean;
+  calendar_connected?: boolean;
 }
 
 // =============================================================================
@@ -405,4 +408,84 @@ export interface SearchResponse {
   results: SearchResult[];
   total: number;
   query: string;
+}
+
+// =============================================================================
+// Planner types
+// =============================================================================
+
+export interface PlannerTask {
+  id: string;
+  content: string;
+  description?: string;
+  due_date?: string | null;
+  due_string?: string | null;
+  priority: number;
+  project_name?: string | null;
+  section_name?: string | null;
+  labels?: string[];
+  is_recurring?: boolean;
+  url?: string | null;
+}
+
+export interface PlannerEvent {
+  id: string;
+  summary: string;
+  description?: string | null;
+  start?: string | null;
+  end?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  location?: string | null;
+  html_link?: string | null;
+  is_all_day: boolean;
+  attendees?: Array<{
+    email?: string;
+    response_status?: string;
+    self?: boolean;
+  }>;
+}
+
+export interface PlannerDay {
+  date: string;
+  day_name: string;
+  events: PlannerEvent[];
+  tasks: PlannerTask[];
+}
+
+export interface PlannerDashboard {
+  days: PlannerDay[];
+  overdue_tasks: PlannerTask[];
+  todoist_connected: boolean;
+  calendar_connected: boolean;
+  todoist_error?: string | null;
+  calendar_error?: string | null;
+  server_time: string;
+}
+
+export interface PlannerConversation {
+  id: string;
+  title: string;
+  model: string;
+  created_at: string;
+  updated_at: string;
+  messages: Message[];
+  was_reset: boolean;
+}
+
+export interface PlannerResetResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface PlannerConversationSyncData {
+  id: string;
+  updated_at: string;
+  message_count: number;
+  last_reset: string | null;
+}
+
+export interface PlannerSyncResponse {
+  conversation: PlannerConversationSyncData | null;
+  server_time: string;
 }

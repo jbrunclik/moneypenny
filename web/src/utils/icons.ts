@@ -130,6 +130,36 @@ export const CALENDAR_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curre
 </svg>`;
 
 /**
+ * Map pin/location icon
+ */
+export const MAP_PIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+  <circle cx="12" cy="10" r="3"/>
+</svg>`;
+
+/**
+ * Clock icon
+ */
+export const CLOCK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="10"/>
+  <polyline points="12 6 12 12 16 14"/>
+</svg>`;
+
+/**
+ * Sunrise icon (for tomorrow/new day)
+ */
+export const SUNRISE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 2v8"/>
+  <path d="m4.93 10.93 1.41 1.41"/>
+  <path d="M2 18h2"/>
+  <path d="M20 18h2"/>
+  <path d="m19.07 10.93-1.41 1.41"/>
+  <path d="M22 22H2"/>
+  <path d="m8 6 4-4 4 4"/>
+  <path d="M16 18a4 4 0 0 0-8 0"/>
+</svg>`;
+
+/**
  * Microphone icon (for voice input)
  */
 export const MICROPHONE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -336,4 +366,24 @@ export const INCOGNITO_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curr
   <circle cx="8" cy="17" r="3"/>
   <circle cx="16" cy="17" r="3"/>
   <path d="M11 17h2"/>
+</svg>`;
+
+/**
+ * Planner icon (calendar with checkmark - represents daily planning)
+ */
+export const PLANNER_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+  <line x1="16" y1="2" x2="16" y2="6"/>
+  <line x1="8" y1="2" x2="8" y2="6"/>
+  <line x1="3" y1="10" x2="21" y2="10"/>
+  <polyline points="9 16 11 18 15 14"/>
+</svg>`;
+
+/**
+ * Clear/reset icon (for clearing planner conversation)
+ */
+export const CLEAR_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 6h18"/>
+  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
 </svg>`;

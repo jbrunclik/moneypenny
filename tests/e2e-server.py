@@ -98,6 +98,10 @@ DEFAULT_CONFIG = {
     "emit_thinking": False,
     "search_results": None,
     "search_total": 0,
+    # Planner mock config
+    "planner_todoist_connected": False,
+    "planner_calendar_connected": False,
+    "planner_dashboard": None,  # Custom dashboard data
 }
 
 # Global storage for isolated configs
@@ -496,9 +500,11 @@ def main() -> None:
     with contextlib.ExitStack() as stack:
         # Apply external service mocks
         stack.enter_context(patch("src.agent.chat_agent.ChatGoogleGenerativeAI", create_mock_llm()))
-        stack.enter_context(patch("src.agent.tools.DDGS", create_mock_ddgs()))
-        stack.enter_context(patch("src.agent.tools.httpx.Client", create_mock_httpx()))
-        stack.enter_context(patch("src.agent.tools.genai.Client", create_mock_genai()))
+        stack.enter_context(patch("src.agent.tools.web.DDGS", create_mock_ddgs()))
+        stack.enter_context(patch("src.agent.tools.web.httpx.Client", create_mock_httpx()))
+        stack.enter_context(
+            patch("src.agent.tools.image_generation.genai.Client", create_mock_genai())
+        )
         stack.enter_context(
             patch("src.auth.google_auth.requests.get", create_mock_google_tokeninfo())
         )
@@ -732,6 +738,58 @@ def main() -> None:
             MOCK_CONFIG["search_total"] = 0
             return {"status": "cleared"}, 200
 
+        @test_bp.route("/test/set-planner-integrations", methods=["POST"])
+        def set_planner_integrations() -> tuple[dict[str, Any], int]:
+            """Set planner integration status for testing."""
+            from flask import request
+
+            data = request.get_json() or {}
+            MOCK_CONFIG["planner_todoist_connected"] = data.get("todoist", False)
+            MOCK_CONFIG["planner_calendar_connected"] = data.get("calendar", False)
+            return {
+                "status": "set",
+                "todoist": MOCK_CONFIG["planner_todoist_connected"],
+                "calendar": MOCK_CONFIG["planner_calendar_connected"],
+            }, 200
+
+        @test_bp.route("/test/set-planner-dashboard", methods=["POST"])
+        def set_planner_dashboard() -> tuple[dict[str, Any], int]:
+            """Set custom planner dashboard data for testing."""
+            from flask import request
+
+            data = request.get_json() or {}
+            MOCK_CONFIG["planner_dashboard"] = data.get("dashboard")
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/add-planner-message", methods=["POST"])
+        def add_planner_message() -> tuple[dict[str, Any], int]:
+            """Add a dummy message to planner conversation to prevent proactive analysis."""
+            user = g.db.get_or_create_user(
+                email="local@localhost",
+                name="Local User",
+            )
+            conv = g.db.get_or_create_planner_conversation(user.id)
+
+            # Add a simple assistant message
+            g.db.add_message(
+                conversation_id=conv.id,
+                role="assistant",
+                content="Ready to help with your planning!",
+                files=None,
+                input_tokens=0,
+                output_tokens=0,
+                cost_usd=0.0,
+            )
+            return {"status": "message_added"}, 200
+
+        @test_bp.route("/test/clear-planner-config", methods=["POST"])
+        def clear_planner_config() -> tuple[dict[str, str], int]:
+            """Clear planner mock config to restore defaults."""
+            MOCK_CONFIG["planner_todoist_connected"] = False
+            MOCK_CONFIG["planner_calendar_connected"] = False
+            MOCK_CONFIG["planner_dashboard"] = None
+            return {"status": "cleared"}, 200
+
         app.register_blueprint(test_bp)
 
         # Override search endpoint using before_request to intercept /api/search
@@ -749,6 +807,170 @@ def main() -> None:
                             "query": query,
                         }
                     )
+            return None
+
+        # Override planner endpoints to return mock data
+        @app.before_request
+        def intercept_planner() -> Any | None:
+            from datetime import datetime, timedelta
+
+            from flask import jsonify, request
+
+            # Intercept /api/planner (dashboard)
+            if request.path == "/api/planner" and request.method == "GET":
+                todoist_connected = MOCK_CONFIG.get("planner_todoist_connected", False)
+                calendar_connected = MOCK_CONFIG.get("planner_calendar_connected", False)
+
+                # Return custom dashboard if set
+                if MOCK_CONFIG.get("planner_dashboard"):
+                    return jsonify(MOCK_CONFIG["planner_dashboard"])
+
+                # Generate default mock dashboard
+                today = datetime.now().date()
+                days = []
+                day_names = ["Today", "Tomorrow"]
+                for i in range(7):
+                    date = today + timedelta(days=i)
+                    day_name = day_names[i] if i < 2 else date.strftime("%A")
+                    days.append(
+                        {
+                            "date": date.isoformat(),
+                            "day_name": day_name,
+                            "events": [
+                                {
+                                    "id": f"event-{i}-1",
+                                    "summary": f"Meeting {i + 1}",
+                                    "start": f"{date.isoformat()}T10:00:00",
+                                    "end": f"{date.isoformat()}T11:00:00",
+                                    "is_all_day": False,
+                                    "location": "Conference Room",
+                                }
+                            ]
+                            if calendar_connected and i < 3
+                            else [],
+                            "tasks": [
+                                {
+                                    "id": f"task-{i}-1",
+                                    "content": f"Task {i + 1}",
+                                    "priority": 2,
+                                    "project_name": "Work",
+                                    "due_string": day_name,
+                                }
+                            ]
+                            if todoist_connected and i < 4
+                            else [],
+                        }
+                    )
+
+                return jsonify(
+                    {
+                        "days": days,
+                        "overdue_tasks": [
+                            {
+                                "id": "task-overdue-1",
+                                "content": "Overdue task",
+                                "priority": 1,
+                                "project_name": "Urgent",
+                                "due_string": "Yesterday",
+                            }
+                        ]
+                        if todoist_connected
+                        else [],
+                        "todoist_connected": todoist_connected,
+                        "calendar_connected": calendar_connected,
+                        "todoist_error": None,
+                        "calendar_error": None,
+                        "server_time": datetime.now().isoformat(),
+                    }
+                )
+
+            # Intercept /api/planner/conversation
+            if request.path == "/api/planner/conversation" and request.method == "GET":
+                # Get or create a mock planner conversation
+                user = g.db.get_or_create_user(
+                    email="local@localhost",
+                    name="Local User",
+                )
+                # Get or create planner conversation (single method handles both)
+                conv = g.db.get_or_create_planner_conversation(user.id)
+                messages = g.db.get_messages(conv.id)
+
+                # For visual tests: always include at least one dummy message to prevent proactive analysis
+                if len(messages) == 0:
+                    messages = [
+                        type(
+                            "Message",
+                            (),
+                            {
+                                "id": "dummy-msg-1",
+                                "role": "assistant",
+                                "content": "Ready to help with your planning!",
+                                "created_at": datetime.now(),
+                                "files": [],
+                            },
+                        )()
+                    ]
+
+                return jsonify(
+                    {
+                        "id": conv.id,
+                        "title": conv.title,
+                        "model": conv.model,
+                        "created_at": conv.created_at.isoformat()
+                        if hasattr(conv.created_at, "isoformat")
+                        else conv.created_at,
+                        "updated_at": conv.updated_at.isoformat()
+                        if hasattr(conv.updated_at, "isoformat")
+                        else conv.updated_at,
+                        "messages": [
+                            {
+                                "id": m.id,
+                                "role": m.role,
+                                "content": m.content,
+                                "created_at": m.created_at.isoformat()
+                                if hasattr(m.created_at, "isoformat")
+                                else m.created_at,
+                                "files": m.files or [],
+                            }
+                            for m in messages
+                        ],
+                        "was_reset": False,
+                    }
+                )
+
+            # Intercept /api/planner/reset
+            if request.path == "/api/planner/reset" and request.method == "POST":
+                user = g.db.get_or_create_user(
+                    email="local@localhost",
+                    name="Local User",
+                )
+                g.db.reset_planner_conversation(user.id)
+                return jsonify({"success": True, "message": "Planner conversation reset"})
+
+            # Intercept /auth/todoist/status for planner visibility
+            if request.path == "/auth/todoist/status" and request.method == "GET":
+                connected = MOCK_CONFIG.get("planner_todoist_connected", False)
+                return jsonify(
+                    {
+                        "connected": connected,
+                        "todoist_email": "test@todoist.com" if connected else None,
+                        "connected_at": datetime.now().isoformat() if connected else None,
+                        "needs_reconnect": False,
+                    }
+                )
+
+            # Intercept /auth/calendar/status for planner visibility
+            if request.path == "/auth/calendar/status" and request.method == "GET":
+                connected = MOCK_CONFIG.get("planner_calendar_connected", False)
+                return jsonify(
+                    {
+                        "connected": connected,
+                        "calendar_email": "test@gmail.com" if connected else None,
+                        "connected_at": datetime.now().isoformat() if connected else None,
+                        "needs_reconnect": False,
+                    }
+                )
+
             return None
 
         print("Starting E2E test server on http://localhost:8001")

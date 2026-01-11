@@ -1,4 +1,4 @@
-"""Unit tests for src/agent/tools.py."""
+"""Unit tests for src/agent/tools package."""
 
 import base64
 import json
@@ -8,18 +8,10 @@ import httpx
 from ddgs.exceptions import DDGSException
 from google.genai import errors as genai_errors
 
+# Import public API from the package
 from src.agent.tools import (
     FETCHABLE_BINARY_TYPES,
     TOOLS,
-    VALID_ASPECT_RATIOS,
-    _build_execution_response,
-    _build_font_setup_code,
-    _extract_plots,
-    _get_content_type_category,
-    _get_mime_type,
-    _needs_font_setup,
-    _parse_output_files_from_stdout,
-    _wrap_user_code,
     execute_code,
     fetch_url,
     generate_image,
@@ -30,11 +22,24 @@ from src.agent.tools import (
     web_search,
 )
 
+# Import internal helpers directly from submodules for testing
+from src.agent.tools.code_execution import (
+    _build_execution_response,
+    _build_font_setup_code,
+    _extract_plots,
+    _get_mime_type,
+    _needs_font_setup,
+    _parse_output_files_from_stdout,
+    _wrap_user_code,
+)
+from src.agent.tools.image_generation import VALID_ASPECT_RATIOS
+from src.agent.tools.web import _get_content_type_category
+
 
 class TestFetchUrl:
     """Tests for fetch_url tool."""
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_fetches_html_content(self, mock_client_class: MagicMock) -> None:
         """Should fetch and extract text from HTML pages."""
         mock_response = MagicMock()
@@ -67,7 +72,7 @@ class TestFetchUrl:
         parsed = json.loads(result)
         assert "error" in parsed
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_handles_timeout(self, mock_client_class: MagicMock) -> None:
         """Should return error on timeout."""
         mock_client = MagicMock()
@@ -82,7 +87,7 @@ class TestFetchUrl:
         assert "error" in parsed
         assert "timed out" in parsed["error"]
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_handles_http_error(self, mock_client_class: MagicMock) -> None:
         """Should return error for HTTP errors."""
         mock_response = MagicMock()
@@ -102,7 +107,7 @@ class TestFetchUrl:
         assert "error" in parsed
         assert "404" in parsed["error"]
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_rejects_unsupported_content_type(self, mock_client_class: MagicMock) -> None:
         """Should return error for unsupported content types."""
         mock_response = MagicMock()
@@ -123,7 +128,7 @@ class TestFetchUrl:
         assert "error" in parsed
         assert "Unsupported content type" in parsed["error"]
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_fetches_pdf_content(self, mock_client_class: MagicMock) -> None:
         """Should fetch PDF and return multimodal content for LLM analysis."""
         pdf_content = b"%PDF-1.4 fake pdf content"
@@ -157,7 +162,7 @@ class TestFetchUrl:
 
         assert result[1]["base64"] == base64.b64encode(pdf_content).decode("utf-8")
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_fetches_image_content(self, mock_client_class: MagicMock) -> None:
         """Should fetch images and return multimodal content for LLM analysis."""
         # Minimal valid PNG header
@@ -187,7 +192,7 @@ class TestFetchUrl:
         assert result[1]["type"] == "image"
         assert result[1]["mime_type"] == "image/png"
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_normalizes_jpg_to_jpeg(self, mock_client_class: MagicMock) -> None:
         """Should normalize image/jpg to image/jpeg."""
         jpg_content = b"\xff\xd8\xff" + b"\x00" * 100
@@ -208,8 +213,8 @@ class TestFetchUrl:
         assert isinstance(result, list)
         assert result[1]["mime_type"] == "image/jpeg"  # Normalized
 
-    @patch("src.agent.tools.Config.FETCH_URL_MAX_FILE_SIZE", 1000)
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.Config.FETCH_URL_MAX_FILE_SIZE", 1000)
+    @patch("src.agent.tools.web.httpx.Client")
     def test_rejects_oversized_files(self, mock_client_class: MagicMock) -> None:
         """Should reject files larger than the configured limit."""
         large_content = b"\x00" * 2000  # 2KB, over the 1KB limit
@@ -231,7 +236,7 @@ class TestFetchUrl:
         assert "error" in parsed
         assert "too large" in parsed["error"]
 
-    @patch("src.agent.tools.httpx.Client")
+    @patch("src.agent.tools.web.httpx.Client")
     def test_handles_plain_text_content(self, mock_client_class: MagicMock) -> None:
         """Should handle plain text content type."""
         mock_response = MagicMock()
@@ -312,7 +317,7 @@ class TestFetchableBinaryTypes:
 class TestWebSearch:
     """Tests for web_search tool."""
 
-    @patch("src.agent.tools.DDGS")
+    @patch("src.agent.tools.web.DDGS")
     def test_returns_search_results(self, mock_ddgs_class: MagicMock) -> None:
         """Should return formatted search results."""
         mock_ddgs = MagicMock()
@@ -333,7 +338,7 @@ class TestWebSearch:
         assert parsed["results"][0]["url"] == "https://example.com/1"
         assert parsed["results"][0]["snippet"] == "Snippet 1"
 
-    @patch("src.agent.tools.DDGS")
+    @patch("src.agent.tools.web.DDGS")
     def test_handles_empty_results(self, mock_ddgs_class: MagicMock) -> None:
         """Should handle no search results."""
         mock_ddgs = MagicMock()
@@ -348,7 +353,7 @@ class TestWebSearch:
         assert parsed["results"] == []
         assert "error" in parsed  # Should include error message
 
-    @patch("src.agent.tools.DDGS")
+    @patch("src.agent.tools.web.DDGS")
     def test_respects_num_results_limit(self, mock_ddgs_class: MagicMock) -> None:
         """Should pass num_results to DDGS."""
         mock_ddgs = MagicMock()
@@ -361,7 +366,7 @@ class TestWebSearch:
 
         mock_ddgs.text.assert_called_once_with("test", max_results=3)
 
-    @patch("src.agent.tools.DDGS")
+    @patch("src.agent.tools.web.DDGS")
     def test_caps_num_results_at_10(self, mock_ddgs_class: MagicMock) -> None:
         """Should cap num_results at 10."""
         mock_ddgs = MagicMock()
@@ -374,7 +379,7 @@ class TestWebSearch:
 
         mock_ddgs.text.assert_called_once_with("test", max_results=10)
 
-    @patch("src.agent.tools.DDGS")
+    @patch("src.agent.tools.web.DDGS")
     def test_handles_search_exception(self, mock_ddgs_class: MagicMock) -> None:
         """Should handle exceptions gracefully."""
         mock_ddgs = MagicMock()
@@ -419,7 +424,7 @@ class TestGenerateImage:
         expected_ratios = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"}
         assert VALID_ASPECT_RATIOS == expected_ratios
 
-    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.image_generation.genai.Client")
     def test_successful_generation(self, mock_client_class: MagicMock) -> None:
         """Should return image data on successful generation."""
         # Mock the response structure
@@ -452,7 +457,7 @@ class TestGenerateImage:
         assert "image" in parsed["_full_result"]
         assert "data" in parsed["_full_result"]["image"]
 
-    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.image_generation.genai.Client")
     def test_includes_usage_metadata(self, mock_client_class: MagicMock) -> None:
         """Should include usage metadata for cost tracking."""
         mock_part = MagicMock()
@@ -483,7 +488,7 @@ class TestGenerateImage:
         assert parsed["usage_metadata"]["prompt_token_count"] == 100
         assert parsed["usage_metadata"]["candidates_token_count"] == 200
 
-    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.image_generation.genai.Client")
     def test_handles_no_candidates(self, mock_client_class: MagicMock) -> None:
         """Should return error when no candidates in response."""
         mock_response = MagicMock()
@@ -500,7 +505,7 @@ class TestGenerateImage:
         assert "error" in parsed
         assert "No image generated" in parsed["error"]
 
-    @patch("src.agent.tools.genai.Client")
+    @patch("src.agent.tools.image_generation.genai.Client")
     def test_handles_safety_block(self, mock_client_class: MagicMock) -> None:
         """Should return friendly error for safety blocks."""
         mock_client = MagicMock()
@@ -515,7 +520,7 @@ class TestGenerateImage:
         assert "error" in parsed
         assert "safety filters" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.MAX_IMAGE_PROMPT_LENGTH", 100)
+    @patch("src.agent.tools.image_generation.Config.MAX_IMAGE_PROMPT_LENGTH", 100)
     def test_rejects_too_long_prompt(self) -> None:
         """Should reject prompts exceeding max length."""
         long_prompt = "a" * 150
@@ -525,8 +530,8 @@ class TestGenerateImage:
         assert "error" in parsed
         assert "too long" in parsed["error"].lower()
 
-    @patch("src.agent.tools.genai.Client")
-    @patch("src.agent.tools.get_current_message_files")
+    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_all(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
     ) -> None:
@@ -568,8 +573,8 @@ class TestGenerateImage:
         assert contents[1]["inline_data"]["data"] == "base64data1"
         assert contents[2]["inline_data"]["data"] == "base64data2"
 
-    @patch("src.agent.tools.genai.Client")
-    @patch("src.agent.tools.get_current_message_files")
+    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_specific_index(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
     ) -> None:
@@ -607,8 +612,8 @@ class TestGenerateImage:
         assert len(contents) == 2  # prompt + 1 image
         assert contents[1]["inline_data"]["data"] == "base64data1"
 
-    @patch("src.agent.tools.genai.Client")
-    @patch("src.agent.tools.get_current_message_files")
+    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_multiple_indices(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
     ) -> None:
@@ -649,8 +654,8 @@ class TestGenerateImage:
         assert contents[1]["inline_data"]["data"] == "base64data1"
         assert contents[2]["inline_data"]["data"] == "base64data3"
 
-    @patch("src.agent.tools.genai.Client")
-    @patch("src.agent.tools.get_current_message_files")
+    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_filters_non_images(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
     ) -> None:
@@ -688,8 +693,8 @@ class TestGenerateImage:
         assert len(contents) == 2  # prompt + 1 image
         assert contents[1]["inline_data"]["data"] == "imagedata"
 
-    @patch("src.agent.tools.genai.Client")
-    @patch("src.agent.tools.get_current_message_files")
+    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_no_files_in_context(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
     ) -> None:
@@ -723,8 +728,8 @@ class TestGenerateImage:
         # Falls back to list with just prompt when reference_images specified but no files
         assert contents == ["Generate something"]
 
-    @patch("src.agent.tools.genai.Client")
-    @patch("src.agent.tools.get_current_message_files")
+    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_invalid_index_ignored(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
     ) -> None:
@@ -792,7 +797,7 @@ class TestGetMimeType:
 class TestExecuteCode:
     """Tests for execute_code tool."""
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", False)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", False)
     def test_returns_error_when_disabled(self) -> None:
         """Should return error when sandbox is disabled."""
         result = execute_code.invoke({"code": "print('hello')"})
@@ -801,8 +806,8 @@ class TestExecuteCode:
         assert "error" in parsed
         assert "disabled" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=False)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=False)
     def test_returns_error_when_docker_unavailable(self, mock_check: MagicMock) -> None:
         """Should return error when Docker is not available."""
         result = execute_code.invoke({"code": "print('hello')"})
@@ -811,8 +816,8 @@ class TestExecuteCode:
         assert "error" in parsed
         assert "Docker" in parsed["error"] or "not available" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     def test_rejects_empty_code(self, mock_check: MagicMock) -> None:
         """Should reject empty code."""
         result = execute_code.invoke({"code": ""})
@@ -821,8 +826,8 @@ class TestExecuteCode:
         assert "error" in parsed
         assert "empty" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     def test_rejects_whitespace_only_code(self, mock_check: MagicMock) -> None:
         """Should reject whitespace-only code."""
         result = execute_code.invoke({"code": "   "})
@@ -831,8 +836,8 @@ class TestExecuteCode:
         assert "error" in parsed
         assert "empty" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
     def test_successful_execution(
         self, mock_session_class: MagicMock, mock_check: MagicMock
@@ -858,8 +863,8 @@ class TestExecuteCode:
         assert parsed["exit_code"] == 0
         assert "Hello, World!" in parsed["stdout"]
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
     def test_captures_stderr(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
         """Should capture stderr from execution."""
@@ -882,8 +887,8 @@ class TestExecuteCode:
         assert parsed["exit_code"] == 1
         assert "NameError" in parsed["stderr"]
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
     def test_captures_plots(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
         """Should capture matplotlib plots with metadata in response and data in _full_result."""
@@ -924,8 +929,8 @@ class TestExecuteCode:
         assert parsed["_full_result"]["files"][0]["name"] == "plot_1.png"
         assert parsed["_full_result"]["files"][0]["data"] == mock_plot.content_base64
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
     def test_output_files_uses_full_result_pattern(
         self, mock_session_class: MagicMock, mock_check: MagicMock
@@ -974,8 +979,8 @@ class TestExecuteCode:
         assert parsed["_full_result"]["files"][0]["name"] == "report.pdf"
         assert "data" in parsed["_full_result"]["files"][0]  # Data IS here
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
     def test_handles_timeout(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
         """Should handle execution timeout."""
@@ -991,8 +996,8 @@ class TestExecuteCode:
         assert "error" in parsed
         assert "timed out" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
     def test_handles_docker_error(
         self, mock_session_class: MagicMock, mock_check: MagicMock
@@ -1010,19 +1015,19 @@ class TestExecuteCode:
 class TestIsCodeSandboxAvailable:
     """Tests for is_code_sandbox_available function."""
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", False)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", False)
     def test_returns_false_when_disabled(self) -> None:
         """Should return False when sandbox is disabled in config."""
         assert is_code_sandbox_available() is False
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=False)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=False)
     def test_returns_false_when_docker_unavailable(self, mock_check: MagicMock) -> None:
         """Should return False when Docker is not available."""
         assert is_code_sandbox_available() is False
 
-    @patch("src.agent.tools.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     def test_returns_true_when_available(self, mock_check: MagicMock) -> None:
         """Should return True when sandbox is enabled and Docker is available."""
         assert is_code_sandbox_available() is True
@@ -1654,7 +1659,7 @@ class TestRetrieveFile:
 class TestTodoistTool:
     """Tests for todoist tool."""
 
-    @patch("src.agent.tools._get_todoist_token")
+    @patch("src.agent.tools.todoist._get_todoist_token")
     def test_returns_error_when_not_connected(self, mock_get_token: MagicMock) -> None:
         """Should return error when Todoist is not connected."""
         from src.agent.tools import todoist
@@ -1667,7 +1672,7 @@ class TestTodoistTool:
         assert "error" in parsed
         assert "not connected" in parsed["error"].lower()
 
-    @patch("src.agent.tools._get_todoist_token")
+    @patch("src.agent.tools.todoist._get_todoist_token")
     def test_returns_error_for_unknown_action(self, mock_get_token: MagicMock) -> None:
         """Should return error for unknown action."""
         from src.agent.tools import todoist
@@ -1680,8 +1685,8 @@ class TestTodoistTool:
         assert "error" in parsed
         assert "Unknown action" in parsed["error"]
 
-    @patch("src.agent.tools._get_todoist_token")
-    @patch("src.agent.tools._todoist_api_request")
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
     def test_list_tasks_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully list tasks."""
         from src.agent.tools import todoist
@@ -1705,8 +1710,8 @@ class TestTodoistTool:
         assert len(parsed["tasks"]) == 1
         assert parsed["tasks"][0]["id"] == "task-1"
 
-    @patch("src.agent.tools._get_todoist_token")
-    @patch("src.agent.tools._todoist_api_request")
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
     def test_add_task_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully add a task."""
         from src.agent.tools import todoist
@@ -1729,8 +1734,8 @@ class TestTodoistTool:
         assert parsed["action"] == "add_task"
         assert parsed["success"] is True
 
-    @patch("src.agent.tools._get_todoist_token")
-    @patch("src.agent.tools._todoist_api_request")
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
     def test_complete_task_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully complete a task."""
         from src.agent.tools import todoist
@@ -1758,8 +1763,8 @@ class TestTodoistTool:
 class TestGoogleCalendarTool:
     """Tests for google_calendar tool."""
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "")
     def test_returns_error_when_not_configured(self) -> None:
         """Should return error when Google Calendar is not configured."""
         from src.agent.tools import google_calendar
@@ -1770,9 +1775,9 @@ class TestGoogleCalendarTool:
         assert "error" in parsed
         assert "not configured" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
     def test_returns_error_when_not_connected(self, mock_get_token: MagicMock) -> None:
         """Should return error when Google Calendar is not connected."""
         from src.agent.tools import google_calendar
@@ -1785,9 +1790,9 @@ class TestGoogleCalendarTool:
         assert "error" in parsed
         assert "not connected" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
     def test_returns_error_for_unknown_action(self, mock_get_token: MagicMock) -> None:
         """Should return error for unknown action."""
         from src.agent.tools import google_calendar
@@ -1800,10 +1805,10 @@ class TestGoogleCalendarTool:
         assert "error" in parsed
         assert "Unknown action" in parsed["error"]
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
-    @patch("src.agent.tools._google_calendar_api_request")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar._google_calendar_api_request")
     def test_list_calendars_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully list calendars."""
         from src.agent.tools import google_calendar
@@ -1822,10 +1827,10 @@ class TestGoogleCalendarTool:
         assert "calendars" in parsed
         assert len(parsed["calendars"]) == 2
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
-    @patch("src.agent.tools._google_calendar_api_request")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar._google_calendar_api_request")
     def test_list_events_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully list events."""
         from src.agent.tools import google_calendar
@@ -1854,10 +1859,10 @@ class TestGoogleCalendarTool:
         assert len(parsed["events"]) == 1
         assert parsed["events"][0]["summary"] == "Team Meeting"
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
-    @patch("src.agent.tools._google_calendar_api_request")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar._google_calendar_api_request")
     def test_create_event_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully create an event."""
         from src.agent.tools import google_calendar
@@ -1883,10 +1888,10 @@ class TestGoogleCalendarTool:
         assert "event" in parsed
         assert parsed["event"]["summary"] == "New Meeting"
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
-    @patch("src.agent.tools._google_calendar_api_request")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar._google_calendar_api_request")
     def test_delete_event_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully delete an event."""
         from src.agent.tools import google_calendar
@@ -1905,9 +1910,9 @@ class TestGoogleCalendarTool:
         assert "action" in parsed
         assert parsed["action"] == "delete_event"
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
     def test_get_event_requires_event_id(self, mock_get_token: MagicMock) -> None:
         """Should require event_id for get_event action."""
         from src.agent.tools import google_calendar
@@ -1925,9 +1930,9 @@ class TestGoogleCalendarTool:
         assert "error" in parsed
         assert "event_id" in parsed["error"].lower()
 
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
-    @patch("src.agent.tools.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
-    @patch("src.agent.tools._get_google_calendar_access_token")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
+    @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
     def test_respond_event_requires_response_status(self, mock_get_token: MagicMock) -> None:
         """Should require response_status for respond_event action."""
         from src.agent.tools import google_calendar

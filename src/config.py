@@ -304,6 +304,11 @@ class Config:
     GOOGLE_OAUTH_TOKEN_URL: str = "https://oauth2.googleapis.com/token"
     GOOGLE_USERINFO_URL: str = "https://www.googleapis.com/oauth2/v2/userinfo"
 
+    # Planner Dashboard Caching
+    DASHBOARD_CACHE_TTL_SECONDS: int = int(
+        os.getenv("DASHBOARD_CACHE_TTL_SECONDS", "300")
+    )  # 5 minutes
+
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"

@@ -4,7 +4,7 @@ import os
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -147,6 +147,40 @@ def parse_cursor(cursor: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
+# ============================================================================
+# Planner Helpers
+# ============================================================================
+
+
+def should_reset_planner(user: "User") -> bool:
+    """Check if the planner should be automatically reset.
+
+    The planner resets daily at 4am. This function checks if the last reset
+    was before today's 4am cutoff.
+
+    Args:
+        user: The User object with planner_last_reset_at field
+
+    Returns:
+        True if the planner should be reset, False otherwise
+    """
+    # If never reset before, this is first use - don't auto-reset
+    if not user.planner_last_reset_at:
+        return False
+
+    now = datetime.now()
+
+    # Calculate today's 4am cutoff
+    today_4am = now.replace(hour=4, minute=0, second=0, microsecond=0)
+
+    # If it's before 4am today, the cutoff is yesterday's 4am
+    if now.hour < 4:
+        today_4am -= timedelta(days=1)
+
+    # Reset if last reset was before the 4am cutoff
+    return user.planner_last_reset_at < today_4am
+
+
 def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str | None]:
     """Check if the database is accessible.
 
@@ -226,6 +260,7 @@ class User:
     google_calendar_token_expires_at: datetime | None = None
     google_calendar_connected_at: datetime | None = None
     google_calendar_email: str | None = None
+    planner_last_reset_at: datetime | None = None
 
 
 @dataclass
@@ -236,6 +271,8 @@ class Conversation:
     model: str
     created_at: datetime
     updated_at: datetime
+    is_planning: bool = False
+    last_reset: datetime | None = None  # For planner conversations
 
 
 @dataclass
@@ -396,6 +433,10 @@ class Database:
         if row["google_calendar_token_expires_at"]:
             calendar_expires_at = datetime.fromisoformat(row["google_calendar_token_expires_at"])
 
+        planner_last_reset = None
+        if row["planner_last_reset_at"]:
+            planner_last_reset = datetime.fromisoformat(row["planner_last_reset_at"])
+
         return User(
             id=row["id"],
             email=row["email"],
@@ -410,6 +451,25 @@ class Database:
             google_calendar_token_expires_at=calendar_expires_at,
             google_calendar_connected_at=calendar_connected_at,
             google_calendar_email=row["google_calendar_email"],
+            planner_last_reset_at=planner_last_reset,
+        )
+
+    def _row_to_conversation(self, row: sqlite3.Row) -> Conversation:
+        """Convert a database row to a Conversation object."""
+        # Check if last_reset column exists (added in migration 0021)
+        last_reset = None
+        if "last_reset" in row.keys():
+            last_reset = datetime.fromisoformat(row["last_reset"]) if row["last_reset"] else None
+
+        return Conversation(
+            id=row["id"],
+            user_id=row["user_id"],
+            title=row["title"],
+            model=row["model"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+            is_planning=bool(row["is_planning"]) if row["is_planning"] else False,
+            last_reset=last_reset,
         )
 
     def get_user_by_id(self, user_id: str) -> User | None:
@@ -609,35 +669,39 @@ class Database:
             if not row:
                 return None
 
-            return Conversation(
-                id=row["id"],
-                user_id=row["user_id"],
-                title=row["title"],
-                model=row["model"],
-                created_at=datetime.fromisoformat(row["created_at"]),
-                updated_at=datetime.fromisoformat(row["updated_at"]),
-            )
+            return self._row_to_conversation(row)
 
-    def list_conversations(self, user_id: str) -> list[Conversation]:
+    def list_conversations(
+        self, user_id: str, include_planning: bool = False
+    ) -> list[Conversation]:
+        """List conversations for a user.
+
+        Args:
+            user_id: The user ID
+            include_planning: If True, includes planning conversations.
+                             Default False since planner is fetched separately.
+
+        Returns:
+            List of Conversation objects ordered by updated_at DESC
+        """
         with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT * FROM conversations WHERE user_id = ?
-                   ORDER BY updated_at DESC""",
-                (user_id,),
-            ).fetchall()
+            if include_planning:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT * FROM conversations WHERE user_id = ?
+                       ORDER BY updated_at DESC""",
+                    (user_id,),
+                ).fetchall()
+            else:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT * FROM conversations WHERE user_id = ?
+                       AND (is_planning = 0 OR is_planning IS NULL)
+                       ORDER BY updated_at DESC""",
+                    (user_id,),
+                ).fetchall()
 
-            return [
-                Conversation(
-                    id=row["id"],
-                    user_id=row["user_id"],
-                    title=row["title"],
-                    model=row["model"],
-                    created_at=datetime.fromisoformat(row["created_at"]),
-                    updated_at=datetime.fromisoformat(row["updated_at"]),
-                )
-                for row in rows
-            ]
+            return [self._row_to_conversation(row) for row in rows]
 
     def list_conversations_paginated(
         self,
@@ -649,6 +713,7 @@ class Database:
 
         Returns conversations ordered by updated_at DESC (most recent first).
         Uses cursor-based pagination with (updated_at, id) as the cursor key.
+        Excludes planning conversations (they are fetched separately).
 
         Args:
             user_id: The user ID
@@ -660,18 +725,19 @@ class Database:
             - List of Conversation objects
             - Next cursor (None if no more pages)
             - has_more: True if there are more pages
-            - total_count: Total number of conversations for this user
+            - total_count: Total number of conversations for this user (excluding planner)
         """
         with self._pool.get_connection() as conn:
-            # Get total count for this user
+            # Get total count for this user (excluding planning conversations)
             total_row = self._execute_with_timing(
                 conn,
-                "SELECT COUNT(*) as count FROM conversations WHERE user_id = ?",
+                """SELECT COUNT(*) as count FROM conversations
+                   WHERE user_id = ? AND (is_planning = 0 OR is_planning IS NULL)""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
 
-            # Build the query based on cursor
+            # Build the query based on cursor (excluding planning conversations)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
                 # Use tuple comparison for stable pagination:
@@ -681,6 +747,7 @@ class Database:
                     conn,
                     """SELECT * FROM conversations
                        WHERE user_id = ?
+                         AND (is_planning = 0 OR is_planning IS NULL)
                          AND (updated_at < ? OR (updated_at = ? AND id < ?))
                        ORDER BY updated_at DESC, id DESC
                        LIMIT ?""",
@@ -691,6 +758,7 @@ class Database:
                     conn,
                     """SELECT * FROM conversations
                        WHERE user_id = ?
+                         AND (is_planning = 0 OR is_planning IS NULL)
                        ORDER BY updated_at DESC, id DESC
                        LIMIT ?""",
                     (user_id, limit + 1),
@@ -707,17 +775,7 @@ class Database:
                 last_row = rows[-1]
                 next_cursor = build_cursor(last_row["updated_at"], last_row["id"])
 
-            conversations = [
-                Conversation(
-                    id=row["id"],
-                    user_id=row["user_id"],
-                    title=row["title"],
-                    model=row["model"],
-                    created_at=datetime.fromisoformat(row["created_at"]),
-                    updated_at=datetime.fromisoformat(row["updated_at"]),
-                )
-                for row in rows
-            ]
+            conversations = [self._row_to_conversation(row) for row in rows]
 
             return conversations, next_cursor, has_more, total_count
 
@@ -731,6 +789,7 @@ class Database:
 
         Combines pagination with message counting in a single query for efficiency.
         Returns conversations ordered by updated_at DESC (most recent first).
+        Excludes planning conversations (they are fetched separately).
 
         Args:
             user_id: The user ID
@@ -742,27 +801,29 @@ class Database:
             - List of (Conversation, message_count) tuples
             - Next cursor (None if no more pages)
             - has_more: True if there are more pages
-            - total_count: Total number of conversations for this user
+            - total_count: Total number of conversations for this user (excluding planner)
         """
         with self._pool.get_connection() as conn:
-            # Get total count for this user
+            # Get total count for this user (excluding planning conversations)
             total_row = self._execute_with_timing(
                 conn,
-                "SELECT COUNT(*) as count FROM conversations WHERE user_id = ?",
+                """SELECT COUNT(*) as count FROM conversations
+                   WHERE user_id = ? AND (is_planning = 0 OR is_planning IS NULL)""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
 
-            # Build the query with JOIN for message counts
+            # Build the query with JOIN for message counts (excluding planning conversations)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ?
+                         AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
@@ -773,10 +834,11 @@ class Database:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ?
+                         AND (c.is_planning = 0 OR c.is_planning IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
                        LIMIT ?""",
@@ -795,104 +857,103 @@ class Database:
                 next_cursor = build_cursor(last_row["updated_at"], last_row["id"])
 
             conversations_with_counts = [
-                (
-                    Conversation(
-                        id=row["id"],
-                        user_id=row["user_id"],
-                        title=row["title"],
-                        model=row["model"],
-                        created_at=datetime.fromisoformat(row["created_at"]),
-                        updated_at=datetime.fromisoformat(row["updated_at"]),
-                    ),
-                    int(row["message_count"]),
-                )
-                for row in rows
+                (self._row_to_conversation(row), int(row["message_count"])) for row in rows
             ]
 
             return conversations_with_counts, next_cursor, has_more, total_count
 
-    def list_conversations_with_message_count(self, user_id: str) -> list[tuple[Conversation, int]]:
+    def list_conversations_with_message_count(
+        self, user_id: str, include_planning: bool = False
+    ) -> list[tuple[Conversation, int]]:
         """List all conversations for a user with message counts.
 
         This method is used for sync operations to detect unread messages.
         Returns conversations with their message counts for comparison.
+        Excludes planning conversations by default (they are fetched separately).
 
         Args:
             user_id: The user ID
+            include_planning: If True, includes planning conversations.
+                             Default False since planner is handled separately.
 
         Returns:
             List of tuples containing (Conversation, message_count)
         """
         with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                          COUNT(m.id) as message_count
-                   FROM conversations c
-                   LEFT JOIN messages m ON m.conversation_id = c.id
-                   WHERE c.user_id = ?
-                   GROUP BY c.id
-                   ORDER BY c.updated_at DESC""",
-                (user_id,),
-            ).fetchall()
+            if include_planning:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              c.is_planning, COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ?
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC""",
+                    (user_id,),
+                ).fetchall()
+            else:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              c.is_planning, COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ?
+                         AND (c.is_planning = 0 OR c.is_planning IS NULL)
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC""",
+                    (user_id,),
+                ).fetchall()
 
-            return [
-                (
-                    Conversation(
-                        id=row["id"],
-                        user_id=row["user_id"],
-                        title=row["title"],
-                        model=row["model"],
-                        created_at=datetime.fromisoformat(row["created_at"]),
-                        updated_at=datetime.fromisoformat(row["updated_at"]),
-                    ),
-                    int(row["message_count"]),
-                )
-                for row in rows
-            ]
+            return [(self._row_to_conversation(row), int(row["message_count"])) for row in rows]
 
     def get_conversations_updated_since(
-        self, user_id: str, since: datetime
+        self, user_id: str, since: datetime, include_planning: bool = False
     ) -> list[tuple[Conversation, int]]:
         """Get conversations updated since a given timestamp with message counts.
 
         This method is used for incremental sync operations to fetch only
         conversations that have changed since the last sync.
+        Excludes planning conversations by default (they are handled separately).
 
         Args:
             user_id: The user ID
             since: The timestamp to check against (conversations updated after this)
+            include_planning: If True, includes planning conversations.
+                             Default False since planner is handled separately.
 
         Returns:
             List of tuples containing (Conversation, message_count)
         """
         with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                          COUNT(m.id) as message_count
-                   FROM conversations c
-                   LEFT JOIN messages m ON m.conversation_id = c.id
-                   WHERE c.user_id = ? AND c.updated_at > ?
-                   GROUP BY c.id
-                   ORDER BY c.updated_at DESC""",
-                (user_id, since.isoformat()),
-            ).fetchall()
+            if include_planning:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              c.is_planning, COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ? AND c.updated_at > ?
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC""",
+                    (user_id, since.isoformat()),
+                ).fetchall()
+            else:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              c.is_planning, COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ? AND c.updated_at > ?
+                         AND (c.is_planning = 0 OR c.is_planning IS NULL)
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC""",
+                    (user_id, since.isoformat()),
+                ).fetchall()
 
-            return [
-                (
-                    Conversation(
-                        id=row["id"],
-                        user_id=row["user_id"],
-                        title=row["title"],
-                        model=row["model"],
-                        created_at=datetime.fromisoformat(row["created_at"]),
-                        updated_at=datetime.fromisoformat(row["updated_at"]),
-                    ),
-                    int(row["message_count"]),
-                )
-                for row in rows
-            ]
+            return [(self._row_to_conversation(row), int(row["message_count"])) for row in rows]
 
     # Whitelist of allowed columns for update_conversation to prevent SQL injection
     _CONVERSATION_UPDATE_COLUMNS = frozenset({"title", "model"})
@@ -950,6 +1011,358 @@ class Database:
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    # ============================================================================
+    # Planner Operations
+    # ============================================================================
+
+    def get_planner_conversation(self, user_id: str) -> Conversation | None:
+        """Get the planner conversation for a user without creating it.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            The planner Conversation or None if it doesn't exist
+        """
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                "SELECT * FROM conversations WHERE user_id = ? AND is_planning = 1",
+                (user_id,),
+            ).fetchone()
+
+            return self._row_to_conversation(row) if row else None
+
+    def count_messages(self, conversation_id: str) -> int:
+        """Count messages in a conversation.
+
+        Args:
+            conversation_id: The conversation ID
+
+        Returns:
+            Number of messages in the conversation
+        """
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                "SELECT COUNT(*) FROM messages WHERE conversation_id = ?",
+                (conversation_id,),
+            ).fetchone()
+
+            return row[0] if row else 0
+
+    def get_or_create_planner_conversation(
+        self, user_id: str, model: str | None = None
+    ) -> Conversation:
+        """Get the planner conversation for a user, creating it if it doesn't exist.
+
+        Each user has exactly one planner conversation (is_planning=1).
+        The planner conversation is excluded from search and appears at the top
+        of the conversation list.
+
+        Args:
+            user_id: The user ID
+            model: Optional model to use when creating (defaults to Config.DEFAULT_MODEL)
+
+        Returns:
+            The planner Conversation
+        """
+        logger.debug("Getting or creating planner conversation", extra={"user_id": user_id})
+
+        with self._pool.get_connection() as conn:
+            # Try to find existing planner conversation
+            row = self._execute_with_timing(
+                conn,
+                "SELECT * FROM conversations WHERE user_id = ? AND is_planning = 1",
+                (user_id,),
+            ).fetchone()
+
+            if row:
+                logger.debug(
+                    "Found existing planner conversation",
+                    extra={"user_id": user_id, "conversation_id": row["id"]},
+                )
+                return self._row_to_conversation(row)
+
+            # Create new planner conversation
+            conv_id = str(uuid.uuid4())
+            model = model or Config.DEFAULT_MODEL
+            now = datetime.now()
+
+            self._execute_with_timing(
+                conn,
+                """INSERT INTO conversations (id, user_id, title, model, is_planning, created_at, updated_at, last_reset)
+                   VALUES (?, ?, ?, ?, 1, ?, ?, ?)""",
+                (
+                    conv_id,
+                    user_id,
+                    "Planner",
+                    model,
+                    now.isoformat(),
+                    now.isoformat(),
+                    now.isoformat(),
+                ),
+            )
+            conn.commit()
+
+            # Initialize planner_last_reset_at so auto-reset can work
+            self.update_planner_last_reset_at(user_id)
+
+            logger.info(
+                "Planner conversation created",
+                extra={"conversation_id": conv_id, "user_id": user_id},
+            )
+            return Conversation(
+                id=conv_id,
+                user_id=user_id,
+                title="Planner",
+                model=model,
+                created_at=now,
+                updated_at=now,
+                is_planning=True,
+            )
+
+    def reset_planner_conversation(self, user_id: str) -> Conversation | None:
+        """Reset the planner conversation by physically deleting all messages.
+
+        This preserves the conversation itself but removes all messages and their
+        associated blobs. Message costs are intentionally preserved for accurate
+        cost tracking (following the same pattern as delete_conversation).
+
+        Also updates the user's planner_last_reset_at timestamp.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            The planner Conversation (empty), or None if no planner exists
+        """
+        logger.info("Resetting planner conversation", extra={"user_id": user_id})
+
+        with self._pool.get_connection() as conn:
+            # Get the planner conversation
+            row = self._execute_with_timing(
+                conn,
+                "SELECT * FROM conversations WHERE user_id = ? AND is_planning = 1",
+                (user_id,),
+            ).fetchone()
+
+            if not row:
+                logger.warning("No planner conversation found to reset", extra={"user_id": user_id})
+                return None
+
+            conv_id = row["id"]
+
+            # Get message IDs to delete associated blobs
+            message_rows = self._execute_with_timing(
+                conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
+            ).fetchall()
+
+            # Delete all blobs for these messages
+            message_ids = [r["id"] for r in message_rows]
+            if message_ids:
+                delete_messages_blobs(message_ids)
+
+            # Delete messages (costs are preserved for accuracy)
+            self._execute_with_timing(
+                conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
+            )
+
+            # Update planner_last_reset_at on user
+            now = datetime.now()
+            self._execute_with_timing(
+                conn,
+                "UPDATE users SET planner_last_reset_at = ? WHERE id = ?",
+                (now.isoformat(), user_id),
+            )
+
+            # Update conversation updated_at and last_reset
+            self._execute_with_timing(
+                conn,
+                "UPDATE conversations SET updated_at = ?, last_reset = ? WHERE id = ?",
+                (now.isoformat(), now.isoformat(), conv_id),
+            )
+
+            conn.commit()
+
+            logger.info(
+                "Planner conversation reset",
+                extra={
+                    "conversation_id": conv_id,
+                    "user_id": user_id,
+                    "messages_deleted": len(message_ids),
+                },
+            )
+
+            return self._row_to_conversation(row)
+
+    def update_planner_last_reset_at(self, user_id: str) -> bool:
+        """Update the planner_last_reset_at timestamp for a user.
+
+        Called after auto-reset or manual reset to track when the planner
+        was last cleared.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            True if user was updated, False if not found
+        """
+        now = datetime.now()
+        logger.debug(
+            "Updating planner last reset timestamp",
+            extra={"user_id": user_id, "timestamp": now.isoformat()},
+        )
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET planner_last_reset_at = ? WHERE id = ?",
+                (now.isoformat(), user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_planner_conversation_with_auto_reset(
+        self, user: User, model: str | None = None
+    ) -> tuple[Conversation, bool]:
+        """Get the planner conversation, automatically resetting if 4am passed.
+
+        This is the main entry point for accessing the planner. It:
+        1. Gets or creates the planner conversation
+        2. Checks if auto-reset is needed (4am daily reset)
+        3. Performs reset if needed
+
+        Args:
+            user: The User object (needed for reset check)
+            model: Optional model to use when creating (defaults to Config.DEFAULT_MODEL)
+
+        Returns:
+            Tuple of (Conversation, was_reset: bool)
+        """
+        # Get or create the planner conversation
+        conv = self.get_or_create_planner_conversation(user.id, model)
+
+        # Check if auto-reset is needed
+        if should_reset_planner(user):
+            logger.info(
+                "Auto-resetting planner (4am cutoff passed)",
+                extra={"user_id": user.id, "conversation_id": conv.id},
+            )
+            reset_conv = self.reset_planner_conversation(user.id)
+            if reset_conv:
+                return reset_conv, True
+            # Fallback to original if reset failed
+            return conv, False
+
+        return conv, False
+
+    # ============================================================================
+    # Dashboard Cache Operations
+    # ============================================================================
+
+    def get_cached_dashboard(self, user_id: str) -> dict[str, Any] | None:
+        """Get cached dashboard if not expired.
+
+        Args:
+            user_id: The user ID
+
+        Returns:
+            Dashboard data dict if cached and not expired, None otherwise
+        """
+        import json
+        from datetime import datetime
+
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """
+                SELECT dashboard_data, expires_at
+                FROM dashboard_cache
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+
+            if not row:
+                return None
+
+            # Check if expired
+            expires_at = datetime.fromisoformat(row[1])
+            if datetime.utcnow() >= expires_at:
+                # Expired - delete and return None
+                self.delete_cached_dashboard(user_id)
+                return None
+
+            # Deserialize and return
+            result: dict[str, Any] = json.loads(row[0])
+            return result
+
+    def cache_dashboard(
+        self,
+        user_id: str,
+        dashboard_data: dict[str, Any],
+        ttl_seconds: int = 300,
+    ) -> None:
+        """Cache dashboard data with TTL.
+
+        Args:
+            user_id: The user ID
+            dashboard_data: Dashboard data dict to cache
+            ttl_seconds: Time-to-live in seconds (default: 300 = 5 minutes)
+        """
+        import json
+        from datetime import datetime, timedelta
+
+        now = datetime.utcnow()
+        expires_at = now + timedelta(seconds=ttl_seconds)
+
+        # Serialize dashboard
+        dashboard_json = json.dumps(dashboard_data)
+
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """
+                INSERT OR REPLACE INTO dashboard_cache
+                (user_id, dashboard_data, cached_at, expires_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user_id, dashboard_json, now.isoformat(), expires_at.isoformat()),
+            )
+            conn.commit()
+
+    def delete_cached_dashboard(self, user_id: str) -> None:
+        """Delete cached dashboard for force refresh.
+
+        Args:
+            user_id: The user ID
+        """
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "DELETE FROM dashboard_cache WHERE user_id = ?",
+                (user_id,),
+            )
+            conn.commit()
+
+    def cleanup_expired_dashboard_cache(self) -> int:
+        """Delete all expired cache entries.
+
+        Returns:
+            Number of entries deleted
+        """
+        from datetime import datetime
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "DELETE FROM dashboard_cache WHERE expires_at < ?",
+                (datetime.utcnow().isoformat(),),
+            )
+            conn.commit()
+            return cursor.rowcount
 
     def delete_message(self, message_id: str, user_id: str) -> bool:
         """Delete a message by ID.

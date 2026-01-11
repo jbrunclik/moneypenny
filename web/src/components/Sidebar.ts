@@ -1,9 +1,9 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { BRAIN_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, SETTINGS_ICON } from '../utils/icons';
+import { BRAIN_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, SETTINGS_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
-import type { Conversation } from '../types/api';
+import type { Conversation, User } from '../types/api';
 import { costs, conversations as conversationsApi } from '../api/client';
 import { createLogger } from '../utils/logger';
 import { getSyncManager } from '../sync/SyncManager';
@@ -20,6 +20,30 @@ const log = createLogger('sidebar');
 
 // Track if infinite scroll listener is set up
 let scrollListenerCleanup: (() => void) | null = null;
+
+/**
+ * Check if the planner entry should be shown.
+ * Only visible when user has Todoist or Google Calendar connected.
+ */
+export function shouldShowPlanner(user: User | null): boolean {
+  if (!user) return false;
+  // Check if user has either integration connected
+  // These fields are set after fetching integration status in loadInitialData
+  return !!(user.todoist_connected || user.calendar_connected);
+}
+
+/**
+ * Render the planner entry at the top of the conversations list.
+ */
+function renderPlannerEntry(isActive: boolean): string {
+  return `
+    <div class="planner-entry ${isActive ? 'active' : ''}" data-route="planner">
+      <span class="planner-icon">${PLANNER_ICON}</span>
+      <span class="planner-label">Planner</span>
+    </div>
+    <div class="sidebar-divider"></div>
+  `;
+}
 
 /**
  * Calculate optimal page size based on container height
@@ -44,10 +68,13 @@ export function renderConversationsList(): void {
     return;
   }
 
-  const { conversations, currentConversation, isLoading, conversationsPagination } = useStore.getState();
+  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView } = useStore.getState();
+
+  // Build planner entry HTML if applicable
+  const plannerHtml = shouldShowPlanner(user) ? renderPlannerEntry(isPlannerView) : '';
 
   if (isLoading && conversations.length === 0) {
-    container.innerHTML = `
+    container.innerHTML = plannerHtml + `
       <div class="conversations-loading">
         <div class="loading-spinner"></div>
       </div>
@@ -56,7 +83,7 @@ export function renderConversationsList(): void {
   }
 
   if (conversations.length === 0) {
-    container.innerHTML = `
+    container.innerHTML = plannerHtml + `
       <div class="conversations-empty">
         <p>No conversations yet</p>
         <p class="text-muted">Start a new chat to begin</p>
@@ -67,7 +94,7 @@ export function renderConversationsList(): void {
 
   // Render conversations
   const conversationsHtml = conversations
-    .map((conv) => renderConversationItem(conv, conv.id === currentConversation?.id))
+    .map((conv) => renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView))
     .join('');
 
   // Render loading indicator for "load more" if there are more pages
@@ -81,7 +108,7 @@ export function renderConversationsList(): void {
       </div>`
     : '';
 
-  container.innerHTML = conversationsHtml + loadMoreHtml;
+  container.innerHTML = plannerHtml + conversationsHtml + loadMoreHtml;
 
   // Set up infinite scroll if not already set up
   setupInfiniteScroll(container);
@@ -219,17 +246,41 @@ export function updateConversationTitle(convId: string, title: string): void {
  * Set active conversation in sidebar
  */
 export function setActiveConversation(convId: string | null): void {
-  // Remove active from all
+  // Remove active from all conversations
   document
     .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
     .forEach((el) => el.classList.remove('active'));
 
-  // Add active to current
+  // Remove active from planner entry
+  document
+    .querySelectorAll<HTMLDivElement>('.planner-entry.active')
+    .forEach((el) => el.classList.remove('active'));
+
+  // Add active to current conversation
   if (convId) {
     const wrapper = document.querySelector<HTMLDivElement>(
       `.conversation-item-wrapper[data-conv-id="${convId}"]`
     );
     wrapper?.classList.add('active');
+  }
+}
+
+/**
+ * Set planner entry as active in sidebar
+ */
+export function setPlannerActive(active: boolean): void {
+  const plannerEntry = document.querySelector<HTMLDivElement>('.planner-entry');
+  if (!plannerEntry) return;
+
+  if (active) {
+    // Remove active from all conversations
+    document
+      .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
+      .forEach((el) => el.classList.remove('active'));
+    // Set planner as active
+    plannerEntry.classList.add('active');
+  } else {
+    plannerEntry.classList.remove('active');
   }
 }
 

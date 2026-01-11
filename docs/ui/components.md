@@ -28,7 +28,8 @@ web/src/styles/
     ├── messages.css   # Message display, avatars, content
     ├── sidebar.css    # Conversation list, swipe actions
     ├── input.css      # Input toolbar, model selector, file preview
-    └── popups.css     # Modals, toasts, lightbox, info popups
+    ├── popups.css     # Modals, toasts, lightbox, info popups
+    └── planner.css    # Planner dashboard, events, tasks
 ```
 
 ### Module Organization
@@ -468,6 +469,258 @@ Add container to [../../src/templates/index.html](../../src/templates/index.html
 <div id="my-component"></div>
 ```
 
+## Planner Components
+
+The Planner feature uses a specialized dashboard component with unique visual design patterns optimized for displaying calendar events and tasks.
+
+### Dashboard Container
+
+The planner dashboard renders as a special message element (`.planner-dashboard-message`) at the top of the messages container, but is NOT a `.message` class to avoid interference with message pagination logic.
+
+**Key Design Principles:**
+- **Professional and polished** - Premium visual quality worthy of showcase
+- **Clear visual hierarchy** - Priority and importance are immediately obvious
+- **Interactive and delightful** - Smooth hover states, animations, micro-interactions
+- **Responsive** - Adapts gracefully from desktop to mobile
+
+### CSS Classes
+
+#### Container
+- `.planner-dashboard-message` - Main dashboard container (not `.message`)
+- `#planner-dashboard` - Dashboard ID for easy targeting
+
+#### Header
+- `.dashboard-header` - Title and action buttons
+- `.dashboard-title` - Gradient title text
+- `.dashboard-actions` - Button group (refresh, reset)
+- `.planner-refresh-btn` - Refresh schedule button
+- `.planner-reset-btn` - Clear and restart button
+
+#### Sections
+- `.dashboard-section` - Section containers (today, tomorrow, week)
+- `.dashboard-section.overdue` - Overdue tasks section (alert styling)
+- `.dashboard-day` - Individual day container
+- `.dashboard-day-header` - Day name and date
+- `.dashboard-day-empty` - Empty state for days with no items
+
+#### Items (Events & Tasks)
+- `.planner-item` - Base class for all items
+- `.planner-item-event` - Event item
+- `.planner-item-task` - Task item
+- `.planner-item-time` - Time badge (events only)
+- `.planner-item-content` - Content area (tasks only)
+- `.planner-item-text` - Main text content
+- `.planner-item-location` - Location link (events only)
+- `.planner-item-project` - Project label (tasks only)
+- `.planner-item-copy` - Copy to clipboard button
+
+### Visual Design Patterns
+
+#### Priority Indicators (Tasks)
+
+Priority is indicated by colored left border thickness:
+
+```css
+/* P1 (Low Priority) - 2px blue border */
+.planner-item[data-priority="1"] {
+    border-left: 2px solid #3B82F6; /* Blue-500 */
+}
+
+/* P2 (Medium Priority) - 3px blue border */
+.planner-item[data-priority="2"] {
+    border-left: 3px solid #3B82F6;
+}
+
+/* P3 (High Priority) - 4px orange border + shadow */
+.planner-item[data-priority="3"] {
+    border-left: 4px solid #F97316; /* Orange-500 */
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.12);
+}
+
+/* P4 (Urgent) - 5px red border + glow + pulse animation */
+.planner-item[data-priority="4"] {
+    border-left: 5px solid #EF4444; /* Red-500 */
+    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.2), -2px 0 8px rgba(239, 68, 68, 0.15);
+    animation: priority-glow 3s ease-in-out infinite;
+}
+```
+
+**Why this works:**
+- Intuitive visual progression (thicker = more urgent)
+- Unobtrusive for low/medium priorities
+- Impossible to miss P4 tasks (red + glow + animation)
+- Color-blind friendly (thickness is primary indicator)
+
+#### Copy Button Positioning
+
+Copy buttons are positioned contextually based on item type:
+
+**Events:** Integrated into time pill
+```html
+<div class="planner-item-time">
+  <span>10:00 AM-11:00 AM</span>
+  <button class="planner-item-copy">...</button>
+</div>
+```
+
+**Tasks:** Right-aligned in content area
+```html
+<div class="planner-item-content">
+  <div class="planner-item-text">Task content...</div>
+  <button class="planner-item-copy">...</button>
+</div>
+```
+
+**Interaction:**
+- Hidden by default (`opacity: 0`)
+- Revealed on hover
+- Smooth opacity + transform transitions
+- Copied state shows checkmark with `.copied` class
+
+#### Location Links
+
+Location links use subtle indigo tinting instead of bold gradients:
+
+```css
+.planner-item-location {
+    color: #6366F1; /* Indigo-500 */
+    background: rgba(99, 102, 241, 0.08); /* Subtle tint */
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-1) var(--space-2);
+}
+```
+
+**Why:**
+- Not visually overwhelming
+- Still clearly actionable
+- Consistent with design system
+
+#### Project Labels
+
+Project labels are inline with task content, not separate lines:
+
+```html
+<div class="planner-item-text">
+  Task content here
+  <span class="planner-item-project">Project Name</span>
+</div>
+```
+
+```css
+.planner-item-project {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: #6B7280; /* Gray-500 */
+    padding: var(--space-1) var(--space-2);
+    background: rgba(156, 163, 175, 0.15);
+    border: 1px solid rgba(156, 163, 175, 0.3);
+    border-radius: var(--radius-sm);
+}
+```
+
+**Layout:** `display: block; line-height: 1.6` on `.planner-item-text` keeps everything in flow
+
+#### Empty States
+
+Empty day sections are centered with dashed borders:
+
+```css
+.dashboard-day-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4) var(--space-2);
+    background: rgba(209, 250, 229, 0.2); /* Light green tint */
+    border: 2px dashed rgba(52, 211, 153, 0.3);
+    border-radius: var(--radius-md);
+}
+```
+
+### Loading State
+
+Loading uses modern bouncing dots animation matching the app's design:
+
+```css
+.dashboard-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.dashboard-loading-icon {
+    font-size: 48px;
+    animation: float 2s ease-in-out infinite;
+}
+
+.dashboard-loading-dots span {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: bounce-loading 1.4s ease-in-out infinite;
+}
+```
+
+### Mobile Responsive
+
+The dashboard adapts for mobile viewports (< 768px):
+
+- Vertical item layout (no flexbox row)
+- Time badges at top of events
+- Copy buttons always visible (`opacity: 0.6`)
+- Smaller action buttons (32px instead of 36px)
+- Reduced padding and spacing
+
+### Scroll Behavior
+
+**Important:** Planner uses DIFFERENT scroll behavior from normal chats:
+
+- Normal chats: Scroll to bottom to show latest message
+- Planner: Scroll to top to show dashboard
+
+```typescript
+// In main.ts navigateToPlanner()
+messagesContainer.scrollTop = 0; // NOT scrollToBottom()
+```
+
+### Accessibility
+
+The dashboard includes comprehensive accessibility features:
+
+- Focus states for all interactive elements
+- High contrast mode support (`@media (prefers-contrast: high)`)
+- Reduced motion support (`@media (prefers-reduced-motion: reduce)`)
+- Keyboard navigation for all actions
+- ARIA labels on icon buttons
+- Semantic HTML structure
+
+### Files
+
+**Styles:**
+- [../../web/src/styles/components/planner.css](../../web/src/styles/components/planner.css) - Complete dashboard styles
+
+**Components:**
+- [../../web/src/components/PlannerDashboard.ts](../../web/src/components/PlannerDashboard.ts) - Dashboard rendering
+- [../../web/src/components/PlannerView.ts](../../web/src/components/PlannerView.ts) - Planner view container
+
+**Main Integration:**
+- [../../web/src/main.ts](../../web/src/main.ts) - `navigateToPlanner()` function
+
+**Backend:**
+- [../../src/api/routes.py](../../src/api/routes.py) - `/api/planner` endpoint
+
+### Testing
+
+Comprehensive E2E and visual tests ensure dashboard quality:
+
+- **E2E tests:** 32 tests in `web/tests/e2e/planner.spec.ts`
+- **Visual tests:** ~30 snapshots in `web/tests/visual/planner.visual.ts`
+- **Coverage:** All sections, states, interactions, responsive layouts
+
+See [Testing](../testing.md#planner-tests) for details.
+
 ## Key Files
 
 **Styles:**
@@ -476,6 +729,7 @@ Add container to [../../src/templates/index.html](../../src/templates/index.html
 - [../../web/src/styles/layout.css](../../web/src/styles/layout.css) - App shell, responsive breakpoints
 - [../../web/src/styles/components/buttons.css](../../web/src/styles/components/buttons.css) - Button variants
 - [../../web/src/styles/components/popups.css](../../web/src/styles/components/popups.css) - Modals, toasts, overlays
+- [../../web/src/styles/components/planner.css](../../web/src/styles/components/planner.css) - Planner dashboard
 
 **Components:**
 - [../../web/src/components/Messages.ts](../../web/src/components/Messages.ts) - Message display
@@ -483,6 +737,8 @@ Add container to [../../src/templates/index.html](../../src/templates/index.html
 - [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts) - Input area
 - [../../web/src/components/Modal.ts](../../web/src/components/Modal.ts) - Modal dialogs
 - [../../web/src/components/Toast.ts](../../web/src/components/Toast.ts) - Toast notifications
+- [../../web/src/components/PlannerDashboard.ts](../../web/src/components/PlannerDashboard.ts) - Planner dashboard
+- [../../web/src/components/PlannerView.ts](../../web/src/components/PlannerView.ts) - Planner view
 
 **Utilities:**
 - [../../web/src/utils/dom.ts](../../web/src/utils/dom.ts) - DOM helpers

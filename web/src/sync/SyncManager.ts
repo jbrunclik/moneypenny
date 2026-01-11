@@ -10,7 +10,7 @@
  * - Visibility-aware polling (pauses when tab hidden)
  */
 
-import { conversations as conversationsApi } from '../api/client';
+import { conversations as conversationsApi, planner as plannerApi } from '../api/client';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
@@ -30,6 +30,12 @@ export interface SyncManagerCallbacks {
   onCurrentConversationDeleted: () => void;
   /** Called when the current conversation has new messages from another device */
   onCurrentConversationExternalUpdate: (messageCount: number) => void;
+  /** Called when the planner conversation was deleted in another tab */
+  onPlannerDeleted?: () => void;
+  /** Called when the planner conversation was reset in another tab */
+  onPlannerReset?: () => void;
+  /** Called when the planner has new messages from another tab/device */
+  onPlannerExternalUpdate?: (messageCount: number) => void;
 }
 
 /**
@@ -66,6 +72,16 @@ export class SyncManager {
    * Sync updates for these conversations are deferred to avoid false unread counts.
    */
   private streamingConversations: Set<string> = new Set();
+
+  /**
+   * Tracks planner conversation message count for sync.
+   */
+  private plannerMessageCount: number | null = null;
+
+  /**
+   * Tracks planner last reset timestamp for reset detection.
+   */
+  private plannerLastReset: string | null = null;
 
   constructor(callbacks: SyncManagerCallbacks) {
     this.callbacks = callbacks;
@@ -225,6 +241,9 @@ export class SyncManager {
       } else {
         log.debug('Incremental sync: no changes');
       }
+
+      // Additionally sync planner if user has integrations
+      await this.syncPlanner();
     } catch (error) {
       log.warn('Incremental sync failed', { error });
       // Don't throw - syncing is best-effort
@@ -579,6 +598,64 @@ export class SyncManager {
         error,
       });
       return true;
+    }
+  }
+
+  /**
+   * Sync planner conversation state to detect external updates, resets, or deletion.
+   * This runs separately from normal conversation sync since planner is excluded
+   * from regular sync (has is_planning=1 flag).
+   */
+  private async syncPlanner(): Promise<void> {
+    try {
+      const response = await plannerApi.sync();
+
+      if (!response.conversation) {
+        // Planner doesn't exist yet or was deleted
+        if (this.plannerMessageCount !== null) {
+          // Was deleted - planner existed before but doesn't now
+          const store = useStore.getState();
+          if (store.isPlannerView) {
+            log.info('Planner conversation was deleted externally');
+            this.callbacks.onPlannerDeleted?.();
+          }
+          this.plannerMessageCount = null;
+          this.plannerLastReset = null;
+        }
+        return;
+      }
+
+      const { message_count, last_reset } = response.conversation;
+
+      // Check for reset (last_reset timestamp changed)
+      if (this.plannerLastReset && last_reset !== this.plannerLastReset) {
+        // Planner was reset in another tab
+        const store = useStore.getState();
+        if (store.isPlannerView) {
+          log.info('Planner conversation was reset externally');
+          this.callbacks.onPlannerReset?.();
+        }
+      }
+
+      // Check for new messages (message count increased)
+      if (this.plannerMessageCount !== null && message_count > this.plannerMessageCount) {
+        // New messages added in another tab/device
+        const store = useStore.getState();
+        if (store.isPlannerView) {
+          log.info('Planner conversation has new messages', {
+            previousCount: this.plannerMessageCount,
+            newCount: message_count,
+          });
+          this.callbacks.onPlannerExternalUpdate?.(message_count);
+        }
+      }
+
+      // Update tracking state
+      this.plannerMessageCount = message_count;
+      this.plannerLastReset = last_reset;
+    } catch (error) {
+      log.warn('Planner sync failed', { error });
+      // Don't throw - syncing is best-effort
     }
   }
 }

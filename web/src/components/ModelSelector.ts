@@ -71,8 +71,8 @@ function closeModelDropdown(): void {
 /**
  * Check if a conversation ID is temporary (not yet saved to DB)
  */
-function isTempConversation(convId: string): boolean {
-  return convId.startsWith('temp-');
+function isTempConversation(convId: string | undefined): boolean {
+  return convId?.startsWith('temp-') ?? false;
 }
 
 /**

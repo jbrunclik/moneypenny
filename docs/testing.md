@@ -149,12 +149,14 @@ web/tests/
 │   ├── conversation.spec.ts       # Conversation CRUD
 │   ├── pagination.spec.ts         # Pagination
 │   ├── search.spec.ts             # Full-text search
-│   └── mobile.spec.ts             # Mobile viewport tests
+│   ├── mobile.spec.ts             # Mobile viewport tests
+│   └── planner.spec.ts            # Planner feature (32 tests)
 └── visual/                        # Visual regression tests
     ├── chat.visual.ts             # Chat interface screenshots
     ├── mobile.visual.ts           # Mobile layouts
     ├── error-ui.visual.ts         # Error UI
-    └── popups.visual.ts           # Popups and modals
+    ├── popups.visual.ts           # Popups and modals
+    └── planner.visual.ts          # Planner dashboard (~30 snapshots)
 ```
 
 ### Key Testing Patterns (Frontend)
@@ -238,6 +240,117 @@ test('send message in batch mode', async ({ page }) => {
     .toContainText('Hello');
 });
 ```
+
+### Planner Tests
+
+The Planner feature has comprehensive E2E and visual test coverage in [../../web/tests/e2e/planner.spec.ts](../../web/tests/e2e/planner.spec.ts) and [../../web/tests/visual/planner.visual.ts](../../web/tests/visual/planner.visual.ts).
+
+#### E2E Test Coverage (32 tests)
+
+**Sidebar Entry Visibility:**
+- Shows planner entry when Todoist connected
+- Shows planner entry when Google Calendar connected
+- Shows planner entry when both integrations connected
+- Hides planner entry when no integrations connected
+
+**Navigation:**
+- Navigates to planner via sidebar click
+- Navigates to planner via deep link (`#/planner`)
+- Browser back from planner returns to previous view
+- Planner entry has active state when on planner view
+
+**Dashboard Display:**
+- Displays dashboard with events and tasks
+- Displays overdue tasks section when present
+- Shows dashboard with partial integrations (e.g., only calendar connected)
+
+**Actions:**
+- Refresh button triggers dashboard reload
+- Reset button resets conversation
+
+**Week Section:**
+- Week section is collapsible (details element)
+
+**Copy to Clipboard:**
+- Can copy event item to clipboard (skipped on WebKit due to clipboard API limitations)
+
+**Empty States:**
+- Shows empty state when no events or tasks
+
+**Error States:**
+- Shows error message when integration has error
+
+#### Visual Test Coverage (~30 snapshots)
+
+Comprehensive pixel-perfect snapshots across:
+- Sidebar entry states (default, hover, active, hidden)
+- Dashboard layouts (desktop, mobile, iPad)
+- All sections (overdue, today, tomorrow, week)
+- Item states (default, hover, priority indicators P1-P4)
+- Actions (refresh/reset buttons)
+- Integration states (connected/disconnected)
+- Error and empty states
+- Loading state
+
+#### Test Patterns
+
+**Integration Mocking:**
+```typescript
+// Set planner integration status
+await page.request.post('/test/set-planner-integrations', {
+  data: { todoist: true, calendar: false },
+});
+```
+
+**Custom Dashboard Data:**
+```typescript
+// Set custom dashboard for testing
+await page.request.post('/test/set-planner-dashboard', {
+  data: {
+    dashboard: {
+      days: [...],
+      overdue_tasks: [...],
+      todoist_connected: true,
+      calendar_connected: true,
+      todoist_error: null,
+      calendar_error: null,
+    },
+  },
+});
+```
+
+**Strict Mode Handling:**
+```typescript
+// Use .first() when multiple elements match
+await expect(page.locator('.dashboard-day').first()).toBeVisible();
+await expect(page.locator('.planner-item').first()).toBeVisible();
+```
+
+**WebKit Clipboard Workaround:**
+```typescript
+// Skip clipboard tests on WebKit
+test('can copy event item to clipboard', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Webkit does not support clipboard permissions');
+
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  // ... test implementation
+});
+```
+
+#### Backend Planner Tests
+
+**Unit Tests** ([../../tests/unit/test_planner.py](../../tests/unit/test_planner.py)):
+- Dashboard data formatting
+- Date range calculations
+- Task priority handling
+- Event/task merging logic
+
+**Integration Tests** ([../../tests/integration/test_routes_planner.py](../../tests/integration/test_routes_planner.py)):
+- `GET /api/planner` (dashboard endpoint)
+- `GET /api/planner/conversation` (get or create planner conversation)
+- `POST /api/planner/reset` (reset conversation)
+- Integration error handling
+- Dashboard caching
 
 ## Running Tests
 

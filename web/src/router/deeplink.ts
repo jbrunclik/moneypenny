@@ -19,7 +19,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('deeplink');
 
 /** Route types supported by the router */
-type RouteType = 'home' | 'conversation' | 'unknown';
+type RouteType = 'home' | 'conversation' | 'planner' | 'unknown';
 
 /** Parsed route information */
 interface ParsedRoute {
@@ -27,8 +27,8 @@ interface ParsedRoute {
   conversationId?: string;
 }
 
-/** Callback when hash changes to a conversation */
-type HashChangeCallback = (conversationId: string | null) => void;
+/** Callback when hash changes to a conversation or planner */
+type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean) => void;
 
 // Module state
 let hashChangeCallback: HashChangeCallback | null = null;
@@ -44,6 +44,11 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   // Empty hash = home
   if (!cleanHash || cleanHash === '/') {
     return { type: 'home' };
+  }
+
+  // Match /planner route
+  if (cleanHash === '/planner') {
+    return { type: 'planner' };
   }
 
   // Match /conversations/{id}
@@ -135,6 +140,34 @@ export function clearConversationHash(): void {
 }
 
 /**
+ * Set the URL hash to the planner route.
+ */
+export function setPlannerHash(): void {
+  const newHash = '#/planner';
+  const currentHash = window.location.hash;
+
+  if (currentHash === newHash) {
+    return;
+  }
+
+  log.debug('Setting planner hash', { from: currentHash });
+
+  isIgnoringHashChange = true;
+  history.pushState(null, '', newHash);
+  setTimeout(() => {
+    isIgnoringHashChange = false;
+  }, 0);
+}
+
+/**
+ * Check if the current route is the planner.
+ */
+export function isPlannerRoute(): boolean {
+  const route = parseHash();
+  return route.type === 'planner';
+}
+
+/**
  * Push an empty hash entry to browser history.
  * Use this when creating a new temp conversation so back button navigates to previous conversation.
  */
@@ -155,13 +188,21 @@ function handleHashChange(): void {
   log.debug('Hash changed via navigation', { route });
 
   if (hashChangeCallback) {
-    if (route.type === 'conversation' && route.conversationId) {
-      hashChangeCallback(route.conversationId);
+    if (route.type === 'planner') {
+      hashChangeCallback(null, true);
+    } else if (route.type === 'conversation' && route.conversationId) {
+      hashChangeCallback(route.conversationId, false);
     } else {
       // Home or unknown route - pass null to indicate no conversation selected
-      hashChangeCallback(null);
+      hashChangeCallback(null, false);
     }
   }
+}
+
+/** Initial route information returned by initDeepLinking */
+export interface InitialRoute {
+  conversationId: string | null;
+  isPlanner: boolean;
 }
 
 /**
@@ -169,9 +210,9 @@ function handleHashChange(): void {
  * Call this once during app initialization, after components are ready.
  *
  * @param onHashChange - Callback invoked when URL hash changes via browser navigation
- * @returns The initial conversation ID from the URL, or null
+ * @returns The initial route info: conversation ID and whether it's the planner
  */
-export function initDeepLinking(onHashChange: HashChangeCallback): string | null {
+export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute {
   log.info('Initializing deep linking');
 
   hashChangeCallback = onHashChange;
@@ -179,11 +220,17 @@ export function initDeepLinking(onHashChange: HashChangeCallback): string | null
   // Listen for browser back/forward navigation
   window.addEventListener('hashchange', handleHashChange);
 
-  // Return the initial conversation ID (if any) for the caller to handle
+  // Return the initial route info for the caller to handle
   const initialRoute = parseHash();
+
+  if (initialRoute.type === 'planner') {
+    log.info('Initial route is planner');
+    return { conversationId: null, isPlanner: true };
+  }
+
   if (initialRoute.type === 'conversation' && initialRoute.conversationId) {
     log.info('Initial route has conversation', { conversationId: initialRoute.conversationId });
-    return initialRoute.conversationId;
+    return { conversationId: initialRoute.conversationId, isPlanner: false };
   }
 
   // Check if the hash contains a temp conversation ID and clear it
@@ -194,7 +241,7 @@ export function initDeepLinking(onHashChange: HashChangeCallback): string | null
     clearConversationHash();
   }
 
-  return null;
+  return { conversationId: null, isPlanner: false };
 }
 
 /**

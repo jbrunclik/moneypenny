@@ -717,6 +717,75 @@ Example with all fields:
 {"language": "en", "sources": [{"title": "Wikipedia", "url": "https://en.wikipedia.org/..."}], "generated_images": [{"prompt": "a sunset"}]}
 -->"""
 
+# Planner-specific system prompt - only included in planner mode
+# This adds proactive analysis and daily planning session context
+PLANNER_SYSTEM_PROMPT = """
+# Planner Mode - Daily Planning Session
+
+You are in the Planner view, a dedicated productivity space. This is the user's daily planning command center where they orchestrate their time and priorities.
+
+## Your Role in the Planner
+
+You are an **Executive Strategist** and **Productivity Partner**. When the user enters the Planner:
+
+1. **Proactive Analysis**: If this is a fresh session (no previous messages), immediately analyze their schedule:
+   - Review the dashboard data provided (events, tasks, overdue items)
+   - Identify potential conflicts, gaps, or optimization opportunities
+   - Provide a brief, actionable summary of their day/week
+   - Highlight urgent items and suggest priorities
+
+2. **Strategic Recommendations**: Don't just list items - provide insight:
+   - "You have 3 meetings before noon - consider doing deep work this afternoon"
+   - "These 4 overdue tasks are blocking your Q4 goals - which can we batch?"
+   - "You have a 2-hour gap tomorrow - perfect for that report draft"
+
+3. **Time-Blocking Focus**: The calendar is your primary output canvas:
+   - Proactively suggest time blocks for high-priority tasks
+   - Identify and protect focus time
+   - Balance meetings with recovery/work time
+
+4. **Energy Management**: Consider cognitive load throughout the day:
+   - Morning: Best for deep work, complex decisions
+   - Post-lunch: Good for meetings, collaboration
+   - Late afternoon: Admin, shallow work, planning
+
+## Dashboard Context
+
+The dashboard shows the user's upcoming 7 days with:
+- **Events**: Calendar appointments, meetings, focus blocks
+- **Tasks**: Todoist items due on each day
+- **Overdue**: Tasks past their due date (prioritize addressing these!)
+
+Use this data to provide contextual advice. If something looks off (too many meetings, no focus time, overdue pile-up), proactively mention it.
+
+## Planning Session Flow
+
+When starting a fresh planning session:
+
+1. **Quick Summary** (30 seconds to read):
+   - Today's critical items (meetings, deadlines)
+   - This week's major commitments
+   - Any red flags (conflicts, overdue, overcommitment)
+
+2. **Actionable Insights**:
+   - What needs immediate attention?
+   - What can be deferred or delegated?
+   - Where are the focus time opportunities?
+
+3. **Offer Next Steps**:
+   - "Want me to reschedule these conflicting events?"
+   - "Should I block focus time for the report tomorrow?"
+   - "Let's triage these 5 overdue tasks - which are still relevant?"
+
+## Conversation Style in Planner
+
+- Be concise but insightful - this is a productivity tool
+- Use bullet points and structured lists
+- Lead with the most important information
+- Be proactive - suggest actions, don't just describe
+- Remember this conversation resets daily - capture important insights in memories
+"""
+
 CUSTOM_INSTRUCTIONS_PROMPT = """
 # User's Custom Instructions
 The user has provided these custom instructions for how you should respond:
@@ -887,6 +956,102 @@ The user is located in {location}. Use this to:
     return "\n\n# User Context\n" + "\n\n".join(context_parts)
 
 
+def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:
+    """Format dashboard data for injection into the planner system prompt.
+
+    Uses JSON format for better structure and semantic clarity for the LLM.
+
+    Args:
+        dashboard: The planner dashboard data dict
+
+    Returns:
+        JSON-formatted string with the dashboard context
+    """
+    import json
+
+    # Build structured JSON data
+    schedule_data: dict[str, Any] = {
+        "integrations": {
+            "todoist_connected": dashboard.get("todoist_connected", False),
+            "calendar_connected": dashboard.get("calendar_connected", False),
+            "todoist_error": dashboard.get("todoist_error"),
+            "calendar_error": dashboard.get("calendar_error"),
+        },
+        "overdue_tasks": [
+            {
+                "content": task.get("content", ""),
+                "priority": task.get("priority", 1),
+                "project_name": task.get("project_name"),
+                "due_string": task.get("due_string"),
+                "due_date": task.get("due_date"),
+                "is_recurring": task.get("is_recurring", False),
+                "labels": task.get("labels", []),
+            }
+            for task in dashboard.get("overdue_tasks", [])
+        ],
+        "days": [],
+    }
+
+    # Process days
+    for day in dashboard.get("days", []):
+        events = day.get("events", [])
+        tasks = day.get("tasks", [])
+
+        # Skip empty days
+        if not events and not tasks:
+            continue
+
+        day_data = {
+            "day_name": day.get("day_name", "Unknown"),
+            "date": day.get("date", ""),
+            "events": [
+                {
+                    "summary": event.get("summary", "(No title)"),
+                    "start": event.get("start"),
+                    "end": event.get("end"),
+                    "start_date": event.get("start_date"),
+                    "end_date": event.get("end_date"),
+                    "is_all_day": event.get("is_all_day", False),
+                    "location": event.get("location"),
+                    "attendees": event.get("attendees", []),
+                }
+                for event in events
+            ],
+            "tasks": [
+                {
+                    "content": task.get("content", ""),
+                    "priority": task.get("priority", 1),
+                    "project_name": task.get("project_name"),
+                    "section_name": task.get("section_name"),
+                    "due_date": task.get("due_date"),
+                    "is_recurring": task.get("is_recurring", False),
+                    "labels": task.get("labels", []),
+                }
+                for task in tasks
+            ],
+        }
+
+        schedule_data["days"].append(day_data)
+
+    # Format as JSON with explanation
+    json_str = json.dumps(schedule_data, indent=2)
+    return f"""
+
+# Current Schedule Overview
+
+The following JSON contains your complete schedule data:
+
+```json
+{json_str}
+```
+
+**Priority levels**: 1 (lowest) to 4 (highest/urgent)
+**Integration status**: Check `integrations` object for connection status and errors
+**Overdue tasks**: Listed separately in `overdue_tasks` array (requires immediate attention)
+**Days**: Array of upcoming days with events (calendar) and tasks (Todoist)
+"""
+
+
 def get_system_prompt(
     with_tools: bool = True,
     force_tools: list[str] | None = None,
@@ -894,6 +1059,8 @@ def get_system_prompt(
     user_id: str | None = None,
     custom_instructions: str | None = None,
     anonymous_mode: bool = False,
+    is_planning: bool = False,
+    dashboard_data: dict[str, Any] | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -904,6 +1071,8 @@ def get_system_prompt(
         user_id: The user's ID for memory retrieval
         custom_instructions: User-provided custom instructions for LLM behavior
         anonymous_mode: If True, skip memory retrieval and injection
+        is_planning: If True, include planner-specific system prompt with dashboard context
+        dashboard_data: Dashboard data dict to inject into planner prompt (required if is_planning=True)
     """
     date_context = f"\n\nCurrent date and time: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
@@ -920,6 +1089,13 @@ def get_system_prompt(
             prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
         # Always include metadata section
         prompt += TOOLS_SYSTEM_PROMPT_METADATA
+
+    # Add planner-specific prompt if in planning mode
+    if is_planning:
+        prompt += PLANNER_SYSTEM_PROMPT
+        # Add dashboard context if provided
+        if dashboard_data:
+            prompt += get_dashboard_context_prompt(dashboard_data)
 
     # Add custom instructions if provided
     if custom_instructions and custom_instructions.strip():
@@ -1517,6 +1693,8 @@ class ChatAgent:
         user_name: str | None = None,
         user_id: str | None = None,
         custom_instructions: str | None = None,
+        is_planning: bool = False,
+        dashboard_data: dict[str, Any] | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
         messages: list[BaseMessage] = []
@@ -1532,6 +1710,8 @@ class ChatAgent:
                     user_id=user_id,
                     custom_instructions=custom_instructions,
                     anonymous_mode=self.anonymous_mode,
+                    is_planning=is_planning,
+                    dashboard_data=dashboard_data,
                 )
             )
         )
@@ -1560,6 +1740,8 @@ class ChatAgent:
         user_name: str | None = None,
         user_id: str | None = None,
         custom_instructions: str | None = None,
+        is_planning: bool = False,
+        dashboard_data: dict[str, Any] | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
         """
         Send a message and get a response (non-streaming).
@@ -1572,6 +1754,8 @@ class ChatAgent:
             user_name: Optional user name from JWT for personalized responses
             user_id: Optional user ID for memory retrieval and injection
             custom_instructions: Optional user-provided custom instructions for LLM behavior
+            is_planning: If True, use planner-specific system prompt with dashboard context
+            dashboard_data: Dashboard data to inject into planner prompt (required if is_planning=True)
 
         Returns:
             Tuple of (response_text, tool_results, usage_info)
@@ -1584,6 +1768,8 @@ class ChatAgent:
             user_name=user_name,
             user_id=user_id,
             custom_instructions=custom_instructions,
+            is_planning=is_planning,
+            dashboard_data=dashboard_data,
         )
         logger.debug(
             "Starting chat_batch",
@@ -1667,6 +1853,8 @@ class ChatAgent:
         user_name: str | None = None,
         user_id: str | None = None,
         custom_instructions: str | None = None,
+        is_planning: bool = False,
+        dashboard_data: dict[str, Any] | None = None,
     ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
         """
         Stream response tokens using LangGraph's stream method.
@@ -1696,6 +1884,8 @@ class ChatAgent:
             user_name=user_name,
             user_id=user_id,
             custom_instructions=custom_instructions,
+            is_planning=is_planning,
+            dashboard_data=dashboard_data,
         )
 
         # Accumulate full response to extract metadata at the end
@@ -1827,6 +2017,8 @@ class ChatAgent:
         user_name: str | None = None,
         user_id: str | None = None,
         custom_instructions: str | None = None,
+        is_planning: bool = False,
+        dashboard_data: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -1858,6 +2050,8 @@ class ChatAgent:
             user_name=user_name,
             user_id=user_id,
             custom_instructions=custom_instructions,
+            is_planning=is_planning,
+            dashboard_data=dashboard_data,
         )
 
         # Accumulate full response to extract metadata at the end

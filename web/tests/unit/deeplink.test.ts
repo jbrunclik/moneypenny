@@ -10,6 +10,7 @@ import {
   initDeepLinking,
   cleanupDeepLinking,
   isValidConversationId,
+  setPlannerHash,
 } from '@/router/deeplink';
 
 describe('parseHash', () => {
@@ -52,6 +53,15 @@ describe('parseHash', () => {
     expect(parseHash('#/invalid')).toEqual({ type: 'unknown' });
     expect(parseHash('#/conversations/')).toEqual({ type: 'unknown' });
     expect(parseHash('#/conversations/id/extra')).toEqual({ type: 'unknown' });
+  });
+
+  it('parses planner hash', () => {
+    expect(parseHash('#/planner')).toEqual({ type: 'planner' });
+    expect(parseHash('/planner')).toEqual({ type: 'planner' });
+  });
+
+  it('returns unknown for planner with extra path', () => {
+    expect(parseHash('#/planner/extra')).toEqual({ type: 'unknown' });
   });
 });
 
@@ -171,6 +181,37 @@ describe('clearConversationHash', () => {
   });
 });
 
+describe('setPlannerHash', () => {
+  const originalLocation = window.location;
+  let pushStateSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    delete (window as Record<string, unknown>).location;
+    (window as Record<string, unknown>).location = {
+      ...originalLocation,
+      hash: '',
+      pathname: '/',
+    };
+    pushStateSpy = vi.spyOn(history, 'pushState');
+  });
+
+  afterEach(() => {
+    (window as Record<string, unknown>).location = originalLocation;
+    pushStateSpy.mockRestore();
+  });
+
+  it('sets hash to planner route', () => {
+    setPlannerHash();
+    expect(pushStateSpy).toHaveBeenCalledWith(null, '', '#/planner');
+  });
+
+  it('does not update if already on planner hash', () => {
+    window.location.hash = '#/planner';
+    setPlannerHash();
+    expect(pushStateSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe('initDeepLinking and cleanupDeepLinking', () => {
   const originalLocation = window.location;
   let addEventListenerSpy: ReturnType<typeof vi.spyOn>;
@@ -193,17 +234,24 @@ describe('initDeepLinking and cleanupDeepLinking', () => {
     removeEventListenerSpy.mockRestore();
   });
 
-  it('returns null when no conversation in hash', () => {
+  it('returns null conversationId when no conversation in hash', () => {
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toBeNull();
+    expect(result).toEqual({ conversationId: null, isPlanner: false });
   });
 
   it('returns conversation ID when present in hash', () => {
     window.location.hash = '#/conversations/conv-123';
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toBe('conv-123');
+    expect(result).toEqual({ conversationId: 'conv-123', isPlanner: false });
+  });
+
+  it('returns planner route info when on planner hash', () => {
+    window.location.hash = '#/planner';
+    const callback = vi.fn();
+    const result = initDeepLinking(callback);
+    expect(result).toEqual({ conversationId: null, isPlanner: true });
   });
 
   it('registers hashchange listener', () => {
@@ -274,7 +322,7 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith('conv-456');
+    expect(callback).toHaveBeenCalledWith('conv-456', false);
   });
 
   it('calls callback with null for non-conversation hash', async () => {
@@ -288,7 +336,21 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith(null);
+    expect(callback).toHaveBeenCalledWith(null, false);
+  });
+
+  it('calls callback with isPlanner=true for planner hash', async () => {
+    const callback = vi.fn();
+    initDeepLinking(callback);
+
+    // Simulate hash change to planner
+    window.location.hash = '#/planner';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+
+    // Wait for async handling
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(callback).toHaveBeenCalledWith(null, true);
   });
 
   it('ignores hashchange during programmatic updates', async () => {
@@ -303,7 +365,7 @@ describe('hashchange event handling', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     // Callback should not have been called (programmatic changes are ignored)
-    expect(callback).not.toHaveBeenCalledWith('conv-789');
+    expect(callback).not.toHaveBeenCalledWith('conv-789', false);
   });
 });
 

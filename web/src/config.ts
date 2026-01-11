@@ -317,6 +317,13 @@ export const SEARCH_RESULT_MESSAGES_LIMIT = 100;
 export const LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200;
 
 // =============================================================================
+// Planner Configuration
+// =============================================================================
+
+/** Cache duration for planner dashboard data (5 minutes) */
+export const PLANNER_DASHBOARD_CACHE_MS = 5 * MS_PER_MINUTE;
+
+// =============================================================================
 // Default Values
 // =============================================================================
 

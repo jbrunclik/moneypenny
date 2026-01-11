@@ -20,6 +20,8 @@ import {
 } from '../utils/theme';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import type { TodoistStatus, CalendarStatus } from '../types/api';
+import { useStore } from '../state/store';
+import { renderConversationsList } from './Sidebar';
 
 const log = createLogger('settings-popup');
 
@@ -316,6 +318,15 @@ async function handleTodoistDisconnect(): Promise<void> {
     await todoist.disconnect();
     todoistStatus = { connected: false, todoist_email: null, connected_at: null, needs_reconnect: false };
     updateIntegrationSection('todoist');
+
+    // Update store and re-render sidebar to hide planner entry
+    const store = useStore.getState();
+    const user = store.user;
+    if (user) {
+      store.setUser({ ...user, todoist_connected: false });
+      renderConversationsList();
+    }
+
     toast.success('Todoist disconnected');
     log.info('Todoist disconnected');
   } catch (error) {
@@ -342,6 +353,15 @@ async function handleCalendarDisconnect(): Promise<void> {
     await calendar.disconnect();
     calendarStatus = { connected: false, calendar_email: null, connected_at: null, needs_reconnect: false };
     updateIntegrationSection('calendar');
+
+    // Update store and re-render sidebar to hide planner entry
+    const store = useStore.getState();
+    const user = store.user;
+    if (user) {
+      store.setUser({ ...user, calendar_connected: false });
+      renderConversationsList();
+    }
+
     toast.success('Google Calendar disconnected');
     log.info('Google Calendar disconnected');
   } catch (error) {
@@ -426,6 +446,15 @@ export async function checkTodoistOAuthCallback(): Promise<boolean> {
       connected_at: new Date().toISOString(),
       needs_reconnect: false,
     };
+
+    // Update store and re-render sidebar to show planner entry
+    const store = useStore.getState();
+    const user = store.user;
+    if (user) {
+      store.setUser({ ...user, todoist_connected: true });
+      renderConversationsList();
+    }
+
     toast.success('Todoist connected successfully');
     log.info('Todoist connected', { email: result.todoist_email });
 
@@ -484,6 +513,15 @@ export async function checkCalendarOAuthCallback(): Promise<boolean> {
       connected_at: new Date().toISOString(),
       needs_reconnect: false,
     };
+
+    // Update store and re-render sidebar to show planner entry
+    const store = useStore.getState();
+    const user = store.user;
+    if (user) {
+      store.setUser({ ...user, calendar_connected: true });
+      renderConversationsList();
+    }
+
     toast.success('Google Calendar connected successfully');
     log.info('Google Calendar connected', { email: result.calendar_email });
     openSettingsPopup();

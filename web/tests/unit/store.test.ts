@@ -506,3 +506,107 @@ describe('Store - Version', () => {
     });
   });
 });
+
+describe('Store - Planner', () => {
+  beforeEach(resetStore);
+
+  describe('setIsPlannerView', () => {
+    it('sets planner view state', () => {
+      useStore.getState().setIsPlannerView(true);
+      expect(useStore.getState().isPlannerView).toBe(true);
+
+      useStore.getState().setIsPlannerView(false);
+      expect(useStore.getState().isPlannerView).toBe(false);
+    });
+  });
+
+  describe('setPlannerDashboard', () => {
+    it('sets planner dashboard data', () => {
+      const dashboard = {
+        days: [],
+        overdue_tasks: [],
+        todoist_connected: true,
+        calendar_connected: false,
+        server_time: '2024-01-01T00:00:00Z',
+      };
+      useStore.getState().setPlannerDashboard(dashboard);
+      expect(useStore.getState().plannerDashboard).toEqual(dashboard);
+      expect(useStore.getState().plannerDashboardLastFetch).toBeGreaterThan(0);
+    });
+
+    it('clears dashboard when null', () => {
+      useStore.getState().setPlannerDashboard({
+        days: [],
+        overdue_tasks: [],
+        todoist_connected: true,
+        calendar_connected: false,
+        server_time: '2024-01-01T00:00:00Z',
+      });
+      useStore.getState().setPlannerDashboard(null);
+      expect(useStore.getState().plannerDashboard).toBeNull();
+    });
+  });
+
+  describe('setPlannerConversation', () => {
+    it('sets planner conversation', () => {
+      const conv = {
+        id: 'planner-conv-1',
+        title: 'Planner',
+        model: 'gemini-3-flash',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        messages: [],
+        was_reset: false,
+      };
+      useStore.getState().setPlannerConversation(conv);
+      expect(useStore.getState().plannerConversation).toEqual(conv);
+    });
+  });
+
+  describe('invalidatePlannerCache', () => {
+    it('resets last fetch time without clearing dashboard', () => {
+      const dashboard = {
+        days: [],
+        overdue_tasks: [],
+        todoist_connected: true,
+        calendar_connected: false,
+        server_time: '2024-01-01T00:00:00Z',
+      };
+      useStore.getState().setPlannerDashboard(dashboard);
+      expect(useStore.getState().plannerDashboardLastFetch).toBeGreaterThan(0);
+
+      useStore.getState().invalidatePlannerCache();
+      // Dashboard data is preserved but cache timestamp is cleared
+      expect(useStore.getState().plannerDashboard).toEqual(dashboard);
+      expect(useStore.getState().plannerDashboardLastFetch).toBeNull();
+    });
+  });
+
+  describe('clearPlannerState', () => {
+    it('clears all planner state', () => {
+      useStore.getState().setIsPlannerView(true);
+      useStore.getState().setPlannerDashboard({
+        days: [],
+        overdue_tasks: [],
+        todoist_connected: true,
+        calendar_connected: false,
+        server_time: '2024-01-01T00:00:00Z',
+      });
+      useStore.getState().setPlannerConversation({
+        id: 'planner-conv-1',
+        title: 'Planner',
+        model: 'gemini-3-flash',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        messages: [],
+        was_reset: false,
+      });
+
+      useStore.getState().clearPlannerState();
+      expect(useStore.getState().plannerDashboard).toBeNull();
+      expect(useStore.getState().plannerConversation).toBeNull();
+      expect(useStore.getState().plannerDashboardLastFetch).toBeNull();
+      // isPlannerView is not cleared by clearPlannerState (handled separately)
+    });
+  });
+});

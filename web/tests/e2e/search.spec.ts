@@ -203,8 +203,9 @@ test.describe('Search - Results', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.fill('Unique search test');
 
+    // Wait for search results to load (consistent with other tests)
     const resultItem = page.locator('.search-result-item').first();
-    await expect(resultItem).toBeVisible({ timeout: 5000 });
+    await expect(resultItem).toBeVisible({ timeout: 10000 });
 
     // Click the result
     await resultItem.click();

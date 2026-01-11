@@ -1446,6 +1446,7 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
 
 /**
  * Show a loading indicator at the top of the messages container.
+ * For planner view, inserts after the dashboard element to keep it as first element.
  */
 function showOlderMessagesLoader(container: HTMLElement): void {
   // Remove any existing loader
@@ -1461,8 +1462,15 @@ function showOlderMessagesLoader(container: HTMLElement): void {
     </div>
   `;
 
-  // Insert at the beginning of the container
-  container.insertBefore(loader, container.firstChild);
+  // Check if there's a dashboard element (planner view)
+  const dashboard = container.querySelector('.planner-dashboard-message');
+  if (dashboard && dashboard.nextSibling) {
+    // Insert after dashboard to keep it as first element
+    container.insertBefore(loader, dashboard.nextSibling);
+  } else {
+    // Normal insertion at the beginning
+    container.insertBefore(loader, container.firstChild);
+  }
 }
 
 /**
