@@ -34,12 +34,12 @@ def _get_user_tokens() -> tuple[str | None, str | None, str | None]:
     # Get calendar token (may need refresh)
     calendar_token = user.google_calendar_access_token
     if calendar_token and user.google_calendar_refresh_token:
-        from src.auth.google import refresh_access_token
+        from src.auth.google_calendar import refresh_access_token
 
         # Try to refresh if token might be expired
-        refreshed_token = refresh_access_token(user.google_calendar_refresh_token)
-        if refreshed_token:
-            calendar_token = refreshed_token
+        refreshed_data = refresh_access_token(user.google_calendar_refresh_token)
+        if refreshed_data and "access_token" in refreshed_data:
+            calendar_token = refreshed_data["access_token"]
 
     return user.id, user.todoist_access_token, calendar_token
 

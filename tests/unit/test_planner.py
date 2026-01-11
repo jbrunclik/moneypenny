@@ -565,6 +565,18 @@ class TestPlannerDataclasses:
 class TestRefreshPlannerDashboardTool:
     """Tests for the refresh_planner_dashboard tool."""
 
+    def test_import_refresh_access_token(self) -> None:
+        """Regression test: Verify that refresh_access_token can be imported correctly.
+
+        This test catches import errors like 'No module named src.auth.google'
+        which should be 'src.auth.google_calendar'.
+        """
+        # This will fail if the import path in planner.py is incorrect
+        from src.auth.google_calendar import refresh_access_token
+
+        # Verify the function is callable
+        assert callable(refresh_access_token)
+
     def test_tool_requires_user_context(self) -> None:
         """Test that the tool returns an error when no user context is set."""
         from src.agent.tools.context import set_conversation_context
@@ -699,3 +711,64 @@ class TestRefreshPlannerDashboardTool:
         # Check that error is returned
         assert "Error refreshing dashboard" in result
         assert "API error" in result
+
+    def test_tool_with_calendar_token_refresh(self, mocker: Any) -> None:
+        """Regression test: Verify calendar token refresh import works correctly.
+
+        This test ensures the refresh_access_token import from src.auth.google_calendar
+        works correctly when a user has calendar tokens that need refreshing.
+        """
+        from src.agent.tools.planner import refresh_planner_dashboard
+        from src.db.models import User
+        from src.utils.planner_data import PlannerDashboard
+
+        # Mock get_conversation_context to return a user_id
+        mocker.patch(
+            "src.agent.tools.planner.get_conversation_context", return_value=("conv-id", "user-id")
+        )
+
+        # Mock db.get_user_by_id to return a user with both tokens
+        mock_user = User(
+            id="user-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            created_at=datetime.now(),
+            todoist_access_token="fake-todoist-token",
+            google_calendar_access_token="old-calendar-token",
+            google_calendar_refresh_token="refresh-token",
+        )
+        mocker.patch("src.agent.tools.planner.db.get_user_by_id", return_value=mock_user)
+
+        # Mock refresh_access_token to return token data
+        # This will fail if the import path is incorrect
+        mock_refresh = mocker.patch(
+            "src.auth.google_calendar.refresh_access_token",
+            return_value={"access_token": "new-calendar-token", "refresh_token": "refresh-token"},
+        )
+
+        # Mock build_planner_dashboard to return empty dashboard
+        mock_dashboard = PlannerDashboard(
+            days=[],
+            todoist_connected=True,
+            calendar_connected=True,
+            server_time="2024-12-25T10:00:00",
+        )
+        mock_build = mocker.patch(
+            "src.agent.tools.planner.build_planner_dashboard",
+            return_value=mock_dashboard,
+        )
+
+        # Call the tool
+        result = refresh_planner_dashboard.invoke({})
+
+        # Verify refresh_access_token was called
+        mock_refresh.assert_called_once_with("refresh-token")
+
+        # Verify build_planner_dashboard was called with the new token
+        mock_build.assert_called_once()
+        call_kwargs = mock_build.call_args[1]
+        assert call_kwargs["calendar_token"] == "new-calendar-token"
+
+        # Check success message
+        assert "Dashboard refreshed successfully" in result
