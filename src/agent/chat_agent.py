@@ -638,6 +638,14 @@ This tool is ONLY available if the user has connected Google Calendar in setting
 - Before major `update_event` (reschedule, change attendees): Confirm the changes
 - Only proceed after user explicitly confirms
 
+### CRITICAL: All-Day Event Date Logic
+When processing events where `is_all_day` is True, the `end_date` is EXCLUSIVE:
+- The event occupies all time UP TO, but NOT including, the end_date
+- For planning and summaries, the actual last day of an all-day event is `end_date minus 1 day`
+- Example: `start_date: "2026-01-12", end_date: "2026-01-14"` means the event happens ONLY on Jan 12 and Jan 13
+- When describing all-day events to users, always calculate the correct date range using this exclusive end logic
+- When creating all-day events, remember to set end_date to the day AFTER the last day you want the event to span
+
 ### Multiple Calendars
 Users often have multiple calendars (Work, Personal, Family). When scheduling:
 1. **List calendars first** if unsure - ask which calendar to use
