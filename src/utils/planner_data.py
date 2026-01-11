@@ -1,7 +1,7 @@
 """Planner data utilities for fetching and formatting dashboard data.
 
-This module provides functions to fetch Todoist tasks and Google Calendar events
-for the planner dashboard. It reuses the API request logic from the tools package.
+This module provides functions to fetch Todoist tasks, Google Calendar events,
+and weather forecasts for the planner dashboard.
 """
 
 from dataclasses import dataclass, field
@@ -49,6 +49,17 @@ class PlannerEvent:
 
 
 @dataclass
+class PlannerWeather:
+    """Weather forecast for a specific day."""
+
+    temperature_high: float | None = None  # Celsius
+    temperature_low: float | None = None  # Celsius
+    precipitation: float = 0.0  # Total mm for the day
+    symbol_code: str | None = None  # Weather symbol (e.g., "clearsky_day", "rain")
+    summary: str = ""  # Human-readable summary
+
+
+@dataclass
 class PlannerDay:
     """A single day in the planner dashboard."""
 
@@ -56,6 +67,7 @@ class PlannerDay:
     day_name: str  # "Today", "Tomorrow", "Wednesday", etc.
     events: list[PlannerEvent] = field(default_factory=list)
     tasks: list[PlannerTask] = field(default_factory=list)
+    weather: PlannerWeather | None = None  # Weather forecast for this day
 
 
 @dataclass
@@ -66,9 +78,12 @@ class PlannerDashboard:
     overdue_tasks: list[PlannerTask] = field(default_factory=list)
     todoist_connected: bool = False
     calendar_connected: bool = False
+    weather_connected: bool = False
     todoist_error: str | None = None
     calendar_error: str | None = None
+    weather_error: str | None = None
     server_time: str = ""  # ISO timestamp
+    weather_location: str | None = None  # Location name for weather
 
 
 def _get_day_name(date: datetime, today: datetime) -> str:
@@ -386,6 +401,10 @@ def _dict_to_dashboard(data: dict[str, Any]) -> PlannerDashboard:
         events = [PlannerEvent(**event_data) for event_data in day_data.get("events", [])]
         # Convert tasks
         tasks = [PlannerTask(**task_data) for task_data in day_data.get("tasks", [])]
+        # Convert weather
+        weather = None
+        if day_data.get("weather"):
+            weather = PlannerWeather(**day_data["weather"])
         # Create day
         days.append(
             PlannerDay(
@@ -393,6 +412,7 @@ def _dict_to_dashboard(data: dict[str, Any]) -> PlannerDashboard:
                 day_name=day_data["day_name"],
                 events=events,
                 tasks=tasks,
+                weather=weather,
             )
         )
 
@@ -404,9 +424,12 @@ def _dict_to_dashboard(data: dict[str, Any]) -> PlannerDashboard:
         overdue_tasks=overdue_tasks,
         todoist_connected=data.get("todoist_connected", False),
         calendar_connected=data.get("calendar_connected", False),
+        weather_connected=data.get("weather_connected", False),
         todoist_error=data.get("todoist_error"),
         calendar_error=data.get("calendar_error"),
+        weather_error=data.get("weather_error"),
         server_time=data.get("server_time", ""),
+        weather_location=data.get("weather_location"),
     )
 
 
@@ -419,7 +442,7 @@ def build_planner_dashboard(
 ) -> PlannerDashboard:
     """Build the complete planner dashboard data with SQLite caching.
 
-    Fetches data from both Todoist and Google Calendar (if connected)
+    Fetches data from Todoist, Google Calendar, and weather (if configured)
     and organizes it into a 7-day view. Uses SQLite cache to share data
     across multiple uwsgi workers.
 
@@ -448,6 +471,7 @@ def build_planner_dashboard(
         extra={
             "todoist_connected": bool(todoist_token),
             "calendar_connected": bool(calendar_token),
+            "weather_configured": bool(Config.WEATHER_LOCATION),
             "force_refresh": force_refresh,
         },
     )
@@ -474,6 +498,7 @@ def build_planner_dashboard(
         days=days,
         todoist_connected=bool(todoist_token),
         calendar_connected=bool(calendar_token),
+        weather_connected=bool(Config.WEATHER_LOCATION),
         server_time=server_time,
     )
 
@@ -512,6 +537,69 @@ def build_planner_dashboard(
 
             if event_date in date_to_day:
                 date_to_day[event_date].events.append(event)
+
+    # Fetch weather data
+    if Config.WEATHER_LOCATION:
+        try:
+            from src.utils.weather import get_weather_for_location
+
+            forecast = get_weather_for_location(
+                Config.WEATHER_LOCATION,
+                db=db,
+                force_refresh=force_refresh,
+            )
+
+            if forecast:
+                dashboard.weather_location = forecast.location
+
+                # Group weather periods by date and calculate daily stats
+                weather_by_date: dict[str, list[Any]] = {}
+                for period in forecast.periods:
+                    # Parse period time to get date
+                    period_time = _parse_datetime(period.time)
+                    if period_time:
+                        date_key = period_time.strftime("%Y-%m-%d")
+                        if date_key not in weather_by_date:
+                            weather_by_date[date_key] = []
+                        weather_by_date[date_key].append(period)
+
+                # Calculate daily weather summaries
+                for date_key, periods in weather_by_date.items():
+                    if date_key in date_to_day:
+                        temps = [p.temperature for p in periods]
+                        precips = [p.precipitation for p in periods]
+                        # Find the most common symbol for the day (noon period preferred)
+                        symbols = [p.symbol_code for p in periods if p.symbol_code]
+                        symbol = symbols[len(symbols) // 2] if symbols else None
+
+                        temp_high = max(temps) if temps else None
+                        temp_low = min(temps) if temps else None
+                        total_precip = sum(precips)
+
+                        # Build summary
+                        summary_parts = []
+                        if temp_high and temp_low:
+                            summary_parts.append(f"{temp_low:.1f}-{temp_high:.1f}°C")
+                        if total_precip > 0:
+                            summary_parts.append(f"{total_precip:.1f}mm rain")
+
+                        date_to_day[date_key].weather = PlannerWeather(
+                            temperature_high=temp_high,
+                            temperature_low=temp_low,
+                            precipitation=total_precip,
+                            symbol_code=symbol,
+                            summary=", ".join(summary_parts) if summary_parts else "No data",
+                        )
+            else:
+                dashboard.weather_error = "Unable to fetch weather data"
+
+        except Exception as e:
+            logger.error(
+                "Failed to fetch weather for planner",
+                extra={"error": str(e), "location": Config.WEATHER_LOCATION},
+                exc_info=True,
+            )
+            dashboard.weather_error = f"Weather error: {e}"
 
     # Sort tasks by priority (highest first) and events by time
     for day in days:

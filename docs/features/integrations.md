@@ -342,6 +342,97 @@ Dashboard data is cached in SQLite with a 5-minute TTL to improve performance ac
 - E2E tests: [planner.spec.ts](../../web/tests/e2e/planner.spec.ts) - User flows
 - Visual tests: [planner.visual.ts](../../web/tests/visual/planner.visual.ts) - Dashboard snapshots
 
+## Weather Integration (Yr.no)
+
+The planner dashboard includes weather forecast data from Yr.no (Norwegian Meteorological Institute) to provide location-aware planning context.
+
+### Overview
+
+Weather data is automatically fetched and included in the planner dashboard when `WEATHER_LOCATION` is configured. The forecast provides 7-day weather summaries with temperature ranges, precipitation, and weather symbols.
+
+### Configuration
+
+```bash
+# .env
+WEATHER_LOCATION=50.0755,14.4378  # Latitude,longitude for Prague
+WEATHER_CACHE_TTL_SECONDS=21600  # 6 hours (weather doesn't change often)
+WEATHER_API_TIMEOUT=10  # API request timeout in seconds
+APP_VERSION=1.0.0  # For User-Agent header
+CONTACT_EMAIL=admin@example.com  # For User-Agent header (Yr.no requirement)
+```
+
+**Get coordinates**: Use [latlong.net](https://www.latlong.net/) to find coordinates for your location.
+
+### Data Structure
+
+Weather is included in the planner dashboard response for each day:
+
+```json
+{
+  "weather_connected": true,
+  "weather_location": "50.0755,14.4378",
+  "weather_error": null,
+  "days": [
+    {
+      "date": "2024-12-25",
+      "day_name": "Today",
+      "weather": {
+        "temperature_high": 8.5,
+        "temperature_low": 2.1,
+        "precipitation": 3.2,
+        "symbol_code": "rain",
+        "summary": "2.1-8.5°C, 3.2mm rain"
+      },
+      "events": [...],
+      "tasks": [...]
+    }
+  ]
+}
+```
+
+### Caching
+
+Weather data is cached in SQLite with a 6-hour TTL to minimize API calls and ensure consistent data across uwsgi workers:
+- **Cache table**: `weather_cache` (location → forecast data)
+- **TTL**: 6 hours (configurable via `WEATHER_CACHE_TTL_SECONDS`)
+- **Shared across workers**: Yes (SQLite-based)
+- **Force refresh**: Use `force_refresh=true` parameter on `/api/planner`
+
+### API Terms of Service
+
+Yr.no provides free weather data with these requirements:
+- **User-Agent header**: Must identify your application (configured via `APP_VERSION` and `CONTACT_EMAIL`)
+- **Rate limiting**: Be respectful - cache data appropriately (we use 6-hour cache)
+- **Attribution**: Credit Yr.no when displaying weather data to end users
+- **Terms**: https://api.met.no/doc/TermsOfService
+
+### Key Files
+
+**Backend:**
+- [weather.py](../../src/utils/weather.py) - Weather fetching from Yr.no API
+- [planner_data.py](../../src/utils/planner_data.py) - Weather integration into dashboard
+- [models.py](../../src/db/models.py) - Weather cache operations
+- [config.py](../../src/config.py) - Weather configuration
+
+**Migration:**
+- [0021_add_weather_cache.py](../../migrations/0021_add_weather_cache.py) - Weather cache table
+
+### Testing
+
+- Unit tests: [test_weather.py](../../tests/unit/test_weather.py) - Weather fetching and caching
+
+### Troubleshooting
+
+**No weather data in planner:**
+1. Check `WEATHER_LOCATION` is set in `.env` (format: `lat,lon`)
+2. Check `weather_error` field in `/api/planner` response for error messages
+3. Verify network connectivity to `api.met.no`
+4. Check logs for `"Failed to fetch weather for planner"` messages
+
+**Weather data is stale:**
+- Force refresh: Add `?force_refresh=true` to planner API request
+- Cache is cleared automatically after 6 hours
+
 ## See Also
 
 - [Anonymous Mode](memory-and-context.md#anonymous-mode) - Disables integration tools

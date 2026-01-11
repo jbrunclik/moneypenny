@@ -309,6 +309,19 @@ class Config:
         os.getenv("DASHBOARD_CACHE_TTL_SECONDS", "300")
     )  # 5 minutes
 
+    # Weather Integration (Yr.no)
+    WEATHER_LOCATION: str = os.getenv(
+        "WEATHER_LOCATION", ""
+    )  # Format: "lat,lon" (e.g., "50.0755,14.4378" for Prague)
+    WEATHER_CACHE_TTL_SECONDS: int = int(
+        os.getenv("WEATHER_CACHE_TTL_SECONDS", "21600")
+    )  # 6 hours (weather doesn't change that often)
+    WEATHER_API_TIMEOUT: int = int(os.getenv("WEATHER_API_TIMEOUT", "10"))  # seconds
+    APP_VERSION: str = os.getenv("APP_VERSION", "1.0.0")  # For User-Agent header
+    CONTACT_EMAIL: str = os.getenv(
+        "CONTACT_EMAIL", "admin@example.com"
+    )  # For User-Agent header (Yr.no requirement)
+
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"

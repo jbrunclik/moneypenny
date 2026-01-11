@@ -3,7 +3,6 @@
 This file tracks planned features, improvements, and technical debt.
 
 ## Features
-- [ ] **Weather context for planner** - Fetch weather information from Yr.no and include it in the planner dashboard context for location-aware planning suggestions
 - [ ] **Thinking mode toggle** - Allow enabling Gemini thinking mode with configurable level (minimal/low/medium/high) using long-press UI similar to voice input language selector
 - [ ] Conversation sharing (public links)
 - [ ] Keyboard shortcuts
@@ -11,7 +10,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Planner: Use temp conversation during loading** - Replace `'planner-loading'` placeholder with a real temp conversation ID (e.g., `temp-planner-${timestamp}`). This would allow users to send messages immediately while planner loads, leveraging the existing temp conversation persistence flow instead of blocking with a toast message.
 
 ## Code Quality
-- [ ] **Split tools.py into separate modules** - The `src/agent/tools.py` file is over 2800 lines and growing. Split into separate modules per integration: `tools/todoist.py`, `tools/google_calendar.py`, `tools/web_search.py`, `tools/code_execution.py`, `tools/image_generation.py`, `tools/file_retrieval.py`. Keep a central `tools/__init__.py` that exports the combined `TOOLS` list.
 - [ ] **Refactor MIME type logic** - Replace manual `_get_mime_type` and maps in `src/agent/tools.py` with Python's standard `mimetypes` library.
 - [ ] Consider async Flask (quart) for better concurrency
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing. **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.

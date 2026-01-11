@@ -1364,6 +1364,112 @@ class Database:
             conn.commit()
             return cursor.rowcount
 
+    # ============================================================================
+    # Weather Cache Operations
+    # ============================================================================
+
+    def get_cached_weather(self, location: str) -> dict[str, Any] | None:
+        """Get cached weather forecast if not expired.
+
+        Args:
+            location: Location string (e.g., "Prague" or "lat,lon")
+
+        Returns:
+            Weather forecast data dict if cached and not expired, None otherwise
+        """
+        import json
+        from datetime import datetime
+
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """
+                SELECT forecast_data, expires_at
+                FROM weather_cache
+                WHERE location = ?
+                """,
+                (location,),
+            ).fetchone()
+
+            if not row:
+                return None
+
+            # Check if expired
+            expires_at = datetime.fromisoformat(row[1])
+            if datetime.utcnow() >= expires_at:
+                # Expired - delete and return None
+                self.delete_cached_weather(location)
+                return None
+
+            # Deserialize and return
+            result: dict[str, Any] = json.loads(row[0])
+            return result
+
+    def cache_weather(
+        self,
+        location: str,
+        forecast_data: dict[str, Any],
+        ttl_seconds: int = 21600,
+    ) -> None:
+        """Cache weather forecast data with TTL.
+
+        Args:
+            location: Location string (e.g., "Prague" or "lat,lon")
+            forecast_data: Weather forecast data dict to cache
+            ttl_seconds: Time-to-live in seconds (default: 21600 = 6 hours)
+        """
+        import json
+        from datetime import datetime, timedelta
+
+        now = datetime.utcnow()
+        expires_at = now + timedelta(seconds=ttl_seconds)
+
+        # Serialize forecast
+        forecast_json = json.dumps(forecast_data)
+
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """
+                INSERT OR REPLACE INTO weather_cache
+                (location, forecast_data, cached_at, expires_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (location, forecast_json, now.isoformat(), expires_at.isoformat()),
+            )
+            conn.commit()
+
+    def delete_cached_weather(self, location: str) -> None:
+        """Delete cached weather for force refresh.
+
+        Args:
+            location: Location string
+        """
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "DELETE FROM weather_cache WHERE location = ?",
+                (location,),
+            )
+            conn.commit()
+
+    def cleanup_expired_weather_cache(self) -> int:
+        """Delete all expired weather cache entries.
+
+        Returns:
+            Number of entries deleted
+        """
+        from datetime import datetime
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "DELETE FROM weather_cache WHERE expires_at < ?",
+                (datetime.utcnow().isoformat(),),
+            )
+            conn.commit()
+            return cursor.rowcount
+
     def delete_message(self, message_id: str, user_id: str) -> bool:
         """Delete a message by ID.
 
