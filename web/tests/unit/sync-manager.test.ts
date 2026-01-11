@@ -10,6 +10,9 @@ vi.mock('@/api/client', () => ({
   conversations: {
     sync: vi.fn(),
   },
+  planner: {
+    sync: vi.fn(),
+  },
 }));
 
 // Mock the toast component
@@ -24,7 +27,7 @@ vi.mock('@/components/Toast', () => ({
 
 // Import after mocks are set up
 import { SyncManager, type SyncManagerCallbacks } from '@/sync/SyncManager';
-import { conversations as conversationsApi } from '@/api/client';
+import { conversations as conversationsApi, planner as plannerApi } from '@/api/client';
 import { toast } from '@/components/Toast';
 
 // Helper to reset store state
@@ -100,6 +103,7 @@ describe('SyncManager', () => {
   let syncManager: SyncManager;
   let callbacks: SyncManagerCallbacks;
   const mockSync = conversationsApi.sync as ReturnType<typeof vi.fn>;
+  const mockPlannerSync = plannerApi.sync as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     resetStore();
@@ -115,6 +119,11 @@ describe('SyncManager', () => {
 
     // Default mock implementation
     mockSync.mockResolvedValue(createSyncResponse([]));
+    // Planner sync returns null by default (no planner conversation exists)
+    mockPlannerSync.mockResolvedValue({
+      conversation: null,
+      server_time: new Date().toISOString(),
+    });
   });
 
   afterEach(() => {

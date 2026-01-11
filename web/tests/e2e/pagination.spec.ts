@@ -173,7 +173,8 @@ test.describe('Conversations Pagination - Load More', () => {
 
   test('sidebar scroll position is maintained after load more', async ({ page }) => {
     // Seed conversations directly into database for faster test setup
-    const numConversations = 10;
+    // Need enough conversations to make the list scrollable (at least 20)
+    const numConversations = 25;
     const conversations = Array.from({ length: numConversations }, (_, i) => ({
       title: `Conversation ${i + 1}`,
       messages: [
@@ -197,10 +198,13 @@ test.describe('Conversations Pagination - Load More', () => {
     // Get the sidebar/conversations list
     const convList = page.locator('.conversations-list');
 
-    // Scroll down a bit
+    // Wait for element to be scrollable and scroll down a bit
     await convList.evaluate((el) => {
       el.scrollTop = 100;
     });
+
+    // Wait a moment for scroll to settle
+    await page.waitForTimeout(100);
 
     // Record scroll position
     const scrollBefore = await convList.evaluate((el) => el.scrollTop);

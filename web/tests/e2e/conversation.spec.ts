@@ -878,10 +878,10 @@ test.describe('Scroll to bottom behavior', () => {
    */
   test('race condition: image loads quickly while user scrolls up', async ({ page }) => {
 
-    // Create a conversation with an image
+    // Create a conversation with enough messages to make it scrollable
     await page.click('#new-chat-btn');
-    for (let i = 0; i < 3; i++) {
-      await page.fill('#message-input', `Message ${i + 1}`);
+    for (let i = 0; i < 10; i++) {
+      await page.fill('#message-input', `Message ${i + 1} - adding more content to ensure the conversation is scrollable`);
       await page.click('#send-btn');
       await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
     }
@@ -902,7 +902,7 @@ test.describe('Scroll to bottom behavior', () => {
     await page.waitForSelector('.file-preview', { timeout: 5000 });
     await page.fill('#message-input', 'Message with image');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=3', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant >> nth=10', { timeout: 10000 });
 
     const messagesContainer = page.locator('#messages');
 
