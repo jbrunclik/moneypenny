@@ -1,0 +1,220 @@
+# Chat and Streaming
+
+This document covers the chat system, streaming responses, thinking indicators, web search sources, and tool usage.
+
+## Gemini API Integration
+
+### Models
+- `gemini-3-pro-preview` - Complex tasks, advanced reasoning
+- `gemini-3-flash-preview` - Fast, cheap (default)
+
+### Response Format
+Gemini may return content in various formats:
+- String: `"response text"`
+- List: `[{'type': 'text', 'text': '...', 'extras': {...}}]`
+- Dict: `{'type': 'text', 'text': '...'}`
+
+Use `extract_text_content()` in [chat_agent.py](../../src/agent/chat_agent.py) to normalize.
+
+### Parameters
+- `thinking_level`: Controls reasoning (minimal/low/medium/high)
+- Temperature: Keep at 1.0 (Gemini 3 default)
+
+## Streaming Architecture
+
+### Stop Streaming
+
+Users can abort an ongoing streaming response by clicking the stop button.
+
+**How it works:**
+
+1. **Button transformation**: When streaming starts for the current conversation, the send button transforms to a stop button (red square icon with `.btn-stop` class)
+2. **State tracking**: `streamingConversationId` in Zustand store tracks which conversation is streaming
+3. **Abort mechanism**: Clicking stop calls `abortController.abort()` on the streaming fetch request
+4. **Stream cancellation**: The API client catches `AbortError` and re-throws it so the caller can handle cleanup
+5. **UI cleanup**: The streaming assistant message element is removed from the DOM immediately
+6. **User feedback**: A toast notification confirms "Response stopped."
+
+**Note on partial messages**: When the user aborts, the backend cleanup thread may still save a partial message to the database. These partial messages are intentionally NOT deleted automatically - users can clean them up later using the message delete button. This simpler approach avoids complex timing issues with backend cleanup threads and race conditions.
+
+**Key files:**
+- [store.ts](../../web/src/state/store.ts) - `streamingConversationId` state
+- [client.ts](../../web/src/api/client.ts) - Abort handling
+- [MessageInput.ts](../../web/src/components/MessageInput.ts) - Button transformation
+- [main.ts](../../web/src/main.ts) - Abort flow
+
+**Race conditions handled:**
+
+| Condition | Handling |
+|-----------|----------|
+| Stop clicked while done event processing | Done event clears streaming state; stop button disappears before click possible |
+| User switches conversations during streaming | Stop button only shows for current streaming conversation |
+| Rapid stop/send clicks | Button state controlled by store subscription; mode check in click handler |
+| Stream naturally completes | `setStreamingConversation(null)` in finally block reverts button |
+| Multiple conversations streaming in background | Only `streamingConversationId === currentConversation.id` shows stop button |
+
+### Streaming Graceful Degradation
+
+The streaming implementation handles server restarts gracefully:
+- LangGraph uses a `ThreadPoolExecutor` internally for graph execution
+- During server restart, the executor shuts down while streaming may still be in progress
+- This raises `RuntimeError: cannot schedule new futures after shutdown`
+- The `stream_chat_events()` method catches this specific error and continues with accumulated content
+- The final event is still yielded with whatever content was accumulated before the interruption
+- This allows partial responses to be saved to the database even during restarts
+
+## Thinking Indicator
+
+During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.
+
+### Design Principles
+
+- **Streaming only**: The indicator only appears during streaming mode, not when loading historical messages
+- **No persistence**: Thinking state and tool activity are NOT stored in the database
+- **Singleton thinking**: There's exactly ONE thinking item that accumulates all thinking text, updated in real-time
+- **Live updates**: Thinking text is visible and updates during streaming, not just in finalized view
+- **Full trace**: Shows thinking (singleton) + all tool events with details
+- **Rich details**: Shows full thinking text, search queries, URLs, and image prompts
+- **Auto-collapse**: When the message finishes, the indicator collapses into a "Show details" toggle
+
+### How it works
+
+1. **Backend streaming**: `stream_chat_events()` in [chat_agent.py](../../src/agent/chat_agent.py) yields structured events:
+   - `{"type": "thinking", "text": "..."}` - Accumulated thinking text (if `include_thoughts=True`)
+   - `{"type": "tool_start", "tool": "web_search", "detail": "search query"}` - Tool starting with details
+   - `{"type": "tool_end", "tool": "web_search"}` - When a tool finishes
+   - `{"type": "token", "text": "..."}` - Regular content tokens
+   - `{"type": "final", ...}` - Final result with metadata
+
+2. **SSE forwarding**: [routes.py](../../src/api/routes.py) forwards these events via Server-Sent Events
+
+3. **Frontend handling**: [main.ts](../../web/src/main.ts) parses events and calls:
+   - `updateStreamingThinking(text)` for thinking events (with full accumulated text)
+   - `updateStreamingToolStart(tool, detail)` for tool_start events (with optional detail)
+   - `updateStreamingToolEnd()` for tool_end events
+
+4. **UI rendering**: [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) manages the indicator:
+   - Maintains a trace of all thinking/tool events with details
+   - Shows animated "Thinking" with brain icon and dots during thinking
+   - Shows tool icons, labels, and details (query/URL/prompt) with animated dots during execution
+   - Shows checkmark when tools complete
+   - Collapses into an expandable "Show details" toggle when message finishes
+
+### Tool labels and details
+
+The indicator uses user-friendly labels and shows relevant details for tools:
+- `web_search` → "Searching the web" + search query → "Searched" + query (finalized)
+- `fetch_url` → "Fetching page" + URL → "Fetched" + URL (finalized)
+- `generate_image` → "Generating image" + prompt → "Generated image" + prompt (finalized)
+- `execute_code` → "Running code" + first line of code → "Ran code" (finalized)
+
+### Trace State Management
+
+The thinking state tracks a full trace of events:
+
+```typescript
+interface ThinkingTraceItem {
+  type: 'thinking' | 'tool';
+  label: string;
+  detail?: string;  // thinking text, search query, URL, or prompt
+  completed: boolean;
+}
+```
+
+**Singleton thinking behavior:**
+- The trace is initialized with ONE thinking item at index 0
+- All thinking updates go to this same item (detail gets replaced, not appended)
+- When a tool starts, thinking is marked `completed: true` but remains in place
+- If more thinking comes after a tool, the same thinking item is updated and marked `completed: false`
+- This ensures there's always exactly one thinking item showing accumulated/latest thinking text
+
+**Example trace progression:**
+1. Initial: `[{type: 'thinking', completed: false}]`
+2. Thinking arrives: `[{type: 'thinking', detail: "Analyzing...", completed: false}]`
+3. Tool starts: `[{type: 'thinking', detail: "Analyzing...", completed: true}, {type: 'tool', label: 'web_search', ...}]`
+4. More thinking: `[{type: 'thinking', detail: "New analysis...", completed: false}, {type: 'tool', ...}]`
+
+### Display States
+
+- **Streaming**: Shows full trace with active item at the bottom (for auto-scroll). Active items show animated dots
+- **Finalized**: Collapses into toggle button. Clicking expands to show full trace with thinking first, then tools
+
+### Trace Ordering
+
+During streaming, thinking stays at the end of the trace (for auto-scroll). Tools are inserted before thinking. When finalized, trace is reordered: thinking first, then tools (logical reading order).
+
+### Markdown Support
+
+Thinking text is rendered with markdown formatting for better readability (lists, code blocks, emphasis, etc.).
+
+### Gemini Thinking Support
+
+The Gemini API supports a `include_thoughts=True` parameter that returns thinking content in the response. When enabled:
+- `ChatGoogleGenerativeAI` is initialized with `include_thoughts=True`
+- Response chunks may contain parts with `{'type': 'thinking', 'thinking': "..."}` format
+- `extract_thinking_and_text()` separates thinking content from regular text
+- Thinking text is accumulated across chunks and emitted as updates
+- The backend yields `{"type": "thinking", "text": accumulated_text}` events during streaming
+
+### Key Files
+
+- [chat_agent.py](../../src/agent/chat_agent.py) - `stream_chat_events()`, `extract_thinking_and_text()`
+- [routes.py](../../src/api/routes.py) - SSE streaming with thinking/tool events
+- [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
+- [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
+- [Messages.ts](../../web/src/components/Messages.ts) - Streaming state management
+- [main.ts](../../web/src/main.ts) - Event handling
+- [thinking.css](../../web/src/styles/components/thinking.css) - Styles and animations
+
+### Testing
+
+- Backend unit tests: `TestExtractThinkingAndText` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
+- Frontend unit tests: [thinking-indicator.test.ts](../../web/tests/unit/thinking-indicator.test.ts)
+- E2E tests: "Chat - Thinking Indicator" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
+
+## Web Search Sources
+
+When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are displayed to the user.
+
+### How it works
+
+1. **Tool returns JSON**: `web_search` returns `{"query": "...", "results": [{title, url, snippet}, ...]}` instead of plain text
+2. **LLM appends metadata**: System prompt instructs LLM to append `<!-- METADATA:\n{"sources": [...]}\n-->` at the end of responses when web tools are used
+3. **Backend extracts sources**: `extract_metadata_from_response()` in [chat_agent.py](../../src/agent/chat_agent.py) parses and strips the metadata block. It handles both HTML comment format (preferred) and plain JSON format (fallback), removing both if the LLM outputs metadata in both formats
+4. **Streaming filters metadata**: During streaming, the HTML comment metadata marker is detected and not sent to the frontend. Any plain JSON metadata that slips through is cleaned in the final buffer check
+5. **Sources stored in DB**: Messages table has a `sources` column (JSON array)
+6. **Sources in API response**: Both batch and streaming responses include `sources` array
+7. **UI shows sources button**: A globe icon appears in message actions when sources exist, opening a popup with clickable links
+
+### Key Files
+
+- [tools.py](../../src/agent/tools.py) - `web_search()` returns structured JSON
+- [chat_agent.py](../../src/agent/chat_agent.py) - `TOOLS_SYSTEM_PROMPT`, `extract_metadata_from_response()`, streaming filter
+- [models.py](../../src/db/models.py) - `Message.sources` field, `add_message()` with sources param
+- [routes.py](../../src/api/routes.py) - Sources included in batch/stream responses
+- [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
+- [Messages.ts](../../web/src/components/Messages.ts) - Sources button rendering
+
+### Metadata Format
+
+```html
+<!-- METADATA:
+{"sources": [{"title": "Source Title", "url": "https://..."}]}
+-->
+```
+
+The metadata block is always at the end of the LLM response and is stripped before storing/displaying content. Sometimes the LLM outputs plain JSON metadata (without HTML comments) instead of or in addition to the HTML comment format. The extraction function handles both formats, preferring HTML comment format but removing both if present.
+
+## Force Tools System
+
+The `forceTools` state in Zustand allows forcing specific tools to be used. Currently only `web_search` is exposed via UI, but the system supports any tool name. The force tools instruction is added to the system prompt when tools are specified.
+
+- Frontend: `store.forceTools: string[]` with `toggleForceTool(tool)` and `clearForceTools()`
+- Backend: `force_tools` parameter in `/chat/batch` and `/chat/stream` endpoints
+- Agent: `get_force_tools_prompt()` in [chat_agent.py](../../src/agent/chat_agent.py)
+
+## See Also
+
+- [File Handling](file-handling.md) - Image generation, code execution, file uploads
+- [UI Features](ui-features.md) - Input toolbar, message sending behavior
+- [Testing](../testing.md) - E2E tests for chat functionality

@@ -1,0 +1,116 @@
+# AI Chatbot Documentation
+
+This directory contains detailed documentation for the AI Chatbot project, organized by feature area and concern.
+
+## Documentation Structure
+
+### Features (`features/`)
+Feature-specific documentation covering user-facing functionality:
+
+- **[chat-and-streaming.md](features/chat-and-streaming.md)** - Gemini API integration, streaming responses, thinking indicators, web search sources, tool forcing
+- **[file-handling.md](features/file-handling.md)** - Image generation (including image-to-image editing), code execution sandbox, file uploads, clipboard paste, upload progress, background thumbnail generation
+- **[voice-and-tts.md](features/voice-and-tts.md)** - Voice input (speech-to-text), text-to-speech
+- **[search.md](features/search.md)** - Full-text search with SQLite FTS5, O(1) message navigation
+- **[sync.md](features/sync.md)** - Real-time synchronization across devices/tabs with timestamp-based polling
+- **[integrations.md](features/integrations.md)** - Todoist and Google Calendar OAuth integrations with full API coverage
+- **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
+- **[cost-tracking.md](features/cost-tracking.md)** - Token usage tracking, image generation costs, currency rates, monthly aggregation
+- **[ui-features.md](features/ui-features.md)** - Input toolbar, conversation management, deep linking, version banner, color scheme, clipboard operations
+
+### Architecture (`architecture/`)
+System design and architectural decisions:
+
+- **[authentication.md](architecture/authentication.md)** - Google Sign-In, JWT token handling, token refresh, @require_auth decorator
+- **[database.md](architecture/database.md)** - Blob storage, connection pooling, indexes, performance monitoring, vacuum, backup, best practices
+- **[api-design.md](architecture/api-design.md)** - OpenAPI documentation, rate limiting, request validation (including magic bytes), comprehensive error handling
+
+### UI (`ui/`)
+User interface patterns and implementations:
+
+- **[scroll-behavior.md](ui/scroll-behavior.md)** - Complex scroll scenarios, programmatic scroll wrapper, streaming auto-scroll, race condition fixes, cursor-based pagination
+- **[mobile-and-pwa.md](ui/mobile-and-pwa.md)** - iOS Safari gotchas (9 documented issues), touch gestures, PWA viewport fixes
+- **[components.md](ui/components.md)** - CSS architecture, design system variables, component patterns, popup escape handler
+
+### General
+
+- **[testing.md](testing.md)** - Test structure (backend and frontend), patterns, E2E server with parallel execution, visual regression tests
+- **[logging.md](logging.md)** - Structured logging (backend JSON format, frontend logger utility), request IDs, logging guidelines
+
+## Quick Links
+
+### Most Referenced
+
+- [Chat and Streaming](features/chat-and-streaming.md) - Core chat functionality
+- [File Handling](features/file-handling.md) - Working with files and images
+- [Database](architecture/database.md) - Database architecture and best practices
+- [API Design](architecture/api-design.md) - API patterns and validation
+- [Testing](testing.md) - How to write and run tests
+
+### For New Developers
+
+Start here to understand the system:
+1. Read the main [../CLAUDE.md](../CLAUDE.md) for quick reference and development workflow
+2. Explore [Architecture](architecture/) docs to understand system design
+3. Review [Features](features/) docs for specific functionality
+4. Check [Testing](testing.md) before making changes
+
+### For Feature Development
+
+When working on a specific area:
+1. Read the relevant feature doc first
+2. Check related architecture docs for design patterns
+3. Review testing patterns and add tests
+4. Follow code style guidelines in ../CLAUDE.md
+
+### For Debugging
+
+Common debugging scenarios:
+- **Scroll issues**: See [Scroll Behavior](ui/scroll-behavior.md) - 25+ documented scenarios
+- **Mobile/PWA issues**: See [Mobile and PWA](ui/mobile-and-pwa.md) - iOS Safari gotchas
+- **Authentication errors**: See [Authentication](architecture/authentication.md) - Error codes and handling
+- **Database performance**: See [Database](architecture/database.md) - Slow query logging, indexes
+- **API errors**: See [API Design](architecture/api-design.md) - Error handling patterns
+
+## Documentation Guidelines
+
+See the "Documentation Maintenance" section in [../CLAUDE.md](../CLAUDE.md) for complete guidelines on:
+- When to update which docs
+- How to structure documentation
+- Style guide and formatting
+- Adding new features checklist
+
+### Quick Rules
+
+1. **Keep it DRY**: Don't duplicate content between files. Use links to reference related information.
+2. **Use relative links**: Link to other docs using relative paths (e.g., `[Database](architecture/database.md)`)
+3. **Add "See Also" sections**: Help readers find related content
+4. **Include code examples**: Show don't tell - provide concrete examples
+5. **Update CLAUDE.md**: Add pointer to detailed doc if it's a common task
+
+## Refactoring Completed
+
+The documentation has been successfully refactored from a monolithic 3,921-line CLAUDE.md into:
+
+- **1 streamlined reference** (CLAUDE.md - 390 lines) with quick reference and pointers
+  - **Note**: `CLAUDE.md` is a symlink to `AGENTS.md` (the canonical file)
+  - Both names point to the same content for compatibility
+- **19 focused documentation files** (~60KB total) covering all topics in depth
+- **Organized structure** with clear categorization (features, architecture, UI, general)
+- **Comprehensive coverage** with 25+ scroll scenarios, 9 iOS gotchas, full API patterns, etc.
+
+### Benefits
+
+✅ **Faster**: Smaller system prompt means faster and cheaper AI interactions
+✅ **Discoverable**: Clear organization makes information easy to find
+✅ **Maintainable**: Focused files are easier to update than one giant file
+✅ **Comprehensive**: More detailed coverage with room to expand
+✅ **Accessible**: Claude can read specific docs when needed without loading everything
+
+## Contributing
+
+When adding new features:
+1. Update or create the appropriate documentation file in the relevant directory
+2. Add a link to it in this README
+3. Add a pointer from [../CLAUDE.md](../CLAUDE.md) if it's a common task
+4. Ensure all internal links work correctly
+5. Follow the documentation style guide in CLAUDE.md
