@@ -70,6 +70,57 @@ Users can paste screenshots directly from the clipboard into the message input (
 - Unit tests: `handlePaste` describe block in [message-input.test.ts](../../web/tests/unit/message-input.test.ts)
 - E2E tests: "Chat - Clipboard Paste" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
 
+## URL Detection and Link Handling
+
+The app automatically detects URLs in messages and converts them to clickable links. All links (both auto-detected and markdown links from LLM responses) open in new tabs with security attributes.
+
+### Auto-Linkification
+
+**User messages** are scanned for URLs and automatically converted to clickable links.
+
+**Supported patterns:**
+- `http://` and `https://` URLs
+- `www.` prefixed URLs (automatically prepended with `https://`)
+
+**Example:**
+```
+User types: "Check out https://example.com and www.test.org"
+Result: Both URLs become clickable links
+```
+
+### Link Security
+
+All links include security attributes:
+- `target="_blank"` - Opens in new tab
+- `rel="noopener noreferrer"` - Prevents security vulnerabilities:
+  - `noopener` - New tab can't access `window.opener` (prevents tabnabbing)
+  - `noreferrer` - Doesn't send referrer header (privacy)
+
+### Implementation
+
+**User messages:**
+- Plain text URLs are detected using regex pattern in [linkify.ts](../../web/src/utils/linkify.ts)
+- `linkifyText()` converts URLs to anchor tags after HTML escaping
+- Applied in [Messages.ts](../../web/src/components/Messages.ts) when rendering user messages
+
+**Assistant messages:**
+- Markdown links are rendered by the `marked` library
+- Custom link renderer in [markdown.ts](../../web/src/utils/markdown.ts) adds security attributes
+- Works for all markdown link formats: `[text](url)`, `<url>`, etc.
+
+### Key Files
+
+- [linkify.ts](../../web/src/utils/linkify.ts) - URL detection and auto-linking utility
+- [markdown.ts](../../web/src/utils/markdown.ts) - Custom link renderer for markdown
+- [Messages.ts](../../web/src/components/Messages.ts) - Integration into message rendering
+
+### Testing
+
+- Unit tests: [linkify.test.ts](../../web/tests/unit/linkify.test.ts) - URL detection patterns, edge cases
+- E2E tests: [links.spec.ts](../../web/tests/e2e/links.spec.ts) - Link behavior in user and assistant messages, security attributes
+
+---
+
 ## Copy to Clipboard
 
 The app provides copy-to-clipboard functionality at two levels:

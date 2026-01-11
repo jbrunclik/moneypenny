@@ -61,11 +61,19 @@ hljs.registerLanguage('kt', kotlin);
 // Copy button HTML for inline copy functionality
 const copyButtonHtml = `<button class="inline-copy-btn" title="Copy">${COPY_ICON}</button>`;
 
-// Configure marked with custom renderer for tables and code blocks
+// Configure marked with custom renderer for tables, code blocks, and links
 marked.use({
   breaks: true,
   gfm: true,
   renderer: {
+    // Open all links in new tab with security attributes
+    link(token): string {
+      const href = token.href;
+      const title = token.title ? ` title="${escapeHtml(token.title)}"` : '';
+      const text = this.parser.parseInline(token.tokens);
+      return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"${title}>${text}</a>`;
+    },
+
     // Wrap tables in container with copy button
     table(token): string {
       // Build table header

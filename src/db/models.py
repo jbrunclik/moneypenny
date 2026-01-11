@@ -152,7 +152,7 @@ def parse_cursor(cursor: str) -> tuple[str, str]:
 # ============================================================================
 
 
-def should_reset_planner(user: "User") -> bool:
+def should_reset_planner(user: "User") -> bool:  # noqa: UP037
     """Check if the planner should be automatically reset.
 
     The planner resets daily at 4am. This function checks if the last reset

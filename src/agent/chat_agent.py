@@ -69,6 +69,12 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Contextvar to hold the current planner dashboard data
+# This allows the refresh_planner_dashboard tool to update the context mid-conversation
+_planner_dashboard_context: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "_planner_dashboard_context", default=None
+)
+
 # Tool metadata for display in the UI
 # Maps tool function name to display information
 # icon: key used by frontend to look up SVG icon (search, link, sparkles, code, checklist)
@@ -98,6 +104,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label": "Managing tasks",
         "label_past": "Managed tasks",
         "icon": "checklist",
+    },
+    "refresh_planner_dashboard": {
+        "label": "Refreshing planner",
+        "label_past": "Refreshed planner",
+        "icon": "refresh",
     },
 }
 
@@ -1093,9 +1104,13 @@ def get_system_prompt(
     # Add planner-specific prompt if in planning mode
     if is_planning:
         prompt += PLANNER_SYSTEM_PROMPT
-        # Add dashboard context if provided
-        if dashboard_data:
-            prompt += get_dashboard_context_prompt(dashboard_data)
+        # Check for updated dashboard context from refresh_planner_dashboard tool
+        # If the tool was called mid-conversation, use the refreshed data
+        refreshed_dashboard = _planner_dashboard_context.get()
+        active_dashboard = refreshed_dashboard if refreshed_dashboard else dashboard_data
+        # Add dashboard context if available
+        if active_dashboard:
+            prompt += get_dashboard_context_prompt(active_dashboard)
 
     # Add custom instructions if provided
     if custom_instructions and custom_instructions.strip():
@@ -1597,13 +1612,15 @@ class ChatAgent:
         with_tools: bool = True,
         include_thoughts: bool = False,
         anonymous_mode: bool = False,
+        is_planning: bool = False,
     ) -> None:
         self.model_name = model_name
         self.with_tools = with_tools
         self.include_thoughts = include_thoughts
         self.anonymous_mode = anonymous_mode
-        # Get filtered tools based on anonymous mode
-        tools = get_tools_for_request(anonymous_mode)
+        self.is_planning = is_planning
+        # Get filtered tools based on anonymous mode and planning mode
+        tools = get_tools_for_request(anonymous_mode, is_planning)
         logger.debug(
             "Creating ChatAgent",
             extra={
@@ -1611,6 +1628,7 @@ class ChatAgent:
                 "with_tools": with_tools,
                 "include_thoughts": include_thoughts,
                 "anonymous_mode": anonymous_mode,
+                "is_planning": is_planning,
                 "tool_names": [t.name for t in tools],
             },
         )

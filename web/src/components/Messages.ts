@@ -1,5 +1,6 @@
 import { escapeHtml, getElementById, scrollToBottom, isScrolledToBottom, clearElement } from '../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../utils/markdown';
+import { linkifyText } from '../utils/linkify';
 import {
   observeThumbnail,
   markProgrammaticScrollStart,
@@ -488,7 +489,10 @@ export function addMessageToUI(
   } else {
     // User: text first, then files inside the bubble
     if (message.content) {
-      content.innerHTML = `<p>${escapeHtml(message.content).replace(/\n/g, '<br>')}</p>`;
+      // Escape HTML, replace newlines, then linkify URLs
+      const escapedContent = escapeHtml(message.content).replace(/\n/g, '<br>');
+      const linkedContent = linkifyText(escapedContent);
+      content.innerHTML = `<p>${linkedContent}</p>`;
     }
     if (message.files && message.files.length > 0) {
       const filesContainer = renderMessageFiles(message.files, message.id);

@@ -211,6 +211,137 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 - OAuth callbacks share the same pattern: store `state` in sessionStorage, validate on return, show toasts
 - Thinking indicator metadata includes a `calendar` icon so users can see when the LLM is scheduling/rescheduling
 
+---
+
+## Planner Mode
+
+The Planner is a dedicated productivity space that combines Todoist tasks and Google Calendar events into a unified 7-day dashboard. The LLM acts as an executive strategist, providing proactive analysis and recommendations.
+
+### Overview
+
+1. **Daily Planning Session**: Ephemeral conversation that resets at 4am daily
+2. **Dashboard Context**: LLM receives structured JSON of upcoming 7 days with tasks and events
+3. **Proactive Analysis**: On first load, LLM analyzes schedule and suggests priorities
+4. **Strategic Time-Blocking**: LLM helps allocate focus time and balance commitments
+
+### Planner-Specific Tool: refresh_planner_dashboard
+
+In planner mode, the LLM has access to an additional tool that ensures it always has current information after making changes.
+
+**Purpose**: After modifying tasks (via `todoist` tool) or calendar events (via `google_calendar` tool), the LLM can refresh the dashboard data to see the updated state of the user's schedule.
+
+**When to use**:
+- After adding, updating, completing, or deleting tasks
+- After creating, updating, or deleting calendar events
+- When verifying that changes were applied correctly
+- Before providing recommendations based on the current schedule state
+
+**How it works**:
+1. Tool fetches fresh data from Todoist and Google Calendar APIs (bypassing cache)
+2. Updates the in-memory context variable with the new dashboard state
+3. Next time the system prompt is built, it includes the refreshed data
+4. Returns a summary of the refreshed data (event count, task count, overdue tasks)
+
+**Implementation details**:
+- Only available in planner mode (not in regular conversations)
+- Requires at least one integration to be connected (Todoist or Calendar)
+- Uses `_planner_dashboard_context` contextvar to update dashboard mid-conversation
+- System prompt checks contextvar for updated data before using the initial dashboard_data
+
+### Dashboard Data Structure
+
+The dashboard data is injected into the system prompt as JSON with this structure:
+
+```json
+{
+  "integrations": {
+    "todoist_connected": true,
+    "calendar_connected": true,
+    "todoist_error": null,
+    "calendar_error": null
+  },
+  "overdue_tasks": [
+    {
+      "content": "Task title",
+      "priority": 4,
+      "project_name": "Work",
+      "due_string": "yesterday",
+      "due_date": "2024-12-24",
+      "is_recurring": false,
+      "labels": ["urgent"]
+    }
+  ],
+  "days": [
+    {
+      "day_name": "Today",
+      "date": "2024-12-25",
+      "events": [
+        {
+          "summary": "Team standup",
+          "start": "2024-12-25T10:00:00",
+          "end": "2024-12-25T10:30:00",
+          "is_all_day": false,
+          "location": "Zoom",
+          "attendees": [...]
+        }
+      ],
+      "tasks": [
+        {
+          "content": "Review PR #123",
+          "priority": 3,
+          "project_name": "Development",
+          "section_name": "In Progress",
+          "due_date": "2024-12-25",
+          "is_recurring": false,
+          "labels": ["code-review"]
+        }
+      ]
+    },
+    // ... 6 more days
+  ]
+}
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/planner` | GET | Fetch planner dashboard data (7 days) |
+| `/api/planner/conversation` | GET | Get or create planner conversation |
+| `/api/planner/reset` | POST | Manually reset planner conversation |
+| `/api/planner/sync` | GET | Get planner state for real-time sync |
+
+**Query parameters**:
+- `force_refresh=true` - Bypass cache and fetch fresh data (used by refresh button)
+
+### Caching
+
+Dashboard data is cached in SQLite with a 5-minute TTL to improve performance across uwsgi workers:
+- Cache key: `planner_dashboard:{user_id}`
+- TTL: 5 minutes (configurable via `DASHBOARD_CACHE_TTL_SECONDS`)
+- Invalidation: Manual reset or `force_refresh=true` parameter
+- Bypass: `refresh_planner_dashboard` tool always fetches fresh data
+
+### Key Files
+
+**Backend:**
+- [planner_data.py](../../src/utils/planner_data.py) - Dashboard building logic
+- [tools/planner.py](../../src/agent/tools/planner.py) - refresh_planner_dashboard tool
+- [routes.py](../../src/api/routes.py) - Planner API endpoints
+- [chat_agent.py](../../src/agent/chat_agent.py) - PLANNER_SYSTEM_PROMPT and dashboard context injection
+- [models.py](../../src/db/models.py) - Planner conversation management and caching
+
+**Frontend:**
+- [PlannerView.ts](../../web/src/components/PlannerView.ts) - Planner container
+- [PlannerDashboard.ts](../../web/src/components/PlannerDashboard.ts) - Dashboard rendering
+- [planner.css](../../web/src/styles/components/planner.css) - Planner-specific styles
+
+### Testing
+
+- Unit tests: [test_planner.py](../../tests/unit/test_planner.py) - Dashboard building, tool behavior
+- E2E tests: [planner.spec.ts](../../web/tests/e2e/planner.spec.ts) - User flows
+- Visual tests: [planner.visual.ts](../../web/tests/visual/planner.visual.ts) - Dashboard snapshots
+
 ## See Also
 
 - [Anonymous Mode](memory-and-context.md#anonymous-mode) - Disables integration tools

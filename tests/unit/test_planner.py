@@ -4,9 +4,11 @@ Tests for:
 - should_reset_planner() function in models.py
 - get_dashboard_context_prompt() function in chat_agent.py
 - PlannerDashboard building in planner_data.py
+- refresh_planner_dashboard tool
 """
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from src.agent.chat_agent import get_dashboard_context_prompt, get_system_prompt
 from src.db.models import User, should_reset_planner
@@ -558,3 +560,142 @@ class TestPlannerDataclasses:
         assert dashboard.calendar_connected is False
         assert dashboard.todoist_error is None
         assert dashboard.calendar_error is None
+
+
+class TestRefreshPlannerDashboardTool:
+    """Tests for the refresh_planner_dashboard tool."""
+
+    def test_tool_requires_user_context(self) -> None:
+        """Test that the tool returns an error when no user context is set."""
+        from src.agent.tools.context import set_conversation_context
+        from src.agent.tools.planner import refresh_planner_dashboard
+
+        # Clear any existing context
+        set_conversation_context(None, None)
+
+        # Call the tool without setting user context
+        result = refresh_planner_dashboard.invoke({})
+        assert "Error: Unable to refresh dashboard" in result
+        assert "no active user context" in result
+
+    def test_tool_requires_integrations(self, mocker: Any) -> None:
+        """Test that the tool returns an error when no integrations are connected."""
+        from src.agent.tools.planner import refresh_planner_dashboard
+        from src.db.models import User
+
+        # Mock get_conversation_context to return a user_id
+        mocker.patch(
+            "src.agent.tools.planner.get_conversation_context", return_value=("conv-id", "user-id")
+        )
+
+        # Mock db.get_user_by_id to return a user with no integrations
+        mock_user = User(
+            id="user-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            created_at=datetime.now(),
+            todoist_access_token=None,
+            google_calendar_access_token=None,
+        )
+        mocker.patch("src.agent.tools.planner.db.get_user_by_id", return_value=mock_user)
+
+        # Call the tool
+        result = refresh_planner_dashboard.invoke({})
+        assert "Error: No integrations connected" in result
+
+    def test_tool_refreshes_dashboard_successfully(self, mocker: Any) -> None:
+        """Test that the tool successfully refreshes the dashboard."""
+
+        from src.agent.tools.planner import refresh_planner_dashboard
+        from src.db.models import User
+        from src.utils.planner_data import PlannerDashboard, PlannerDay, PlannerTask
+
+        # Mock get_conversation_context to return a user_id
+        mocker.patch(
+            "src.agent.tools.planner.get_conversation_context", return_value=("conv-id", "user-id")
+        )
+
+        # Mock db.get_user_by_id to return a user with Todoist connected
+        mock_user = User(
+            id="user-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            created_at=datetime.now(),
+            todoist_access_token="fake-token",
+            google_calendar_access_token=None,
+        )
+        mocker.patch("src.agent.tools.planner.db.get_user_by_id", return_value=mock_user)
+
+        # Mock build_planner_dashboard to return test data
+        mock_dashboard = PlannerDashboard(
+            days=[
+                PlannerDay(
+                    date="2024-12-25",
+                    day_name="Today",
+                    tasks=[
+                        PlannerTask(
+                            id="task-1",
+                            content="Test task",
+                            priority=4,
+                        )
+                    ],
+                )
+            ],
+            overdue_tasks=[],
+            todoist_connected=True,
+            calendar_connected=False,
+            server_time="2024-12-25T10:00:00",
+        )
+
+        mocker.patch(
+            "src.agent.tools.planner.build_planner_dashboard",
+            return_value=mock_dashboard,
+        )
+
+        # Call the tool
+        result = refresh_planner_dashboard.invoke({})
+
+        # Check result
+        assert "Dashboard refreshed successfully" in result
+        assert "1 task(s)" in result
+        assert "0 calendar event(s)" in result
+
+        # Note: We can't check the contextvar here because it's set within the tool execution
+        # In real usage, the contextvar will be checked within the same execution context
+
+    def test_tool_handles_errors_gracefully(self, mocker: Any) -> None:
+        """Test that the tool handles API errors gracefully."""
+        from src.agent.tools.planner import refresh_planner_dashboard
+        from src.db.models import User
+
+        # Mock get_conversation_context to return a user_id
+        mocker.patch(
+            "src.agent.tools.planner.get_conversation_context", return_value=("conv-id", "user-id")
+        )
+
+        # Mock db.get_user_by_id to return a user with Todoist connected
+        mock_user = User(
+            id="user-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            created_at=datetime.now(),
+            todoist_access_token="fake-token",
+            google_calendar_access_token=None,
+        )
+        mocker.patch("src.agent.tools.planner.db.get_user_by_id", return_value=mock_user)
+
+        # Mock build_planner_dashboard to raise an exception
+        mocker.patch(
+            "src.agent.tools.planner.build_planner_dashboard",
+            side_effect=Exception("API error"),
+        )
+
+        # Call the tool
+        result = refresh_planner_dashboard.invoke({})
+
+        # Check that error is returned
+        assert "Error refreshing dashboard" in result
+        assert "API error" in result

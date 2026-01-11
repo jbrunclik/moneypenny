@@ -1500,6 +1500,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         if conv.is_planning:
             from dataclasses import asdict
 
+            from src.agent.chat_agent import _planner_dashboard_context
             from src.utils.planner_data import build_planner_dashboard
 
             # Refresh calendar token if needed (expires hourly)
@@ -1513,8 +1514,12 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
                 db=db,
             )
             dashboard_data = asdict(dashboard_obj)
+            # Set initial dashboard context for potential refresh_planner_dashboard tool calls
+            _planner_dashboard_context.set(dashboard_data)
 
-        agent = ChatAgent(model_name=conv.model, anonymous_mode=anonymous_mode)
+        agent = ChatAgent(
+            model_name=conv.model, anonymous_mode=anonymous_mode, is_planning=conv.is_planning
+        )
         raw_response, tool_results, usage_info = agent.chat_batch(
             message_text,
             files,
@@ -1845,6 +1850,7 @@ def chat_stream(
         if conv.is_planning:
             from dataclasses import asdict
 
+            from src.agent.chat_agent import _planner_dashboard_context
             from src.utils.planner_data import build_planner_dashboard
 
             # Refresh calendar token if needed (expires hourly)
@@ -1858,10 +1864,15 @@ def chat_stream(
                 db=db,
             )
             dashboard_data = asdict(dashboard_obj)
+            # Set initial dashboard context for potential refresh_planner_dashboard tool calls
+            _planner_dashboard_context.set(dashboard_data)
 
         # Use stream_chat_events for structured events including thinking/tool status
         agent = ChatAgent(
-            model_name=conv.model, include_thoughts=True, anonymous_mode=anonymous_mode
+            model_name=conv.model,
+            include_thoughts=True,
+            anonymous_mode=anonymous_mode,
+            is_planning=conv.is_planning,
         )
         event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
         # Store user_id for use in nested functions

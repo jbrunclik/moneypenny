@@ -16,6 +16,10 @@ from src.agent.tools.context import (
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
+from src.agent.tools.planner import (
+    is_refresh_planner_dashboard_available,
+    refresh_planner_dashboard,
+)
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
 from src.config import Config
@@ -59,18 +63,26 @@ def get_available_tools() -> list[Any]:
 TOOLS = get_available_tools()
 
 
-def get_tools_for_request(anonymous_mode: bool = False) -> list[Any]:
+def get_tools_for_request(anonymous_mode: bool = False, is_planning: bool = False) -> list[Any]:
     """Get tools for a specific request, optionally excluding integration tools.
 
     Args:
         anonymous_mode: If True, excludes Todoist and Google Calendar tools.
+        is_planning: If True, includes the refresh_planner_dashboard tool.
 
     Returns:
         List of tools to bind to the LLM for this request.
     """
     if anonymous_mode:
-        return [t for t in TOOLS if t.name not in _INTEGRATION_TOOLS]
-    return TOOLS
+        tools = [t for t in TOOLS if t.name not in _INTEGRATION_TOOLS]
+    else:
+        tools = list(TOOLS)
+
+    # Add refresh_planner_dashboard tool only in planner mode
+    if is_planning and is_refresh_planner_dashboard_available():
+        tools.append(refresh_planner_dashboard)
+
+    return tools
 
 
 # Export all public symbols
@@ -83,6 +95,7 @@ __all__ = [
     "retrieve_file",
     "todoist",
     "google_calendar",
+    "refresh_planner_dashboard",
     # Context helpers
     "set_current_message_files",
     "get_current_message_files",
@@ -92,6 +105,7 @@ __all__ = [
     "is_code_sandbox_available",
     "is_todoist_available",
     "is_google_calendar_available",
+    "is_refresh_planner_dashboard_available",
     # Tool lists
     "TOOLS",
     "get_available_tools",
