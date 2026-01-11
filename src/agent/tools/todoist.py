@@ -143,6 +143,11 @@ def _format_task(
     # Parent task ID for subtask hierarchy
     if task.get("parent_id"):
         formatted["parent_id"] = task["parent_id"]
+    # Assignment information
+    if task.get("assignee_id"):
+        formatted["assignee_id"] = task["assignee_id"]
+    if task.get("assigner_id"):
+        formatted["assigner_id"] = task["assigner_id"]
     # Duration/time estimate
     if task.get("duration"):
         duration = task["duration"]
@@ -413,6 +418,32 @@ def _todoist_delete_section(token: str, section_id: str) -> dict[str, Any]:
     }
 
 
+def _todoist_list_collaborators(token: str, project_id: str) -> dict[str, Any]:
+    """List all collaborators for a shared project.
+
+    Returns information about who can be assigned tasks in the project.
+    """
+    collaborators = _todoist_api_request("GET", f"/projects/{project_id}/collaborators", token)
+    if not isinstance(collaborators, list):
+        collaborators = []
+
+    formatted_collaborators = [
+        {
+            "id": c["id"],
+            "name": c["name"],
+            "email": c["email"],
+        }
+        for c in collaborators
+    ]
+
+    return {
+        "action": "list_collaborators",
+        "project_id": project_id,
+        "count": len(formatted_collaborators),
+        "collaborators": formatted_collaborators,
+    }
+
+
 def _todoist_get_task(token: str, task_id: str) -> dict[str, Any]:
     """Get a specific task by ID."""
     task_result = _todoist_api_request("GET", f"/tasks/{task_id}", token)
@@ -429,6 +460,7 @@ def _todoist_add_task(
     due_date: str | None = None,
     priority: int | None = None,
     labels: list[str] | None = None,
+    assignee_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new task."""
     task_data: dict[str, Any] = {"content": content}
@@ -446,6 +478,8 @@ def _todoist_add_task(
         task_data["priority"] = max(1, min(4, priority))
     if labels:
         task_data["labels"] = labels
+    if assignee_id:
+        task_data["assignee_id"] = assignee_id
 
     new_task = _todoist_api_request("POST", "/tasks", token, data=task_data)
     return {"action": "add_task", "success": True, "task": new_task}
@@ -460,6 +494,7 @@ def _todoist_update_task(
     due_date: str | None = None,
     priority: int | None = None,
     labels: list[str] | None = None,
+    assignee_id: str | None = None,
 ) -> dict[str, Any]:
     """Update an existing task."""
     update_data: dict[str, Any] = {}
@@ -475,6 +510,8 @@ def _todoist_update_task(
         update_data["priority"] = max(1, min(4, priority))
     if labels is not None:  # Allow empty list to clear
         update_data["labels"] = labels
+    if assignee_id is not None:  # Allow empty string to unassign
+        update_data["assignee_id"] = assignee_id
 
     if not update_data:
         return {"error": "No fields to update provided"}
@@ -531,6 +568,7 @@ _TODOIST_ACTIONS = {
     "add_section",
     "update_section",
     "delete_section",
+    "list_collaborators",
     "get_task",
     "add_task",
     "update_task",
@@ -552,6 +590,7 @@ def todoist(
     due_date: str | None = None,
     priority: int | None = None,
     labels: list[str] | None = None,
+    assignee_id: str | None = None,
     filter_string: str | None = None,
     project_name: str | None = None,
     parent_project_id: str | None = None,
@@ -569,7 +608,7 @@ def todoist(
     Actions available:
     - "list_tasks": List tasks. Use filter_string for Todoist filter syntax (e.g., "today",
       "overdue", "p1", "tomorrow", "#Work", "@urgent"). Without filter, returns all active tasks.
-      Tasks include section_id and section_name for context.
+      Tasks include section_id and section_name for context, and assignee_id if assigned.
     - "list_projects": List all projects.
     - "get_project": Get a specific project by project_id.
     - "add_project": Create a new project. Requires 'project_name'. Optional: color, view_style ("list" or
@@ -583,12 +622,16 @@ def todoist(
     - "add_section": Create a new section in a project. Requires 'project_id' and 'section_name'.
     - "update_section": Rename an existing section. Requires 'section_id' and new 'section_name'.
     - "delete_section": Delete a section. Requires 'section_id'.
+    - "list_collaborators": List all collaborators for a shared project. Requires 'project_id'.
+      Returns collaborator IDs that can be used with assignee_id when creating/updating tasks.
     - "get_task": Get a specific task by task_id.
     - "add_task": Create a new task. Requires 'content' (task title).
       Optional: description, project_id, section_id, due_string (natural language like "tomorrow at 3pm"),
-      due_date (YYYY-MM-DD), priority (1-4, where 4 is highest), labels (list of label names).
+      due_date (YYYY-MM-DD), priority (1-4, where 4 is highest), labels (list of label names),
+      assignee_id (ID of collaborator to assign task to).
     - "update_task": Update an existing task. Requires 'task_id'.
-      Optional: content, description, due_string, due_date, priority, labels.
+      Optional: content, description, due_string, due_date, priority, labels, assignee_id.
+      Use assignee_id="" (empty string) to unassign a task.
     - "complete_task": Mark a task as completed. Requires 'task_id'.
     - "reopen_task": Reopen a completed task. Requires 'task_id'.
     - "delete_task": Delete a task permanently. Requires 'task_id'.
@@ -616,12 +659,13 @@ def todoist(
         task_id: Task ID for task operations
         content: Task title/content for add_task or update_task
         description: Task description for add_task or update_task
-        project_id: Project context for listing sections, adding sections, or task placement
+        project_id: Project context for listing sections, adding sections, task placement, or listing collaborators
         section_id: Section ID for section operations or task placement
         due_string: Natural language due date (e.g., "tomorrow at 3pm", "next Monday")
         due_date: Due date in YYYY-MM-DD format
         priority: Priority level 1-4 (4 is highest)
         labels: List of label names to apply
+        assignee_id: Collaborator ID to assign task to (use list_collaborators to get IDs). Use empty string to unassign.
         filter_string: Todoist filter syntax for list_tasks
         project_name: Name used when creating or renaming a project
         parent_project_id: Optional parent project when creating/moving a project under another
@@ -731,6 +775,11 @@ def todoist(
                 return json.dumps({"error": "section_id is required for delete_section action"})
             result = _todoist_delete_section(token, section_id)
 
+        elif action == "list_collaborators":
+            if not project_id:
+                return json.dumps({"error": "project_id is required for list_collaborators action"})
+            result = _todoist_list_collaborators(token, project_id)
+
         elif action == "get_task":
             if not task_id:
                 return json.dumps({"error": "task_id is required for get_task action"})
@@ -749,13 +798,22 @@ def todoist(
                 due_date,
                 priority,
                 labels,
+                assignee_id,
             )
 
         elif action == "update_task":
             if not task_id:
                 return json.dumps({"error": "task_id is required for update_task action"})
             result = _todoist_update_task(
-                token, task_id, content, description, due_string, due_date, priority, labels
+                token,
+                task_id,
+                content,
+                description,
+                due_string,
+                due_date,
+                priority,
+                labels,
+                assignee_id,
             )
 
         elif action == "complete_task":

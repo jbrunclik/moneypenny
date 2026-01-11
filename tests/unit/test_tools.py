@@ -1754,6 +1754,134 @@ class TestTodoistTool:
         assert parsed["action"] == "complete_task"
         assert parsed["success"] is True
 
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
+    def test_list_collaborators_success(
+        self, mock_api: MagicMock, mock_get_token: MagicMock
+    ) -> None:
+        """Should successfully list project collaborators."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = [
+            {
+                "id": "user-1",
+                "name": "Alice Smith",
+                "email": "alice@example.com",
+            },
+            {
+                "id": "user-2",
+                "name": "Bob Jones",
+                "email": "bob@example.com",
+            },
+        ]
+
+        result = todoist.invoke(
+            {
+                "action": "list_collaborators",
+                "project_id": "project-123",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert parsed["action"] == "list_collaborators"
+        assert parsed["count"] == 2
+        assert len(parsed["collaborators"]) == 2
+        assert parsed["collaborators"][0]["id"] == "user-1"
+        assert parsed["collaborators"][0]["name"] == "Alice Smith"
+
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
+    def test_add_task_with_assignee(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
+        """Should successfully add a task with assignee."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = {
+            "id": "new-task-1",
+            "content": "New task",
+            "assignee_id": "user-1",
+        }
+
+        result = todoist.invoke(
+            {
+                "action": "add_task",
+                "content": "New task",
+                "assignee_id": "user-1",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert parsed["action"] == "add_task"
+        assert parsed["success"] is True
+        assert parsed["task"]["assignee_id"] == "user-1"
+        # Verify the API was called with assignee_id
+        mock_api.assert_called_once()
+        call_args = mock_api.call_args
+        assert call_args[0][1] == "/tasks"
+        assert call_args[1]["data"]["assignee_id"] == "user-1"
+
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
+    def test_update_task_with_assignee(
+        self, mock_api: MagicMock, mock_get_token: MagicMock
+    ) -> None:
+        """Should successfully update a task's assignee."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = {
+            "id": "task-1",
+            "content": "Existing task",
+            "assignee_id": "user-2",
+        }
+
+        result = todoist.invoke(
+            {
+                "action": "update_task",
+                "task_id": "task-1",
+                "assignee_id": "user-2",
+            }
+        )
+        parsed = json.loads(result)
+
+        assert parsed["action"] == "update_task"
+        assert parsed["success"] is True
+        assert parsed["task"]["assignee_id"] == "user-2"
+        # Verify the API was called with assignee_id
+        mock_api.assert_called_once()
+        call_args = mock_api.call_args
+        assert call_args[0][1] == "/tasks/task-1"
+        assert call_args[1]["data"]["assignee_id"] == "user-2"
+
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
+    def test_list_tasks_includes_assignee_info(
+        self, mock_api: MagicMock, mock_get_token: MagicMock
+    ) -> None:
+        """Should include assignee_id in task list when present."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = [
+            {
+                "id": "task-1",
+                "content": "Assigned task",
+                "project_id": "proj-1",
+                "priority": 1,
+                "assignee_id": "user-1",
+                "assigner_id": "user-2",
+            }
+        ]
+
+        result = todoist.invoke({"action": "list_tasks"})
+        parsed = json.loads(result)
+
+        assert "tasks" in parsed
+        assert len(parsed["tasks"]) == 1
+        assert parsed["tasks"][0]["assignee_id"] == "user-1"
+        assert parsed["tasks"][0]["assigner_id"] == "user-2"
+
 
 # ============================================================================
 # Tests for Google Calendar Tool

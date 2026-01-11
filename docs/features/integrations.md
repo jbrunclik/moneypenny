@@ -39,10 +39,10 @@ The `todoist` tool exposes granular actions for full Todoist management.
 
 | Action | Parameters | Description |
 |--------|------------|-------------|
-| `list_tasks` | `filter_string` (optional), `project_id` (optional) | List tasks using Todoist filter syntax and enrich with project/section names |
+| `list_tasks` | `filter_string` (optional), `project_id` (optional) | List tasks using Todoist filter syntax and enrich with project/section names. Returns `assignee_id` and `assigner_id` if task is assigned. |
 | `get_task` | `task_id` | Fetch a specific task |
-| `add_task` | `content`, optional `description`, `project_id`, `section_id`, `due_string`, `due_date`, `priority`, `labels` | Create a task |
-| `update_task` | `task_id`, optional task fields | Update task properties |
+| `add_task` | `content`, optional `description`, `project_id`, `section_id`, `due_string`, `due_date`, `priority`, `labels`, `assignee_id` | Create a task. Use `assignee_id` to assign to a collaborator. |
+| `update_task` | `task_id`, optional task fields including `assignee_id` | Update task properties. Use `assignee_id=""` to unassign. |
 | `complete_task` | `task_id` | Mark task complete |
 | `reopen_task` | `task_id` | Reopen a completed task |
 | `delete_task` | `task_id` | Delete a task |
@@ -68,6 +68,12 @@ The `todoist` tool exposes granular actions for full Todoist management.
 | `update_section` | `section_id`, `section_name` | Rename a section |
 | `delete_section` | `section_id` | Delete a section |
 
+#### Collaborator Actions
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `list_collaborators` | `project_id` | List all collaborators in a shared project. Returns collaborator IDs, names, and emails for use with task assignment. |
+
 #### Todoist Filter Syntax Examples
 
 - `today` - Tasks due today
@@ -75,6 +81,19 @@ The `todoist` tool exposes granular actions for full Todoist management.
 - `p1` - Priority 1 tasks
 - `#Work` - Tasks in Work project
 - `today | overdue` - Today's tasks or overdue
+
+#### Task Assignment Workflow
+
+For shared projects, the AI can assign tasks to collaborators:
+
+1. **List collaborators**: Use `list_collaborators` with `project_id` to get available assignees
+2. **Create assigned task**: Pass `assignee_id` when creating a task with `add_task`
+3. **Update assignment**: Use `update_task` with `assignee_id` to reassign or `assignee_id=""` to unassign
+4. **View assignments**: `list_tasks` includes `assignee_id` and `assigner_id` in results
+
+**Example user interaction:**
+- User: "Add a task 'Review PR' assigned to Alice in the Engineering project"
+- AI: Lists collaborators in Engineering project → finds Alice's ID → creates task with `assignee_id`
 
 ### Configuration
 
