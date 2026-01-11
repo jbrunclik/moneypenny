@@ -145,20 +145,25 @@ def _validate_tool_names() -> None:
     """
     actual_tool_names = {tool.name for tool in TOOLS}
 
+    # Add conditional tools that are only available in specific contexts
+    # refresh_planner_dashboard is only added in planner mode via get_tools_for_request()
+    conditional_tools = {"refresh_planner_dashboard"}
+    valid_tool_names = actual_tool_names | conditional_tools
+
     # Check TOOL_METADATA
-    invalid_metadata_names = set(TOOL_METADATA.keys()) - actual_tool_names
+    invalid_metadata_names = set(TOOL_METADATA.keys()) - valid_tool_names
     if invalid_metadata_names:
         logger.warning(
             f"TOOL_METADATA contains unknown tool names: {invalid_metadata_names}. "
-            f"Valid tools: {actual_tool_names}"
+            f"Valid tools: {valid_tool_names}"
         )
 
     # Check TOOLS_WITH_DETAIL_EXTRACTION
-    invalid_detail_names = TOOLS_WITH_DETAIL_EXTRACTION - actual_tool_names
+    invalid_detail_names = TOOLS_WITH_DETAIL_EXTRACTION - valid_tool_names
     if invalid_detail_names:
         logger.warning(
             f"TOOLS_WITH_DETAIL_EXTRACTION contains unknown tool names: {invalid_detail_names}. "
-            f"Valid tools: {actual_tool_names}"
+            f"Valid tools: {valid_tool_names}"
         )
 
 
