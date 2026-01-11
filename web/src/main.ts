@@ -705,6 +705,9 @@ async function navigateToPlanner(forceRefresh: boolean = false): Promise<void> {
     // For planner, scroll to top to show dashboard (different from normal chat)
     messagesContainer.scrollTop = 0;
 
+    // Check scroll button visibility after rendering planner
+    checkScrollButtonVisibility();
+
     // If was_reset is true, the conversation was auto-reset
     if (convResponse.was_reset) {
       toast.info('Planning session has been reset for a new day.');
