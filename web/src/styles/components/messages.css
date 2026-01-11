@@ -643,6 +643,18 @@ a.document-name:hover {
     text-decoration: underline;
 }
 
+/* Override link color in user messages for better contrast */
+.message.user .message-content a {
+    color: var(--color-user-text);
+    text-decoration: underline;
+}
+
+.message.user .message-content a:hover {
+    color: var(--color-user-text);
+    text-decoration: underline;
+    opacity: 0.9;
+}
+
 /* Tables */
 .message-content table {
     border-collapse: collapse;

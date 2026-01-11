@@ -362,6 +362,8 @@ def create_mock_stream_chat_events() -> Any:
         user_name: str | None = None,
         user_id: str | None = None,
         custom_instructions: str | None = None,
+        is_planning: bool = False,
+        dashboard_data: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
         # Use custom response if set, otherwise use prefix + message
