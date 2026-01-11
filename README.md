@@ -56,8 +56,10 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 
 ### Planner Dashboard
 - **Unified schedule view**: See all your Todoist tasks and Google Calendar events in one place
+- **Multi-calendar support**: Select which calendars to include (work, personal, shared calendars)
 - **Smart organization**: Today, Tomorrow, and This Week sections with overdue task detection
 - **Priority indicators**: Visual badges for P1-P4 tasks with progressive prominence
+- **Calendar labels**: Events from non-primary calendars show their calendar name as a badge
 - **Interactive elements**: One-click copy, location links to Google Maps, collapsible sections
 - **Proactive AI analysis**: AI automatically analyzes your schedule and provides insights
 - **Real-time sync**: Refresh button fetches latest data; reset button clears and triggers fresh analysis
@@ -328,7 +330,11 @@ GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Use Vite port in dev
 1. Open Settings (gear icon in sidebar)
 2. Click "Connect Google Calendar"
 3. Authorize on Google's OAuth page
-4. Ask the AI to manage your calendar:
+4. Select which calendars to include in the planner (work, personal, shared calendars)
+   - Primary calendar is always included
+   - Events from multiple calendars are combined in the planner dashboard
+   - Calendar labels help distinguish events from different calendars
+5. Ask the AI to manage your calendar:
    - "What's on my calendar today?"
    - "Schedule a meeting with John tomorrow at 2pm"
    - "Block 2 hours for deep work on Monday morning"

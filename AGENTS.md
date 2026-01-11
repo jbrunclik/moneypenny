@@ -165,6 +165,12 @@ Add SVG constants to [icons.ts](web/src/utils/icons.ts) and import where needed.
 3. Document in the relevant feature doc in `docs/features/`
 4. If user-facing, document in README.md
 
+### Configure calendar selection
+1. Connect Google Calendar in Settings
+2. Select which calendars to include in planner context (primary calendar always included)
+3. Save selection - dashboard will fetch events from all selected calendars in parallel
+4. Calendar labels appear on events from non-primary calendars
+
 ---
 
 ## Documentation Maintenance

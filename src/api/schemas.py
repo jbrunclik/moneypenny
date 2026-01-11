@@ -300,6 +300,37 @@ class GoogleCalendarStatusResponse(BaseModel):
     )
 
 
+class Calendar(BaseModel):
+    """A Google Calendar."""
+
+    id: str = Field(..., description="Calendar ID")
+    summary: str = Field(..., description="Calendar name/title")
+    primary: bool = Field(..., description="Whether this is the user's primary calendar")
+    access_role: str = Field(..., description="User's access level (owner, writer, reader)")
+    background_color: str | None = Field(None, description="Calendar background color (hex)")
+
+
+class CalendarListResponse(BaseModel):
+    """Response for listing available calendars."""
+
+    calendars: list[Calendar] = Field(
+        default_factory=list, description="List of available calendars"
+    )
+    error: str | None = Field(None, description="Error message if fetch failed")
+
+
+class SelectedCalendarsResponse(BaseModel):
+    """Response for selected calendars."""
+
+    calendar_ids: list[str] = Field(..., description="List of selected calendar IDs")
+
+
+class UpdateSelectedCalendarsRequest(BaseModel):
+    """Request to update selected calendars."""
+
+    calendar_ids: list[str] = Field(..., description="List of calendar IDs to fetch events from")
+
+
 class ClientIdResponse(BaseModel):
     """Response containing Google Client ID."""
 
@@ -733,6 +764,14 @@ class PlannerEventAttendeeResponse(BaseModel):
     self: bool = Field(default=False, description="True if this is the current user")
 
 
+class PlannerEventOrganizerResponse(BaseModel):
+    """The organizer/creator of a calendar event."""
+
+    email: str | None = None
+    display_name: str | None = Field(default=None, description="Display name of organizer")
+    self: bool = Field(default=False, description="True if this is the current user")
+
+
 class PlannerEventResponse(BaseModel):
     """A calendar event for the planner dashboard."""
 
@@ -753,6 +792,13 @@ class PlannerEventResponse(BaseModel):
     )
     is_all_day: bool = False
     attendees: list[PlannerEventAttendeeResponse] = Field(default_factory=list)
+    organizer: PlannerEventOrganizerResponse | None = Field(
+        default=None, description="Event organizer/creator"
+    )
+    calendar_id: str | None = Field(
+        default=None, description="Source calendar ID (e.g., 'primary', email address)"
+    )
+    calendar_summary: str | None = Field(default=None, description="Source calendar name/title")
 
 
 class PlannerDayResponse(BaseModel):

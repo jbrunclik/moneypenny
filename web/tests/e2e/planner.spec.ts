@@ -370,3 +370,161 @@ test.describe('Planner - Error States', () => {
     await expect(errorMsg).toContainText('Token expired');
   });
 });
+
+test.describe('Planner - Calendar Labels', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.request.post('/test/set-planner-integrations', {
+      data: { todoist: true, calendar: true },
+    });
+  });
+
+  test('shows calendar labels on non-primary calendar events', async ({ page }) => {
+    // Enable planner first
+    await page.request.post('/test/set-planner-integrations', {
+      data: { todoist: true, calendar: true },
+    });
+
+    // Use current date to avoid past date filtering issues
+    const today = new Date().toISOString().split('T')[0];
+
+    // Set dashboard with events from multiple calendars
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            {
+              date: today,
+              day_name: 'Today',
+              events: [
+                {
+                  id: '1',
+                  summary: 'Primary Calendar Event',
+                  start: `${today}T10:00:00Z`,
+                  end: `${today}T11:00:00Z`,
+                  is_all_day: false,
+                  calendar_id: 'primary',
+                  calendar_summary: 'My Calendar',
+                },
+                {
+                  id: '2',
+                  summary: 'Work Calendar Event',
+                  start: `${today}T14:00:00Z`,
+                  end: `${today}T15:00:00Z`,
+                  is_all_day: false,
+                  calendar_id: 'work@example.com',
+                  calendar_summary: 'Work Calendar',
+                },
+                {
+                  id: '3',
+                  summary: 'Family Calendar Event',
+                  start: `${today}T16:00:00Z`,
+                  end: `${today}T17:00:00Z`,
+                  is_all_day: false,
+                  calendar_id: 'family@example.com',
+                  calendar_summary: 'Family',
+                },
+              ],
+              tasks: [],
+            },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          todoist_error: null,
+          calendar_error: null,
+          server_time: new Date().toISOString(),
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await expect(page.locator('#planner-dashboard')).toBeVisible();
+
+    // Wait for dashboard to load events
+    await page.waitForLoadState('networkidle');
+
+    // Get all event items
+    const events = page.locator('.planner-item-event');
+    await expect(events).toHaveCount(3, { timeout: 10000 });
+
+    // Primary calendar event should NOT have a calendar label
+    const primaryEvent = events.first();
+    await expect(primaryEvent).toContainText('Primary Calendar Event');
+    await expect(primaryEvent.locator('.planner-item-calendar')).not.toBeVisible();
+
+    // Work calendar event should have a calendar label
+    const workEvent = events.nth(1);
+    await expect(workEvent).toContainText('Work Calendar Event');
+    const workLabel = workEvent.locator('.planner-item-calendar');
+    await expect(workLabel).toBeVisible();
+    await expect(workLabel).toContainText('Work Calendar');
+
+    // Family calendar event should have a calendar label
+    const familyEvent = events.nth(2);
+    await expect(familyEvent).toContainText('Family Calendar Event');
+    const familyLabel = familyEvent.locator('.planner-item-calendar');
+    await expect(familyLabel).toBeVisible();
+    await expect(familyLabel).toContainText('Family');
+  });
+
+  test('primary calendar events have no label', async ({ page }) => {
+    // Enable planner first
+    await page.request.post('/test/set-planner-integrations', {
+      data: { todoist: true, calendar: true },
+    });
+
+    // Use current date to avoid past date filtering issues
+    const today = new Date().toISOString().split('T')[0];
+
+    // Set dashboard with only primary calendar events
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            {
+              date: today,
+              day_name: 'Today',
+              events: [
+                {
+                  id: '1',
+                  summary: 'Event 1',
+                  start: `${today}T10:00:00Z`,
+                  end: `${today}T11:00:00Z`,
+                  is_all_day: false,
+                  calendar_id: 'primary',
+                  calendar_summary: 'My Calendar',
+                },
+                {
+                  id: '2',
+                  summary: 'Event 2',
+                  start: `${today}T14:00:00Z`,
+                  end: `${today}T15:00:00Z`,
+                  is_all_day: false,
+                  calendar_id: 'primary',
+                  calendar_summary: 'My Calendar',
+                },
+              ],
+              tasks: [],
+            },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          todoist_error: null,
+          calendar_error: null,
+          server_time: new Date().toISOString(),
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await expect(page.locator('#planner-dashboard')).toBeVisible();
+
+    // Wait for dashboard to load events
+    await page.waitForLoadState('networkidle');
+
+    // None of the events should have calendar labels
+    const calendarLabels = page.locator('.planner-item-calendar');
+    await expect(calendarLabels).toHaveCount(0);
+  });
+});

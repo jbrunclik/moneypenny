@@ -37,9 +37,12 @@ export function createDashboardElement(
   }
 
   // Today and Tomorrow - always expanded
-  if (dashboard.days.length >= 2) {
+  if (dashboard.days.length >= 1) {
     contentHtml += renderDaySection(dashboard.days[0]); // Today
-    contentHtml += renderDaySection(dashboard.days[1]); // Tomorrow
+
+    if (dashboard.days.length >= 2) {
+      contentHtml += renderDaySection(dashboard.days[1]); // Tomorrow
+    }
   }
 
   // Rest of the week - collapsible
@@ -308,6 +311,12 @@ function renderEventItem(event: PlannerEvent): string {
     ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener noreferrer" class="planner-item-location"><span class="location-icon">${MAP_PIN_ICON}</span>${escapeHtml(event.location)}</a>`
     : '';
 
+  // Show calendar name for non-primary calendars
+  const isPrimaryCalendar = !event.calendar_id || event.calendar_id === 'primary';
+  const calendarHtml = !isPrimaryCalendar && event.calendar_summary
+    ? ` <span class="planner-item-calendar">${escapeHtml(event.calendar_summary)}</span>`
+    : '';
+
   // Build copy text
   const copyText = buildEventCopyText(event);
 
@@ -320,7 +329,7 @@ function renderEventItem(event: PlannerEvent): string {
         </button>
       </div>
       <div class="planner-item-text">
-        <span>${escapeHtml(event.summary)}</span>
+        <span>${escapeHtml(event.summary)}${calendarHtml}</span>
         ${locationHtml}
       </div>
     </div>

@@ -182,6 +182,43 @@ The LLM acts as an executive strategist:
 - Proactively suggests calendar blocks for important work
 - Warns about conflicts with focus blocks and suggests alternatives
 
+### Multi-Calendar Selection
+
+Users can select which Google Calendars to include in the planner context. By default, only the primary calendar is included.
+
+**Settings UI:**
+- List of available calendars with checkboxes
+- Visual indicators: color dots, primary star, access role badges
+- At least one calendar must be selected (defaults to primary if empty)
+- Real-time selection count
+- Save button to persist selection (disabled during loading and when no calendars selected)
+
+**Backend:**
+- Selected calendar IDs stored as JSON array in `users.google_calendar_selected_ids`
+- Events fetched in parallel from selected calendars (max 5 concurrent)
+- **Event metadata** included for LLM context:
+  - Calendar metadata: `calendar_id`, `calendar_summary` (fetched from Calendar List API)
+  - Organizer metadata: `organizer.email`, `organizer.display_name`, `organizer.self`
+  - Attendee list with response status
+- Automatic deduplication prevents duplicate events if user has redundant calendar IDs selected
+- Partial failures handled gracefully (shows events from successful calendars)
+
+**Frontend:**
+- Calendar labels displayed on events from non-primary calendars
+- Labels styled as pill badges matching project labels in Todoist integration
+- Primary calendar events show no label (assumed default)
+
+**Error Handling:**
+- Missing/deleted calendar (404): Skipped gracefully
+- Permission denied (403): Specific error, continues with others
+- Token expired (401): Clear reconnect message
+- All calendars fail: Actionable error message
+- URL encoding handles special characters in calendar IDs (e.g., `#` in holiday calendars)
+
+**Caching:**
+- Available calendars: 1 hour TTL, cleared on connect/disconnect/reconnect
+- Dashboard cache: Invalidated on selection change to ensure fresh data
+
 ### Configuration
 
 ```bash

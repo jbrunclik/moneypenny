@@ -1033,6 +1033,9 @@ def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:
                     "is_all_day": event.get("is_all_day", False),
                     "location": event.get("location"),
                     "attendees": event.get("attendees", []),
+                    "organizer": event.get("organizer"),
+                    "calendar_id": event.get("calendar_id"),
+                    "calendar_summary": event.get("calendar_summary"),
                 }
                 for event in events
             ],

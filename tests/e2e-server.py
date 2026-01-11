@@ -846,6 +846,14 @@ def main() -> None:
                                     "end": f"{date.isoformat()}T11:00:00",
                                     "is_all_day": False,
                                     "location": "Conference Room",
+                                    "attendees": [],
+                                    "organizer": {
+                                        "email": "test@example.com",
+                                        "display_name": "Test User",
+                                        "self": True,
+                                    },
+                                    "calendar_id": "primary",
+                                    "calendar_summary": "My Calendar",
                                 }
                             ]
                             if calendar_connected and i < 3

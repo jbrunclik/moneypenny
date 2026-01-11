@@ -1,4 +1,4 @@
-import { getElementById } from '../utils/dom';
+import { getElementById, escapeHtml } from '../utils/dom';
 import {
   SETTINGS_ICON,
   CLOSE_ICON,
@@ -7,6 +7,10 @@ import {
   MONITOR_ICON,
   CHECK_ICON,
   WARNING_ICON,
+  CHECKLIST_ICON,
+  CALENDAR_ICON,
+  EDIT_ICON,
+  STAR_ICON,
 } from '../utils/icons';
 import { settings, todoist, calendar } from '../api/client';
 import { toast } from './Toast';
@@ -19,7 +23,7 @@ import {
   setupSystemPreferenceListener,
 } from '../utils/theme';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
-import type { TodoistStatus, CalendarStatus } from '../types/api';
+import type { TodoistStatus, CalendarStatus, Calendar } from '../types/api';
 import { useStore } from '../state/store';
 import { renderConversationsList } from './Sidebar';
 
@@ -41,6 +45,18 @@ let todoistStatus: TodoistStatus | null = null;
 
 /** Current Google Calendar status */
 let calendarStatus: CalendarStatus | null = null;
+
+/** Available calendars from Google */
+let availableCalendars: Calendar[] | null = null;
+
+/** Selected calendar IDs */
+let selectedCalendarIds: string[] = ['primary'];
+
+/** Loading state for calendar list */
+let calendarsLoading = false;
+
+/** Error message when fetching calendar list fails */
+let calendarsError: string | null = null;
 
 /**
  * Render color scheme option
@@ -118,6 +134,79 @@ function renderTodoistSection(status: TodoistStatus | null): string {
   `;
 }
 
+/**
+ * Render calendar selection UI with checkboxes
+ */
+function renderCalendarSelection(
+  calendars: Calendar[],
+  selected: string[],
+  loading: boolean,
+  error: string | null = null
+): string {
+  if (loading) {
+    return `
+      <div class="settings-calendar-loading">
+        <div class="spinner-small"></div>
+        <span>Loading calendars...</span>
+      </div>
+    `;
+  }
+
+  // Show error message if present (from backend)
+  if (error) {
+    return `
+      <div class="settings-calendar-error">
+        <span class="settings-calendar-icon warning">${WARNING_ICON}</span>
+        <div>
+          <p class="settings-error-message">${escapeHtml(error)}</p>
+          ${error.toLowerCase().includes('expired') || error.toLowerCase().includes('reconnect')
+            ? '<p class="settings-helper">Please disconnect and reconnect your Google Calendar in the section above.</p>'
+            : '<p class="settings-helper">Please try refreshing the page or check your connection.</p>'}
+        </div>
+      </div>
+    `;
+  }
+
+  if (calendars.length === 0) {
+    return `
+      <div class="settings-empty-state">
+        <p>No calendars available. Create one in Google Calendar first.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="settings-calendar-list">
+      ${calendars.map(cal => {
+        const isPrimary = cal.primary || cal.id === 'primary';
+        const isChecked = isPrimary || selected.includes(cal.id); // Primary always checked
+        const isDisabled = isPrimary; // Primary calendar cannot be unchecked
+
+        return `
+          <label class="settings-calendar-item${isDisabled ? ' disabled' : ''}" data-calendar-id="${escapeHtml(cal.id)}">
+            <input
+              type="checkbox"
+              class="settings-calendar-checkbox"
+              data-calendar-id="${escapeHtml(cal.id)}"
+              ${isChecked ? 'checked' : ''}
+              ${isDisabled ? 'disabled' : ''}
+            />
+            <div class="settings-calendar-info">
+              ${cal.background_color ? `<span class="calendar-color-dot" style="background-color: ${escapeHtml(cal.background_color)}"></span>` : ''}
+              ${isPrimary ? `<span class="calendar-star-icon">${STAR_ICON}</span>` : ''}
+              <span class="settings-calendar-name">${escapeHtml(cal.summary)}</span>
+              ${cal.access_role !== 'owner' && !isPrimary ? `<span class="settings-calendar-badge">${escapeHtml(cal.access_role)}</span>` : ''}
+            </div>
+          </label>
+        `;
+      }).join('')}
+    </div>
+    <p class="settings-helper">
+      ${selected.length === 1 ? '1 calendar selected' : `${selected.length} calendars selected`}
+    </p>
+  `;
+}
+
 function renderCalendarSection(status: CalendarStatus | null): string {
   if (status === null) {
     return `
@@ -146,15 +235,36 @@ function renderCalendarSection(status: CalendarStatus | null): string {
   }
 
   if (status.connected) {
+    const calendarSelectionHtml = renderCalendarSelection(
+      availableCalendars || [],
+      selectedCalendarIds,
+      calendarsLoading,
+      calendarsError
+    );
+
     return `
-      <div class="settings-calendar-connected">
-        <span class="settings-calendar-status">
-          <span class="settings-calendar-icon connected">${CHECK_ICON}</span>
-          Connected${status.calendar_email ? ` as ${status.calendar_email}` : ''}
-        </span>
-        <button type="button" class="btn btn-secondary btn-sm settings-calendar-disconnect">
-          Disconnect
-        </button>
+      <div class="settings-calendar-connected-wrapper">
+        <div class="settings-calendar-connected">
+          <span class="settings-calendar-status">
+            <span class="settings-calendar-icon connected">${CHECK_ICON}</span>
+            Connected${status.calendar_email ? ` as ${status.calendar_email}` : ''}
+          </span>
+          <button type="button" class="btn btn-secondary btn-sm settings-calendar-disconnect">
+            Disconnect
+          </button>
+        </div>
+
+        <div class="settings-calendar-selection">
+          <label class="settings-label">Show events from:</label>
+          ${calendarSelectionHtml}
+          <button
+            type="button"
+            class="btn btn-primary settings-calendar-save-btn"
+            ${selectedCalendarIds.length === 0 || calendarsLoading ? 'disabled' : ''}
+          >
+            Save Selection
+          </button>
+        </div>
       </div>
     `;
   }
@@ -184,7 +294,10 @@ function renderContent(
   return `
     <div class="settings-body">
       <div class="settings-field">
-        <label class="settings-label">Appearance</label>
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${MONITOR_ICON}</span>
+          Appearance
+        </label>
         <div class="settings-color-scheme">
           ${renderColorSchemeOption('light', SUN_ICON, 'Light', colorScheme === 'light')}
           ${renderColorSchemeOption('dark', MOON_ICON, 'Dark', colorScheme === 'dark')}
@@ -195,21 +308,30 @@ function renderContent(
       <div class="settings-divider"></div>
 
       <div class="settings-field" data-section="todoist">
-        <label class="settings-label">Todoist Integration</label>
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${CHECKLIST_ICON}</span>
+          Todoist Integration
+        </label>
         ${renderTodoistSection(todoistSt)}
       </div>
 
       <div class="settings-divider"></div>
 
       <div class="settings-field" data-section="calendar">
-        <label class="settings-label">Google Calendar Integration</label>
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${CALENDAR_ICON}</span>
+          Google Calendar Integration
+        </label>
         ${renderCalendarSection(calendarSt)}
       </div>
 
       <div class="settings-divider"></div>
 
       <div class="settings-field">
-        <label class="settings-label" for="custom-instructions">Custom Instructions</label>
+        <label class="settings-label settings-label-with-icon" for="custom-instructions">
+          <span class="settings-label-icon">${EDIT_ICON}</span>
+          Custom Instructions
+        </label>
         <p class="settings-helper">Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")</p>
         <textarea
           id="custom-instructions"
@@ -352,6 +474,12 @@ async function handleCalendarDisconnect(): Promise<void> {
     log.debug('Disconnecting Google Calendar');
     await calendar.disconnect();
     calendarStatus = { connected: false, calendar_email: null, connected_at: null, needs_reconnect: false };
+
+    // Clear calendar data
+    availableCalendars = null;
+    selectedCalendarIds = ['primary'];
+    calendarsLoading = false;
+
     updateIntegrationSection('calendar');
 
     // Update store and re-render sidebar to hide planner entry
@@ -370,6 +498,80 @@ async function handleCalendarDisconnect(): Promise<void> {
   }
 }
 
+/**
+ * Handle checkbox change - update selected list and re-render
+ */
+function handleCalendarCheckboxChange(): void {
+  const checkboxes = document.querySelectorAll<HTMLInputElement>('.settings-calendar-checkbox');
+  selectedCalendarIds = Array.from(checkboxes)
+    .filter(cb => cb.checked)
+    .map(cb => cb.dataset.calendarId!);
+
+  // Update helper text
+  const helper = document.querySelector('.settings-calendar-selection .settings-helper');
+  if (helper) {
+    helper.textContent = selectedCalendarIds.length === 1
+      ? '1 calendar selected'
+      : `${selectedCalendarIds.length} calendars selected`;
+  }
+
+  // Update save button state
+  const saveBtn = document.querySelector<HTMLButtonElement>('.settings-calendar-save-btn');
+  if (saveBtn) {
+    saveBtn.disabled = selectedCalendarIds.length === 0;
+  }
+
+  log.debug('Calendar selection changed', { count: selectedCalendarIds.length });
+}
+
+/**
+ * Save calendar selection to backend
+ */
+async function handleCalendarSaveSelection(): Promise<void> {
+  if (selectedCalendarIds.length === 0) {
+    toast.error('Select at least one calendar');
+    return;
+  }
+
+  const saveBtn = document.querySelector<HTMLButtonElement>('.settings-calendar-save-btn');
+  if (!saveBtn) return;
+
+  try {
+    // Show loading state
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    log.debug('Saving calendar selection', { count: selectedCalendarIds.length });
+
+    // Normalize: replace primary calendar's actual ID with "primary"
+    const primaryCalendar = availableCalendars?.find(cal => cal.primary);
+    const normalizedIds = selectedCalendarIds.map(id =>
+      (primaryCalendar && id === primaryCalendar.id) ? 'primary' : id
+    );
+
+    await calendar.updateSelectedCalendars(normalizedIds);
+
+    const calendarText = selectedCalendarIds.length === 1 ? 'calendar' : 'calendars';
+    toast.success(`Saved! Now showing events from ${selectedCalendarIds.length} ${calendarText}`);
+    log.info('Calendar selection updated', { count: selectedCalendarIds.length });
+
+    // Restore button
+    saveBtn.textContent = originalText;
+    saveBtn.disabled = false;
+
+  } catch (error) {
+    log.error('Failed to save calendar selection', { error });
+    toast.error('Failed to save calendar selection');
+
+    // Restore button
+    if (saveBtn) {
+      saveBtn.textContent = 'Save Selection';
+      saveBtn.disabled = false;
+    }
+  }
+}
+
 function updateIntegrationSection(section: 'todoist' | 'calendar'): void {
   const popup = getElementById<HTMLDivElement>(POPUP_ID);
   if (!popup) return;
@@ -378,19 +580,18 @@ function updateIntegrationSection(section: 'todoist' | 'calendar'): void {
   if (!field) return;
 
   const label = section === 'todoist' ? 'Todoist Integration' : 'Google Calendar Integration';
+  const icon = section === 'todoist' ? CHECKLIST_ICON : CALENDAR_ICON;
   const content = section === 'todoist' ? renderTodoistSection(todoistStatus) : renderCalendarSection(calendarStatus);
   field.innerHTML = `
-    <label class="settings-label">${label}</label>
+    <label class="settings-label settings-label-with-icon">
+      <span class="settings-label-icon">${icon}</span>
+      ${label}
+    </label>
     ${content}
   `;
 
-  if (section === 'todoist') {
-    field.querySelector('.settings-todoist-connect')?.addEventListener('click', handleTodoistConnect);
-    field.querySelector('.settings-todoist-disconnect')?.addEventListener('click', handleTodoistDisconnect);
-  } else {
-    field.querySelector('.settings-calendar-connect')?.addEventListener('click', handleCalendarConnect);
-    field.querySelector('.settings-calendar-disconnect')?.addEventListener('click', handleCalendarDisconnect);
-  }
+  // Note: Event handlers are attached via event delegation in initSettingsPopup()
+  // No need to manually attach handlers here - they're already handled globally
 }
 
 /**
@@ -597,6 +798,47 @@ export async function openSettingsPopup(): Promise<void> {
       body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus, calendarStatus)}</div>`;
     }
 
+    // If calendar is connected, fetch available calendars and selected calendars
+    if (calendarData?.connected) {
+      calendarsLoading = true;
+
+      // Re-render to show loading state
+      updateIntegrationSection('calendar');
+
+      try {
+        const [calendarsResp, selectedResp] = await Promise.all([
+          calendar.listCalendars(),
+          calendar.getSelectedCalendars(),
+        ]);
+
+        if (calendarsResp.error) {
+          log.warn('Failed to fetch calendars', { error: calendarsResp.error });
+          availableCalendars = [];
+          calendarsError = calendarsResp.error;
+        } else {
+          availableCalendars = calendarsResp.calendars;
+          calendarsError = null;
+        }
+
+        selectedCalendarIds = selectedResp.calendar_ids;
+
+        log.debug('Calendars loaded', {
+          available: availableCalendars?.length ?? 0,
+          selected: selectedCalendarIds.length
+        });
+      } catch (err) {
+        log.error('Failed to fetch calendars', { error: err });
+        availableCalendars = [];
+        // Don't overwrite selectedCalendarIds - preserve user's existing selection
+        // They won't be able to change it until the error is resolved, but we won't lose their data
+        calendarsError = 'Failed to load calendars. Please try again.';
+      } finally {
+        calendarsLoading = false;
+        // Re-render with loaded data
+        updateIntegrationSection('calendar');
+      }
+    }
+
     // Enable save button and attach handlers
     const saveBtn = popup.querySelector('.settings-save-btn') as HTMLButtonElement;
     if (saveBtn) {
@@ -621,10 +863,7 @@ export async function openSettingsPopup(): Promise<void> {
       });
     });
 
-    popup.querySelector('.settings-todoist-connect')?.addEventListener('click', handleTodoistConnect);
-    popup.querySelector('.settings-todoist-disconnect')?.addEventListener('click', handleTodoistDisconnect);
-    popup.querySelector('.settings-calendar-connect')?.addEventListener('click', handleCalendarConnect);
-    popup.querySelector('.settings-calendar-disconnect')?.addEventListener('click', handleCalendarDisconnect);
+    // Note: Todoist and Calendar button handlers are attached via event delegation in initSettingsPopup()
   } catch (error) {
     log.error('Failed to load settings', { error });
     const body = popup.querySelector('.info-popup-body');
@@ -691,6 +930,18 @@ export function initSettingsPopup(): void {
 
     if (target.classList.contains('settings-calendar-disconnect')) {
       handleCalendarDisconnect();
+    }
+
+    if (target.classList.contains('settings-calendar-save-btn')) {
+      handleCalendarSaveSelection();
+    }
+  });
+
+  // Event delegation for checkbox changes
+  popup.addEventListener('change', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('settings-calendar-checkbox')) {
+      handleCalendarCheckboxChange();
     }
   });
 

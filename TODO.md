@@ -16,3 +16,12 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Frontend Race Conditions** - Fix `currentStreamingContext` in `Messages.ts`. It's currently overwritten without cleaning up the previous listener, potentially leaving "zombie" listeners.
 - [ ] **Brittle Scroll Detection** - `setupStreamingScrollListener` relies on `scrollTop < previousScrollTop` to detect user intervention. This causes false pauses when images load above the viewport. Move to `wheel`/`touchmove` event detection.
 - [ ] **Sandbox Performance** - Stop running `apt-get install fonts-dejavu-core` inside the 30s runtime timeout. Move this to a custom Dockerfile with pre-installed fonts.
+
+## File Size Refactoring
+The following files have grown too large (>2000 lines) for effective LLM context processing and maintainability. They should be split into smaller, focused modules:
+- [ ] **[routes.py](src/api/routes.py) (3171 lines)**
+- [ ] **[main.ts](web/src/main.ts) (3123 lines)**
+- [ ] **[models.py](src/db/models.py) (2714 lines)**
+- [ ] **[chat_agent.py](src/agent/chat_agent.py) (2331 lines)**
+- [ ] **[Messages.ts](web/src/components/Messages.ts) (1872 lines)**
+- [ ] **[chat.spec.ts](web/tests/e2e/chat.spec.ts) (3218 lines, 73 tests)**

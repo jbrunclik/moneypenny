@@ -1935,11 +1935,28 @@ class TestGoogleCalendarTool:
 
     @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id")
     @patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "test-secret")
+    @patch("src.agent.tools.google_calendar.get_conversation_context")
     @patch("src.agent.tools.google_calendar._get_google_calendar_access_token")
     @patch("src.agent.tools.google_calendar._google_calendar_api_request")
-    def test_list_calendars_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
-        """Should successfully list calendars."""
+    @patch("src.db.models.db.get_user_by_id")
+    def test_list_calendars_success(
+        self,
+        mock_get_user: MagicMock,
+        mock_api: MagicMock,
+        mock_get_token: MagicMock,
+        mock_context: MagicMock,
+    ) -> None:
+        """Should successfully list calendars filtered by user selection."""
         from src.agent.tools import google_calendar
+        from src.db.models import User
+
+        # Mock conversation context to return a user ID
+        mock_context.return_value = ("conv-id", "user-id")
+
+        # Mock user with both calendars selected
+        mock_user = MagicMock(spec=User)
+        mock_user.google_calendar_selected_ids = ["primary", "work"]
+        mock_get_user.return_value = mock_user
 
         mock_get_token.return_value = ("valid-token", "user@example.com")
         mock_api.return_value = {

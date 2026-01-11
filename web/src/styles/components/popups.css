@@ -1265,6 +1265,27 @@
     font-size: var(--font-size-md);
 }
 
+.settings-label-with-icon {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.settings-label-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.settings-label-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
 .settings-helper {
     font-size: var(--font-size-sm);
     color: var(--text-muted);
@@ -1520,6 +1541,27 @@
     text-align: center;
 }
 
+.settings-calendar-error {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-warning);
+    border: 1px solid var(--border-warning);
+    border-radius: var(--radius-sm);
+}
+
+.settings-calendar-error .warning {
+    flex-shrink: 0;
+    color: var(--color-warning);
+}
+
+.settings-error-message {
+    margin: 0 0 var(--space-2) 0;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
 .settings-calendar-connected {
     display: flex;
     align-items: center;
@@ -1589,6 +1631,146 @@
     white-space: nowrap;
 }
 
+/* Calendar selection UI */
+.settings-calendar-connected-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.settings-calendar-selection {
+    padding: var(--space-4);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.settings-calendar-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: var(--space-1);
+}
+
+.settings-calendar-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.settings-calendar-item:hover:not(.disabled) {
+    border-color: var(--accent);
+    background-color: var(--bg-hover);
+}
+
+.settings-calendar-item:has(.settings-calendar-checkbox:checked) {
+    border-color: var(--accent);
+    background-color: var(--accent-muted);
+}
+
+.settings-calendar-item.disabled {
+    cursor: default;
+    opacity: 0.9;
+}
+
+.settings-calendar-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.settings-calendar-item.disabled .settings-calendar-checkbox {
+    cursor: default;
+}
+
+.settings-calendar-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 0; /* Allow text truncation */
+}
+
+.calendar-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+}
+
+.calendar-star-icon {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--warning);
+}
+
+.calendar-star-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-calendar-name {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    user-select: none;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-calendar-badge {
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-transform: capitalize;
+    flex-shrink: 0;
+}
+
+.settings-calendar-save-btn {
+    width: 100%;
+    margin-top: var(--space-3);
+}
+
+.settings-empty-state {
+    padding: var(--space-4);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* Spinner for loading state */
+.spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 /* Mobile: stack Calendar connected state */
 @media (max-width: 480px) {
     .settings-calendar-connected {
@@ -1608,6 +1790,19 @@
 
     .settings-calendar-actions .btn {
         width: 100%;
+    }
+
+    .settings-calendar-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .settings-calendar-list {
+        max-height: 300px;
+    }
+
+    .settings-calendar-badge {
+        display: none; /* Hide access role on mobile to save space */
     }
 }
 

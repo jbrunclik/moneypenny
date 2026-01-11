@@ -207,10 +207,24 @@ def _format_calendar_event(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def _google_calendar_list_calendars(token: str) -> dict[str, Any]:
+    """List calendars - filtered to only show user's selected calendars."""
+    from src.db.models import db
+
+    # Get user's selected calendar IDs
+    _, user_id = get_conversation_context()
+    selected_calendar_ids = ["primary"]  # Default
+    if user_id:
+        user = db.get_user_by_id(user_id)
+        if user and user.google_calendar_selected_ids:
+            selected_calendar_ids = user.google_calendar_selected_ids
+
     calendars = _google_calendar_api_request("GET", "/users/me/calendarList", token)
     if not isinstance(calendars, dict):
         raise Exception("Unexpected response from Google Calendar")
     entries = calendars.get("items", [])
+
+    # Filter to only show selected calendars
+    # Note: Google API returns actual calendar ID (email), but we store "primary" as alias
     formatted = [
         {
             "id": cal.get("id"),
@@ -220,7 +234,12 @@ def _google_calendar_list_calendars(token: str) -> dict[str, Any]:
             "time_zone": cal.get("timeZone"),
         }
         for cal in entries
+        if (
+            cal.get("id") in selected_calendar_ids
+            or (cal.get("primary", False) and "primary" in selected_calendar_ids)
+        )
     ]
+
     return {"action": "list_calendars", "count": len(formatted), "calendars": formatted}
 
 

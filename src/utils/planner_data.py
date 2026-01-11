@@ -7,6 +7,7 @@ and weather forecasts for the planner dashboard.
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -46,6 +47,9 @@ class PlannerEvent:
     html_link: str | None = None
     is_all_day: bool = False
     attendees: list[dict[str, Any]] = field(default_factory=list)
+    organizer: dict[str, Any] | None = None  # Event organizer/creator
+    calendar_id: str | None = None  # Source calendar ID
+    calendar_summary: str | None = None  # Source calendar name
 
 
 @dataclass
@@ -166,6 +170,16 @@ def _format_event_for_dashboard(event: dict[str, Any]) -> PlannerEvent:
 
     is_all_day = "date" in start and "dateTime" not in start
 
+    # Extract organizer information
+    organizer_data = event.get("organizer")
+    organizer = None
+    if organizer_data:
+        organizer = {
+            "email": organizer_data.get("email"),
+            "display_name": organizer_data.get("displayName"),
+            "self": organizer_data.get("self", False),
+        }
+
     return PlannerEvent(
         id=event.get("id", ""),
         summary=event.get("summary", "(No title)"),
@@ -185,6 +199,7 @@ def _format_event_for_dashboard(event: dict[str, Any]) -> PlannerEvent:
             }
             for a in event.get("attendees", [])
         ],
+        organizer=organizer,
     )
 
 
@@ -315,74 +330,202 @@ def fetch_todoist_dashboard_data(
 
 def fetch_calendar_dashboard_data(
     access_token: str,
+    calendar_ids: list[str] | None = None,
 ) -> tuple[list[PlannerEvent], str | None]:
-    """Fetch Google Calendar events for the next 7 days.
+    """Fetch Google Calendar events from multiple calendars in parallel.
 
     Args:
         access_token: The user's Google Calendar access token
+        calendar_ids: List of calendar IDs to fetch (defaults to ["primary"])
 
     Returns:
         Tuple of (events, error_message)
-        events: Events in the next 7 days
-        error_message: Error message if any, None otherwise
+        - events: Combined events from all calendars
+        - error_message: Error message if any failures occurred
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     import requests
 
-    logger.debug("Fetching Google Calendar dashboard data")
+    logger.debug("Fetching calendar dashboard data")
 
+    if not calendar_ids:
+        calendar_ids = ["primary"]
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    # First, fetch calendar metadata to get proper calendar names
+    calendar_names: dict[str, str] = {}
     try:
-        headers = {"Authorization": f"Bearer {access_token}"}
-
-        # Calculate time range
-        now = datetime.utcnow()
-        time_min = now.isoformat() + "Z"
-        time_max = (now + timedelta(days=7)).isoformat() + "Z"
-
         response = requests.get(
-            f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/calendars/primary/events",
+            f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
             headers=headers,
-            params={  # type: ignore[arg-type]
-                "timeMin": time_min,
-                "timeMax": time_max,
-                "singleEvents": True,
-                "orderBy": "startTime",
-                "maxResults": 100,
-            },
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
-
-        if response.status_code == 401:
-            return [], "Google Calendar access has expired. Please reconnect in Settings."
-
-        if response.status_code >= 400:
+        if response.status_code == 200:
+            calendar_list = response.json().get("items", [])
+            for cal in calendar_list:
+                cal_id = cal.get("id")
+                cal_summary = cal.get("summary")
+                if cal_id and cal_summary:
+                    calendar_names[cal_id] = cal_summary
+                # Also map "primary" to the actual primary calendar's name
+                if cal.get("primary", False):
+                    calendar_names["primary"] = cal_summary
+        else:
             logger.warning(
-                "Google Calendar API error",
-                extra={"status_code": response.status_code, "error": response.text},
+                "Failed to fetch calendar list",
+                extra={"status": response.status_code},
             )
-            return [], f"Google Calendar API error ({response.status_code})"
-
-        data = response.json()
-        raw_events = data.get("items", [])
-
-        events = [_format_event_for_dashboard(event) for event in raw_events]
-
-        logger.debug(
-            "Google Calendar dashboard data fetched",
-            extra={"event_count": len(events)},
-        )
-
-        return events, None
-
-    except requests.RequestException as e:
-        logger.error("Google Calendar API request failed", extra={"error": str(e)})
-        return [], f"Failed to connect to Google Calendar: {e}"
     except Exception as e:
-        logger.error(
-            "Error fetching Google Calendar data",
-            extra={"error": str(e)},
-            exc_info=True,
-        )
-        return [], f"Error fetching calendar data: {e}"
+        logger.warning("Failed to fetch calendar names", extra={"error": str(e)})
+
+    # Calculate time range (next 7 days)
+    now = datetime.utcnow()
+    time_min = now.isoformat() + "Z"
+    time_max = (now + timedelta(days=7)).isoformat() + "Z"
+
+    params = {
+        "timeMin": time_min,
+        "timeMax": time_max,
+        "singleEvents": True,
+        "orderBy": "startTime",
+        "maxResults": 100,
+    }
+
+    all_events: list[PlannerEvent] = []
+    errors: list[tuple[str, str]] = []  # (calendar_id, error_message)
+    seen_event_ids: set[str] = set()  # Track event IDs to prevent duplicates
+
+    def fetch_single_calendar(
+        calendar_id: str,
+    ) -> tuple[str, list[dict[str, Any]] | None, str | None, str | None, bool]:
+        """Fetch events from a single calendar.
+
+        Returns: (calendar_id, events, calendar_name, error_message, is_primary)
+        """
+        try:
+            # URL-encode the calendar ID to handle special characters like # in holiday calendars
+            encoded_calendar_id = quote(calendar_id, safe="")
+            response = requests.get(
+                f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/calendars/{encoded_calendar_id}/events",
+                headers=headers,
+                params=params,  # type: ignore[arg-type]
+                timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            )
+
+            # Handle specific error codes
+            if response.status_code == 401:
+                return calendar_id, None, None, "Access expired", False
+            elif response.status_code == 403:
+                return calendar_id, None, None, "Permission denied", False
+            elif response.status_code == 404:
+                return calendar_id, None, None, "Calendar not found", False
+            elif response.status_code >= 400:
+                logger.warning(
+                    "Calendar API error",
+                    extra={"calendar_id": calendar_id, "status": response.status_code},
+                )
+                return calendar_id, None, None, f"API error ({response.status_code})", False
+
+            data = response.json()
+            events = data.get("items", [])
+
+            # Check if this is the primary calendar
+            is_primary = calendar_id == "primary"
+
+            # Get calendar name from pre-fetched calendar_names map
+            calendar_name = calendar_names.get(calendar_id, calendar_id)
+
+            return calendar_id, events, calendar_name, None, is_primary
+
+        except requests.Timeout:
+            logger.warning("Calendar fetch timeout", extra={"calendar_id": calendar_id})
+            return calendar_id, None, None, "Request timeout", False
+        except requests.RequestException as e:
+            logger.error(
+                "Calendar fetch failed", extra={"calendar_id": calendar_id, "error": str(e)}
+            )
+            return calendar_id, None, None, "Connection error", False
+        except Exception as e:
+            logger.error(
+                "Unexpected calendar fetch error",
+                extra={"calendar_id": calendar_id, "error": str(e)},
+                exc_info=True,
+            )
+            return calendar_id, None, None, "Unexpected error", False
+
+    # Fetch all calendars in parallel (max 5 concurrent)
+    with ThreadPoolExecutor(max_workers=min(len(calendar_ids), 5)) as executor:
+        futures = {executor.submit(fetch_single_calendar, cid): cid for cid in calendar_ids}
+
+        for future in as_completed(futures):
+            calendar_id, events, calendar_name, error, is_primary = future.result()
+
+            if error:
+                errors.append((calendar_id, error))
+                logger.debug(
+                    "Calendar fetch failed", extra={"calendar_id": calendar_id, "error": error}
+                )
+                continue
+
+            if calendar_name:
+                calendar_names[calendar_id] = calendar_name
+
+            if events:
+                # Format events with calendar metadata
+                for event in events:
+                    event_id = event.get("id")
+                    if not event_id:
+                        continue
+
+                    # Skip duplicate events (can happen when both "primary" and actual primary calendar ID are selected)
+                    if event_id in seen_event_ids:
+                        logger.debug(
+                            "Skipping duplicate event",
+                            extra={"event_id": event_id, "calendar_id": calendar_id},
+                        )
+                        continue
+
+                    seen_event_ids.add(event_id)
+
+                    planner_event = _format_event_for_dashboard(event)
+                    # Normalize calendar_id - always use "primary" for the primary calendar
+                    planner_event.calendar_id = "primary" if is_primary else calendar_id
+                    planner_event.calendar_summary = calendar_name or calendar_id
+                    all_events.append(planner_event)
+
+    # Sort combined events by start time
+    all_events.sort(key=lambda e: e.start or e.start_date or "")
+
+    # Log results
+    logger.debug(
+        "Calendar dashboard data fetched",
+        extra={
+            "event_count": len(all_events),
+            "calendars_requested": len(calendar_ids),
+            "calendars_succeeded": len(calendar_ids) - len(errors),
+            "calendars_failed": len(errors),
+        },
+    )
+
+    # Determine overall error message
+    error_msg = None
+    if len(errors) == len(calendar_ids):
+        # All calendars failed
+        if any("expired" in err.lower() for _, err in errors):
+            error_msg = "Google Calendar access has expired. Please reconnect in Settings."
+        else:
+            error_msg = "Failed to fetch any calendars. Please check your connection."
+    elif errors:
+        # Partial failure - show which calendars failed
+        failed_names = [calendar_names.get(cid, cid) for cid, _ in errors[:3]]
+        if len(errors) > 3:
+            error_msg = f"Some calendars failed to load: {', '.join(failed_names)}, and {len(errors) - 3} more"
+        else:
+            error_msg = f"Some calendars failed to load: {', '.join(failed_names)}"
+
+    return all_events, error_msg
 
 
 def _dict_to_dashboard(data: dict[str, Any]) -> PlannerDashboard:
@@ -502,104 +645,142 @@ def build_planner_dashboard(
         server_time=server_time,
     )
 
-    # Fetch Todoist data
-    if todoist_token:
-        tasks_7_days, overdue_tasks, todoist_error = fetch_todoist_dashboard_data(todoist_token)
-        dashboard.overdue_tasks = overdue_tasks
-        dashboard.todoist_error = todoist_error
+    # Fetch all dashboard resources in parallel (Todoist, Calendar, Weather)
+    from concurrent.futures import ThreadPoolExecutor
 
-        # Distribute tasks to days
-        for task in tasks_7_days:
-            if task.due_date and task.due_date in date_to_day:
-                date_to_day[task.due_date].tasks.append(task)
-            elif not task.due_date:
-                # Tasks without due dates go to "Today"
-                days[0].tasks.append(task)
+    def fetch_todoist_if_available() -> tuple[list[Any], list[Any], str | None]:
+        """Fetch Todoist data if token available."""
+        if todoist_token:
+            return fetch_todoist_dashboard_data(todoist_token)
+        return [], [], None
 
-    # Fetch Google Calendar data
-    if calendar_token:
-        events, calendar_error = fetch_calendar_dashboard_data(calendar_token)
-        dashboard.calendar_error = calendar_error
+    def fetch_calendar_if_available() -> tuple[list[PlannerEvent], str | None]:
+        """Fetch Google Calendar data if token available."""
+        if calendar_token:
+            # Get user's selected calendar IDs
+            selected_calendar_ids = ["primary"]  # Default
+            if user_id and db:
+                try:
+                    current_user = db.get_user_by_id(user_id)
+                    if current_user and current_user.google_calendar_selected_ids:
+                        selected_calendar_ids = current_user.google_calendar_selected_ids
+                except Exception as e:
+                    logger.warning(
+                        "Failed to get user calendar selection, using primary",
+                        extra={"user_id": user_id, "error": str(e)},
+                    )
 
-        # Distribute events to days
-        for event in events:
-            # Determine the event's date
-            if event.start_date:
-                event_date = event.start_date
-            elif event.start:
-                parsed = _parse_datetime(event.start)
-                if parsed:
-                    event_date = parsed.strftime("%Y-%m-%d")
-                else:
-                    continue
+            return fetch_calendar_dashboard_data(calendar_token, selected_calendar_ids)
+        return [], None
+
+    def fetch_weather_if_available() -> tuple[Any | None, str | None]:
+        """Fetch weather data if location configured."""
+        if Config.WEATHER_LOCATION:
+            try:
+                from src.utils.weather import get_weather_for_location
+
+                forecast = get_weather_for_location(
+                    Config.WEATHER_LOCATION,
+                    db=db,
+                    force_refresh=force_refresh,
+                )
+                return forecast, None
+            except Exception as e:
+                logger.error(
+                    "Failed to fetch weather for planner",
+                    extra={"error": str(e), "location": Config.WEATHER_LOCATION},
+                    exc_info=True,
+                )
+                return None, f"Weather error: {e}"
+        return None, None
+
+    # Fetch all resources in parallel
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        todoist_future = executor.submit(fetch_todoist_if_available)
+        calendar_future = executor.submit(fetch_calendar_if_available)
+        weather_future = executor.submit(fetch_weather_if_available)
+
+        # Wait for all results
+        tasks_7_days, overdue_tasks, todoist_error = todoist_future.result()
+        events, calendar_error = calendar_future.result()
+        forecast, weather_error = weather_future.result()
+
+    # Process Todoist data
+    dashboard.overdue_tasks = overdue_tasks
+    dashboard.todoist_error = todoist_error
+
+    for task in tasks_7_days:
+        if task.due_date and task.due_date in date_to_day:
+            date_to_day[task.due_date].tasks.append(task)
+        elif not task.due_date:
+            # Tasks without due dates go to "Today"
+            days[0].tasks.append(task)
+
+    # Process Google Calendar data
+    dashboard.calendar_error = calendar_error
+
+    for event in events:
+        # Determine the event's date
+        if event.start_date:
+            event_date = event.start_date
+        elif event.start:
+            parsed = _parse_datetime(event.start)
+            if parsed:
+                event_date = parsed.strftime("%Y-%m-%d")
             else:
                 continue
+        else:
+            continue
 
-            if event_date in date_to_day:
-                date_to_day[event_date].events.append(event)
+        if event_date in date_to_day:
+            date_to_day[event_date].events.append(event)
 
-    # Fetch weather data
-    if Config.WEATHER_LOCATION:
-        try:
-            from src.utils.weather import get_weather_for_location
+    # Process Weather data
+    if forecast:
+        dashboard.weather_location = forecast.location
 
-            forecast = get_weather_for_location(
-                Config.WEATHER_LOCATION,
-                db=db,
-                force_refresh=force_refresh,
-            )
+        # Group weather periods by date and calculate daily stats
+        weather_by_date: dict[str, list[Any]] = {}
+        for period in forecast.periods:
+            # Parse period time to get date
+            period_time = _parse_datetime(period.time)
+            if period_time:
+                date_key = period_time.strftime("%Y-%m-%d")
+                if date_key not in weather_by_date:
+                    weather_by_date[date_key] = []
+                weather_by_date[date_key].append(period)
 
-            if forecast:
-                dashboard.weather_location = forecast.location
+        # Calculate daily weather summaries
+        for date_key, periods in weather_by_date.items():
+            if date_key in date_to_day:
+                temps = [p.temperature for p in periods]
+                precips = [p.precipitation for p in periods]
+                # Find the most common symbol for the day (noon period preferred)
+                symbols = [p.symbol_code for p in periods if p.symbol_code]
+                symbol = symbols[len(symbols) // 2] if symbols else None
 
-                # Group weather periods by date and calculate daily stats
-                weather_by_date: dict[str, list[Any]] = {}
-                for period in forecast.periods:
-                    # Parse period time to get date
-                    period_time = _parse_datetime(period.time)
-                    if period_time:
-                        date_key = period_time.strftime("%Y-%m-%d")
-                        if date_key not in weather_by_date:
-                            weather_by_date[date_key] = []
-                        weather_by_date[date_key].append(period)
+                temp_high = max(temps) if temps else None
+                temp_low = min(temps) if temps else None
+                total_precip = sum(precips)
 
-                # Calculate daily weather summaries
-                for date_key, periods in weather_by_date.items():
-                    if date_key in date_to_day:
-                        temps = [p.temperature for p in periods]
-                        precips = [p.precipitation for p in periods]
-                        # Find the most common symbol for the day (noon period preferred)
-                        symbols = [p.symbol_code for p in periods if p.symbol_code]
-                        symbol = symbols[len(symbols) // 2] if symbols else None
+                # Build summary
+                summary_parts = []
+                if temp_high and temp_low:
+                    summary_parts.append(f"{temp_low:.1f}-{temp_high:.1f}°C")
+                if total_precip > 0:
+                    summary_parts.append(f"{total_precip:.1f}mm rain")
 
-                        temp_high = max(temps) if temps else None
-                        temp_low = min(temps) if temps else None
-                        total_precip = sum(precips)
-
-                        # Build summary
-                        summary_parts = []
-                        if temp_high and temp_low:
-                            summary_parts.append(f"{temp_low:.1f}-{temp_high:.1f}°C")
-                        if total_precip > 0:
-                            summary_parts.append(f"{total_precip:.1f}mm rain")
-
-                        date_to_day[date_key].weather = PlannerWeather(
-                            temperature_high=temp_high,
-                            temperature_low=temp_low,
-                            precipitation=total_precip,
-                            symbol_code=symbol,
-                            summary=", ".join(summary_parts) if summary_parts else "No data",
-                        )
-            else:
-                dashboard.weather_error = "Unable to fetch weather data"
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch weather for planner",
-                extra={"error": str(e), "location": Config.WEATHER_LOCATION},
-                exc_info=True,
-            )
-            dashboard.weather_error = f"Weather error: {e}"
+                date_to_day[date_key].weather = PlannerWeather(
+                    temperature_high=temp_high,
+                    temperature_low=temp_low,
+                    precipitation=total_precip,
+                    symbol_code=symbol,
+                    summary=", ".join(summary_parts) if summary_parts else "No data",
+                )
+    elif weather_error:
+        dashboard.weather_error = weather_error
+    elif Config.WEATHER_LOCATION:
+        dashboard.weather_error = "Unable to fetch weather data"
 
     # Sort tasks by priority (highest first) and events by time
     for day in days:

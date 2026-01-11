@@ -391,6 +391,27 @@ export interface CalendarStatus {
   needs_reconnect: boolean;
 }
 
+export interface Calendar {
+  id: string;
+  summary: string;
+  primary: boolean;
+  access_role: string;
+  background_color?: string;
+}
+
+export interface CalendarListResponse {
+  calendars: Calendar[];
+  error?: string;
+}
+
+export interface SelectedCalendarsResponse {
+  calendar_ids: string[];
+}
+
+export interface UpdateSelectedCalendarsRequest {
+  calendar_ids: string[];
+}
+
 // =============================================================================
 // Search types
 // =============================================================================
@@ -444,6 +465,13 @@ export interface PlannerEvent {
     response_status?: string;
     self?: boolean;
   }>;
+  organizer?: {
+    email?: string;
+    display_name?: string;
+    self?: boolean;
+  } | null;
+  calendar_id?: string | null;
+  calendar_summary?: string | null;
 }
 
 export interface PlannerDay {

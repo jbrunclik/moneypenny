@@ -260,6 +260,7 @@ class User:
     google_calendar_token_expires_at: datetime | None = None
     google_calendar_connected_at: datetime | None = None
     google_calendar_email: str | None = None
+    google_calendar_selected_ids: list[str] | None = None
     planner_last_reset_at: datetime | None = None
 
 
@@ -437,6 +438,21 @@ class Database:
         if row["planner_last_reset_at"]:
             planner_last_reset = datetime.fromisoformat(row["planner_last_reset_at"])
 
+        # Parse selected calendar IDs (JSON array)
+        calendar_selected_ids = None
+        if "google_calendar_selected_ids" in row.keys() and row["google_calendar_selected_ids"]:
+            try:
+                calendar_selected_ids = json.loads(row["google_calendar_selected_ids"])
+            except json.JSONDecodeError:
+                logger.warning(
+                    "Invalid calendar selection JSON, defaulting to primary",
+                    extra={"user_id": row["id"]},
+                )
+                calendar_selected_ids = ["primary"]
+        else:
+            # Default to primary calendar for backward compatibility
+            calendar_selected_ids = ["primary"]
+
         return User(
             id=row["id"],
             email=row["email"],
@@ -451,6 +467,7 @@ class Database:
             google_calendar_token_expires_at=calendar_expires_at,
             google_calendar_connected_at=calendar_connected_at,
             google_calendar_email=row["google_calendar_email"],
+            google_calendar_selected_ids=calendar_selected_ids,
             planner_last_reset_at=planner_last_reset,
         )
 
@@ -622,6 +639,53 @@ class Database:
         else:
             logger.warning(
                 "User not found for Google Calendar token update",
+                extra={"user_id": user_id},
+            )
+
+        return updated
+
+    def update_user_calendar_selected_ids(self, user_id: str, calendar_ids: list[str]) -> bool:
+        """Update selected calendar IDs for a user.
+
+        Args:
+            user_id: User ID
+            calendar_ids: List of calendar IDs to select (defaults to ["primary"] if empty)
+
+        Returns:
+            True if update succeeded, False otherwise
+        """
+        # Validate and default to primary if empty
+        if not calendar_ids:
+            calendar_ids = ["primary"]
+
+        # Always ensure primary calendar is included
+        if "primary" not in calendar_ids:
+            calendar_ids = ["primary"] + calendar_ids
+
+        calendar_ids_json = json.dumps(calendar_ids)
+
+        logger.debug(
+            "Updating user calendar selection",
+            extra={"user_id": user_id, "count": len(calendar_ids)},
+        )
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET google_calendar_selected_ids = ? WHERE id = ?",
+                (calendar_ids_json, user_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            logger.info(
+                "Updated calendar selection",
+                extra={"user_id": user_id, "count": len(calendar_ids)},
+            )
+        else:
+            logger.warning(
+                "User not found for calendar selection update",
                 extra={"user_id": user_id},
             )
 
@@ -1363,6 +1427,106 @@ class Database:
             )
             conn.commit()
             return cursor.rowcount
+
+    # ============================================================================
+    # Calendar Cache Operations
+    # ============================================================================
+
+    def get_cached_calendars(self, user_id: str) -> dict[str, Any] | None:
+        """Get cached available calendars for a user.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Calendar list data dict if cached and not expired, None otherwise
+        """
+        import json
+        from datetime import datetime
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """
+                SELECT calendars_data FROM calendar_cache
+                WHERE user_id = ? AND expires_at > ?
+                """,
+                (user_id, datetime.now().isoformat()),
+            )
+            row = cursor.fetchone()
+
+            if row:
+                logger.debug("Calendar cache hit", extra={"user_id": user_id})
+                calendars_data: dict[str, Any] = json.loads(row["calendars_data"])
+                return calendars_data
+
+            logger.debug("Calendar cache miss", extra={"user_id": user_id})
+            return None
+
+    def cache_calendars(
+        self, user_id: str, calendars_data: dict[str, Any], ttl_seconds: int = 3600
+    ) -> None:
+        """Cache available calendars for a user.
+
+        Args:
+            user_id: User ID
+            calendars_data: Calendar list data dict to cache
+            ttl_seconds: Time-to-live in seconds (default: 3600 = 1 hour)
+        """
+        import json
+        from datetime import datetime, timedelta
+
+        cached_at = datetime.now()
+        expires_at = cached_at + timedelta(seconds=ttl_seconds)
+        calendars_json = json.dumps(calendars_data)
+
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """
+                INSERT INTO calendar_cache (user_id, calendars_data, cached_at, expires_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    calendars_data = excluded.calendars_data,
+                    cached_at = excluded.cached_at,
+                    expires_at = excluded.expires_at
+                """,
+                (user_id, calendars_json, cached_at.isoformat(), expires_at.isoformat()),
+            )
+            conn.commit()
+
+        logger.debug("Calendars cached", extra={"user_id": user_id, "ttl": ttl_seconds})
+
+    def clear_calendar_cache(self, user_id: str) -> None:
+        """Clear calendar cache for a user (e.g., on disconnect/reconnect).
+
+        Args:
+            user_id: User ID
+        """
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "DELETE FROM calendar_cache WHERE user_id = ?",
+                (user_id,),
+            )
+            conn.commit()
+
+        logger.debug("Calendar cache cleared", extra={"user_id": user_id})
+
+    def invalidate_dashboard_cache(self, user_id: str) -> None:
+        """Invalidate dashboard cache when calendar selection changes.
+
+        Args:
+            user_id: User ID
+        """
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "DELETE FROM dashboard_cache WHERE user_id = ?",
+                (user_id,),
+            )
+            conn.commit()
+        logger.debug("Dashboard cache invalidated", extra={"user_id": user_id})
 
     # ============================================================================
     # Weather Cache Operations

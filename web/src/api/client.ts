@@ -30,7 +30,9 @@ import {
   type TodoistStatus,
   type CalendarAuthUrl,
   type CalendarConnectResponse,
+  type CalendarListResponse,
   type CalendarStatus,
+  type SelectedCalendarsResponse,
   type UploadConfig,
   type User,
   type UserSettings,
@@ -964,6 +966,21 @@ export const calendar = {
 
   async getStatus(): Promise<CalendarStatus> {
     return requestWithRetry<CalendarStatus>('/auth/calendar/status');
+  },
+
+  async listCalendars(): Promise<CalendarListResponse> {
+    return requestWithRetry<CalendarListResponse>('/auth/calendar/calendars');
+  },
+
+  async getSelectedCalendars(): Promise<SelectedCalendarsResponse> {
+    return requestWithRetry<SelectedCalendarsResponse>('/auth/calendar/selected-calendars');
+  },
+
+  async updateSelectedCalendars(calendarIds: string[]): Promise<SelectedCalendarsResponse> {
+    return request<SelectedCalendarsResponse>('/auth/calendar/selected-calendars', {
+      method: 'PUT',
+      body: JSON.stringify({ calendar_ids: calendarIds }),
+    });
   },
 };
 

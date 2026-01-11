@@ -635,6 +635,20 @@
     border: 1px solid var(--border);
 }
 
+.planner-item-calendar {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-style: normal;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+}
+
 /* Copy button - Integrated into content */
 .planner-item-copy {
     opacity: 0;
@@ -850,9 +864,9 @@
     border-radius: var(--radius-lg);
     padding: var(--space-4);
     margin-bottom: var(--space-4);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--space-3);
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
 }
@@ -875,8 +889,6 @@
 .dashboard-error strong {
     font-weight: 700;
     color: var(--text-primary);
-    display: block;
-    margin-bottom: var(--space-1);
 }
 
 /* ----------------------------------------
