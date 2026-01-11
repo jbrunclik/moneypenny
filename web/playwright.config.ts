@@ -25,11 +25,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Increase viewport height to reduce whitespace in visual tests
+        viewport: { width: 1280, height: 1024 },
+      },
     },
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: {
+        ...devices['Desktop Safari'],
+        // Increase viewport height to reduce whitespace in visual tests
+        viewport: { width: 1280, height: 1024 },
+      },
     },
   ],
 
