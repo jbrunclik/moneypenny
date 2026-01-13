@@ -43,6 +43,7 @@ The `todoist` tool exposes granular actions for full Todoist management.
 | `get_task` | `task_id` | Fetch a specific task |
 | `add_task` | `content`, optional `description`, `project_id`, `section_id`, `due_string`, `due_date`, `priority`, `labels`, `assignee_id` | Create a task. Use `assignee_id` to assign to a collaborator. |
 | `update_task` | `task_id`, optional task fields including `assignee_id` | Update task properties. Use `assignee_id=""` to unassign. |
+| `move_task` | `task_id` and exactly ONE of: `section_id`, `project_id`, or `parent_id` | Move task to a different section (within project), project, or make it a subtask. Uses Sync API since REST API doesn't support moving. |
 | `complete_task` | `task_id` | Mark task complete |
 | `reopen_task` | `task_id` | Reopen a completed task |
 | `delete_task` | `task_id` | Delete a task |

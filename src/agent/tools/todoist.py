@@ -37,7 +37,7 @@ def _todoist_api_request(
     data: dict[str, Any] | None = None,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any] | list[dict[str, Any]] | None:
-    """Make a request to the Todoist API.
+    """Make a request to the Todoist REST API.
 
     Args:
         method: HTTP method (GET, POST, DELETE)
@@ -99,6 +99,67 @@ def _todoist_api_request(
     except requests.RequestException as e:
         logger.error("Todoist API request failed", extra={"error": str(e), "endpoint": endpoint})
         raise Exception(f"Failed to connect to Todoist: {e}") from e
+
+
+def _todoist_sync_request(
+    token: str,
+    commands: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Make a request to the Todoist Sync API.
+
+    The Sync API is used for operations not supported by the REST API,
+    such as moving tasks between sections.
+
+    Args:
+        token: Todoist access token
+        commands: List of command objects (e.g., [{"type": "item_move", "uuid": ..., "args": {...}}])
+
+    Returns:
+        Sync response with sync_status for each command
+
+    Raises:
+        Exception: On API errors
+    """
+    import json as json_module
+    import uuid
+
+    import requests
+
+    url = "https://api.todoist.com/sync/v9/sync"
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Add UUIDs to commands if not present
+    for cmd in commands:
+        if "uuid" not in cmd:
+            cmd["uuid"] = str(uuid.uuid4())
+
+    # Sync API expects form-encoded data, not JSON
+    data = {"commands": json_module.dumps(commands)}
+
+    try:
+        response = requests.post(
+            url, headers=headers, data=data, timeout=Config.TODOIST_API_TIMEOUT
+        )
+
+        if response.status_code >= 400:
+            error_msg = response.text
+            logger.warning(
+                "Todoist Sync API error",
+                extra={"status_code": response.status_code, "error": error_msg},
+            )
+            if response.status_code in (401, 403):
+                raise Exception(
+                    "Todoist access has been revoked or expired. "
+                    "Please reconnect your Todoist account in Settings."
+                )
+            raise Exception(f"Todoist Sync API error ({response.status_code}): {error_msg}")
+
+        result: dict[str, Any] = response.json()
+        return result
+
+    except requests.RequestException as e:
+        logger.error("Todoist Sync API request failed", extra={"error": str(e)})
+        raise Exception(f"Failed to connect to Todoist Sync API: {e}") from e
 
 
 # ============================================================================
@@ -520,6 +581,66 @@ def _todoist_update_task(
     return {"action": "update_task", "success": True, "task": updated_task}
 
 
+def _todoist_move_task(
+    token: str,
+    task_id: str,
+    section_id: str | None = None,
+    project_id: str | None = None,
+    parent_id: str | None = None,
+) -> dict[str, Any]:
+    """Move a task to a different section, project, or make it a subtask.
+
+    Uses the Sync API's item_move command since the REST API doesn't support moving tasks.
+
+    Args:
+        token: Todoist access token
+        task_id: Task to move
+        section_id: Target section (for moving within project)
+        project_id: Target project (for moving between projects)
+        parent_id: Parent task ID (for making subtask)
+
+    Returns:
+        Success status
+
+    Note: Only ONE of section_id, project_id, or parent_id should be set.
+    """
+    # Build move command arguments
+    args: dict[str, Any] = {"id": task_id}
+
+    # Only one destination parameter should be set
+    destinations = [section_id, project_id, parent_id]
+    if sum(d is not None for d in destinations) != 1:
+        return {
+            "error": "Exactly one of section_id, project_id, or parent_id must be provided for move_task"
+        }
+
+    if section_id:
+        args["section_id"] = section_id
+    elif project_id:
+        args["project_id"] = project_id
+    elif parent_id:
+        args["parent_id"] = parent_id
+
+    # Execute move via Sync API
+    commands = [{"type": "item_move", "args": args}]
+    result = _todoist_sync_request(token, commands)
+
+    # Check if command succeeded
+    sync_status = result.get("sync_status", {})
+    command_uuid = commands[0]["uuid"]
+
+    if command_uuid in sync_status and sync_status[command_uuid] == "ok":
+        return {
+            "action": "move_task",
+            "success": True,
+            "task_id": task_id,
+            "message": "Task moved successfully",
+        }
+    else:
+        error_info = sync_status.get(command_uuid, "Unknown error")
+        return {"action": "move_task", "success": False, "error": error_info}
+
+
 def _todoist_complete_task(token: str, task_id: str) -> dict[str, Any]:
     """Mark a task as completed."""
     _todoist_api_request("POST", f"/tasks/{task_id}/close", token)
@@ -572,6 +693,7 @@ _TODOIST_ACTIONS = {
     "get_task",
     "add_task",
     "update_task",
+    "move_task",
     "complete_task",
     "reopen_task",
     "delete_task",
@@ -591,6 +713,7 @@ def todoist(
     priority: int | None = None,
     labels: list[str] | None = None,
     assignee_id: str | None = None,
+    parent_id: str | None = None,
     filter_string: str | None = None,
     project_name: str | None = None,
     parent_project_id: str | None = None,
@@ -632,6 +755,9 @@ def todoist(
     - "update_task": Update an existing task. Requires 'task_id'.
       Optional: content, description, due_string, due_date, priority, labels, assignee_id.
       Use assignee_id="" (empty string) to unassign a task.
+    - "move_task": Move a task to a different section, project, or make it a subtask. Requires 'task_id' and exactly
+      ONE of: section_id (move to section within same project), project_id (move to different project), or parent_id
+      (make it a subtask of another task).
     - "complete_task": Mark a task as completed. Requires 'task_id'.
     - "reopen_task": Reopen a completed task. Requires 'task_id'.
     - "delete_task": Delete a task permanently. Requires 'task_id'.
@@ -659,13 +785,17 @@ def todoist(
         task_id: Task ID for task operations
         content: Task title/content for add_task or update_task
         description: Task description for add_task or update_task
-        project_id: Project context for listing sections, adding sections, task placement, or listing collaborators
-        section_id: Section ID for section operations or task placement
+        project_id: Project context for listing sections, adding sections, task placement, or listing collaborators.
+            For move_task: destination project ID (only one of section_id/project_id/parent_id should be provided).
+        section_id: Section ID for section operations or task placement.
+            For move_task: destination section ID (only one of section_id/project_id/parent_id should be provided).
         due_string: Natural language due date (e.g., "tomorrow at 3pm", "next Monday")
         due_date: Due date in YYYY-MM-DD format
         priority: Priority level 1-4 (4 is highest)
         labels: List of label names to apply
         assignee_id: Collaborator ID to assign task to (use list_collaborators to get IDs). Use empty string to unassign.
+        parent_id: For move_task: parent task ID to make the task a subtask
+            (only one of section_id/project_id/parent_id should be provided).
         filter_string: Todoist filter syntax for list_tasks
         project_name: Name used when creating or renaming a project
         parent_project_id: Optional parent project when creating/moving a project under another
@@ -815,6 +945,11 @@ def todoist(
                 labels,
                 assignee_id,
             )
+
+        elif action == "move_task":
+            if not task_id:
+                return json.dumps({"error": "task_id is required for move_task action"})
+            result = _todoist_move_task(token, task_id, section_id, project_id, parent_id)
 
         elif action == "complete_task":
             if not task_id:
