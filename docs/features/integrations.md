@@ -308,6 +308,8 @@ In planner mode, the LLM has access to an additional tool that ensures it always
 
 The dashboard data is injected into the system prompt as JSON with this structure:
 
+**Multi-day event handling**: All-day events spanning multiple days (e.g., Monday-Wednesday conference) appear on every day they occur. Google Calendar's `end_date` is exclusive, so an event with `start_date: 2024-12-23` and `end_date: 2024-12-26` spans Dec 23-25 (3 days). This ensures the LLM and user have complete context about ongoing multi-day events.
+
 ```json
 {
   "integrations": {

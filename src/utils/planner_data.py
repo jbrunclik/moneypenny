@@ -720,7 +720,24 @@ def build_planner_dashboard(
     dashboard.calendar_error = calendar_error
 
     for event in events:
-        # Determine the event's date
+        # For multi-day events (all-day events spanning multiple days),
+        # add the event to every day it occurs
+        if event.is_all_day and event.start_date and event.end_date:
+            start_dt = _parse_date(event.start_date)
+            # Google Calendar's end_date is exclusive (the day after the event ends)
+            end_dt = _parse_date(event.end_date)
+
+            if start_dt and end_dt:
+                # Add event to each day it spans (end_date is exclusive)
+                current_dt = start_dt
+                while current_dt < end_dt:
+                    event_date = current_dt.strftime("%Y-%m-%d")
+                    if event_date in date_to_day:
+                        date_to_day[event_date].events.append(event)
+                    current_dt += timedelta(days=1)
+                continue
+
+        # Regular events (single day or timed events)
         if event.start_date:
             event_date = event.start_date
         elif event.start:

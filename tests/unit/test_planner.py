@@ -562,6 +562,196 @@ class TestPlannerDataclasses:
         assert dashboard.calendar_error is None
 
 
+class TestMultiDayEventHandling:
+    """Tests for multi-day event handling in build_planner_dashboard."""
+
+    def test_multi_day_event_appears_on_all_days(self) -> None:
+        """Test that a multi-day all-day event appears on every day it spans."""
+        from src.utils.planner_data import build_planner_dashboard
+
+        # Mock fetch functions to return a 3-day all-day event (Mon-Wed)
+        def mock_fetch_calendar(*args: Any, **kwargs: Any) -> tuple[list[PlannerEvent], None]:
+            """Return a single multi-day event spanning 3 days."""
+            event = PlannerEvent(
+                id="event-multiday",
+                summary="Company Offsite",
+                start_date="2024-12-23",  # Monday
+                end_date="2024-12-26",  # Thursday (exclusive, so event ends Wed)
+                is_all_day=True,
+            )
+            return [event], None
+
+        def mock_fetch_todoist(
+            *args: Any, **kwargs: Any
+        ) -> tuple[list[PlannerTask], list[PlannerTask], None]:
+            """Return no tasks."""
+            return [], [], None
+
+        import src.utils.planner_data
+
+        original_fetch_calendar = src.utils.planner_data.fetch_calendar_dashboard_data
+        original_fetch_todoist = src.utils.planner_data.fetch_todoist_dashboard_data
+
+        try:
+            src.utils.planner_data.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
+            src.utils.planner_data.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
+
+            # Mock datetime.now() to return a fixed date (2024-12-23)
+            from unittest.mock import patch
+
+            with patch("src.utils.planner_data.datetime") as mock_datetime:
+                mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
+                mock_datetime.strptime = datetime.strptime
+                mock_datetime.fromisoformat = datetime.fromisoformat
+                mock_datetime.utcnow.return_value = datetime(2024, 12, 23, 10, 0, 0)
+
+                dashboard = build_planner_dashboard(
+                    todoist_token=None,
+                    calendar_token="fake-token",
+                    user_id=None,
+                    force_refresh=True,
+                )
+
+            # Verify the event appears on days 0, 1, 2 (Mon, Tue, Wed)
+            # but NOT on day 3 (Thu) since end_date is exclusive
+            assert len(dashboard.days) == 7
+
+            # Monday (2024-12-23) - should have the event
+            assert len(dashboard.days[0].events) == 1
+            assert dashboard.days[0].events[0].summary == "Company Offsite"
+            assert dashboard.days[0].date == "2024-12-23"
+
+            # Tuesday (2024-12-24) - should have the event
+            assert len(dashboard.days[1].events) == 1
+            assert dashboard.days[1].events[0].summary == "Company Offsite"
+            assert dashboard.days[1].date == "2024-12-24"
+
+            # Wednesday (2024-12-25) - should have the event
+            assert len(dashboard.days[2].events) == 1
+            assert dashboard.days[2].events[0].summary == "Company Offsite"
+            assert dashboard.days[2].date == "2024-12-25"
+
+            # Thursday (2024-12-26) - should NOT have the event (end_date is exclusive)
+            assert len(dashboard.days[3].events) == 0
+            assert dashboard.days[3].date == "2024-12-26"
+
+        finally:
+            # Restore original functions
+            src.utils.planner_data.fetch_calendar_dashboard_data = original_fetch_calendar
+            src.utils.planner_data.fetch_todoist_dashboard_data = original_fetch_todoist
+
+    def test_single_day_all_day_event_only_on_one_day(self) -> None:
+        """Test that a single-day all-day event only appears on one day."""
+        from src.utils.planner_data import build_planner_dashboard
+
+        def mock_fetch_calendar(*args: Any, **kwargs: Any) -> tuple[list[PlannerEvent], None]:
+            """Return a single-day all-day event."""
+            event = PlannerEvent(
+                id="event-singleday",
+                summary="Birthday",
+                start_date="2024-12-25",  # Wednesday
+                end_date="2024-12-26",  # Thursday (exclusive, so just Wednesday)
+                is_all_day=True,
+            )
+            return [event], None
+
+        def mock_fetch_todoist(
+            *args: Any, **kwargs: Any
+        ) -> tuple[list[PlannerTask], list[PlannerTask], None]:
+            """Return no tasks."""
+            return [], [], None
+
+        import src.utils.planner_data
+
+        original_fetch_calendar = src.utils.planner_data.fetch_calendar_dashboard_data
+        original_fetch_todoist = src.utils.planner_data.fetch_todoist_dashboard_data
+
+        try:
+            src.utils.planner_data.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
+            src.utils.planner_data.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
+
+            from unittest.mock import patch
+
+            with patch("src.utils.planner_data.datetime") as mock_datetime:
+                mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
+                mock_datetime.strptime = datetime.strptime
+                mock_datetime.fromisoformat = datetime.fromisoformat
+                mock_datetime.utcnow.return_value = datetime(2024, 12, 23, 10, 0, 0)
+
+                dashboard = build_planner_dashboard(
+                    todoist_token=None,
+                    calendar_token="fake-token",
+                    user_id=None,
+                    force_refresh=True,
+                )
+
+            # Event should only appear on Wednesday (day 2)
+            assert len(dashboard.days[0].events) == 0  # Monday
+            assert len(dashboard.days[1].events) == 0  # Tuesday
+            assert len(dashboard.days[2].events) == 1  # Wednesday
+            assert dashboard.days[2].events[0].summary == "Birthday"
+            assert len(dashboard.days[3].events) == 0  # Thursday
+
+        finally:
+            src.utils.planner_data.fetch_calendar_dashboard_data = original_fetch_calendar
+            src.utils.planner_data.fetch_todoist_dashboard_data = original_fetch_todoist
+
+    def test_timed_event_not_duplicated(self) -> None:
+        """Test that timed events (non-all-day) are not duplicated across days."""
+        from src.utils.planner_data import build_planner_dashboard
+
+        def mock_fetch_calendar(*args: Any, **kwargs: Any) -> tuple[list[PlannerEvent], None]:
+            """Return a timed event."""
+            event = PlannerEvent(
+                id="event-timed",
+                summary="Team Meeting",
+                start="2024-12-23T14:00:00",
+                end="2024-12-23T15:00:00",
+                is_all_day=False,
+            )
+            return [event], None
+
+        def mock_fetch_todoist(
+            *args: Any, **kwargs: Any
+        ) -> tuple[list[PlannerTask], list[PlannerTask], None]:
+            """Return no tasks."""
+            return [], [], None
+
+        import src.utils.planner_data
+
+        original_fetch_calendar = src.utils.planner_data.fetch_calendar_dashboard_data
+        original_fetch_todoist = src.utils.planner_data.fetch_todoist_dashboard_data
+
+        try:
+            src.utils.planner_data.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
+            src.utils.planner_data.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
+
+            from unittest.mock import patch
+
+            with patch("src.utils.planner_data.datetime") as mock_datetime:
+                mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
+                mock_datetime.strptime = datetime.strptime
+                mock_datetime.fromisoformat = datetime.fromisoformat
+                mock_datetime.utcnow.return_value = datetime(2024, 12, 23, 10, 0, 0)
+
+                dashboard = build_planner_dashboard(
+                    todoist_token=None,
+                    calendar_token="fake-token",
+                    user_id=None,
+                    force_refresh=True,
+                )
+
+            # Timed event should only appear once on the day it occurs
+            assert len(dashboard.days[0].events) == 1  # Monday - has the event
+            assert dashboard.days[0].events[0].summary == "Team Meeting"
+            assert len(dashboard.days[1].events) == 0  # Tuesday - no events
+            assert len(dashboard.days[2].events) == 0  # Wednesday - no events
+
+        finally:
+            src.utils.planner_data.fetch_calendar_dashboard_data = original_fetch_calendar
+            src.utils.planner_data.fetch_todoist_dashboard_data = original_fetch_todoist
+
+
 class TestRefreshPlannerDashboardTool:
     """Tests for the refresh_planner_dashboard tool."""
 
