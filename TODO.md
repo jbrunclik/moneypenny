@@ -15,7 +15,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing. **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.
 - [ ] **Frontend Race Conditions** - Fix `currentStreamingContext` in `Messages.ts`. It's currently overwritten without cleaning up the previous listener, potentially leaving "zombie" listeners.
 - [ ] **Brittle Scroll Detection** - `setupStreamingScrollListener` relies on `scrollTop < previousScrollTop` to detect user intervention. This causes false pauses when images load above the viewport. Move to `wheel`/`touchmove` event detection.
-- [ ] **Sandbox Performance** - Stop running `apt-get install fonts-dejavu-core` inside the 30s runtime timeout. Move this to a custom Dockerfile with pre-installed fonts.
 
 ## File Size Refactoring
 The following files have grown too large (>2000 lines) for effective LLM context processing and maintainability. They should be split into smaller, focused modules:

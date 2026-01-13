@@ -126,11 +126,35 @@ The app can execute Python code in a secure Docker sandbox using [llm-sandbox](h
 
 ### How it works
 
-1. **Tool available**: `execute_code(code)` tool in [tools.py](../../src/agent/tools.py)
+1. **Tool available**: `execute_code(code)` tool in [tools/code_execution.py](../../src/agent/tools/code_execution.py)
 2. **Docker sandbox**: Code runs in an isolated container with no network access
-3. **File output**: Code saves files to `/output/` directory, which are extracted and returned
-4. **Automatic plots**: Matplotlib plots are captured automatically via llm-sandbox
-5. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
+3. **Custom image**: Uses a pre-built Docker image with fonts and libraries pre-installed for faster execution
+4. **File output**: Code saves files to `/output/` directory, which are extracted and returned
+5. **Automatic plots**: Matplotlib plots are captured automatically via llm-sandbox
+6. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
+
+### Custom Docker Image
+
+For optimal performance, the app uses a custom Docker image with pre-installed dependencies:
+
+**Building the image:**
+```bash
+make sandbox-image
+```
+
+This builds `ai-chatbot-sandbox:local` with:
+- DejaVu fonts for Unicode support in PDF generation (fpdf2)
+- All Python libraries pre-installed (numpy, pandas, matplotlib, etc.)
+- Compiler tools (gcc, g++) for native extensions
+
+**Benefits:**
+- **Faster execution**: No runtime font installation (~2-5s saved per fpdf execution)
+- **Faster library loading**: Pre-installed libraries avoid pip install overhead
+- **Reliability**: No risk of apt-get or pip failures during execution
+
+**Automatic cleanup:**
+- `make sandbox-image` removes old image versions to prevent bloat
+- Each build replaces the previous `ai-chatbot-sandbox:local` image
 
 ### Security Constraints
 
@@ -142,11 +166,31 @@ The app can execute Python code in a secure Docker sandbox using [llm-sandbox](h
 ### Configuration
 
 ```bash
-CODE_SANDBOX_ENABLED=true           # Enable/disable (default: true)
-CODE_SANDBOX_TIMEOUT=30             # Execution timeout in seconds
-CODE_SANDBOX_MEMORY_LIMIT=512m      # Container memory limit
+CODE_SANDBOX_ENABLED=true                    # Enable/disable (default: true)
+CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local  # Custom Docker image (required)
+CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
+CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
+CODE_SANDBOX_CPU_LIMIT=1.0                   # CPU limit (1.0 = 1 core)
 CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2
 ```
+
+### Deployment
+
+Each deployment environment must build the custom image:
+
+```bash
+# Initial setup
+make setup
+make sandbox-image
+
+# Update .env
+CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local
+
+# On updates (if Dockerfile changed)
+make sandbox-image
+```
+
+**Note:** The custom image is required. The base Python image lacks pre-installed fonts and libraries, causing code execution to fail or perform poorly.
 
 ### File Output Pattern (uses `_full_result` to save tokens)
 
@@ -179,7 +223,9 @@ The tool uses the same `_full_result` pattern as `generate_image` to avoid sendi
 
 ### Key Files
 
-- [tools.py](../../src/agent/tools.py) - `execute_code()` tool, `is_code_sandbox_available()`, `_check_docker_available()`
+- [code_execution.py](../../src/agent/tools/code_execution.py) - `execute_code()` tool, `is_code_sandbox_available()`, `_check_docker_available()`
+- [Dockerfile](../../docker/code-sandbox/Dockerfile) - Custom Docker image with pre-installed fonts and libraries
+- [Makefile](../../Makefile) - `sandbox-image` target for building custom image
 - [images.py](../../src/utils/images.py) - `extract_code_output_files_from_tool_results()` for file extraction
 - [config.py](../../src/config.py) - `CODE_SANDBOX_*` configuration options
 - [chat_agent.py](../../src/agent/chat_agent.py) - System prompt with code execution instructions

@@ -146,11 +146,11 @@ MAX_FILES_PER_MESSAGE=10
 ALLOWED_FILE_TYPES=image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv
 
 # Code execution sandbox (optional, requires Docker)
-CODE_SANDBOX_ENABLED=true           # Enable/disable code execution
-CODE_SANDBOX_TIMEOUT=30             # Execution timeout in seconds
-CODE_SANDBOX_MEMORY_LIMIT=512m      # Container memory limit
-CODE_SANDBOX_IMAGE=python:3.11-slim-trixie  # Docker image (use Docker Hub to avoid auth issues)
-CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab
+CODE_SANDBOX_ENABLED=true                    # Enable/disable code execution
+CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local  # Custom image (build with: make sandbox-image)
+CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
+CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
+CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2
 
 # Gunicorn settings (optional)
 GUNICORN_WORKERS=2                  # Number of worker processes
@@ -190,6 +190,14 @@ The code execution feature allows the AI to run Python code in a secure, isolate
 **Prerequisites:**
 - Docker installed and running
 - User must have access to the Docker socket
+
+**Build the custom sandbox image:**
+
+```bash
+make sandbox-image
+```
+
+This creates `ai-chatbot-sandbox:local` with pre-installed fonts and Python libraries for faster execution.
 
 **Local Development (macOS/Linux):**
 ```bash

@@ -25,10 +25,8 @@ from src.agent.tools import (
 # Import internal helpers directly from submodules for testing
 from src.agent.tools.code_execution import (
     _build_execution_response,
-    _build_font_setup_code,
     _extract_plots,
     _get_mime_type,
-    _needs_font_setup,
     _parse_output_files_from_stdout,
     _wrap_user_code,
 )
@@ -1038,51 +1036,6 @@ class TestIsCodeSandboxAvailable:
 # ============================================================================
 
 
-class TestBuildFontSetupCode:
-    """Tests for _build_font_setup_code helper function."""
-
-    def test_returns_font_installation_code(self) -> None:
-        """Should return code that installs DejaVu fonts."""
-        result = _build_font_setup_code()
-        assert "apt-get" in result
-        assert "fonts-dejavu-core" in result
-
-    def test_includes_helper_function(self) -> None:
-        """Should include _get_dejavu_font helper function."""
-        result = _build_font_setup_code()
-        assert "def _get_dejavu_font()" in result
-        assert "DejaVuSans.ttf" in result
-
-    def test_uses_quiet_mode(self) -> None:
-        """Should use quiet mode for apt-get to reduce output."""
-        result = _build_font_setup_code()
-        assert "-qq" in result
-
-
-class TestNeedsFontSetup:
-    """Tests for _needs_font_setup helper function."""
-
-    def test_detects_fpdf_lowercase(self) -> None:
-        """Should detect fpdf import in lowercase."""
-        assert _needs_font_setup("from fpdf import FPDF") is True
-
-    def test_detects_fpdf_uppercase(self) -> None:
-        """Should detect FPDF class name."""
-        assert _needs_font_setup("pdf = FPDF()") is True
-
-    def test_detects_fpdf_in_comment(self) -> None:
-        """Should detect fpdf even in comments (conservative approach)."""
-        assert _needs_font_setup("# using fpdf for PDF") is True
-
-    def test_returns_false_for_no_fpdf(self) -> None:
-        """Should return False when code doesn't use fpdf."""
-        assert _needs_font_setup("print('hello world')") is False
-
-    def test_returns_false_for_reportlab(self) -> None:
-        """Should return False for reportlab (uses different font system)."""
-        assert _needs_font_setup("from reportlab.lib.pagesizes import letter") is False
-
-
 class TestWrapUserCode:
     """Tests for _wrap_user_code helper function."""
 
@@ -1102,17 +1055,6 @@ class TestWrapUserCode:
         result = _wrap_user_code("print('test')")
         assert "__OUTPUT_FILES__" in result
         assert "os.listdir('/output')" in result
-
-    def test_includes_font_setup_for_fpdf(self) -> None:
-        """Should include font setup when fpdf is used."""
-        result = _wrap_user_code("from fpdf import FPDF")
-        assert "fonts-dejavu-core" in result
-        assert "_get_dejavu_font" in result
-
-    def test_excludes_font_setup_for_non_fpdf(self) -> None:
-        """Should not include font setup for non-fpdf code."""
-        result = _wrap_user_code("import numpy as np")
-        assert "fonts-dejavu-core" not in result
 
 
 class TestParseOutputFilesFromStdout:

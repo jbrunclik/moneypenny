@@ -21,16 +21,45 @@ def _check_docker_available() -> bool:
     """Check if Docker is available for code execution.
 
     Caches the result to avoid repeated checks.
+    Verifies that the custom sandbox image exists.
     """
     global _docker_available
     if _docker_available is not None:
         return _docker_available
 
     try:
+        import subprocess
+
+        # Check if the custom sandbox image exists
+        result = subprocess.run(
+            ["docker", "images", "-q", Config.CODE_SANDBOX_IMAGE],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        if result.returncode != 0:
+            _docker_available = False
+            logger.warning(
+                "Docker command failed",
+                extra={"error": result.stderr, "note": "Ensure Docker is running"},
+            )
+            return _docker_available
+
+        if not result.stdout.strip():
+            _docker_available = False
+            logger.warning(
+                "Custom sandbox image not found",
+                extra={
+                    "image": Config.CODE_SANDBOX_IMAGE,
+                    "note": "Run 'make sandbox-image' to build the custom image",
+                },
+            )
+            return _docker_available
+
+        # Verify Docker connectivity with a quick test
         from llm_sandbox import SandboxSession
 
-        # Try to create a quick session to verify Docker connectivity
-        # Use standard Docker Hub image to avoid ghcr.io authentication issues
         with SandboxSession(lang="python", image=Config.CODE_SANDBOX_IMAGE) as session:
             result = session.run("print('ok')")
             _docker_available = result.exit_code == 0
@@ -38,6 +67,12 @@ def _check_docker_available() -> bool:
                 logger.info("Docker sandbox available for code execution")
             else:
                 logger.warning("Docker sandbox test failed", extra={"exit_code": result.exit_code})
+    except subprocess.TimeoutExpired:
+        _docker_available = False
+        logger.warning("Docker command timed out", extra={"note": "Ensure Docker is running"})
+    except FileNotFoundError:
+        _docker_available = False
+        logger.warning("Docker command not found", extra={"note": "Ensure Docker is installed"})
     except Exception as e:
         _docker_available = False
         logger.warning(
@@ -74,33 +109,13 @@ def _get_mime_type(filename: str) -> str:
     return mime_types.get(ext, "application/octet-stream")
 
 
-def _build_font_setup_code() -> str:
-    """Build code snippet to install DejaVu fonts for Unicode support in fpdf2."""
-    return """
-# Install DejaVu fonts for Unicode support in PDF generation
-import subprocess as _sp
-import sys as _sys
-_sp.run(['apt-get', 'update', '-qq'], capture_output=True)
-_sp.run(['apt-get', 'install', '-y', '-qq', 'fonts-dejavu-core'], capture_output=True)
-# Helper to get DejaVu font path
-def _get_dejavu_font():
-    return '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-"""
-
-
-def _needs_font_setup(code: str) -> bool:
-    """Check if code uses fpdf and needs font setup for Unicode support."""
-    return "fpdf" in code.lower() or "FPDF" in code
-
-
 def _wrap_user_code(code: str) -> str:
     """Wrap user code with setup and file listing logic.
 
     The wrapped code:
     1. Creates /output directory for file saving
-    2. Installs fonts if fpdf2 is detected (for Unicode support)
-    3. Runs the user code
-    4. Lists files in /output for extraction
+    2. Runs the user code
+    3. Lists files in /output for extraction
 
     Args:
         code: The user's Python code to wrap
@@ -108,12 +123,10 @@ def _wrap_user_code(code: str) -> str:
     Returns:
         Wrapped code ready for sandbox execution
     """
-    font_setup = _build_font_setup_code() if _needs_font_setup(code) else ""
-
     return f"""
 import os
 os.makedirs('/output', exist_ok=True)
-{font_setup}
+
 # User code starts here
 {code}
 # User code ends here

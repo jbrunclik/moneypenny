@@ -1,4 +1,4 @@
-.PHONY: help setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -19,6 +19,7 @@ help:
 	@echo "AI Chatbot - Available targets:"
 	@echo ""
 	@echo "  setup                 Create venv and install dependencies"
+	@echo "  sandbox-image         Build custom Docker image for code sandbox"
 	@echo "  dev                   Run Flask + Vite dev servers concurrently"
 	@echo "  run                   Run Flask server only"
 	@echo "  build                 Production build (Vite)"
@@ -61,7 +62,30 @@ setup:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	cd web && $(NPM) install
+	@echo ""
 	@echo "Setup complete. Activate with: source $(VENV)/bin/activate"
+	@echo ""
+	@echo "Optional: Build custom sandbox image for better code execution performance:"
+	@echo "  make sandbox-image"
+
+# Build custom Docker image for code sandbox with pre-installed fonts
+# Automatically cleans up old versions to prevent image bloat
+sandbox-image:
+	@echo "Building custom code sandbox Docker image..."
+	@echo ""
+	@# Build new image
+	docker build -t ai-chatbot-sandbox:local docker/code-sandbox/
+	@echo ""
+	@# Remove dangling images (old layers that are no longer used)
+	@if docker images -f "dangling=true" -q 2>/dev/null | grep -q .; then \
+		echo "Cleaning up dangling images..."; \
+		docker images -f "dangling=true" -q | xargs -r docker rmi 2>/dev/null || true; \
+		echo ""; \
+	fi
+	@echo "✓ Sandbox image built: ai-chatbot-sandbox:local"
+	@echo ""
+	@echo "Update your .env file with:"
+	@echo "  CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local"
 
 # Development: run Flask and Vite dev server concurrently
 # Uses npx concurrently to manage both processes (Ctrl+C kills both)

@@ -13,6 +13,7 @@ This file contains context for Claude Code to work effectively on this project.
 - **Lint**: `make lint` (ruff + mypy + eslint)
 - **Test**: `make test-all` (run all tests - backend + frontend)
 - **Setup**: `make setup` (venv + deps)
+- **Sandbox**: `make sandbox-image` (build custom Docker image for code execution)
 - **OpenAPI**: `make openapi` (export OpenAPI spec)
 - **Types**: `make types` (generate TypeScript types from OpenAPI)
 - **Help**: `make` (show all targets)
