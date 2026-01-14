@@ -7,7 +7,7 @@ from apiflask import APIFlask
 from flask import Response, render_template, request, send_from_directory
 
 from src.api.rate_limiting import init_rate_limiting
-from src.api.routes import api, auth
+from src.api.routes import register_blueprints
 from src.config import Config
 from src.utils.logging import get_logger, set_request_id, setup_logging
 
@@ -86,9 +86,8 @@ def create_app() -> APIFlask:
     # This ensures the limiter is available when routes are registered
     init_rate_limiting(app)
 
-    # Register blueprints
-    app.register_blueprint(api)
-    app.register_blueprint(auth)
+    # Register all blueprints from routes module
+    register_blueprints(app)
 
     # Custom error processor to return our standardized error format
     # APIFlask calls this for all HTTPError exceptions (including APIError)

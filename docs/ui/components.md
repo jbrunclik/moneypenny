@@ -709,7 +709,7 @@ The dashboard includes comprehensive accessibility features:
 - [../../web/src/main.ts](../../web/src/main.ts) - `navigateToPlanner()` function
 
 **Backend:**
-- [../../src/api/routes.py](../../src/api/routes.py) - `/api/planner` endpoint
+- [../../src/api/routes/planner.py](../../src/api/routes/planner.py) - `/api/planner` endpoint
 
 ### Testing
 

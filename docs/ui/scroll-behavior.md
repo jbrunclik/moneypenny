@@ -288,7 +288,7 @@ The app uses cursor-based pagination for both conversations and messages to effi
 
 **Backend:**
 - [../../src/db/models.py](../../src/db/models.py) - `build_cursor()`, `parse_cursor()`, pagination methods
-- [../../src/api/routes.py](../../src/api/routes.py) - Pagination endpoints
+- [../../src/api/routes/conversations.py](../../src/api/routes/conversations.py) - Pagination endpoints
 - [../../src/api/schemas.py](../../src/api/schemas.py) - Pagination response schemas
 - [../../src/config.py](../../src/config.py) - Backend configuration
 

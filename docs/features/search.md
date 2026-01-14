@@ -131,7 +131,7 @@ LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200 // Scroll threshold for loading newer mes
 
 - [migrations/0015_add_full_text_search.py](../../migrations/0015_add_full_text_search.py) - FTS5 table creation and triggers
 - [models.py](../../src/db/models.py) - `SearchResult` dataclass, `search()` method with query escaping, `get_messages_around()`
-- [routes.py](../../src/api/routes.py) - `GET /api/search` endpoint with validation
+- [routes/conversations.py](../../src/api/routes/conversations.py) - `GET /api/search` endpoint with validation
 - [schemas.py](../../src/api/schemas.py) - `SearchResultResponse`, `SearchResultsResponse` schemas
 - [config.py](../../src/config.py) - Configuration constants
 

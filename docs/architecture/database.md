@@ -71,7 +71,7 @@ Existing messages are migrated via yoyo migration `0012_migrate_files_to_blob_st
 
 - [blob_store.py](../../src/db/blob_store.py) - `BlobStore` class with CRUD methods
 - [models.py](../../src/db/models.py) - Blob key helpers, file metadata extraction
-- [routes.py](../../src/api/routes.py) - File/thumbnail endpoints with blob store + legacy fallback
+- [routes/files.py](../../src/api/routes/files.py) - File/thumbnail endpoints with blob store + legacy fallback
 - [config.py](../../src/config.py) - Configuration
 - [0011_create_blob_store.py](../../migrations/0011_create_blob_store.py) - Creates blob store DB
 - [0012_migrate_files_to_blob_store.py](../../migrations/0012_migrate_files_to_blob_store.py) - Migrates existing data

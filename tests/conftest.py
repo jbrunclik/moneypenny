@@ -3,6 +3,7 @@
 import os
 import tempfile
 from collections.abc import Generator
+from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
@@ -118,18 +119,43 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
     Uses test_database and test_blob_store fixtures to ensure same instances
     are shared between app routes and test fixtures like test_user.
     """
-    with patch("src.db.models.db", test_database):
-        with patch("src.auth.jwt_auth.db", test_database):
-            with patch("src.api.routes.db", test_database):
-                # Patch the global blob store getter to return our test instance
-                with patch("src.db.blob_store._blob_store", test_blob_store):
-                    with patch("src.db.models.get_blob_store", return_value=test_blob_store):
-                        with patch("src.api.routes.get_blob_store", return_value=test_blob_store):
-                            from src.app import create_app
+    with ExitStack() as stack:
+        # Patch database in core modules
+        stack.enter_context(patch("src.db.models.db", test_database))
+        stack.enter_context(patch("src.auth.jwt_auth.db", test_database))
+        stack.enter_context(patch("src.api.routes.db", test_database))
 
-                            flask_app = create_app()
-                            flask_app.config["TESTING"] = True
-                            yield flask_app
+        # Patch database in all route modules (routes are split across multiple files)
+        route_modules = [
+            "auth",
+            "calendar",
+            "chat",
+            "conversations",
+            "costs",
+            "files",
+            "memory",
+            "planner",
+            "settings",
+            "todoist",
+        ]
+        for module in route_modules:
+            stack.enter_context(patch(f"src.api.routes.{module}.db", test_database))
+
+        # Patch database in helper modules and utilities
+        stack.enter_context(patch("src.api.helpers.chat_streaming.db", test_database))
+        stack.enter_context(patch("src.api.helpers.validation.db", test_database))
+        stack.enter_context(patch("src.api.utils.db", test_database))
+
+        # Patch blob store
+        stack.enter_context(patch("src.db.blob_store._blob_store", test_blob_store))
+        stack.enter_context(patch("src.db.models.get_blob_store", return_value=test_blob_store))
+        stack.enter_context(patch("src.api.routes.get_blob_store", return_value=test_blob_store))
+
+        from src.app import create_app
+
+        flask_app = create_app()
+        flask_app.config["TESTING"] = True
+        yield flask_app
 
 
 @pytest.fixture

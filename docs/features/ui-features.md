@@ -258,7 +258,7 @@ The app detects when a new version is deployed and shows a banner prompting user
 ### Key Files
 
 - [app.py](../../src/app.py) - Extracts version hash from manifest, stores in `app.config["APP_VERSION"]`
-- [routes.py](../../src/api/routes.py) - `GET /api/version` endpoint
+- [routes/system.py](../../src/api/routes/system.py) - `GET /api/version` endpoint
 - [VersionBanner.ts](../../web/src/components/VersionBanner.ts) - Banner component and polling logic
 - [store.ts](../../web/src/state/store.ts) - Version state management
 

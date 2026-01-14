@@ -52,13 +52,32 @@ ai-chatbot/
 ## Key Files
 
 - [config.py](src/config.py) - All env vars, model definitions
-- [routes.py](src/api/routes.py) - API endpoints
+- [routes/](src/api/routes/) - API endpoints organized by feature (see [api-design.md](docs/architecture/api-design.md))
 - [schemas.py](src/api/schemas.py) - Pydantic request/response schemas
 - [chat_agent.py](src/agent/chat_agent.py) - LangGraph graph, Gemini integration
-- [tools.py](src/agent/tools.py) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file)
+- [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file)
 - [models.py](src/db/models.py) - Database schema and operations
 - [main.ts](web/src/main.ts) - Frontend entry point
 - [store.ts](web/src/state/store.ts) - Zustand state management
+
+### API Route Organization
+
+Routes are split across 11 focused modules (43 total endpoints):
+- [routes/auth.py](src/api/routes/auth.py) - Google authentication (4 routes)
+- [routes/todoist.py](src/api/routes/todoist.py) - Todoist integration (4 routes)
+- [routes/calendar.py](src/api/routes/calendar.py) - Google Calendar (7 routes)
+- [routes/conversations.py](src/api/routes/conversations.py) - Conversation CRUD (9 routes)
+- [routes/planner.py](src/api/routes/planner.py) - Planner dashboard (4 routes)
+- [routes/chat.py](src/api/routes/chat.py) - Chat endpoints (2 routes)
+- [routes/files.py](src/api/routes/files.py) - File serving (2 routes)
+- [routes/costs.py](src/api/routes/costs.py) - Cost tracking (4 routes)
+- [routes/settings.py](src/api/routes/settings.py) - User settings (2 routes)
+- [routes/memory.py](src/api/routes/memory.py) - User memory (2 routes)
+- [routes/system.py](src/api/routes/system.py) - Models, config, version, health (5 routes)
+
+Helper modules:
+- [helpers/validation.py](src/api/helpers/validation.py) - Common validation patterns
+- [helpers/chat_streaming.py](src/api/helpers/chat_streaming.py) - Chat streaming utilities
 
 ## Development Workflow
 
@@ -144,10 +163,10 @@ Both commands must pass without errors. If linting fails, run `make lint-fix` to
 ## Common Tasks
 
 ### Add a new API endpoint
-Edit [routes.py](src/api/routes.py), add route to `api` blueprint. Use `@api.output()` decorator for response schema.
+Add route to the appropriate module in [src/api/routes/](src/api/routes/) (e.g., [routes/conversations.py](src/api/routes/conversations.py) for conversation-related endpoints). Use `@api.output()` decorator for response schema. Routes are organized by feature - see [API Route Organization](#api-route-organization) above.
 
 ### Add a new tool to the agent
-Edit [tools.py](src/agent/tools.py), add function with `@tool` decorator and add to `TOOLS` list.
+Create a new file in [tools/](src/agent/tools/) or add to an existing tool module. Add function with `@tool` decorator and register in [tools/__init__.py](src/agent/tools/__init__.py).
 
 ### Change available models
 Edit [config.py](src/config.py) `MODELS` dict.

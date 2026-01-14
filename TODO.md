@@ -10,7 +10,7 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Planner: Use temp conversation during loading** - Replace `'planner-loading'` placeholder with a real temp conversation ID (e.g., `temp-planner-${timestamp}`). This would allow users to send messages immediately while planner loads, leveraging the existing temp conversation persistence flow instead of blocking with a toast message.
 
 ## Code Quality
-- [ ] **Refactor MIME type logic** - Replace manual `_get_mime_type` and maps in `src/agent/tools.py` with Python's standard `mimetypes` library.
+- [ ] **Refactor MIME type logic** - Replace manual `_get_mime_type` and maps in `src/agent/tools/` with Python's standard `mimetypes` library.
 - [ ] Consider async Flask (quart) for better concurrency
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing. **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.
 - [ ] **Frontend Race Conditions** - Fix `currentStreamingContext` in `Messages.ts`. It's currently overwritten without cleaning up the previous listener, potentially leaving "zombie" listeners.
@@ -18,7 +18,6 @@ This file tracks planned features, improvements, and technical debt.
 
 ## File Size Refactoring
 The following files have grown too large (>2000 lines) for effective LLM context processing and maintainability. They should be split into smaller, focused modules:
-- [ ] **[routes.py](src/api/routes.py) (3171 lines)**
 - [ ] **[main.ts](web/src/main.ts) (3123 lines)**
 - [ ] **[models.py](src/db/models.py) (2714 lines)**
 - [ ] **[chat_agent.py](src/agent/chat_agent.py) (2331 lines)**

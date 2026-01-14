@@ -31,7 +31,7 @@ When `USER_LOCATION` is set, the LLM is instructed to:
 
 - [config.py](../../src/config.py) - `USER_LOCATION` configuration
 - [chat_agent.py](../../src/agent/chat_agent.py) - `get_user_context()`, `get_system_prompt()` with `user_name` parameter
-- [routes.py](../../src/api/routes.py) - Passes `user_name` from authenticated user to chat methods
+- [routes/chat.py](../../src/api/routes/chat.py) - Passes `user_name` from authenticated user to chat methods
 
 ---
 
@@ -73,7 +73,8 @@ The LLM includes memory operations in the metadata block:
 - [models.py](../../src/db/models.py) - `Memory` dataclass, CRUD methods
 - [chat_agent.py](../../src/agent/chat_agent.py) - `MEMORY_SYSTEM_PROMPT`, `get_user_memories_prompt()`
 - [utils.py](../../src/api/utils.py) - `extract_memory_operations()` for parsing metadata
-- [routes.py](../../src/api/routes.py) - Memory processing in chat endpoints, API endpoints
+- [routes/chat.py](../../src/api/routes/chat.py) - Memory processing in chat endpoints
+- [routes/memory.py](../../src/api/routes/memory.py) - Memory API endpoints
 - [config.py](../../src/config.py) - `USER_MEMORY_LIMIT` constant (default: 100)
 
 **Frontend:**
@@ -160,7 +161,8 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - [models.py](../../src/db/models.py) - `User.custom_instructions` field, `update_user_custom_instructions()` method
 - [chat_agent.py](../../src/agent/chat_agent.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant, `get_system_prompt()` with `custom_instructions` parameter
 - [schemas.py](../../src/api/schemas.py) - `UpdateSettingsRequest` schema with 2000 char limit
-- [routes.py](../../src/api/routes.py) - Settings endpoints, passes `custom_instructions` to agent
+- [routes/settings.py](../../src/api/routes/settings.py) - Settings endpoints
+- [routes/chat.py](../../src/api/routes/chat.py) - Passes `custom_instructions` to agent
 
 **Frontend:**
 - [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - Settings popup with textarea, character count, save button
@@ -206,10 +208,10 @@ Anonymous mode allows users to chat without memory retrieval/storage and without
 
 **Backend:**
 - `anonymous_mode` field in `ChatRequest` schema ([schemas.py](../../src/api/schemas.py))
-- `get_tools_for_request(anonymous_mode)` in [tools.py](../../src/agent/tools.py) filters integration tools
+- `get_tools_for_request(anonymous_mode)` in [tools/__init__.py](../../src/agent/tools/__init__.py) filters integration tools
 - `ChatAgent.__init__()` passes filtered tools to graph creation
 - `get_system_prompt(anonymous_mode=True)` skips memory injection and excludes `TOOLS_SYSTEM_PROMPT_PRODUCTIVITY` (Todoist/Calendar docs)
-- Memory operations skipped in [routes.py](../../src/api/routes.py) when `anonymous_mode=True`
+- Memory operations skipped in [routes/chat.py](../../src/api/routes/chat.py) when `anonymous_mode=True`
 
 ### Testing
 

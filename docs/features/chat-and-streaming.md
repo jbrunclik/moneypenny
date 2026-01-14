@@ -86,7 +86,7 @@ During streaming responses, the app shows a thinking indicator at the top of ass
    - `{"type": "token", "text": "..."}` - Regular content tokens
    - `{"type": "final", ...}` - Final result with metadata
 
-2. **SSE forwarding**: [routes.py](../../src/api/routes.py) forwards these events via Server-Sent Events
+2. **SSE forwarding**: [routes/chat.py](../../src/api/routes/chat.py) forwards these events via Server-Sent Events
 
 3. **Frontend handling**: [main.ts](../../web/src/main.ts) parses events and calls:
    - `updateStreamingThinking(text)` for thinking events (with full accumulated text)
@@ -159,7 +159,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 ### Key Files
 
 - [chat_agent.py](../../src/agent/chat_agent.py) - `stream_chat_events()`, `extract_thinking_and_text()`
-- [routes.py](../../src/api/routes.py) - SSE streaming with thinking/tool events
+- [routes/chat.py](../../src/api/routes/chat.py) - SSE streaming with thinking/tool events
 - [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
 - [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
 - [Messages.ts](../../web/src/components/Messages.ts) - Streaming state management
@@ -188,10 +188,10 @@ When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are d
 
 ### Key Files
 
-- [tools.py](../../src/agent/tools.py) - `web_search()` returns structured JSON
+- [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
 - [chat_agent.py](../../src/agent/chat_agent.py) - `TOOLS_SYSTEM_PROMPT`, `extract_metadata_from_response()`, streaming filter
 - [models.py](../../src/db/models.py) - `Message.sources` field, `add_message()` with sources param
-- [routes.py](../../src/api/routes.py) - Sources included in batch/stream responses
+- [routes/chat.py](../../src/api/routes/chat.py) - Sources included in batch/stream responses
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
 - [Messages.ts](../../web/src/components/Messages.ts) - Sources button rendering
 

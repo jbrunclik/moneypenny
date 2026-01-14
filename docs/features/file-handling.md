@@ -8,10 +8,10 @@ The app can generate images using Gemini's image generation model (`gemini-3-pro
 
 ### How it works
 
-1. **Tool available**: `generate_image(prompt, aspect_ratio, reference_images, history_image_message_id, history_image_file_index)` tool in [tools.py](../../src/agent/tools.py)
+1. **Tool available**: `generate_image(prompt, aspect_ratio, reference_images, history_image_message_id, history_image_file_index)` tool in [tools/image_generation.py](../../src/agent/tools/image_generation.py)
 2. **Tool returns JSON**: Returns `{"prompt": "...", "image": {"data": "base64...", "mime_type": "image/png"}}`
 3. **LLM appends metadata**: System prompt instructs LLM to include `"generated_images": [{"prompt": "..."}]` in the metadata block
-4. **Backend extracts images**: `extract_generated_images_from_tool_results()` in [routes.py](../../src/api/routes.py) parses tool results
+4. **Backend extracts images**: `extract_generated_images_from_tool_results()` in [routes/chat.py](../../src/api/routes/chat.py) parses tool results
 5. **Images stored as files**: Generated images are stored as file attachments on the message
 6. **Metadata stored in DB**: Messages table has a `generated_images` column (JSON array)
 7. **UI shows sparkles button**: A sparkles icon appears in message actions when generated images exist, opening a popup showing the prompt used and the cost of image generation (excluding prompt tokens)
@@ -39,7 +39,7 @@ Users can upload images and ask the LLM to modify them. The uploaded images are 
 - `None` - Generate from scratch (no reference images)
 
 **Context variable pattern:**
-- `set_current_message_files(files)` is called in routes.py before the agent runs
+- `set_current_message_files(files)` is called in [routes/chat.py](../../src/api/routes/chat.py) before the agent runs
 - `get_current_message_files()` is called by the tool to access uploaded files
 - Only image files (MIME type starting with `image/`) are used as references
 - Non-image files (PDFs, text) are filtered out
@@ -60,7 +60,7 @@ The LLM can also reference images from earlier in the conversation history (not 
 - `history_image_file_index` - The file index within that message (default: 0)
 
 **Context variable pattern for history:**
-- `set_conversation_context(conversation_id, user_id)` is called in routes.py before the agent runs
+- `set_conversation_context(conversation_id, user_id)` is called in [routes/chat.py](../../src/api/routes/chat.py) before the agent runs
 - `get_conversation_context()` returns the current conversation/user IDs for ownership verification
 - The tool verifies the message belongs to the current conversation before retrieving
 
@@ -112,10 +112,12 @@ The metadata block supports both sources and generated_images:
 
 ### Key Files
 
-- [tools.py](../../src/agent/tools.py) - `generate_image()` tool with `reference_images` and `history_image_*` parameters, `retrieve_file()` tool, context variable helpers
+- [tools/image_generation.py](../../src/agent/tools/image_generation.py) - `generate_image()` tool with `reference_images` and `history_image_*` parameters
+- [tools/file_retrieval.py](../../src/agent/tools/file_retrieval.py) - `retrieve_file()` tool
+- [tools/context.py](../../src/agent/tools/context.py) - Context variable helpers
 - [chat_agent.py](../../src/agent/chat_agent.py) - System prompt with image editing and file retrieval instructions
 - [models.py](../../src/db/models.py) - `Message.generated_images` field
-- [routes.py](../../src/api/routes.py) - Sets files and conversation context before agent call, image extraction from tool results
+- [routes/chat.py](../../src/api/routes/chat.py) - Sets files and conversation context before agent call, image extraction from tool results
 - [ImageGenPopup.ts](../../web/src/components/ImageGenPopup.ts) - Popup showing generation info
 - [InfoPopup.ts](../../web/src/components/InfoPopup.ts) - Generic popup component used by both sources and image gen
 - [Messages.ts](../../web/src/components/Messages.ts) - Sparkles button rendering
@@ -229,7 +231,7 @@ The tool uses the same `_full_result` pattern as `generate_image` to avoid sendi
 - [images.py](../../src/utils/images.py) - `extract_code_output_files_from_tool_results()` for file extraction
 - [config.py](../../src/config.py) - `CODE_SANDBOX_*` configuration options
 - [chat_agent.py](../../src/agent/chat_agent.py) - System prompt with code execution instructions
-- [routes.py](../../src/api/routes.py) - Extracts and attaches code output files to messages
+- [routes/chat.py](../../src/api/routes/chat.py) - Extracts and attaches code output files to messages
 
 ### Testing Locally
 
@@ -362,7 +364,7 @@ If the server dies while generating thumbnails, pending thumbnails would be stuc
 
 - [background_thumbnails.py](../../src/utils/background_thumbnails.py) - ThreadPoolExecutor, queue functions, `generate_and_save_thumbnail()` shared helper
 - [images.py](../../src/utils/images.py) - `generate_thumbnail()`, `process_image_files_sync()` for tool outputs
-- [routes.py](../../src/api/routes.py) - Thumbnail endpoint with 202 response and stale recovery
+- [routes/files.py](../../src/api/routes/files.py) - Thumbnail endpoint with 202 response and stale recovery
 - [client.ts](../../web/src/api/client.ts) - `fetchThumbnail()` with polling and exponential backoff
 - [config.ts](../../web/src/config.ts) - Frontend polling configuration
 

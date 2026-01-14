@@ -14,8 +14,8 @@ class TestGetCalendarAuthUrl:
 
     def test_get_auth_url_success(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should return auth URL when calendar is configured."""
-        with patch("src.api.routes._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.get_google_calendar_auth_url") as mock_url:
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch("src.api.routes.calendar.get_google_calendar_auth_url") as mock_url:
                 mock_url.return_value = "https://accounts.google.com/o/oauth2/v2/auth?..."
                 response = client.get("/auth/calendar/auth-url", headers=auth_headers)
 
@@ -28,7 +28,7 @@ class TestGetCalendarAuthUrl:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         """Should return 400 when calendar is not configured."""
-        with patch("src.api.routes._is_google_calendar_configured", return_value=False):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=False):
             response = client.get("/auth/calendar/auth-url", headers=auth_headers)
 
         assert response.status_code == 400
@@ -44,14 +44,16 @@ class TestConnectGoogleCalendar:
 
     def test_connect_success(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should connect calendar with valid code."""
-        with patch("src.api.routes._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.exchange_calendar_code_for_tokens") as mock_exchange:
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch(
+                "src.api.routes.calendar.exchange_calendar_code_for_tokens"
+            ) as mock_exchange:
                 mock_exchange.return_value = {
                     "access_token": "test-access-token",
                     "refresh_token": "test-refresh-token",
                     "expires_in": 3600,
                 }
-                with patch("src.api.routes.get_google_calendar_user_info") as mock_user:
+                with patch("src.api.routes.calendar.get_google_calendar_user_info") as mock_user:
                     mock_user.return_value = {"email": "user@example.com"}
 
                     response = client.post(
@@ -69,7 +71,7 @@ class TestConnectGoogleCalendar:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         """Should return 400 when calendar is not configured."""
-        with patch("src.api.routes._is_google_calendar_configured", return_value=False):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=False):
             response = client.post(
                 "/auth/calendar/connect",
                 headers=auth_headers,
@@ -82,8 +84,10 @@ class TestConnectGoogleCalendar:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         """Should return 400 when token exchange fails."""
-        with patch("src.api.routes._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.exchange_calendar_code_for_tokens") as mock_exchange:
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch(
+                "src.api.routes.calendar.exchange_calendar_code_for_tokens"
+            ) as mock_exchange:
                 mock_exchange.side_effect = GoogleCalendarAuthError("Exchange failed")
 
                 response = client.post(
@@ -144,7 +148,7 @@ class TestGetCalendarStatus:
 
     def test_status_not_connected(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should return not connected when no token stored."""
-        with patch("src.api.routes._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
             response = client.get("/auth/calendar/status", headers=auth_headers)
 
         assert response.status_code == 200
@@ -169,8 +173,8 @@ class TestGetCalendarStatus:
             email="user@example.com",
         )
 
-        with patch("src.api.routes._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.get_google_calendar_user_info") as mock_user:
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch("src.api.routes.calendar.get_google_calendar_user_info") as mock_user:
                 mock_user.return_value = {"email": "user@example.com"}
                 response = client.get("/auth/calendar/status", headers=auth_headers)
 
@@ -196,8 +200,8 @@ class TestGetCalendarStatus:
             email="user@example.com",
         )
 
-        with patch("src.api.routes._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.refresh_google_calendar_token") as mock_refresh:
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
                 mock_refresh.side_effect = GoogleCalendarAuthError("Refresh failed")
 
                 response = client.get("/auth/calendar/status", headers=auth_headers)
@@ -224,14 +228,14 @@ class TestGetCalendarStatus:
             email="user@example.com",
         )
 
-        with patch("src.api.routes._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.refresh_google_calendar_token") as mock_refresh:
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
                 mock_refresh.return_value = {
                     "access_token": "new-access-token",
                     "refresh_token": "new-refresh-token",
                     "expires_in": 3600,
                 }
-                with patch("src.api.routes.get_google_calendar_user_info") as mock_user:
+                with patch("src.api.routes.calendar.get_google_calendar_user_info") as mock_user:
                     mock_user.return_value = {"email": "user@example.com"}
 
                     response = client.get("/auth/calendar/status", headers=auth_headers)
@@ -246,7 +250,7 @@ class TestGetCalendarStatus:
 
     def test_status_not_configured(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should return not connected when not configured."""
-        with patch("src.api.routes._is_google_calendar_configured", return_value=False):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=False):
             response = client.get("/auth/calendar/status", headers=auth_headers)
 
         assert response.status_code == 200

@@ -81,7 +81,7 @@ class TestReadinessCheck:
     def test_returns_503_when_database_unavailable(self, client: FlaskClient) -> None:
         """Should return 503 when database is not accessible."""
         with patch(
-            "src.db.models.check_database_connectivity",
+            "src.api.routes.system.check_database_connectivity",
             return_value=(False, "Database connection failed"),
         ):
             response = client.get("/api/ready")
@@ -96,7 +96,7 @@ class TestReadinessCheck:
         """Should include database error message in checks."""
         error_msg = "Permission denied accessing database file"
         with patch(
-            "src.db.models.check_database_connectivity",
+            "src.api.routes.system.check_database_connectivity",
             return_value=(False, error_msg),
         ):
             response = client.get("/api/ready")

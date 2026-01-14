@@ -135,7 +135,7 @@ FLASK_ENV=development                             # Skip auth in dev mode
 
 - [jwt_auth.py](../../src/auth/jwt_auth.py) - Token creation, validation, `decode_token_with_status()`, `@require_auth` decorator
 - [google_auth.py](../../src/auth/google_auth.py) - Google token verification, email whitelist checking
-- [routes.py](../../src/api/routes.py) - `/auth/google`, `/auth/refresh` endpoints
+- [routes/auth.py](../../src/api/routes/auth.py) - `/auth/google`, `/auth/refresh` endpoints
 - [config.py](../../src/config.py) - Auth configuration constants
 
 ### Frontend

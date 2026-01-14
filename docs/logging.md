@@ -370,7 +370,7 @@ logger.debug("Processing complete")
 
 ### Backend
 
-**Routes** ([../../src/api/routes.py](../../src/api/routes.py)):
+**Routes** ([../../src/api/routes/](../../src/api/routes/)):
 - All endpoints log request/response with status codes
 - Include request ID, user ID, conversation ID where applicable
 
@@ -379,7 +379,7 @@ logger.debug("Processing complete")
 - Tool calls and results
 - Response extraction and metadata parsing
 
-**Tools** ([../../src/agent/tools.py](../../src/agent/tools.py)):
+**Tools** ([../../src/agent/tools/](../../src/agent/tools/)):
 - Tool execution start/completion
 - Tool errors and retries
 - External API calls

@@ -542,8 +542,29 @@ def main() -> None:
         stack.enter_context(patch("src.api.routes.db", proxy_db))
         stack.enter_context(patch("src.agent.chat_agent.db", proxy_db))
 
+        # Patch database in all route modules (routes are split across multiple files)
+        route_modules = [
+            "auth",
+            "calendar",
+            "chat",
+            "conversations",
+            "costs",
+            "files",
+            "memory",
+            "planner",
+            "settings",
+            "todoist",
+        ]
+        for module in route_modules:
+            stack.enter_context(patch(f"src.api.routes.{module}.db", proxy_db))
+
+        # Patch database in helper modules and utilities
+        stack.enter_context(patch("src.api.helpers.chat_streaming.db", proxy_db))
+        stack.enter_context(patch("src.api.helpers.validation.db", proxy_db))
+        stack.enter_context(patch("src.api.utils.db", proxy_db))
+
         # Patch threading.Thread to propagate context
-        stack.enter_context(patch("src.api.routes.threading.Thread", ContextPropagatingThread))
+        stack.enter_context(patch("src.api.routes.chat.threading.Thread", ContextPropagatingThread))
         stack.enter_context(
             patch("src.agent.chat_agent.threading.Thread", ContextPropagatingThread)
         )

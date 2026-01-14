@@ -122,8 +122,8 @@ TODOIST_API_TIMEOUT=10  # API request timeout in seconds
 - [config.py](../../src/config.py) - Configuration constants
 - [todoist_auth.py](../../src/auth/todoist_auth.py) - OAuth helpers
 - [models.py](../../src/db/models.py) - User fields and token management methods
-- [tools.py](../../src/agent/tools.py) - `todoist()` tool with context helpers
-- [routes.py](../../src/api/routes.py) - OAuth endpoints, context setup
+- [tools/todoist.py](../../src/agent/tools/todoist.py) - `todoist()` tool with context helpers
+- [routes/todoist.py](../../src/api/routes/todoist.py) - OAuth endpoints
 - [chat_agent.py](../../src/agent/chat_agent.py) - `TODOIST_SYSTEM_PROMPT`
 - [migrations/0018_add_todoist_fields.py](../../migrations/0018_add_todoist_fields.py) - Database schema
 
@@ -251,8 +251,8 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 **Backend:**
 - [config.py](../../src/config.py) - Configuration constants
 - [google_calendar.py](../../src/auth/google_calendar.py) - OAuth helpers (authorize, exchange, refresh, userinfo)
-- [routes.py](../../src/api/routes.py) - OAuth endpoints and status helpers
-- [tools.py](../../src/agent/tools.py) - `google_calendar` LangGraph tool
+- [routes/calendar.py](../../src/api/routes/calendar.py) - OAuth endpoints and status helpers
+- [tools/google_calendar.py](../../src/agent/tools/google_calendar.py) - `google_calendar` LangGraph tool
 - [chat_agent.py](../../src/agent/chat_agent.py) - Prompt instructions for calendar + strategic productivity heuristics
 - [migrations/0019_add_google_calendar_fields.py](../../migrations/0019_add_google_calendar_fields.py) - Database schema
 
@@ -386,7 +386,7 @@ Dashboard data is cached in SQLite with a 5-minute TTL to improve performance ac
 **Backend:**
 - [planner_data.py](../../src/utils/planner_data.py) - Dashboard building logic
 - [tools/planner.py](../../src/agent/tools/planner.py) - refresh_planner_dashboard tool
-- [routes.py](../../src/api/routes.py) - Planner API endpoints
+- [routes/planner.py](../../src/api/routes/planner.py) - Planner API endpoints
 - [chat_agent.py](../../src/agent/chat_agent.py) - PLANNER_SYSTEM_PROMPT and dashboard context injection
 - [models.py](../../src/db/models.py) - Planner conversation management and caching
 

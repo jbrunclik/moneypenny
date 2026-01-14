@@ -68,17 +68,42 @@ make types
 
 This workflow should be run whenever you modify:
 - Response schemas in `src/api/schemas.py`
-- Endpoint definitions or `@api.output()` decorators in `src/api/routes.py`
+- Endpoint definitions or `@api.output()` decorators in `src/api/routes/`
 
 ### Key Files
 
 - [app.py](../../src/app.py) - APIFlask configuration
 - [schemas.py](../../src/api/schemas.py) - Request and response Pydantic schemas
-- [routes.py](../../src/api/routes.py) - API endpoints with `@api.output()` decorators
+- [routes/](../../src/api/routes/) - API endpoints organized by feature (see Route Organization below)
 - [static/openapi.json](../../static/openapi.json) - Generated OpenAPI specification
 - [web/src/types/generated-api.ts](../../web/src/types/generated-api.ts) - Auto-generated TypeScript types
 - [web/src/types/api.ts](../../web/src/types/api.ts) - Frontend type definitions
 - [tests/integration/test_openapi.py](../../tests/integration/test_openapi.py) - OpenAPI spec tests
+
+### Route Organization
+
+Routes are organized into focused modules by feature area (43 total endpoints across 11 modules):
+
+**Auth-related routes** (`/auth` prefix):
+- [routes/auth.py](../../src/api/routes/auth.py) - Google authentication (4 routes)
+- [routes/todoist.py](../../src/api/routes/todoist.py) - Todoist integration (4 routes)
+- [routes/calendar.py](../../src/api/routes/calendar.py) - Google Calendar integration (7 routes)
+
+**API routes** (`/api` prefix):
+- [routes/system.py](../../src/api/routes/system.py) - Models, config, version, health (5 routes)
+- [routes/memory.py](../../src/api/routes/memory.py) - User memory management (2 routes)
+- [routes/settings.py](../../src/api/routes/settings.py) - User settings (2 routes)
+- [routes/conversations.py](../../src/api/routes/conversations.py) - Conversation CRUD (9 routes)
+- [routes/planner.py](../../src/api/routes/planner.py) - Planner dashboard (4 routes)
+- [routes/chat.py](../../src/api/routes/chat.py) - Chat endpoints (2 routes: batch and streaming)
+- [routes/files.py](../../src/api/routes/files.py) - File serving (2 routes)
+- [routes/costs.py](../../src/api/routes/costs.py) - Cost tracking (4 routes)
+
+**Helper modules**:
+- [helpers/validation.py](../../src/api/helpers/validation.py) - Common validation patterns
+- [helpers/chat_streaming.py](../../src/api/helpers/chat_streaming.py) - Chat streaming utilities
+
+All routes are registered via `register_blueprints()` in [routes/__init__.py](../../src/api/routes/__init__.py).
 
 ---
 
@@ -207,7 +232,7 @@ def status_endpoint():
 - [rate_limiting.py](../../src/api/rate_limiting.py) - Limiter initialization and decorators
 - [config.py](../../src/config.py) - Rate limit configuration
 - [app.py](../../src/app.py) - Limiter initialization in app factory
-- [routes.py](../../src/api/routes.py) - Rate limit decorators on endpoints
+- [routes/](../../src/api/routes/) - Rate limit decorators on endpoints
 - [test_rate_limiting.py](../../tests/unit/test_rate_limiting.py) - Unit tests
 
 ---

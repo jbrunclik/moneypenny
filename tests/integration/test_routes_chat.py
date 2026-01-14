@@ -20,7 +20,7 @@ class TestChatBatch:
         test_conversation: Conversation,
     ) -> None:
         """Should return assistant response."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Hello! How can I help?",  # response
@@ -65,7 +65,7 @@ class TestChatBatch:
         test_database: Database,
     ) -> None:
         """Should save user and assistant messages."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Response text",
@@ -93,7 +93,7 @@ class TestChatBatch:
         test_conversation: Conversation,
     ) -> None:
         """Should include sources when web tools are used."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             # Response with metadata that will be extracted
             response_with_metadata = """Based on search results...
@@ -146,7 +146,7 @@ class TestChatBatch:
         test_conversation: Conversation,
     ) -> None:
         """Should pass force_tools to agent."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Response",
@@ -176,7 +176,7 @@ class TestChatStream:
         test_conversation: Conversation,
     ) -> None:
         """Should return SSE content type."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -209,7 +209,7 @@ class TestChatStream:
         test_conversation: Conversation,
     ) -> None:
         """Should stream tokens as SSE events."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -269,9 +269,10 @@ class TestChatStream:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_conversation: Conversation,
+        test_database: Database,
     ) -> None:
         """Should save message to DB even if client disconnects during streaming."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -307,9 +308,7 @@ class TestChatStream:
         time.sleep(1.0)
 
         # Verify message was saved to database even though client disconnected
-        from src.db.models import db
-
-        messages = db.get_messages(test_conversation.id)
+        messages = test_database.get_messages(test_conversation.id)
         # Should have user message and assistant message
         assert len(messages) >= 2
         assert messages[-2].role == "user"
@@ -337,7 +336,7 @@ class TestChatWithFiles:
         sample_file: dict[str, Any],
     ) -> None:
         """Should handle file attachments in batch mode."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "I see your image",
@@ -365,7 +364,7 @@ class TestChatWithFiles:
         sample_file: dict[str, Any],
     ) -> None:
         """Should accept files without text message."""
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "This is an image of...",
@@ -427,7 +426,7 @@ class TestChatWithGeneratedImages:
             }
         )
 
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             # Mock chat_batch to return the response AND simulate tool node capture
@@ -515,7 +514,7 @@ class TestChatWithGeneratedImages:
             }
         )
 
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -607,7 +606,7 @@ class TestChatWithGeneratedImages:
         """
         import time
 
-        with patch("src.api.routes.ChatAgent") as mock_agent_class:
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:

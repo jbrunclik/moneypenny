@@ -175,7 +175,7 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 ### Backend
 
-- [routes.py](../../src/api/routes.py) - `GET /api/conversations/sync` endpoint
+- [routes/conversations.py](../../src/api/routes/conversations.py) - `GET /api/conversations/sync` endpoint
 - [models.py](../../src/db/models.py) - `list_conversations_with_message_count()`, `get_conversations_updated_since()`
 
 ### Frontend
