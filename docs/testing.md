@@ -47,7 +47,7 @@ tests/
 │   ├── test_images.py             # Image processing
 │   └── test_tools.py              # Agent tools (mocked externals)
 ├── integration/                   # Integration tests (multi-component)
-│   ├── test_db_models.py          # Database CRUD operations
+│   ├── test_db_models/          # Database CRUD operations
 │   ├── test_routes_auth.py        # Auth endpoints
 │   ├── test_routes_conversations.py  # Conversation CRUD
 │   ├── test_routes_chat.py        # Chat endpoints

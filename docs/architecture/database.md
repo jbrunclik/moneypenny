@@ -70,7 +70,7 @@ Existing messages are migrated via yoyo migration `0012_migrate_files_to_blob_st
 ### Key Files
 
 - [blob_store.py](../../src/db/blob_store.py) - `BlobStore` class with CRUD methods
-- [models.py](../../src/db/models.py) - Blob key helpers, file metadata extraction
+- [models/helpers.py](../../src/db/models/helpers.py) - Blob key helpers, file metadata extraction
 - [routes/files.py](../../src/api/routes/files.py) - File/thumbnail endpoints with blob store + legacy fallback
 - [config.py](../../src/config.py) - Configuration
 - [0011_create_blob_store.py](../../migrations/0011_create_blob_store.py) - Creates blob store DB
@@ -119,7 +119,7 @@ with self._pool.get_connection() as conn:
 ### Key Files
 
 - [connection_pool.py](../../src/utils/connection_pool.py) - `ConnectionPool` class
-- [models.py](../../src/db/models.py) - `Database` class uses `self._pool`
+- [models/base.py](../../src/db/models/base.py) - `Database` class uses `self._pool`
 - [blob_store.py](../../src/db/blob_store.py) - `BlobStore` class uses `self._pool`
 
 ---
@@ -180,7 +180,7 @@ The query timing logic is centralized in [db_helpers.py](../../src/utils/db_help
 - `execute_with_timing()` - Executes queries with optional timing and logging
 - `init_query_logging()` - Returns configuration tuple `(should_log, threshold_ms)`
 
-Both [models.py](../../src/db/models.py) and [blob_store.py](../../src/db/blob_store.py) delegate to these shared helpers.
+Both [models/base.py](../../src/db/models/base.py) and [blob_store.py](../../src/db/blob_store.py) delegate to these shared helpers.
 The blob store uses `log_prefix="Blob "` to distinguish its logs from main database logs.
 
 ---
@@ -205,7 +205,7 @@ At startup, the application verifies database connectivity before starting the F
 
 ### Key Files
 
-- [models.py](../../src/db/models.py) - `check_database_connectivity()`
+- [models/helpers.py](../../src/db/models/helpers.py) - `check_database_connectivity()`
 - [app.py](../../src/app.py) - Startup connectivity check in `main()`
 - [config.py](../../src/config.py) - `SLOW_QUERY_THRESHOLD_MS` setting
 
@@ -327,8 +327,8 @@ CREATE INDEX idx_conversations_user_id_updated_at ON conversations(user_id, upda
 
 - All queries go through `_execute_with_timing()` for automatic slow query detection
 - Use parameterized queries (`?` placeholders) - never string concatenation for VALUES
-- **Dynamic column names**: If you must build SQL with dynamic column names (e.g., for UPDATE statements), use a whitelist. See `_CONVERSATION_UPDATE_COLUMNS` in [models.py](../../src/db/models.py) for the pattern
-- Keep queries in [models.py](../../src/db/models.py) - don't write SQL in routes
+- **Dynamic column names**: If you must build SQL with dynamic column names (e.g., for UPDATE statements), use a whitelist. See `_CONVERSATION_UPDATE_COLUMNS` in [models/conversation.py](../../src/db/models/conversation.py) for the pattern
+- Keep queries in [models/](../../src/db/models/) - don't write SQL in routes
 - Return dataclasses (`User`, `Conversation`, `Message`) from database methods
 
 ### Migration Guidelines

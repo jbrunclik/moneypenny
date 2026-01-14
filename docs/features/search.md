@@ -100,7 +100,7 @@ When navigating to a search result in a large conversation, the app uses `around
 
 - `scrollToAndHighlightMessage()` in [main.ts](../../web/src/main.ts) - Orchestrates the navigation
 - `loadAllRemainingNewerMessages()` in [Messages.ts](../../web/src/components/Messages.ts) - Loads all newer messages before send
-- `get_messages_around()` in [models.py](../../src/db/models.py) - Backend method for centered pagination
+- `get_messages_around()` in [models/](../../src/db/models/) - Backend method for centered pagination
 - `getMessagesAround()` in [client.ts](../../web/src/api/client.ts) - Frontend API method
 
 ## Configuration
@@ -130,7 +130,7 @@ LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200 // Scroll threshold for loading newer mes
 ### Backend
 
 - [migrations/0015_add_full_text_search.py](../../migrations/0015_add_full_text_search.py) - FTS5 table creation and triggers
-- [models.py](../../src/db/models.py) - `SearchResult` dataclass, `search()` method with query escaping, `get_messages_around()`
+- [models/](../../src/db/models/) - `SearchResult` dataclass, `search()` method with query escaping, `get_messages_around()`
 - [routes/conversations.py](../../src/api/routes/conversations.py) - `GET /api/search` endpoint with validation
 - [schemas.py](../../src/api/schemas.py) - `SearchResultResponse`, `SearchResultsResponse` schemas
 - [config.py](../../src/config.py) - Configuration constants

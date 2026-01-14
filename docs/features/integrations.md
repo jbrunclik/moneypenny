@@ -121,7 +121,7 @@ TODOIST_API_TIMEOUT=10  # API request timeout in seconds
 **Backend:**
 - [config.py](../../src/config.py) - Configuration constants
 - [todoist_auth.py](../../src/auth/todoist_auth.py) - OAuth helpers
-- [models.py](../../src/db/models.py) - User fields and token management methods
+- [models/](../../src/db/models/) - User fields and token management methods
 - [tools/todoist.py](../../src/agent/tools/todoist.py) - `todoist()` tool with context helpers
 - [routes/todoist.py](../../src/api/routes/todoist.py) - OAuth endpoints
 - [chat_agent.py](../../src/agent/chat_agent.py) - `TODOIST_SYSTEM_PROMPT`
@@ -388,7 +388,7 @@ Dashboard data is cached in SQLite with a 5-minute TTL to improve performance ac
 - [tools/planner.py](../../src/agent/tools/planner.py) - refresh_planner_dashboard tool
 - [routes/planner.py](../../src/api/routes/planner.py) - Planner API endpoints
 - [chat_agent.py](../../src/agent/chat_agent.py) - PLANNER_SYSTEM_PROMPT and dashboard context injection
-- [models.py](../../src/db/models.py) - Planner conversation management and caching
+- [models/](../../src/db/models/) - Planner conversation management and caching
 
 **Frontend:**
 - [PlannerView.ts](../../web/src/components/PlannerView.ts) - Planner container
@@ -470,7 +470,7 @@ Yr.no provides free weather data with these requirements:
 **Backend:**
 - [weather.py](../../src/utils/weather.py) - Weather fetching from Yr.no API
 - [planner_data.py](../../src/utils/planner_data.py) - Weather integration into dashboard
-- [models.py](../../src/db/models.py) - Weather cache operations
+- [models/](../../src/db/models/) - Weather cache operations
 - [config.py](../../src/config.py) - Weather configuration
 
 **Migration:**

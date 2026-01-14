@@ -100,8 +100,11 @@ def test_blob_store(test_blob_path: Path):
 
     blob_store = BlobStore(db_path=test_blob_path)
 
-    # Patch get_blob_store in models.py so add_message etc. use test blob store
-    with patch("src.db.models.get_blob_store", return_value=blob_store):
+    # Patch get_blob_store in models modules so add_message etc. use test blob store
+    with (
+        patch("src.db.models.helpers.get_blob_store", return_value=blob_store),
+        patch("src.db.models.message.get_blob_store", return_value=blob_store),
+    ):
         yield blob_store
     # Close connection pool to release resources
     blob_store.close()
@@ -148,7 +151,12 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
 
         # Patch blob store
         stack.enter_context(patch("src.db.blob_store._blob_store", test_blob_store))
-        stack.enter_context(patch("src.db.models.get_blob_store", return_value=test_blob_store))
+        stack.enter_context(
+            patch("src.db.models.helpers.get_blob_store", return_value=test_blob_store)
+        )
+        stack.enter_context(
+            patch("src.db.models.message.get_blob_store", return_value=test_blob_store)
+        )
         stack.enter_context(patch("src.api.routes.get_blob_store", return_value=test_blob_store))
 
         from src.app import create_app

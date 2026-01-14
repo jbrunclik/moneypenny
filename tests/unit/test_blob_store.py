@@ -226,10 +226,10 @@ class TestDeleteMessagesBlobs:
             blob_store = BlobStore(db_path)
 
             # Patch get_blob_store to return our test store
-            import src.db.models as models_module
+            import src.db.models.helpers as helpers_module
 
-            original_get_blob_store = models_module.get_blob_store
-            models_module.get_blob_store = lambda: blob_store
+            original_get_blob_store = helpers_module.get_blob_store
+            helpers_module.get_blob_store = lambda: blob_store
 
             try:
                 # Create blobs for multiple messages
@@ -249,7 +249,7 @@ class TestDeleteMessagesBlobs:
                 assert blob_store.exists("msg-ccc/0")
             finally:
                 blob_store.close()
-                models_module.get_blob_store = original_get_blob_store
+                helpers_module.get_blob_store = original_get_blob_store
                 reset_blob_store()
 
     def test_delete_messages_blobs_empty_list(self):

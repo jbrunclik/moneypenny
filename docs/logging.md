@@ -384,7 +384,7 @@ logger.debug("Processing complete")
 - Tool errors and retries
 - External API calls
 
-**Database** ([../../src/db/models.py](../../src/db/models.py)):
+**Database** ([../../src/db/models/](../../src/db/models/)):
 - CRUD operations with record IDs
 - Query execution time (slow query warnings)
 - State saves and updates

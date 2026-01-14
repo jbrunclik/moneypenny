@@ -571,7 +571,12 @@ def main() -> None:
 
         # Patch blob store everywhere with proxy
         stack.enter_context(patch("src.db.blob_store._blob_store", proxy_blob_store))
-        stack.enter_context(patch("src.db.models.get_blob_store", return_value=proxy_blob_store))
+        stack.enter_context(
+            patch("src.db.models.helpers.get_blob_store", return_value=proxy_blob_store)
+        )
+        stack.enter_context(
+            patch("src.db.models.message.get_blob_store", return_value=proxy_blob_store)
+        )
         stack.enter_context(patch("src.api.routes.get_blob_store", return_value=proxy_blob_store))
 
         app = create_app()

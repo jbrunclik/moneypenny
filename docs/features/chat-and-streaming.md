@@ -190,7 +190,7 @@ When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are d
 
 - [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
 - [chat_agent.py](../../src/agent/chat_agent.py) - `TOOLS_SYSTEM_PROMPT`, `extract_metadata_from_response()`, streaming filter
-- [models.py](../../src/db/models.py) - `Message.sources` field, `add_message()` with sources param
+- [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
 - [routes/chat.py](../../src/api/routes/chat.py) - Sources included in batch/stream responses
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
 - [Messages.ts](../../web/src/components/Messages.ts) - Sources button rendering

@@ -116,7 +116,7 @@ The metadata block supports both sources and generated_images:
 - [tools/file_retrieval.py](../../src/agent/tools/file_retrieval.py) - `retrieve_file()` tool
 - [tools/context.py](../../src/agent/tools/context.py) - Context variable helpers
 - [chat_agent.py](../../src/agent/chat_agent.py) - System prompt with image editing and file retrieval instructions
-- [models.py](../../src/db/models.py) - `Message.generated_images` field
+- [models/](../../src/db/models/) - `Message.generated_images` field
 - [routes/chat.py](../../src/api/routes/chat.py) - Sets files and conversation context before agent call, image extraction from tool results
 - [ImageGenPopup.ts](../../web/src/components/ImageGenPopup.ts) - Popup showing generation info
 - [InfoPopup.ts](../../web/src/components/InfoPopup.ts) - Generic popup component used by both sources and image gen

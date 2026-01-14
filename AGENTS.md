@@ -56,7 +56,7 @@ ai-chatbot/
 - [schemas.py](src/api/schemas.py) - Pydantic request/response schemas
 - [chat_agent.py](src/agent/chat_agent.py) - LangGraph graph, Gemini integration
 - [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file)
-- [models.py](src/db/models.py) - Database schema and operations
+- [models/](src/db/models/) - Database models and operations (split by entity)
 - [main.ts](web/src/main.ts) - Frontend entry point
 - [store.ts](web/src/state/store.ts) - Zustand state management
 

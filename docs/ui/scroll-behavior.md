@@ -197,7 +197,7 @@ The app uses cursor-based pagination for both conversations and messages to effi
 
 - Format: `{timestamp}:{id}` (e.g., `2024-01-01T12:00:00.123456:msg-abc-123`)
 - The ID serves as a tie-breaker when multiple items have the same timestamp
-- Built with `build_cursor()` and parsed with `parse_cursor()` in [../../src/db/models.py](../../src/db/models.py)
+- Built with `build_cursor()` and parsed with `parse_cursor()` in [../../src/db/models/](../../src/db/models/)
 
 ### API Endpoints
 
@@ -287,7 +287,7 @@ The app uses cursor-based pagination for both conversations and messages to effi
 - [../../web/src/main.ts](../../web/src/main.ts) - `sendBatchMessage()`, `sendStreamingMessage()`, scroll integration
 
 **Backend:**
-- [../../src/db/models.py](../../src/db/models.py) - `build_cursor()`, `parse_cursor()`, pagination methods
+- [../../src/db/models/](../../src/db/models/) - `build_cursor()`, `parse_cursor()`, pagination methods
 - [../../src/api/routes/conversations.py](../../src/api/routes/conversations.py) - Pagination endpoints
 - [../../src/api/schemas.py](../../src/api/schemas.py) - Pagination response schemas
 - [../../src/config.py](../../src/config.py) - Backend configuration

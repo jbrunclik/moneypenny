@@ -70,7 +70,7 @@ The LLM includes memory operations in the metadata block:
 
 **Backend:**
 - [migrations/0009_add_user_memories.py](../../migrations/0009_add_user_memories.py) - Database migration
-- [models.py](../../src/db/models.py) - `Memory` dataclass, CRUD methods
+- [models/](../../src/db/models/) - `Memory` dataclass, CRUD methods
 - [chat_agent.py](../../src/agent/chat_agent.py) - `MEMORY_SYSTEM_PROMPT`, `get_user_memories_prompt()`
 - [utils.py](../../src/api/utils.py) - `extract_memory_operations()` for parsing metadata
 - [routes/chat.py](../../src/api/routes/chat.py) - Memory processing in chat endpoints
@@ -124,7 +124,7 @@ MEMORY_DEFRAG_MODEL=gemini-3-pro-preview  # LLM model to use
 - [ai-chatbot-memory-defrag.service](../../systemd/ai-chatbot-memory-defrag.service) - Systemd service
 - [ai-chatbot-memory-defrag.timer](../../systemd/ai-chatbot-memory-defrag.timer) - Nightly timer
 - [config.py](../../src/config.py) - Configuration constants
-- [models.py](../../src/db/models.py) - `get_users_with_memory_counts()`, `bulk_update_memories()`
+- [models/](../../src/db/models/) - `get_users_with_memory_counts()`, `bulk_update_memories()`
 
 **Testing:**
 - Unit tests: [test_defragment_memories.py](../../tests/unit/test_defragment_memories.py)
@@ -158,7 +158,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 
 **Backend:**
 - [migrations/0010_add_custom_instructions.py](../../migrations/0010_add_custom_instructions.py) - Database migration
-- [models.py](../../src/db/models.py) - `User.custom_instructions` field, `update_user_custom_instructions()` method
+- [models/](../../src/db/models/) - `User.custom_instructions` field, `update_user_custom_instructions()` method
 - [chat_agent.py](../../src/agent/chat_agent.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant, `get_system_prompt()` with `custom_instructions` parameter
 - [schemas.py](../../src/api/schemas.py) - `UpdateSettingsRequest` schema with 2000 char limit
 - [routes/settings.py](../../src/api/routes/settings.py) - Settings endpoints

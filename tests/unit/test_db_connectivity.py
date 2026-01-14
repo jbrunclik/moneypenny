@@ -155,7 +155,7 @@ class TestCheckDatabaseConnectivity:
         with tempfile.TemporaryDirectory() as tmpdir:
             test_path = Path(tmpdir) / "config_default.db"
 
-            with patch("src.db.models.Config") as mock_config:
+            with patch("src.db.models.helpers.Config") as mock_config:
                 mock_config.DATABASE_PATH = test_path
                 success, error = check_database_connectivity()
 
