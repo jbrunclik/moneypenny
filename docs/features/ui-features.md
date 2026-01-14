@@ -40,7 +40,7 @@ The `forceTools` state in Zustand allows forcing specific tools to be used. Curr
 
 - **Frontend**: `store.forceTools: string[]` with `toggleForceTool(tool)` and `clearForceTools()`
 - **Backend**: `force_tools` parameter in `/chat/batch` and `/chat/stream` endpoints
-- **Agent**: `get_force_tools_prompt()` in [chat_agent.py](../../src/agent/chat_agent.py)
+- **Agent**: `get_force_tools_prompt()` in [prompts.py](../../src/agent/prompts.py)
 
 ## Clipboard Paste
 

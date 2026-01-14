@@ -403,7 +403,7 @@ class TestChatWithGeneratedImages:
         sample_png_base64: str,
     ) -> None:
         """Should extract generated images from tool results and include in response."""
-        from src.agent.chat_agent import _current_request_id, _full_tool_results
+        from src.agent.tool_results import _current_request_id, _full_tool_results
 
         # Build tool result with _full_result containing image data
         tool_result_content = json.dumps(
@@ -491,7 +491,7 @@ class TestChatWithGeneratedImages:
         """
         import time
 
-        from src.agent.chat_agent import _current_request_id, _full_tool_results
+        from src.agent.tool_results import _current_request_id, _full_tool_results
 
         # Build tool result with _full_result containing image data
         tool_result_content = json.dumps(

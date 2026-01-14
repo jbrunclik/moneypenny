@@ -14,13 +14,9 @@ from typing import Any
 from apiflask import APIBlueprint
 from flask import Response
 
-from src.agent.chat_agent import (
-    ChatAgent,
-    extract_metadata_from_response,
-    generate_title,
-    get_full_tool_results,
-    set_current_request_id,
-)
+from src.agent.agent import ChatAgent, generate_title
+from src.agent.content import extract_metadata_from_response
+from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, set_current_message_files
 from src.api.errors import (
     raise_llm_error,
@@ -181,7 +177,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         if conv.is_planning:
             from dataclasses import asdict
 
-            from src.agent.chat_agent import _planner_dashboard_context
+            from src.agent.agent import _planner_dashboard_context
             from src.utils.planner_data import build_planner_dashboard
 
             # Refresh calendar token if needed (expires hourly)
@@ -531,7 +527,7 @@ def chat_stream(
         if conv.is_planning:
             from dataclasses import asdict
 
-            from src.agent.chat_agent import _planner_dashboard_context
+            from src.agent.agent import _planner_dashboard_context
             from src.utils.planner_data import build_planner_dashboard
 
             # Refresh calendar token if needed (expires hourly)

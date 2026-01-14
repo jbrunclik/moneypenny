@@ -10,12 +10,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from src.agent.chat_agent import (
-    ChatAgent,
-    generate_title,
-    get_full_tool_results,
-    set_current_request_id,
-)
+from src.agent.agent import ChatAgent, generate_title
+from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, set_current_message_files
 from src.api.schemas import MessageRole
 from src.api.utils import (

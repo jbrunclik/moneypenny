@@ -54,7 +54,14 @@ ai-chatbot/
 - [config.py](src/config.py) - All env vars, model definitions
 - [routes/](src/api/routes/) - API endpoints organized by feature (see [api-design.md](docs/architecture/api-design.md))
 - [schemas.py](src/api/schemas.py) - Pydantic request/response schemas
-- [chat_agent.py](src/agent/chat_agent.py) - LangGraph graph, Gemini integration
+- [agent/](src/agent/) - LangGraph agent with Gemini integration (split into focused modules):
+  - [chat_agent.py](src/agent/chat_agent.py) - Re-exports for backward compatibility
+  - [agent.py](src/agent/agent.py) - ChatAgent class and title generation
+  - [graph.py](src/agent/graph.py) - LangGraph state machine and nodes
+  - [prompts.py](src/agent/prompts.py) - System prompts and user context
+  - [content.py](src/agent/content.py) - Content extraction utilities
+  - [tool_results.py](src/agent/tool_results.py) - Tool result capture
+  - [tool_display.py](src/agent/tool_display.py) - Tool metadata for UI
 - [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file)
 - [models/](src/db/models/) - Database models and operations (split by entity)
 - [main.ts](web/src/main.ts) - Frontend entry point
@@ -102,7 +109,7 @@ make build  # Outputs to static/assets/
 - `gemini-3-flash-preview` - Fast, cheap (default)
 
 ### Response Format
-Gemini may return content in various formats. Use `extract_text_content()` in [chat_agent.py](src/agent/chat_agent.py) to normalize.
+Gemini may return content in various formats. Use `extract_text_content()` in [content.py](src/agent/content.py) to normalize.
 
 ### Parameters
 - `thinking_level`: Controls reasoning (minimal/low/medium/high)

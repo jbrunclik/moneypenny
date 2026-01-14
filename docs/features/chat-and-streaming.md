@@ -14,7 +14,7 @@ Gemini may return content in various formats:
 - List: `[{'type': 'text', 'text': '...', 'extras': {...}}]`
 - Dict: `{'type': 'text', 'text': '...'}`
 
-Use `extract_text_content()` in [chat_agent.py](../../src/agent/chat_agent.py) to normalize.
+Use `extract_text_content()` in [content.py](../../src/agent/content.py) to normalize.
 
 ### Parameters
 - `thinking_level`: Controls reasoning (minimal/low/medium/high)
@@ -79,7 +79,7 @@ During streaming responses, the app shows a thinking indicator at the top of ass
 
 ### How it works
 
-1. **Backend streaming**: `stream_chat_events()` in [chat_agent.py](../../src/agent/chat_agent.py) yields structured events:
+1. **Backend streaming**: `stream_chat_events()` in [agent.py](../../src/agent/agent.py) yields structured events:
    - `{"type": "thinking", "text": "..."}` - Accumulated thinking text (if `include_thoughts=True`)
    - `{"type": "tool_start", "tool": "web_search", "detail": "search query"}` - Tool starting with details
    - `{"type": "tool_end", "tool": "web_search"}` - When a tool finishes
@@ -158,7 +158,8 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 
 ### Key Files
 
-- [chat_agent.py](../../src/agent/chat_agent.py) - `stream_chat_events()`, `extract_thinking_and_text()`
+- [agent.py](../../src/agent/agent.py) - `stream_chat_events()`, `ChatAgent` class
+- [content.py](../../src/agent/content.py) - `extract_thinking_and_text()`
 - [routes/chat.py](../../src/api/routes/chat.py) - SSE streaming with thinking/tool events
 - [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
 - [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
@@ -180,7 +181,7 @@ When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are d
 
 1. **Tool returns JSON**: `web_search` returns `{"query": "...", "results": [{title, url, snippet}, ...]}` instead of plain text
 2. **LLM appends metadata**: System prompt instructs LLM to append `<!-- METADATA:\n{"sources": [...]}\n-->` at the end of responses when web tools are used
-3. **Backend extracts sources**: `extract_metadata_from_response()` in [chat_agent.py](../../src/agent/chat_agent.py) parses and strips the metadata block. It handles both HTML comment format (preferred) and plain JSON format (fallback), removing both if the LLM outputs metadata in both formats
+3. **Backend extracts sources**: `extract_metadata_from_response()` in [content.py](../../src/agent/content.py) parses and strips the metadata block. It handles both HTML comment format (preferred) and plain JSON format (fallback), removing both if the LLM outputs metadata in both formats
 4. **Streaming filters metadata**: During streaming, the HTML comment metadata marker is detected and not sent to the frontend. Any plain JSON metadata that slips through is cleaned in the final buffer check
 5. **Sources stored in DB**: Messages table has a `sources` column (JSON array)
 6. **Sources in API response**: Both batch and streaming responses include `sources` array
@@ -189,7 +190,8 @@ When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are d
 ### Key Files
 
 - [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
-- [chat_agent.py](../../src/agent/chat_agent.py) - `TOOLS_SYSTEM_PROMPT`, `extract_metadata_from_response()`, streaming filter
+- [prompts.py](../../src/agent/prompts.py) - `TOOLS_SYSTEM_PROMPT_*` constants
+- [content.py](../../src/agent/content.py) - `extract_metadata_from_response()`, streaming filter
 - [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
 - [routes/chat.py](../../src/api/routes/chat.py) - Sources included in batch/stream responses
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
@@ -211,7 +213,7 @@ The `forceTools` state in Zustand allows forcing specific tools to be used. Curr
 
 - Frontend: `store.forceTools: string[]` with `toggleForceTool(tool)` and `clearForceTools()`
 - Backend: `force_tools` parameter in `/chat/batch` and `/chat/stream` endpoints
-- Agent: `get_force_tools_prompt()` in [chat_agent.py](../../src/agent/chat_agent.py)
+- Agent: `get_force_tools_prompt()` in [prompts.py](../../src/agent/prompts.py)
 
 ## See Also
 

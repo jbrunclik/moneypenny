@@ -96,7 +96,7 @@ def refresh_planner_dashboard() -> str:
 
         # Update the contextvar with the refreshed dashboard data
         # Convert dataclass to dict for injection into system prompt
-        from src.agent.chat_agent import _planner_dashboard_context
+        from src.agent.agent import _planner_dashboard_context
 
         dashboard_dict = asdict(dashboard)
         _planner_dashboard_context.set(dashboard_dict)

@@ -10,7 +10,7 @@ Tests for:
 from datetime import datetime, timedelta
 from typing import Any
 
-from src.agent.chat_agent import get_dashboard_context_prompt, get_system_prompt
+from src.agent.prompts import get_dashboard_context_prompt, get_system_prompt
 from src.db.models import User, should_reset_planner
 from src.utils.planner_data import (
     PlannerDashboard,

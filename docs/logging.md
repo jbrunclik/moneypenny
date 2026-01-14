@@ -374,10 +374,10 @@ logger.debug("Processing complete")
 - All endpoints log request/response with status codes
 - Include request ID, user ID, conversation ID where applicable
 
-**Agent** ([../../src/agent/chat_agent.py](../../src/agent/chat_agent.py)):
-- LLM invocations with token counts
-- Tool calls and results
-- Response extraction and metadata parsing
+**Agent** ([../../src/agent/](../../src/agent/)):
+- LLM invocations with token counts ([agent.py](../../src/agent/agent.py))
+- Tool calls and results ([graph.py](../../src/agent/graph.py))
+- Response extraction and metadata parsing ([content.py](../../src/agent/content.py))
 
 **Tools** ([../../src/agent/tools/](../../src/agent/tools/)):
 - Tool execution start/completion

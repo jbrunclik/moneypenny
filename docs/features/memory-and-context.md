@@ -24,13 +24,13 @@ When `USER_LOCATION` is set, the LLM is instructed to:
 
 1. **Location from config**: `USER_LOCATION` is read from environment/config (shared across all users of this deployment)
 2. **User name from JWT**: The authenticated user's name is passed from the JWT token
-3. **System prompt injection**: `get_user_context()` in chat_agent.py builds the context section
+3. **System prompt injection**: `get_user_context()` in prompts.py builds the context section
 4. **Prompt integration**: `get_system_prompt()` includes the user context when building the system prompt
 
 ### Key Files
 
 - [config.py](../../src/config.py) - `USER_LOCATION` configuration
-- [chat_agent.py](../../src/agent/chat_agent.py) - `get_user_context()`, `get_system_prompt()` with `user_name` parameter
+- [prompts.py](../../src/agent/prompts.py) - `get_user_context()`, `get_system_prompt()` with `user_name` parameter
 - [routes/chat.py](../../src/api/routes/chat.py) - Passes `user_name` from authenticated user to chat methods
 
 ---
@@ -71,7 +71,7 @@ The LLM includes memory operations in the metadata block:
 **Backend:**
 - [migrations/0009_add_user_memories.py](../../migrations/0009_add_user_memories.py) - Database migration
 - [models/](../../src/db/models/) - `Memory` dataclass, CRUD methods
-- [chat_agent.py](../../src/agent/chat_agent.py) - `MEMORY_SYSTEM_PROMPT`, `get_user_memories_prompt()`
+- [prompts.py](../../src/agent/prompts.py) - `MEMORY_SYSTEM_PROMPT`, `get_user_memories_prompt()`
 - [utils.py](../../src/api/utils.py) - `extract_memory_operations()` for parsing metadata
 - [routes/chat.py](../../src/api/routes/chat.py) - Memory processing in chat endpoints
 - [routes/memory.py](../../src/api/routes/memory.py) - Memory API endpoints
@@ -159,7 +159,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 **Backend:**
 - [migrations/0010_add_custom_instructions.py](../../migrations/0010_add_custom_instructions.py) - Database migration
 - [models/](../../src/db/models/) - `User.custom_instructions` field, `update_user_custom_instructions()` method
-- [chat_agent.py](../../src/agent/chat_agent.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant, `get_system_prompt()` with `custom_instructions` parameter
+- [prompts.py](../../src/agent/prompts.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant, `get_system_prompt()` with `custom_instructions` parameter
 - [schemas.py](../../src/api/schemas.py) - `UpdateSettingsRequest` schema with 2000 char limit
 - [routes/settings.py](../../src/api/routes/settings.py) - Settings endpoints
 - [routes/chat.py](../../src/api/routes/chat.py) - Passes `custom_instructions` to agent

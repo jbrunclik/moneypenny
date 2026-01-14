@@ -501,7 +501,7 @@ def main() -> None:
     # Use ExitStack to avoid deep nesting of context managers
     with contextlib.ExitStack() as stack:
         # Apply external service mocks
-        stack.enter_context(patch("src.agent.chat_agent.ChatGoogleGenerativeAI", create_mock_llm()))
+        stack.enter_context(patch("src.agent.graph.ChatGoogleGenerativeAI", create_mock_llm()))
         stack.enter_context(patch("src.agent.tools.web.DDGS", create_mock_ddgs()))
         stack.enter_context(patch("src.agent.tools.web.httpx.Client", create_mock_httpx()))
         stack.enter_context(
@@ -511,11 +511,11 @@ def main() -> None:
             patch("src.auth.google_auth.requests.get", create_mock_google_tokeninfo())
         )
         stack.enter_context(
-            patch("src.agent.chat_agent.ChatAgent.stream_chat", create_mock_stream_chat())
+            patch("src.agent.agent.ChatAgent.stream_chat", create_mock_stream_chat())
         )
         stack.enter_context(
             patch(
-                "src.agent.chat_agent.ChatAgent.stream_chat_events",
+                "src.agent.agent.ChatAgent.stream_chat_events",
                 create_mock_stream_chat_events(),
             )
         )
@@ -540,7 +540,7 @@ def main() -> None:
         stack.enter_context(patch("src.db.models.db", proxy_db))
         stack.enter_context(patch("src.auth.jwt_auth.db", proxy_db))
         stack.enter_context(patch("src.api.routes.db", proxy_db))
-        stack.enter_context(patch("src.agent.chat_agent.db", proxy_db))
+        stack.enter_context(patch("src.agent.prompts.db", proxy_db))
 
         # Patch database in all route modules (routes are split across multiple files)
         route_modules = [
@@ -565,9 +565,6 @@ def main() -> None:
 
         # Patch threading.Thread to propagate context
         stack.enter_context(patch("src.api.routes.chat.threading.Thread", ContextPropagatingThread))
-        stack.enter_context(
-            patch("src.agent.chat_agent.threading.Thread", ContextPropagatingThread)
-        )
 
         # Patch blob store everywhere with proxy
         stack.enter_context(patch("src.db.blob_store._blob_store", proxy_blob_store))

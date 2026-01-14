@@ -169,7 +169,7 @@ STREAM_CLEANUP_WAIT_DELAY = 1.0      # Delay before checking if message was save
 - [costs.py](../../src/utils/costs.py) - Cost calculation and currency conversion utilities
 - [config.py](../../src/config.py) - Model pricing and currency rates
 - [models/](../../src/db/models/) - Cost CRUD methods
-- [chat_agent.py](../../src/agent/chat_agent.py) - Token usage extraction from `usage_metadata`
+- [agent.py](../../src/agent/agent.py) - Token usage extraction from `usage_metadata`
 - [tools/image_generation.py](../../src/agent/tools/image_generation.py) - Image generation tool includes `usage_metadata` in response
 - [api/utils.py](../../src/api/utils.py) - `calculate_and_save_message_cost()`, `calculate_image_generation_cost_from_tool_results()`
 - [routes/costs.py](../../src/api/routes/costs.py) - Cost API endpoints
