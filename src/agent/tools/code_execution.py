@@ -2,6 +2,7 @@
 
 import base64
 import json
+import mimetypes
 import os as local_os
 import tempfile
 from typing import Any
@@ -91,22 +92,9 @@ def is_code_sandbox_available() -> bool:
 
 
 def _get_mime_type(filename: str) -> str:
-    """Get MIME type from filename extension."""
-    ext = filename.lower().split(".")[-1] if "." in filename else ""
-    mime_types = {
-        "pdf": "application/pdf",
-        "png": "image/png",
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "gif": "image/gif",
-        "svg": "image/svg+xml",
-        "csv": "text/csv",
-        "json": "application/json",
-        "txt": "text/plain",
-        "html": "text/html",
-        "xml": "application/xml",
-    }
-    return mime_types.get(ext, "application/octet-stream")
+    """Get MIME type from filename extension using the standard library."""
+    mime_type, _ = mimetypes.guess_type(filename)
+    return mime_type or "application/octet-stream"
 
 
 def _wrap_user_code(code: str) -> str:

@@ -785,7 +785,7 @@ class TestGetMimeType:
 
     def test_unknown_extension(self) -> None:
         """Should return octet-stream for unknown extensions."""
-        assert _get_mime_type("file.xyz") == "application/octet-stream"
+        assert _get_mime_type("file.qwxyz123") == "application/octet-stream"
 
     def test_no_extension(self) -> None:
         """Should return octet-stream for files without extension."""
