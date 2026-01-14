@@ -45,6 +45,14 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) throw new Error('Messages container not found');
 
+  // Clean up any existing streaming context before creating a new one.
+  // This prevents "zombie" scroll listeners if addStreamingMessage is called
+  // while there's already an active streaming context (e.g., rapid message sends).
+  if (currentStreamingContext) {
+    log.warn('addStreamingMessage called with existing context - cleaning up previous context');
+    cleanupStreamingContext();
+  }
+
   const messageEl = document.createElement('div');
   messageEl.className = 'message assistant streaming';
 
