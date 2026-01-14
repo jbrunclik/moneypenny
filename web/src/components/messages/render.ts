@@ -24,6 +24,63 @@ import type { Message } from '../../types/api';
 
 const log = createLogger('messages');
 
+// ============================================================================
+// Scroll and Image Observation Helpers
+// ============================================================================
+
+/**
+ * Schedule programmatic scroll to bottom after layout settles.
+ * Uses double RAF to ensure layout is accurate before scrolling.
+ */
+function scheduleScrollToBottom(container: HTMLElement): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      markProgrammaticScrollStart();
+      scrollToBottom(container);
+      requestAnimationFrame(() => {
+        markProgrammaticScrollEnd();
+      });
+    });
+  });
+}
+
+/**
+ * Schedule image observation after layout settles.
+ * Counts visible images first, then starts observing in the next tick.
+ */
+function scheduleImageObservation(container: HTMLElement): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      countVisibleImagesForScroll();
+
+      // Observe in next tick to prevent IntersectionObserver from firing before count
+      setTimeout(() => {
+        setDeferImageObservation(false);
+        const images = container.querySelectorAll<HTMLImageElement>(
+          'img[data-message-id][data-file-index]:not([src])'
+        );
+        images.forEach((img) => observeThumbnail(img));
+      }, 0);
+    });
+  });
+}
+
+/**
+ * Final check for scroll button visibility after layout settles.
+ */
+function scheduleFinalScrollCheck(): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      countVisibleImagesForScroll();
+      checkScrollButtonVisibility();
+    });
+  });
+}
+
+// ============================================================================
+// Main Render Function
+// ============================================================================
+
 /**
  * Render all messages in the container
  */
@@ -44,67 +101,17 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
 
   clearElement(container);
 
-  // Defer image observation until after we count them
-  // This prevents IntersectionObserver from firing synchronously before we count
+  // Defer observation until after we count visible images
   setDeferImageObservation(true);
 
-  messages.forEach((msg) => {
-    addMessageToUI(msg, container);
-  });
+  messages.forEach((msg) => addMessageToUI(msg, container));
 
-  // Scroll to bottom by default, unless caller wants to scroll to a specific element
-  // (e.g., search navigation scrolls to the target message instead)
   if (!options.skipScrollToBottom) {
-    // Always scroll to bottom first - this ensures:
-    // 1. User sees the latest messages immediately
-    // 2. Images at the bottom become visible
-    // Mark as programmatic so the user scroll listener doesn't disable auto-scroll
-    // Wait for layout to settle before scrolling (scrollHeight needs to be accurate)
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        markProgrammaticScrollStart();
-        scrollToBottom(container);
-        // Wait for scroll to complete before clearing the programmatic flag
-        requestAnimationFrame(() => {
-          markProgrammaticScrollEnd();
-        });
-      });
-    });
+    scheduleScrollToBottom(container);
   }
 
-  // Count visible images after scroll completes and layout has settled
-  // Use double requestAnimationFrame to ensure layout is fully settled
-  // Then observe in setTimeout(0) to ensure counting happens in current tick, observation in next tick
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      // Count images now that they're visible after scroll and layout has settled
-      countVisibleImagesForScroll();
-
-      // Use setTimeout(0) to observe in the next event loop tick
-      // This ensures counting happens in the current tick, observation in the next tick
-      // This prevents IntersectionObserver from firing synchronously before we count
-      setTimeout(() => {
-        // Now observe all images that need loading
-        // This will trigger IntersectionObserver, but we've already counted visible ones
-        // The scrollTracked flag prevents double-counting in IntersectionObserver callback
-        setDeferImageObservation(false);
-        const imagesToObserve = container.querySelectorAll<HTMLImageElement>(
-          'img[data-message-id][data-file-index]:not([src])'
-        );
-        imagesToObserve.forEach((img) => {
-          observeThumbnail(img);
-        });
-      }, 0);
-    });
-  });
-
-  // Final check after a short delay to catch any edge cases
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      countVisibleImagesForScroll();
-      checkScrollButtonVisibility();
-    });
-  });
+  scheduleImageObservation(container);
+  scheduleFinalScrollCheck();
 }
 
 /**

@@ -4,12 +4,7 @@ This module handles chat interactions with the AI agent, supporting both
 batch (complete response) and streaming (SSE) modes.
 """
 
-import json
-import queue
-import threading
 import uuid
-from collections.abc import Generator
-from typing import Any
 
 from apiflask import APIBlueprint
 from flask import Response
@@ -24,17 +19,11 @@ from src.api.errors import (
     raise_server_error,
     raise_validation_error,
 )
-from src.api.helpers.chat_streaming import (
-    cleanup_and_save,
-    save_message_to_db,
-    stream_events,
-)
 from src.api.rate_limiting import rate_limit_chat
 from src.api.routes.calendar import _get_valid_calendar_access_token
 from src.api.schemas import ChatBatchResponse, ChatRequest, MessageRole
 from src.api.utils import (
     build_chat_response,
-    build_stream_done_event,
     calculate_and_save_message_cost,
     extract_language_from_metadata,
     extract_memory_operations,
@@ -416,6 +405,8 @@ def chat_stream(
     Uses SSE keepalive heartbeats to prevent proxy timeouts during long LLM thinking phases.
     Keepalives are sent as SSE comments (: keepalive) which clients ignore but proxies see as activity.
     """
+    from src.api.helpers.chat_streaming import create_stream_generator
+
     logger.info("Stream chat request", extra={"user_id": user.id, "conversation_id": conv_id})
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
@@ -504,314 +495,21 @@ def chat_stream(
     # Generate a unique request ID for capturing full tool results
     stream_request_id = str(uuid.uuid4())
 
-    def generate() -> Generator[str]:
-        """Generator that streams tokens as SSE events with keepalive support.
-
-        Uses a separate thread to stream LLM tokens into a queue, while the main
-        generator loop sends keepalives when no tokens are available. This prevents
-        proxy timeouts during the LLM's "thinking" phase before tokens start flowing.
-
-        The stream_chat generator yields:
-        - str: individual text tokens
-        - tuple[str, dict, list]: final (clean_content, metadata, tool_results) after all tokens
-        """
-        # Set request ID for this streaming request to capture full tool results
-        set_current_request_id(stream_request_id)
-        # Set current message files for tools (like generate_image) to access
-        set_current_message_files(files if files else None)
-        # Set conversation context for tools (like retrieve_file) to access history
-        set_conversation_context(conv_id, user.id)
-
-        # If this is a planner conversation, fetch dashboard data for context
-        dashboard_data = None
-        if conv.is_planning:
-            from dataclasses import asdict
-
-            from src.agent.agent import _planner_dashboard_context
-            from src.utils.planner_data import build_planner_dashboard
-
-            # Refresh calendar token if needed (expires hourly)
-            calendar_token = _get_valid_calendar_access_token(user)
-
-            dashboard_obj = build_planner_dashboard(
-                todoist_token=user.todoist_access_token,
-                calendar_token=calendar_token,
-                user_id=user.id,
-                force_refresh=False,
-                db=db,
-            )
-            dashboard_data = asdict(dashboard_obj)
-            # Set initial dashboard context for potential refresh_planner_dashboard tool calls
-            _planner_dashboard_context.set(dashboard_data)
-
-        # Use stream_chat_events for structured events including thinking/tool status
-        agent = ChatAgent(
-            model_name=conv.model,
-            include_thoughts=True,
-            anonymous_mode=anonymous_mode,
-            is_planning=conv.is_planning,
-        )
-        event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
-        # Store user_id for use in nested functions
-        stream_user_id = user.id
-
-        # Shared state for final results (accessible from both threads)
-        final_results: dict[str, Any] = {"ready": False}
-
-        # Start streaming in background thread
-        # Note: The thread sets its own request_id via set_current_request_id()
-        stream_thread = threading.Thread(
-            target=stream_events,
-            args=(
-                agent,
-                event_queue,
-                final_results,
-                message_text,
-                files,
-                history,
-                force_tools,
-                user.name,
-                user.id,
-                user.custom_instructions,
-                conv.is_planning,
-                dashboard_data,
-                conv_id,
-                stream_request_id,
-            ),
-            daemon=False,
-        )  # Non-daemon to ensure completion
-        stream_thread.start()
-
-        # Variables to capture final content, metadata, tool results, and usage info
-        # (Defined here so they're in scope for both cleanup_and_save and save_message_to_db)
-        clean_content = ""
-        metadata: dict[str, Any] = {}
-        tool_results: list[dict[str, Any]] = []
-        usage_info: dict[str, Any] = {}
-        client_connected = True  # Track if client is still connected
-
-        # Start cleanup thread to ensure message is saved even if client disconnects
-        # This thread waits for stream_thread to complete, then saves the message if generator didn't
-        cleanup_thread = threading.Thread(
-            target=cleanup_and_save,
-            args=(
-                stream_thread,
-                final_results,
-                conv_id,
-                user.id,
-                # Lambda to capture all the variables needed for save_message_to_db
-                lambda: save_message_to_db(
-                    final_results["clean_content"],
-                    final_results["metadata"],
-                    final_results["tool_results"],
-                    final_results["usage_info"],
-                    conv_id,
-                    user.id,
-                    stream_user_id,
-                    conv.model,
-                    message_text,
-                    stream_request_id,
-                    anonymous_mode,
-                    client_connected,
-                ),
-            ),
-            daemon=True,
-        )
-        cleanup_thread.start()
-
-        # Send user_message_saved event FIRST so frontend can update temp ID immediately
-        # This ensures image clicks work during streaming (before done event)
-        try:
-            yield f"data: {json.dumps({'type': 'user_message_saved', 'user_message_id': user_msg.id})}\n\n"
-        except (BrokenPipeError, ConnectionError, OSError):
-            # Client disconnected immediately - streaming will handle this
-            pass
-
-        try:
-            while True:
-                try:
-                    # Wait for event with timeout for keepalive
-                    item = event_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL)
-
-                    if item is None:
-                        # Stream completed successfully
-                        break
-                    elif isinstance(item, Exception):
-                        # Error occurred - send structured error for frontend handling
-                        error_str = str(item).lower()
-                        if "timeout" in error_str or "timed out" in error_str:
-                            error_data = {
-                                "type": "error",
-                                "code": "TIMEOUT",
-                                "message": "Request timed out. Please try again.",
-                                "retryable": True,
-                            }
-                        elif "rate limit" in error_str or "quota" in error_str:
-                            error_data = {
-                                "type": "error",
-                                "code": "RATE_LIMITED",
-                                "message": "AI service is busy. Please try again in a moment.",
-                                "retryable": True,
-                            }
-                        else:
-                            error_data = {
-                                "type": "error",
-                                "code": "SERVER_ERROR",
-                                "message": "Failed to generate response. Please try again.",
-                                "retryable": True,
-                            }
-                        # Try to send error event, but continue processing if client disconnected
-                        try:
-                            yield f"data: {json.dumps(error_data)}\n\n"
-                        except (BrokenPipeError, ConnectionError, OSError):
-                            # Client disconnected - error already logged in stream_thread
-                            pass
-                        return
-                    elif isinstance(item, dict):
-                        event_type = item.get("type")
-
-                        if event_type == "final":
-                            # Store final values for saving to DB
-                            clean_content = item.get("content", "")
-                            metadata = item.get("metadata", {})
-                            tool_results = item.get("tool_results", [])
-                            usage_info = item.get("usage_info", {})
-                            # Don't yield final event - we handle done event separately below
-                        elif event_type in (
-                            "thinking",
-                            "tool_start",
-                            "tool_end",
-                            "token",
-                        ):
-                            # Forward event to frontend
-                            # Catch client disconnection errors but continue processing
-                            try:
-                                yield f"data: {json.dumps(item)}\n\n"
-                            except (BrokenPipeError, ConnectionError, OSError) as e:
-                                if client_connected:
-                                    logger.warning(
-                                        "Client disconnected during streaming",
-                                        extra={
-                                            "user_id": user.id,
-                                            "conversation_id": conv_id,
-                                            "event_type": event_type,
-                                            "error": str(e),
-                                        },
-                                    )
-                                    client_connected = False
-
-                except queue.Empty:
-                    # No event available, send keepalive comment
-                    # SSE comments start with ":" and are ignored by clients
-                    # Catch client disconnection errors but continue processing
-                    try:
-                        yield ": keepalive\n\n"
-                    except (BrokenPipeError, ConnectionError, OSError) as e:
-                        # Client disconnected - log but continue processing in background
-                        if client_connected:
-                            logger.warning(
-                                "Client disconnected during keepalive",
-                                extra={
-                                    "user_id": user.id,
-                                    "conversation_id": conv_id,
-                                    "error": str(e),
-                                },
-                            )
-                            client_connected = False
-                        # Continue processing - background thread will complete and save to DB
-
-            # Save message to DB (this will complete even if client disconnected)
-            # Use try/finally to ensure this runs even if generator stops early
-            try:
-                # save_message_to_db returns extracted data for building the done event
-                # This is important because get_full_tool_results() POPS the results,
-                # so we can only retrieve them once (inside save_message_to_db)
-                save_result = save_message_to_db(
-                    clean_content,
-                    metadata,
-                    tool_results,
-                    usage_info,
-                    conv_id,
-                    user.id,
-                    stream_user_id,
-                    conv.model,
-                    message_text,
-                    stream_request_id,
-                    anonymous_mode,
-                    client_connected,
-                )
-
-                # Build done event if we have the message (for client that's still connected)
-                if client_connected and clean_content and save_result:
-                    # Get the saved message from DB to get the ID
-                    messages = db.get_messages(conv_id)
-                    if messages and messages[-1].role == MessageRole.ASSISTANT:
-                        assistant_msg = messages[-1]
-
-                        # Use the extracted data from save_result instead of calling
-                        # get_full_tool_results again (which would return empty list)
-                        done_data = build_stream_done_event(
-                            assistant_msg,
-                            save_result.all_generated_files,
-                            save_result.sources,
-                            save_result.generated_images_meta,
-                            conversation_title=save_result.generated_title,
-                            user_message_id=user_msg.id,
-                            language=save_result.language,
-                        )
-
-                        # Try to send done event, but continue even if client disconnected
-                        try:
-                            yield f"data: {json.dumps(done_data)}\n\n"
-                        except (BrokenPipeError, ConnectionError, OSError) as e:
-                            # Client disconnected - message is already saved to DB
-                            logger.info(
-                                "Client disconnected before done event, but message saved",
-                                extra={
-                                    "user_id": user.id,
-                                    "conversation_id": conv_id,
-                                    "message_id": assistant_msg.id,
-                                    "error": str(e),
-                                },
-                            )
-            finally:
-                # Ensure stream thread completes (it's non-daemon so it will keep process alive)
-                # But we don't want to block here if client disconnected
-                pass
-
-        except Exception as e:
-            logger.error(
-                "Error in stream generator",
-                extra={
-                    "user_id": user.id,
-                    "conversation_id": conv_id,
-                    "error": str(e),
-                },
-                exc_info=True,
-            )
-            # Send structured error (don't expose internal details)
-            # Try to send error event, but continue even if client disconnected
-            error_data = {
-                "type": "error",
-                "code": "SERVER_ERROR",
-                "message": "An error occurred while generating the response. Please try again.",
-                "retryable": True,
-            }
-            try:
-                yield f"data: {json.dumps(error_data)}\n\n"
-            except (BrokenPipeError, ConnectionError, OSError) as e:
-                # Client disconnected - error already logged
-                logger.debug(
-                    "Client disconnected before error event",
-                    extra={
-                        "user_id": user.id,
-                        "conversation_id": conv_id,
-                        "error": str(e),
-                    },
-                )
+    # Create the stream generator with all necessary context
+    generator = create_stream_generator(
+        user=user,
+        conv=conv,
+        user_msg=user_msg,
+        message_text=message_text,
+        files=files,
+        history=history,
+        force_tools=force_tools,
+        anonymous_mode=anonymous_mode,
+        stream_request_id=stream_request_id,
+    )
 
     return Response(
-        generate(),
+        generator,
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

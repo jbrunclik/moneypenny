@@ -44,7 +44,7 @@ import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
-import type { Message, ThinkingState, ToolMetadata, ThinkingTraceItem } from '../types/api';
+import type { Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 
 import { isTempConversation, createConversation, updateConversationTitle } from './conversation';
@@ -404,6 +404,315 @@ function retryFromDraft(): void {
 // ============ Streaming Message ============
 
 /**
+ * State for a streaming request, encapsulating all mutable data.
+ */
+interface StreamingState {
+  messageEl: HTMLElement;
+  fullContent: string;
+  thinkingState: ThinkingState;
+  messageSuccessful: boolean;
+  uploadProgressHidden: boolean;
+}
+
+/**
+ * Initialize streaming request state and tracking.
+ */
+function initStreamingRequest(
+  convId: string,
+  hasFiles: boolean
+): { state: StreamingState; requestId: string; abortController: AbortController } {
+  const messageEl = addStreamingMessage(convId);
+  const requestId = `stream-${convId}-${Date.now()}`;
+  const abortController = new AbortController();
+
+  // Track request
+  activeRequests.set(requestId, {
+    conversationId: convId,
+    type: 'stream',
+    abortController,
+  });
+
+  // Register in store for UI restoration
+  useStore.getState().setActiveRequest(convId, {
+    conversationId: convId,
+    type: 'stream',
+    content: '',
+    thinkingState: undefined,
+  });
+
+  // Mark streaming state
+  getSyncManager()?.setConversationStreaming(convId, true);
+  useStore.getState().setStreamingConversation(convId);
+
+  // Show upload progress if needed
+  if (hasFiles) {
+    showUploadProgress();
+    updateUploadProgress(0);
+    const progressText = document.querySelector('.upload-progress-text');
+    if (progressText) {
+      progressText.textContent = 'Uploading...';
+    }
+  }
+
+  const state: StreamingState = {
+    messageEl,
+    fullContent: '',
+    thinkingState: {
+      isThinking: true,
+      thinkingText: '',
+      activeTool: null,
+      activeToolDetail: undefined,
+      completedTools: [],
+      trace: [],
+    },
+    messageSuccessful: false,
+    uploadProgressHidden: false,
+  };
+
+  return { state, requestId, abortController };
+}
+
+/**
+ * Clean up streaming request resources.
+ */
+function cleanupStreamingRequest(
+  requestId: string,
+  convId: string,
+  messageSuccessful: boolean
+): void {
+  activeRequests.delete(requestId);
+  cleanupStreamingContext();
+  useStore.getState().removeActiveRequest(convId);
+
+  hideUploadProgress();
+  useStore.getState().setUploadProgress(null);
+
+  if (messageSuccessful) {
+    getSyncManager()?.incrementLocalMessageCount(convId, 2);
+  }
+
+  getSyncManager()?.setConversationStreaming(convId, false);
+  useStore.getState().setStreamingConversation(null);
+}
+
+/**
+ * Handle scroll-to-bottom for lazy-loaded images after message completion.
+ */
+function handleImageScrollAfterMessage(
+  messageEl: HTMLElement,
+  files: Array<{ type: string; previewUrl?: string }> | undefined
+): void {
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  if (!messagesContainer || !files) return;
+
+  const hasImagesToLoad = files.some((f) => f.type.startsWith('image/') && !f.previewUrl);
+  const wasAtBottom = isScrolledToBottom(messagesContainer);
+
+  if (hasImagesToLoad && wasAtBottom) {
+    enableScrollOnImageLoad();
+    programmaticScrollToBottom(messagesContainer, false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        triggerVisibleImageObservation(messageEl, messagesContainer);
+        checkScrollButtonVisibility();
+      });
+    });
+  } else {
+    if (wasAtBottom) {
+      programmaticScrollToBottom(messagesContainer);
+    }
+    requestAnimationFrame(() => {
+      checkScrollButtonVisibility();
+    });
+  }
+}
+
+/**
+ * Trigger observation for visible images that haven't started loading.
+ */
+function triggerVisibleImageObservation(
+  messageEl: HTMLElement,
+  container: HTMLElement
+): void {
+  const images = messageEl.querySelectorAll<HTMLImageElement>(
+    'img[data-message-id][data-file-index]:not([src])'
+  );
+  const containerRect = container.getBoundingClientRect();
+
+  images.forEach((img) => {
+    const rect = img.getBoundingClientRect();
+    const isVisible = rect.top < containerRect.bottom && rect.bottom > containerRect.top;
+    if (isVisible && !img.src) {
+      getThumbnailObserver().unobserve(img);
+      observeThumbnail(img);
+    }
+  });
+}
+
+/**
+ * Process a single streaming event and update state/UI.
+ */
+function processStreamEvent(
+  event: { type: string; [key: string]: unknown },
+  state: StreamingState,
+  convId: string,
+  tempUserMessageId: string
+): { shouldBreak?: boolean; error?: Error } {
+  const store = useStore.getState();
+  const isCurrentConversation = store.currentConversation?.id === convId;
+
+  // Update message element reference (may have been restored after conversation switch)
+  const currentMessageEl = getStreamingMessageElement(convId);
+  if (currentMessageEl) {
+    state.messageEl = currentMessageEl;
+  }
+
+  switch (event.type) {
+    case 'user_message_saved':
+      if (event.user_message_id) {
+        updateUserMessageId(tempUserMessageId, event.user_message_id as string);
+      }
+      break;
+
+    case 'thinking':
+      updateLocalThinkingState(state.thinkingState, 'thinking', event.text as string);
+      if (isCurrentConversation) {
+        updateStreamingThinking(event.text as string);
+      }
+      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
+      break;
+
+    case 'tool_start':
+      updateLocalThinkingState(
+        state.thinkingState,
+        'tool_start',
+        event.tool as string,
+        event.detail as string | undefined,
+        event.metadata as ToolMetadata | undefined
+      );
+      if (isCurrentConversation) {
+        updateStreamingToolStart(
+          event.tool as string,
+          event.detail as string | undefined,
+          event.metadata as ToolMetadata | undefined
+        );
+      }
+      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
+      break;
+
+    case 'tool_detail':
+      updateLocalThinkingState(
+        state.thinkingState,
+        'tool_detail',
+        event.tool as string,
+        event.detail as string | undefined
+      );
+      if (isCurrentConversation && event.detail) {
+        updateStreamingToolDetail(event.tool as string, event.detail as string);
+      }
+      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
+      break;
+
+    case 'tool_end':
+      updateLocalThinkingState(state.thinkingState, 'tool_end', event.tool as string);
+      if (isCurrentConversation) {
+        updateStreamingToolEnd(event.tool as string);
+      }
+      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
+      break;
+
+    case 'token':
+      state.fullContent += event.text as string;
+      if (state.thinkingState.isThinking) {
+        state.thinkingState.isThinking = false;
+      }
+      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
+      if (isCurrentConversation) {
+        updateStreamingMessage(state.messageEl, state.fullContent);
+      }
+      break;
+
+    case 'error':
+      return handleStreamError(event, state);
+  }
+
+  return {};
+}
+
+/**
+ * Handle stream error event.
+ */
+function handleStreamError(
+  event: { type: string; message?: string; code?: string; retryable?: boolean },
+  state: StreamingState
+): { error: Error } {
+  log.error('Stream error', { message: event.message });
+
+  if (state.fullContent.trim()) {
+    state.messageEl.classList.add('message-incomplete');
+  } else {
+    state.messageEl.remove();
+  }
+
+  const streamError = new ApiError(
+    event.message || 'Failed to generate response.',
+    event.code === 'TIMEOUT' ? 408 : 500,
+    {
+      code: event.code,
+      retryable: event.retryable ?? false,
+      isTimeout: event.code === 'TIMEOUT',
+    }
+  );
+
+  return { error: streamError };
+}
+
+/**
+ * Handle stream done event.
+ */
+async function handleStreamDone(
+  event: {
+    id: string;
+    created_at: string;
+    user_message_id?: string;
+    sources?: Source[];
+    generated_images?: GeneratedImage[];
+    files?: FileMetadata[];
+    title?: string;
+    language?: string;
+  },
+  state: StreamingState,
+  convId: string,
+  tempUserMessageId: string
+): Promise<void> {
+  log.info('Streaming complete', { conversationId: convId, messageId: event.id });
+
+  if (event.user_message_id) {
+    updateUserMessageId(tempUserMessageId, event.user_message_id);
+  }
+
+  const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
+  if (!isCurrentConversation) return;
+
+  finalizeStreamingMessage(
+    state.messageEl,
+    event.id,
+    event.created_at,
+    event.sources,
+    event.generated_images,
+    event.files,
+    'assistant',
+    event.language
+  );
+
+  handleImageScrollAfterMessage(state.messageEl, event.files);
+  updateConversationTitle(convId, event.title);
+  await updateConversationCost(convId);
+
+  state.messageSuccessful = true;
+}
+
+/**
  * Send message with streaming response.
  */
 async function sendStreamingMessage(
@@ -414,275 +723,52 @@ async function sendStreamingMessage(
   tempUserMessageId: string,
   anonymousMode: boolean
 ): Promise<void> {
-  let messageEl = addStreamingMessage(convId);
-  let fullContent = '';
-  // Track thinking state locally for store sync (independent of Messages.ts context)
-  const localThinkingState: ThinkingState = {
-    isThinking: true,
-    thinkingText: '',
-    activeTool: null,
-    activeToolDetail: undefined,
-    completedTools: [],
-    trace: [],
-  };
-  const requestId = `stream-${convId}-${Date.now()}`;
-  const abortController = new AbortController();
-  // Track if message was successfully sent (for incrementing count in finally block)
-  let messageSuccessful = false;
-
-  // Track this request with abort controller
-  const request: ActiveRequest = {
-    conversationId: convId,
-    type: 'stream',
-    abortController,
-  };
-  activeRequests.set(requestId, request);
-
-  // Note: The message element is tracked in Messages.ts via currentStreamingContext
-  // (set by addStreamingMessage). Use getStreamingMessageElement(convId) to retrieve it.
-
-  // Register active request in store for UI restoration on conversation switch
-  useStore.getState().setActiveRequest(convId, {
-    conversationId: convId,
-    type: 'stream',
-    content: '',
-    thinkingState: undefined,
-  });
-
-  // Mark conversation as streaming to prevent sync race conditions
-  getSyncManager()?.setConversationStreaming(convId, true);
-
-  // Set streaming state in store for UI updates (stop button)
-  useStore.getState().setStreamingConversation(convId);
-
-  // Show upload progress for requests with files (indeterminate since fetch doesn't support progress)
   const hasFiles = files && files.length > 0;
-  if (hasFiles) {
-    showUploadProgress();
-    // Show indeterminate progress (no percentage available with fetch)
-    updateUploadProgress(0);
-    const progressText = document.querySelector('.upload-progress-text');
-    if (progressText) {
-      progressText.textContent = 'Uploading...';
-    }
-  }
+  const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
 
   try {
-    // Hide upload progress once streaming starts (upload complete)
-    let uploadProgressHidden = false;
-
-    // Check if conversation is still current before processing each event
     for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode)) {
-      // Hide upload progress on first event (means upload is complete)
-      if (hasFiles && !uploadProgressHidden) {
+      // Hide upload progress on first event
+      if (hasFiles && !state.uploadProgressHidden) {
         hideUploadProgress();
         useStore.getState().setUploadProgress(null);
-        uploadProgressHidden = true;
-      }
-      // Check if user switched conversations - if so, update store but don't update UI
-      const store = useStore.getState();
-      const isCurrentConversation = store.currentConversation?.id === convId;
-
-      // Get the current message element from Messages.ts (may have been restored after conversation switch)
-      // This is the single source of truth for the streaming element
-      const currentMessageEl = getStreamingMessageElement(convId);
-      if (currentMessageEl) {
-        messageEl = currentMessageEl;
+        state.uploadProgressHidden = true;
       }
 
-      if (event.type === 'user_message_saved') {
-        // Update user message ID from temp to real ID immediately (before streaming completes)
-        // This enables lightbox to fetch files during streaming
-        if (event.user_message_id) {
-          updateUserMessageId(tempUserMessageId, event.user_message_id);
-        }
-      } else if (event.type === 'thinking') {
-        // Update local thinking state (always, regardless of current conversation)
-        updateLocalThinkingState(localThinkingState, 'thinking', event.text);
-        // Update UI only if this is the current conversation
-        if (isCurrentConversation) {
-          updateStreamingThinking(event.text);
-        }
-        // Sync the full thinking state to store for restoration when switching back
-        store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));
-      } else if (event.type === 'tool_start') {
-        // Update local thinking state (always, regardless of current conversation)
-        updateLocalThinkingState(localThinkingState, 'tool_start', event.tool, event.detail, event.metadata);
-        // Tool execution started (with optional detail like search query, URL, or prompt)
-        if (isCurrentConversation) {
-          updateStreamingToolStart(event.tool, event.detail, event.metadata);
-        }
-        // Sync the full thinking state to store for restoration when switching back
-        store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));
-      } else if (event.type === 'tool_detail') {
-        // Update local thinking state with the new detail (always, regardless of current conversation)
-        updateLocalThinkingState(localThinkingState, 'tool_detail', event.tool, event.detail);
-        // Update the tool detail in the UI (only if current conversation)
-        if (isCurrentConversation) {
-          updateStreamingToolDetail(event.tool, event.detail);
-        }
-        // Sync the full thinking state to store for restoration when switching back
-        store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));
-      } else if (event.type === 'tool_end') {
-        // Update local thinking state (always, regardless of current conversation)
-        updateLocalThinkingState(localThinkingState, 'tool_end', event.tool);
-        // Tool execution completed
-        if (isCurrentConversation) {
-          updateStreamingToolEnd(event.tool);
-        }
-        // Sync the full thinking state to store for restoration when switching back
-        store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));
-      } else if (event.type === 'token') {
-        fullContent += event.text;
-        // Mark thinking as no longer active when content starts flowing
-        if (localThinkingState.isThinking) {
-          localThinkingState.isThinking = false;
-        }
-        // Always update the store content for restoration
-        store.updateActiveRequestContent(convId, fullContent, deepCopyThinkingState(localThinkingState));
-        // Update UI only if this is the current conversation
-        if (isCurrentConversation) {
-          updateStreamingMessage(messageEl, fullContent);
-        }
-      } else if (event.type === 'done') {
-        log.info('Streaming complete', { conversationId: convId, messageId: event.id });
+      // Handle done event specially (async)
+      if (event.type === 'done') {
+        await handleStreamDone(event as Parameters<typeof handleStreamDone>[0], state, convId, tempUserMessageId);
+        continue;
+      }
 
-        // Update user message ID from temp to real ID (for file fetching in lightbox)
-        if (event.user_message_id) {
-          updateUserMessageId(tempUserMessageId, event.user_message_id);
-        }
-
-        // Only update UI if this is still the current conversation
-        if (isCurrentConversation) {
-          finalizeStreamingMessage(messageEl, event.id, event.created_at, event.sources, event.generated_images, event.files, 'assistant', event.language);
-
-          // Handle scroll-to-bottom for lazy-loaded images (same logic as batch mode)
-          const messagesContainer = getElementById<HTMLDivElement>('messages');
-          if (messagesContainer && event.files) {
-            const hasImagesToLoad = event.files.some(
-              (f) => f.type.startsWith('image/') && !f.previewUrl
-            );
-            const wasAtBottom = isScrolledToBottom(messagesContainer);
-            if (hasImagesToLoad && wasAtBottom) {
-              enableScrollOnImageLoad();
-              programmaticScrollToBottom(messagesContainer, false);
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  const images = messageEl.querySelectorAll<HTMLImageElement>(
-                    'img[data-message-id][data-file-index]:not([src])'
-                  );
-                  images.forEach((img) => {
-                    const rect = img.getBoundingClientRect();
-                    const containerRect = messagesContainer.getBoundingClientRect();
-                    const isVisible = rect.top < containerRect.bottom && rect.bottom > containerRect.top;
-                    if (isVisible && !img.src) {
-                      getThumbnailObserver().unobserve(img);
-                      observeThumbnail(img);
-                    }
-                  });
-                  checkScrollButtonVisibility();
-                });
-              });
-            } else {
-              if (wasAtBottom) {
-                programmaticScrollToBottom(messagesContainer);
-              }
-              requestAnimationFrame(() => {
-                checkScrollButtonVisibility();
-              });
-            }
-          }
-
-          // Update conversation title if this was the first message (title comes from response)
-          updateConversationTitle(convId, event.title);
-
-          // Update conversation cost
-          await updateConversationCost(convId);
-
-          // Mark as successful for message count increment in finally block
-          messageSuccessful = true;
-        }
-      } else if (event.type === 'error') {
-        log.error('Stream error', { message: event.message, conversationId: convId });
-        // Keep partial content if any was received
-        if (fullContent.trim()) {
-          // Mark message as incomplete but keep the content
-          messageEl.classList.add('message-incomplete');
-        } else {
-          messageEl.remove();
-        }
-        // Convert error event to ApiError and throw - outer sendMessage catch handles draft/toast
-        const errorEvent = event as { message?: string; code?: string; retryable?: boolean };
-        const streamError = new ApiError(
-          errorEvent.message || 'Failed to generate response.',
-          errorEvent.code === 'TIMEOUT' ? 408 : 500,
-          {
-            code: errorEvent.code,
-            retryable: errorEvent.retryable ?? false,
-            isTimeout: errorEvent.code === 'TIMEOUT',
-          }
-        );
-        throw streamError;
+      // Process other events
+      const result = processStreamEvent(event, state, convId, tempUserMessageId);
+      if (result.error) {
+        throw result.error;
       }
     }
   } catch (error) {
-    // Check if this was a user-initiated abort
     if (error instanceof Error && error.name === 'AbortError') {
       log.info('Stream aborted by user', { conversationId: convId });
-      // User actively stopped - remove the streaming assistant message from UI
-      messageEl.remove();
-      // Show a toast so user knows the action was successful
+      state.messageEl.remove();
       toast.info('Response stopped.');
-      // Note: Partial messages may remain in the backend database.
-      // A future message delete button can be used to clean them up if needed.
-      // Don't re-throw - this is intentional user action, not an error
       return;
     }
 
     log.error('Streaming failed', { error, conversationId: convId });
 
-    // Check if conversation is still current before cleaning up UI
-    const store = useStore.getState();
-    const isCurrentConversation = store.currentConversation?.id === convId;
-
-    // Keep partial content if any was received, otherwise remove the message element
-    if (fullContent.trim()) {
-      messageEl.classList.add('message-incomplete');
+    if (state.fullContent.trim()) {
+      state.messageEl.classList.add('message-incomplete');
     } else {
-      messageEl.remove();
+      state.messageEl.remove();
     }
 
-    // Re-throw error if this is still the current conversation
-    // Outer sendMessage catch handles draft saving and toast display
+    const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
     if (isCurrentConversation) {
       throw error;
     }
-    // If user switched conversations, silently swallow the error
   } finally {
-    // Clean up request tracking and streaming context
-    activeRequests.delete(requestId);
-    // Note: cleanupStreamingContext() handles clearing the element reference in Messages.ts
-    cleanupStreamingContext();
-
-    // Remove active request from store
-    useStore.getState().removeActiveRequest(convId);
-
-    // Ensure upload progress is hidden (safety net)
-    hideUploadProgress();
-    useStore.getState().setUploadProgress(null);
-
-    // IMPORTANT: Increment local message count BEFORE clearing streaming flag
-    // This prevents a race condition where sync happens between clearing the flag
-    // and incrementing the count, causing false "new messages available" banner
-    if (messageSuccessful) {
-      getSyncManager()?.incrementLocalMessageCount(convId, 2);
-    }
-
-    // Clear streaming flag so sync can update this conversation again
-    getSyncManager()?.setConversationStreaming(convId, false);
-
-    // Clear streaming state in store (for stop button UI)
-    useStore.getState().setStreamingConversation(null);
+    cleanupStreamingRequest(requestId, convId, state.messageSuccessful);
   }
 }
 

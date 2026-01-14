@@ -564,8 +564,10 @@ def main() -> None:
         stack.enter_context(patch("src.api.helpers.validation.db", proxy_db))
         stack.enter_context(patch("src.api.utils.db", proxy_db))
 
-        # Patch threading.Thread to propagate context
-        stack.enter_context(patch("src.api.routes.chat.threading.Thread", ContextPropagatingThread))
+        # Patch threading.Thread to propagate context (used in chat_streaming helper)
+        stack.enter_context(
+            patch("src.api.helpers.chat_streaming.threading.Thread", ContextPropagatingThread)
+        )
 
         # Patch blob store everywhere with proxy
         stack.enter_context(patch("src.db.blob_store._blob_store", proxy_blob_store))

@@ -172,6 +172,53 @@ def _find_json_object_end(text: str, start_pos: int) -> int | None:
     return None
 
 
+def _extract_html_comment_metadata(content: str) -> tuple[str, dict[str, Any]]:
+    """Extract metadata from HTML comment format.
+
+    Returns:
+        Tuple of (clean_content, metadata_dict)
+    """
+    match = METADATA_PATTERN.search(content)
+    if not match:
+        return content, {}
+
+    try:
+        metadata = json.loads(match.group(1).strip())
+        clean_content = content[: match.start()].rstrip()
+        return clean_content, metadata
+    except (json.JSONDecodeError, AttributeError):
+        return content, {}
+
+
+def _extract_plain_json_metadata(content: str) -> tuple[str, dict[str, Any]]:
+    """Extract metadata from plain JSON at end of content.
+
+    Searches backwards for JSON objects containing 'sources' or 'generated_images'.
+
+    Returns:
+        Tuple of (clean_content, metadata_dict)
+    """
+    search_start = len(content)
+
+    while True:
+        last_brace = content.rfind("{", 0, search_start)
+        if last_brace == -1:
+            break
+
+        end_pos = _find_json_object_end(content, last_brace)
+        if end_pos:
+            try:
+                parsed = json.loads(content[last_brace:end_pos])
+                if "sources" in parsed or "generated_images" in parsed:
+                    return content[:last_brace].rstrip(), parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        search_start = last_brace
+
+    return content, {}
+
+
 def extract_metadata_from_response(response: str) -> tuple[str, dict[str, Any]]:
     """Extract metadata from LLM response and return clean content.
 
@@ -195,48 +242,18 @@ def extract_metadata_from_response(response: str) -> tuple[str, dict[str, Any]]:
         - metadata_dict: Parsed metadata (empty dict if none found or parse error)
     """
     response = clean_tool_call_json(response)
-    metadata: dict[str, Any] = {}
-    clean_content = response
 
-    # Try HTML comment format first (preferred format)
-    match = METADATA_PATTERN.search(clean_content)
-    if match:
-        try:
-            metadata = json.loads(match.group(1).strip())
-            clean_content = clean_content[: match.start()].rstrip()
-        except (json.JSONDecodeError, AttributeError):
-            # If parsing fails, continue to check for plain JSON
-            pass
+    # Try HTML comment format first (preferred)
+    clean_content, metadata = _extract_html_comment_metadata(response)
 
-    # Also check for plain JSON metadata and remove it (even if we already found HTML comment)
-    # This ensures we remove both if the LLM outputs metadata in both formats
-    # Search backwards for JSON objects that might contain metadata
-    # We need to find the outermost object, so we search from the end
-    search_start = len(clean_content)
-    while True:
-        # Find the last opening brace before our search start
-        last_brace = clean_content.rfind("{", 0, search_start)
-        if last_brace == -1:
-            break
+    # Also check for plain JSON and remove it (even if HTML comment found)
+    plain_content, plain_metadata = _extract_plain_json_metadata(clean_content)
 
-        end_pos = _find_json_object_end(clean_content, last_brace)
-        if end_pos:
-            try:
-                parsed = json.loads(clean_content[last_brace:end_pos])
-                if "sources" in parsed or "generated_images" in parsed:
-                    # Only use this metadata if we didn't already get it from HTML comment
-                    if not metadata:
-                        metadata = parsed
-                    # Remove the JSON from response regardless
-                    clean_content = clean_content[:last_brace].rstrip()
-                    break
-            except (json.JSONDecodeError, ValueError):
-                pass
+    # Use HTML comment metadata if found, otherwise use plain JSON metadata
+    if not metadata and plain_metadata:
+        metadata = plain_metadata
 
-        # Continue searching backwards from before this brace
-        search_start = last_brace
-
-    return clean_content.rstrip(), metadata
+    return plain_content.rstrip(), metadata
 
 
 def strip_full_result_from_tool_content(content: str) -> str:

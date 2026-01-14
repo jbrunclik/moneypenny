@@ -144,6 +144,78 @@ def process_image_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return process_image_files_sync(files)
 
 
+# ============================================================================
+# Tool Result Extraction Helpers
+# ============================================================================
+
+
+def _parse_tool_result_json(msg: dict[str, Any]) -> dict[str, Any] | None:
+    """Parse JSON content from a tool result message.
+
+    Args:
+        msg: Tool result message dict with 'type' and 'content' keys
+
+    Returns:
+        Parsed JSON dict, or None if invalid
+    """
+    if not isinstance(msg, dict) or msg.get("type") != "tool":
+        return None
+
+    content = msg.get("content", "")
+    if not content or not isinstance(content, str):
+        return None
+
+    try:
+        tool_result = json.loads(content)
+        if isinstance(tool_result, dict):
+            return tool_result
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    return None
+
+
+def _get_full_result_field(tool_result: dict[str, Any], field: str) -> Any | None:
+    """Get a field from _full_result if it exists.
+
+    Args:
+        tool_result: Parsed tool result dict
+        field: Field name to extract from _full_result
+
+    Returns:
+        Field value, or None if not present
+    """
+    full_result = tool_result.get("_full_result")
+    if not isinstance(full_result, dict):
+        return None
+    return full_result.get(field)
+
+
+def _create_file_entry_with_thumbnail(name: str, mime_type: str, data: str) -> dict[str, Any]:
+    """Create a file entry dict with optional thumbnail generation.
+
+    Args:
+        name: File name
+        mime_type: MIME type
+        data: Base64-encoded file data
+
+    Returns:
+        File dict with thumbnail added if it's an image
+    """
+    file_dict: dict[str, Any] = {
+        "name": name,
+        "type": mime_type,
+        "data": data,
+    }
+
+    if mime_type.startswith("image/"):
+        processed = process_image_files_sync([file_dict])
+        if processed:
+            file_dict = processed[0]
+
+    return file_dict
+
+
 def extract_generated_images_from_tool_results(
     tool_results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -162,67 +234,30 @@ def extract_generated_images_from_tool_results(
     files: list[dict[str, Any]] = []
 
     for msg in tool_results:
-        # Validate message structure
-        if not isinstance(msg, dict) or msg.get("type") != "tool":
+        tool_result = _parse_tool_result_json(msg)
+        if not tool_result:
             continue
 
-        content = msg.get("content", "")
-        if not content or not isinstance(content, str):
-            continue
-
-        # Try to parse as JSON from generate_image tool
-        try:
-            tool_result = json.loads(content)
-        except (json.JSONDecodeError, TypeError):
-            # Not valid JSON, skip (might be from a different tool)
-            continue
-
-        # Validate tool result structure
-        if not isinstance(tool_result, dict):
-            continue
-
-        # Check if this is a generate_image result
-        # Image data is in _full_result.image (kept separate to avoid sending to LLM)
-        if "_full_result" not in tool_result:
-            continue
-        full_result = tool_result.get("_full_result", {})
-        if "image" not in full_result:
-            continue
-        image_data = full_result["image"]
-
-        # Validate image data structure
+        image_data = _get_full_result_field(tool_result, "image")
         if not isinstance(image_data, dict):
             continue
 
-        # Validate required image fields
-        if "data" not in image_data:
-            continue
-
-        image_data_str = image_data["data"]
+        image_data_str = image_data.get("data")
         if not isinstance(image_data_str, str) or not image_data_str:
             continue
 
-        # Extract image file
+        # Determine mime type with fallback to PNG
         mime_type = image_data.get("mime_type", "image/png")
         if not isinstance(mime_type, str) or not mime_type.startswith("image/"):
-            # Invalid mime type, default to PNG
             mime_type = "image/png"
 
-        # Determine file extension from mime type
         ext = MIME_TYPE_TO_EXT.get(mime_type, "png")
-
         file_index = len(files)
-        file_entry = {
-            "name": f"generated_image_{file_index + 1}.{ext}",
-            "type": mime_type,
-            "data": image_data_str,
-        }
-
-        # Generate thumbnail for the image
-        processed = process_image_files([file_entry])
-        if processed:
-            file_entry = processed[0]
-
+        file_entry = _create_file_entry_with_thumbnail(
+            name=f"generated_image_{file_index + 1}.{ext}",
+            mime_type=mime_type,
+            data=image_data_str,
+        )
         files.append(file_entry)
 
     return files
@@ -246,35 +281,11 @@ def extract_code_output_files_from_tool_results(
     files: list[dict[str, Any]] = []
 
     for msg in tool_results:
-        # Validate message structure
-        if not isinstance(msg, dict) or msg.get("type") != "tool":
+        tool_result = _parse_tool_result_json(msg)
+        if not tool_result:
             continue
 
-        content = msg.get("content", "")
-        if not content or not isinstance(content, str):
-            continue
-
-        # Try to parse as JSON from execute_code tool
-        try:
-            tool_result = json.loads(content)
-        except (json.JSONDecodeError, TypeError):
-            # Not valid JSON, skip (might be from a different tool)
-            continue
-
-        # Validate tool result structure
-        if not isinstance(tool_result, dict):
-            continue
-
-        # Check if this is an execute_code result with files
-        # File data is in _full_result.files (kept separate to avoid sending to LLM)
-        if "_full_result" not in tool_result:
-            continue
-        full_result = tool_result.get("_full_result", {})
-        if "files" not in full_result:
-            continue
-        result_files = full_result["files"]
-
-        # Validate files structure
+        result_files = _get_full_result_field(tool_result, "files")
         if not isinstance(result_files, list):
             continue
 
@@ -282,28 +293,15 @@ def extract_code_output_files_from_tool_results(
             if not isinstance(file_entry, dict):
                 continue
 
-            # Validate required fields
             name = file_entry.get("name")
             data = file_entry.get("data")
-            mime_type = file_entry.get("mime_type", "application/octet-stream")
-
-            if not name or not data:
-                continue
             if not isinstance(name, str) or not isinstance(data, str):
                 continue
+            if not name or not data:
+                continue
 
-            file_dict: dict[str, Any] = {
-                "name": name,
-                "type": mime_type,
-                "data": data,
-            }
-
-            # Generate thumbnail for images
-            if mime_type.startswith("image/"):
-                processed = process_image_files([file_dict])
-                if processed:
-                    file_dict = processed[0]
-
+            mime_type = file_entry.get("mime_type", "application/octet-stream")
+            file_dict = _create_file_entry_with_thumbnail(name, mime_type, data)
             files.append(file_dict)
 
     return files

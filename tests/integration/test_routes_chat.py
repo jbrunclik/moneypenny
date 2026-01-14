@@ -209,7 +209,7 @@ class TestChatStream:
         test_conversation: Conversation,
     ) -> None:
         """Should stream tokens as SSE events."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -272,7 +272,7 @@ class TestChatStream:
         test_database: Database,
     ) -> None:
         """Should save message to DB even if client disconnects during streaming."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -514,7 +514,7 @@ class TestChatWithGeneratedImages:
             }
         )
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -606,7 +606,7 @@ class TestChatWithGeneratedImages:
         """
         import time
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:

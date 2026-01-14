@@ -127,10 +127,30 @@ Use enums for fixed sets of options. Backend: `str, Enum` in [schemas.py](src/ap
 
 ### Code Quality Guidelines
 
-- Keep functions small and focused (<50 lines)
+**Function size and complexity:**
+- Keep functions small and focused (<50 lines ideal, <100 lines max)
+- Functions over 50 lines should be reviewed for extraction opportunities
 - Extract testable units into separate functions
 - Use section comments in large files (e.g., `# ============ Helper Functions ============`)
-- Extract helpers when you see deeply nested code, repeated logic, or code that's hard to test
+
+**Avoid deep nesting (max 3 levels):**
+- Deeply nested code (4+ levels of indentation) is hard to read, test, and maintain
+- Use early returns to reduce nesting: `if (error) return;` instead of `if (!error) { ... }`
+- Extract nested logic into helper functions with descriptive names
+- Use guard clauses at function start for validation
+
+**Extract helpers when you see:**
+- Deeply nested code (3+ levels of if/for/try)
+- Repeated logic patterns (DRY principle)
+- Code that's hard to test in isolation
+- Long functions that do multiple things
+- Complex conditionals that could be named
+
+**Refactoring patterns:**
+- **State encapsulation**: Group related variables into a class/interface (e.g., `_StreamContext`, `StreamingState`)
+- **Handler extraction**: Move event handlers to separate named functions
+- **Parser helpers**: Extract parsing/validation logic into reusable functions
+- **Choreography helpers**: Extract complex async/callback sequences into named functions
 
 ### File Size Guidelines (for LLM Context)
 
@@ -182,6 +202,12 @@ make test   # Run all tests
 ```
 
 Both commands must pass without errors. If linting fails, run `make lint-fix` to auto-fix issues where possible.
+
+**Running E2E tests:**
+E2E tests can occasionally hang due to browser automation issues. Always run with a timeout:
+```bash
+cd web && timeout 600 npx playwright test  # 10 minute timeout
+```
 
 **Zero tolerance for flaky tests:**
 - All tests MUST pass consistently - no intermittent failures
