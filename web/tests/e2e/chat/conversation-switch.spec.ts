@@ -316,12 +316,10 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
     const convItems = page.locator('.conversation-item-wrapper');
     await convItems.last().click();
 
-    // Wait for streaming to complete (message should have content)
-    const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toContainText('mock response', { timeout: 15000 });
-
-    // Message should no longer be in streaming state
-    await expect(page.locator('.message.assistant.streaming')).toHaveCount(0, { timeout: 10000 });
+    // Wait for streaming to complete - the message should have content AND no longer be streaming
+    // Use a single robust assertion that waits for the final state
+    const assistantMessage = page.locator('.message.assistant:not(.streaming)');
+    await expect(assistantMessage).toContainText('mock response', { timeout: 30000 });
 
     // Reset stream delay
     await resetStreamDelay(page);

@@ -328,7 +328,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
       await page.waitForTimeout(100); // Wait for scroll event to be processed
 
       // Verify we stayed at the top (not brought back by auto-scroll)
-      let scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);
+      const scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);
       expect(scrollTop).toBeLessThan(100);
 
       // Scroll to middle
@@ -603,19 +603,22 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
     expect(isStillStreaming).toBe(true);
 
-    // Scroll up to interrupt auto-scroll using mouse wheel
-    await messagesContainer.hover();
-    await page.mouse.wheel(0, -10000);
-    await page.waitForTimeout(300);
+    // Scroll up to interrupt auto-scroll using JavaScript (more reliable than mouse.wheel on webkit)
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = 0;
+      // Dispatch scroll event to trigger visibility update
+      el.dispatchEvent(new Event('scroll'));
+    });
 
     // Scroll button should be visible and have the streaming-paused class
     await expect(scrollButton).toBeVisible({ timeout: 5000 });
     await expect(scrollButton).toHaveClass(/streaming-paused/, { timeout: 5000 });
 
-    // Scroll back to bottom using mouse wheel
-    await messagesContainer.hover();
-    await page.mouse.wheel(0, 10000);
-    await page.waitForTimeout(300);
+    // Scroll back to bottom using JavaScript
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+      el.dispatchEvent(new Event('scroll'));
+    });
 
     // The streaming-paused class should be removed
     await expect(scrollButton).not.toHaveClass(/streaming-paused/, { timeout: 5000 });
@@ -670,10 +673,11 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
     expect(isStillStreaming).toBe(true);
 
-    // Scroll up to pause auto-scroll using mouse wheel
-    await messagesContainer.hover();
-    await page.mouse.wheel(0, -10000);
-    await page.waitForTimeout(300);
+    // Scroll up to pause auto-scroll using JavaScript (more reliable than mouse.wheel on webkit)
+    await messagesContainer.evaluate((el) => {
+      el.scrollTop = 0;
+      el.dispatchEvent(new Event('scroll'));
+    });
 
     // Verify streaming-paused is shown
     await expect(scrollButton).toHaveClass(/streaming-paused/, { timeout: 5000 });
