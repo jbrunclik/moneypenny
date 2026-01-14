@@ -120,7 +120,7 @@ The metadata block supports both sources and generated_images:
 - [routes/chat.py](../../src/api/routes/chat.py) - Sets files and conversation context before agent call, image extraction from tool results
 - [ImageGenPopup.ts](../../web/src/components/ImageGenPopup.ts) - Popup showing generation info
 - [InfoPopup.ts](../../web/src/components/InfoPopup.ts) - Generic popup component used by both sources and image gen
-- [Messages.ts](../../web/src/components/Messages.ts) - Sparkles button rendering
+- [messages/actions.ts](../../web/src/components/messages/actions.ts) - Sparkles button rendering
 
 ## Code Execution Sandbox
 

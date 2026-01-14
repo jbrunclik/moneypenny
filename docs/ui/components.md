@@ -732,7 +732,7 @@ See [Testing](../testing.md#planner-tests) for details.
 - [../../web/src/styles/components/planner.css](../../web/src/styles/components/planner.css) - Planner dashboard
 
 **Components:**
-- [../../web/src/components/Messages.ts](../../web/src/components/Messages.ts) - Message display
+- [../../web/src/components/messages/](../../web/src/components/messages/) - Message display
 - [../../web/src/components/Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversation list
 - [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts) - Input area
 - [../../web/src/components/Modal.ts](../../web/src/components/Modal.ts) - Modal dialogs

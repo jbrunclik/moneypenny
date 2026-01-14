@@ -47,7 +47,7 @@ vi.mock('@/utils/thumbnails', async (importOriginal) => {
 });
 
 // Import after mocks are set up
-import { renderMessages, addMessageToUI } from '@/components/Messages';
+import { renderMessages, addMessageToUI } from '@/components/messages';
 import {
   enableScrollOnImageLoad,
   disableScrollOnImageLoad,

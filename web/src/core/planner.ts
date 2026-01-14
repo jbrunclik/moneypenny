@@ -15,7 +15,7 @@ import {
 import {
   addMessageToUI,
   updateChatTitle,
-} from '../components/Messages';
+} from '../components/messages';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { getElementById, clearElement } from '../utils/dom';
 import {

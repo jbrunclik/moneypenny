@@ -181,7 +181,7 @@ STREAM_CLEANUP_WAIT_DELAY = 1.0      # Delay before checking if message was save
 - [MessageCostPopup.ts](../../web/src/components/MessageCostPopup.ts) - Message cost popup component
 - [ImageGenPopup.ts](../../web/src/components/ImageGenPopup.ts) - Image generation popup (shows image generation cost)
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Monthly cost display in footer
-- [Messages.ts](../../web/src/components/Messages.ts) - Cost button rendering in message actions
+- [messages/actions.ts](../../web/src/components/messages/actions.ts) - Cost button rendering in message actions
 
 ### Systemd
 

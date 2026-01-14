@@ -502,6 +502,7 @@ def main() -> None:
     with contextlib.ExitStack() as stack:
         # Apply external service mocks
         stack.enter_context(patch("src.agent.graph.ChatGoogleGenerativeAI", create_mock_llm()))
+        stack.enter_context(patch("src.agent.agent.ChatGoogleGenerativeAI", create_mock_llm()))
         stack.enter_context(patch("src.agent.tools.web.DDGS", create_mock_ddgs()))
         stack.enter_context(patch("src.agent.tools.web.httpx.Client", create_mock_httpx()))
         stack.enter_context(

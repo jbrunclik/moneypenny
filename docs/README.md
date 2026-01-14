@@ -73,11 +73,62 @@ Common debugging scenarios:
 
 ## Documentation Guidelines
 
-See the "Documentation Maintenance" section in [../CLAUDE.md](../CLAUDE.md) for complete guidelines on:
-- When to update which docs
-- How to structure documentation
-- Style guide and formatting
-- Adding new features checklist
+### When to Update Documentation
+
+**Update CLAUDE.md when:**
+- Adding new common tasks (e.g., new Make targets)
+- Changing development workflow
+- Updating quick reference commands
+- Adding code style guidelines that apply project-wide
+
+**Update feature docs when:**
+- Implementing new features
+- Changing how existing features work
+- Adding configuration options
+- Modifying API endpoints
+- Changing UI behavior
+
+**Update architecture docs when:**
+- Changing authentication/authorization
+- Modifying database schema
+- Adding new validation rules
+- Changing error handling patterns
+- Updating rate limits
+
+**Update UI docs when:**
+- Changing scroll behavior
+- Adding new mobile/PWA features
+- Modifying CSS architecture
+- Adding new component patterns
+
+### How to Update Documentation
+
+1. **Find the right doc** - Check this index
+2. **Update inline** - Documentation is next to code for easy maintenance
+3. **Update "See Also" sections** - Keep cross-references current
+4. **Test examples** - Verify code examples still work
+5. **Keep CLAUDE.md lean** - Detailed info goes in `docs/`, not here
+
+### Adding New Features - Documentation Checklist
+
+When implementing a significant new feature:
+
+1. ✅ Add feature documentation to appropriate `docs/features/` file
+2. ✅ Update architecture docs if system design changes
+3. ✅ Add testing section to feature doc
+4. ✅ Update `docs/README.md` index if adding new doc
+5. ✅ Add pointer to detailed doc from CLAUDE.md (if it's a common task)
+6. ✅ Update `.env.example` if adding environment variables
+7. ✅ Update README.md if feature is user-facing
+
+### Style Guide
+
+- Use clear headings with `#`, `##`, `###` hierarchy
+- Include code examples with syntax highlighting (` ```python ` or ` ```typescript `)
+- Link to source files with relative paths (`../../src/...`)
+- Use tables for structured data (e.g., configuration options, API endpoints)
+- Add "See Also" sections at the end linking to related docs
+- Keep line length reasonable (~120 chars max) for readability
 
 ### Quick Rules
 

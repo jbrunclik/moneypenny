@@ -145,7 +145,19 @@ web/tests/
 │   └── Sidebar.test.ts            # Sidebar interactions
 ├── e2e/                           # Playwright E2E tests
 │   ├── auth.spec.ts               # Authentication flow
-│   ├── chat.spec.ts               # Chat functionality
+│   ├── chat/                      # Chat functionality (split into modules)
+│   │   ├── fixtures.ts            # Shared test utilities
+│   │   ├── anonymous-mode.spec.ts # Anonymous mode tests
+│   │   ├── attachments.spec.ts    # File attachments, upload progress
+│   │   ├── batch-mode.spec.ts     # Batch mode message sending
+│   │   ├── clipboard.spec.ts      # Clipboard paste/copy
+│   │   ├── conversation-switch.spec.ts  # Conversation switching
+│   │   ├── force-tools.spec.ts    # Force tools (search button)
+│   │   ├── lightbox.spec.ts       # Image lightbox
+│   │   ├── message-actions.spec.ts # Message actions (copy, retry)
+│   │   ├── model-selection.spec.ts # Model selection persistence
+│   │   ├── streaming.spec.ts      # Streaming, auto-scroll, stop
+│   │   └── thinking-indicator.spec.ts # Thinking indicator
 │   ├── conversation.spec.ts       # Conversation CRUD
 │   ├── pagination.spec.ts         # Pagination
 │   ├── search.spec.ts             # Full-text search
@@ -227,19 +239,28 @@ describe('Sidebar', () => {
 End-to-end tests with real browser:
 
 ```typescript
-// web/tests/e2e/chat.spec.ts
-import { test, expect } from '@playwright/test';
+// web/tests/e2e/chat/batch-mode.spec.ts
+import { test, expect, disableStreaming } from './fixtures';
 
 test('send message in batch mode', async ({ page }) => {
   await page.goto('/');
-  await page.click('[data-testid="new-chat"]');
+  await page.click('#new-chat-btn');
+  await disableStreaming(page);
   await page.fill('#message-input', 'Hello');
-  await page.click('[data-testid="send-button"]');
+  await page.click('#send-btn');
 
   await expect(page.locator('.message-content'))
     .toContainText('Hello');
 });
 ```
+
+Chat tests are split into focused modules in `web/tests/e2e/chat/`:
+- `fixtures.ts` - Shared utilities (streaming toggle, message send helpers)
+- `batch-mode.spec.ts` - Batch mode message sending
+- `streaming.spec.ts` - Streaming mode, auto-scroll, stop button
+- `model-selection.spec.ts` - Model selection and persistence
+- `conversation-switch.spec.ts` - Switching conversations during requests
+- And more (see directory structure above)
 
 ### Planner Tests
 

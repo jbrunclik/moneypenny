@@ -20,7 +20,7 @@ import {
   renderMessages,
   updateChatTitle,
   initOrientationChangeHandler,
-} from '../components/Messages';
+} from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
 import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
 import { initFileUpload } from '../components/FileUpload';
@@ -57,7 +57,7 @@ import {
   cleanupOlderMessagesScrollListener,
   cleanupNewerMessagesScrollListener,
   loadAllRemainingNewerMessages,
-} from '../components/Messages';
+} from '../components/messages';
 
 import { sendMessage, handleStopStreaming } from './messaging';
 import { handleSearchResultClick } from './search';

@@ -101,7 +101,7 @@ All links include security attributes:
 **User messages:**
 - Plain text URLs are detected using regex pattern in [linkify.ts](../../web/src/utils/linkify.ts)
 - `linkifyText()` converts URLs to anchor tags after HTML escaping
-- Applied in [Messages.ts](../../web/src/components/Messages.ts) when rendering user messages
+- Applied in [messages/render.ts](../../web/src/components/messages/render.ts) when rendering user messages
 
 **Assistant messages:**
 - Markdown links are rendered by the `marked` library
@@ -112,7 +112,7 @@ All links include security attributes:
 
 - [linkify.ts](../../web/src/utils/linkify.ts) - URL detection and auto-linking utility
 - [markdown.ts](../../web/src/utils/markdown.ts) - Custom link renderer for markdown
-- [Messages.ts](../../web/src/components/Messages.ts) - Integration into message rendering
+- [messages/render.ts](../../web/src/components/messages/render.ts) - Integration into message rendering
 
 ### Testing
 

@@ -75,7 +75,7 @@ For existing messages without language data:
 ### Key Files
 
 - [tts.ts](../../web/src/core/tts.ts) - `speakMessage()`, `findVoiceForLanguage()`, `initTTSVoices()`, `getTextContentForTTS()`
-- [Messages.ts](../../web/src/components/Messages.ts) - Speak button in `createMessageActions()`
+- [messages/actions.ts](../../web/src/components/messages/actions.ts) - Speak button in `createMessageActions()`
 - [utils.py](../../src/api/utils.py) - `extract_language_from_metadata()`
 - [prompts.py](../../src/agent/prompts.py) - System prompt requiring language in metadata
 - [messages.css](../../web/src/styles/components/messages.css) - `.message-speak-btn` styles

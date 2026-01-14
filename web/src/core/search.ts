@@ -12,7 +12,7 @@ import {
   renderMessages,
   setupOlderMessagesScrollListener,
   setupNewerMessagesScrollListener,
-} from '../components/Messages';
+} from '../components/messages';
 import { getElementById } from '../utils/dom';
 import { disableScrollOnImageLoad } from '../utils/thumbnails';
 import { getSyncManager } from '../sync/SyncManager';

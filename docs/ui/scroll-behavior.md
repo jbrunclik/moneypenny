@@ -31,10 +31,10 @@ The application implements sophisticated scroll behavior that:
 | Scenario | Expected Behavior | Key Files |
 |----------|-------------------|-----------|
 | **Opening a conversation** | Scroll to bottom immediately, then smooth scroll again after all images load | `renderMessages()`, `enableScrollOnImageLoad()` |
-| **Opening conversation with images** | Initial scroll to bottom (makes images visible), IntersectionObserver triggers thumbnail fetches, smooth scroll after all images finish loading | `thumbnails.ts`, `Messages.ts` |
+| **Opening conversation with images** | Initial scroll to bottom (makes images visible), IntersectionObserver triggers thumbnail fetches, smooth scroll after all images finish loading | `thumbnails.ts`, `messages/render.ts` |
 | **Sending a new message (batch)** | User message added → scroll to bottom → assistant response added → scroll to bottom → if images, smooth scroll after they load | `sendBatchMessage()`, `addMessageToUI()` |
 | **Sending a new message (streaming)** | User message added → scroll to bottom → auto-scroll during streaming → if images in final message, smooth scroll after load | `sendStreamingMessage()`, `autoScrollForStreaming()` |
-| **Auto-scroll during streaming** | Content auto-scrolls as tokens arrive, keeping latest content visible | `autoScrollForStreaming()` in `Messages.ts` |
+| **Auto-scroll during streaming** | Content auto-scrolls as tokens arrive, keeping latest content visible | `autoScrollForStreaming()` in `messages/streaming.ts` |
 | **User scrolls up during streaming** | Auto-scroll pauses immediately, scroll button highlights with pulsing animation | `setupStreamingScrollListener()`, `setStreamingPausedIndicator()` |
 | **User scrolls back to bottom during streaming** | Auto-scroll resumes automatically, scroll button returns to normal | streaming scroll listener threshold check |
 | **Streaming completes** | Scroll button indicator cleared automatically | `cleanupStreamingContext()` |
@@ -224,7 +224,7 @@ The app uses cursor-based pagination for both conversations and messages to effi
 - Shows loading spinner during fetch
 - Debounced scroll handler (100ms) to avoid excessive checks
 
-**2. Messages older pagination** ([../../web/src/components/Messages.ts](../../web/src/components/Messages.ts)):
+**2. Messages older pagination** ([../../web/src/components/messages/pagination.ts](../../web/src/components/messages/pagination.ts)):
 - Scroll listener detects when user scrolls near the top (within 200px)
 - Automatically fetches older messages when threshold reached
 - Prepends messages to UI while maintaining scroll position
@@ -279,7 +279,10 @@ The app uses cursor-based pagination for both conversations and messages to effi
 - [../../web/src/utils/dom.ts](../../web/src/utils/dom.ts) - `scrollToBottom()` with smooth animation, `isScrolledToBottom()`
 
 **Components:**
-- [../../web/src/components/Messages.ts](../../web/src/components/Messages.ts) - `renderMessages()`, `setupStreamingScrollListener()`, `autoScrollForStreaming()`, `cleanupStreamingContext()`, pagination
+- [../../web/src/components/messages/](../../web/src/components/messages/) - Message display modules:
+  - `render.ts` - `renderMessages()`, `addMessageToUI()`
+  - `streaming.ts` - `setupStreamingScrollListener()`, `autoScrollForStreaming()`, `cleanupStreamingContext()`
+  - `pagination.ts` - Older/newer messages infinite scroll
 - [../../web/src/components/ScrollToBottom.ts](../../web/src/components/ScrollToBottom.ts) - Button component that triggers smooth scroll
 - [../../web/src/components/Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversations infinite scroll
 

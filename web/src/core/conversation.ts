@@ -27,7 +27,7 @@ import {
   hasActiveStreamingContext,
   getStreamingContextConversationId,
   cleanupStreamingContext,
-} from '../components/Messages';
+} from '../components/messages';
 import {
   focusMessageInput,
   shouldAutoFocusInput,

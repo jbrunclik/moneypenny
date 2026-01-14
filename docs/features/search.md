@@ -99,7 +99,7 @@ When navigating to a search result in a large conversation, the app uses `around
 ### Key Functions
 
 - `scrollToAndHighlightMessage()` in [search.ts](../../web/src/core/search.ts) - Orchestrates the navigation
-- `loadAllRemainingNewerMessages()` in [Messages.ts](../../web/src/components/Messages.ts) - Loads all newer messages before send
+- `loadAllRemainingNewerMessages()` in [messages/pagination.ts](../../web/src/components/messages/pagination.ts) - Loads all newer messages before send
 - `get_messages_around()` in [models/](../../src/db/models/) - Backend method for centered pagination
 - `getMessagesAround()` in [client.ts](../../web/src/api/client.ts) - Frontend API method
 

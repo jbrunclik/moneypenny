@@ -161,7 +161,7 @@ window.visualViewport.addEventListener('resize', () => {
 
 ### 8. Orientation Change Scroll Position
 
-Device orientation changes cause layout reflows that can lose scroll position. The `initOrientationChangeHandler()` in [../../web/src/components/Messages.ts](../../web/src/components/Messages.ts) saves scroll position as a percentage before orientation change and restores it after layout settles. Also handles resize events as a fallback for devices that don't fire `orientationchange`.
+Device orientation changes cause layout reflows that can lose scroll position. The `initOrientationChangeHandler()` in [../../web/src/components/messages/orientation.ts](../../web/src/components/messages/orientation.ts) saves scroll position as a percentage before orientation change and restores it after layout settles. Also handles resize events as a fallback for devices that don't fire `orientationchange`.
 
 ```typescript
 function initOrientationChangeHandler() {
@@ -285,7 +285,7 @@ The conversation cost display below the input area has `min-height: 16px` and is
 
 **Components:**
 - [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts) - iOS detection, keyboard handling
-- [../../web/src/components/Messages.ts](../../web/src/components/Messages.ts) - Orientation change handling
+- [../../web/src/components/messages/orientation.ts](../../web/src/components/messages/orientation.ts) - Orientation change handling
 - [../../web/src/components/Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversation swipe actions
 
 **Styles:**

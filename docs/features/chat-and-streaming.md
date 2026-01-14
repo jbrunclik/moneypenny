@@ -163,7 +163,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 - [routes/chat.py](../../src/api/routes/chat.py) - SSE streaming with thinking/tool events
 - [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
 - [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
-- [Messages.ts](../../web/src/components/Messages.ts) - Streaming state management
+- [messages/streaming.ts](../../web/src/components/messages/streaming.ts) - Streaming state management
 - [messaging.ts](../../web/src/core/messaging.ts) - Event handling
 - [thinking.css](../../web/src/styles/components/thinking.css) - Styles and animations
 
@@ -195,7 +195,7 @@ When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are d
 - [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
 - [routes/chat.py](../../src/api/routes/chat.py) - Sources included in batch/stream responses
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
-- [Messages.ts](../../web/src/components/Messages.ts) - Sources button rendering
+- [messages/actions.ts](../../web/src/components/messages/actions.ts) - Sources button rendering
 
 ### Metadata Format
 
@@ -214,6 +214,46 @@ The `forceTools` state in Zustand allows forcing specific tools to be used. Curr
 - Frontend: `store.forceTools: string[]` with `toggleForceTool(tool)` and `clearForceTools()`
 - Backend: `force_tools` parameter in `/chat/batch` and `/chat/stream` endpoints
 - Agent: `get_force_tools_prompt()` in [prompts.py](../../src/agent/prompts.py)
+
+## Conversation and Message Patterns
+
+### Lazy Conversation Creation
+
+Conversations are created locally with `temp-` prefixed ID and only persisted to DB on first message. This prevents empty conversations from polluting the database.
+
+**Key files:**
+- [conversation.ts](../../web/src/core/conversation.ts) - `createConversation()`, `isTempConversation()`
+- [messaging.ts](../../web/src/core/messaging.ts) - `sendMessage()` handles temp → real ID conversion
+
+### User Message ID Handling
+
+User messages are initially created with temp IDs (`temp-{timestamp}`) in the frontend. The backend returns the real message ID via:
+- **Streaming mode**: `user_message_saved` SSE event
+- **Batch mode**: `user_message_id` field in response
+
+Images with temp message IDs are marked with `data-pending="true"` and show `cursor: wait` until the real ID is available.
+
+### Concurrent Request Handling
+
+The app supports multiple active requests across different conversations simultaneously. Requests continue processing in the background even when users switch conversations.
+
+**Key implementation:**
+- Active requests tracked per conversation in `activeRequests` map
+- Requests only update UI if their conversation is still current
+- Server-side: cleanup threads ensure messages are saved even if client disconnects
+
+### Seamless Conversation Switching
+
+When switching away from a conversation with an active request and back, the UI state is seamlessly restored.
+
+**State management:**
+- `activeRequests` Map in store tracks content and thinking state per conversation
+- `streamingMessageElements` Map in [messaging.ts](../../web/src/core/messaging.ts) tracks DOM elements for continued updates
+- Streaming context includes `conversationId` to determine whether to clean up
+
+### Conversation Selection Race Condition
+
+A module-level `pendingConversationId` variable in [conversation.ts](../../web/src/core/conversation.ts) tracks which conversation the user most recently clicked. When an API call completes, we check if it matches - if not, the user navigated elsewhere and we cancel the operation.
 
 ## See Also
 

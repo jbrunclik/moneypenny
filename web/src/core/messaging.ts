@@ -27,7 +27,7 @@ import {
   updateUserMessageId,
   loadAllRemainingNewerMessages,
   cleanupNewerMessagesScrollListener,
-} from '../components/Messages';
+} from '../components/messages';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import {
   getMessageInput,

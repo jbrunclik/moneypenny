@@ -30,7 +30,7 @@ ai-chatbot/
 │   ├── agent/                    # LangGraph agent with Gemini + tools
 │   ├── db/                       # SQLite: User, Conversation, Message
 │   └── utils/                    # Images, costs, logging, files
-├── web/                          # Vite + TypeScript frontend
+├── web/                          # Vite + TypeScript frontend (not `frontend/` - allows `ios/`, `android/` later)
 │   └── src/
 │       ├── main.ts               # Entry point
 │       ├── types/                # TypeScript interfaces
@@ -77,33 +77,26 @@ ai-chatbot/
   - [file-actions.ts](web/src/core/file-actions.ts) - File download, preview, clipboard
   - [events.ts](web/src/core/events.ts) - Event listeners and message handlers
   - [sync-banner.ts](web/src/core/sync-banner.ts) - New messages available banner
+- [messages/](web/src/components/messages/) - Message display components (split into focused modules):
+  - [render.ts](web/src/components/messages/render.ts) - Message rendering (HTML generation, markdown)
+  - [streaming.ts](web/src/components/messages/streaming.ts) - Streaming message state and updates
+  - [attachments.ts](web/src/components/messages/attachments.ts) - File attachments display (images, documents)
+  - [actions.ts](web/src/components/messages/actions.ts) - Message action buttons (copy, delete, speak, sources)
+  - [pagination.ts](web/src/components/messages/pagination.ts) - Older/newer messages loading via infinite scroll
+  - [orientation.ts](web/src/components/messages/orientation.ts) - Orientation change handling for scroll
+  - [loading.ts](web/src/components/messages/loading.ts) - Loading indicators
+  - [utils.ts](web/src/components/messages/utils.ts) - Shared utilities (time formatting, ID updates)
 - [store.ts](web/src/state/store.ts) - Zustand state management
 
-### API Route Organization
-
-Routes are split across 11 focused modules (43 total endpoints):
-- [routes/auth.py](src/api/routes/auth.py) - Google authentication (4 routes)
-- [routes/todoist.py](src/api/routes/todoist.py) - Todoist integration (4 routes)
-- [routes/calendar.py](src/api/routes/calendar.py) - Google Calendar (7 routes)
-- [routes/conversations.py](src/api/routes/conversations.py) - Conversation CRUD (9 routes)
-- [routes/planner.py](src/api/routes/planner.py) - Planner dashboard (4 routes)
-- [routes/chat.py](src/api/routes/chat.py) - Chat endpoints (2 routes)
-- [routes/files.py](src/api/routes/files.py) - File serving (2 routes)
-- [routes/costs.py](src/api/routes/costs.py) - Cost tracking (4 routes)
-- [routes/settings.py](src/api/routes/settings.py) - User settings (2 routes)
-- [routes/memory.py](src/api/routes/memory.py) - User memory (2 routes)
-- [routes/system.py](src/api/routes/system.py) - Models, config, version, health (5 routes)
-
-Helper modules:
-- [helpers/validation.py](src/api/helpers/validation.py) - Common validation patterns
-- [helpers/chat_streaming.py](src/api/helpers/chat_streaming.py) - Chat streaming utilities
+API routes are organized by feature in [src/api/routes/](src/api/routes/) (11 modules, 43 endpoints). See [api-design.md](docs/architecture/api-design.md#route-organization) for the full list.
 
 ## Development Workflow
 
 ### Local Development
 ```bash
-make dev  # Runs Flask (8000) + Vite (5173) concurrently
+make dev  # Runs Flask (8000) + Vite (5173) via concurrently
 ```
+- Uses `concurrently` to run both servers (shows both outputs, kills both on Ctrl+C)
 - Vite dev server proxies API calls to Flask
 - HMR enabled for instant CSS/JS updates
 
@@ -113,19 +106,6 @@ make build  # Outputs to static/assets/
 ```
 - Vite generates hashed filenames for cache busting
 - Flask reads manifest.json to inject correct asset paths
-
-## Gemini API Notes
-
-### Models
-- `gemini-3-pro-preview` - Complex tasks, advanced reasoning
-- `gemini-3-flash-preview` - Fast, cheap (default)
-
-### Response Format
-Gemini may return content in various formats. Use `extract_text_content()` in [content.py](src/agent/content.py) to normalize.
-
-### Parameters
-- `thinking_level`: Controls reasoning (minimal/low/medium/high)
-- Temperature: Keep at 1.0 (Gemini 3 default)
 
 ## Code Style
 
@@ -177,6 +157,20 @@ Use enums for fixed sets of options. Backend: `str, Enum` in [schemas.py](src/ap
 - `src/agent/chat_agent.py` (800+ lines) → `src/agent/` (7 focused modules)
 - `src/db/models.py` (600+ lines) → `src/db/models/` (4 focused modules)
 - `web/src/main.ts` (3100+ lines) → `web/src/core/` (11 focused modules)
+- `web/src/components/Messages.ts` (1100+ lines) → `web/src/components/messages/` (9 focused modules)
+
+### Frontend Patterns
+
+**State management**: Use [Zustand](https://github.com/pmndrs/zustand) (lightweight, TypeScript-first). Avoid custom state management or Redux.
+
+**Event delegation**: Use event delegation for dynamic content instead of inline `onclick` handlers (iOS Safari has issues with inline handlers on dynamically created elements).
+
+**DOM manipulation**:
+- Use `textContent` for plain text, `clearElement()` from [dom.ts](web/src/utils/dom.ts) to clear content
+- innerHTML is acceptable for: SVG icons from [icons.ts](web/src/utils/icons.ts), markdown from `renderMarkdown()`, complex HTML structures
+- Centralize SVG icons in [icons.ts](web/src/utils/icons.ts) - prevents duplication, single source of truth
+
+**Named constants**: Use `DEFAULT_CONVERSATION_TITLE` from [api.ts](web/src/types/api.ts) instead of hardcoding `'New Conversation'`.
 
 ## Pre-Commit Checklist
 
@@ -229,234 +223,6 @@ Add SVG constants to [icons.ts](web/src/utils/icons.ts) and import where needed.
 2. **Update [.env.example](.env.example)** with the new variable and documentation
 3. Document in the relevant feature doc in `docs/features/`
 4. If user-facing, document in README.md
-
-### Configure calendar selection
-1. Connect Google Calendar in Settings
-2. Select which calendars to include in planner context (primary calendar always included)
-3. Save selection - dashboard will fetch events from all selected calendars in parallel
-4. Calendar labels appear on events from non-primary calendars
-
----
-
-## Documentation Maintenance
-
-### Documentation Structure
-
-**Note**: This file (`AGENTS.md`) is the canonical documentation. `CLAUDE.md` is a symlink to this file for compatibility with Claude Code. When updating documentation, edit `AGENTS.md` - changes will be reflected in both.
-
-Documentation is organized into focused, discoverable files in the `docs/` directory:
-
-```
-docs/
-├── README.md                      # Documentation index
-├── features/                      # Feature-specific guides
-│   ├── chat-and-streaming.md      # Gemini API, streaming, thinking indicator
-│   ├── file-handling.md           # Image generation, code execution, uploads
-│   ├── voice-and-tts.md           # Speech-to-text and text-to-speech
-│   ├── search.md                  # Full-text search with FTS5
-│   ├── sync.md                    # Real-time sync across tabs/devices
-│   ├── integrations.md            # Todoist and Google Calendar
-│   ├── memory-and-context.md      # User memory, custom instructions, anonymous mode
-│   ├── cost-tracking.md           # Token costs, image generation costs
-│   └── ui-features.md             # Input toolbar, clipboard, conversation mgmt
-├── architecture/                  # System design
-│   ├── authentication.md          # Google Sign-In, JWT, OAuth
-│   ├── database.md                # Schema, blob storage, indexes, performance
-│   └── api-design.md              # OpenAPI, rate limiting, validation, errors
-├── ui/                            # UI implementation
-│   ├── scroll-behavior.md         # Scroll scenarios, auto-scroll, pagination
-│   ├── mobile-and-pwa.md          # Touch gestures, iOS gotchas, PWA fixes
-│   └── components.md              # CSS architecture, patterns, design system
-├── testing.md                     # Test structure, patterns, E2E server
-└── logging.md                     # Structured logging (backend and frontend)
-```
-
-### When to Update Documentation
-
-**Update CLAUDE.md when:**
-- Adding new common tasks (e.g., new Make targets)
-- Changing development workflow
-- Updating quick reference commands
-- Adding code style guidelines that apply project-wide
-- Adding preferences or corrections
-
-**Update feature docs when:**
-- Implementing new features
-- Changing how existing features work
-- Adding configuration options
-- Modifying API endpoints
-- Changing UI behavior
-
-**Update architecture docs when:**
-- Changing authentication/authorization
-- Modifying database schema
-- Adding new validation rules
-- Changing error handling patterns
-- Updating rate limits
-
-**Update UI docs when:**
-- Changing scroll behavior
-- Adding new mobile/PWA features
-- Modifying CSS architecture
-- Adding new component patterns
-
-### How to Update Documentation
-
-1. **Find the right doc** - Check `docs/README.md` for the index
-2. **Update inline** - Documentation is next to code for easy maintenance
-3. **Update "See Also" sections** - Keep cross-references current
-4. **Test examples** - Verify code examples still work
-5. **Keep CLAUDE.md lean** - Detailed info goes in `docs/`, not here
-
-### Adding New Features - Documentation Checklist
-
-When implementing a significant new feature:
-
-1. ✅ Add feature documentation to appropriate `docs/features/` file
-2. ✅ Update architecture docs if system design changes
-3. ✅ Add testing section to feature doc
-4. ✅ Update `docs/README.md` index if adding new doc
-5. ✅ Add pointer to detailed doc from CLAUDE.md (if it's a common task)
-6. ✅ Update `.env.example` if adding environment variables
-7. ✅ Update README.md if feature is user-facing
-
-### Documentation Style Guide
-
-- Use clear headings with `#`, `##`, `###` hierarchy
-- Include code examples with syntax highlighting (` ```python ` or ` ```typescript `)
-- Link to source files with relative paths (`../../src/...`)
-- Use tables for structured data (e.g., configuration options, API endpoints)
-- Add "See Also" sections at the end linking to related docs
-- Keep line length reasonable (~120 chars max) for readability
-
-### Finding Documentation
-
-Use the index in [docs/README.md](docs/README.md) to find relevant documentation.
-
-**Quick links to common topics:**
-- Chat and streaming → [docs/features/chat-and-streaming.md](docs/features/chat-and-streaming.md)
-- File uploads and images → [docs/features/file-handling.md](docs/features/file-handling.md)
-- Database and performance → [docs/architecture/database.md](docs/architecture/database.md)
-- API design and validation → [docs/architecture/api-design.md](docs/architecture/api-design.md)
-- Mobile and PWA → [docs/ui/mobile-and-pwa.md](docs/ui/mobile-and-pwa.md)
-- Testing → [docs/testing.md](docs/testing.md)
-
----
-
-## Preferences & Corrections
-
-When I correct Claude's approach, the reasoning is documented here to prevent repeated mistakes.
-
-### Naming
-
-**Preference**: Use "AI Chatbot" consistently (not "AI Chat")
-**Context**: Branding consistency across all UI text, meta tags, and documentation
-
-### Directory Structure
-
-**Preference**: Use `web/` for frontend (not `frontend/`)
-**Context**: Leaves room for potential native mobile app later (`ios/`, `android/`)
-
-### State Management
-
-**Preference**: Use Zustand for state management
-**Context**: Lightweight, TypeScript-first, simpler than Redux. Avoid custom state management solutions.
-
-### Development Server
-
-**Preference**: Use `concurrently` for running multiple dev servers
-**Context**: Background processes are hard to manage. `concurrently` shows both outputs clearly and kills both on Ctrl+C.
-**Avoid**: Using `&` or background jobs in Makefile
-
-### UI Patterns
-
-**Preference**: Use event delegation for dynamic elements
-**Context**: iOS Safari has issues with inline onclick handlers on dynamically created elements
-**Avoid**: Inline `onclick` attributes in template strings
-
-### innerHTML Usage
-
-**Preference**: Minimize innerHTML usage; use `textContent`, `createElement`, or DOM helpers where possible
-**Context**: innerHTML parses HTML and can be a security risk if misused. Using DOM methods is more explicit about intent.
-
-**When innerHTML is ACCEPTABLE:**
-- Setting SVG icons from [icons.ts](web/src/utils/icons.ts)
-- Rendering markdown content from `renderMarkdown()`
-- Complex HTML structures that would be cumbersome to build with createElement
-
-**When to AVOID innerHTML:**
-- Clearing element content → Use `clearElement(element)` from [dom.ts](web/src/utils/dom.ts)
-- Setting plain text → Use `element.textContent = text`
-
-### Icons
-
-**Preference**: Centralize SVG icons in [icons.ts](web/src/utils/icons.ts)
-**Context**: Prevents duplication across components
-**Avoid**: Inline SVG in template strings
-
-### Constants
-
-**Preference**: Use `DEFAULT_CONVERSATION_TITLE` constant from [api.ts](web/src/types/api.ts)
-**Context**: Avoids magic strings
-**Avoid**: Hardcoding `'New Conversation'` directly
-
-### Conversation Creation
-
-**Pattern**: Lazy conversation creation - conversations are created locally with `temp-` prefixed ID, only persisted to DB on first message
-**Location**: [conversation.ts](web/src/core/conversation.ts) - `createConversation()`, `isTempConversation()`; [messaging.ts](web/src/core/messaging.ts) - `sendMessage()`
-**Rationale**: Prevents empty conversations from polluting the database
-
-### User Message ID Handling
-
-User messages are initially created with temp IDs (`temp-{timestamp}`) in the frontend. The backend returns the real message ID via:
-- **Streaming mode**: `user_message_saved` SSE event
-- **Batch mode**: `user_message_id` field in response
-
-Images with temp message IDs are marked with `data-pending="true"` and show `cursor: wait` until the real ID is available.
-
-### Concurrent Request Handling
-
-The app supports multiple active requests across different conversations simultaneously. Requests continue processing in the background even when users switch conversations.
-
-**Key implementation details:**
-- Active requests tracked per conversation in `activeRequests` map
-- Requests only update UI if their conversation is still current
-- Server-side: cleanup threads ensure messages are saved even if client disconnects
-
-### Seamless Conversation Switching
-
-When switching away from a conversation with an active request and back, the UI state is seamlessly restored.
-
-**Key state management:**
-- `activeRequests` Map in store tracks content and thinking state per conversation
-- `streamingMessageElements` Map in [messaging.ts](web/src/core/messaging.ts) tracks DOM elements for continued updates
-- Streaming context includes `conversationId` to determine whether to clean up
-
-### @require_auth Injects User
-
-The `@require_auth` decorator injects the authenticated `User` as the first argument to route handlers.
-
-**Pattern:**
-```python
-@api.route("/endpoint", methods=["GET"])
-@require_auth
-def my_endpoint(user: User) -> dict:
-    # user is guaranteed to be a valid User
-    return {"user_id": user.id}
-```
-
-### Conversation Selection Race Condition
-
-A module-level `pendingConversationId` variable tracks which conversation the user most recently clicked. When an API call completes, we check if it matches - if not, the user navigated elsewhere and we cancel.
-
-### Two-Way File References
-
-The documentation now uses two-way references:
-- Feature docs link to implementation files
-- This file (CLAUDE.md) provides quick reference and pointers to detailed docs
-- This prevents documentation from becoming stale or disconnected from code
-
----
 
 ## Related Files
 
