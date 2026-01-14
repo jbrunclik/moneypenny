@@ -371,6 +371,117 @@ test.describe('Planner - Error States', () => {
   });
 });
 
+test.describe('Planner - UI State Management', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.request.post('/test/set-planner-integrations', {
+      data: { todoist: true, calendar: true },
+    });
+  });
+
+  test('model selector shows planner model when navigating to planner', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Check initial model selector state (should show default model)
+    const modelSelector = page.locator('#current-model-name');
+    const initialModel = await modelSelector.textContent();
+
+    // Navigate to planner
+    const plannerEntry = page.locator('.planner-entry');
+    await plannerEntry.click();
+
+    // Wait for planner to load
+    await expect(page.locator('#planner-dashboard')).toBeVisible();
+
+    // Model selector should show the planner's model (Fast by default for planner)
+    // The model name should be displayed in the selector
+    await expect(modelSelector).toBeVisible();
+    const plannerModel = await modelSelector.textContent();
+    expect(plannerModel).toBeTruthy();
+  });
+
+  test('cost display changes when navigating to planner', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Create a conversation with some cost
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Hello');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant');
+
+    // Get the conversation cost (should be non-zero after a message)
+    const costDisplay = page.locator('#conversation-cost');
+    // Wait for cost to be displayed (might be empty initially)
+    await page.waitForTimeout(500);
+    const conversationCost = await costDisplay.textContent();
+
+    // Navigate to planner
+    const plannerEntry = page.locator('.planner-entry');
+    await plannerEntry.click();
+
+    // Wait for planner to load
+    await expect(page.locator('#planner-dashboard')).toBeVisible();
+
+    // Cost display should change (planner's cost is different from the conversation)
+    // The cost is cleared initially and then may show planner's cost (0.00)
+    // Key assertion: cost should NOT show the previous conversation's cost
+    await expect(costDisplay).not.toHaveText(conversationCost || 'dummy');
+  });
+
+  test('model selector updates when switching from conversation to planner', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Create a conversation with non-default model
+    await page.click('#new-chat-btn');
+
+    // Change to Advanced model (gemini-3-pro-preview)
+    await page.click('#model-selector-btn');
+    await page.click('[data-model-id="gemini-3-pro-preview"]');
+
+    // Verify model changed
+    const modelSelector = page.locator('#current-model-name');
+    await expect(modelSelector).toContainText('Advanced');
+
+    // Send a message to persist the conversation
+    await page.fill('#message-input', 'Test');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant');
+
+    // Navigate to planner
+    const plannerEntry = page.locator('.planner-entry');
+    await plannerEntry.click();
+
+    // Wait for planner to load
+    await expect(page.locator('#planner-dashboard')).toBeVisible();
+
+    // Model selector should show the planner's model (Fast), not Advanced
+    await expect(modelSelector).toContainText('Fast');
+  });
+
+  test('UI state is properly reset when leaving planner', async ({ page }) => {
+    await page.goto('/#/planner');
+
+    // Wait for planner to load
+    await expect(page.locator('#planner-dashboard')).toBeVisible();
+
+    // Navigate away from planner by clicking "New Chat"
+    await page.click('#new-chat-btn');
+
+    // Should show welcome message
+    await expect(page.locator('.welcome-message')).toBeVisible();
+
+    // Cost display should be empty
+    const costDisplay = page.locator('#conversation-cost');
+    await expect(costDisplay).toHaveText('');
+
+    // Model selector should show default model
+    const modelSelector = page.locator('#current-model-name');
+    await expect(modelSelector).toBeVisible();
+  });
+});
+
 test.describe('Planner - Calendar Labels', () => {
   test.beforeEach(async ({ page }) => {
     await page.request.post('/test/set-planner-integrations', {

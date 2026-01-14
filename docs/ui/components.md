@@ -715,9 +715,14 @@ The dashboard includes comprehensive accessibility features:
 
 Comprehensive E2E and visual tests ensure dashboard quality:
 
-- **E2E tests:** 32 tests in `web/tests/e2e/planner.spec.ts`
+- **E2E tests:** 36 tests in `web/tests/e2e/planner.spec.ts`
 - **Visual tests:** ~30 snapshots in `web/tests/visual/planner.visual.ts`
-- **Coverage:** All sections, states, interactions, responsive layouts
+- **Coverage:** All sections, states, interactions, responsive layouts, UI state management
+
+**UI State Management Tests** verify that UI elements are properly reset when navigating to/from the planner:
+- Model selector shows the planner's model (not the previous conversation's)
+- Cost display is cleared/updated appropriately
+- UI state is properly reset when leaving the planner
 
 See [Testing](../testing.md#planner-tests) for details.
 

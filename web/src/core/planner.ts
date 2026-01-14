@@ -15,7 +15,11 @@ import {
 import {
   addMessageToUI,
   updateChatTitle,
+  hasActiveStreamingContext,
+  cleanupStreamingContext,
+  cleanupNewerMessagesScrollListener,
 } from '../components/messages';
+import { renderModelDropdown } from '../components/ModelSelector';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { getElementById, clearElement } from '../utils/dom';
 import {
@@ -25,8 +29,11 @@ import {
 import type { Conversation } from '../types/api';
 import { createDashboardElement, createDashboardLoadingElement } from '../components/PlannerDashboard';
 import { PLANNER_DASHBOARD_CACHE_MS } from '../config';
+import { setCurrentConversationForBlobs } from '../utils/thumbnails';
 
 import { sendMessage } from './messaging';
+import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
+import { hideNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('planner');
 
@@ -38,6 +45,15 @@ const log = createLogger('planner');
 export async function navigateToPlanner(forceRefresh: boolean = false): Promise<void> {
   log.info('Navigating to planner', { forceRefresh });
   const store = useStore.getState();
+
+  // Clean up UI state from previous conversation (mirrors switchToConversation behavior)
+  // This prevents stale state when switching to planner while another conversation is active
+  setCurrentConversationForBlobs('planner-loading');
+  cleanupNewerMessagesScrollListener();
+  if (hasActiveStreamingContext()) {
+    cleanupStreamingContext();
+  }
+  hideNewMessagesAvailableBanner();
 
   // Update state
   store.setIsPlannerView(true);
@@ -57,8 +73,16 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   };
   store.setCurrentConversation(placeholderConv);
 
-  // Update header title
+  // Update header title and clear stale UI state
   updateChatTitle('Planner');
+  renderModelDropdown(); // Update model selector to show planner's model
+  updateConversationCost(null); // Clear cost display (planner has no cost yet)
+
+  // Update anonymous button state (planner doesn't use anonymous mode)
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    updateAnonymousButtonState(anonymousBtn, false);
+  }
 
   // Get messages container
   const messagesContainer = getElementById<HTMLDivElement>('messages');
@@ -99,6 +123,9 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
       messages: [],
     };
     store.setCurrentConversation(plannerConv);
+
+    // Update model selector with the actual planner model (may differ from placeholder)
+    renderModelDropdown();
 
     // Clear loading state and render dashboard + messages
     clearElement(messagesContainer);
@@ -201,8 +228,21 @@ export function leavePlannerView(): void {
   // Clear the planner hash
   clearConversationHash();
 
+  // Clear current conversation (was planner)
+  store.setCurrentConversation(null);
+
   // Reset the header title
   updateChatTitle('AI Chatbot');
+
+  // Clear stale UI state from planner
+  renderModelDropdown(); // Reset to default model display
+  updateConversationCost(null); // Clear cost display
+
+  // Update anonymous button state (reset to pending state)
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    updateAnonymousButtonState(anonymousBtn, store.pendingAnonymousMode);
+  }
 
   // Clear messages to show welcome state
   const messagesContainer = getElementById<HTMLDivElement>('messages');
