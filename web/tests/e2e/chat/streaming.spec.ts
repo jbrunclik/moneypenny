@@ -603,11 +603,12 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
     expect(isStillStreaming).toBe(true);
 
-    // Scroll up to interrupt auto-scroll using JavaScript (more reliable than mouse.wheel on webkit)
+    // Scroll up to interrupt auto-scroll using wheel event (the scroll listener uses wheel/touchmove events)
     await messagesContainer.evaluate((el) => {
+      // Dispatch wheel event first to trigger pause detection
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -100 }));
+      // Then set scrollTop to actually scroll
       el.scrollTop = 0;
-      // Dispatch scroll event to trigger visibility update
-      el.dispatchEvent(new Event('scroll'));
     });
 
     // Scroll button should be visible and have the streaming-paused class
@@ -673,10 +674,12 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
     expect(isStillStreaming).toBe(true);
 
-    // Scroll up to pause auto-scroll using JavaScript (more reliable than mouse.wheel on webkit)
+    // Scroll up to pause auto-scroll using wheel event (the scroll listener uses wheel/touchmove events)
     await messagesContainer.evaluate((el) => {
+      // Dispatch wheel event first to trigger pause detection
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -100 }));
+      // Then set scrollTop to actually scroll
       el.scrollTop = 0;
-      el.dispatchEvent(new Event('scroll'));
     });
 
     // Verify streaming-paused is shown
