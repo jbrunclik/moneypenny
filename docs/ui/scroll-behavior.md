@@ -90,6 +90,8 @@ The app tracks user scrolls to disable auto-scroll when the user is browsing his
 - This prevents hijacking the scroll position when the user is viewing older messages
 - **Critical**: The scroll listener distinguishes between user scrolls and programmatic scrolls (see Programmatic Scroll Wrapper section)
 
+**Note**: Streaming auto-scroll uses a different approach - `wheel`/`touchmove` events instead of direction-based detection. See [Streaming Auto-Scroll](#streaming-auto-scroll) for details.
+
 ### Scroll Hijacking Prevention
 
 When images load while the user is scrolled up, the system checks scroll position at multiple points to prevent race conditions:
@@ -119,17 +121,17 @@ During streaming responses, a separate scroll system manages auto-scrolling to k
 - **Interruptible**: User can scroll up during streaming to read history - auto-scroll pauses immediately
 - **Resumable**: User can scroll back to bottom to resume auto-scroll (with 150ms debounce)
 - **Threshold-based**: Uses 100px threshold to determine "at bottom" state for resume detection
-- **Direction-based detection**: Detects user scroll-up by tracking if `scrollTop` decreases (more reliable than position checks)
+- **Event-based detection**: Uses `wheel` and `touchmove` events to detect user scroll interaction
 
-### Why Direction-Based Detection
+### Why Event-Based Detection
 
-The scroll listener must distinguish user scrolls from our programmatic `scrollToBottom()` calls. Position-based detection has issues:
+The scroll listener must distinguish user scrolls from layout changes (like images loading). We use `wheel` and `touchmove` events instead of scroll direction detection because:
 
-1. When new content is added, `scrollHeight` increases
-2. User appears "not at bottom" even though they never scrolled (just not at NEW bottom)
-3. This could incorrectly disable auto-scroll
+1. **Reliable**: These events ONLY fire on actual user input (mouse wheel, trackpad, touch)
+2. **No false positives**: Image loading can change `scrollTop` without user interaction, but never fires wheel/touchmove
+3. **Layout-shift safe**: Content additions or layout shifts don't trigger these events
 
-Direction-based detection solves this: our `scrollToBottom()` always increases `scrollTop`, so if `scrollTop` decreases, it must be a user scroll up. This works reliably regardless of content additions or scroll event timing.
+The previous direction-based approach (tracking `scrollTop` decreases) had issues when images loaded above the viewport - they could change `scrollTop` and incorrectly pause auto-scroll.
 
 ### User Message Scroll
 
