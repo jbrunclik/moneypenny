@@ -6,6 +6,8 @@ Contains all methods for Message entity management including:
 - File/thumbnail handling
 """
 
+from __future__ import annotations
+
 import base64
 import json
 import sqlite3

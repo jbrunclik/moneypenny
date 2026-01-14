@@ -5,6 +5,8 @@ Contains methods for application-wide settings including:
 - Currency rates
 """
 
+from __future__ import annotations
+
 import json
 import sqlite3
 from datetime import datetime

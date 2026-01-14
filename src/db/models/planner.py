@@ -5,6 +5,8 @@ Contains all methods for Planner conversation management including:
 - Reset planner (daily 4am auto-reset)
 """
 
+from __future__ import annotations
+
 import sqlite3
 import uuid
 from datetime import datetime

@@ -6,6 +6,8 @@ Contains all methods for UserMemory entity management including:
 - User queries with memory counts
 """
 
+from __future__ import annotations
+
 import sqlite3
 import uuid
 from datetime import datetime

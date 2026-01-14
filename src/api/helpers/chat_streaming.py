@@ -4,6 +4,8 @@ This module contains helper functions extracted from the chat_stream route
 for managing streaming message save operations and background threads.
 """
 
+from __future__ import annotations
+
 import json
 import queue
 import threading

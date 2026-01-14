@@ -6,6 +6,8 @@ Contains all methods for Conversation entity management including:
 - Sync support (updated_since queries)
 """
 
+from __future__ import annotations
+
 import sqlite3
 import uuid
 from datetime import datetime

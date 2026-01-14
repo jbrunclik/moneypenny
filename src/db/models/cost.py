@@ -7,6 +7,8 @@ Contains all methods for message cost tracking including:
 - Cost history
 """
 
+from __future__ import annotations
+
 import sqlite3
 import uuid
 from datetime import datetime

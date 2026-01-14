@@ -7,6 +7,8 @@ Contains all methods for User entity management including:
 - Google Calendar integration
 """
 
+from __future__ import annotations
+
 import json
 import sqlite3
 import uuid

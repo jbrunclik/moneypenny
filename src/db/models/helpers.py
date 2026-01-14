@@ -7,6 +7,8 @@ This module contains utility functions used across multiple database modules:
 - Database connectivity checks
 """
 
+from __future__ import annotations
+
 import base64
 import os
 import sqlite3
