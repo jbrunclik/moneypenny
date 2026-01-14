@@ -329,7 +329,7 @@ All popups use a centralized Escape key handler instead of individual document-l
 
 ### How It Works
 
-1. `initPopupEscapeListener()` is called once in main.ts during app initialization
+1. `initPopupEscapeListener()` is called once in init.ts during app initialization
 2. Each popup registers via `registerPopupEscapeHandler(popupId, closeCallback)`
 3. On Escape key, the handler finds the topmost visible popup and closes it
 4. Handlers are called in reverse registration order (most recent first)
@@ -450,12 +450,12 @@ Add import to [../../web/src/styles/main.css](../../web/src/styles/main.css):
 @import './components/my-component.css';
 ```
 
-### Step 4: Wire in main.ts
+### Step 4: Wire in init.ts
 
-Initialize component in [../../web/src/main.ts](../../web/src/main.ts):
+Initialize component in [../../web/src/core/init.ts](../../web/src/core/init.ts):
 
 ```typescript
-import { initMyComponent } from './components/MyComponent';
+import { initMyComponent } from '../components/MyComponent';
 
 // In init function
 const myComponent = initMyComponent();
@@ -681,7 +681,7 @@ The dashboard adapts for mobile viewports (< 768px):
 - Planner: Scroll to top to show dashboard
 
 ```typescript
-// In main.ts navigateToPlanner()
+// In planner.ts navigateToPlanner()
 messagesContainer.scrollTop = 0; // NOT scrollToBottom()
 ```
 
@@ -706,7 +706,7 @@ The dashboard includes comprehensive accessibility features:
 - [../../web/src/components/PlannerView.ts](../../web/src/components/PlannerView.ts) - Planner view container
 
 **Main Integration:**
-- [../../web/src/main.ts](../../web/src/main.ts) - `navigateToPlanner()` function
+- [../../web/src/core/planner.ts](../../web/src/core/planner.ts) - `navigateToPlanner()` function
 
 **Backend:**
 - [../../src/api/routes/planner.py](../../src/api/routes/planner.py) - `/api/planner` endpoint
@@ -749,7 +749,8 @@ See [Testing](../testing.md#planner-tests) for details.
 - [../../web/src/state/store.ts](../../web/src/state/store.ts) - Zustand store
 
 **Main:**
-- [../../web/src/main.ts](../../web/src/main.ts) - App initialization
+- [../../web/src/main.ts](../../web/src/main.ts) - Entry point
+- [../../web/src/core/init.ts](../../web/src/core/init.ts) - App initialization
 
 **Template:**
 - [../../src/templates/index.html](../../src/templates/index.html) - HTML shell

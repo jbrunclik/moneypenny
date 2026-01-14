@@ -498,7 +498,7 @@ draftFiles: FileAttachment[];
 setDraft: (message: string | null, files: FileAttachment[]) => void;
 ```
 
-**Key functions in main.ts:**
+**Key functions in messaging.ts:**
 - `sendMessage()` - Outer catch block saves draft and shows toast
 - `sendStreamingMessage()` - Converts error events to ApiError, re-throws
 - `sendBatchMessage()` - Re-throws errors to outer catch

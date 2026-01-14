@@ -202,7 +202,7 @@ Anonymous mode allows users to chat without memory retrieval/storage and without
 
 **Frontend:**
 - `anonymousModeByConversation: Map<string, boolean>` in [store.ts](../../web/src/state/store.ts)
-- Toggle button state in [main.ts](../../web/src/main.ts) via `initToolbarButtons()` and `updateAnonymousButtonState()`
+- Toggle button state in [toolbar.ts](../../web/src/core/toolbar.ts) via `initToolbarButtons()` and `updateAnonymousButtonState()`
 - `INCOGNITO_ICON` in [icons.ts](../../web/src/utils/icons.ts)
 - State migrates from temp ID to permanent ID when conversation is first persisted
 

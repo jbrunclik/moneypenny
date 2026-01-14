@@ -41,7 +41,7 @@ Users can abort an ongoing streaming response by clicking the stop button.
 - [store.ts](../../web/src/state/store.ts) - `streamingConversationId` state
 - [client.ts](../../web/src/api/client.ts) - Abort handling
 - [MessageInput.ts](../../web/src/components/MessageInput.ts) - Button transformation
-- [main.ts](../../web/src/main.ts) - Abort flow
+- [messaging.ts](../../web/src/core/messaging.ts) - Abort flow
 
 **Race conditions handled:**
 
@@ -88,7 +88,7 @@ During streaming responses, the app shows a thinking indicator at the top of ass
 
 2. **SSE forwarding**: [routes/chat.py](../../src/api/routes/chat.py) forwards these events via Server-Sent Events
 
-3. **Frontend handling**: [main.ts](../../web/src/main.ts) parses events and calls:
+3. **Frontend handling**: [messaging.ts](../../web/src/core/messaging.ts) parses events and calls:
    - `updateStreamingThinking(text)` for thinking events (with full accumulated text)
    - `updateStreamingToolStart(tool, detail)` for tool_start events (with optional detail)
    - `updateStreamingToolEnd()` for tool_end events
@@ -164,7 +164,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 - [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
 - [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
 - [Messages.ts](../../web/src/components/Messages.ts) - Streaming state management
-- [main.ts](../../web/src/main.ts) - Event handling
+- [messaging.ts](../../web/src/core/messaging.ts) - Event handling
 - [thinking.css](../../web/src/styles/components/thinking.css) - Styles and animations
 
 ### Testing

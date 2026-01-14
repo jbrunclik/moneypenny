@@ -29,7 +29,7 @@ Long-press (500ms) on the microphone button to open a language selector popup.
 ### Key Files
 
 - [VoiceInput.ts](../../web/src/components/VoiceInput.ts) - Voice input component
-- [main.ts](../../web/src/main.ts) - `stopVoiceRecording()` integration
+- [messaging.ts](../../web/src/core/messaging.ts) - `stopVoiceRecording()` integration
 - [icons.ts](../../web/src/utils/icons.ts) - Microphone icons
 
 ## Text-to-Speech (TTS)
@@ -74,7 +74,7 @@ For existing messages without language data:
 
 ### Key Files
 
-- [main.ts](../../web/src/main.ts) - `speakMessage()`, `findVoiceForLanguage()`, `initTTSVoices()`, `getTextContentForTTS()`
+- [tts.ts](../../web/src/core/tts.ts) - `speakMessage()`, `findVoiceForLanguage()`, `initTTSVoices()`, `getTextContentForTTS()`
 - [Messages.ts](../../web/src/components/Messages.ts) - Speak button in `createMessageActions()`
 - [utils.py](../../src/api/utils.py) - `extract_language_from_metadata()`
 - [prompts.py](../../src/agent/prompts.py) - System prompt requiring language in metadata

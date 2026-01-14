@@ -142,7 +142,7 @@ FLASK_ENV=development                             # Skip auth in dev mode
 
 - [google.ts](../../web/src/auth/google.ts) - `scheduleTokenRefresh()`, `checkAuth()`, `performTokenRefresh()`
 - [client.ts](../../web/src/api/client.ts) - `ApiError` with `isTokenExpired` and `isAuthError` properties
-- [main.ts](../../web/src/main.ts) - Auth initialization, login/logout handlers
+- [init.ts](../../web/src/core/init.ts) - Auth initialization, login/logout handlers
 
 ## Testing
 

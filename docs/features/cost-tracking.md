@@ -176,7 +176,7 @@ STREAM_CLEANUP_WAIT_DELAY = 1.0      # Delay before checking if message was save
 
 ### Frontend
 
-- [main.ts](../../web/src/main.ts) - `updateConversationCost()` updates cost display after messages
+- [toolbar.ts](../../web/src/core/toolbar.ts) - `updateConversationCost()` updates cost display after messages
 - [CostHistoryPopup.ts](../../web/src/components/CostHistoryPopup.ts) - Cost history popup component
 - [MessageCostPopup.ts](../../web/src/components/MessageCostPopup.ts) - Message cost popup component
 - [ImageGenPopup.ts](../../web/src/components/ImageGenPopup.ts) - Image generation popup (shows image generation cost)

@@ -182,7 +182,8 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 - [SyncManager.ts](../../web/src/sync/SyncManager.ts) - Polling, state sync, race condition handling
 - [api/client.ts](../../web/src/api/client.ts) - `conversations.sync()` method
-- [main.ts](../../web/src/main.ts) - SyncManager initialization, new messages banner, streaming integration
+- [init.ts](../../web/src/core/init.ts) - SyncManager initialization
+- [sync-banner.ts](../../web/src/core/sync-banner.ts) - New messages banner
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Unread badge rendering
 - [config.ts](../../web/src/config.ts) - Configuration constants
 

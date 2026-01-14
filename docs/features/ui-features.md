@@ -155,7 +155,7 @@ Individual copy buttons on code blocks and tables.
 ### Key Files
 
 - [markdown.ts](../../web/src/utils/markdown.ts) - Custom renderers for code blocks and tables with copy button injection
-- [main.ts](../../web/src/main.ts) - `copyMessageContent()`, `copyInlineContent()`, `copyWithRichText()`
+- [file-actions.ts](../../web/src/core/file-actions.ts) - `copyMessageContent()`, `copyInlineContent()`, `copyWithRichText()`
 - [messages.css](../../web/src/styles/components/messages.css) - `.copyable-content`, `.inline-copy-btn`, `.code-language` styles
 
 ### Testing
@@ -187,7 +187,7 @@ The sidebar displays a list of conversations with hover actions for rename and d
 ### Key Files
 
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversation list rendering, rename/delete handlers
-- [main.ts](../../web/src/main.ts) - `renameConversation()` function
+- [conversation.ts](../../web/src/core/conversation.ts) - `renameConversation()` function
 - [Modal.ts](../../web/src/components/Modal.ts) - `showPrompt()` and `showConfirm()` dialogs
 
 ---
@@ -233,7 +233,8 @@ The app supports hash-based routing (`#/conversations/{conversationId}`) for dee
 - [deeplink.ts](../../web/src/router/deeplink.ts) - Router functions
 
 **Integration:**
-- [main.ts](../../web/src/main.ts) - Deep linking handlers and integration
+- [init.ts](../../web/src/core/init.ts) - Deep linking initialization
+- [conversation.ts](../../web/src/core/conversation.ts) - Deep linking handlers and navigation
 - [store.ts](../../web/src/state/store.ts) - `currentConversationId` persisted to localStorage
 
 ### Testing
@@ -303,7 +304,7 @@ The app supports three color scheme options: Light, Dark, and System (default).
 - [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - Color scheme selector UI
 - [variables.css](../../web/src/styles/variables.css) - CSS custom properties for both themes
 - [icons.ts](../../web/src/utils/icons.ts) - `SUN_ICON`, `MOON_ICON`, `MONITOR_ICON` for theme options
-- [main.ts](../../web/src/main.ts) - Early theme initialization to prevent flash of wrong theme
+- [init.ts](../../web/src/core/init.ts) - Early theme initialization to prevent flash of wrong theme
 
 ### Testing
 

@@ -315,7 +315,7 @@ When sending messages with file attachments, an upload progress indicator shows 
 
 - [client.ts](../../web/src/api/client.ts) - `requestWithProgress()` XHR wrapper
 - [MessageInput.ts](../../web/src/components/MessageInput.ts) - Progress UI functions
-- [main.ts](../../web/src/main.ts) - Integration in `sendBatchMessage()` and `sendStreamingMessage()`
+- [messaging.ts](../../web/src/core/messaging.ts) - Integration in `sendBatchMessage()` and `sendStreamingMessage()`
 - [input.css](../../web/src/styles/components/input.css) - `.upload-progress` styles
 
 ### Testing
@@ -405,7 +405,7 @@ The app provides copy-to-clipboard functionality at two levels.
 
 ### Implementation Details
 
-- `copyWithRichText()` in [main.ts](../../web/src/main.ts) handles dual-format clipboard writing
+- `copyWithRichText()` in [file-actions.ts](../../web/src/core/file-actions.ts) handles dual-format clipboard writing
 - `tableToPlainText()` converts tables to tab-separated values for plain text
 - Uses `ClipboardItem` API with fallback to `writeText()` for older browsers
 - Markdown renderer in [markdown.ts](../../web/src/utils/markdown.ts) wraps code/tables in `.copyable-content` containers
@@ -413,7 +413,7 @@ The app provides copy-to-clipboard functionality at two levels.
 ### Key Files
 
 - [markdown.ts](../../web/src/utils/markdown.ts) - Custom renderers for code blocks and tables with copy button injection
-- [main.ts](../../web/src/main.ts) - `copyMessageContent()`, `copyInlineContent()`, `copyWithRichText()`
+- [file-actions.ts](../../web/src/core/file-actions.ts) - `copyMessageContent()`, `copyInlineContent()`, `copyWithRichText()`
 - [messages.css](../../web/src/styles/components/messages.css) - `.copyable-content`, `.inline-copy-btn`, `.code-language` styles
 
 ### Testing

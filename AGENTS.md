@@ -64,7 +64,19 @@ ai-chatbot/
   - [tool_display.py](src/agent/tool_display.py) - Tool metadata for UI
 - [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file)
 - [models/](src/db/models/) - Database models and operations (split by entity)
-- [main.ts](web/src/main.ts) - Frontend entry point
+- [main.ts](web/src/main.ts) - Frontend entry point (minimal, delegates to core modules)
+- [core/](web/src/core/) - Core frontend modules (split from main.ts):
+  - [init.ts](web/src/core/init.ts) - App initialization, login overlay, theme
+  - [conversation.ts](web/src/core/conversation.ts) - Conversation CRUD, selection, temp IDs
+  - [messaging.ts](web/src/core/messaging.ts) - Message sending, streaming, batch mode
+  - [planner.ts](web/src/core/planner.ts) - Planner navigation and management
+  - [search.ts](web/src/core/search.ts) - Search result handling and navigation
+  - [tts.ts](web/src/core/tts.ts) - Text-to-speech functionality
+  - [toolbar.ts](web/src/core/toolbar.ts) - Toolbar buttons and state
+  - [gestures.ts](web/src/core/gestures.ts) - Touch gestures and swipe handling
+  - [file-actions.ts](web/src/core/file-actions.ts) - File download, preview, clipboard
+  - [events.ts](web/src/core/events.ts) - Event listeners and message handlers
+  - [sync-banner.ts](web/src/core/sync-banner.ts) - New messages available banner
 - [store.ts](web/src/state/store.ts) - Zustand state management
 
 ### API Route Organization
@@ -139,6 +151,32 @@ Use enums for fixed sets of options. Backend: `str, Enum` in [schemas.py](src/ap
 - Extract testable units into separate functions
 - Use section comments in large files (e.g., `# ============ Helper Functions ============`)
 - Extract helpers when you see deeply nested code, repeated logic, or code that's hard to test
+
+### File Size Guidelines (for LLM Context)
+
+**Keep files under 500 lines** - Large files are difficult for LLMs to process effectively:
+- Files over 500 lines should be split into focused modules
+- Split by feature/responsibility, not by type (e.g., `conversation.ts`, `messaging.ts`, not `handlers.ts`, `utils.ts`)
+- Each module should have a single, clear purpose
+
+**When to split a file:**
+- File exceeds 500 lines
+- File has multiple unrelated responsibilities
+- You find yourself using section comments to organize code
+- Testing becomes difficult due to too many concerns
+
+**How to split:**
+1. Identify logical groupings by feature/responsibility
+2. Create new modules in a subdirectory (e.g., `core/`, `routes/`, `models/`)
+3. Move code to new modules with clear exports
+4. Update imports across the codebase - no backward compatibility re-exports
+5. Run linting and tests to verify
+
+**Examples of successful splits:**
+- `src/api/routes.py` (1500+ lines) → `src/api/routes/` (11 focused modules)
+- `src/agent/chat_agent.py` (800+ lines) → `src/agent/` (7 focused modules)
+- `src/db/models.py` (600+ lines) → `src/db/models/` (4 focused modules)
+- `web/src/main.ts` (3100+ lines) → `web/src/core/` (11 focused modules)
 
 ## Pre-Commit Checklist
 
@@ -365,7 +403,7 @@ When I correct Claude's approach, the reasoning is documented here to prevent re
 ### Conversation Creation
 
 **Pattern**: Lazy conversation creation - conversations are created locally with `temp-` prefixed ID, only persisted to DB on first message
-**Location**: [main.ts](web/src/main.ts) - `createConversation()`, `sendMessage()`, `isTempConversation()`
+**Location**: [conversation.ts](web/src/core/conversation.ts) - `createConversation()`, `isTempConversation()`; [messaging.ts](web/src/core/messaging.ts) - `sendMessage()`
 **Rationale**: Prevents empty conversations from polluting the database
 
 ### User Message ID Handling
@@ -391,7 +429,7 @@ When switching away from a conversation with an active request and back, the UI 
 
 **Key state management:**
 - `activeRequests` Map in store tracks content and thinking state per conversation
-- `streamingMessageElements` Map in main.ts tracks DOM elements for continued updates
+- `streamingMessageElements` Map in [messaging.ts](web/src/core/messaging.ts) tracks DOM elements for continued updates
 - Streaming context includes `conversationId` to determine whether to clean up
 
 ### @require_auth Injects User

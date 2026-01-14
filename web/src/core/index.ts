@@ -1,7 +1,7 @@
 /**
- * Main entry point for the AI Chatbot frontend.
+ * Core module - main application logic.
  *
- * This file has been refactored into focused modules in web/src/core/:
+ * This module contains the core functionality split from main.ts into focused modules:
  * - init.ts: App initialization, login overlay, theme
  * - conversation.ts: Conversation CRUD, selection, temp IDs, switching
  * - messaging.ts: Message sending, streaming, batch mode, request management
@@ -19,10 +19,5 @@
  *   import { selectConversation } from './core/conversation';
  */
 
-import './styles/main.css';
-import 'highlight.js/styles/github-dark.css';
-
-import { init } from './core/init';
-
-// Start the app
-document.addEventListener('DOMContentLoaded', init);
+// Re-export init for convenience
+export { init } from './init';

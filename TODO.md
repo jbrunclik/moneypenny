@@ -18,8 +18,5 @@ This file tracks planned features, improvements, and technical debt.
 
 ## File Size Refactoring
 The following files have grown too large (>2000 lines) for effective LLM context processing and maintainability. They should be split into smaller, focused modules:
-- [ ] **[main.ts](web/src/main.ts) (3123 lines)**
-- [ ] **[models.py](src/db/models.py) (2714 lines)**
-- [ ] **[chat_agent.py](src/agent/chat_agent.py) (2331 lines)**
 - [ ] **[Messages.ts](web/src/components/Messages.ts) (1872 lines)**
 - [ ] **[chat.spec.ts](web/tests/e2e/chat.spec.ts) (3218 lines, 73 tests)**
