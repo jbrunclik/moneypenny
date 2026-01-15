@@ -869,3 +869,19 @@ class PlannerSyncResponse(BaseModel):
         default=None, description="Planner conversation state, or null if no planner exists"
     )
     server_time: str = Field(..., description="Server timestamp in ISO format")
+
+
+# ============ Canvas Schemas ============
+
+
+class UpdateCanvasRequest(BaseModel):
+    """Request to update canvas file content."""
+
+    content: str = Field(..., description="New canvas content (UTF-8 text)")
+
+
+class CanvasMetadata(BaseModel):
+    """Canvas document metadata for LLM responses."""
+
+    title: str = Field(..., description="Canvas document title")
+    index: int = Field(default=0, description="Index in canvas_documents array")

@@ -256,6 +256,32 @@ def extract_metadata_from_response(response: str) -> tuple[str, dict[str, Any]]:
     return plain_content.rstrip(), metadata
 
 
+def extract_canvas_documents(response: str) -> list[dict]:
+    """Extract canvas documents from ```canvas code blocks.
+
+    Args:
+        response: The LLM response text
+
+    Returns:
+        List of dicts with 'content' and 'index' keys
+    """
+    pattern = r"```canvas\n(.*?)\n```"
+    matches = re.findall(pattern, response, re.DOTALL)
+    return [{"content": match.strip(), "index": i} for i, match in enumerate(matches)]
+
+
+def extract_canvas_metadata(metadata: dict) -> list[dict]:
+    """Extract canvas_documents array from metadata.
+
+    Args:
+        metadata: The metadata dict extracted from response
+
+    Returns:
+        List of dicts with 'title' key (and optional 'index')
+    """
+    return metadata.get("canvas_documents", [])
+
+
 def strip_full_result_from_tool_content(content: str) -> str:
     """Strip the _full_result field from tool result JSON to avoid sending large data to LLM.
 

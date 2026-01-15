@@ -72,6 +72,11 @@ export interface GeneratedImage {
   message_id?: string;
 }
 
+export interface CanvasMetadata {
+  title: string;
+  index?: number;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -79,6 +84,7 @@ export interface Message {
   files?: FileMetadata[];
   sources?: Source[];
   generated_images?: GeneratedImage[];
+  canvas_documents?: CanvasMetadata[];
   language?: string; // ISO 639-1 language code for TTS (e.g., 'en', 'cs')
   created_at: string;
 }
@@ -516,4 +522,15 @@ export interface PlannerConversationSyncData {
 export interface PlannerSyncResponse {
   conversation: PlannerConversationSyncData | null;
   server_time: string;
+}
+
+// =============================================================================
+// Helper functions
+// =============================================================================
+
+/**
+ * Check if a file is a Canvas document
+ */
+export function isCanvasFile(file: { type: string }): boolean {
+  return file.type === 'text/canvas' || file.type === 'text/markdown+canvas';
 }

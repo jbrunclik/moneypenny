@@ -53,6 +53,21 @@ MIME_TYPE_ALIASES: dict[str, set[str]] = {
         "application/x-empty",
         "inode/x-empty",
     },
+    # Canvas documents - treated as plain text/markdown
+    "text/canvas": {
+        "text/plain",
+        "text/x-c",
+        "text/html",
+        "application/x-empty",
+        "inode/x-empty",
+    },
+    "text/markdown+canvas": {
+        "text/plain",
+        "text/x-c",
+        "text/html",
+        "application/x-empty",
+        "inode/x-empty",
+    },
 }
 
 # MIME types that don't need magic validation (text-based formats where
@@ -62,6 +77,8 @@ TEXT_BASED_MIME_TYPES: set[str] = {
     "text/markdown",
     "text/csv",
     "application/json",
+    "text/canvas",
+    "text/markdown+canvas",
 }
 
 

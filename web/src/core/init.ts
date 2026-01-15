@@ -51,7 +51,7 @@ import {
   parseHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON } from '../utils/icons';
+import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, CANVAS_ICON } from '../utils/icons';
 import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -68,6 +68,7 @@ import { initToolbarButtons } from './toolbar';
 import { loadDeepLinkedConversation, handleDeepLinkNavigation, deleteMessage } from './conversation';
 import { navigateToPlanner, leavePlannerView } from './planner';
 import { showNewMessagesAvailableBanner } from './sync-banner';
+import { initCanvas } from '../components/Canvas';
 
 const log = createLogger('init');
 
@@ -91,19 +92,21 @@ export function renderAppShell(): string {
 
     <!-- Main chat area -->
     <main class="main">
-      <header class="mobile-header">
-        <button id="menu-btn" class="btn-icon">☰</button>
-        <span id="current-chat-title">AI Chatbot</span>
-      </header>
+      <!-- Chat container (existing content) -->
+      <div class="chat-container">
+        <header class="mobile-header">
+          <button id="menu-btn" class="btn-icon">☰</button>
+          <span id="current-chat-title">AI Chatbot</span>
+        </header>
 
-      <div id="messages" class="messages">
-        <div class="welcome-message">
-          <h2>Welcome to AI Chatbot</h2>
-          <p>Start a conversation with Gemini AI</p>
+        <div id="messages" class="messages">
+          <div class="welcome-message">
+            <h2>Welcome to AI Chatbot</h2>
+            <p>Start a conversation with Gemini AI</p>
+          </div>
         </div>
-      </div>
 
-      <div class="input-area">
+        <div class="input-area">
         <div class="input-wrapper">
           <div class="input-toolbar">
             <div class="toolbar-left">
@@ -125,6 +128,9 @@ export function renderAppShell(): string {
               </button>
               <button id="anonymous-btn" class="btn-toolbar" title="Anonymous mode - disable memory and integrations">
                 ${INCOGNITO_ICON}
+              </button>
+              <button id="canvas-btn" class="btn-toolbar" title="Toggle Canvas">
+                ${CANVAS_ICON}
               </button>
             </div>
             <div class="toolbar-right">
@@ -149,6 +155,31 @@ export function renderAppShell(): string {
             </button>
           </div>
           <div id="conversation-cost" class="conversation-cost-display"></div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Canvas panel -->
+      <div id="canvas-panel" class="canvas-panel hidden">
+        <div class="canvas-header">
+          <h2 id="canvas-title" class="canvas-title">Canvas</h2>
+          <div class="canvas-actions">
+            <button id="canvas-save" class="btn-icon" title="Save (Ctrl+S)">
+              ${CLOSE_ICON}
+            </button>
+            <button id="canvas-download" class="btn-icon" title="Download">
+              ${CLOSE_ICON}
+            </button>
+            <button id="canvas-close" class="btn-icon" title="Close">
+              ${CLOSE_ICON}
+            </button>
+          </div>
+        </div>
+        <div class="canvas-content">
+          <textarea id="canvas-editor" class="canvas-editor" placeholder="Canvas content..."></textarea>
+        </div>
+        <div class="canvas-footer">
+          <span id="canvas-status" class="canvas-status"></span>
         </div>
       </div>
     </main>
@@ -383,6 +414,7 @@ export async function init(): Promise<void> {
   initTTSVoices();
   setupEventListeners();
   setupTouchGestures();
+  initCanvas();
 
   // Initialize toolbar buttons
   initToolbarButtons();

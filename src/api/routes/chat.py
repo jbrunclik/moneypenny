@@ -4,13 +4,19 @@ This module handles chat interactions with the AI agent, supporting both
 batch (complete response) and streaming (SSE) modes.
 """
 
+import base64
+import re
 import uuid
 
 from apiflask import APIBlueprint
 from flask import Response
 
 from src.agent.agent import ChatAgent, generate_title
-from src.agent.content import extract_metadata_from_response
+from src.agent.content import (
+    extract_canvas_documents,
+    extract_canvas_metadata,
+    extract_metadata_from_response,
+)
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, set_current_message_files
 from src.api.errors import (
@@ -21,7 +27,12 @@ from src.api.errors import (
 )
 from src.api.rate_limiting import rate_limit_chat
 from src.api.routes.calendar import _get_valid_calendar_access_token
-from src.api.schemas import ChatBatchResponse, ChatRequest, MessageRole
+from src.api.schemas import (
+    ChatBatchResponse,
+    ChatRequest,
+    MessageRole,
+    UpdateCanvasRequest,
+)
 from src.api.utils import (
     build_chat_response,
     calculate_and_save_message_cost,
@@ -34,6 +45,7 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
+from src.db.models.helpers import get_blob_store
 from src.utils.background_thumbnails import (
     mark_files_for_thumbnail_generation,
     queue_pending_thumbnails,
@@ -256,8 +268,35 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
         code_output_files = extract_code_output_files_from_tool_results(full_tool_results)
 
+        # Extract canvas documents from response
+        canvas_docs = extract_canvas_documents(raw_response)
+        canvas_meta = extract_canvas_metadata(metadata)
+        canvas_files = []
+
+        # Create canvas files from extracted documents and metadata
+        for idx, (doc, meta) in enumerate(zip(canvas_docs, canvas_meta)):
+            title = meta.get("title", f"Document {idx+1}")
+            canvas_file = {
+                "name": f"{title}.md",
+                "type": "text/canvas",
+                "data": base64.b64encode(doc["content"].encode("utf-8")).decode("ascii"),
+            }
+            canvas_files.append(canvas_file)
+
+        if canvas_files:
+            logger.debug(
+                "Canvas documents extracted",
+                extra={
+                    "user_id": user.id,
+                    "conversation_id": conv_id,
+                    "canvas_count": len(canvas_files),
+                },
+            )
+            # Remove canvas blocks from response to keep chat clean
+            clean_response = re.sub(r"```canvas\n.*?\n```\n*", "", clean_response, flags=re.DOTALL).strip()
+
         # Combine all generated files
-        all_generated_files = gen_image_files + code_output_files
+        all_generated_files = gen_image_files + code_output_files + canvas_files
         if all_generated_files:
             logger.info(
                 "Generated files extracted",
@@ -516,3 +555,85 @@ def chat_stream(
             "X-Accel-Buffering": "no",  # Disable nginx buffering
         },
     )
+
+
+@api.route("/messages/<message_id>/files/<int:file_index>", methods=["PUT"])
+@require_auth
+@validate_request(body=UpdateCanvasRequest)
+def update_message_file(user: User, message_id: str, file_index: int, body: UpdateCanvasRequest):
+    """Update canvas file content.
+
+    Only allows editing text/canvas files. Verifies message ownership before update.
+
+    Args:
+        user: Authenticated user
+        message_id: Message ID containing the file
+        file_index: Index of file in message.files array
+        body: Request body with new content
+
+    Returns:
+        Success message
+
+    Raises:
+        NotFoundError: If message not found
+        ForbiddenError: If user doesn't own the message
+        ValidationError: If file is not a canvas or index out of range
+    """
+    # Get message and verify existence
+    message = db.get_message_by_id(message_id)
+    if not message:
+        raise_not_found_error("Message")
+
+    # Verify ownership via conversation
+    conversation = db.get_conversation(message.conversation_id)
+    if not conversation or conversation.user_id != user.id:
+        logger.warning(
+            "Unauthorized canvas update attempt",
+            extra={
+                "user_id": user.id,
+                "message_id": message_id,
+                "conversation_id": message.conversation_id,
+            },
+        )
+        raise_forbidden_error("Not authorized to edit this message")
+
+    # Verify file exists
+    if not message.files or file_index >= len(message.files):
+        raise_validation_error("File index out of range")
+
+    # Verify file is canvas
+    file_meta = message.files[file_index]
+    if not file_meta.get("type", "").startswith("text/canvas"):
+        raise_validation_error("Can only edit canvas files")
+
+    # Update blob store
+    try:
+        blob_store = get_blob_store()
+        blob_key = f"{message_id}/{file_index}"
+        blob_store.save(
+            blob_key,
+            body.content.encode("utf-8"),
+            mime_type="text/canvas",
+        )
+        logger.info(
+            "Canvas file updated",
+            extra={
+                "user_id": user.id,
+                "message_id": message_id,
+                "file_index": file_index,
+                "content_length": len(body.content),
+            },
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to update canvas file",
+            extra={
+                "user_id": user.id,
+                "message_id": message_id,
+                "file_index": file_index,
+                "error": str(e),
+            },
+        )
+        raise_server_error("Failed to update canvas file")
+
+    return {"message": "Canvas updated successfully"}, 200

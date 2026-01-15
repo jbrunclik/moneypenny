@@ -6,14 +6,17 @@ for managing streaming message save operations and background threads.
 
 from __future__ import annotations
 
+import base64
 import json
 import queue
+import re
 import threading
 import time
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
 from src.agent.agent import ChatAgent, generate_title
+from src.agent.content import extract_canvas_documents, extract_canvas_metadata
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, set_current_message_files
 from src.api.schemas import MessageRole
@@ -135,8 +138,35 @@ def save_message_to_db(
         gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
         code_output_files = extract_code_output_files_from_tool_results(full_tool_results)
 
+        # Extract canvas documents from response
+        canvas_docs = extract_canvas_documents(content)
+        canvas_meta = extract_canvas_metadata(meta)
+        canvas_files = []
+
+        # Create canvas files from extracted documents and metadata
+        for idx, (doc, canvas_meta_item) in enumerate(zip(canvas_docs, canvas_meta)):
+            title = canvas_meta_item.get("title", f"Document {idx+1}")
+            canvas_file = {
+                "name": f"{title}.md",
+                "type": "text/canvas",
+                "data": base64.b64encode(doc["content"].encode("utf-8")).decode("ascii"),
+            }
+            canvas_files.append(canvas_file)
+
+        if canvas_files:
+            logger.debug(
+                "Canvas documents extracted from stream",
+                extra={
+                    "user_id": user_id,
+                    "conversation_id": conv_id,
+                    "canvas_count": len(canvas_files),
+                },
+            )
+            # Remove canvas blocks from response to keep chat clean
+            content = re.sub(r"```canvas\n.*?\n```\n*", "", content, flags=re.DOTALL).strip()
+
         # Combine all generated files
-        all_generated_files = gen_image_files + code_output_files
+        all_generated_files = gen_image_files + code_output_files + canvas_files
         if all_generated_files:
             logger.info(
                 "Generated files extracted from stream",

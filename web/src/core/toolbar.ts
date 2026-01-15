@@ -10,6 +10,7 @@ import { getElementById } from '../utils/dom';
 import { STREAM_ICON, STREAM_OFF_ICON } from '../utils/icons';
 
 import { isTempConversation } from './conversation';
+import { openMostRecentCanvas } from './canvas';
 
 /**
  * Update conversation cost display and monthly cost in sidebar.
@@ -103,6 +104,9 @@ export function initToolbarButtons(): void {
       updateAnonymousButtonState(anonymousBtn, newState);
     });
   }
+
+  // Initialize canvas button
+  initCanvasButton();
 }
 
 /**
@@ -152,4 +156,31 @@ export function resetForceTools(): void {
   if (imagegenBtn) {
     updateImagegenButtonState(imagegenBtn, false);
   }
+}
+
+/**
+ * Initialize canvas button - toggle canvas panel.
+ */
+function initCanvasButton(): void {
+  const btn = getElementById<HTMLButtonElement>('canvas-btn');
+  if (!btn) return;
+
+  // Subscribe to canvas state
+  useStore.subscribe(
+    (state) => state.isCanvasOpen,
+    (isOpen) => {
+      btn.classList.toggle('active', isOpen);
+      btn.title = isOpen ? 'Hide Canvas (Esc)' : 'Show Canvas';
+    }
+  );
+
+  // Toggle canvas on click
+  btn.addEventListener('click', () => {
+    const state = useStore.getState();
+    if (state.isCanvasOpen) {
+      state.closeCanvas();
+    } else {
+      openMostRecentCanvas();
+    }
+  });
 }

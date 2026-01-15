@@ -167,7 +167,7 @@ class Config:
     ALLOWED_FILE_TYPES: set[str] = set(
         os.getenv(
             "ALLOWED_FILE_TYPES",
-            "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv",
+            "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv,text/canvas,text/markdown+canvas",
         ).split(",")
     )
 

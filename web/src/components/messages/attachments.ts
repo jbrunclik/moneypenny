@@ -4,8 +4,10 @@
 
 import { escapeHtml } from '../../utils/dom';
 import { observeThumbnail } from '../../utils/thumbnails';
-import { getFileIcon, DOWNLOAD_ICON } from '../../utils/icons';
+import { getFileIcon, DOWNLOAD_ICON, CANVAS_ICON } from '../../utils/icons';
 import type { FileMetadata } from '../../types/api';
+import { isCanvasFile } from '../../types/api';
+import { openCanvasFromMessage } from '../../core/canvas';
 
 /**
  * Render files attached to a message
@@ -14,9 +16,10 @@ export function renderMessageFiles(files: FileMetadata[], messageId: string): HT
   const container = document.createElement('div');
   container.className = 'message-files';
 
-  // Separate images from other files
+  // Separate images, canvas files, and documents
   const images = files.filter((f) => f.type.startsWith('image/'));
-  const documents = files.filter((f) => !f.type.startsWith('image/'));
+  const canvasFiles = files.filter(isCanvasFile);
+  const documents = files.filter((f) => !f.type.startsWith('image/') && !isCanvasFile(f));
 
   // Render images in horizontal gallery
   if (images.length > 0) {
@@ -89,6 +92,41 @@ export function renderMessageFiles(files: FileMetadata[], messageId: string): HT
     });
 
     container.appendChild(gallery);
+  }
+
+  // Render canvas files as cards
+  if (canvasFiles.length > 0) {
+    const canvasContainer = document.createElement('div');
+    canvasContainer.className = 'message-canvas-files';
+
+    canvasFiles.forEach((file) => {
+      const fileIndex = files.indexOf(file);
+      const card = document.createElement('div');
+      card.className = 'message-canvas-card';
+
+      const title = file.name.replace(/\.md$/, '');
+
+      card.innerHTML = `
+        <div class="canvas-card-icon">${CANVAS_ICON}</div>
+        <div class="canvas-card-body">
+          <div class="canvas-card-title">${escapeHtml(title)}</div>
+          <div class="canvas-card-subtitle">Canvas Document</div>
+        </div>
+        <button class="canvas-card-open">Open</button>
+      `;
+
+      // Add click handler for open button
+      const openBtn = card.querySelector('.canvas-card-open');
+      if (openBtn) {
+        openBtn.addEventListener('click', () => {
+          openCanvasFromMessage(file.messageId || messageId, file.fileIndex ?? fileIndex);
+        });
+      }
+
+      canvasContainer.appendChild(card);
+    });
+
+    container.appendChild(canvasContainer);
   }
 
   // Render documents as list

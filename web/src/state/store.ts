@@ -122,6 +122,17 @@ interface AppState {
   plannerDashboardLastFetch: number | null; // Timestamp for cache invalidation
   isPlannerView: boolean;
 
+  // Canvas state
+  isCanvasOpen: boolean;
+  currentCanvas: {
+    messageId: string;
+    fileIndex: number;
+    title: string;
+    content: string;
+  } | null;
+  canvasContent: string; // Current editor content (may differ from saved)
+  canvasDirty: boolean; // Has unsaved changes
+
   // Actions - Auth
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
@@ -204,6 +215,12 @@ interface AppState {
   setIsPlannerView: (active: boolean) => void;
   invalidatePlannerCache: () => void;
   clearPlannerState: () => void;
+
+  // Actions - Canvas
+  openCanvas: (messageId: string, fileIndex: number, title: string, content: string) => void;
+  closeCanvas: () => void;
+  updateCanvasContent: (content: string) => void;
+  markCanvasSaved: () => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -272,6 +289,12 @@ export const useStore = create<AppState>()(
       plannerConversation: null,
       plannerDashboardLastFetch: null,
       isPlannerView: false,
+
+      // Canvas state
+      isCanvasOpen: false,
+      currentCanvas: null,
+      canvasContent: '',
+      canvasDirty: false,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -596,6 +619,28 @@ export const useStore = create<AppState>()(
           plannerDashboardLastFetch: null,
           isPlannerView: false,
         }),
+
+      // Canvas actions
+      openCanvas: (messageId, fileIndex, title, content) =>
+        set({
+          isCanvasOpen: true,
+          currentCanvas: { messageId, fileIndex, title, content },
+          canvasContent: content,
+          canvasDirty: false,
+        }),
+      closeCanvas: () =>
+        set({
+          isCanvasOpen: false,
+          currentCanvas: null,
+          canvasContent: '',
+          canvasDirty: false,
+        }),
+      updateCanvasContent: (content) =>
+        set({
+          canvasContent: content,
+          canvasDirty: true,
+        }),
+      markCanvasSaved: () => set({ canvasDirty: false }),
     }),
     {
       name: 'ai-chatbot-storage',

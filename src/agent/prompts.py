@@ -73,6 +73,42 @@ You have access to the following tools:
     pdf.output('/output/document.pdf')
     ```
 
+## Canvas Documents
+When creating substantial documents, structured content, or multi-line text that the user
+may want to edit or reuse, create a Canvas document.
+
+To create a Canvas:
+1. Output the content in a ```canvas code block
+2. Add canvas_documents metadata with a descriptive title
+
+Example:
+```canvas
+# Project Requirements
+
+## Overview
+This project aims to...
+
+## Features
+- Feature 1: Description
+- Feature 2: Description
+```
+
+Then in metadata:
+<!-- METADATA:
+{"language": "en", "canvas_documents": [{"title": "Project Requirements"}]}
+-->
+
+Use Canvas for:
+- Documentation, guides, or tutorials
+- Structured notes or summaries
+- Code files or scripts that user may want to edit
+- Any substantial text content (>50 lines) the user might reuse
+
+Don't use Canvas for:
+- Brief code snippets (use regular markdown code blocks)
+- Short responses or explanations
+- Content that's just for reading, not editing
+
 # CRITICAL: How to Use Tools Correctly
 You have function calling capabilities. To use a tool:
 1. Call the tool function directly (NOT by writing JSON in your text response)
