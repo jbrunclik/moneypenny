@@ -28,6 +28,8 @@ from src.api.errors import (
 from src.api.rate_limiting import rate_limit_chat
 from src.api.routes.calendar import _get_valid_calendar_access_token
 from src.api.schemas import (
+    CanvasDocument,
+    CanvasListResponse,
     ChatBatchResponse,
     ChatRequest,
     MessageRole,
@@ -637,3 +639,64 @@ def update_message_file(user: User, message_id: str, file_index: int, body: Upda
         raise_server_error("Failed to update canvas file")
 
     return {"message": "Canvas updated successfully"}, 200
+
+
+@api.route("/canvas", methods=["GET"])
+@require_auth
+def list_canvas_documents(user: User):
+    """Get list of all canvas documents for the current user.
+
+    Returns canvas documents across all conversations, sorted by most recent first.
+
+    Args:
+        user: Authenticated user
+
+    Returns:
+        List of canvas documents with metadata
+    """
+    # Get all user's conversations
+    conversations = db.get_conversations_for_user(user.id)
+    conv_map = {conv.id: conv.title for conv in conversations}
+
+    canvas_list = []
+
+    # Iterate through all conversations to find canvas files
+    for conv in conversations:
+        # Get all messages in conversation
+        messages = db.get_messages(conv.id)
+
+        for message in messages:
+            if not message.files:
+                continue
+
+            # Check each file for canvas type
+            for file_idx, file_meta in enumerate(message.files):
+                file_type = file_meta.get("type", "")
+                if file_type.startswith("text/canvas"):
+                    # Extract title from filename
+                    title = file_meta.get("name", f"Canvas {file_idx}").replace(".md", "")
+
+                    canvas_list.append(
+                        {
+                            "message_id": message.id,
+                            "file_index": file_idx,
+                            "title": title,
+                            "conversation_id": conv.id,
+                            "conversation_title": conv.title,
+                            "created_at": message.created_at.isoformat(),
+                            "updated_at": message.created_at.isoformat(),  # TODO: Track actual updates
+                        }
+                    )
+
+    # Sort by creation date (most recent first)
+    canvas_list.sort(key=lambda x: x["created_at"], reverse=True)
+
+    logger.info(
+        "Canvas list retrieved",
+        extra={
+            "user_id": user.id,
+            "canvas_count": len(canvas_list),
+        },
+    )
+
+    return {"canvases": canvas_list, "total": len(canvas_list)}, 200

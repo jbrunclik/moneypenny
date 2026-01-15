@@ -77,6 +77,16 @@ export interface CanvasMetadata {
   index?: number;
 }
 
+export interface CanvasDocument {
+  message_id: string;
+  file_index: number;
+  title: string;
+  conversation_id: string;
+  conversation_title: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';

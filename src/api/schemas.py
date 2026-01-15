@@ -885,3 +885,22 @@ class CanvasMetadata(BaseModel):
 
     title: str = Field(..., description="Canvas document title")
     index: int = Field(default=0, description="Index in canvas_documents array")
+
+
+class CanvasDocument(BaseModel):
+    """Canvas document in list response."""
+
+    message_id: str = Field(..., description="Message ID containing this canvas")
+    file_index: int = Field(..., description="File index in message.files array")
+    title: str = Field(..., description="Canvas document title")
+    conversation_id: str = Field(..., description="Conversation ID")
+    conversation_title: str = Field(..., description="Conversation title")
+    created_at: str = Field(..., description="Creation timestamp (ISO format)")
+    updated_at: str = Field(..., description="Last update timestamp (ISO format)")
+
+
+class CanvasListResponse(BaseModel):
+    """Response containing list of user's canvas documents."""
+
+    canvases: list[CanvasDocument] = Field(..., description="List of canvas documents")
+    total: int = Field(..., description="Total number of canvas documents")

@@ -1,6 +1,7 @@
 import {
   PaginationDirection,
   type AuthResponse,
+  type CanvasDocument,
   type ChatResponse,
   type Conversation,
   type ConversationDetailResponse,
@@ -1042,6 +1043,17 @@ export const planner = {
    */
   async sync(): Promise<PlannerSyncResponse> {
     return requestWithRetry<PlannerSyncResponse>('/api/planner/sync');
+  },
+};
+
+// Canvas endpoints
+export const canvas = {
+  /**
+   * Get list of all canvas documents for the current user.
+   * Returns canvas documents across all conversations, sorted by most recent first.
+   */
+  async list(): Promise<{ canvases: CanvasDocument[]; total: number }> {
+    return requestWithRetry<{ canvases: CanvasDocument[]; total: number }>('/api/canvas');
   },
 };
 
