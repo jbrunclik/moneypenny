@@ -694,8 +694,13 @@ async function handleStreamDone(
   const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
   if (!isCurrentConversation) return;
 
+  // Get the current streaming element from context, which may have been restored
+  // when switching back to this conversation. If the context doesn't exist or
+  // doesn't match this conversation, fall back to the original element.
+  const messageEl = getStreamingMessageElement(convId) ?? state.messageEl;
+
   finalizeStreamingMessage(
-    state.messageEl,
+    messageEl,
     event.id,
     event.created_at,
     event.sources,
@@ -705,7 +710,7 @@ async function handleStreamDone(
     event.language
   );
 
-  handleImageScrollAfterMessage(state.messageEl, event.files);
+  handleImageScrollAfterMessage(messageEl, event.files);
   updateConversationTitle(convId, event.title);
   await updateConversationCost(convId);
 
