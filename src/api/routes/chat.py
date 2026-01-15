@@ -561,7 +561,7 @@ def chat_stream(
 
 @api.route("/messages/<message_id>/files/<int:file_index>", methods=["PUT"])
 @require_auth
-@validate_request(body=UpdateCanvasRequest)
+@validate_request(UpdateCanvasRequest)
 def update_message_file(user: User, message_id: str, file_index: int, body: UpdateCanvasRequest):
     """Update canvas file content.
 
