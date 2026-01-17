@@ -219,4 +219,15 @@ export const toast = {
 
   info: (message: string, options?: { duration?: number }) =>
     showToast({ type: 'info', message, ...options }),
+
+  /**
+   * Show a persistent loading toast.
+   * Returns an object with dismiss() to manually dismiss the toast.
+   */
+  loading: (message: string) => {
+    const id = showToast({ type: 'info', message, duration: 0 });
+    return {
+      dismiss: () => dismissToast(id),
+    };
+  },
 };

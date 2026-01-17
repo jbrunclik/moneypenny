@@ -433,6 +433,40 @@
 }
 
 /* ----------------------------------------
+   Approval Pending Overlay
+   ---------------------------------------- */
+
+.input-container {
+    position: relative;
+}
+
+.approval-pending-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    z-index: 10;
+}
+
+.approval-pending-overlay.hidden {
+    display: none;
+}
+
+.approval-pending-icon {
+    font-size: var(--font-size-lg);
+}
+
+.approval-pending-text {
+    font-size: var(--font-size-sm);
+    color: var(--warning-text);
+    font-weight: 500;
+}
+
+/* ----------------------------------------
    Mobile Adjustments
    ---------------------------------------- */
 

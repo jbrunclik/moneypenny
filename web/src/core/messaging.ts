@@ -49,6 +49,7 @@ import { getSyncManager } from '../sync/SyncManager';
 
 import { isTempConversation, createConversation, updateConversationTitle } from './conversation';
 import { updateConversationCost, resetForceTools } from './toolbar';
+import { hasPendingApproval } from '../components/messages';
 
 const log = createLogger('messaging');
 
@@ -220,6 +221,20 @@ export async function sendMessage(): Promise<void> {
     log.warn('Cannot send message while planner is loading');
     toast.info('Please wait for planner to finish loading...');
     return;
+  }
+
+  // If there's a pending approval in this agent conversation, block sending
+  // Only agent conversations can have pending approvals
+  if (store.currentConversation?.is_agent && store.currentConversation.id) {
+    const currentMessages = store.getMessages(store.currentConversation.id);
+    if (currentMessages.length > 0 && hasPendingApproval(currentMessages)) {
+      log.warn('Cannot send message while approval is pending', {
+        conversationId: store.currentConversation.id,
+        messageCount: currentMessages.length,
+      });
+      toast.warning('Please approve or reject the pending action before sending a new message.');
+      return;
+    }
   }
 
   // Create local conversation if none selected
@@ -632,6 +647,16 @@ function processStreamEvent(
       }
       break;
 
+    case 'approval_required':
+      // Agent requested approval - update UI state
+      // The done event will follow with the full message
+      log.info('Approval requested', {
+        approvalId: event.approval_id,
+        description: event.description,
+        conversationId: convId,
+      });
+      break;
+
     case 'error':
       return handleStreamError(event, state);
   }
@@ -680,12 +705,18 @@ async function handleStreamDone(
     files?: FileMetadata[];
     title?: string;
     language?: string;
+    approval_required?: boolean;
+    approval_id?: string;
   },
   state: StreamingState,
   convId: string,
   tempUserMessageId: string
 ): Promise<void> {
-  log.info('Streaming complete', { conversationId: convId, messageId: event.id });
+  log.info('Streaming complete', {
+    conversationId: convId,
+    messageId: event.id,
+    approvalRequired: event.approval_required,
+  });
 
   if (event.user_message_id) {
     updateUserMessageId(tempUserMessageId, event.user_message_id);
@@ -713,6 +744,15 @@ async function handleStreamDone(
   handleImageScrollAfterMessage(messageEl, event.files);
   updateConversationTitle(convId, event.title);
   await updateConversationCost(convId);
+
+  // If approval was requested, the message element will contain the approval buttons
+  // The frontend rendering handles approval_request markers automatically
+  if (event.approval_required) {
+    log.info('Message finalized with pending approval', {
+      conversationId: convId,
+      approvalId: event.approval_id,
+    });
+  }
 
   state.messageSuccessful = true;
 }

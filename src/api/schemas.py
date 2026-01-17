@@ -430,6 +430,8 @@ class ConversationDetailResponse(BaseModel):
     model: str
     created_at: str
     updated_at: str
+    is_agent: bool = False
+    agent_id: str | None = None
     messages: list[MessageResponse]
 
 
@@ -685,6 +687,9 @@ class ConversationDetailPaginatedResponse(BaseModel):
     model: str
     created_at: str
     updated_at: str
+    is_agent: bool = False
+    agent_id: str | None = None
+    has_pending_approval: bool = False  # True if agent has pending approval request
     messages: list[MessageResponse]
     message_pagination: MessagesPaginationResponse
 
@@ -869,3 +874,279 @@ class PlannerSyncResponse(BaseModel):
         default=None, description="Planner conversation state, or null if no planner exists"
     )
     server_time: str = Field(..., description="Server timestamp in ISO format")
+
+
+# -----------------------------------------------------------------------------
+# Autonomous Agent Schemas
+# -----------------------------------------------------------------------------
+
+
+class AgentStatus(str, Enum):
+    """Status of an agent execution."""
+
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    WAITING_APPROVAL = "waiting_approval"
+
+
+class AgentTriggerType(str, Enum):
+    """How an agent execution was triggered."""
+
+    SCHEDULED = "scheduled"
+    MANUAL = "manual"
+    AGENT_TRIGGER = "agent_trigger"
+
+
+class ApprovalStatus(str, Enum):
+    """Status of an approval request."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class CreateAgentRequest(BaseModel):
+    """Schema for POST /api/agents."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=500)
+    system_prompt: str | None = Field(None, max_length=10000)
+    schedule: str | None = Field(
+        None,
+        description="Cron expression (e.g., '0 9 * * *' for daily at 9am)",
+    )
+    timezone: str = Field(default="UTC", description="IANA timezone for schedule")
+    tool_permissions: list[str] | None = Field(None, description="List of allowed tool names")
+    enabled: bool = Field(default=True)
+    model: str | None = Field(None, description="LLM model for the agent (defaults to Fast)")
+    budget_limit: float | None = Field(
+        None, ge=0, description="Daily budget limit in USD (null = unlimited)"
+    )
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, v: str | None) -> str | None:
+        """Validate model is in available models list."""
+        if v is not None and v not in Config.MODELS:
+            models = list(Config.MODELS.keys())
+            raise ValueError(f"Invalid model. Choose from: {models}")
+        return v
+
+
+class UpdateAgentRequest(BaseModel):
+    """Schema for PATCH /api/agents/<id>."""
+
+    name: str | None = Field(None, min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=500)
+    system_prompt: str | None = Field(None, max_length=10000)
+    schedule: str | None = None
+    timezone: str | None = None
+    tool_permissions: list[str] | None = None
+    enabled: bool | None = None
+    model: str | None = None
+    budget_limit: float | None = None  # Use None as "not provided", explicit 0 = unlimited
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, v: str | None) -> str | None:
+        """Validate model is in available models list."""
+        if v is not None and v not in Config.MODELS:
+            models = list(Config.MODELS.keys())
+            raise ValueError(f"Invalid model. Choose from: {models}")
+        return v
+
+
+class AgentResponse(BaseModel):
+    """Agent information."""
+
+    id: str
+    name: str
+    description: str | None = None
+    system_prompt: str | None = None
+    schedule: str | None = None
+    timezone: str
+    enabled: bool
+    tool_permissions: list[str] | None = None
+    model: str = Field(..., description="LLM model for the agent")
+    conversation_id: str | None = None
+    last_run_at: str | None = None
+    next_run_at: str | None = None
+    created_at: str
+    updated_at: str
+    budget_limit: float | None = Field(
+        None, description="Daily budget limit in USD (null = unlimited)"
+    )
+    daily_spending: float = Field(default=0, description="Today's spending in USD")
+    has_pending_approval: bool = Field(
+        default=False, description="Whether agent is blocked waiting for approval"
+    )
+    has_error: bool = Field(default=False, description="Whether the last execution failed")
+    unread_count: int = Field(
+        default=0, description="Number of unread messages in agent conversation"
+    )
+    last_execution_status: str | None = Field(
+        default=None, description="Status of the most recent execution (completed, failed, etc.)"
+    )
+
+
+class AgentsListResponse(BaseModel):
+    """List of agents."""
+
+    agents: list[AgentResponse]
+
+
+class ApprovalRequestResponse(BaseModel):
+    """Approval request information."""
+
+    id: str
+    agent_id: str
+    agent_name: str = Field(..., description="Name of the agent requesting approval")
+    tool_name: str
+    tool_args: dict[str, Any] | None = None
+    description: str
+    status: ApprovalStatus
+    created_at: str
+    resolved_at: str | None = None
+
+
+class ApprovalDecisionRequest(BaseModel):
+    """Schema for POST /api/approvals/<id>/approve or reject."""
+
+    # No body needed - the action is in the URL
+
+
+class AgentExecutionResponse(BaseModel):
+    """Agent execution record."""
+
+    id: str
+    agent_id: str
+    status: AgentStatus
+    trigger_type: AgentTriggerType
+    triggered_by_agent_id: str | None = None
+    started_at: str
+    completed_at: str | None = None
+    error_message: str | None = None
+
+
+class AgentExecutionsListResponse(BaseModel):
+    """List of agent executions."""
+
+    executions: list[AgentExecutionResponse]
+
+
+class CommandCenterResponse(BaseModel):
+    """Complete command center dashboard data."""
+
+    agents: list[AgentResponse] = Field(
+        ..., description="All agents with unread counts and pending status"
+    )
+    pending_approvals: list[ApprovalRequestResponse] = Field(
+        default_factory=list, description="All pending approval requests"
+    )
+    recent_executions: list[AgentExecutionResponse] = Field(
+        default_factory=list, description="Recent execution history across all agents"
+    )
+    total_unread: int = Field(default=0, description="Total unread messages across all agents")
+    agents_waiting: int = Field(default=0, description="Number of agents blocked on approval")
+    agents_with_errors: int = Field(
+        default=0, description="Number of agents whose last execution failed"
+    )
+
+
+class TriggerAgentResponse(BaseModel):
+    """Response from manually triggering an agent."""
+
+    execution: AgentExecutionResponse
+    message: str = Field(default="Agent triggered", description="Status message")
+
+
+class PendingApprovalsResponse(BaseModel):
+    """List of pending approval requests."""
+
+    pending_approvals: list[ApprovalRequestResponse] = Field(
+        default_factory=list, description="All pending approval requests"
+    )
+
+
+class AgentConversationSyncData(BaseModel):
+    """Sync data for an agent's conversation."""
+
+    message_count: int = Field(..., description="Total number of messages in conversation")
+    updated_at: str = Field(..., description="Conversation updated_at timestamp in ISO format")
+
+
+class AgentConversationSyncResponse(BaseModel):
+    """Response from agent conversation sync endpoint for real-time synchronization."""
+
+    conversation: AgentConversationSyncData | None = Field(
+        default=None, description="Agent conversation state, or null if no conversation exists"
+    )
+    server_time: str = Field(..., description="Server timestamp in ISO format")
+
+
+# -----------------------------------------------------------------------------
+# AI Assist Schemas
+# -----------------------------------------------------------------------------
+
+
+class ParseScheduleRequest(BaseModel):
+    """Schema for POST /api/ai-assist/parse-schedule."""
+
+    natural_language: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Natural language description of the schedule (e.g., 'every day at 9am')",
+    )
+    timezone: str = Field(
+        default="UTC",
+        description="IANA timezone for interpreting the schedule",
+    )
+
+
+class ParseScheduleResponse(BaseModel):
+    """Response from schedule parsing endpoint."""
+
+    cron: str | None = Field(
+        default=None,
+        description="Parsed cron expression (5-part format)",
+    )
+    explanation: str | None = Field(
+        default=None,
+        description="Human-readable explanation of the schedule",
+    )
+    error: str | None = Field(
+        default=None,
+        description="Error message if parsing failed",
+    )
+
+
+class EnhancePromptRequest(BaseModel):
+    """Schema for POST /api/ai-assist/enhance-prompt."""
+
+    prompt: str = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="Current system prompt to enhance",
+    )
+    agent_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Name of the agent (for context)",
+    )
+
+
+class EnhancePromptResponse(BaseModel):
+    """Response from prompt enhancement endpoint."""
+
+    enhanced_prompt: str | None = Field(
+        default=None,
+        description="AI-enhanced system prompt",
+    )
+    error: str | None = Field(
+        default=None,
+        description="Error message if enhancement failed",
+    )

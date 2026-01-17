@@ -64,6 +64,14 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Proactive AI analysis**: AI automatically analyzes your schedule and provides insights
 - **Real-time sync**: Refresh button fetches latest data; reset button clears and triggers fresh analysis
 
+### Autonomous Agents
+- **Scheduled execution**: Create agents that run automatically on cron schedules
+- **Command Center**: Dashboard showing all agents, pending approvals, and recent activity
+- **Approval workflow**: Dangerous operations (task creation, calendar events, code execution) require user approval
+- **Agent-to-agent communication**: Agents can trigger other agents for multi-step workflows
+- **Tool permissions**: Control which tools each agent can use
+- **Dedicated conversations**: Each agent has its own conversation showing activity and history
+
 ### Personalization
 - **User memory**: AI learns and remembers facts about you across conversations (viewable/deletable via brain icon)
 - **Custom instructions**: Customize AI behavior via settings (e.g., "respond in Czech", "be concise")

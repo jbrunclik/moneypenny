@@ -11,6 +11,9 @@ const log = createLogger('message-input');
 // Track whether we're in stop mode (for click handler)
 let isStopMode = false;
 
+// Track whether input is blocked for pending approval
+let isBlockedForApproval = false;
+
 /**
  * Check if running in iOS PWA mode (standalone)
  * Exported for testing
@@ -82,8 +85,8 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !isMobileViewport()) {
       e.preventDefault();
-      // Only send if not in stop mode
-      if (!isStopMode) {
+      // Only send if not in stop mode and not blocked for approval
+      if (!isStopMode && !isBlockedForApproval) {
         onSend();
       }
     }
@@ -93,7 +96,7 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
   sendBtn.addEventListener('click', () => {
     if (isStopMode && stopCallback) {
       stopCallback();
-    } else {
+    } else if (!isBlockedForApproval) {
       onSend();
     }
   });
@@ -243,6 +246,9 @@ export function updateSendButtonState(): void {
   // Don't update enabled state while in stop mode - stop button is always enabled
   if (isStopMode) return;
 
+  // Don't enable if blocked for approval
+  if (isBlockedForApproval) return;
+
   const input = getElementById<HTMLTextAreaElement>('message-input');
   const sendBtn = getElementById<HTMLButtonElement>('send-btn');
   const { pendingFiles, isLoading } = useStore.getState();
@@ -298,6 +304,66 @@ export function setInputLoading(loading: boolean): void {
   if (sendBtn) {
     sendBtn.disabled = loading;
     sendBtn.classList.toggle('loading', loading);
+  }
+}
+
+/**
+ * Set input blocked state for pending approval.
+ * When blocked, shows a message overlay and disables input.
+ */
+export function setInputBlockedForApproval(blocked: boolean): void {
+  const input = getElementById<HTMLTextAreaElement>('message-input');
+  const sendBtn = getElementById<HTMLButtonElement>('send-btn');
+  const inputContainer = getElementById<HTMLDivElement>('input-container');
+
+  log.debug('setInputBlockedForApproval called', { blocked, hasInputContainer: !!inputContainer });
+
+  // Update the flag first
+  isBlockedForApproval = blocked;
+
+  if (!inputContainer) {
+    log.warn('input-container element not found');
+    return;
+  }
+
+  // Check for existing overlay
+  let overlay = inputContainer.querySelector<HTMLDivElement>('.approval-pending-overlay');
+
+  if (blocked) {
+    // Create overlay if it doesn't exist
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'approval-pending-overlay';
+      overlay.innerHTML = `
+        <span class="approval-pending-icon">⏳</span>
+        <span class="approval-pending-text">Please approve or reject the pending action above</span>
+      `;
+      inputContainer.appendChild(overlay);
+    }
+    overlay.classList.remove('hidden');
+
+    // Disable input
+    if (input) {
+      input.disabled = true;
+      input.placeholder = 'Waiting for approval...';
+    }
+    if (sendBtn) {
+      sendBtn.disabled = true;
+    }
+  } else {
+    // Hide overlay
+    if (overlay) {
+      overlay.classList.add('hidden');
+    }
+
+    // Re-enable input (but check loading state first)
+    const { isLoading } = useStore.getState();
+    if (input && !isLoading) {
+      input.disabled = false;
+      input.placeholder = 'Ask me anything...';
+    }
+    // Re-check send button state
+    updateSendButtonState();
   }
 }
 

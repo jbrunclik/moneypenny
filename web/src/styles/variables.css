@@ -59,7 +59,12 @@
 
     --color-warning-400: #fbbf24;   /* Warning light */
     --color-warning-500: #f59e0b;   /* Warning amber */
+    --color-warning-600: #d97706;   /* Warning dark */
+    --color-warning-700: #b45309;   /* Warning darker (for text on light bg) */
     --color-warning-900: rgba(245, 158, 11, 0.15); /* Warning badge bg (dark) */
+
+    /* Warning text - theme-aware (dark uses light amber, light uses dark amber) */
+    --warning-text: var(--color-warning-400);
 
     --color-info-500: #3b82f6;      /* Info blue */
     --color-user-500: #2563eb;      /* User message bg (blue-600) */
@@ -243,6 +248,9 @@
     --color-error-900: rgba(239, 68, 68, 0.12);
     --color-warning-900: rgba(245, 158, 11, 0.12);
     --color-brand-900: rgba(99, 102, 241, 0.12);
+
+    /* Warning text - darker for light theme contrast */
+    --warning-text: var(--color-warning-700);
 
     /* Overlay/backdrop for light theme */
     --overlay-bg: rgba(0, 0, 0, 0.5);

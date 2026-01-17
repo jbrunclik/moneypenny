@@ -14,8 +14,15 @@ from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
 from src.agent.agent import ChatAgent, generate_title
+
+# Agent context imports for interactive agent conversations
+from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, set_current_message_files
+from src.agent.tools.request_approval import (
+    ApprovalRequestedException,
+    build_approval_message,
+)
 from src.api.schemas import MessageRole
 from src.api.utils import (
     build_stream_done_event,
@@ -300,6 +307,25 @@ def stream_events(
         )
 
         event_queue.put(None)  # Signal completion
+    except ApprovalRequestedException as e:
+        # Special handling for approval requests - send approval event instead of error
+        logger.info(
+            "Stream thread: approval requested",
+            extra={
+                "user_id": user_id,
+                "conversation_id": conv_id,
+                "approval_id": e.approval_id,
+                "description": e.description,
+            },
+        )
+        event_queue.put(
+            {
+                "type": "approval_required",
+                "approval_id": e.approval_id,
+                "description": e.description,
+                "tool_name": e.tool_name,
+            }
+        )
     except Exception as e:
         logger.error(
             "Stream thread error",
@@ -436,6 +462,10 @@ def create_stream_generator(
         except Exception as e:
             yield from _handle_generator_error(context, e)
 
+        finally:
+            # Clean up agent context if this was an agent conversation
+            context.cleanup_agent_context()
+
     return generate()
 
 
@@ -483,6 +513,13 @@ class _StreamContext:
         self.cleanup_thread: threading.Thread | None = None
         self.dashboard_data: dict[str, Any] | None = None
 
+        # Agent context for interactive agent conversations
+        self.is_autonomous = False
+        self.agent_context: dict[str, Any] | None = None
+
+        # Approval request info (set when ApprovalRequestedException is caught)
+        self.approval_info: dict[str, Any] | None = None
+
     def setup_context(self) -> None:
         """Set up request context variables."""
         set_current_request_id(self.stream_request_id)
@@ -492,6 +529,10 @@ class _StreamContext:
         # Fetch planner dashboard if needed
         if self.conv.is_planning:
             self._setup_planner_context()
+
+        # Set up agent context if this is an agent conversation
+        if self.conv.is_agent and self.conv.agent_id:
+            self._setup_agent_context()
 
     def _setup_planner_context(self) -> None:
         """Set up planner dashboard context if this is a planning conversation."""
@@ -512,6 +553,46 @@ class _StreamContext:
         self.dashboard_data = asdict(dashboard_obj)
         _planner_dashboard_context.set(self.dashboard_data)
 
+    def _setup_agent_context(self) -> None:
+        """Set up agent context if this is an interactive agent conversation."""
+        # Type narrowing: agent_id is checked in setup_context before calling this
+        assert self.conv.agent_id is not None
+        agent_record = db.get_agent(self.conv.agent_id, self.user_id)
+        if agent_record:
+            logger.debug(
+                "Interactive agent conversation (streaming) - applying tool permissions",
+                extra={
+                    "user_id": self.user_id,
+                    "conversation_id": self.conv_id,
+                    "agent_id": agent_record.id,
+                    "tool_permissions": agent_record.tool_permissions,
+                },
+            )
+            # Set up agent execution context for permission checks
+            agent_execution_context = AgentContext(
+                agent=agent_record,
+                user=self.user,
+                trigger_chain=[agent_record.id],
+            )
+            set_agent_context(agent_execution_context)
+            self.is_autonomous = True
+            # Build agent context for the ChatAgent (for tool filtering)
+            # Note: tool_permissions=None means all tools, [] means no tools
+            self.agent_context = {
+                "name": agent_record.name,
+                "description": agent_record.description,
+                "schedule": agent_record.schedule,
+                "timezone": agent_record.timezone,
+                "goals": agent_record.system_prompt,
+                "tools": agent_record.tool_permissions,
+                "trigger_type": "interactive",
+            }
+
+    def cleanup_agent_context(self) -> None:
+        """Clean up agent context if this was an agent conversation."""
+        if self.is_autonomous:
+            clear_agent_context()
+
     def start_threads(self) -> None:
         """Start the streaming and cleanup background threads."""
         agent = ChatAgent(
@@ -519,6 +600,8 @@ class _StreamContext:
             include_thoughts=True,
             anonymous_mode=self.anonymous_mode,
             is_planning=self.conv.is_planning,
+            is_autonomous=self.is_autonomous,
+            agent_context=self.agent_context,
         )
 
         self.stream_thread = threading.Thread(
@@ -653,6 +736,18 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
         context.metadata = item.get("metadata", {})
         context.tool_results = item.get("tool_results", [])
         context.usage_info = item.get("usage_info", {})
+    elif event_type == "approval_required":
+        # Store approval info in context for finalization
+        context.approval_info = {
+            "approval_id": item.get("approval_id"),
+            "description": item.get("description"),
+            "tool_name": item.get("tool_name", ""),
+        }
+        # Send the approval event to the client
+        try:
+            yield f"data: {json.dumps(item)}\n\n"
+        except (BrokenPipeError, ConnectionError, OSError) as e:
+            context.mark_disconnected(e, "streaming (approval_required)")
     elif event_type in ("thinking", "tool_start", "tool_end", "token"):
         try:
             yield f"data: {json.dumps(item)}\n\n"
@@ -670,6 +765,11 @@ def _send_keepalive(context: _StreamContext) -> Generator[str]:
 
 def _finalize_stream(context: _StreamContext) -> Generator[str]:
     """Save message to DB and yield done event."""
+    # Handle approval request if present
+    if context.approval_info:
+        yield from _finalize_approval_stream(context)
+        return
+
     save_result = save_message_to_db(
         context.clean_content,
         context.metadata,
@@ -708,6 +808,66 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
     except (BrokenPipeError, ConnectionError, OSError) as e:
         logger.info(
             "Client disconnected before done event, but message saved",
+            extra={
+                "user_id": context.user_id,
+                "conversation_id": context.conv_id,
+                "message_id": assistant_msg.id,
+                "error": str(e),
+            },
+        )
+
+
+def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
+    """Handle finalization when an approval request was raised.
+
+    Saves the approval message to the conversation and sends a done event.
+    """
+    approval_id: str = context.approval_info.get("approval_id", "")  # type: ignore[union-attr]
+    description: str = context.approval_info.get("description", "")  # type: ignore[union-attr]
+    tool_name: str = context.approval_info.get("tool_name", "")  # type: ignore[union-attr]
+
+    # Build and save the approval message
+    approval_message = build_approval_message(approval_id, description, tool_name)
+
+    logger.debug(
+        "Saving approval message from stream",
+        extra={
+            "user_id": context.user_id,
+            "conversation_id": context.conv_id,
+            "approval_id": approval_id,
+        },
+    )
+
+    assistant_msg = db.add_message(
+        context.conv_id,
+        MessageRole.ASSISTANT,
+        approval_message,
+    )
+
+    # Clean up context
+    set_current_request_id(None)
+    set_current_message_files(None)
+    set_conversation_context(None, None)
+
+    if not context.client_connected:
+        return
+
+    # Build done event with the approval message
+    # Use same field names as build_stream_done_event for consistency
+    done_data = {
+        "type": "done",
+        "id": assistant_msg.id,
+        "created_at": assistant_msg.created_at.isoformat(),
+        "user_message_id": context.user_msg.id,
+        "approval_required": True,
+        "approval_id": approval_id,
+    }
+
+    try:
+        yield f"data: {json.dumps(done_data)}\n\n"
+    except (BrokenPipeError, ConnectionError, OSError) as e:
+        logger.info(
+            "Client disconnected before approval done event, but message saved",
             extra={
                 "user_id": context.user_id,
                 "conversation_id": context.conv_id,

@@ -8,6 +8,7 @@ Route Organization:
 - calendar.py: Google Calendar integration (7 routes)
 - conversations.py: Conversation management (9 routes)
 - planner.py: Planner dashboard (4 routes)
+- agents.py: Autonomous agents (11 routes)
 - chat.py: Chat endpoints (2 routes)
 - files.py: File serving (2 routes)
 - costs.py: Cost tracking (4 routes)
@@ -15,13 +16,14 @@ Route Organization:
 - memory.py: User memory management (2 routes)
 - system.py: System routes (5 routes)
 
-Total: 43 endpoints across 11 modules
+Total: 54 endpoints across 12 modules
 """
 
 from apiflask import APIFlask
 
 # Import all route modules
 from src.api.routes import (
+    agents,
     auth,
     calendar,
     chat,
@@ -62,6 +64,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(settings.api)
     app.register_blueprint(conversations.api)
     app.register_blueprint(planner.api)
+    app.register_blueprint(agents.api)
     app.register_blueprint(chat.api)
     app.register_blueprint(files.api)
     app.register_blueprint(costs.api)

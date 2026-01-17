@@ -209,6 +209,10 @@ class Config:
     TITLE_CONTEXT_MAX_LENGTH = 500  # Max chars of context to send for title generation
     TITLE_FALLBACK_LENGTH = 50  # Length for fallback title from user message
 
+    # AI assist settings (cron parsing, prompt enhancement)
+    AI_ASSIST_MODEL = "gemini-3-flash-preview"
+    AI_ASSIST_TIMEOUT_SECONDS = 15  # Minimum allowed by Gemini API is 10s
+
     # LLM settings
     GEMINI_DEFAULT_TEMPERATURE = 1.0
 
@@ -245,6 +249,37 @@ class Config:
         ).split(",")
         if lib.strip()
     ]
+
+    # Autonomous agent settings
+    # Timeout for considering an execution "stuck" (used for locking)
+    # Executions running longer than this are ignored when checking for overlapping runs
+    AGENT_EXECUTION_TIMEOUT_MINUTES: int = int(os.getenv("AGENT_EXECUTION_TIMEOUT_MINUTES", "10"))
+    # Time-to-live for approval requests in hours (default: 24 hours)
+    # Expired approvals are automatically ignored and cleaned up
+    AGENT_APPROVAL_TTL_HOURS: int = int(os.getenv("AGENT_APPROVAL_TTL_HOURS", "24"))
+    # Cooldown period between manual agent executions in seconds (default: 5 seconds)
+    # Prevents spamming the "Run" button
+    AGENT_EXECUTION_COOLDOWN_SECONDS: int = int(os.getenv("AGENT_EXECUTION_COOLDOWN_SECONDS", "5"))
+
+    # Conversation compaction settings
+    # Maximum messages before compaction is triggered (keeps conversation within context limits)
+    AGENT_COMPACTION_THRESHOLD: int = int(os.getenv("AGENT_COMPACTION_THRESHOLD", "50"))
+    # Number of recent messages to keep uncompacted (for immediate context)
+    AGENT_COMPACTION_KEEP_RECENT: int = int(os.getenv("AGENT_COMPACTION_KEEP_RECENT", "10"))
+
+    # Transient failure retry settings
+    # Maximum retries for transient failures (network errors, rate limits)
+    AGENT_MAX_RETRIES: int = int(os.getenv("AGENT_MAX_RETRIES", "3"))
+    # Initial retry delay in seconds (doubles with each retry)
+    AGENT_RETRY_BASE_DELAY_SECONDS: float = float(
+        os.getenv("AGENT_RETRY_BASE_DELAY_SECONDS", "1.0")
+    )
+    # Maximum retry delay cap in seconds
+    AGENT_RETRY_MAX_DELAY_SECONDS: float = float(os.getenv("AGENT_RETRY_MAX_DELAY_SECONDS", "30.0"))
+
+    # Budget cap settings
+    # Default daily budget limit per agent in USD (0 = unlimited)
+    AGENT_DEFAULT_DAILY_BUDGET_USD: float = float(os.getenv("AGENT_DEFAULT_DAILY_BUDGET_USD", "0"))
 
     # Logging truncation settings
     QUERY_LOG_MAX_LENGTH = 200

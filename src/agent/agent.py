@@ -51,14 +51,29 @@ class ChatAgent:
         include_thoughts: bool = False,
         anonymous_mode: bool = False,
         is_planning: bool = False,
+        is_autonomous: bool = False,
+        agent_context: dict[str, Any] | None = None,
+        tools: list[Any] | None = None,
     ) -> None:
         self.model_name = model_name
         self.with_tools = with_tools
         self.include_thoughts = include_thoughts
         self.anonymous_mode = anonymous_mode
         self.is_planning = is_planning
-        # Get filtered tools based on anonymous mode and planning mode
-        tools = get_tools_for_request(anonymous_mode, is_planning)
+        self.is_autonomous = is_autonomous
+        self.agent_context = agent_context
+        # Use provided tools, or get filtered tools based on mode
+        if tools is not None:
+            active_tools = tools
+        elif is_autonomous and agent_context and "tools" in agent_context:
+            # Interactive agent conversation - use agent's tool permissions
+            # Note: tools=None means all tools, tools=[] means no extra integrations
+            agent_tools = agent_context.get("tools")
+            active_tools = get_tools_for_request(
+                anonymous_mode, is_planning, agent_tool_permissions=agent_tools
+            )
+        else:
+            active_tools = get_tools_for_request(anonymous_mode, is_planning)
         logger.debug(
             "Creating ChatAgent",
             extra={
@@ -67,11 +82,16 @@ class ChatAgent:
                 "include_thoughts": include_thoughts,
                 "anonymous_mode": anonymous_mode,
                 "is_planning": is_planning,
-                "tool_names": [t.name for t in tools],
+                "is_autonomous": is_autonomous,
+                "tool_names": [t.name for t in active_tools],
             },
         )
         self.graph = create_chat_graph(
-            model_name, with_tools=with_tools, include_thoughts=include_thoughts, tools=tools
+            model_name,
+            with_tools=with_tools,
+            include_thoughts=include_thoughts,
+            tools=active_tools,
+            is_autonomous=is_autonomous,
         ).compile()
 
     def _build_message_content(
@@ -171,6 +191,8 @@ class ChatAgent:
                     is_planning=is_planning,
                     dashboard_data=dashboard_data,
                     planner_dashboard_context=refreshed_dashboard,
+                    is_autonomous=self.is_autonomous,
+                    agent_context=self.agent_context,
                 )
             )
         )

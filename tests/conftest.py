@@ -130,6 +130,7 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
 
         # Patch database in all route modules (routes are split across multiple files)
         route_modules = [
+            "agents",
             "auth",
             "calendar",
             "chat",
@@ -213,6 +214,22 @@ def test_conversation(test_database: Database, test_user: User) -> Conversation:
         user_id=test_user.id,
         title="Test Conversation",
         model="gemini-3-flash-preview",
+    )
+
+
+@pytest.fixture
+def test_agent(test_database: Database, test_user: User):
+    """Create test agent."""
+
+    return test_database.create_agent(
+        user_id=test_user.id,
+        name="Test Agent",
+        description="A test agent for integration tests",
+        system_prompt="You are a helpful test agent.",
+        schedule="0 9 * * *",
+        timezone="UTC",
+        tool_permissions=["web_search"],
+        enabled=True,
     )
 
 

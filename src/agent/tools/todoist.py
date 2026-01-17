@@ -6,6 +6,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -818,6 +819,10 @@ def todoist(
                 "message": "Please ask the user to connect their Todoist account in settings first.",
             }
         )
+
+    # Check permission for autonomous agents (write operations require approval)
+    # Map 'action' to 'operation' for permission check
+    check_autonomous_permission("todoist", {"operation": action})
 
     try:
         # Dispatch to the appropriate action handler

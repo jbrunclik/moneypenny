@@ -51,7 +51,7 @@ import {
   parseHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON } from '../utils/icons';
+import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
 import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -67,6 +67,7 @@ import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
 import { loadDeepLinkedConversation, handleDeepLinkNavigation, deleteMessage } from './conversation';
 import { navigateToPlanner, leavePlannerView } from './planner';
+import { navigateToAgents, initAgents } from './agents';
 import { showNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('init');
@@ -92,7 +93,7 @@ export function renderAppShell(): string {
     <!-- Main chat area -->
     <main class="main">
       <header class="mobile-header">
-        <button id="menu-btn" class="btn-icon">☰</button>
+        <button id="menu-btn" class="btn-icon">${MENU_ICON}</button>
         <span id="current-chat-title">AI Chatbot</span>
       </header>
 
@@ -142,7 +143,7 @@ export function renderAppShell(): string {
             <div class="upload-progress-bar"></div>
             <span class="upload-progress-text">Uploading...</span>
           </div>
-          <div class="input-container">
+          <div id="input-container" class="input-container">
             <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
             <button id="send-btn" class="btn btn-send" disabled>
               ${SEND_ICON}
@@ -273,6 +274,8 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     // This prevents false "new messages available" banners for the deep-linked conversation
     if (initialRoute?.isPlanner) {
       await navigateToPlanner();
+    } else if (initialRoute?.isAgents) {
+      await navigateToAgents();
     } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {
       await loadDeepLinkedConversation(initialRoute.conversationId);
     }
@@ -312,6 +315,13 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       onPlannerExternalUpdate: (messageCount: number) => {
         // New messages added to planner in another tab/device
         if (store.isPlannerView) {
+          showNewMessagesAvailableBanner(messageCount);
+        }
+      },
+      onAgentConversationExternalUpdate: (messageCount: number) => {
+        // New messages added to agent conversation in another tab/device
+        const currentConv = store.currentConversation;
+        if (currentConv?.is_agent) {
           showNewMessagesAvailableBanner(messageCount);
         }
       },
@@ -358,6 +368,7 @@ export async function init(): Promise<void> {
   costHistoryPopup.init();
   initMemoriesPopup();
   initSettingsPopup();
+  initAgents();
   initScrollToBottom();
   // Set up callback to load remaining newer messages before scrolling to bottom
   // This ensures clicking scroll-to-bottom in a partial view (after search navigation)
@@ -419,6 +430,7 @@ export async function init(): Promise<void> {
       const initialRoute: InitialRoute = {
         conversationId: route.type === 'conversation' ? route.conversationId ?? null : null,
         isPlanner: route.type === 'planner',
+        isAgents: route.type === 'agents',
       };
       await loadInitialData(initialRoute);
     } catch (error) {
@@ -441,8 +453,11 @@ export async function init(): Promise<void> {
     cleanupDeepLinking();
 
     showLoginOverlay();
-    useStore.getState().setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
-    useStore.getState().setCurrentConversation(null);
+    const store = useStore.getState();
+    store.setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
+    store.setCurrentConversation(null);
+    // Clear agents data to prevent exposing previous user's data
+    store.clearAgentsState();
     renderConversationsList();
     renderMessages([]);
 

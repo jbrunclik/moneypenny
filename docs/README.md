@@ -7,6 +7,7 @@ This directory contains detailed documentation for the AI Chatbot project, organ
 ### Features (`features/`)
 Feature-specific documentation covering user-facing functionality:
 
+- **[agents.md](features/agents.md)** - Autonomous agents with cron scheduling, approval workflow, Command Center UI, agent-to-agent communication
 - **[chat-and-streaming.md](features/chat-and-streaming.md)** - Gemini API integration, streaming responses, thinking indicators, web search sources, tool forcing
 - **[file-handling.md](features/file-handling.md)** - Image generation (including image-to-image editing), code execution sandbox, file uploads, clipboard paste, upload progress, background thumbnail generation
 - **[voice-and-tts.md](features/voice-and-tts.md)** - Voice input (speech-to-text), text-to-speech
@@ -40,6 +41,7 @@ User interface patterns and implementations:
 
 ### Most Referenced
 
+- [Agents](features/agents.md) - Autonomous agents and Command Center
 - [Chat and Streaming](features/chat-and-streaming.md) - Core chat functionality
 - [File Handling](features/file-handling.md) - Working with files and images
 - [Database](architecture/database.md) - Database architecture and best practices

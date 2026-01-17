@@ -495,6 +495,76 @@ When starting a fresh planning session:
 - Remember this conversation resets daily - capture important insights in memories
 """
 
+# ============ Autonomous Agent System Prompt ============
+
+AUTONOMOUS_AGENT_SYSTEM_PROMPT = """
+# Autonomous Agent Mode
+
+You are **{agent_name}**, an autonomous agent owned by the user. You run on a schedule and execute tasks independently.
+
+## Your Identity
+- **Name**: {agent_name}
+- **Description**: {agent_description}
+- **Schedule**: {agent_schedule}
+- **Timezone**: {agent_timezone}
+
+## Your Goals
+{agent_goals}
+
+## Execution Guidelines
+
+### Proactive Execution
+- You are triggered automatically based on your schedule
+- Execute your goals confidently and completely
+- Don't ask for clarification on routine tasks - use your best judgment
+- Provide a summary of what you accomplished at the end of each run
+
+### Requesting Approval (IMPORTANT)
+You have a **request_approval** tool that you MUST use before performing sensitive actions.
+
+**WHEN TO USE request_approval:**
+1. **Destructive/Irreversible Actions**: Deleting data, removing access, permanent changes
+2. **External Communication**: Sending emails, messages, or notifications to OTHER people
+3. **Public Posting**: Social media, public APIs, anything visible to others
+4. **Financial Actions**: Purchases, transfers, subscriptions
+5. **Unusual Circumstances**: Something unexpected that deviates significantly from your goals
+6. **User-Defined Restrictions**: If your goals/instructions say "ask before X", always request approval
+
+**HOW TO USE request_approval:**
+- Call: `request_approval(action_description="Clear description of what you want to do", tool_name="category")`
+- After calling this tool, you MUST STOP and wait. Do not proceed with the action.
+- The user will be notified and can approve or reject your request.
+- You will be resumed after the user responds.
+
+**DO NOT request approval for:**
+- Routine tasks within your defined goals
+- Creating, updating, or completing YOUR OWN tasks/events
+- Web searches or information retrieval
+- Generating reports or summaries
+- Any action that only affects the user's own data in the way they expect
+
+### Available Tools
+{agent_tools}
+
+### Communication Style
+- Be concise and action-oriented
+- Report what you did, not what you're going to do
+- Use bullet points for multiple items
+- If you encounter errors, explain them clearly
+- End with a brief summary of accomplishments
+
+### Conversation Context
+This is a persistent conversation. Previous messages contain the history of your past runs.
+Use this context to:
+- Avoid repeating work already done
+- Track ongoing projects or tasks
+- Remember user feedback from previous runs
+
+### Trigger Context
+This run was triggered: {trigger_context}
+"""
+
+
 # ============ Custom Instructions and Memory ============
 
 CUSTOM_INSTRUCTIONS_PROMPT = """
@@ -769,6 +839,63 @@ The following JSON contains your complete schedule data:
 """
 
 
+def get_autonomous_agent_prompt(
+    agent_name: str,
+    agent_description: str | None,
+    agent_schedule: str | None,
+    agent_timezone: str,
+    agent_goals: str | None,
+    agent_tools: list[str],
+    trigger_type: str,
+) -> str:
+    """Build the autonomous agent section of the system prompt.
+
+    Args:
+        agent_name: The agent's name
+        agent_description: The agent's description
+        agent_schedule: The cron schedule string
+        agent_timezone: The agent's timezone
+        agent_goals: The agent's system prompt / goals
+        agent_tools: List of permitted tool names
+        trigger_type: How the agent was triggered (scheduled, manual, agent_trigger)
+
+    Returns:
+        Formatted autonomous agent prompt section
+    """
+    # Format schedule description
+    if agent_schedule:
+        schedule_desc = agent_schedule
+    else:
+        schedule_desc = "Manual trigger only"
+
+    # Format tools description
+    if agent_tools:
+        tools_desc = "You have access to:\n" + "\n".join(f"- {tool}" for tool in agent_tools)
+    else:
+        tools_desc = "Basic tools only (web search, URL fetching, file retrieval)"
+
+    # Format goals
+    goals_desc = agent_goals if agent_goals else "Execute tasks as directed by the user."
+
+    # Format trigger context
+    trigger_context_map = {
+        "scheduled": "Scheduled run (automatic)",
+        "manual": "Manual trigger by user",
+        "agent_trigger": "Triggered by another agent",
+    }
+    trigger_context = trigger_context_map.get(trigger_type, trigger_type)
+
+    return AUTONOMOUS_AGENT_SYSTEM_PROMPT.format(
+        agent_name=agent_name,
+        agent_description=agent_description or "No description provided",
+        agent_schedule=schedule_desc,
+        agent_timezone=agent_timezone,
+        agent_goals=goals_desc,
+        agent_tools=tools_desc,
+        trigger_context=trigger_context,
+    )
+
+
 def get_system_prompt(
     with_tools: bool = True,
     force_tools: list[str] | None = None,
@@ -779,6 +906,8 @@ def get_system_prompt(
     is_planning: bool = False,
     dashboard_data: dict[str, Any] | None = None,
     planner_dashboard_context: Any | None = None,
+    is_autonomous: bool = False,
+    agent_context: dict[str, Any] | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -792,6 +921,8 @@ def get_system_prompt(
         is_planning: If True, include planner-specific system prompt with dashboard context
         dashboard_data: Dashboard data dict to inject into planner prompt (required if is_planning=True)
         planner_dashboard_context: Contextvar value for refreshed dashboard data (optional)
+        is_autonomous: If True, include autonomous agent-specific system prompt
+        agent_context: Agent context dict with keys: name, description, schedule, timezone, goals, tools, trigger_type
     """
     from src.agent.tools import TOOLS
 
@@ -824,6 +955,18 @@ def get_system_prompt(
         # Add dashboard context if available
         if active_dashboard:
             prompt += get_dashboard_context_prompt(active_dashboard)
+
+    # Add autonomous agent prompt if running as an agent
+    if is_autonomous and agent_context:
+        prompt += "\n\n" + get_autonomous_agent_prompt(
+            agent_name=agent_context.get("name", "Agent"),
+            agent_description=agent_context.get("description"),
+            agent_schedule=agent_context.get("schedule"),
+            agent_timezone=agent_context.get("timezone", "UTC"),
+            agent_goals=agent_context.get("goals"),
+            agent_tools=agent_context.get("tools", []),
+            trigger_type=agent_context.get("trigger_type", "manual"),
+        )
 
     # Add custom instructions if provided
     if custom_instructions and custom_instructions.strip():

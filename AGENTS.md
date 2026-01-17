@@ -62,7 +62,7 @@ ai-chatbot/
   - [content.py](src/agent/content.py) - Content extraction utilities
   - [tool_results.py](src/agent/tool_results.py) - Tool result capture
   - [tool_display.py](src/agent/tool_display.py) - Tool metadata for UI
-- [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file)
+- [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file, trigger_agent)
 - [models/](src/db/models/) - Database models and operations (split by entity)
 - [main.ts](web/src/main.ts) - Frontend entry point (minimal, delegates to core modules)
 - [core/](web/src/core/) - Core frontend modules (split from main.ts):
@@ -70,6 +70,7 @@ ai-chatbot/
   - [conversation.ts](web/src/core/conversation.ts) - Conversation CRUD, selection, temp IDs
   - [messaging.ts](web/src/core/messaging.ts) - Message sending, streaming, batch mode
   - [planner.ts](web/src/core/planner.ts) - Planner navigation and management
+  - [agents.ts](web/src/core/agents.ts) - Autonomous agents navigation and Command Center
   - [search.ts](web/src/core/search.ts) - Search result handling and navigation
   - [tts.ts](web/src/core/tts.ts) - Text-to-speech functionality
   - [toolbar.ts](web/src/core/toolbar.ts) - Toolbar buttons and state

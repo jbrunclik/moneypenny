@@ -13,6 +13,7 @@ from src.agent.tools.context import (
     get_conversation_context,
     get_current_message_files,
 )
+from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -56,6 +57,9 @@ def generate_image(
     Returns:
         JSON with the prompt used and base64 image data, or an error message
     """
+    # Check permission for autonomous agents (always requires approval - costs money)
+    check_autonomous_permission("generate_image", {"prompt": prompt})
+
     # Validate prompt
     if not prompt or not prompt.strip():
         return json.dumps({"error": "Prompt cannot be empty"})

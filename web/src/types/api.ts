@@ -51,6 +51,10 @@ export interface Conversation {
   cost?: number; // Cost in display currency (optional, fetched separately)
   cost_usd?: number; // Cost in USD (optional)
   cost_formatted?: string; // Formatted cost string (optional)
+  // Agent-related fields
+  is_agent?: boolean; // True if this is an agent's dedicated conversation
+  agent_id?: string | null; // ID of the agent if is_agent is true
+  has_pending_approval?: boolean; // True if agent has pending approval request (from server)
   // Sync-related fields
   unreadCount?: number; // Number of unread messages from other devices
   hasExternalUpdate?: boolean; // True if conversation was updated externally while viewing
@@ -212,6 +216,9 @@ export interface ConversationDetailResponse {
   model: string;
   created_at: string;
   updated_at: string;
+  is_agent?: boolean;
+  agent_id?: string | null;
+  has_pending_approval?: boolean; // True if agent has pending approval request
   messages: Message[];
   message_pagination: MessagesPagination;
 }
@@ -516,4 +523,157 @@ export interface PlannerConversationSyncData {
 export interface PlannerSyncResponse {
   conversation: PlannerConversationSyncData | null;
   server_time: string;
+}
+
+// =============================================================================
+// Autonomous Agent types
+// =============================================================================
+
+export const AgentStatus = {
+  RUNNING: 'running',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  WAITING_APPROVAL: 'waiting_approval',
+} as const;
+export type AgentStatus = (typeof AgentStatus)[keyof typeof AgentStatus];
+
+export const AgentTriggerType = {
+  SCHEDULED: 'scheduled',
+  MANUAL: 'manual',
+  AGENT_TRIGGER: 'agent_trigger',
+} as const;
+export type AgentTriggerType = (typeof AgentTriggerType)[keyof typeof AgentTriggerType];
+
+export const ApprovalStatus = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+} as const;
+export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
+
+export interface Agent {
+  id: string;
+  name: string;
+  description?: string | null;
+  system_prompt?: string | null;
+  schedule?: string | null;
+  timezone: string;
+  enabled: boolean;
+  tool_permissions?: string[] | null;
+  model: string;
+  conversation_id?: string | null;
+  last_run_at?: string | null;
+  next_run_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  budget_limit?: number | null; // Daily budget limit in USD (null = unlimited)
+  daily_spending: number; // Today's spending in USD
+  has_pending_approval: boolean;
+  has_error: boolean;
+  unread_count: number;
+  last_execution_status?: string | null;
+}
+
+export interface CreateAgentRequest {
+  name: string;
+  description?: string;
+  system_prompt?: string;
+  schedule?: string;
+  timezone?: string;
+  tool_permissions?: string[];
+  enabled?: boolean;
+  model?: string;
+  budget_limit?: number; // Daily budget limit in USD (null = unlimited)
+}
+
+export interface UpdateAgentRequest {
+  name?: string;
+  description?: string;
+  system_prompt?: string;
+  schedule?: string;
+  timezone?: string;
+  tool_permissions?: string[];
+  enabled?: boolean;
+  model?: string;
+  budget_limit?: number; // Daily budget limit in USD (null = unlimited)
+}
+
+export interface AgentExecution {
+  id: string;
+  agent_id: string;
+  status: AgentStatus;
+  trigger_type: AgentTriggerType;
+  triggered_by_agent_id?: string | null;
+  started_at: string;
+  completed_at?: string | null;
+  error_message?: string | null;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  agent_id: string;
+  agent_name: string;
+  tool_name: string;
+  tool_args?: Record<string, unknown> | null;
+  description: string;
+  status: ApprovalStatus;
+  created_at: string;
+  resolved_at?: string | null;
+}
+
+export interface AgentsListResponse {
+  agents: Agent[];
+}
+
+export interface AgentExecutionsListResponse {
+  executions: AgentExecution[];
+}
+
+export interface CommandCenterResponse {
+  agents: Agent[];
+  pending_approvals: ApprovalRequest[];
+  recent_executions: AgentExecution[];
+  total_unread: number;
+  agents_waiting: number;
+  agents_with_errors: number;
+}
+
+export interface TriggerAgentResponse {
+  execution: AgentExecution;
+  message: string;
+}
+
+export interface AgentConversationSyncData {
+  message_count: number;
+  updated_at: string;
+}
+
+export interface AgentConversationSyncResponse {
+  conversation: AgentConversationSyncData | null;
+  server_time: string;
+}
+
+// =============================================================================
+// AI Assist types
+// =============================================================================
+
+export interface ParseScheduleRequest {
+  natural_language: string;
+  timezone?: string;
+}
+
+export interface ParseScheduleResponse {
+  cron?: string | null;
+  explanation?: string | null;
+  error?: string | null;
+}
+
+export interface EnhancePromptRequest {
+  prompt: string;
+  agent_name: string;
+}
+
+export interface EnhancePromptResponse {
+  enhanced_prompt?: string | null;
+  error?: string | null;
 }

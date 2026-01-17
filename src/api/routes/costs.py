@@ -170,11 +170,13 @@ def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
         extra={"user_id": user.id, "year": year, "month": month},
     )
 
+    # Get message costs
     cost_data = db.get_user_monthly_cost(user.id, year, month)
-    cost_display = convert_currency(cost_data["total_usd"], Config.COST_CURRENCY)
+    total_usd = cost_data["total_usd"]
+    cost_display = convert_currency(total_usd, Config.COST_CURRENCY)
     formatted_cost = format_cost(cost_display, Config.COST_CURRENCY)
 
-    # Convert breakdown to display currency
+    # Convert breakdown to display currency (message costs by model)
     breakdown_display = {}
     for model, data in cost_data["breakdown"].items():
         breakdown_display[model] = {
@@ -192,7 +194,7 @@ def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
             "user_id": user.id,
             "year": year,
             "month": month,
-            "total_usd": cost_data["total_usd"],
+            "total_usd": total_usd,
             "message_count": cost_data["message_count"],
         },
     )
@@ -201,7 +203,7 @@ def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
         "user_id": user.id,
         "year": year,
         "month": month,
-        "total_usd": cost_data["total_usd"],
+        "total_usd": total_usd,
         "total": cost_display,
         "currency": Config.COST_CURRENCY,
         "formatted": formatted_cost,
@@ -227,22 +229,18 @@ def get_user_cost_history(user: User) -> tuple[dict[str, Any], int]:
     current_year = now.year
     current_month = now.month
 
-    # Convert each month's cost to display currency
+    # Convert to display format
     history_display = []
     current_month_in_history = False
     for month_data in history:
-        year = month_data["year"]
-        month = month_data["month"]
-
-        # Check if this is the current month
-        if year == current_year and month == current_month:
+        if month_data["year"] == current_year and month_data["month"] == current_month:
             current_month_in_history = True
 
         cost_display = convert_currency(month_data["total_usd"], Config.COST_CURRENCY)
         history_display.append(
             {
-                "year": year,
-                "month": month,
+                "year": month_data["year"],
+                "month": month_data["month"],
                 "total_usd": month_data["total_usd"],
                 "total": cost_display,
                 "currency": Config.COST_CURRENCY,
@@ -251,17 +249,18 @@ def get_user_cost_history(user: User) -> tuple[dict[str, Any], int]:
             }
         )
 
-    # If current month is not in history, add it with $0 cost
+    # Always include current month, even if no costs yet
     if not current_month_in_history:
+        cost_display = convert_currency(0.0, Config.COST_CURRENCY)
         history_display.insert(
             0,
             {
                 "year": current_year,
                 "month": current_month,
                 "total_usd": 0.0,
-                "total": 0.0,
+                "total": cost_display,
                 "currency": Config.COST_CURRENCY,
-                "formatted": format_cost(0.0, Config.COST_CURRENCY),
+                "formatted": format_cost(cost_display, Config.COST_CURRENCY),
                 "message_count": 0,
             },
         )

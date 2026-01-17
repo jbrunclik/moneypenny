@@ -21,6 +21,20 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+# Import permission-related modules (at module level to avoid repeated imports)
+# These are only used when is_autonomous=True
+def _get_permission_modules() -> dict[str, Any]:
+    """Lazy import of permission-related modules to avoid circular imports."""
+    from src.agent.executor import get_agent_context
+    from src.agent.permissions import PermissionResult, check_tool_permission
+
+    return {
+        "get_agent_context": get_agent_context,
+        "check_tool_permission": check_tool_permission,
+        "PermissionResult": PermissionResult,
+    }
+
+
 # ============ Agent State ============
 
 
@@ -122,7 +136,7 @@ def chat_node(state: AgentState, model: ChatGoogleGenerativeAI) -> dict[str, lis
 # ============ Tool Node Factory ============
 
 
-def create_tool_node(tools: list[Any]) -> Any:
+def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
     """Create a tool node that strips large data from results before sending to LLM.
 
     This prevents the ~650K token cost of sending generated images back to the model.
@@ -131,17 +145,55 @@ def create_tool_node(tools: list[Any]) -> Any:
     The request ID is read from the _current_request_id contextvar at runtime,
     allowing per-request capture while using a single shared graph instance.
 
+    For autonomous agents (is_autonomous=True), this also checks tool permissions
+    and may raise ApprovalRequiredException if a tool call requires user approval.
+
     Args:
         tools: List of tools to use
+        is_autonomous: If True, check permissions and require approval for dangerous operations
     """
     base_tool_node = BaseToolNode(tools)
 
     def tool_node_with_stripping(state: AgentState) -> dict[str, Any]:
         """Execute tools and strip _full_result from results."""
-        logger.debug("tool_node_with_stripping starting")
+        logger.debug("tool_node_with_stripping starting", extra={"is_autonomous": is_autonomous})
 
         # Get the current request ID from contextvar
         request_id = get_current_request_id()
+
+        # For autonomous agents, check if tools are blocked
+        if is_autonomous:
+            modules = _get_permission_modules()
+            agent_context = modules["get_agent_context"]()
+
+            if agent_context:
+                # Get the last message which contains tool calls
+                last_message = state["messages"][-1]
+                if isinstance(last_message, AIMessage) and last_message.tool_calls:
+                    for tool_call in last_message.tool_calls:
+                        tool_name = tool_call.get("name")
+                        tool_args = tool_call.get("args", {})
+
+                        if not tool_name:
+                            continue
+
+                        # Check permission
+                        permission = modules["check_tool_permission"](
+                            agent_context.agent,
+                            tool_name,
+                            tool_args,
+                        )
+
+                        if permission == modules["PermissionResult"].BLOCKED:
+                            # Return blocked message instead of executing
+                            return {
+                                "messages": [
+                                    ToolMessage(
+                                        content=f"Tool '{tool_name}' is not permitted for this agent",
+                                        tool_call_id=tool_call.get("id", ""),
+                                    )
+                                ]
+                            }
 
         # Call the base ToolNode
         result: dict[str, Any] = base_tool_node.invoke(state)
@@ -182,6 +234,7 @@ def create_chat_graph(
     with_tools: bool = True,
     include_thoughts: bool = False,
     tools: list[Any] | None = None,
+    is_autonomous: bool = False,
 ) -> StateGraph[AgentState]:
     """Create a chat graph with optional tool support.
 
@@ -190,6 +243,7 @@ def create_chat_graph(
         with_tools: Whether to bind tools to the model
         include_thoughts: Whether to include thinking/reasoning summaries
         tools: Custom list of tools to use (defaults to TOOLS if not provided)
+        is_autonomous: If True, check permissions and require approval for dangerous operations
     """
     active_tools = tools if tools is not None else TOOLS
     model = create_chat_model(
@@ -204,7 +258,8 @@ def create_chat_graph(
 
     if with_tools and active_tools:
         # Add tool node with stripping of large results
-        tool_node = create_tool_node(active_tools)
+        # For autonomous agents, also check permissions
+        tool_node = create_tool_node(active_tools, is_autonomous=is_autonomous)
         graph.add_node("tools", tool_node)
 
         # Set entry point

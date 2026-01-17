@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { BRAIN_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, SETTINGS_ICON } from '../utils/icons';
+import { BRAIN_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -33,7 +33,16 @@ export function shouldShowPlanner(user: User | null): boolean {
 }
 
 /**
+ * Check if the agents entry should be shown.
+ * Always visible when user is logged in (agents are a core feature).
+ */
+export function shouldShowAgents(user: User | null): boolean {
+  return !!user;
+}
+
+/**
  * Render the planner entry at the top of the conversations list.
+ * Note: No divider after planner because agents entry follows it.
  */
 function renderPlannerEntry(isActive: boolean): string {
   return `
@@ -41,7 +50,34 @@ function renderPlannerEntry(isActive: boolean): string {
       <span class="planner-icon">${PLANNER_ICON}</span>
       <span class="planner-label">Planner</span>
     </div>
-    <div class="sidebar-divider"></div>
+  `;
+}
+
+/**
+ * Render the agents entry in the sidebar (without divider, for use in nav row).
+ * Shows three types of indicators:
+ * - Purple unread badge: number of unread assistant messages
+ * - Amber waiting badge: number of agents waiting for approval
+ * - Red error dot: agents with failed last execution
+ */
+function renderAgentsEntryWithoutDivider(
+  isActive: boolean,
+  unreadCount: number,
+  waitingCount: number,
+  errorsCount: number
+): string {
+  const unreadTooltip = unreadCount === 1 ? '1 unread message' : `${unreadCount} unread messages`;
+  const badge = unreadCount > 0 ? `<span class="unread-badge" title="${unreadTooltip}">${unreadCount > 99 ? '99+' : unreadCount}</span>` : '';
+  const waitingTooltip = waitingCount === 1 ? '1 agent waiting for approval' : `${waitingCount} agents waiting for approval`;
+  const waitingBadge = waitingCount > 0 ? `<span class="waiting-badge" title="${waitingTooltip}">${waitingCount > 99 ? '99+' : waitingCount}</span>` : '';
+  const errorTooltip = errorsCount === 1 ? '1 agent failed' : `${errorsCount} agents failed`;
+  const errorIndicator = errorsCount > 0 ? `<span class="error-indicator" title="${errorTooltip}"></span>` : '';
+  return `
+    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents">
+      <span class="agents-icon">${ROBOT_ICON}</span>
+      <span class="agents-label">Agents</span>
+      ${errorIndicator}${waitingBadge}${badge}
+    </div>
   `;
 }
 
@@ -68,13 +104,31 @@ export function renderConversationsList(): void {
     return;
   }
 
-  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView } = useStore.getState();
+  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, commandCenterData } = useStore.getState();
 
-  // Build planner entry HTML if applicable
-  const plannerHtml = shouldShowPlanner(user) ? renderPlannerEntry(isPlannerView) : '';
+  // Build navigation entries row (planner + agents side by side)
+  const showPlanner = shouldShowPlanner(user);
+  const showAgents = shouldShowAgents(user);
+  const agentUnreadCount = commandCenterData?.total_unread ?? 0;
+  const agentWaitingCount = commandCenterData?.agents_waiting ?? 0;
+  const agentErrorsCount = commandCenterData?.agents_with_errors ?? 0;
+
+  let navEntriesHtml = '';
+  if (showPlanner || showAgents) {
+    const plannerHtml = showPlanner ? renderPlannerEntry(isPlannerView) : '';
+    const agentsHtml = showAgents ? renderAgentsEntryWithoutDivider(isAgentsView, agentUnreadCount, agentWaitingCount, agentErrorsCount) : '';
+    // Use 'single' class when only one entry is shown
+    const rowClass = (showPlanner && showAgents) ? '' : ' single';
+    navEntriesHtml = `
+      <div class="sidebar-nav-row${rowClass}">
+        ${plannerHtml}${agentsHtml}
+      </div>
+      <div class="sidebar-divider"></div>
+    `;
+  }
 
   if (isLoading && conversations.length === 0) {
-    container.innerHTML = plannerHtml + `
+    container.innerHTML = navEntriesHtml + `
       <div class="conversations-loading">
         <div class="loading-spinner"></div>
       </div>
@@ -83,7 +137,7 @@ export function renderConversationsList(): void {
   }
 
   if (conversations.length === 0) {
-    container.innerHTML = plannerHtml + `
+    container.innerHTML = navEntriesHtml + `
       <div class="conversations-empty">
         <p>No conversations yet</p>
         <p class="text-muted">Start a new chat to begin</p>
@@ -94,7 +148,7 @@ export function renderConversationsList(): void {
 
   // Render conversations
   const conversationsHtml = conversations
-    .map((conv) => renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView))
+    .map((conv) => renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView && !isAgentsView))
     .join('');
 
   // Render loading indicator for "load more" if there are more pages
@@ -108,7 +162,7 @@ export function renderConversationsList(): void {
       </div>`
     : '';
 
-  container.innerHTML = plannerHtml + conversationsHtml + loadMoreHtml;
+  container.innerHTML = navEntriesHtml + conversationsHtml + loadMoreHtml;
 
   // Set up infinite scroll if not already set up
   setupInfiniteScroll(container);
@@ -256,6 +310,11 @@ export function setActiveConversation(convId: string | null): void {
     .querySelectorAll<HTMLDivElement>('.planner-entry.active')
     .forEach((el) => el.classList.remove('active'));
 
+  // Remove active from agents entry
+  document
+    .querySelectorAll<HTMLDivElement>('.agents-entry.active')
+    .forEach((el) => el.classList.remove('active'));
+
   // Add active to current conversation
   if (convId) {
     const wrapper = document.querySelector<HTMLDivElement>(
@@ -277,10 +336,37 @@ export function setPlannerActive(active: boolean): void {
     document
       .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
       .forEach((el) => el.classList.remove('active'));
+    // Remove active from agents
+    document
+      .querySelectorAll<HTMLDivElement>('.agents-entry.active')
+      .forEach((el) => el.classList.remove('active'));
     // Set planner as active
     plannerEntry.classList.add('active');
   } else {
     plannerEntry.classList.remove('active');
+  }
+}
+
+/**
+ * Set agents entry as active in sidebar
+ */
+export function setAgentsActive(active: boolean): void {
+  const agentsEntry = document.querySelector<HTMLDivElement>('.agents-entry');
+  if (!agentsEntry) return;
+
+  if (active) {
+    // Remove active from all conversations
+    document
+      .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
+      .forEach((el) => el.classList.remove('active'));
+    // Remove active from planner
+    document
+      .querySelectorAll<HTMLDivElement>('.planner-entry.active')
+      .forEach((el) => el.classList.remove('active'));
+    // Set agents as active
+    agentsEntry.classList.add('active');
+  } else {
+    agentsEntry.classList.remove('active');
   }
 }
 

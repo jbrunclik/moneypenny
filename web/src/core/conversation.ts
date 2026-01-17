@@ -5,7 +5,7 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { conversations, messages } from '../api/client';
+import { agents, conversations, messages } from '../api/client';
 import { toast } from '../components/Toast';
 import { showConfirm, showPrompt } from '../components/Modal';
 import {
@@ -47,6 +47,7 @@ import { getSyncManager } from '../sync/SyncManager';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { leavePlannerView } from './planner';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
+import { leaveAgentsView } from './agents';
 
 const log = createLogger('conversation');
 
@@ -116,7 +117,10 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   // Enable scroll-to-bottom for images that load after initial render
   enableScrollOnImageLoad();
 
-  renderMessages(conv.messages || []);
+  // Pass server's pending approval status if this is an agent conversation
+  renderMessages(conv.messages || [], {
+    hasPendingApproval: conv.has_pending_approval,
+  });
 
   // Set up scroll listener for loading older messages (if not a temp conversation)
   if (!isTempConversation(conv.id)) {
@@ -167,14 +171,29 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
 
 /**
  * Select a conversation.
+ *
+ * Uses the navigation token pattern for race condition prevention:
+ * 1. Call startNavigation() to get a token before async operations
+ * 2. After async completes, check isNavigationValid(token) before rendering
+ * 3. If invalid, another navigation started - abort without rendering
  */
 export async function selectConversation(convId: string): Promise<void> {
   const store = useStore.getState();
+
+  // Get navigation token to detect if user navigates to planner/agents during load
+  // This supplements pendingConversationId which only tracks conversation-to-conversation
+  // See docs/features/agents.md section "Routing Race Condition Prevention"
+  const navToken = store.startNavigation();
 
   // If we're in planner view, leave it first
   if (store.isPlannerView) {
     store.setIsPlannerView(false);
     setPlannerActive(false);
+  }
+
+  // If we're in agents view, leave it first (but don't clear messages - we'll load the conversation)
+  if (store.isAgentsView) {
+    leaveAgentsView(false);
   }
 
   // For temp conversations, just switch to them locally (no API call needed)
@@ -197,24 +216,31 @@ export async function selectConversation(convId: string): Promise<void> {
 
   try {
     const response = await conversations.get(convId);
-    hideConversationLoader();
 
     // IMPORTANT: Check if the user is still trying to view this conversation
     // During the API call, the user might have clicked "New Chat" or selected
     // a different conversation. If so, we should NOT switch to this conversation
     // as it would overwrite the current view with stale data.
     //
-    // We check pendingConversationId because:
-    // - If user clicked conv A, pendingConversationId = A
-    // - If user then clicked conv B while A is loading, pendingConversationId = B
-    // - When A's API returns, we check: is pendingConversationId still A? No → cancel
-    if (pendingConversationId !== convId) {
+    // We check two things:
+    // 1. pendingConversationId - detects conversation-to-conversation navigation
+    // 2. navigation token - detects navigation to planner/agents (generic pattern)
+    //
+    // The navigation token pattern works for any new screens:
+    // - Each navigation call increments the token
+    // - If token changed, another navigation started → cancel
+    if (pendingConversationId !== convId || !useStore.getState().isNavigationValid(navToken)) {
       log.debug('Conversation selection cancelled - user navigated away', {
         requestedId: convId,
         pendingId: pendingConversationId,
+        navToken,
       });
+      // Don't hide loader - another navigation may need it
       return;
     }
+
+    // Safe to hide loader now - this navigation will proceed
+    hideConversationLoader();
 
     // Store messages and pagination in the per-conversation Maps
     store.setMessages(convId, response.messages, response.message_pagination);
@@ -227,7 +253,33 @@ export async function selectConversation(convId: string): Promise<void> {
       created_at: response.created_at,
       updated_at: response.updated_at,
       messages: response.messages,
+      is_agent: response.is_agent,
+      agent_id: response.agent_id,
+      has_pending_approval: response.has_pending_approval,
     };
+
+    // Mark agent conversation as viewed to reset unread count
+    // Also track the agent for sync purposes
+    if (response.is_agent && response.agent_id) {
+      // Track agent for sync manager to detect external updates
+      getSyncManager()?.setViewedAgent(response.agent_id, response.message_pagination.total_count);
+
+      agents.markViewed(response.agent_id)
+        .then(() => {
+          // Refresh command center data to update badge counts
+          return agents.getCommandCenter();
+        })
+        .then((data) => {
+          store.setCommandCenterData(data);
+        })
+        .catch((err) => {
+          log.warn('Failed to mark agent as viewed', { agentId: response.agent_id, error: err });
+        });
+    } else {
+      // Not an agent conversation - clear any tracked agent
+      getSyncManager()?.setViewedAgent(null);
+    }
+
     // Pass total message count from pagination for correct sync behavior
     switchToConversation(conv, response.message_pagination.total_count);
   } catch (error) {
@@ -253,6 +305,14 @@ export function createConversation(): void {
     store.setIsPlannerView(false);
     setPlannerActive(false);
   }
+
+  // If we're in agents view, leave it first
+  if (store.isAgentsView) {
+    leaveAgentsView(false);
+  }
+
+  // Clear any tracked agent since we're starting a new conversation
+  getSyncManager()?.setViewedAgent(null);
 
   // Clear any pending conversation load - user clicked "New Chat"
   pendingConversationId = null;
@@ -499,7 +559,6 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
     try {
       showConversationLoader();
       const response = await conversations.get(conversationId);
-      hideConversationLoader();
 
       // Check if user navigated away during API call
       if (pendingConversationId !== conversationId) {
@@ -507,8 +566,12 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
           requestedId: conversationId,
           pendingId: pendingConversationId,
         });
+        // Don't hide loader - another navigation may need it
         return;
       }
+
+      // Safe to hide loader now - this navigation will proceed
+      hideConversationLoader();
 
       // Store messages and pagination
       store.setMessages(conversationId, response.messages, response.message_pagination);
@@ -539,7 +602,6 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
     try {
       showConversationLoader();
       const response = await conversations.get(conversationId);
-      hideConversationLoader();
 
       // Check if user navigated away during API call
       if (pendingConversationId !== conversationId) {
@@ -547,11 +609,17 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
           requestedId: conversationId,
           pendingId: pendingConversationId,
         });
+        // Don't hide loader - another navigation may need it
         return;
       }
 
+      // Safe to hide loader now - this navigation will proceed
+      hideConversationLoader();
+
       // Add conversation to store (it wasn't in the initial list)
       // This is important for sync manager to track it correctly
+      // Note: Don't add agent conversations to store - they're handled separately
+      // and would be detected as "deleted" by sync since they're not in the sync response
       const conv: Conversation = {
         id: response.id,
         title: response.title,
@@ -562,9 +630,11 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         // Set messageCount from pagination for sync manager
         messageCount: response.message_pagination.total_count,
       };
-      store.addConversation(conv);
+      if (!response.is_agent) {
+        store.addConversation(conv);
+        renderConversationsList();
+      }
       store.setMessages(conversationId, response.messages, response.message_pagination);
-      renderConversationsList();
 
       // Switch to the conversation
       switchToConversation(conv, response.message_pagination.total_count);
@@ -582,8 +652,8 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean): void {
-  log.debug('Deep link navigation', { conversationId, isPlanner });
+export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean): void {
+  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents });
   const store = useStore.getState();
 
   // Handle planner navigation - import dynamically to avoid circular dependency
@@ -594,9 +664,24 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
     return;
   }
 
+  // Handle agents navigation - import dynamically to avoid circular dependency
+  if (isAgents) {
+    import('./agents').then(({ navigateToAgents }) => {
+      navigateToAgents();
+    });
+    return;
+  }
+
   // If we were in planner view and navigating away, leave planner
   if (store.isPlannerView) {
     leavePlannerView();
+  }
+
+  // If we were in agents view and navigating away, leave agents
+  if (store.isAgentsView) {
+    import('./agents').then(({ leaveAgentsView }) => {
+      leaveAgentsView();
+    });
   }
 
   if (!conversationId) {

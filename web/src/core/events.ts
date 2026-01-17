@@ -15,6 +15,7 @@ import { resetSwipeStates } from '../gestures/swipe';
 
 import { createConversation, selectConversation, deleteConversation, renameConversation } from './conversation';
 import { navigateToPlanner } from './planner';
+import { navigateToAgents } from './agents';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent } from './file-actions';
 
 const log = createLogger('events');
@@ -86,6 +87,14 @@ export function setupEventListeners(): void {
     if (plannerEntry) {
       resetSwipeStates();
       navigateToPlanner();
+      return;
+    }
+
+    // Handle agents entry click
+    const agentsEntry = (e.target as HTMLElement).closest('.agents-entry');
+    if (agentsEntry) {
+      resetSwipeStates();
+      navigateToAgents();
       return;
     }
 

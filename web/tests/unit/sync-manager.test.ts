@@ -13,6 +13,25 @@ vi.mock('@/api/client', () => ({
   planner: {
     sync: vi.fn(),
   },
+  agents: {
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    getCommandCenter: vi.fn().mockResolvedValue({
+      agents: [],
+      pending_approvals: [],
+      recent_executions: [],
+      total_unread: 0,
+      agents_waiting: 0,
+      agents_with_errors: 0,
+    }),
+  },
+  aiAssist: {
+    parseSchedule: vi.fn(),
+    enhancePrompt: vi.fn(),
+  },
 }));
 
 // Mock the toast component
@@ -1387,6 +1406,204 @@ describe('SyncManager', () => {
 
       const updated = useStore.getState().conversations.find((c: Conversation) => c.id === 'conv-1');
       expect(updated?.hasExternalUpdate).toBe(true);
+    });
+  });
+});
+
+describe('Agent State Management', () => {
+  beforeEach(() => {
+    resetStore();
+    vi.clearAllMocks();
+  });
+
+  describe('clearAgentsState', () => {
+    it('resets commandCenterData to null on logout', () => {
+      // Set some command center data
+      useStore.getState().setCommandCenterData({
+        agents: [
+          {
+            id: 'agent-1',
+            name: 'Test Agent',
+            description: 'A test agent',
+            schedule: '0 9 * * *',
+            timezone: 'UTC',
+            enabled: true,
+            model: 'gemini-3-flash-preview',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+            conversation_id: 'conv-1',
+            unread_count: 5,
+            has_pending_approval: false,
+            has_error: false,
+          },
+        ],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 5,
+        agents_waiting: 0,
+        agents_with_errors: 0,
+      });
+
+      // Verify data is set
+      expect(useStore.getState().commandCenterData).not.toBeNull();
+      expect(useStore.getState().commandCenterData?.total_unread).toBe(5);
+
+      // Clear agents state (simulates logout)
+      useStore.getState().clearAgentsState();
+
+      // Verify commandCenterData is cleared
+      expect(useStore.getState().commandCenterData).toBeNull();
+    });
+
+    it('clears commandCenterLastFetch timestamp on logout', () => {
+      // Set command center data (also sets lastFetch)
+      useStore.getState().setCommandCenterData({
+        agents: [],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 0,
+        agents_waiting: 0,
+        agents_with_errors: 0,
+      });
+
+      // Verify lastFetch is set
+      expect(useStore.getState().commandCenterLastFetch).not.toBeNull();
+
+      // Clear agents state
+      useStore.getState().clearAgentsState();
+
+      // Verify lastFetch is also cleared
+      expect(useStore.getState().commandCenterLastFetch).toBeNull();
+    });
+  });
+
+  describe('setCommandCenterData', () => {
+    it('updates commandCenterData with new data', () => {
+      const data = {
+        agents: [
+          {
+            id: 'agent-1',
+            name: 'My Agent',
+            description: '',
+            schedule: '0 8 * * *',
+            timezone: 'America/New_York',
+            enabled: true,
+            model: 'gemini-3-flash-preview',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+            conversation_id: 'conv-1',
+            unread_count: 3,
+            has_pending_approval: true,
+            has_error: false,
+          },
+        ],
+        pending_approvals: [
+          {
+            id: 'approval-1',
+            agent_id: 'agent-1',
+            agent_name: 'My Agent',
+            description: 'Send email?',
+            tool_name: 'send_email',
+            created_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+        recent_executions: [],
+        total_unread: 3,
+        agents_waiting: 1,
+        agents_with_errors: 0,
+      };
+
+      useStore.getState().setCommandCenterData(data);
+
+      const state = useStore.getState();
+      expect(state.commandCenterData).toEqual(data);
+      expect(state.commandCenterData?.total_unread).toBe(3);
+      expect(state.commandCenterData?.agents_waiting).toBe(1);
+      expect(state.commandCenterData?.agents.length).toBe(1);
+      expect(state.commandCenterData?.pending_approvals.length).toBe(1);
+    });
+
+    it('updates timestamp when data is set', () => {
+      const before = Date.now();
+
+      useStore.getState().setCommandCenterData({
+        agents: [],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 0,
+        agents_waiting: 0,
+        agents_with_errors: 0,
+      });
+
+      const after = Date.now();
+      const lastFetch = useStore.getState().commandCenterLastFetch;
+
+      expect(lastFetch).not.toBeNull();
+      expect(lastFetch).toBeGreaterThanOrEqual(before);
+      expect(lastFetch).toBeLessThanOrEqual(after);
+    });
+
+    it('sets timestamp to null when data is null', () => {
+      // First set some data
+      useStore.getState().setCommandCenterData({
+        agents: [],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 0,
+        agents_waiting: 0,
+        agents_with_errors: 0,
+      });
+
+      // Verify it's set
+      expect(useStore.getState().commandCenterLastFetch).not.toBeNull();
+
+      // Set to null
+      useStore.getState().setCommandCenterData(null);
+
+      // Both should be null
+      expect(useStore.getState().commandCenterData).toBeNull();
+      expect(useStore.getState().commandCenterLastFetch).toBeNull();
+    });
+  });
+
+  describe('agent badge counts from commandCenterData', () => {
+    it('provides unread count from total_unread', () => {
+      useStore.getState().setCommandCenterData({
+        agents: [],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 10,
+        agents_waiting: 0,
+        agents_with_errors: 0,
+      });
+
+      expect(useStore.getState().commandCenterData?.total_unread).toBe(10);
+    });
+
+    it('provides waiting count from agents_waiting', () => {
+      useStore.getState().setCommandCenterData({
+        agents: [],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 0,
+        agents_waiting: 2,
+        agents_with_errors: 0,
+      });
+
+      expect(useStore.getState().commandCenterData?.agents_waiting).toBe(2);
+    });
+
+    it('provides error count from agents_with_errors', () => {
+      useStore.getState().setCommandCenterData({
+        agents: [],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 0,
+        agents_waiting: 0,
+        agents_with_errors: 1,
+      });
+
+      expect(useStore.getState().commandCenterData?.agents_with_errors).toBe(1);
     });
   });
 });

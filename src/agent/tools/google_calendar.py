@@ -9,6 +9,7 @@ import requests
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.permission_check import check_autonomous_permission
 from src.auth.google_calendar import (
     GoogleCalendarAuthError,
 )
@@ -564,6 +565,9 @@ def google_calendar(
                 "message": "Ask the user to connect Google Calendar in Settings first.",
             }
         )
+
+    # Check permission for autonomous agents (write operations require approval)
+    check_autonomous_permission("google_calendar", {"operation": action})
 
     token, calendar_email = token_info
     calendar_id = calendar_id or "primary"

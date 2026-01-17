@@ -1,0 +1,29 @@
+# Systemd user service for AI Chatbot agent scheduler
+# Install to: ~/.config/systemd/user/ai-chatbot-agent-scheduler.service
+# This service is triggered by ai-chatbot-agent-scheduler.timer
+
+[Unit]
+Description=AI Chatbot - Autonomous agent scheduler
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/ai-chatbot
+ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/run_agent_scheduler.py
+Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+# Load environment from .env file (for database paths, API keys)
+EnvironmentFile=%h/src/ai-chatbot/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Don't restart on failure (timer will retry next minute)
+Restart=no
+
+# Timeout after 5 minutes (agents may take time to execute)
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

@@ -92,6 +92,11 @@ test.describe('Visual: Search Results', () => {
   });
 
   test('search results list', async ({ page }) => {
+    // Use fixed dates for deterministic visual tests (avoid timestamp variations)
+    const fixedDate = '2025-01-15T10:00:00Z';
+    const oneDayAgo = '2025-01-14T10:00:00Z';
+    const twoDaysAgo = '2025-01-13T10:00:00Z';
+
     // Set mock search results
     await page.request.post('/test/set-search-results', {
       data: {
@@ -103,7 +108,7 @@ test.describe('Visual: Search Results', () => {
             message_snippet:
               'Learning about [[HIGHLIGHT]]Python[[/HIGHLIGHT]] programming and data science',
             match_type: 'message',
-            created_at: new Date().toISOString(),
+            created_at: fixedDate,
           },
           {
             conversation_id: 'conv-2',
@@ -112,7 +117,7 @@ test.describe('Visual: Search Results', () => {
             message_snippet:
               'Understanding machine learning with [[HIGHLIGHT]]Python[[/HIGHLIGHT]] and TensorFlow',
             match_type: 'message',
-            created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+            created_at: oneDayAgo,
           },
           {
             conversation_id: 'conv-3',
@@ -120,7 +125,7 @@ test.describe('Visual: Search Results', () => {
             message_id: null,
             message_snippet: null,
             match_type: 'conversation',
-            created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+            created_at: twoDaysAgo,
           },
         ],
         total: 3,
@@ -142,6 +147,9 @@ test.describe('Visual: Search Results', () => {
   });
 
   test('search result with highlighted snippet', async ({ page }) => {
+    // Use fixed date for deterministic visual tests
+    const fixedDate = '2025-01-15T10:00:00Z';
+
     // Set mock search results with highlighted text
     await page.request.post('/test/set-search-results', {
       data: {
@@ -153,7 +161,7 @@ test.describe('Visual: Search Results', () => {
             message_snippet:
               'This is a [[HIGHLIGHT]]highlighted[[/HIGHLIGHT]] search result with matched text',
             match_type: 'message',
-            created_at: new Date().toISOString(),
+            created_at: fixedDate,
           },
         ],
         total: 1,
@@ -222,8 +230,11 @@ test.describe('Visual: Sidebar with Search', () => {
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
     // Screenshot normal state (conversation list visible)
+    // Allow small pixel tolerance for dynamic timestamps from created conversation
     await page.waitForTimeout(300);
-    await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-normal-mode.png');
+    await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-normal-mode.png', {
+      maxDiffPixelRatio: 0.02,
+    });
 
     // Activate search mode
     const searchInput = page.locator('#search-input');
@@ -233,14 +244,18 @@ test.describe('Visual: Sidebar with Search', () => {
     // Wait for debounce and results
     await page.waitForTimeout(500);
 
-    // Screenshot search mode
-    await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-search-mode.png');
+    // Screenshot search mode - allow small pixel tolerance for dynamic timestamps
+    await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-search-mode.png', {
+      maxDiffPixelRatio: 0.02, // Allow 2% difference for timestamp variations
+    });
 
     // Press escape to deactivate search
     await searchInput.press('Escape');
     await page.waitForTimeout(300);
 
     // Screenshot should be back to normal
-    await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-after-search.png');
+    await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-after-search.png', {
+      maxDiffPixelRatio: 0.02,
+    });
   });
 });

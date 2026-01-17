@@ -329,12 +329,20 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     # Thumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail
     optimized_messages = _optimize_messages_for_response(messages)
 
+    # Check if this is an agent conversation with pending approval
+    has_pending_approval = False
+    if conv.is_agent and conv.agent_id:
+        has_pending_approval = db.has_pending_approval(conv.agent_id)
+
     return {
         "id": conv.id,
         "title": conv.title,
         "model": conv.model,
         "created_at": conv.created_at.isoformat(),
         "updated_at": conv.updated_at.isoformat(),
+        "is_agent": conv.is_agent,
+        "agent_id": conv.agent_id,
+        "has_pending_approval": has_pending_approval,
         "messages": optimized_messages,
         "message_pagination": {
             "older_cursor": pagination.older_cursor,

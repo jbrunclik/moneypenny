@@ -15,11 +15,15 @@ Usage:
 
 from pathlib import Path
 
+from src.db.models.agent import AgentMixin
 from src.db.models.base import DatabaseBase
 from src.db.models.cache import CacheMixin
 from src.db.models.conversation import ConversationMixin
 from src.db.models.cost import CostMixin
 from src.db.models.dataclasses import (
+    Agent,
+    AgentExecution,
+    ApprovalRequest,
     Conversation,
     Memory,
     Message,
@@ -58,6 +62,7 @@ class Database(
     CostMixin,
     SearchMixin,
     SettingsMixin,
+    AgentMixin,
 ):
     """Main database class combining all mixins.
 
@@ -90,6 +95,9 @@ __all__ = [
     "Memory",
     "MessagePagination",
     "SearchResult",
+    "Agent",
+    "ApprovalRequest",
+    "AgentExecution",
     # Helper functions
     "make_blob_key",
     "make_thumbnail_key",

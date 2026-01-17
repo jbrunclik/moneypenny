@@ -10,7 +10,7 @@
  * - Visibility-aware polling (pauses when tab hidden)
  */
 
-import { conversations as conversationsApi, planner as plannerApi } from '../api/client';
+import { conversations as conversationsApi, planner as plannerApi, agents as agentsApi } from '../api/client';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
@@ -36,6 +36,8 @@ export interface SyncManagerCallbacks {
   onPlannerReset?: () => void;
   /** Called when the planner has new messages from another tab/device */
   onPlannerExternalUpdate?: (messageCount: number) => void;
+  /** Called when an agent conversation has new messages from another tab/device */
+  onAgentConversationExternalUpdate?: (messageCount: number) => void;
 }
 
 /**
@@ -82,6 +84,16 @@ export class SyncManager {
    * Tracks planner last reset timestamp for reset detection.
    */
   private plannerLastReset: string | null = null;
+
+  /**
+   * Tracks the agent ID being viewed (for agent conversation sync).
+   */
+  private viewedAgentId: string | null = null;
+
+  /**
+   * Tracks agent conversation message count for sync.
+   */
+  private agentConversationMessageCount: number | null = null;
 
   constructor(callbacks: SyncManagerCallbacks) {
     this.callbacks = callbacks;
@@ -146,6 +158,10 @@ export class SyncManager {
     this.localMessageCounts.clear();
     this.streamingConversations.clear();
     this.isSyncing = false;
+    this.plannerMessageCount = null;
+    this.plannerLastReset = null;
+    this.viewedAgentId = null;
+    this.agentConversationMessageCount = null;
   }
 
   /**
@@ -201,6 +217,9 @@ export class SyncManager {
         conversationCount: result.conversations.length,
         serverTime: result.server_time,
       });
+
+      // Also sync command center to show badges immediately
+      await this.syncCommandCenter();
     } catch (error) {
       log.warn('Full sync failed', { error });
       // Don't throw - syncing is best-effort
@@ -244,6 +263,12 @@ export class SyncManager {
 
       // Additionally sync planner if user has integrations
       await this.syncPlanner();
+
+      // Sync agent conversation if viewing one
+      await this.syncAgentConversation();
+
+      // Sync command center to keep badges updated
+      await this.syncCommandCenter();
     } catch (error) {
       log.warn('Incremental sync failed', { error });
       // Don't throw - syncing is best-effort
@@ -655,6 +680,102 @@ export class SyncManager {
       this.plannerLastReset = last_reset;
     } catch (error) {
       log.warn('Planner sync failed', { error });
+      // Don't throw - syncing is best-effort
+    }
+  }
+
+  /**
+   * Sync agent conversation state to detect external updates.
+   * This runs separately from normal conversation sync since agent conversations
+   * are excluded from regular sync (have is_agent=1 flag).
+   */
+  private async syncAgentConversation(): Promise<void> {
+    // Skip if not viewing an agent conversation
+    if (!this.viewedAgentId) {
+      return;
+    }
+
+    // Skip if the agent conversation is currently streaming
+    const store = useStore.getState();
+    const currentConv = store.currentConversation;
+    if (currentConv && this.streamingConversations.has(currentConv.id)) {
+      log.debug('Skipping agent sync - conversation is streaming');
+      return;
+    }
+
+    try {
+      const response = await agentsApi.syncConversation(this.viewedAgentId);
+
+      if (!response.conversation) {
+        // Agent conversation doesn't exist
+        log.debug('Agent conversation not found', { agentId: this.viewedAgentId });
+        return;
+      }
+
+      const { message_count } = response.conversation;
+
+      // Check for new messages (message count increased)
+      if (this.agentConversationMessageCount !== null && message_count > this.agentConversationMessageCount) {
+        // New messages added in another tab/device
+        log.info('Agent conversation has new messages', {
+          agentId: this.viewedAgentId,
+          previousCount: this.agentConversationMessageCount,
+          newCount: message_count,
+        });
+        this.callbacks.onAgentConversationExternalUpdate?.(message_count);
+      }
+
+      // Update tracking state
+      this.agentConversationMessageCount = message_count;
+    } catch (error) {
+      log.warn('Agent conversation sync failed', { error, agentId: this.viewedAgentId });
+      // Don't throw - syncing is best-effort
+    }
+  }
+
+  /**
+   * Set the agent being viewed for sync tracking.
+   * Call this when entering/leaving an agent conversation.
+   *
+   * @param agentId The agent ID being viewed, or null when leaving
+   * @param messageCount The current message count (to establish baseline)
+   */
+  setViewedAgent(agentId: string | null, messageCount?: number): void {
+    if (agentId) {
+      this.viewedAgentId = agentId;
+      this.agentConversationMessageCount = messageCount ?? null;
+      log.debug('Set viewed agent', { agentId, messageCount });
+    } else {
+      this.viewedAgentId = null;
+      this.agentConversationMessageCount = null;
+      log.debug('Cleared viewed agent');
+    }
+  }
+
+  /**
+   * Sync command center data to keep sidebar badges updated.
+   * This fetches the latest command center summary and updates the store.
+   */
+  private async syncCommandCenter(): Promise<void> {
+    try {
+      const data = await agentsApi.getCommandCenter();
+      const store = useStore.getState();
+
+      // Only update if values changed (to avoid unnecessary re-renders)
+      const currentData = store.commandCenterData;
+      if (!currentData ||
+          currentData.total_unread !== data.total_unread ||
+          currentData.agents_waiting !== data.agents_waiting ||
+          currentData.agents_with_errors !== data.agents_with_errors) {
+        store.setCommandCenterData(data);
+        log.debug('Command center sync updated', {
+          totalUnread: data.total_unread,
+          agentsWaiting: data.agents_waiting,
+          agentsWithErrors: data.agents_with_errors,
+        });
+      }
+    } catch (error) {
+      log.warn('Command center sync failed', { error });
       // Don't throw - syncing is best-effort
     }
   }

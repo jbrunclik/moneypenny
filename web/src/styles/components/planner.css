@@ -17,8 +17,9 @@
     padding: var(--space-3);
     cursor: pointer;
     border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
     color: var(--text-primary);
-    transition: background-color var(--transition-fast);
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
     background-color: var(--bg-secondary);
 }
 
@@ -46,6 +47,51 @@
 .planner-label {
     font-size: var(--font-size-base);
     font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ----------------------------------------
+   Sidebar Navigation Row
+   ----------------------------------------
+   Displays planner and agents entries side by side.
+   When only one entry is shown (.single), it takes full width.
+
+   When both are shown, use compact layout (icons only).
+   When single, show full label.
+*/
+
+.sidebar-nav-row {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.sidebar-nav-row .planner-entry,
+.sidebar-nav-row .agents-entry {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+}
+
+/* When both are shown (not single), hide labels for compact display */
+.sidebar-nav-row:not(.single) .planner-label,
+.sidebar-nav-row:not(.single) .agents-label {
+    display: none;
+}
+
+/* When only one entry is shown, show full label */
+.sidebar-nav-row.single .planner-entry,
+.sidebar-nav-row.single .agents-entry {
+    flex: 1;
+    justify-content: flex-start;
+}
+
+.sidebar-nav-row.single .planner-label,
+.sidebar-nav-row.single .agents-label {
+    display: block;
 }
 
 .sidebar-divider {

@@ -194,6 +194,12 @@ def create_app() -> APIFlask:
     def static_files(path: str) -> Response:
         return send_from_directory(app.static_folder or "static", path)
 
+    # Start dev scheduler in development mode
+    if Config.is_development():
+        from src.agent.dev_scheduler import start_dev_scheduler
+
+        start_dev_scheduler()
+
     return app
 
 

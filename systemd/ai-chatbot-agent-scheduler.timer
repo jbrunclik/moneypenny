@@ -1,0 +1,18 @@
+# Systemd timer for AI Chatbot agent scheduler
+# Install to: ~/.config/systemd/user/ai-chatbot-agent-scheduler.timer
+# Enable with: systemctl --user enable ai-chatbot-agent-scheduler.timer
+# Check status: systemctl --user list-timers
+
+[Unit]
+Description=Run autonomous agents on their scheduled times
+
+[Timer]
+# Run every minute to check for due agents
+OnCalendar=*:*:00
+# Run immediately if we missed a scheduled run (e.g., system was off)
+Persistent=true
+# Start 30 seconds after boot to allow system to stabilize
+OnBootSec=30
+
+[Install]
+WantedBy=timers.target

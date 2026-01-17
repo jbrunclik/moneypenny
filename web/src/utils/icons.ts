@@ -146,6 +146,15 @@ export const CLOCK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 </svg>`;
 
 /**
+ * History icon (clock with rotate arrow)
+ */
+export const HISTORY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+  <path d="M3 3v5h5"/>
+  <path d="M12 7v5l4 2"/>
+</svg>`;
+
+/**
  * Sunrise icon (for tomorrow/new day)
  */
 export const SUNRISE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -390,4 +399,58 @@ export const CLEAR_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentC
   <path d="M3 6h18"/>
   <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
   <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+</svg>`;
+
+/**
+ * Robot icon (for autonomous agents)
+ */
+export const ROBOT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="11" width="18" height="10" rx="2"/>
+  <circle cx="12" cy="5" r="2"/>
+  <path d="M12 7v4"/>
+  <line x1="8" y1="16" x2="8" y2="16"/>
+  <line x1="16" y1="16" x2="16" y2="16"/>
+</svg>`;
+
+/**
+ * Menu/hamburger icon
+ */
+export const MENU_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="3" y1="12" x2="21" y2="12"/>
+  <line x1="3" y1="6" x2="21" y2="6"/>
+  <line x1="3" y1="18" x2="21" y2="18"/>
+</svg>`;
+
+/**
+ * Command center icon (dashboard/grid)
+ */
+export const COMMAND_CENTER_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="3" width="7" height="7"/>
+  <rect x="14" y="3" width="7" height="7"/>
+  <rect x="14" y="14" width="7" height="7"/>
+  <rect x="3" y="14" width="7" height="7"/>
+</svg>`;
+
+/**
+ * Play icon (for manual trigger)
+ */
+export const PLAY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polygon points="5 3 19 12 5 21 5 3"/>
+</svg>`;
+
+/**
+ * Chain link icon (for agent chain triggers)
+ */
+export const CHAIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+</svg>`;
+
+/**
+ * Image icon (for image generation)
+ */
+export const IMAGE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+  <circle cx="8.5" cy="8.5" r="1.5"/>
+  <path d="M21 15l-5-5L5 21"/>
 </svg>`;

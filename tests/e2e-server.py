@@ -102,6 +102,8 @@ DEFAULT_CONFIG = {
     "planner_todoist_connected": False,
     "planner_calendar_connected": False,
     "planner_dashboard": None,  # Custom dashboard data
+    # Agents mock config
+    "agents_command_center": None,  # Custom command center data
 }
 
 # Global storage for isolated configs
@@ -139,6 +141,9 @@ class ContextAwareConfig:
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._get_current().get(key, default)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._get_current()
 
     def copy(self) -> dict[str, Any]:
         return self._get_current().copy()
@@ -818,6 +823,108 @@ def main() -> None:
             MOCK_CONFIG["planner_dashboard"] = None
             return {"status": "cleared"}, 200
 
+        # =============================================================================
+        # Agents test routes
+        # =============================================================================
+
+        @test_bp.route("/test/set-agents-command-center", methods=["POST"])
+        def set_agents_command_center() -> tuple[dict[str, Any], int]:
+            """Set custom agents command center data for testing."""
+            from flask import request
+
+            data = request.get_json() or {}
+            MOCK_CONFIG["agents_command_center"] = data.get("command_center")
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/clear-agents-config", methods=["POST"])
+        def clear_agents_config() -> tuple[dict[str, str], int]:
+            """Clear agents mock config to restore defaults."""
+            MOCK_CONFIG["agents_command_center"] = None
+            MOCK_CONFIG["agents_by_id"] = {}
+            return {"status": "cleared"}, 200
+
+        @test_bp.route("/test/set-agent", methods=["POST"])
+        def set_agent() -> tuple[dict[str, Any], int]:
+            """Set individual agent data for testing GET /api/agents/:id."""
+            from flask import request
+
+            data = request.get_json() or {}
+            agent_id = data.get("id")
+            if not agent_id:
+                return {"error": "Agent ID required"}, 400
+
+            if "agents_by_id" not in MOCK_CONFIG:
+                MOCK_CONFIG["agents_by_id"] = {}
+            MOCK_CONFIG["agents_by_id"][agent_id] = data
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/seed-agent-with-approval", methods=["POST"])
+        def seed_agent_with_approval() -> tuple[dict[str, Any], int]:
+            """Seed an agent with a conversation containing a pending approval message.
+
+            This is used to test the input blocking when a conversation has a pending approval.
+            """
+            from flask import request
+
+            data = request.get_json() or {}
+            agent_name = data.get("name", "Test Agent")
+            approval_description = data.get("description", "Add task: Buy groceries")
+            tool_name = data.get("tool_name", "todoist_add_task")
+
+            # Get or create the test user
+            user = g.db.get_or_create_user(
+                email="local@localhost",
+                name="Local User",
+            )
+
+            # Create the agent using the proper method
+            agent = g.db.create_agent(
+                user_id=user.id,
+                name=agent_name,
+                description="Test agent for E2E",
+                system_prompt="You are a test agent.",
+                enabled=True,
+            )
+
+            # Add trigger message
+            from datetime import datetime
+
+            now = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+            g.db.add_message(
+                conversation_id=agent.conversation_id,
+                role="user",
+                content=f"[Manual trigger at {now} UTC]",
+            )
+
+            # Create the pending approval using the proper method
+            approval = g.db.create_approval_request(
+                agent_id=agent.id,
+                user_id=user.id,
+                tool_name=tool_name,
+                tool_args="{}",
+                description=approval_description,
+            )
+
+            # Add approval request message with explicit \n to ensure pattern matching works
+            approval_content = (
+                f"[approval-request:{approval.id}]\n"
+                f"I need your permission to: **{approval_description}**\n\n"
+                f"Tool: `{tool_name}`\n\n"
+                f"Please approve or reject this action."
+            )
+            g.db.add_message(
+                conversation_id=agent.conversation_id,
+                role="assistant",
+                content=approval_content,
+            )
+
+            return {
+                "status": "seeded",
+                "agent_id": agent.id,
+                "conversation_id": agent.conversation_id,
+                "approval_id": approval.id,
+            }, 200
+
         app.register_blueprint(test_bp)
 
         # Override search endpoint using before_request to intercept /api/search
@@ -1006,6 +1113,32 @@ def main() -> None:
                         "needs_reconnect": False,
                     }
                 )
+
+            # Intercept /api/agents/command-center for agents testing
+            if request.path == "/api/agents/command-center" and request.method == "GET":
+                if MOCK_CONFIG.get("agents_command_center"):
+                    return jsonify(MOCK_CONFIG["agents_command_center"])
+                # Return default empty command center
+                return jsonify(
+                    {
+                        "pending_approvals": [],
+                        "agents": [],
+                        "recent_executions": [],
+                        "total_unread": 0,
+                        "agents_waiting": 0,
+                    }
+                )
+
+            # Intercept /api/agents/:id for individual agent testing
+            import re
+
+            agent_match = re.match(r"^/api/agents/([a-zA-Z0-9_-]+)$", request.path)
+            if agent_match and request.method == "GET":
+                agent_id = agent_match.group(1)
+                agents_by_id = MOCK_CONFIG.get("agents_by_id", {})
+                if agent_id in agents_by_id:
+                    return jsonify(agents_by_id[agent_id])
+                # Fall through to real endpoint if no mock data
 
             return None
 

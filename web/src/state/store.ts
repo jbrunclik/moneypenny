@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type {
+  Agent,
+  CommandCenterResponse,
   Conversation,
   ConversationsPagination,
   FileUpload,
@@ -116,11 +118,23 @@ interface AppState {
   isSearchActive: boolean; // True when search UI is shown (even with empty query)
   viewedSearchResultId: number | null; // Index of currently viewed search result (unique per result list)
 
+  // Navigation state
+  // navigationToken is incremented on each navigation to detect stale async operations
+  // When an async operation completes, it compares its starting token to the current one
+  // If they differ, the user navigated away and the operation should be cancelled
+  navigationToken: number;
+
   // Planner state
   plannerDashboard: PlannerDashboard | null;
   plannerConversation: PlannerConversation | null;
   plannerDashboardLastFetch: number | null; // Timestamp for cache invalidation
   isPlannerView: boolean;
+
+  // Agents state
+  agents: Agent[];
+  commandCenterData: CommandCenterResponse | null;
+  commandCenterLastFetch: number | null; // Timestamp for cache invalidation
+  isAgentsView: boolean;
 
   // Actions - Auth
   setToken: (token: string | null) => void;
@@ -198,12 +212,31 @@ interface AppState {
   clearSearch: () => void;
   setViewedSearchResult: (resultIndex: number | null) => void;
 
+  // Actions - Navigation
+  // Increment navigation token when starting a new navigation.
+  // Returns the new token which should be stored and checked after async operations.
+  // See docs/features/agents.md for details on the navigation race condition pattern.
+  startNavigation: () => number;
+  // Check if a navigation token is still valid (matches current token).
+  // Returns true if the navigation should proceed, false if cancelled.
+  isNavigationValid: (token: number) => boolean;
+
   // Actions - Planner
   setPlannerDashboard: (dashboard: PlannerDashboard | null) => void;
   setPlannerConversation: (conversation: PlannerConversation | null) => void;
   setIsPlannerView: (active: boolean) => void;
   invalidatePlannerCache: () => void;
   clearPlannerState: () => void;
+
+  // Actions - Agents
+  setAgents: (agents: Agent[]) => void;
+  addAgent: (agent: Agent) => void;
+  updateAgent: (id: string, updates: Partial<Agent>) => void;
+  removeAgent: (id: string) => void;
+  setCommandCenterData: (data: CommandCenterResponse | null) => void;
+  setIsAgentsView: (active: boolean) => void;
+  invalidateCommandCenterCache: () => void;
+  clearAgentsState: () => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -267,11 +300,20 @@ export const useStore = create<AppState>()(
       isSearchActive: false,
       viewedSearchResultId: null,
 
+      // Navigation state - token for detecting stale async operations
+      navigationToken: 0,
+
       // Planner state
       plannerDashboard: null,
       plannerConversation: null,
       plannerDashboardLastFetch: null,
       isPlannerView: false,
+
+      // Agents state
+      agents: [],
+      commandCenterData: null,
+      commandCenterLastFetch: null,
+      isAgentsView: false,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -583,6 +625,15 @@ export const useStore = create<AppState>()(
       clearSearch: () => set({ searchQuery: '', searchResults: [], searchTotal: 0, isSearching: false, isSearchActive: false, viewedSearchResultId: null }),
       setViewedSearchResult: (viewedSearchResultId) => set({ viewedSearchResultId }),
 
+      // Navigation actions - for race condition prevention
+      // See docs/features/agents.md section "Routing Race Condition Prevention"
+      startNavigation: () => {
+        const newToken = get().navigationToken + 1;
+        set({ navigationToken: newToken });
+        return newToken;
+      },
+      isNavigationValid: (token) => get().navigationToken === token,
+
       // Planner actions
       setPlannerDashboard: (plannerDashboard) =>
         set({ plannerDashboard, plannerDashboardLastFetch: plannerDashboard ? Date.now() : null }),
@@ -595,6 +646,34 @@ export const useStore = create<AppState>()(
           plannerConversation: null,
           plannerDashboardLastFetch: null,
           isPlannerView: false,
+        }),
+
+      // Agents actions
+      setAgents: (agents) => set({ agents }),
+      addAgent: (agent) =>
+        set((state) => ({
+          agents: [agent, ...state.agents],
+        })),
+      updateAgent: (id, updates) =>
+        set((state) => ({
+          agents: state.agents.map((a) =>
+            a.id === id ? { ...a, ...updates } : a
+          ),
+        })),
+      removeAgent: (id) =>
+        set((state) => ({
+          agents: state.agents.filter((a) => a.id !== id),
+        })),
+      setCommandCenterData: (commandCenterData) =>
+        set({ commandCenterData, commandCenterLastFetch: commandCenterData ? Date.now() : null }),
+      setIsAgentsView: (isAgentsView) => set({ isAgentsView }),
+      invalidateCommandCenterCache: () => set({ commandCenterLastFetch: null }),
+      clearAgentsState: () =>
+        set({
+          agents: [],
+          commandCenterData: null,
+          commandCenterLastFetch: null,
+          isAgentsView: false,
         }),
     }),
     {

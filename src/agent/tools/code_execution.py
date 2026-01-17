@@ -9,6 +9,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -392,6 +393,9 @@ def execute_code(code: str) -> str:
         JSON with stdout, stderr, exit_code, and any generated files.
         Files saved to /output/ are returned as base64-encoded data.
     """
+    # Check permission for autonomous agents (always requires approval)
+    check_autonomous_permission("execute_code", {"code": code})
+
     # Check if sandbox is available
     if not Config.CODE_SANDBOX_ENABLED:
         return json.dumps({"error": "Code execution is disabled on this server."})

@@ -42,9 +42,23 @@ const log = createLogger('planner');
  * The planner reuses the existing messages container and input area.
  * Dashboard is rendered as a special element at the top that scrolls with messages.
  */
+/**
+ * Navigate to the planner view.
+ * The planner reuses the existing messages container and input area.
+ * Dashboard is rendered as a special element at the top that scrolls with messages.
+ *
+ * Uses the navigation token pattern for race condition prevention:
+ * 1. Call startNavigation() to get a token before async operations
+ * 2. After async completes, check isNavigationValid(token) before rendering
+ * 3. If invalid, another navigation started - abort without rendering
+ */
 export async function navigateToPlanner(forceRefresh: boolean = false): Promise<void> {
   log.info('Navigating to planner', { forceRefresh });
   const store = useStore.getState();
+
+  // Get navigation token to detect if user navigates away during async operations
+  // See docs/features/agents.md section "Routing Race Condition Prevention"
+  const navToken = store.startNavigation();
 
   // Clean up UI state from previous conversation (mirrors switchToConversation behavior)
   // This prevents stale state when switching to planner while another conversation is active
@@ -57,6 +71,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
 
   // Update state
   store.setIsPlannerView(true);
+  store.setIsAgentsView(false); // Ensure agents view is off
   setActiveConversation(null);
   setPlannerActive(true);
   setPlannerHash();
@@ -106,6 +121,14 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
       needsDashboardRefresh ? planner.getDashboard(forceRefresh) : Promise.resolve(store.plannerDashboard!),
       planner.getConversation(),
     ]);
+
+    // Check if user navigated away during the async fetch
+    // This prevents a race condition where planner data renders on agents view
+    // Uses navigation token pattern - if token changed, another navigation started
+    if (!useStore.getState().isNavigationValid(navToken)) {
+      log.info('User navigated away from planner during load, aborting render', { navToken });
+      return;
+    }
 
     // Update store
     if (needsDashboardRefresh) {

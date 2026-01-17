@@ -11,6 +11,9 @@ from flask import Response
 
 from src.agent.agent import ChatAgent, generate_title
 from src.agent.content import extract_metadata_from_response
+
+# Agent context imports for interactive agent conversations
+from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, set_current_message_files
 from src.api.errors import (
@@ -77,6 +80,18 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
         raise_not_found_error("Conversation")
+
+    # Block sending messages to agent conversations with pending approvals
+    if conv.is_agent and conv.agent_id:
+        if db.has_pending_approval(conv.agent_id):
+            logger.warning(
+                "Attempted to send message to agent with pending approval",
+                extra={"user_id": user.id, "conversation_id": conv_id, "agent_id": conv.agent_id},
+            )
+            raise_validation_error(
+                "Cannot send messages while an action is awaiting approval. "
+                "Please approve or reject the pending action first."
+            )
 
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
@@ -183,8 +198,47 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             # Set initial dashboard context for potential refresh_planner_dashboard tool calls
             _planner_dashboard_context.set(dashboard_data)
 
+        # Check if this is an agent conversation - apply agent's tool permissions
+        is_autonomous = False
+        agent_context = None
+        if conv.is_agent and conv.agent_id:
+            agent_record = db.get_agent(conv.agent_id, user.id)
+            if agent_record:
+                logger.debug(
+                    "Interactive agent conversation - applying tool permissions",
+                    extra={
+                        "user_id": user.id,
+                        "conversation_id": conv_id,
+                        "agent_id": agent_record.id,
+                        "tool_permissions": agent_record.tool_permissions,
+                    },
+                )
+                # Set up agent context for permission checks
+                agent_execution_context = AgentContext(
+                    agent=agent_record,
+                    user=user,
+                    trigger_chain=[agent_record.id],
+                )
+                set_agent_context(agent_execution_context)
+                is_autonomous = True
+                # Build agent context for the ChatAgent (for tool filtering)
+                # Note: tool_permissions=None means all tools, [] means no tools
+                agent_context = {
+                    "name": agent_record.name,
+                    "description": agent_record.description,
+                    "schedule": agent_record.schedule,
+                    "timezone": agent_record.timezone,
+                    "goals": agent_record.system_prompt,
+                    "tools": agent_record.tool_permissions,
+                    "trigger_type": "interactive",
+                }
+
         agent = ChatAgent(
-            model_name=conv.model, anonymous_mode=anonymous_mode, is_planning=conv.is_planning
+            model_name=conv.model,
+            anonymous_mode=anonymous_mode,
+            is_planning=conv.is_planning,
+            is_autonomous=is_autonomous,
+            agent_context=agent_context,
         )
         raw_response, tool_results, usage_info = agent.chat_batch(
             message_text,
@@ -205,6 +259,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         set_current_request_id(None)  # Clean up
         set_current_message_files(None)  # Clean up
         set_conversation_context(None, None)  # Clean up
+        if is_autonomous:
+            clear_agent_context()  # Clean up agent context
 
         logger.debug(
             "Chat agent completed",
@@ -415,6 +471,18 @@ def chat_stream(
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
         raise_not_found_error("Conversation")
+
+    # Block sending messages to agent conversations with pending approvals
+    if conv.is_agent and conv.agent_id:
+        if db.has_pending_approval(conv.agent_id):
+            logger.warning(
+                "Attempted to send message to agent with pending approval",
+                extra={"user_id": user.id, "conversation_id": conv_id, "agent_id": conv.agent_id},
+            )
+            raise_validation_error(
+                "Cannot send messages while an action is awaiting approval. "
+                "Please approve or reject the pending action first."
+            )
 
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts

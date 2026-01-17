@@ -487,3 +487,101 @@ class TestSyncTimestampEdgeCases:
         # conv1 should be first (most recently updated)
         assert data["conversations"][0]["id"] == conv1.id
         assert data["conversations"][1]["id"] == conv2.id
+
+
+class TestSyncAgentConversationExclusion:
+    """Tests for agent conversation exclusion from sync."""
+
+    def test_sync_excludes_agent_conversations(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """Sync should exclude agent conversations (is_agent=1)."""
+        # Create a regular conversation
+        regular_conv = test_database.create_conversation(test_user.id, "Regular Conv")
+        test_database.add_message(regular_conv.id, "user", "Hello")
+
+        # Create an agent and its conversation
+        agent = test_database.create_agent(test_user.id, name="Test Agent")
+        agent_conv = test_database.get_conversation(agent.conversation_id, test_user.id)
+
+        # Add messages to agent conversation
+        test_database.add_message(agent_conv.id, "user", "[Scheduled run]")
+        test_database.add_message(agent_conv.id, "assistant", "Done")
+
+        # Full sync should only return regular conversation
+        response = client.get("/api/conversations/sync?full=true", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+
+        # Should only have the regular conversation
+        assert len(data["conversations"]) == 1
+        assert data["conversations"][0]["id"] == regular_conv.id
+
+        # Verify agent conversation is not included
+        conv_ids = {c["id"] for c in data["conversations"]}
+        assert agent.conversation_id not in conv_ids
+
+    def test_incremental_sync_excludes_agent_conversations(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """Incremental sync should also exclude agent conversations."""
+        # Create regular conversation and get server time
+        regular_conv = test_database.create_conversation(test_user.id, "Regular")
+
+        response1 = client.get("/api/conversations/sync", headers=auth_headers)
+        data1 = json.loads(response1.data)
+        server_time = data1["server_time"]
+
+        # Wait and create agent
+        time.sleep(0.01)
+        agent = test_database.create_agent(test_user.id, name="Test Agent")
+
+        # Wait and update both conversations
+        time.sleep(0.01)
+        test_database.add_message(regular_conv.id, "user", "New message")
+        test_database.add_message(agent.conversation_id, "user", "[Trigger]")
+
+        # Incremental sync should only return regular conversation
+        response2 = client.get(
+            f"/api/conversations/sync?since={server_time}",
+            headers=auth_headers,
+        )
+
+        data2 = json.loads(response2.data)
+
+        # Should only have the regular conversation
+        assert len(data2["conversations"]) == 1
+        assert data2["conversations"][0]["id"] == regular_conv.id
+
+    def test_sync_excludes_planning_conversations(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """Sync should exclude planning conversations (is_planning=1)."""
+        # Create regular conversation
+        regular_conv = test_database.create_conversation(test_user.id, "Regular")
+
+        # Create planning conversation using the proper method
+        planning_conv = test_database.get_or_create_planner_conversation(test_user.id)
+        test_database.add_message(planning_conv.id, "user", "Plan task")
+
+        # Sync should only return regular conversation
+        response = client.get("/api/conversations/sync", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+
+        assert len(data["conversations"]) == 1
+        assert data["conversations"][0]["id"] == regular_conv.id

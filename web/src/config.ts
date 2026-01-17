@@ -324,6 +324,13 @@ export const LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200;
 export const PLANNER_DASHBOARD_CACHE_MS = 5 * MS_PER_MINUTE;
 
 // =============================================================================
+// Agents Configuration
+// =============================================================================
+
+/** Cache duration for command center data (5 minutes) */
+export const COMMAND_CENTER_CACHE_MS = 5 * MS_PER_MINUTE;
+
+// =============================================================================
 // Default Values
 // =============================================================================
 

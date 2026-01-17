@@ -14,7 +14,7 @@
  */
 
 // Render
-export { renderMessages, addMessageToUI } from './render';
+export { renderMessages, addMessageToUI, hasPendingApproval } from './render';
 
 // Streaming
 export {
