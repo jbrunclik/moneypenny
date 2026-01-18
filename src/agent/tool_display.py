@@ -48,6 +48,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Refreshed planner",
         "icon": "refresh",
     },
+    "whatsapp": {
+        "label": "Sending WhatsApp message",
+        "label_past": "Sent WhatsApp message",
+        "icon": "message",
+    },
 }
 
 # Check if Google Calendar is configured

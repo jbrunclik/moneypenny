@@ -130,74 +130,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search across all conversations and messages.
-         * @description Uses full-text search with BM25 ranking. Searches both conversation
-         *     titles and message content. Results are ordered by relevance.
-         *
-         *     Query parameters:
-         *     - q: Search query (required, 1-200 characters)
-         *     - limit: Number of results to return (default: 20, max: 50)
-         *     - offset: Number of results to skip for pagination (default: 0)
-         *
-         *     Returns:
-         *     - results: Array of search results with conversation info and message snippets
-         *     - total: Total number of matching results
-         *     - query: The search query that was executed
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SearchResultsResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Too Many Requests */
-                429: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/models": {
         parameters: {
             query?: never;
@@ -279,7 +211,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/version": {
+    "/api/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -287,10 +219,19 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get current app version (JS bundle hash).
-         * @description This endpoint does not require authentication so version can be
-         *     checked even before login. Used by frontend to detect when a new
-         *     version is deployed and prompt users to reload.
+         * Search across all conversations and messages.
+         * @description Uses full-text search with BM25 ranking. Searches both conversation
+         *     titles and message content. Results are ordered by relevance.
+         *
+         *     Query parameters:
+         *     - q: Search query (required, 1-200 characters)
+         *     - limit: Number of results to return (default: 20, max: 50)
+         *     - offset: Number of results to skip for pagination (default: 0)
+         *
+         *     Returns:
+         *     - results: Array of search results with conversation info and message snippets
+         *     - total: Total number of matching results
+         *     - query: The search query that was executed
          */
         get: {
             parameters: {
@@ -307,13 +248,137 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["VersionResponse"];
+                        "application/json": components["schemas"]["SearchResultsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
             };
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all autonomous agents for the current user.
+         * @description Returns agents ordered by creation date (newest first).
+         *     Each agent includes unread_count and has_pending_approval flags.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentsListResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a new autonomous agent.
+         * @description Creates the agent and its dedicated conversation automatically.
+         *     The conversation title will be "Agent: <name>".
+         *
+         *     Returns the created agent with its conversation_id.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateAgentRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -392,6 +457,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current app version (JS bundle hash).
+         * @description This endpoint does not require authentication so version can be
+         *     checked even before login. Used by frontend to detect when a new
+         *     version is deployed and prompt users to reload.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VersionResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get planner dashboard data for the next 7 days.
+         * @description Returns events from Google Calendar and tasks from Todoist,
+         *     organized by day. Requires at least one integration to be connected.
+         *
+         *     The dashboard includes:
+         *     - days: Array of 7 days (Today, Tomorrow, then weekday names)
+         *     - Each day contains events and tasks for that date
+         *     - overdue_tasks: Tasks that are past their due date
+         *     - Connection status flags for both integrations
+         *     - server_time: Current server time for cache invalidation
+         *
+         *     Query parameters:
+         *     - force_refresh: Set to "true" to bypass cache and fetch fresh data
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlannerDashboardResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/{path}": {
         parameters: {
             query?: never;
@@ -427,42 +601,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/memories": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List all memories for the current user. */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MemoriesListResponse"];
                     };
                 };
             };
@@ -515,6 +653,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all memories for the current user. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MemoriesListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/client-id": {
         parameters: {
             query?: never;
@@ -539,6 +713,99 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ClientIdResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planner/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get planner conversation state for sync.
+         * @description Returns the planner conversation state for real-time synchronization.
+         *     This allows the frontend to detect:
+         *     - New messages added in another tab/device
+         *     - Planner reset in another tab
+         *     - Planner deletion
+         *
+         *     Returns:
+         *     - conversation: Planner conversation state (id, updated_at, message_count, last_reset)
+         *     or null if no planner exists
+         *     - server_time: Server timestamp for clock-skew-proof comparisons
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlannerSyncResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get file upload configuration for frontend. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UploadConfigResponse"];
                     };
                 };
             };
@@ -632,15 +899,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/config/upload": {
+    "/api/planner/reset": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get file upload configuration for frontend. */
-        get: {
+        get?: never;
+        put?: never;
+        /**
+         * Manually reset the planner conversation.
+         * @description Physically deletes all messages from the planner conversation
+         *     (not soft delete). Message costs are preserved for accurate
+         *     cost tracking.
+         *
+         *     This also clears the dashboard cache so the next request fetches
+         *     fresh data.
+         *
+         *     Returns:
+         *     - success: True if reset was successful
+         *     - message: Human-readable status message
+         */
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -655,13 +936,29 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["UploadConfigResponse"];
+                        "application/json": components["schemas"]["PlannerResetResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
             };
         };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -778,6 +1075,202 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/calendar/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Return Google Calendar connection status. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoogleCalendarStatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get all pending approval requests.
+         * @description Returns pending approvals with agent names for display.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PendingApprovalsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/todoist/auth-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Todoist OAuth authorization URL.
+         * @description Returns a URL to redirect the user to for Todoist authorization.
+         *     The state token should be stored and validated on callback.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TodoistAuthUrlResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/calendar/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Connect Google Calendar via OAuth. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GoogleCalendarConnectResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me/settings": {
         parameters: {
             query?: never;
@@ -785,7 +1278,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get user settings including custom instructions. */
+        /** Get user settings including custom instructions and WhatsApp phone. */
         get: {
             parameters: {
                 query?: never;
@@ -834,7 +1327,7 @@ export interface paths {
         };
         trace?: never;
     };
-    "/auth/todoist/auth-url": {
+    "/api/agents/{agent_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -842,10 +1335,179 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Todoist OAuth authorization URL.
-         * @description Returns a URL to redirect the user to for Todoist authorization.
-         *     The state token should be stored and validated on callback.
+         * Get a specific agent by ID.
+         * @description Returns the agent with unread_count and has_pending_approval flags.
          */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    agent_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete an agent and its dedicated conversation.
+         * @description Also deletes:
+         *     - All messages in the agent's conversation
+         *     - All approval requests for this agent
+         *     - All execution records for this agent
+         *
+         *     Message costs are preserved for accurate cost tracking.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    agent_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update an agent's configuration.
+         * @description Only provided fields will be updated; others remain unchanged.
+         *     If the name changes, the conversation title is updated to match.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    agent_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateAgentRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/auth/calendar/auth-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Return the Google Calendar OAuth URL. */
         get: {
             parameters: {
                 query?: never;
@@ -861,7 +1523,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["TodoistAuthUrlResponse"];
+                        "application/json": components["schemas"]["GoogleCalendarAuthUrlResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -987,6 +1649,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/calendar/calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all available Google Calendars for the current user. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CalendarListResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/calendar/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disconnect Google Calendar tokens. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/memories/{memory_id}": {
         parameters: {
             query?: never;
@@ -1029,6 +1781,73 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planner/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the planner conversation for the current user.
+         * @description Creates a new planner conversation if one doesn't exist.
+         *     Automatically resets the conversation at 4am daily (lazy check).
+         *
+         *     The planner conversation is a single, special conversation per user:
+         *     - Excluded from search results
+         *     - Has ephemeral chat that resets daily
+         *     - Appears at the top of the conversation list with special treatment
+         *
+         *     Returns:
+         *     - The planner conversation with its messages
+         *     - was_reset: True if the conversation was auto-reset this request
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlannerConversationResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1090,6 +1909,130 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{agent_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manually trigger an agent to run.
+         * @description Creates an execution record and runs the agent.
+         *     If the agent is disabled or waiting for approval, returns an error.
+         *
+         *     Returns the execution record with status.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    agent_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TriggerAgentResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/command-center": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get command center dashboard data.
+         * @description Returns aggregated data for the agents command center:
+         *     - agents: All agents with unread counts and pending status
+         *     - pending_approvals: All pending approval requests
+         *     - recent_executions: Recent execution history
+         *     - total_unread: Total unread messages across all agents
+         *     - agents_waiting: Number of agents blocked on approval
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommandCenterResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1324,6 +2267,148 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/ai-assist/parse-schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse natural language schedule description into cron expression.
+         * @description Uses an LLM to convert user-friendly schedule descriptions
+         *     (e.g., "every weekday at 9am") into standard cron expressions.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ParseScheduleRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ParseScheduleResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ai-assist/enhance-prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enhance an agent's system prompt using AI.
+         * @description Takes the current prompt and agent context, then suggests
+         *     improvements for clarity, completeness, and effectiveness.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["EnhancePromptRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EnhancePromptResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{message_id}/cost": {
         parameters: {
             query?: never;
@@ -1350,6 +2435,166 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["MessageCostResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/calendar/selected-calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the user's selected calendar IDs. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SelectedCalendarsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        /** Update the user's selected calendar IDs. */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SelectedCalendarsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{agent_id}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get execution history for an agent.
+         * @description Returns the 20 most recent executions, newest first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    agent_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentExecutionsListResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
                 /** @description Not found */
@@ -1412,6 +2657,247 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{agent_id}/mark-viewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark an agent's conversation as viewed.
+         * @description Updates the last_viewed_at timestamp to reset unread count.
+         *     Should be called when user opens the agent's conversation.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    agent_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/dev/evaluate-schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * (Dev only) Evaluate and run scheduled agents.
+         * @description This endpoint is for local development/testing without systemd timers.
+         *     It evaluates which agents are due to run based on their cron schedules
+         *     and triggers them.
+         *
+         *     Only available in development mode (FLASK_ENV=development).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approvals/{approval_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a pending approval request.
+         * @description Marks the request as rejected. The agent will not perform
+         *     the requested action. Adds a rejection message to the conversation.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    approval_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approvals/{approval_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending approval request.
+         * @description Marks the request as approved and resumes the agent execution.
+         *     The agent will continue with a message indicating the action was approved.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    approval_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1567,6 +3053,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agents/{agent_id}/conversation/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sync agent conversation - returns message count and updated_at.
+         * @description Used for real-time synchronization when viewing an agent's conversation.
+         *     This allows detection of external updates to the agent conversation.
+         *
+         *     Returns:
+         *     - conversation: Object with message_count and updated_at, or null if no conversation
+         *     - server_time: Current server timestamp to use for next sync
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    agent_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentConversationSyncResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/chat/stream": {
         parameters: {
             query?: never;
@@ -1583,7 +3133,6 @@ export interface paths {
          *     Returns text/event-stream with the following event types:
          *     - `thinking`: LLM thinking text (if enabled) - `{"type": "thinking", "text": "..."}`
          *     - `tool_start`: Tool starting - `{"type": "tool_start", "tool": "web_search", "detail": "..."}`
-         *     - `tool_detail`: Tool detail update (for streaming args) - `{"type": "tool_detail", "tool": "...", "detail": "..."}`
          *     - `tool_end`: Tool completed - `{"type": "tool_end", "tool": "web_search"}`
          *     - `token`: Content token - `{"type": "token", "text": "..."}`
          *     - `error`: Error occurred - `{"type": "error", "message": "...", "code": "...", "retryable": bool}`
@@ -1823,6 +3372,47 @@ export interface components {
             message?: string;
         };
         /**
+         * ModelResponse
+         * @description Available model info.
+         */
+        "ModelsListResponse.ModelResponse": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Short Name
+             * @description Short display name for compact UI (e.g., 'Fast', 'Advanced')
+             */
+            short_name: string;
+        };
+        /**
+         * ModelsListResponse
+         * @description List of available models.
+         */
+        ModelsListResponse: {
+            /** Models */
+            models: components["schemas"]["ModelsListResponse.ModelResponse"][];
+            /**
+             * Default
+             * @description Default model ID
+             */
+            default: string;
+        };
+        /**
+         * HealthResponse
+         * @description Liveness probe response.
+         */
+        HealthResponse: {
+            /** Status */
+            status: string;
+            /**
+             * Version
+             * @default null
+             */
+            version: string | null;
+        };
+        /**
          * SearchResultResponse
          * @description Single search result.
          */
@@ -1884,52 +3474,261 @@ export interface components {
             query: string;
         };
         /**
-         * ModelResponse
-         * @description Available model info.
+         * AgentResponse
+         * @description Agent information.
          */
-        "ModelsListResponse.ModelResponse": {
+        "AgentsListResponse.AgentResponse": {
             /** Id */
             id: string;
             /** Name */
             name: string;
-        };
-        /**
-         * ModelsListResponse
-         * @description List of available models.
-         */
-        ModelsListResponse: {
-            /** Models */
-            models: components["schemas"]["ModelsListResponse.ModelResponse"][];
             /**
-             * Default
-             * @description Default model ID
-             */
-            default: string;
-        };
-        /**
-         * HealthResponse
-         * @description Liveness probe response.
-         */
-        HealthResponse: {
-            /** Status */
-            status: string;
-            /**
-             * Version
+             * Description
              * @default null
              */
-            version: string | null;
-        };
-        /**
-         * VersionResponse
-         * @description App version info.
-         */
-        VersionResponse: {
+            description: string | null;
             /**
-             * Version
-             * @description App version (JS bundle hash)
+             * System Prompt
              * @default null
              */
-            version: string | null;
+            system_prompt: string | null;
+            /**
+             * Schedule
+             * @default null
+             */
+            schedule: string | null;
+            /** Timezone */
+            timezone: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Tool Permissions
+             * @default null
+             */
+            tool_permissions: string[] | null;
+            /**
+             * Model
+             * @description LLM model for the agent
+             */
+            model: string;
+            /**
+             * Conversation Id
+             * @default null
+             */
+            conversation_id: string | null;
+            /**
+             * Last Run At
+             * @default null
+             */
+            last_run_at: string | null;
+            /**
+             * Next Run At
+             * @default null
+             */
+            next_run_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /**
+             * Budget Limit
+             * @description Daily budget limit in USD (null = unlimited)
+             * @default null
+             */
+            budget_limit: number | null;
+            /**
+             * Daily Spending
+             * @description Today's spending in USD
+             * @default 0
+             */
+            daily_spending: number;
+            /**
+             * Has Pending Approval
+             * @description Whether agent is blocked waiting for approval
+             * @default false
+             */
+            has_pending_approval: boolean;
+            /**
+             * Has Error
+             * @description Whether the last execution failed
+             * @default false
+             */
+            has_error: boolean;
+            /**
+             * Unread Count
+             * @description Number of unread messages in agent conversation
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Last Execution Status
+             * @description Status of the most recent execution (completed, failed, etc.)
+             * @default null
+             */
+            last_execution_status: string | null;
+        };
+        /**
+         * AgentsListResponse
+         * @description List of agents.
+         */
+        AgentsListResponse: {
+            /** Agents */
+            agents: components["schemas"]["AgentsListResponse.AgentResponse"][];
+        };
+        /**
+         * AgentResponse
+         * @description Agent information.
+         */
+        AgentResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * System Prompt
+             * @default null
+             */
+            system_prompt: string | null;
+            /**
+             * Schedule
+             * @default null
+             */
+            schedule: string | null;
+            /** Timezone */
+            timezone: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Tool Permissions
+             * @default null
+             */
+            tool_permissions: string[] | null;
+            /**
+             * Model
+             * @description LLM model for the agent
+             */
+            model: string;
+            /**
+             * Conversation Id
+             * @default null
+             */
+            conversation_id: string | null;
+            /**
+             * Last Run At
+             * @default null
+             */
+            last_run_at: string | null;
+            /**
+             * Next Run At
+             * @default null
+             */
+            next_run_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /**
+             * Budget Limit
+             * @description Daily budget limit in USD (null = unlimited)
+             * @default null
+             */
+            budget_limit: number | null;
+            /**
+             * Daily Spending
+             * @description Today's spending in USD
+             * @default 0
+             */
+            daily_spending: number;
+            /**
+             * Has Pending Approval
+             * @description Whether agent is blocked waiting for approval
+             * @default false
+             */
+            has_pending_approval: boolean;
+            /**
+             * Has Error
+             * @description Whether the last execution failed
+             * @default false
+             */
+            has_error: boolean;
+            /**
+             * Unread Count
+             * @description Number of unread messages in agent conversation
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Last Execution Status
+             * @description Status of the most recent execution (completed, failed, etc.)
+             * @default null
+             */
+            last_execution_status: string | null;
+        };
+        ValidationError: {
+            detail?: {
+                "<location>"?: {
+                    "<field_name>"?: string[];
+                };
+            };
+            message?: string;
+        };
+        /**
+         * CreateAgentRequest
+         * @description Schema for POST /api/agents.
+         */
+        CreateAgentRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * System Prompt
+             * @default null
+             */
+            system_prompt: string | null;
+            /**
+             * Schedule
+             * @description Cron expression (e.g., '0 9 * * *' for daily at 9am)
+             * @default null
+             */
+            schedule: string | null;
+            /**
+             * Timezone
+             * @description IANA timezone for schedule
+             * @default UTC
+             */
+            timezone: string;
+            /**
+             * Tool Permissions
+             * @description List of allowed tool names
+             * @default null
+             */
+            tool_permissions: string[] | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Model
+             * @description LLM model for the agent (defaults to Fast)
+             * @default null
+             */
+            model: string | null;
+            /**
+             * Budget Limit
+             * @description Daily budget limit in USD (null = unlimited)
+             * @default null
+             */
+            budget_limit: number | null;
         };
         /**
          * UserResponse
@@ -1961,6 +3760,270 @@ export interface components {
             user: components["schemas"]["AuthResponse.UserResponse"];
         };
         /**
+         * VersionResponse
+         * @description App version info.
+         */
+        VersionResponse: {
+            /**
+             * Version
+             * @description App version (JS bundle hash)
+             * @default null
+             */
+            version: string | null;
+        };
+        /**
+         * PlannerDayResponse
+         * @description A single day in the planner dashboard.
+         */
+        "PlannerDashboardResponse.PlannerDayResponse": {
+            /**
+             * Date
+             * @description Date in YYYY-MM-DD format
+             */
+            date: string;
+            /**
+             * Day Name
+             * @description Day label (Today, Tomorrow, or weekday name)
+             */
+            day_name: string;
+            /** Events */
+            events?: components["schemas"]["PlannerDashboardResponse.PlannerEventResponse"][];
+            /** Tasks */
+            tasks?: components["schemas"]["PlannerDashboardResponse.PlannerTaskResponse"][];
+        };
+        /**
+         * PlannerEventAttendeeResponse
+         * @description An attendee on a calendar event.
+         */
+        "PlannerDashboardResponse.PlannerEventAttendeeResponse": {
+            /**
+             * Email
+             * @default null
+             */
+            email: string | null;
+            /**
+             * Response Status
+             * @description RSVP status: accepted/tentative/declined/needsAction
+             * @default null
+             */
+            response_status: string | null;
+            /**
+             * Self
+             * @description True if this is the current user
+             * @default false
+             */
+            self: boolean;
+        };
+        /**
+         * PlannerEventOrganizerResponse
+         * @description The organizer/creator of a calendar event.
+         */
+        "PlannerDashboardResponse.PlannerEventOrganizerResponse": {
+            /**
+             * Email
+             * @default null
+             */
+            email: string | null;
+            /**
+             * Display Name
+             * @description Display name of organizer
+             * @default null
+             */
+            display_name: string | null;
+            /**
+             * Self
+             * @description True if this is the current user
+             * @default false
+             */
+            self: boolean;
+        };
+        /**
+         * PlannerEventResponse
+         * @description A calendar event for the planner dashboard.
+         */
+        "PlannerDashboardResponse.PlannerEventResponse": {
+            /** Id */
+            id: string;
+            /** Summary */
+            summary: string;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * Start
+             * @description Start datetime (ISO format)
+             * @default null
+             */
+            start: string | null;
+            /**
+             * End
+             * @description End datetime (ISO format)
+             * @default null
+             */
+            end: string | null;
+            /**
+             * Start Date
+             * @description Start date for all-day events (YYYY-MM-DD)
+             * @default null
+             */
+            start_date: string | null;
+            /**
+             * End Date
+             * @description End date for all-day events (YYYY-MM-DD)
+             * @default null
+             */
+            end_date: string | null;
+            /**
+             * Location
+             * @default null
+             */
+            location: string | null;
+            /**
+             * Html Link
+             * @description Direct URL to event in Google Calendar
+             * @default null
+             */
+            html_link: string | null;
+            /**
+             * Is All Day
+             * @default false
+             */
+            is_all_day: boolean;
+            /** Attendees */
+            attendees?: components["schemas"]["PlannerDashboardResponse.PlannerEventAttendeeResponse"][];
+            /**
+             * @description Event organizer/creator
+             * @default null
+             */
+            organizer: components["schemas"]["PlannerDashboardResponse.PlannerEventOrganizerResponse"] | null;
+            /**
+             * Calendar Id
+             * @description Source calendar ID (e.g., 'primary', email address)
+             * @default null
+             */
+            calendar_id: string | null;
+            /**
+             * Calendar Summary
+             * @description Source calendar name/title
+             * @default null
+             */
+            calendar_summary: string | null;
+        };
+        /**
+         * PlannerTaskResponse
+         * @description A task from Todoist for the planner dashboard.
+         */
+        "PlannerDashboardResponse.PlannerTaskResponse": {
+            /** Id */
+            id: string;
+            /** Content */
+            content: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Due Date
+             * @description Due date in YYYY-MM-DD format
+             * @default null
+             */
+            due_date: string | null;
+            /**
+             * Due String
+             * @description Human-readable due string (e.g., 'tomorrow at 3pm')
+             * @default null
+             */
+            due_string: string | null;
+            /**
+             * Priority
+             * @description Priority 1-4 (4 is highest)
+             * @default 1
+             */
+            priority: number;
+            /**
+             * Project Name
+             * @default null
+             */
+            project_name: string | null;
+            /**
+             * Section Name
+             * @default null
+             */
+            section_name: string | null;
+            /** Labels */
+            labels?: string[];
+            /**
+             * Is Recurring
+             * @default false
+             */
+            is_recurring: boolean;
+            /**
+             * Url
+             * @description Direct URL to task in Todoist
+             * @default null
+             */
+            url: string | null;
+        };
+        /**
+         * PlannerDashboardResponse
+         * @description Complete planner dashboard data.
+         */
+        PlannerDashboardResponse: {
+            /**
+             * Days
+             * @description 7 days of events and tasks starting from today
+             */
+            days: components["schemas"]["PlannerDashboardResponse.PlannerDayResponse"][];
+            /**
+             * Overdue Tasks
+             * @description Tasks that are past their due date
+             */
+            overdue_tasks?: components["schemas"]["PlannerDashboardResponse.PlannerTaskResponse"][];
+            /**
+             * Todoist Connected
+             * @description Whether Todoist is connected
+             * @default false
+             */
+            todoist_connected: boolean;
+            /**
+             * Calendar Connected
+             * @description Whether Google Calendar is connected
+             * @default false
+             */
+            calendar_connected: boolean;
+            /**
+             * Todoist Error
+             * @description Error message if Todoist fetch failed
+             * @default null
+             */
+            todoist_error: string | null;
+            /**
+             * Calendar Error
+             * @description Error message if Calendar fetch failed
+             * @default null
+             */
+            calendar_error: string | null;
+            /**
+             * Server Time
+             * @description Server timestamp for cache validation
+             */
+            server_time: string;
+        };
+        /**
+         * TokenRefreshResponse
+         * @description Response from token refresh.
+         */
+        TokenRefreshResponse: {
+            /**
+             * Token
+             * @description New JWT token
+             */
+            token: string;
+        };
+        /**
          * MemoryResponse
          * @description Single memory entry.
          */
@@ -1988,23 +4051,67 @@ export interface components {
             memories: components["schemas"]["MemoriesListResponse.MemoryResponse"][];
         };
         /**
-         * TokenRefreshResponse
-         * @description Response from token refresh.
-         */
-        TokenRefreshResponse: {
-            /**
-             * Token
-             * @description New JWT token
-             */
-            token: string;
-        };
-        /**
          * ClientIdResponse
          * @description Response containing Google Client ID.
          */
         ClientIdResponse: {
             /** Client Id */
             client_id: string;
+        };
+        /**
+         * PlannerConversationSyncData
+         * @description Planner conversation data for sync.
+         */
+        "PlannerSyncResponse.PlannerConversationSyncData": {
+            /** Id */
+            id: string;
+            /** Updated At */
+            updated_at: string;
+            /** Message Count */
+            message_count: number;
+            /**
+             * Last Reset
+             * @description Timestamp of last reset
+             * @default null
+             */
+            last_reset: string | null;
+        };
+        /**
+         * PlannerSyncResponse
+         * @description Response from planner sync endpoint for real-time synchronization.
+         */
+        PlannerSyncResponse: {
+            /**
+             * @description Planner conversation state, or null if no planner exists
+             * @default null
+             */
+            conversation: components["schemas"]["PlannerSyncResponse.PlannerConversationSyncData"] | null;
+            /**
+             * Server Time
+             * @description Server timestamp in ISO format
+             */
+            server_time: string;
+        };
+        /**
+         * UploadConfigResponse
+         * @description File upload configuration.
+         */
+        UploadConfigResponse: {
+            /**
+             * Maxfilesize
+             * @description Maximum file size in bytes
+             */
+            maxFileSize: number;
+            /**
+             * Maxfilespermessage
+             * @description Maximum files per message
+             */
+            maxFilesPerMessage: number;
+            /**
+             * Allowedfiletypes
+             * @description Allowed MIME types
+             */
+            allowedFileTypes: string[];
         };
         /**
          * ConversationResponse
@@ -2080,25 +4187,20 @@ export interface components {
             message_count: number | null;
         };
         /**
-         * UploadConfigResponse
-         * @description File upload configuration.
+         * PlannerResetResponse
+         * @description Response from planner reset endpoint.
          */
-        UploadConfigResponse: {
+        PlannerResetResponse: {
             /**
-             * Maxfilesize
-             * @description Maximum file size in bytes
+             * Success
+             * @default true
              */
-            maxFileSize: number;
+            success: boolean;
             /**
-             * Maxfilespermessage
-             * @description Maximum files per message
+             * Message
+             * @default Planner conversation reset
              */
-            maxFilesPerMessage: number;
-            /**
-             * Allowedfiletypes
-             * @description Allowed MIME types
-             */
-            allowedFileTypes: string[];
+            message: string;
         };
         /**
          * TodoistStatusResponse
@@ -2147,6 +4249,119 @@ export interface components {
             todoist_email: string | null;
         };
         /**
+         * GoogleCalendarStatusResponse
+         * @description Response containing Google Calendar connection status.
+         */
+        GoogleCalendarStatusResponse: {
+            /**
+             * Connected
+             * @description Whether Google Calendar is connected
+             */
+            connected: boolean;
+            /**
+             * Calendar Email
+             * @description Email of connected Google account
+             * @default null
+             */
+            calendar_email: string | null;
+            /**
+             * Connected At
+             * @description ISO timestamp when connected
+             * @default null
+             */
+            connected_at: string | null;
+            /**
+             * Needs Reconnect
+             * @description True if tokens are invalid/expired and user must reconnect
+             * @default false
+             */
+            needs_reconnect: boolean;
+        };
+        /**
+         * ApprovalRequestResponse
+         * @description Approval request information.
+         */
+        "PendingApprovalsResponse.ApprovalRequestResponse": {
+            /** Id */
+            id: string;
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Agent Name
+             * @description Name of the agent requesting approval
+             */
+            agent_name: string;
+            /** Tool Name */
+            tool_name: string;
+            /**
+             * Tool Args
+             * @default null
+             */
+            tool_args: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description: string;
+            status: components["schemas"]["PendingApprovalsResponse.ApprovalStatus"];
+            /** Created At */
+            created_at: string;
+            /**
+             * Resolved At
+             * @default null
+             */
+            resolved_at: string | null;
+        };
+        /**
+         * ApprovalStatus
+         * @description Status of an approval request.
+         * @enum {string}
+         */
+        "PendingApprovalsResponse.ApprovalStatus": "pending" | "approved" | "rejected";
+        /**
+         * PendingApprovalsResponse
+         * @description List of pending approval requests.
+         */
+        PendingApprovalsResponse: {
+            /**
+             * Pending Approvals
+             * @description All pending approval requests
+             */
+            pending_approvals?: components["schemas"]["PendingApprovalsResponse.ApprovalRequestResponse"][];
+        };
+        /**
+         * TodoistAuthUrlResponse
+         * @description Response containing Todoist OAuth authorization URL.
+         */
+        TodoistAuthUrlResponse: {
+            /**
+             * Auth Url
+             * @description URL to redirect user for Todoist authorization
+             */
+            auth_url: string;
+            /**
+             * State
+             * @description CSRF state token to validate on callback
+             */
+            state: string;
+        };
+        /**
+         * GoogleCalendarConnectResponse
+         * @description Response from successful Google Calendar connection.
+         */
+        GoogleCalendarConnectResponse: {
+            /**
+             * Connected
+             * @description Whether connection was successful
+             */
+            connected: boolean;
+            /**
+             * Calendar Email
+             * @description Email of Google account granting Calendar access
+             * @default null
+             */
+            calendar_email: string | null;
+        };
+        /**
          * UserSettingsResponse
          * @description User settings.
          */
@@ -2157,6 +4372,18 @@ export interface components {
              * @default
              */
             custom_instructions: string;
+            /**
+             * Whatsapp Phone
+             * @description WhatsApp phone number in E.164 format
+             * @default null
+             */
+            whatsapp_phone: string | null;
+            /**
+             * Whatsapp Available
+             * @description Whether WhatsApp is configured at the app level
+             * @default false
+             */
+            whatsapp_available: boolean;
         };
         /**
          * StatusResponse
@@ -2170,13 +4397,64 @@ export interface components {
             status: string;
         };
         /**
-         * TodoistAuthUrlResponse
-         * @description Response containing Todoist OAuth authorization URL.
+         * UpdateAgentRequest
+         * @description Schema for PATCH /api/agents/<id>.
          */
-        TodoistAuthUrlResponse: {
+        UpdateAgentRequest: {
+            /**
+             * Name
+             * @default null
+             */
+            name: string | null;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * System Prompt
+             * @default null
+             */
+            system_prompt: string | null;
+            /**
+             * Schedule
+             * @default null
+             */
+            schedule: string | null;
+            /**
+             * Timezone
+             * @default null
+             */
+            timezone: string | null;
+            /**
+             * Tool Permissions
+             * @default null
+             */
+            tool_permissions: string[] | null;
+            /**
+             * Enabled
+             * @default null
+             */
+            enabled: boolean | null;
+            /**
+             * Model
+             * @default null
+             */
+            model: string | null;
+            /**
+             * Budget Limit
+             * @default null
+             */
+            budget_limit: number | null;
+        };
+        /**
+         * GoogleCalendarAuthUrlResponse
+         * @description Response containing Google Calendar OAuth authorization URL.
+         */
+        GoogleCalendarAuthUrlResponse: {
             /**
              * Auth Url
-             * @description URL to redirect user for Todoist authorization
+             * @description URL to redirect user for Google authorization
              */
             auth_url: string;
             /**
@@ -2215,6 +4493,428 @@ export interface components {
             server_time: string;
             /** Is Full Sync */
             is_full_sync: boolean;
+        };
+        /**
+         * Calendar
+         * @description A Google Calendar.
+         */
+        "CalendarListResponse.Calendar": {
+            /**
+             * Id
+             * @description Calendar ID
+             */
+            id: string;
+            /**
+             * Summary
+             * @description Calendar name/title
+             */
+            summary: string;
+            /**
+             * Primary
+             * @description Whether this is the user's primary calendar
+             */
+            primary: boolean;
+            /**
+             * Access Role
+             * @description User's access level (owner, writer, reader)
+             */
+            access_role: string;
+            /**
+             * Background Color
+             * @description Calendar background color (hex)
+             * @default null
+             */
+            background_color: string | null;
+        };
+        /**
+         * CalendarListResponse
+         * @description Response for listing available calendars.
+         */
+        CalendarListResponse: {
+            /**
+             * Calendars
+             * @description List of available calendars
+             */
+            calendars?: components["schemas"]["CalendarListResponse.Calendar"][];
+            /**
+             * Error
+             * @description Error message if fetch failed
+             * @default null
+             */
+            error: string | null;
+        };
+        /**
+         * FileMetadataResponse
+         * @description File metadata in message responses (excludes full data for performance).
+         */
+        "PlannerConversationResponse.FileMetadataResponse": {
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /**
+             * Messageid
+             * @default null
+             */
+            messageId: string | null;
+            /**
+             * Fileindex
+             * @default null
+             */
+            fileIndex: number | null;
+        };
+        /**
+         * GeneratedImageResponse
+         * @description Generated image metadata.
+         */
+        "PlannerConversationResponse.GeneratedImageResponse": {
+            /** Prompt */
+            prompt: string;
+            /**
+             * Image Index
+             * @default null
+             */
+            image_index: number | null;
+        };
+        /**
+         * MessageResponse
+         * @description Message in a conversation.
+         */
+        "PlannerConversationResponse.MessageResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /**
+             * Files
+             * @default null
+             */
+            files: components["schemas"]["PlannerConversationResponse.FileMetadataResponse"][] | null;
+            /**
+             * Sources
+             * @default null
+             */
+            sources: components["schemas"]["PlannerConversationResponse.SourceResponse"][] | null;
+            /**
+             * Generated Images
+             * @default null
+             */
+            generated_images: components["schemas"]["PlannerConversationResponse.GeneratedImageResponse"][] | null;
+            /**
+             * Language
+             * @description ISO 639-1 language code for TTS (e.g., 'en', 'cs')
+             * @default null
+             */
+            language: string | null;
+            /** Created At */
+            created_at: string;
+        };
+        /**
+         * SourceResponse
+         * @description Web search source citation.
+         */
+        "PlannerConversationResponse.SourceResponse": {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * PlannerConversationResponse
+         * @description Planner conversation with messages.
+         */
+        PlannerConversationResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Model */
+            model: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Messages */
+            messages: components["schemas"]["PlannerConversationResponse.MessageResponse"][];
+            /**
+             * Was Reset
+             * @description True if the conversation was auto-reset due to 4am cutoff
+             * @default false
+             */
+            was_reset: boolean;
+        };
+        /**
+         * AgentExecutionResponse
+         * @description Agent execution record.
+         */
+        "TriggerAgentResponse.AgentExecutionResponse": {
+            /** Id */
+            id: string;
+            /** Agent Id */
+            agent_id: string;
+            status: components["schemas"]["TriggerAgentResponse.AgentStatus"];
+            trigger_type: components["schemas"]["TriggerAgentResponse.AgentTriggerType"];
+            /**
+             * Triggered By Agent Id
+             * @default null
+             */
+            triggered_by_agent_id: string | null;
+            /** Started At */
+            started_at: string;
+            /**
+             * Completed At
+             * @default null
+             */
+            completed_at: string | null;
+            /**
+             * Error Message
+             * @default null
+             */
+            error_message: string | null;
+        };
+        /**
+         * AgentStatus
+         * @description Status of an agent execution.
+         * @enum {string}
+         */
+        "TriggerAgentResponse.AgentStatus": "running" | "completed" | "failed" | "waiting_approval";
+        /**
+         * AgentTriggerType
+         * @description How an agent execution was triggered.
+         * @enum {string}
+         */
+        "TriggerAgentResponse.AgentTriggerType": "scheduled" | "manual" | "agent_trigger";
+        /**
+         * TriggerAgentResponse
+         * @description Response from manually triggering an agent.
+         */
+        TriggerAgentResponse: {
+            execution: components["schemas"]["TriggerAgentResponse.AgentExecutionResponse"];
+            /**
+             * Message
+             * @description Status message
+             * @default Agent triggered
+             */
+            message: string;
+        };
+        /**
+         * AgentExecutionResponse
+         * @description Agent execution record.
+         */
+        "CommandCenterResponse.AgentExecutionResponse": {
+            /** Id */
+            id: string;
+            /** Agent Id */
+            agent_id: string;
+            status: components["schemas"]["CommandCenterResponse.AgentStatus"];
+            trigger_type: components["schemas"]["CommandCenterResponse.AgentTriggerType"];
+            /**
+             * Triggered By Agent Id
+             * @default null
+             */
+            triggered_by_agent_id: string | null;
+            /** Started At */
+            started_at: string;
+            /**
+             * Completed At
+             * @default null
+             */
+            completed_at: string | null;
+            /**
+             * Error Message
+             * @default null
+             */
+            error_message: string | null;
+        };
+        /**
+         * AgentResponse
+         * @description Agent information.
+         */
+        "CommandCenterResponse.AgentResponse": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * System Prompt
+             * @default null
+             */
+            system_prompt: string | null;
+            /**
+             * Schedule
+             * @default null
+             */
+            schedule: string | null;
+            /** Timezone */
+            timezone: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Tool Permissions
+             * @default null
+             */
+            tool_permissions: string[] | null;
+            /**
+             * Model
+             * @description LLM model for the agent
+             */
+            model: string;
+            /**
+             * Conversation Id
+             * @default null
+             */
+            conversation_id: string | null;
+            /**
+             * Last Run At
+             * @default null
+             */
+            last_run_at: string | null;
+            /**
+             * Next Run At
+             * @default null
+             */
+            next_run_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /**
+             * Budget Limit
+             * @description Daily budget limit in USD (null = unlimited)
+             * @default null
+             */
+            budget_limit: number | null;
+            /**
+             * Daily Spending
+             * @description Today's spending in USD
+             * @default 0
+             */
+            daily_spending: number;
+            /**
+             * Has Pending Approval
+             * @description Whether agent is blocked waiting for approval
+             * @default false
+             */
+            has_pending_approval: boolean;
+            /**
+             * Has Error
+             * @description Whether the last execution failed
+             * @default false
+             */
+            has_error: boolean;
+            /**
+             * Unread Count
+             * @description Number of unread messages in agent conversation
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Last Execution Status
+             * @description Status of the most recent execution (completed, failed, etc.)
+             * @default null
+             */
+            last_execution_status: string | null;
+        };
+        /**
+         * AgentStatus
+         * @description Status of an agent execution.
+         * @enum {string}
+         */
+        "CommandCenterResponse.AgentStatus": "running" | "completed" | "failed" | "waiting_approval";
+        /**
+         * AgentTriggerType
+         * @description How an agent execution was triggered.
+         * @enum {string}
+         */
+        "CommandCenterResponse.AgentTriggerType": "scheduled" | "manual" | "agent_trigger";
+        /**
+         * ApprovalRequestResponse
+         * @description Approval request information.
+         */
+        "CommandCenterResponse.ApprovalRequestResponse": {
+            /** Id */
+            id: string;
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Agent Name
+             * @description Name of the agent requesting approval
+             */
+            agent_name: string;
+            /** Tool Name */
+            tool_name: string;
+            /**
+             * Tool Args
+             * @default null
+             */
+            tool_args: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description: string;
+            status: components["schemas"]["CommandCenterResponse.ApprovalStatus"];
+            /** Created At */
+            created_at: string;
+            /**
+             * Resolved At
+             * @default null
+             */
+            resolved_at: string | null;
+        };
+        /**
+         * ApprovalStatus
+         * @description Status of an approval request.
+         * @enum {string}
+         */
+        "CommandCenterResponse.ApprovalStatus": "pending" | "approved" | "rejected";
+        /**
+         * CommandCenterResponse
+         * @description Complete command center dashboard data.
+         */
+        CommandCenterResponse: {
+            /**
+             * Agents
+             * @description All agents with unread counts and pending status
+             */
+            agents: components["schemas"]["CommandCenterResponse.AgentResponse"][];
+            /**
+             * Pending Approvals
+             * @description All pending approval requests
+             */
+            pending_approvals?: components["schemas"]["CommandCenterResponse.ApprovalRequestResponse"][];
+            /**
+             * Recent Executions
+             * @description Recent execution history across all agents
+             */
+            recent_executions?: components["schemas"]["CommandCenterResponse.AgentExecutionResponse"][];
+            /**
+             * Total Unread
+             * @description Total unread messages across all agents
+             * @default 0
+             */
+            total_unread: number;
+            /**
+             * Agents Waiting
+             * @description Number of agents blocked on approval
+             * @default 0
+             */
+            agents_waiting: number;
+            /**
+             * Agents With Errors
+             * @description Number of agents whose last execution failed
+             * @default 0
+             */
+            agents_with_errors: number;
         };
         /**
          * ModelCostBreakdown
@@ -2418,9 +5118,105 @@ export interface components {
             created_at: string;
             /** Updated At */
             updated_at: string;
+            /**
+             * Is Agent
+             * @default false
+             */
+            is_agent: boolean;
+            /**
+             * Agent Id
+             * @default null
+             */
+            agent_id: string | null;
+            /**
+             * Has Pending Approval
+             * @default false
+             */
+            has_pending_approval: boolean;
             /** Messages */
             messages: components["schemas"]["ConversationDetailPaginatedResponse.MessageResponse"][];
             message_pagination: components["schemas"]["ConversationDetailPaginatedResponse.MessagesPaginationResponse"];
+        };
+        /**
+         * ParseScheduleResponse
+         * @description Response from schedule parsing endpoint.
+         */
+        ParseScheduleResponse: {
+            /**
+             * Cron
+             * @description Parsed cron expression (5-part format)
+             * @default null
+             */
+            cron: string | null;
+            /**
+             * Explanation
+             * @description Human-readable explanation of the schedule
+             * @default null
+             */
+            explanation: string | null;
+            /**
+             * Error
+             * @description Error message if parsing failed
+             * @default null
+             */
+            error: string | null;
+        };
+        /**
+         * ParseScheduleRequest
+         * @description Schema for POST /api/ai-assist/parse-schedule.
+         */
+        ParseScheduleRequest: {
+            /**
+             * Natural Language
+             * @description Natural language description of the schedule (e.g., 'every day at 9am')
+             */
+            natural_language: string;
+            /**
+             * Timezone
+             * @description IANA timezone for interpreting the schedule
+             * @default UTC
+             */
+            timezone: string;
+        };
+        /**
+         * EnhancePromptResponse
+         * @description Response from prompt enhancement endpoint.
+         */
+        EnhancePromptResponse: {
+            /**
+             * Enhanced Prompt
+             * @description AI-enhanced system prompt
+             * @default null
+             */
+            enhanced_prompt: string | null;
+            /**
+             * Error
+             * @description Error message if enhancement failed
+             * @default null
+             */
+            error: string | null;
+        };
+        /**
+         * EnhancePromptRequest
+         * @description Schema for POST /api/ai-assist/enhance-prompt.
+         */
+        EnhancePromptRequest: {
+            /**
+             * Prompt
+             * @description Current system prompt to enhance
+             */
+            prompt: string;
+            /**
+             * Agent Name
+             * @description Name of the agent (for context)
+             */
+            agent_name: string;
+            /**
+             * Tool Permissions
+             * @description List of optional tool names the agent can use (excludes always-available tools).
+             * @default null
+             */
+            tool_permissions: string[] | null;
         };
         /**
          * MessageCostResponse
@@ -2461,6 +5257,66 @@ export interface components {
              * @default null
              */
             image_generation_cost_formatted: string | null;
+        };
+        /**
+         * SelectedCalendarsResponse
+         * @description Response for selected calendars.
+         */
+        SelectedCalendarsResponse: {
+            /**
+             * Calendar Ids
+             * @description List of selected calendar IDs
+             */
+            calendar_ids: string[];
+        };
+        /**
+         * AgentExecutionResponse
+         * @description Agent execution record.
+         */
+        "AgentExecutionsListResponse.AgentExecutionResponse": {
+            /** Id */
+            id: string;
+            /** Agent Id */
+            agent_id: string;
+            status: components["schemas"]["AgentExecutionsListResponse.AgentStatus"];
+            trigger_type: components["schemas"]["AgentExecutionsListResponse.AgentTriggerType"];
+            /**
+             * Triggered By Agent Id
+             * @default null
+             */
+            triggered_by_agent_id: string | null;
+            /** Started At */
+            started_at: string;
+            /**
+             * Completed At
+             * @default null
+             */
+            completed_at: string | null;
+            /**
+             * Error Message
+             * @default null
+             */
+            error_message: string | null;
+        };
+        /**
+         * AgentStatus
+         * @description Status of an agent execution.
+         * @enum {string}
+         */
+        "AgentExecutionsListResponse.AgentStatus": "running" | "completed" | "failed" | "waiting_approval";
+        /**
+         * AgentTriggerType
+         * @description How an agent execution was triggered.
+         * @enum {string}
+         */
+        "AgentExecutionsListResponse.AgentTriggerType": "scheduled" | "manual" | "agent_trigger";
+        /**
+         * AgentExecutionsListResponse
+         * @description List of agent executions.
+         */
+        AgentExecutionsListResponse: {
+            /** Executions */
+            executions: components["schemas"]["AgentExecutionsListResponse.AgentExecutionResponse"][];
         };
         /**
          * ConversationCostResponse
@@ -2697,6 +5553,38 @@ export interface components {
              * @default null
              */
             user_message_id: string | null;
+        };
+        /**
+         * AgentConversationSyncData
+         * @description Sync data for an agent's conversation.
+         */
+        "AgentConversationSyncResponse.AgentConversationSyncData": {
+            /**
+             * Message Count
+             * @description Total number of messages in conversation
+             */
+            message_count: number;
+            /**
+             * Updated At
+             * @description Conversation updated_at timestamp in ISO format
+             */
+            updated_at: string;
+        };
+        /**
+         * AgentConversationSyncResponse
+         * @description Response from agent conversation sync endpoint for real-time synchronization.
+         */
+        AgentConversationSyncResponse: {
+            /**
+             * @description Agent conversation state, or null if no conversation exists
+             * @default null
+             */
+            conversation: components["schemas"]["AgentConversationSyncResponse.AgentConversationSyncData"] | null;
+            /**
+             * Server Time
+             * @description Server timestamp in ISO format
+             */
+            server_time: string;
         };
     };
     responses: never;

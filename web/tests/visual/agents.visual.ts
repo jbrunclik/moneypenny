@@ -578,6 +578,11 @@ test.describe('Visual: Agent Editor Modal', () => {
     // Click on the tool permission cards (labels) to toggle them
     await page.click('.tool-permission-card:has(input[value="todoist"])');
     await page.click('.tool-permission-card:has(input[value="google_calendar"])');
+    // WhatsApp is only shown when configured - click if available
+    const whatsappCard = page.locator('.tool-permission-card:has(input[value="whatsapp"])');
+    if (await whatsappCard.count() > 0) {
+      await whatsappCard.click();
+    }
 
     await page.waitForTimeout(200);
 
@@ -593,7 +598,7 @@ test.describe('Visual: Agent Editor Modal', () => {
       schedule: '0 9 * * *',
       timezone: 'UTC',
       enabled: true,
-      tool_permissions: ['todoist', 'google_calendar'],
+      tool_permissions: ['todoist', 'google_calendar', 'whatsapp'],
       model: 'gemini-3-flash-preview',
       conversation_id: null,
       last_run_at: null,

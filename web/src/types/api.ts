@@ -354,6 +354,9 @@ export interface MemoriesResponse {
 
 export interface UserSettings {
   custom_instructions: string;
+  whatsapp_phone: string | null;
+  /** Whether WhatsApp is configured at the app level */
+  whatsapp_available: boolean;
 }
 
 // =============================================================================
@@ -671,6 +674,7 @@ export interface ParseScheduleResponse {
 export interface EnhancePromptRequest {
   prompt: string;
   agent_name: string;
+  tool_permissions?: string[] | null;
 }
 
 export interface EnhancePromptResponse {

@@ -30,6 +30,7 @@ class User:
     google_calendar_email: str | None = None
     google_calendar_selected_ids: list[str] | None = None
     planner_last_reset_at: datetime | None = None
+    whatsapp_phone: str | None = None
 
 
 @dataclass

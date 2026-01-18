@@ -118,22 +118,58 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 
 Agents are configured with specific tool permissions. Some tools are always available to ensure basic functionality and agent-to-agent interaction.
 
-| Tool | Description |
-|------|-------------|
-| `todoist` | Todoist task management (requires integration) |
-| `google_calendar` | Calendar events (requires integration) |
-| `execute_code` | Code execution in sandbox (requires `CODE_SANDBOX_ENABLED`) |
-| `generate_image` | AI image generation |
-| `web_search` | Web search queries (always available) |
-| `fetch_url` | Fetch content from URLs (always available) |
-| `retrieve_file` | Retrieve files from conversations (always available) |
-| `request_approval` | Request user approval (always available) |
-| `trigger_agent` | Trigger another agent (always available) |
+| Tool | Description | Availability |
+|------|-------------|--------------|
+| `web_search` | Web search queries | Always available |
+| `fetch_url` | Fetch content from URLs | Always available |
+| `retrieve_file` | Retrieve files from conversations | Always available |
+| `request_approval` | Request user approval | Always available |
+| `trigger_agent` | Trigger another agent | Always available |
+| `generate_image` | AI image generation | Requires `GEMINI_API_KEY` |
+| `execute_code` | Code execution in sandbox | Requires `CODE_SANDBOX_ENABLED` |
+| `todoist` | Todoist task management | Requires user integration |
+| `google_calendar` | Calendar events | Requires user integration |
+| `whatsapp` | WhatsApp notifications | Requires app config + user phone |
 
 **Permission settings:**
 - `tool_permissions=null` (default): All available tools enabled
 - `tool_permissions=[]`: Only "always available" tools enabled
 - `tool_permissions=["todoist", ...]`: Only specified tools + "always available" tools
+
+### Adding a New Tool
+
+When adding a new tool for autonomous agents, update these locations:
+
+**Backend (required):**
+
+1. **`src/agent/tools/<tool_name>.py`** - Tool implementation with `@tool` decorator
+2. **`src/agent/tools/__init__.py`** - Register in `get_tools_for_request()`, add `is_<tool>_available()` function
+3. **`src/agent/tool_display.py`** - Add to `TOOL_METADATA` dict for UI display (icon, label, description)
+4. **`src/api/routes/agents.py`** - Add to `_PROMPT_TOOL_DESCRIPTIONS` dict for prompt enhancer
+
+**Frontend (required):**
+
+5. **`web/src/components/AgentEditor.ts`** - Add to `BASE_TOOLS` array for permissions UI
+6. **`web/src/utils/icons.ts`** - Add icon if needed (referenced by `TOOL_METADATA`)
+
+**Configuration (if needed):**
+
+7. **`src/config.py`** - Add configuration variables
+8. **`.env.example`** - Document new config variables
+
+**For integration tools requiring user connection:**
+
+9. **`src/api/routes/agents.py`** - Add `_is_<tool>_connected_for_user(user)` function that checks both app config AND user connection status
+
+**Documentation:**
+
+10. **`docs/features/agents.md`** - Update the Available Tools table above
+11. **`docs/features/integrations.md`** - Add integration documentation (for external service tools)
+
+**Tests:**
+
+12. **`tests/unit/test_<tool>.py`** - Unit tests for the tool
+13. **`web/tests/visual/agents.visual.ts`** - Update visual snapshots if UI changed
 
 ### LLM-Driven Approval System
 

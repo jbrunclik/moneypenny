@@ -358,6 +358,153 @@ GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Use Vite port in dev
 
 **Disabling:** Leave `GOOGLE_CALENDAR_CLIENT_ID` empty - the integration won't appear.
 
+### Setting up WhatsApp Integration (Autonomous Agents)
+
+The WhatsApp integration allows autonomous agents to send execution results and notifications to your phone via WhatsApp. This uses Meta's official WhatsApp Cloud API.
+
+**Cost:** WhatsApp Cloud API offers **1,000 free conversations/month**. Beyond that, costs are ~$0.005-0.05 per conversation depending on region.
+
+**Prerequisites:**
+- A Meta (Facebook) account
+- A phone number to receive messages (can be your personal WhatsApp number)
+
+**Key Concepts:**
+
+Before setting up, understand these important WhatsApp Business API concepts:
+
+- **Phone Number ID**: A numeric ID (e.g., `982966681562240`), NOT the phone number itself. This is a common mistake!
+- **Phone Registration**: Your business phone must be registered via the API before it can send messages
+- **24-Hour Window**: You can only send free-form text messages within 24 hours after a user messages you first
+- **Template Messages**: For business-initiated conversations (first contact), you MUST use pre-approved message templates
+- **Test vs Production**: The `hello_world` template only works with test phone numbers, not production
+
+**Setup:**
+
+1. **Create a Meta Business Account** (if you don't have one):
+   - Go to [Meta Business Suite](https://business.facebook.com/)
+   - Click "Create Account" and follow the prompts
+
+2. **Create a WhatsApp Business App**:
+   - Go to [Meta for Developers](https://developers.facebook.com/)
+   - Click "My Apps" → "Create App"
+   - Select "Business" as the app type
+   - Fill in app details and click "Create App"
+
+3. **Add WhatsApp to your app**:
+   - In your app dashboard, click "Add Product"
+   - Find "WhatsApp" and click "Set Up"
+
+4. **Add your business phone number**:
+   - Go to **WhatsApp** → **API Setup**
+   - Click "Add phone number" and follow the verification process
+   - You may need to download a certificate to verify ownership
+   - Once verified, note the **Phone number ID** (a numeric ID like `982966681562240`)
+
+5. **Register your phone number** (required before sending):
+   ```bash
+   curl -X POST "https://graph.facebook.com/v18.0/YOUR_PHONE_NUMBER_ID/register" \
+     -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"messaging_product": "whatsapp", "pin": "123456"}'
+   ```
+   You should see `{"success": true}`.
+
+6. **Generate a permanent access token**:
+   - Go to **Business Settings** → **System Users**
+   - Create a System User with "Admin" role
+   - Click "Generate Token" → Select your WhatsApp app
+   - Add permissions: `whatsapp_business_messaging`, `whatsapp_business_management`
+   - Copy the permanent token to your `.env` file
+
+7. **Create a message template** (required for business-initiated messages):
+   - Go to [Meta Business Suite](https://business.facebook.com/) → **WhatsApp Manager** → **Message Templates**
+   - Create a new template (e.g., name: `agent_notification`, category: `UTILITY`)
+   - Use a body with two variables: `{{1}}: {{2}}`
+     - `{{1}}` = Agent name (e.g., "Daily Briefing Agent")
+     - `{{2}}` = Message content
+   - Submit for review (usually approved within minutes for utility templates)
+   - Note the template name for your `.env` file
+
+8. **Enable billing** (for production):
+   - Go to **WhatsApp** → **API Setup** → **Payment settings**
+   - Add a payment method to enable production messaging
+   - Without billing, you can only message numbers added to your test recipient list
+
+**Configuration:**
+```bash
+# WhatsApp Cloud API credentials (app-level)
+# IMPORTANT: Phone Number ID is a numeric ID, NOT the phone number!
+WHATSAPP_PHONE_NUMBER_ID=982966681562240          # From API Setup page (numeric ID)
+WHATSAPP_ACCESS_TOKEN=EAAxxxxxxx...               # Permanent token from System User
+WHATSAPP_TEMPLATE_NAME=agent_notification         # Your approved template name
+```
+
+**User Setup:**
+
+Each user needs to configure their WhatsApp phone number in the app settings (Settings → WhatsApp). The phone number must be:
+- In E.164 format (e.g., `+1234567890`)
+- A valid WhatsApp account
+
+**Usage:**
+
+WhatsApp messaging is available as an agent tool. To enable it for an autonomous agent:
+
+1. Add `whatsapp` to the agent's tool permissions
+2. Include instructions in the agent's system prompt to send WhatsApp notifications, e.g.:
+   - "After completing your analysis, send the results via WhatsApp"
+   - "Notify me via WhatsApp when the task is done"
+
+The agent will only send WhatsApp messages when explicitly instructed in its goals.
+
+**Testing the setup:**
+
+For testing within the 24-hour window (after user messages you):
+```bash
+curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/messages" \
+  -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messaging_product": "whatsapp",
+    "to": "1234567890",
+    "type": "text",
+    "text": {"body": "Hello from AI Chatbot!"}
+  }'
+```
+
+For business-initiated messages (using template with two parameters):
+```bash
+curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/messages" \
+  -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messaging_product": "whatsapp",
+    "to": "1234567890",
+    "type": "template",
+    "template": {
+      "name": "agent_notification",
+      "language": {"code": "en"},
+      "components": [{"type": "body", "parameters": [{"type": "text", "text": "Test Agent"}, {"type": "text", "text": "Your task is complete!"}]}]
+    }
+  }'
+```
+
+**Troubleshooting:**
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `133010 Account not registered` | Business phone not registered | Run the `/register` endpoint (step 5) |
+| `131030 Recipient not in allowed list` | Test mode limitation | Add recipient to test list or enable billing |
+| `131058 Hello World templates can only be sent from Public Test Numbers` | Using hello_world in production | Create your own message template |
+| `100 messaging_product is required` | Malformed request | Check JSON structure and Content-Type header |
+
+**Limitations:**
+- Template messages required for first contact (outside 24-hour window)
+- Templates must be pre-approved by Meta (usually quick for utility category)
+- Messages have a 4096 character limit (longer content is automatically truncated)
+- Rate limits apply based on your messaging tier (starts at 250 messages/day)
+
+**Disabling:** Leave `WHATSAPP_PHONE_NUMBER_ID` empty - the integration won't be available.
+
 ### Running
 
 ```bash

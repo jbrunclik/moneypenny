@@ -62,7 +62,7 @@ ai-chatbot/
   - [content.py](src/agent/content.py) - Content extraction utilities
   - [tool_results.py](src/agent/tool_results.py) - Tool result capture
   - [tool_display.py](src/agent/tool_display.py) - Tool metadata for UI
-- [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file, trigger_agent)
+- [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file, trigger_agent, whatsapp)
 - [models/](src/db/models/) - Database models and operations (split by entity)
 - [main.ts](web/src/main.ts) - Frontend entry point (minimal, delegates to core modules)
 - [core/](web/src/core/) - Core frontend modules (split from main.ts):
@@ -232,7 +232,7 @@ cd web && timeout 600 npx playwright test  # 10 minute timeout
 Add route to the appropriate module in [src/api/routes/](src/api/routes/) (e.g., [routes/conversations.py](src/api/routes/conversations.py) for conversation-related endpoints). Use `@api.output()` decorator for response schema. Routes are organized by feature - see [API Route Organization](#api-route-organization) above.
 
 ### Add a new tool to the agent
-Create a new file in [tools/](src/agent/tools/) or add to an existing tool module. Add function with `@tool` decorator and register in [tools/__init__.py](src/agent/tools/__init__.py).
+Create a new file in [tools/](src/agent/tools/) or add to an existing tool module. Add function with `@tool` decorator and register in [tools/__init__.py](src/agent/tools/__init__.py). For autonomous agent tools, see the comprehensive checklist in [docs/features/agents.md](docs/features/agents.md#adding-a-new-tool).
 
 ### Change available models
 Edit [config.py](src/config.py) `MODELS` dict.

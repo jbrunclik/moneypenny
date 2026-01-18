@@ -11,6 +11,7 @@ import {
   CALENDAR_ICON,
   EDIT_ICON,
   STAR_ICON,
+  PHONE_ICON,
 } from '../utils/icons';
 import { settings, todoist, calendar } from '../api/client';
 import { toast } from './Toast';
@@ -36,6 +37,12 @@ const CALENDAR_STATE_KEY = 'calendar-oauth-state';
 
 /** Current custom instructions value */
 let currentInstructions = '';
+
+/** Current WhatsApp phone number */
+let currentWhatsappPhone = '';
+
+/** Whether WhatsApp is available at the app level */
+let whatsappAvailable = false;
 
 /** Current color scheme value */
 let currentColorScheme: ColorScheme = 'system';
@@ -325,6 +332,27 @@ function renderContent(
         ${renderCalendarSection(calendarSt)}
       </div>
 
+      ${whatsappAvailable ? `
+      <div class="settings-divider"></div>
+
+      <div class="settings-field">
+        <label class="settings-label settings-label-with-icon" for="whatsapp-phone">
+          <span class="settings-label-icon">${PHONE_ICON}</span>
+          WhatsApp Notifications
+        </label>
+        <p class="settings-helper">Enter your phone number to receive notifications from autonomous agents via WhatsApp</p>
+        <input
+          type="tel"
+          id="whatsapp-phone"
+          class="settings-input"
+          placeholder="+1234567890"
+          maxlength="20"
+          value="${escapeHtml(currentWhatsappPhone)}"
+        />
+        <p class="settings-helper settings-helper-muted">Format: E.164 (e.g., +420123456789)</p>
+      </div>
+      ` : ''}
+
       <div class="settings-divider"></div>
 
       <div class="settings-field">
@@ -367,24 +395,48 @@ function updateCharCount(textarea: HTMLTextAreaElement): void {
  */
 async function saveSettings(): Promise<void> {
   const textarea = document.getElementById('custom-instructions') as HTMLTextAreaElement;
+  const phoneInput = document.getElementById('whatsapp-phone') as HTMLInputElement | null;
   if (!textarea) return;
 
   const instructions = textarea.value.trim();
+  // Only get phone value if WhatsApp is available and input exists
+  const whatsappPhone = whatsappAvailable && phoneInput ? phoneInput.value.trim() : currentWhatsappPhone;
 
-  // Check if value changed
-  if (instructions === currentInstructions) {
+  // Check if any values changed
+  const instructionsChanged = instructions !== currentInstructions;
+  const phoneChanged = whatsappAvailable && whatsappPhone !== currentWhatsappPhone;
+
+  if (!instructionsChanged && !phoneChanged) {
     closeSettingsPopup();
     return;
   }
 
-  log.debug('Saving settings', { instructionsLength: instructions.length });
+  log.debug('Saving settings', {
+    instructionsLength: instructions.length,
+    phoneChanged,
+  });
 
   try {
-    await settings.update({ custom_instructions: instructions });
-    currentInstructions = instructions;
+    const updateData: { custom_instructions?: string; whatsapp_phone?: string } = {};
+
+    if (instructionsChanged) {
+      updateData.custom_instructions = instructions;
+    }
+    if (phoneChanged) {
+      updateData.whatsapp_phone = whatsappPhone;
+    }
+
+    await settings.update(updateData);
+
+    if (instructionsChanged) currentInstructions = instructions;
+    if (phoneChanged) currentWhatsappPhone = whatsappPhone;
+
     closeSettingsPopup();
     toast.success('Settings saved');
-    log.info('Settings saved', { instructionsLength: instructions.length });
+    log.info('Settings saved', {
+      instructionsLength: instructions.length,
+      hasPhone: !!whatsappPhone,
+    });
   } catch (error) {
     log.error('Failed to save settings', { error });
     toast.error('Failed to save settings');
@@ -784,10 +836,14 @@ export async function openSettingsPopup(): Promise<void> {
     ]);
 
     currentInstructions = settingsData.custom_instructions || '';
+    currentWhatsappPhone = settingsData.whatsapp_phone || '';
+    whatsappAvailable = settingsData.whatsapp_available ?? false;
     todoistStatus = todoistData;
     calendarStatus = calendarData;
     log.info('Settings loaded', {
       instructionsLength: currentInstructions.length,
+      hasWhatsappPhone: !!currentWhatsappPhone,
+      whatsappAvailable,
       todoistConnected: todoistStatus?.connected ?? false,
       calendarConnected: calendarStatus?.connected ?? false,
     });

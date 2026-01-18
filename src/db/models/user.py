@@ -87,6 +87,7 @@ class UserMixin:
             google_calendar_email=row["google_calendar_email"],
             google_calendar_selected_ids=calendar_selected_ids,
             planner_last_reset_at=planner_last_reset,
+            whatsapp_phone=row["whatsapp_phone"] if "whatsapp_phone" in row.keys() else None,
         )
 
     def get_or_create_user(self, email: str, name: str, picture: str | None = None) -> User:
@@ -358,3 +359,41 @@ class UserMixin:
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    def update_user_whatsapp_phone(self, user_id: str, phone: str | None) -> bool:
+        """Update a user's WhatsApp phone number.
+
+        Args:
+            user_id: The user ID
+            phone: The WhatsApp phone number in E.164 format (e.g., +1234567890),
+                   or None to remove
+
+        Returns:
+            True if user was updated, False if not found
+        """
+        logger.debug(
+            "Updating user WhatsApp phone",
+            extra={"user_id": user_id, "has_phone": bool(phone)},
+        )
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET whatsapp_phone = ? WHERE id = ?",
+                (phone, user_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            action = "set" if phone else "removed"
+            logger.info(
+                f"User WhatsApp phone {action}",
+                extra={"user_id": user_id},
+            )
+        else:
+            logger.warning(
+                "User not found for WhatsApp phone update",
+                extra={"user_id": user_id},
+            )
+        return updated

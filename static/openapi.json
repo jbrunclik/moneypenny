@@ -5,10 +5,40 @@
   },
   "tags": [
     {
-      "name": "API"
+      "name": "Auth"
     },
     {
-      "name": "Auth"
+      "name": "Todoist"
+    },
+    {
+      "name": "Calendar"
+    },
+    {
+      "name": "System"
+    },
+    {
+      "name": "Memory"
+    },
+    {
+      "name": "Settings"
+    },
+    {
+      "name": "Conversations"
+    },
+    {
+      "name": "Planner"
+    },
+    {
+      "name": "Agents"
+    },
+    {
+      "name": "Chat"
+    },
+    {
+      "name": "Files"
+    },
+    {
+      "name": "Costs"
     }
   ],
   "paths": {
@@ -75,10 +105,53 @@
           }
         },
         "tags": [
-          "API"
+          "System"
         ],
         "summary": "Readiness probe - checks if the application can serve traffic.",
         "description": "Verifies that all dependencies (database) are accessible.\nUse this for load balancer health checks that should remove\nunhealthy instances from the pool.\n\nReturns:\n200: Application is ready to serve traffic\n503: Application is not ready (dependency failure)"
+      }
+    },
+    "/api/models": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "System"
+        ],
+        "summary": "List available models."
+      }
+    },
+    "/api/health": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "System"
+        ],
+        "summary": "Liveness probe - checks if the application process is running.",
+        "description": "This endpoint should NOT check external dependencies (database, APIs).\nIt only verifies the Flask application is responding to requests.\n\nUse /api/ready for readiness checks that verify dependencies.\n\nReturns:\n200: Application is alive and responding"
       }
     },
     "/api/search": {
@@ -117,13 +190,13 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Search across all conversations and messages.",
         "description": "Uses full-text search with BM25 ranking. Searches both conversation\ntitles and message content. Results are ordered by relevance.\n\nQuery parameters:\n- q: Search query (required, 1-200 characters)\n- limit: Number of results to return (default: 20, max: 50)\n- offset: Number of results to skip for pagination (default: 0)\n\nReturns:\n- results: Array of search results with conversation info and message snippets\n- total: Total number of matching results\n- query: The search query that was executed"
       }
     },
-    "/api/models": {
+    "/api/agents": {
       "get": {
         "parameters": [],
         "responses": {
@@ -131,61 +204,87 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ModelsListResponse"
+                  "$ref": "#/components/schemas/AgentsListResponse"
                 }
               }
             },
             "description": "Successful response"
-          }
-        },
-        "tags": [
-          "API"
-        ],
-        "summary": "List available models."
-      }
-    },
-    "/api/health": {
-      "get": {
-        "parameters": [],
-        "responses": {
-          "200": {
+          },
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
+                  "$ref": "#/components/schemas/HTTPError"
                 }
               }
             },
-            "description": "Successful response"
+            "description": "Unauthorized"
           }
         },
         "tags": [
-          "API"
+          "Agents"
         ],
-        "summary": "Liveness probe - checks if the application process is running.",
-        "description": "This endpoint should NOT check external dependencies (database, APIs).\nIt only verifies the Flask application is responding to requests.\n\nUse /api/ready for readiness checks that verify dependencies.\n\nReturns:\n200: Application is alive and responding"
-      }
-    },
-    "/api/version": {
-      "get": {
+        "summary": "List all autonomous agents for the current user.",
+        "description": "Returns agents ordered by creation date (newest first).\nEach agent includes unread_count and has_pending_approval flags."
+      },
+      "post": {
         "parameters": [],
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VersionResponse"
+                  "$ref": "#/components/schemas/AgentResponse"
                 }
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
           }
         },
         "tags": [
-          "API"
+          "Agents"
         ],
-        "summary": "Get current app version (JS bundle hash).",
-        "description": "This endpoint does not require authentication so version can be\nchecked even before login. Used by frontend to detect when a new\nversion is deployed and prompt users to reload."
+        "summary": "Create a new autonomous agent.",
+        "description": "Creates the agent and its dedicated conversation automatically.\nThe conversation title will be \"Agent: <name>\".\n\nReturns the created agent with its conversation_id.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/auth/google": {
@@ -249,6 +348,70 @@
         "summary": "Authenticate with Google ID token from Sign In with Google."
       }
     },
+    "/api/version": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "System"
+        ],
+        "summary": "Get current app version (JS bundle hash).",
+        "description": "This endpoint does not require authentication so version can be\nchecked even before login. Used by frontend to detect when a new\nversion is deployed and prompt users to reload."
+      }
+    },
+    "/api/planner": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannerDashboardResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Planner"
+        ],
+        "summary": "Get planner dashboard data for the next 7 days.",
+        "description": "Returns events from Google Calendar and tasks from Todoist,\norganized by day. Requires at least one integration to be connected.\n\nThe dashboard includes:\n- days: Array of 7 days (Today, Tomorrow, then weekday names)\n- Each day contains events and tasks for that date\n- overdue_tasks: Tasks that are past their due date\n- Connection status flags for both integrations\n- server_time: Current server time for cache invalidation\n\nQuery parameters:\n- force_refresh: Set to \"true\" to bypass cache and fetch fresh data"
+      }
+    },
     "/{path}": {
       "get": {
         "parameters": [
@@ -284,27 +447,6 @@
         "summary": "Static Files"
       }
     },
-    "/api/memories": {
-      "get": {
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemoriesListResponse"
-                }
-              }
-            },
-            "description": "Successful response"
-          }
-        },
-        "tags": [
-          "API"
-        ],
-        "summary": "List all memories for the current user."
-      }
-    },
     "/auth/refresh": {
       "post": {
         "parameters": [],
@@ -327,6 +469,27 @@
         "description": "Returns a new token with extended expiration.\nThe old token remains valid until its original expiration."
       }
     },
+    "/api/memories": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoriesListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Memory"
+        ],
+        "summary": "List all memories for the current user."
+      }
+    },
     "/auth/client-id": {
       "get": {
         "parameters": [],
@@ -346,6 +509,59 @@
           "Auth"
         ],
         "summary": "Return Google Client ID for frontend initialization."
+      }
+    },
+    "/api/planner/sync": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannerSyncResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Planner"
+        ],
+        "summary": "Get planner conversation state for sync.",
+        "description": "Returns the planner conversation state for real-time synchronization.\nThis allows the frontend to detect:\n- New messages added in another tab/device\n- Planner reset in another tab\n- Planner deletion\n\nReturns:\n- conversation: Planner conversation state (id, updated_at, message_count, last_reset)\nor null if no planner exists\n- server_time: Server timestamp for clock-skew-proof comparisons"
+      }
+    },
+    "/api/config/upload": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadConfigResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "System"
+        ],
+        "summary": "Get file upload configuration for frontend."
       }
     },
     "/api/conversations": {
@@ -374,7 +590,7 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "List conversations for the current user with pagination.",
         "description": "Query parameters:\n- limit: Number of conversations to return (default: 30, max: 100)\n- cursor: Cursor from previous page for fetching next page\n\nReturns paginated conversations with message_count for proper sync initialization."
@@ -404,30 +620,51 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Create a new conversation."
       }
     },
-    "/api/config/upload": {
-      "get": {
+    "/api/planner/reset": {
+      "post": {
         "parameters": [],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadConfigResponse"
+                  "$ref": "#/components/schemas/PlannerResetResponse"
                 }
               }
             },
             "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "tags": [
-          "API"
+          "Planner"
         ],
-        "summary": "Get file upload configuration for frontend."
+        "summary": "Manually reset the planner conversation.",
+        "description": "Physically deletes all messages from the planner conversation\n(not soft delete). Message costs are preserved for accurate\ncost tracking.\n\nThis also clears the dashboard cache so the next request fetches\nfresh data.\n\nReturns:\n- success: True if reset was successful\n- message: Human-readable status message"
       }
     },
     "/auth/todoist/status": {
@@ -456,7 +693,7 @@
           }
         },
         "tags": [
-          "Auth"
+          "Todoist"
         ],
         "summary": "Get current Todoist connection status.",
         "description": "Returns whether Todoist is connected, and if so, the connected email.\nAlso detects invalid tokens and reports needs_reconnect=True."
@@ -498,13 +735,13 @@
           }
         },
         "tags": [
-          "Auth"
+          "Todoist"
         ],
         "summary": "Connect Todoist account by exchanging OAuth code for access token.",
         "description": "The frontend should:\n1. Call GET /auth/todoist/auth-url to get the authorization URL and state\n2. Redirect user to the authorization URL\n3. After user authorizes, Todoist redirects back with code and state\n4. Frontend validates state matches, then calls this endpoint with code"
       }
     },
-    "/api/users/me/settings": {
+    "/auth/calendar/status": {
       "get": {
         "parameters": [],
         "responses": {
@@ -512,36 +749,59 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserSettingsResponse"
+                  "$ref": "#/components/schemas/GoogleCalendarStatusResponse"
                 }
               }
             },
             "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
           }
         },
         "tags": [
-          "API"
+          "Calendar"
         ],
-        "summary": "Get user settings including custom instructions."
-      },
-      "patch": {
+        "summary": "Return Google Calendar connection status."
+      }
+    },
+    "/api/agents/approvals": {
+      "get": {
         "parameters": [],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
+                  "$ref": "#/components/schemas/PendingApprovalsResponse"
                 }
               }
             },
             "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
           }
         },
         "tags": [
-          "API"
+          "Agents"
         ],
-        "summary": "Update user settings."
+        "summary": "Get all pending approval requests.",
+        "description": "Returns pending approvals with agent names for display."
       }
     },
     "/auth/todoist/auth-url": {
@@ -570,10 +830,300 @@
           }
         },
         "tags": [
-          "Auth"
+          "Todoist"
         ],
         "summary": "Get Todoist OAuth authorization URL.",
         "description": "Returns a URL to redirect the user to for Todoist authorization.\nThe state token should be stored and validated on callback."
+      }
+    },
+    "/auth/calendar/connect": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarConnectResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Connect Google Calendar via OAuth."
+      }
+    },
+    "/api/users/me/settings": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get user settings including custom instructions and WhatsApp phone."
+      },
+      "patch": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update user settings."
+      }
+    },
+    "/api/agents/{agent_id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Get a specific agent by ID.",
+        "description": "Returns the agent with unread_count and has_pending_approval flags."
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Update an agent's configuration.",
+        "description": "Only provided fields will be updated; others remain unchanged.\nIf the name changes, the conversation title is updated to match.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentRequest"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Delete an agent and its dedicated conversation.",
+        "description": "Also deletes:\n- All messages in the agent's conversation\n- All approval requests for this agent\n- All execution records for this agent\n\nMessage costs are preserved for accurate cost tracking."
+      }
+    },
+    "/auth/calendar/auth-url": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarAuthUrlResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Return the Google Calendar OAuth URL."
       }
     },
     "/api/conversations/sync": {
@@ -602,7 +1152,7 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Sync conversations - returns conversations updated since a given timestamp.",
         "description": "Query parameters:\n- since: ISO timestamp to get conversations updated after this time (optional)\n- full: If \"true\", returns all conversations for delete detection (optional)\n\nReturns:\n- conversations: List of conversation objects with message_count\n- server_time: Current server timestamp to use for next sync\n- is_full_sync: Whether this was a full sync (all conversations returned)"
@@ -634,10 +1184,72 @@
           }
         },
         "tags": [
-          "Auth"
+          "Todoist"
         ],
         "summary": "Disconnect Todoist account.",
         "description": "Removes the stored access token. Note that the user must manually\nrevoke access in Todoist settings if they want to fully disconnect."
+      }
+    },
+    "/auth/calendar/calendars": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "List all available Google Calendars for the current user."
+      }
+    },
+    "/auth/calendar/disconnect": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Disconnect Google Calendar tokens."
       }
     },
     "/api/memories/{memory_id}": {
@@ -675,9 +1287,51 @@
           }
         },
         "tags": [
-          "API"
+          "Memory"
         ],
         "summary": "Delete a memory."
+      }
+    },
+    "/api/planner/conversation": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Planner"
+        ],
+        "summary": "Get the planner conversation for the current user.",
+        "description": "Creates a new planner conversation if one doesn't exist.\nAutomatically resets the conversation at 4am daily (lazy check).\n\nThe planner conversation is a single, special conversation per user:\n- Excluded from search results\n- Has ephemeral chat that resets daily\n- Appears at the top of the conversation list with special treatment\n\nReturns:\n- The planner conversation with its messages\n- was_reset: True if the conversation was auto-reset this request"
       }
     },
     "/api/messages/{message_id}": {
@@ -725,10 +1379,103 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Delete a message.",
         "description": "Deletes a single message and its associated files/thumbnails.\nThe message must belong to a conversation owned by the authenticated user.\nCost data is intentionally preserved for accurate reporting."
+      }
+    },
+    "/api/agents/{agent_id}/run": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerAgentResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Manually trigger an agent to run.",
+        "description": "Creates an execution record and runs the agent.\nIf the agent is disabled or waiting for approval, returns an error.\n\nReturns the execution record with status."
+      }
+    },
+    "/api/agents/command-center": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandCenterResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Get command center dashboard data.",
+        "description": "Returns aggregated data for the agents command center:\n- agents: All agents with unread counts and pending status\n- pending_approvals: All pending approval requests\n- recent_executions: Recent execution history\n- total_unread: Total unread messages across all agents\n- agents_waiting: Number of agents blocked on approval"
       }
     },
     "/api/users/me/costs/monthly": {
@@ -757,7 +1504,7 @@
           }
         },
         "tags": [
-          "API"
+          "Costs"
         ],
         "summary": "Get cost for the current user in a specific month."
       }
@@ -778,7 +1525,7 @@
           }
         },
         "tags": [
-          "API"
+          "Costs"
         ],
         "summary": "Get monthly cost history for the current user."
       }
@@ -828,7 +1575,7 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Get a conversation with its messages (paginated).",
         "description": "Query parameters for message pagination:\n- message_limit: Number of messages to return (default: 50, max: 200)\n- message_cursor: Cursor for fetching older/newer messages\n- direction: \"older\" (default) or \"newer\" for pagination direction\n\nBy default, returns the newest messages.\n\nOptimized: Only includes file metadata, not thumbnails or full file data.\nThumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail.\nFull files can be fetched via /api/messages/<message_id>/files/<file_index>."
@@ -877,7 +1624,7 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Update a conversation (title, model)."
       },
@@ -925,9 +1672,131 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Delete a conversation."
+      }
+    },
+    "/api/ai-assist/parse-schedule": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseScheduleResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Parse natural language schedule description into cron expression.",
+        "description": "Uses an LLM to convert user-friendly schedule descriptions\n(e.g., \"every weekday at 9am\") into standard cron expressions.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseScheduleRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai-assist/enhance-prompt": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnhancePromptResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Enhance an agent's system prompt using AI.",
+        "description": "Takes the current prompt and agent context, then suggests\nimprovements for clarity, completeness, and effectiveness.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnhancePromptRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/messages/{message_id}/cost": {
@@ -965,9 +1834,150 @@
           }
         },
         "tags": [
-          "API"
+          "Costs"
         ],
         "summary": "Get cost for a specific message."
+      }
+    },
+    "/auth/calendar/selected-calendars": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectedCalendarsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get the user's selected calendar IDs."
+      },
+      "put": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectedCalendarsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Update the user's selected calendar IDs."
+      }
+    },
+    "/api/agents/{agent_id}/executions": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentExecutionsListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Get execution history for an agent.",
+        "description": "Returns the 20 most recent executions, newest first."
       }
     },
     "/api/conversations/{conv_id}/cost": {
@@ -1005,9 +2015,204 @@
           }
         },
         "tags": [
-          "API"
+          "Costs"
         ],
         "summary": "Get total cost for a conversation."
+      }
+    },
+    "/api/agents/{agent_id}/mark-viewed": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Mark an agent's conversation as viewed.",
+        "description": "Updates the last_viewed_at timestamp to reset unread count.\nShould be called when user opens the agent's conversation."
+      }
+    },
+    "/api/agents/dev/evaluate-schedules": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "(Dev only) Evaluate and run scheduled agents.",
+        "description": "This endpoint is for local development/testing without systemd timers.\nIt evaluates which agents are due to run based on their cron schedules\nand triggers them.\n\nOnly available in development mode (FLASK_ENV=development)."
+      }
+    },
+    "/api/approvals/{approval_id}/reject": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Reject a pending approval request.",
+        "description": "Marks the request as rejected. The agent will not perform\nthe requested action. Adds a rejection message to the conversation."
+      }
+    },
+    "/api/approvals/{approval_id}/approve": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Approve a pending approval request.",
+        "description": "Marks the request as approved and resumes the agent execution.\nThe agent will continue with a message indicating the action was approved."
       }
     },
     "/api/conversations/{conv_id}/messages": {
@@ -1055,7 +2260,7 @@
           }
         },
         "tags": [
-          "API"
+          "Conversations"
         ],
         "summary": "Get paginated messages for a conversation.",
         "description": "This is a dedicated endpoint for fetching message pages, more efficient\nthan the full conversation endpoint when only messages are needed.\n\nQuery parameters:\n- limit: Number of messages to return (default: 50, max: 200)\n- cursor: Cursor for fetching older/newer messages\n- direction: \"older\" (default) or \"newer\" for pagination direction\n- around_message_id: Load messages around a specific message (for search navigation)\nWhen specified, cursor and direction are ignored.\n\nBy default, returns the newest messages."
@@ -1126,10 +2331,61 @@
           }
         },
         "tags": [
-          "API"
+          "Chat"
         ],
         "summary": "Send a message and get a complete response (non-streaming).",
         "description": "Accepts JSON body with:\n- message: str (optional if files present) - the text message\n- files: list[dict] (optional if message present) - array of {name, type, data} file objects\n- force_tools: list[str] (optional) - list of tool names to force (e.g. [\"web_search\"])"
+      }
+    },
+    "/api/agents/{agent_id}/conversation/sync": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConversationSyncResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Agents"
+        ],
+        "summary": "Sync agent conversation - returns message count and updated_at.",
+        "description": "Used for real-time synchronization when viewing an agent's conversation.\nThis allows detection of external updates to the agent conversation.\n\nReturns:\n- conversation: Object with message_count and updated_at, or null if no conversation\n- server_time: Current server timestamp to use for next sync"
       }
     },
     "/api/conversations/{conv_id}/chat/stream": {
@@ -1167,10 +2423,10 @@
           }
         },
         "tags": [
-          "API"
+          "Chat"
         ],
         "summary": "Stream chat response via SSE",
-        "description": "Send a message and stream the response via Server-Sent Events.\n\nReturns text/event-stream with the following event types:\n- `thinking`: LLM thinking text (if enabled) - `{\"type\": \"thinking\", \"text\": \"...\"}`\n- `tool_start`: Tool starting - `{\"type\": \"tool_start\", \"tool\": \"web_search\", \"detail\": \"...\"}`\n- `tool_detail`: Tool detail update (for streaming args) - `{\"type\": \"tool_detail\", \"tool\": \"...\", \"detail\": \"...\"}`\n- `tool_end`: Tool completed - `{\"type\": \"tool_end\", \"tool\": \"web_search\"}`\n- `token`: Content token - `{\"type\": \"token\", \"text\": \"...\"}`\n- `error`: Error occurred - `{\"type\": \"error\", \"message\": \"...\", \"code\": \"...\", \"retryable\": bool}`\n- `done`: Stream complete with metadata - `{\"type\": \"done\", \"id\": \"...\", \"created_at\": \"...\", ...}`\n\nUses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.\n"
+        "description": "Send a message and stream the response via Server-Sent Events.\n\nReturns text/event-stream with the following event types:\n- `thinking`: LLM thinking text (if enabled) - `{\"type\": \"thinking\", \"text\": \"...\"}`\n- `tool_start`: Tool starting - `{\"type\": \"tool_start\", \"tool\": \"web_search\", \"detail\": \"...\"}`\n- `tool_end`: Tool completed - `{\"type\": \"tool_end\", \"tool\": \"web_search\"}`\n- `token`: Content token - `{\"type\": \"token\", \"text\": \"...\"}`\n- `error`: Error occurred - `{\"type\": \"error\", \"message\": \"...\", \"code\": \"...\", \"retryable\": bool}`\n- `done`: Stream complete with metadata - `{\"type\": \"done\", \"id\": \"...\", \"created_at\": \"...\", ...}`\n\nUses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.\n"
       }
     },
     "/api/messages/{message_id}/files/{file_index}": {
@@ -1226,7 +2482,7 @@
           }
         },
         "tags": [
-          "API"
+          "Files"
         ],
         "summary": "Get full file from a message",
         "description": "Returns the file as binary data with appropriate content-type header."
@@ -1293,7 +2549,7 @@
           }
         },
         "tags": [
-          "API"
+          "Files"
         ],
         "summary": "Get thumbnail for an image file",
         "description": "Returns thumbnail binary data (200) or pending status (202)."
@@ -1424,6 +2680,80 @@
         },
         "type": "object"
       },
+      "ModelsListResponse.ModelResponse": {
+        "description": "Available model info.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "short_name": {
+            "description": "Short display name for compact UI (e.g., 'Fast', 'Advanced')",
+            "title": "Short Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "short_name"
+        ],
+        "title": "ModelResponse",
+        "type": "object"
+      },
+      "ModelsListResponse": {
+        "description": "List of available models.",
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelsListResponse.ModelResponse"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "default": {
+            "type": "string",
+            "description": "Default model ID",
+            "title": "Default"
+          }
+        },
+        "required": [
+          "models",
+          "default"
+        ],
+        "title": "ModelsListResponse",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "Liveness probe response.",
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
       "SearchResultsResponse.SearchResultResponse": {
         "description": "Single search result.",
         "properties": {
@@ -1524,8 +2854,8 @@
         "title": "SearchResultsResponse",
         "type": "object"
       },
-      "ModelsListResponse.ModelResponse": {
-        "description": "Available model info.",
+      "AgentsListResponse.AgentResponse": {
+        "description": "Agent information.",
         "properties": {
           "id": {
             "title": "Id",
@@ -1534,46 +2864,207 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "system_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "System Prompt"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Schedule"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "tool_permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Permissions"
+          },
+          "model": {
+            "description": "LLM model for the agent",
+            "title": "Model",
+            "type": "string"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conversation Id"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Run At"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Run At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "budget_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Daily budget limit in USD (null = unlimited)",
+            "title": "Budget Limit"
+          },
+          "daily_spending": {
+            "default": 0,
+            "description": "Today's spending in USD",
+            "title": "Daily Spending",
+            "type": "number"
+          },
+          "has_pending_approval": {
+            "default": false,
+            "description": "Whether agent is blocked waiting for approval",
+            "title": "Has Pending Approval",
+            "type": "boolean"
+          },
+          "has_error": {
+            "default": false,
+            "description": "Whether the last execution failed",
+            "title": "Has Error",
+            "type": "boolean"
+          },
+          "unread_count": {
+            "default": 0,
+            "description": "Number of unread messages in agent conversation",
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "last_execution_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Status of the most recent execution (completed, failed, etc.)",
+            "title": "Last Execution Status"
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "timezone",
+          "enabled",
+          "model",
+          "created_at",
+          "updated_at"
         ],
-        "title": "ModelResponse",
+        "title": "AgentResponse",
         "type": "object"
       },
-      "ModelsListResponse": {
-        "description": "List of available models.",
+      "AgentsListResponse": {
+        "description": "List of agents.",
         "properties": {
-          "models": {
+          "agents": {
             "items": {
-              "$ref": "#/components/schemas/ModelsListResponse.ModelResponse"
+              "$ref": "#/components/schemas/AgentsListResponse.AgentResponse"
             },
-            "title": "Models",
+            "title": "Agents",
             "type": "array"
-          },
-          "default": {
-            "type": "string",
-            "description": "Default model ID",
-            "title": "Default"
           }
         },
         "required": [
-          "models",
-          "default"
+          "agents"
         ],
-        "title": "ModelsListResponse",
+        "title": "AgentsListResponse",
         "type": "object"
       },
-      "HealthResponse": {
-        "description": "Liveness probe response.",
+      "AgentResponse": {
+        "description": "Agent information.",
         "properties": {
-          "status": {
-            "title": "Status",
+          "id": {
+            "title": "Id",
             "type": "string"
           },
-          "version": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
             "anyOf": [
               {
                 "type": "string"
@@ -1583,19 +3074,227 @@
               }
             ],
             "default": null,
-            "title": "Version"
+            "title": "Description"
+          },
+          "system_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "System Prompt"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Schedule"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "tool_permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Permissions"
+          },
+          "model": {
+            "description": "LLM model for the agent",
+            "title": "Model",
+            "type": "string"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conversation Id"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Run At"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Run At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "budget_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Daily budget limit in USD (null = unlimited)",
+            "title": "Budget Limit"
+          },
+          "daily_spending": {
+            "default": 0,
+            "description": "Today's spending in USD",
+            "title": "Daily Spending",
+            "type": "number"
+          },
+          "has_pending_approval": {
+            "default": false,
+            "description": "Whether agent is blocked waiting for approval",
+            "title": "Has Pending Approval",
+            "type": "boolean"
+          },
+          "has_error": {
+            "default": false,
+            "description": "Whether the last execution failed",
+            "title": "Has Error",
+            "type": "boolean"
+          },
+          "unread_count": {
+            "default": 0,
+            "description": "Number of unread messages in agent conversation",
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "last_execution_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Status of the most recent execution (completed, failed, etc.)",
+            "title": "Last Execution Status"
           }
         },
         "required": [
-          "status"
+          "id",
+          "name",
+          "timezone",
+          "enabled",
+          "model",
+          "created_at",
+          "updated_at"
         ],
-        "title": "HealthResponse",
+        "title": "AgentResponse",
         "type": "object"
       },
-      "VersionResponse": {
-        "description": "App version info.",
+      "ValidationError": {
         "properties": {
-          "version": {
+          "detail": {
+            "type": "object",
+            "properties": {
+              "<location>": {
+                "type": "object",
+                "properties": {
+                  "<field_name>": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CreateAgentRequest": {
+        "description": "Schema for POST /api/agents.",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "system_prompt": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "System Prompt"
+          },
+          "schedule": {
             "anyOf": [
               {
                 "type": "string"
@@ -1605,11 +3304,68 @@
               }
             ],
             "default": null,
-            "description": "App version (JS bundle hash)",
-            "title": "Version"
+            "description": "Cron expression (e.g., '0 9 * * *' for daily at 9am)",
+            "title": "Schedule"
+          },
+          "timezone": {
+            "default": "UTC",
+            "description": "IANA timezone for schedule",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "tool_permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "List of allowed tool names",
+            "title": "Tool Permissions"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "LLM model for the agent (defaults to Fast)",
+            "title": "Model"
+          },
+          "budget_limit": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Daily budget limit in USD (null = unlimited)",
+            "title": "Budget Limit"
           }
         },
-        "title": "VersionResponse",
+        "required": [
+          "name"
+        ],
+        "title": "CreateAgentRequest",
         "type": "object"
       },
       "AuthResponse.UserResponse": {
@@ -1665,6 +3421,487 @@
           "user"
         ],
         "title": "AuthResponse",
+        "type": "object"
+      },
+      "VersionResponse": {
+        "description": "App version info.",
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "App version (JS bundle hash)",
+            "title": "Version"
+          }
+        },
+        "title": "VersionResponse",
+        "type": "object"
+      },
+      "PlannerDashboardResponse.PlannerDayResponse": {
+        "description": "A single day in the planner dashboard.",
+        "properties": {
+          "date": {
+            "description": "Date in YYYY-MM-DD format",
+            "title": "Date",
+            "type": "string"
+          },
+          "day_name": {
+            "description": "Day label (Today, Tomorrow, or weekday name)",
+            "title": "Day Name",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerTaskResponse"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "date",
+          "day_name"
+        ],
+        "title": "PlannerDayResponse",
+        "type": "object"
+      },
+      "PlannerDashboardResponse.PlannerEventAttendeeResponse": {
+        "description": "An attendee on a calendar event.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "response_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "RSVP status: accepted/tentative/declined/needsAction",
+            "title": "Response Status"
+          },
+          "self": {
+            "default": false,
+            "description": "True if this is the current user",
+            "title": "Self",
+            "type": "boolean"
+          }
+        },
+        "title": "PlannerEventAttendeeResponse",
+        "type": "object"
+      },
+      "PlannerDashboardResponse.PlannerEventOrganizerResponse": {
+        "description": "The organizer/creator of a calendar event.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Display name of organizer",
+            "title": "Display Name"
+          },
+          "self": {
+            "default": false,
+            "description": "True if this is the current user",
+            "title": "Self",
+            "type": "boolean"
+          }
+        },
+        "title": "PlannerEventOrganizerResponse",
+        "type": "object"
+      },
+      "PlannerDashboardResponse.PlannerEventResponse": {
+        "description": "A calendar event for the planner dashboard.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Start datetime (ISO format)",
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "End datetime (ISO format)",
+            "title": "End"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Start date for all-day events (YYYY-MM-DD)",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "End date for all-day events (YYYY-MM-DD)",
+            "title": "End Date"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location"
+          },
+          "html_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Direct URL to event in Google Calendar",
+            "title": "Html Link"
+          },
+          "is_all_day": {
+            "default": false,
+            "title": "Is All Day",
+            "type": "boolean"
+          },
+          "attendees": {
+            "items": {
+              "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerEventAttendeeResponse"
+            },
+            "title": "Attendees",
+            "type": "array"
+          },
+          "organizer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerEventOrganizerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Event organizer/creator"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Source calendar ID (e.g., 'primary', email address)",
+            "title": "Calendar Id"
+          },
+          "calendar_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Source calendar name/title",
+            "title": "Calendar Summary"
+          }
+        },
+        "required": [
+          "id",
+          "summary"
+        ],
+        "title": "PlannerEventResponse",
+        "type": "object"
+      },
+      "PlannerDashboardResponse.PlannerTaskResponse": {
+        "description": "A task from Todoist for the planner dashboard.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Due date in YYYY-MM-DD format",
+            "title": "Due Date"
+          },
+          "due_string": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Human-readable due string (e.g., 'tomorrow at 3pm')",
+            "title": "Due String"
+          },
+          "priority": {
+            "default": 1,
+            "description": "Priority 1-4 (4 is highest)",
+            "maximum": 4,
+            "minimum": 1,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "project_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Name"
+          },
+          "section_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Section Name"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "is_recurring": {
+            "default": false,
+            "title": "Is Recurring",
+            "type": "boolean"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Direct URL to task in Todoist",
+            "title": "Url"
+          }
+        },
+        "required": [
+          "id",
+          "content"
+        ],
+        "title": "PlannerTaskResponse",
+        "type": "object"
+      },
+      "PlannerDashboardResponse": {
+        "description": "Complete planner dashboard data.",
+        "properties": {
+          "days": {
+            "description": "7 days of events and tasks starting from today",
+            "items": {
+              "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerDayResponse"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "overdue_tasks": {
+            "description": "Tasks that are past their due date",
+            "items": {
+              "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerTaskResponse"
+            },
+            "title": "Overdue Tasks",
+            "type": "array"
+          },
+          "todoist_connected": {
+            "default": false,
+            "description": "Whether Todoist is connected",
+            "title": "Todoist Connected",
+            "type": "boolean"
+          },
+          "calendar_connected": {
+            "default": false,
+            "description": "Whether Google Calendar is connected",
+            "title": "Calendar Connected",
+            "type": "boolean"
+          },
+          "todoist_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if Todoist fetch failed",
+            "title": "Todoist Error"
+          },
+          "calendar_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if Calendar fetch failed",
+            "title": "Calendar Error"
+          },
+          "server_time": {
+            "description": "Server timestamp for cache validation",
+            "title": "Server Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "server_time"
+        ],
+        "title": "PlannerDashboardResponse",
+        "type": "object"
+      },
+      "TokenRefreshResponse": {
+        "description": "Response from token refresh.",
+        "properties": {
+          "token": {
+            "description": "New JWT token",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "TokenRefreshResponse",
         "type": "object"
       },
       "MemoriesListResponse.MemoryResponse": {
@@ -1725,21 +3962,6 @@
         "title": "MemoriesListResponse",
         "type": "object"
       },
-      "TokenRefreshResponse": {
-        "description": "Response from token refresh.",
-        "properties": {
-          "token": {
-            "description": "New JWT token",
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "TokenRefreshResponse",
-        "type": "object"
-      },
       "ClientIdResponse": {
         "description": "Response containing Google Client ID.",
         "properties": {
@@ -1752,6 +3974,100 @@
           "client_id"
         ],
         "title": "ClientIdResponse",
+        "type": "object"
+      },
+      "PlannerSyncResponse.PlannerConversationSyncData": {
+        "description": "Planner conversation data for sync.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "message_count": {
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "last_reset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Timestamp of last reset",
+            "title": "Last Reset"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "message_count"
+        ],
+        "title": "PlannerConversationSyncData",
+        "type": "object"
+      },
+      "PlannerSyncResponse": {
+        "description": "Response from planner sync endpoint for real-time synchronization.",
+        "properties": {
+          "conversation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannerSyncResponse.PlannerConversationSyncData"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Planner conversation state, or null if no planner exists"
+          },
+          "server_time": {
+            "description": "Server timestamp in ISO format",
+            "title": "Server Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_time"
+        ],
+        "title": "PlannerSyncResponse",
+        "type": "object"
+      },
+      "UploadConfigResponse": {
+        "description": "File upload configuration.",
+        "properties": {
+          "maxFileSize": {
+            "description": "Maximum file size in bytes",
+            "title": "Maxfilesize",
+            "type": "integer"
+          },
+          "maxFilesPerMessage": {
+            "description": "Maximum files per message",
+            "title": "Maxfilespermessage",
+            "type": "integer"
+          },
+          "allowedFileTypes": {
+            "description": "Allowed MIME types",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowedfiletypes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "maxFileSize",
+          "maxFilesPerMessage",
+          "allowedFileTypes"
+        ],
+        "title": "UploadConfigResponse",
         "type": "object"
       },
       "ConversationsListPaginatedResponse.ConversationResponse": {
@@ -1901,34 +4217,21 @@
         "title": "ConversationResponse",
         "type": "object"
       },
-      "UploadConfigResponse": {
-        "description": "File upload configuration.",
+      "PlannerResetResponse": {
+        "description": "Response from planner reset endpoint.",
         "properties": {
-          "maxFileSize": {
-            "description": "Maximum file size in bytes",
-            "title": "Maxfilesize",
-            "type": "integer"
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
           },
-          "maxFilesPerMessage": {
-            "description": "Maximum files per message",
-            "title": "Maxfilespermessage",
-            "type": "integer"
-          },
-          "allowedFileTypes": {
-            "description": "Allowed MIME types",
-            "items": {
-              "type": "string"
-            },
-            "title": "Allowedfiletypes",
-            "type": "array"
+          "message": {
+            "default": "Planner conversation reset",
+            "title": "Message",
+            "type": "string"
           }
         },
-        "required": [
-          "maxFileSize",
-          "maxFilesPerMessage",
-          "allowedFileTypes"
-        ],
-        "title": "UploadConfigResponse",
+        "title": "PlannerResetResponse",
         "type": "object"
       },
       "TodoistStatusResponse": {
@@ -2006,32 +4309,145 @@
         "title": "TodoistConnectResponse",
         "type": "object"
       },
-      "UserSettingsResponse": {
-        "description": "User settings.",
+      "GoogleCalendarStatusResponse": {
+        "description": "Response containing Google Calendar connection status.",
         "properties": {
-          "custom_instructions": {
-            "default": "",
-            "description": "Custom instructions for the AI",
-            "title": "Custom Instructions",
-            "type": "string"
-          }
-        },
-        "title": "UserSettingsResponse",
-        "type": "object"
-      },
-      "StatusResponse": {
-        "description": "Simple status response for operations that don't return data.",
-        "properties": {
-          "status": {
-            "description": "Operation status (e.g., 'updated', 'deleted')",
-            "title": "Status",
-            "type": "string"
+          "connected": {
+            "description": "Whether Google Calendar is connected",
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "calendar_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Email of connected Google account",
+            "title": "Calendar Email"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ISO timestamp when connected",
+            "title": "Connected At"
+          },
+          "needs_reconnect": {
+            "default": false,
+            "description": "True if tokens are invalid/expired and user must reconnect",
+            "title": "Needs Reconnect",
+            "type": "boolean"
           }
         },
         "required": [
-          "status"
+          "connected"
         ],
-        "title": "StatusResponse",
+        "title": "GoogleCalendarStatusResponse",
+        "type": "object"
+      },
+      "PendingApprovalsResponse.ApprovalRequestResponse": {
+        "description": "Approval request information.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "agent_name": {
+            "description": "Name of the agent requesting approval",
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "tool_name": {
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "tool_args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Args"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PendingApprovalsResponse.ApprovalStatus"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resolved At"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "agent_name",
+          "tool_name",
+          "description",
+          "status",
+          "created_at"
+        ],
+        "title": "ApprovalRequestResponse",
+        "type": "object"
+      },
+      "PendingApprovalsResponse.ApprovalStatus": {
+        "description": "Status of an approval request.",
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "title": "ApprovalStatus",
+        "type": "string"
+      },
+      "PendingApprovalsResponse": {
+        "description": "List of pending approval requests.",
+        "properties": {
+          "pending_approvals": {
+            "description": "All pending approval requests",
+            "items": {
+              "$ref": "#/components/schemas/PendingApprovalsResponse.ApprovalRequestResponse"
+            },
+            "title": "Pending Approvals",
+            "type": "array"
+          }
+        },
+        "title": "PendingApprovalsResponse",
         "type": "object"
       },
       "TodoistAuthUrlResponse": {
@@ -2053,6 +4469,224 @@
           "state"
         ],
         "title": "TodoistAuthUrlResponse",
+        "type": "object"
+      },
+      "GoogleCalendarConnectResponse": {
+        "description": "Response from successful Google Calendar connection.",
+        "properties": {
+          "connected": {
+            "description": "Whether connection was successful",
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "calendar_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Email of Google account granting Calendar access",
+            "title": "Calendar Email"
+          }
+        },
+        "required": [
+          "connected"
+        ],
+        "title": "GoogleCalendarConnectResponse",
+        "type": "object"
+      },
+      "UserSettingsResponse": {
+        "description": "User settings.",
+        "properties": {
+          "custom_instructions": {
+            "default": "",
+            "description": "Custom instructions for the AI",
+            "title": "Custom Instructions",
+            "type": "string"
+          },
+          "whatsapp_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "WhatsApp phone number in E.164 format",
+            "title": "Whatsapp Phone"
+          },
+          "whatsapp_available": {
+            "default": false,
+            "description": "Whether WhatsApp is configured at the app level",
+            "title": "Whatsapp Available",
+            "type": "boolean"
+          }
+        },
+        "title": "UserSettingsResponse",
+        "type": "object"
+      },
+      "StatusResponse": {
+        "description": "Simple status response for operations that don't return data.",
+        "properties": {
+          "status": {
+            "description": "Operation status (e.g., 'updated', 'deleted')",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StatusResponse",
+        "type": "object"
+      },
+      "UpdateAgentRequest": {
+        "description": "Schema for PATCH /api/agents/<id>.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "system_prompt": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "System Prompt"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Schedule"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Timezone"
+          },
+          "tool_permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Permissions"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Enabled"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Model"
+          },
+          "budget_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Budget Limit"
+          }
+        },
+        "title": "UpdateAgentRequest",
+        "type": "object"
+      },
+      "GoogleCalendarAuthUrlResponse": {
+        "description": "Response containing Google Calendar OAuth authorization URL.",
+        "properties": {
+          "auth_url": {
+            "description": "URL to redirect user for Google authorization",
+            "title": "Auth Url",
+            "type": "string"
+          },
+          "state": {
+            "description": "CSRF state token to validate on callback",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth_url",
+          "state"
+        ],
+        "title": "GoogleCalendarAuthUrlResponse",
         "type": "object"
       },
       "SyncResponse.SyncConversationResponse": {
@@ -2115,6 +4749,817 @@
           "is_full_sync"
         ],
         "title": "SyncResponse",
+        "type": "object"
+      },
+      "CalendarListResponse.Calendar": {
+        "description": "A Google Calendar.",
+        "properties": {
+          "id": {
+            "description": "Calendar ID",
+            "title": "Id",
+            "type": "string"
+          },
+          "summary": {
+            "description": "Calendar name/title",
+            "title": "Summary",
+            "type": "string"
+          },
+          "primary": {
+            "description": "Whether this is the user's primary calendar",
+            "title": "Primary",
+            "type": "boolean"
+          },
+          "access_role": {
+            "description": "User's access level (owner, writer, reader)",
+            "title": "Access Role",
+            "type": "string"
+          },
+          "background_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Calendar background color (hex)",
+            "title": "Background Color"
+          }
+        },
+        "required": [
+          "id",
+          "summary",
+          "primary",
+          "access_role"
+        ],
+        "title": "Calendar",
+        "type": "object"
+      },
+      "CalendarListResponse": {
+        "description": "Response for listing available calendars.",
+        "properties": {
+          "calendars": {
+            "description": "List of available calendars",
+            "items": {
+              "$ref": "#/components/schemas/CalendarListResponse.Calendar"
+            },
+            "title": "Calendars",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if fetch failed",
+            "title": "Error"
+          }
+        },
+        "title": "CalendarListResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.FileMetadataResponse": {
+        "description": "File metadata in message responses (excludes full data for performance).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "messageId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Messageid"
+          },
+          "fileIndex": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fileindex"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "FileMetadataResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.GeneratedImageResponse": {
+        "description": "Generated image metadata.",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "image_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Image Index"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.MessageResponse": {
+        "description": "Message in a conversation.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse.FileMetadataResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Files"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse.SourceResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sources"
+          },
+          "generated_images": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse.GeneratedImageResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Generated Images"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ISO 639-1 language code for TTS (e.g., 'en', 'cs')",
+            "title": "Language"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "content",
+          "created_at"
+        ],
+        "title": "MessageResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.SourceResponse": {
+        "description": "Web search source citation.",
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ],
+        "title": "SourceResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse": {
+        "description": "Planner conversation with messages.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/PlannerConversationResponse.MessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "was_reset": {
+            "default": false,
+            "description": "True if the conversation was auto-reset due to 4am cutoff",
+            "title": "Was Reset",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "model",
+          "created_at",
+          "updated_at",
+          "messages"
+        ],
+        "title": "PlannerConversationResponse",
+        "type": "object"
+      },
+      "TriggerAgentResponse.AgentExecutionResponse": {
+        "description": "Agent execution record.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TriggerAgentResponse.AgentStatus"
+          },
+          "trigger_type": {
+            "$ref": "#/components/schemas/TriggerAgentResponse.AgentTriggerType"
+          },
+          "triggered_by_agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Triggered By Agent Id"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Completed At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error Message"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "status",
+          "trigger_type",
+          "started_at"
+        ],
+        "title": "AgentExecutionResponse",
+        "type": "object"
+      },
+      "TriggerAgentResponse.AgentStatus": {
+        "description": "Status of an agent execution.",
+        "enum": [
+          "running",
+          "completed",
+          "failed",
+          "waiting_approval"
+        ],
+        "title": "AgentStatus",
+        "type": "string"
+      },
+      "TriggerAgentResponse.AgentTriggerType": {
+        "description": "How an agent execution was triggered.",
+        "enum": [
+          "scheduled",
+          "manual",
+          "agent_trigger"
+        ],
+        "title": "AgentTriggerType",
+        "type": "string"
+      },
+      "TriggerAgentResponse": {
+        "description": "Response from manually triggering an agent.",
+        "properties": {
+          "execution": {
+            "$ref": "#/components/schemas/TriggerAgentResponse.AgentExecutionResponse"
+          },
+          "message": {
+            "default": "Agent triggered",
+            "description": "Status message",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "execution"
+        ],
+        "title": "TriggerAgentResponse",
+        "type": "object"
+      },
+      "CommandCenterResponse.AgentExecutionResponse": {
+        "description": "Agent execution record.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CommandCenterResponse.AgentStatus"
+          },
+          "trigger_type": {
+            "$ref": "#/components/schemas/CommandCenterResponse.AgentTriggerType"
+          },
+          "triggered_by_agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Triggered By Agent Id"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Completed At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error Message"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "status",
+          "trigger_type",
+          "started_at"
+        ],
+        "title": "AgentExecutionResponse",
+        "type": "object"
+      },
+      "CommandCenterResponse.AgentResponse": {
+        "description": "Agent information.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "system_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "System Prompt"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Schedule"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "tool_permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Permissions"
+          },
+          "model": {
+            "description": "LLM model for the agent",
+            "title": "Model",
+            "type": "string"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conversation Id"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Run At"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Run At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "budget_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Daily budget limit in USD (null = unlimited)",
+            "title": "Budget Limit"
+          },
+          "daily_spending": {
+            "default": 0,
+            "description": "Today's spending in USD",
+            "title": "Daily Spending",
+            "type": "number"
+          },
+          "has_pending_approval": {
+            "default": false,
+            "description": "Whether agent is blocked waiting for approval",
+            "title": "Has Pending Approval",
+            "type": "boolean"
+          },
+          "has_error": {
+            "default": false,
+            "description": "Whether the last execution failed",
+            "title": "Has Error",
+            "type": "boolean"
+          },
+          "unread_count": {
+            "default": 0,
+            "description": "Number of unread messages in agent conversation",
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "last_execution_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Status of the most recent execution (completed, failed, etc.)",
+            "title": "Last Execution Status"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "timezone",
+          "enabled",
+          "model",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AgentResponse",
+        "type": "object"
+      },
+      "CommandCenterResponse.AgentStatus": {
+        "description": "Status of an agent execution.",
+        "enum": [
+          "running",
+          "completed",
+          "failed",
+          "waiting_approval"
+        ],
+        "title": "AgentStatus",
+        "type": "string"
+      },
+      "CommandCenterResponse.AgentTriggerType": {
+        "description": "How an agent execution was triggered.",
+        "enum": [
+          "scheduled",
+          "manual",
+          "agent_trigger"
+        ],
+        "title": "AgentTriggerType",
+        "type": "string"
+      },
+      "CommandCenterResponse.ApprovalRequestResponse": {
+        "description": "Approval request information.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "agent_name": {
+            "description": "Name of the agent requesting approval",
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "tool_name": {
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "tool_args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Args"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CommandCenterResponse.ApprovalStatus"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resolved At"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "agent_name",
+          "tool_name",
+          "description",
+          "status",
+          "created_at"
+        ],
+        "title": "ApprovalRequestResponse",
+        "type": "object"
+      },
+      "CommandCenterResponse.ApprovalStatus": {
+        "description": "Status of an approval request.",
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "title": "ApprovalStatus",
+        "type": "string"
+      },
+      "CommandCenterResponse": {
+        "description": "Complete command center dashboard data.",
+        "properties": {
+          "agents": {
+            "description": "All agents with unread counts and pending status",
+            "items": {
+              "$ref": "#/components/schemas/CommandCenterResponse.AgentResponse"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
+          "pending_approvals": {
+            "description": "All pending approval requests",
+            "items": {
+              "$ref": "#/components/schemas/CommandCenterResponse.ApprovalRequestResponse"
+            },
+            "title": "Pending Approvals",
+            "type": "array"
+          },
+          "recent_executions": {
+            "description": "Recent execution history across all agents",
+            "items": {
+              "$ref": "#/components/schemas/CommandCenterResponse.AgentExecutionResponse"
+            },
+            "title": "Recent Executions",
+            "type": "array"
+          },
+          "total_unread": {
+            "default": 0,
+            "description": "Total unread messages across all agents",
+            "title": "Total Unread",
+            "type": "integer"
+          },
+          "agents_waiting": {
+            "default": 0,
+            "description": "Number of agents blocked on approval",
+            "title": "Agents Waiting",
+            "type": "integer"
+          },
+          "agents_with_errors": {
+            "default": 0,
+            "description": "Number of agents whose last execution failed",
+            "title": "Agents With Errors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agents"
+        ],
+        "title": "CommandCenterResponse",
         "type": "object"
       },
       "MonthlyCostResponse.ModelCostBreakdown": {
@@ -2525,6 +5970,28 @@
             "title": "Updated At",
             "type": "string"
           },
+          "is_agent": {
+            "default": false,
+            "title": "Is Agent",
+            "type": "boolean"
+          },
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Agent Id"
+          },
+          "has_pending_approval": {
+            "default": false,
+            "title": "Has Pending Approval",
+            "type": "boolean"
+          },
           "messages": {
             "items": {
               "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.MessageResponse"
@@ -2546,6 +6013,149 @@
           "message_pagination"
         ],
         "title": "ConversationDetailPaginatedResponse",
+        "type": "object"
+      },
+      "ParseScheduleResponse": {
+        "description": "Response from schedule parsing endpoint.",
+        "properties": {
+          "cron": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Parsed cron expression (5-part format)",
+            "title": "Cron"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Human-readable explanation of the schedule",
+            "title": "Explanation"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if parsing failed",
+            "title": "Error"
+          }
+        },
+        "title": "ParseScheduleResponse",
+        "type": "object"
+      },
+      "ParseScheduleRequest": {
+        "description": "Schema for POST /api/ai-assist/parse-schedule.",
+        "properties": {
+          "natural_language": {
+            "description": "Natural language description of the schedule (e.g., 'every day at 9am')",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Natural Language",
+            "type": "string"
+          },
+          "timezone": {
+            "default": "UTC",
+            "description": "IANA timezone for interpreting the schedule",
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "natural_language"
+        ],
+        "title": "ParseScheduleRequest",
+        "type": "object"
+      },
+      "EnhancePromptResponse": {
+        "description": "Response from prompt enhancement endpoint.",
+        "properties": {
+          "enhanced_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "AI-enhanced system prompt",
+            "title": "Enhanced Prompt"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if enhancement failed",
+            "title": "Error"
+          }
+        },
+        "title": "EnhancePromptResponse",
+        "type": "object"
+      },
+      "EnhancePromptRequest": {
+        "description": "Schema for POST /api/ai-assist/enhance-prompt.",
+        "properties": {
+          "prompt": {
+            "description": "Current system prompt to enhance",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "agent_name": {
+            "description": "Name of the agent (for context)",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "tool_permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "List of optional tool names the agent can use (excludes always-available tools).",
+            "title": "Tool Permissions"
+          }
+        },
+        "required": [
+          "prompt",
+          "agent_name"
+        ],
+        "title": "EnhancePromptRequest",
         "type": "object"
       },
       "MessageCostResponse": {
@@ -2632,6 +6242,130 @@
           "model"
         ],
         "title": "MessageCostResponse",
+        "type": "object"
+      },
+      "SelectedCalendarsResponse": {
+        "description": "Response for selected calendars.",
+        "properties": {
+          "calendar_ids": {
+            "description": "List of selected calendar IDs",
+            "items": {
+              "type": "string"
+            },
+            "title": "Calendar Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "calendar_ids"
+        ],
+        "title": "SelectedCalendarsResponse",
+        "type": "object"
+      },
+      "AgentExecutionsListResponse.AgentExecutionResponse": {
+        "description": "Agent execution record.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentExecutionsListResponse.AgentStatus"
+          },
+          "trigger_type": {
+            "$ref": "#/components/schemas/AgentExecutionsListResponse.AgentTriggerType"
+          },
+          "triggered_by_agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Triggered By Agent Id"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Completed At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error Message"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "status",
+          "trigger_type",
+          "started_at"
+        ],
+        "title": "AgentExecutionResponse",
+        "type": "object"
+      },
+      "AgentExecutionsListResponse.AgentStatus": {
+        "description": "Status of an agent execution.",
+        "enum": [
+          "running",
+          "completed",
+          "failed",
+          "waiting_approval"
+        ],
+        "title": "AgentStatus",
+        "type": "string"
+      },
+      "AgentExecutionsListResponse.AgentTriggerType": {
+        "description": "How an agent execution was triggered.",
+        "enum": [
+          "scheduled",
+          "manual",
+          "agent_trigger"
+        ],
+        "title": "AgentTriggerType",
+        "type": "string"
+      },
+      "AgentExecutionsListResponse": {
+        "description": "List of agent executions.",
+        "properties": {
+          "executions": {
+            "items": {
+              "$ref": "#/components/schemas/AgentExecutionsListResponse.AgentExecutionResponse"
+            },
+            "title": "Executions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "executions"
+        ],
+        "title": "AgentExecutionsListResponse",
         "type": "object"
       },
       "ConversationCostResponse": {
@@ -3122,6 +6856,54 @@
           "created_at"
         ],
         "title": "ChatBatchResponse",
+        "type": "object"
+      },
+      "AgentConversationSyncResponse.AgentConversationSyncData": {
+        "description": "Sync data for an agent's conversation.",
+        "properties": {
+          "message_count": {
+            "description": "Total number of messages in conversation",
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "description": "Conversation updated_at timestamp in ISO format",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_count",
+          "updated_at"
+        ],
+        "title": "AgentConversationSyncData",
+        "type": "object"
+      },
+      "AgentConversationSyncResponse": {
+        "description": "Response from agent conversation sync endpoint for real-time synchronization.",
+        "properties": {
+          "conversation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentConversationSyncResponse.AgentConversationSyncData"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Agent conversation state, or null if no conversation exists"
+          },
+          "server_time": {
+            "description": "Server timestamp in ISO format",
+            "title": "Server Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_time"
+        ],
+        "title": "AgentConversationSyncResponse",
         "type": "object"
       }
     }

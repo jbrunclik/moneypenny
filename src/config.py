@@ -46,6 +46,10 @@ class Config:
     GUNICORN_TIMEOUT: int = int(os.getenv("GUNICORN_TIMEOUT", "300"))  # 5 minutes default
     SSE_KEEPALIVE_INTERVAL: int = int(os.getenv("SSE_KEEPALIVE_INTERVAL", "15"))  # seconds
 
+    # Application URL (used for generating links in notifications, e.g., WhatsApp)
+    # Defaults to empty string which disables external link generation
+    APP_URL: str = os.getenv("APP_URL", "")
+
     # Request timeouts (generous defaults to accommodate image generation and complex tool chains)
     # Image generation alone can take 30-60s, complex queries with multiple tools need more time
     CHAT_TIMEOUT: int = int(os.getenv("CHAT_TIMEOUT", "300"))  # 5 minutes for full chat request
@@ -356,6 +360,20 @@ class Config:
     CONTACT_EMAIL: str = os.getenv(
         "CONTACT_EMAIL", "admin@example.com"
     )  # For User-Agent header (Yr.no requirement)
+
+    # WhatsApp Cloud API Integration (for autonomous agents)
+    # User phone numbers are stored per-user in the database, not here
+    WHATSAPP_PHONE_NUMBER_ID: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+    WHATSAPP_ACCESS_TOKEN: str = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+    WHATSAPP_TEMPLATE_NAME: str = os.getenv(
+        "WHATSAPP_TEMPLATE_NAME", ""
+    )  # Required for first contact
+    WHATSAPP_API_TIMEOUT: int = int(os.getenv("WHATSAPP_API_TIMEOUT", "10"))  # seconds
+    WHATSAPP_MAX_MESSAGE_LENGTH: int = int(
+        os.getenv("WHATSAPP_MAX_MESSAGE_LENGTH", "1024")
+    )  # WhatsApp template body variable limit (1024 chars per variable)
+    WHATSAPP_API_VERSION: str = "v18.0"
+    WHATSAPP_API_BASE_URL: str = "https://graph.facebook.com"
 
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)

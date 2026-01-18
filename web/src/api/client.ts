@@ -14,6 +14,7 @@ import {
   type CostHistoryResponse,
   type ConversationCostResponse,
   type CreateAgentRequest,
+  type EnhancePromptRequest,
   type EnhancePromptResponse,
   type ErrorResponse,
   type FileUpload,
@@ -1188,13 +1189,23 @@ export const aiAssist = {
    * @param prompt - Current system prompt to enhance
    * @param agentName - Name of the agent (for context)
    */
-  async enhancePrompt(prompt: string, agentName: string): Promise<EnhancePromptResponse> {
+  async enhancePrompt(
+    prompt: string,
+    agentName: string,
+    toolPermissions?: string[]
+  ): Promise<EnhancePromptResponse> {
+    const body: EnhancePromptRequest = {
+      prompt,
+      agent_name: agentName,
+    };
+
+    if (toolPermissions !== undefined) {
+      body.tool_permissions = toolPermissions;
+    }
+
     return request<EnhancePromptResponse>('/api/ai-assist/enhance-prompt', {
       method: 'POST',
-      body: JSON.stringify({
-        prompt,
-        agent_name: agentName,
-      }),
+      body: JSON.stringify(body),
     });
   },
 };

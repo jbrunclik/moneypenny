@@ -23,6 +23,11 @@ _current_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "_current_user_id", default=None
 )
 
+# Contextvar to hold the current agent name (for autonomous agent executions)
+_current_agent_name: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_current_agent_name", default=None
+)
+
 
 def set_current_message_files(files: list[dict[str, Any]] | None) -> None:
     """Set the current message's files for tool access."""
@@ -46,3 +51,16 @@ def set_conversation_context(conversation_id: str | None, user_id: str | None) -
 def get_conversation_context() -> tuple[str | None, str | None]:
     """Get the current conversation context (conversation_id, user_id)."""
     return _current_conversation_id.get(), _current_user_id.get()
+
+
+def set_agent_name(agent_name: str | None) -> None:
+    """Set the current agent name for tool access.
+
+    This is used by autonomous agents to identify themselves in tools like WhatsApp.
+    """
+    _current_agent_name.set(agent_name)
+
+
+def get_agent_name() -> str | None:
+    """Get the current agent name (for autonomous agent executions)."""
+    return _current_agent_name.get()

@@ -8,8 +8,10 @@ from typing import Any
 # Import tools from submodules
 from src.agent.tools.code_execution import execute_code, is_code_sandbox_available
 from src.agent.tools.context import (
+    get_agent_name,
     get_conversation_context,
     get_current_message_files,
+    set_agent_name,
     set_conversation_context,
     set_current_message_files,
 )
@@ -24,7 +26,9 @@ from src.agent.tools.request_approval import ApprovalRequestedException, request
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
 from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
+from src.agent.tools.whatsapp import is_whatsapp_available, whatsapp
 from src.config import Config
+from src.db.models import db
 from src.db.models.dataclasses import Agent
 from src.utils.logging import get_logger
 
@@ -58,7 +62,35 @@ def get_available_tools() -> list[Any]:
         tools.append(google_calendar)
         logger.debug("google_calendar tool added to available tools")
 
+    # Add WhatsApp tool if configured
+    if is_whatsapp_available():
+        tools.append(whatsapp)
+        logger.debug("whatsapp tool added to available tools")
+
     return tools
+
+
+def _is_whatsapp_available_for_user(user_id: str) -> bool:
+    """Check if WhatsApp is available for a specific user.
+
+    WhatsApp requires both:
+    1. App-level configuration (PHONE_NUMBER_ID, ACCESS_TOKEN, TEMPLATE_NAME)
+    2. User has configured their WhatsApp phone number in settings
+
+    Args:
+        user_id: The user's ID
+
+    Returns:
+        True if WhatsApp can be used by this user, False otherwise
+    """
+    if not is_whatsapp_available():
+        return False
+
+    user = db.get_user_by_id(user_id)
+    if not user or not user.whatsapp_phone:
+        return False
+
+    return True
 
 
 # List of all available tools for the agent
@@ -99,6 +131,8 @@ def get_tools_for_request(
                         continue
                     if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
                         continue
+                    if tool_name == "whatsapp" and not is_whatsapp_available():
+                        continue
                     tools.append(tool)
 
         return tools
@@ -126,6 +160,7 @@ _TOOL_MAP: dict[str, Any] = {
     "todoist": todoist,
     "google_calendar": google_calendar,
     "trigger_agent": trigger_agent,
+    "whatsapp": whatsapp,
 }
 
 
@@ -166,6 +201,11 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
                         continue
                     if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
                         continue
+                    # WhatsApp requires both app config AND user phone number
+                    if tool_name == "whatsapp" and not _is_whatsapp_available_for_user(
+                        agent.user_id
+                    ):
+                        continue
                     tools.append(tool)
     else:
         # No specific permissions (None) - add all available integration tools
@@ -173,6 +213,9 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
             tools.append(todoist)
         if is_google_calendar_available():
             tools.append(google_calendar)
+        # WhatsApp requires both app config AND user phone number
+        if _is_whatsapp_available_for_user(agent.user_id):
+            tools.append(whatsapp)
         if Config.CODE_SANDBOX_ENABLED:
             tools.append(execute_code)
         tools.append(generate_image)
@@ -200,6 +243,7 @@ __all__ = [
     "refresh_planner_dashboard",
     "trigger_agent",
     "request_approval",
+    "whatsapp",
     # Exceptions
     "ApprovalRequestedException",
     # Context helpers
@@ -207,11 +251,14 @@ __all__ = [
     "get_current_message_files",
     "set_conversation_context",
     "get_conversation_context",
+    "set_agent_name",
+    "get_agent_name",
     # Availability checks
     "is_code_sandbox_available",
     "is_todoist_available",
     "is_google_calendar_available",
     "is_refresh_planner_dashboard_available",
+    "is_whatsapp_available",
     # Tool lists
     "TOOLS",
     "get_available_tools",

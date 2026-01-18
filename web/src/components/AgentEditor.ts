@@ -3,7 +3,7 @@
  * Allows creating and editing autonomous agents.
  */
 
-import { agents, aiAssist } from '../api/client';
+import { agents, aiAssist, settings } from '../api/client';
 import { useStore } from '../state/store';
 import { toast } from './Toast';
 import { escapeHtml } from '../utils/dom';
@@ -11,11 +11,12 @@ import {
   CALENDAR_ICON,
   CHECKLIST_ICON,
   CLOSE_ICON,
+  PHONE_ICON,
   ROBOT_ICON,
   SPARKLES_ICON,
 } from '../utils/icons';
 import { createLogger } from '../utils/logger';
-import type { Agent, CreateAgentRequest, UpdateAgentRequest } from '../types/api';
+import type { Agent, CreateAgentRequest, UpdateAgentRequest, UserSettings } from '../types/api';
 
 const log = createLogger('agent-editor');
 
@@ -29,10 +30,25 @@ let editingAgentId: string | null = null;
 // Always-safe tools (web_search, fetch_url, retrieve_file) and tools that
 // don't affect external systems (execute_code, generate_image) are
 // automatically available without needing permission selection.
-const AVAILABLE_TOOLS = [
+const BASE_TOOLS = [
   { id: 'todoist', name: 'Todoist', description: 'Create, update, and complete tasks', icon: CHECKLIST_ICON },
   { id: 'google_calendar', name: 'Google Calendar', description: 'Create and manage calendar events', icon: CALENDAR_ICON },
+  { id: 'whatsapp', name: 'WhatsApp', description: 'Send notifications via WhatsApp', icon: PHONE_ICON },
 ];
+
+/**
+ * Get available tools filtered based on user settings.
+ * WhatsApp is only shown if the backend has it configured AND the user has set their phone number.
+ */
+function getAvailableTools(userSettings: UserSettings | null): typeof BASE_TOOLS {
+  return BASE_TOOLS.filter(tool => {
+    if (tool.id === 'whatsapp') {
+      // WhatsApp requires both backend configuration and user phone number
+      return userSettings?.whatsapp_available && userSettings?.whatsapp_phone;
+    }
+    return true;
+  });
+}
 
 // Schedule presets for the quick option chips
 const SCHEDULE_PRESETS: Array<{ cron: string; label: string; shortLabel: string }> = [
@@ -94,11 +110,20 @@ export function initAgentEditor(): void {
  * Open the agent editor to create a new agent.
  * Note: When editing, pass an Agent with optional system_prompt if available.
  */
-export function showAgentEditor(agent?: Agent): Promise<Agent | null> {
+export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
+  // Fetch user settings to determine available tools (e.g., WhatsApp)
+  let userSettings: UserSettings | null = null;
+  try {
+    userSettings = await settings.get();
+  } catch (error) {
+    log.warn('Failed to fetch user settings for agent editor', { error });
+    // Continue without settings - WhatsApp will just be hidden
+  }
+
   return new Promise((resolve) => {
     editingAgentId = agent?.id || null;
     currentResolve = resolve;
-    renderModal(agent);
+    renderModal(agent, userSettings);
     showModalContainer();
   });
 }
@@ -130,11 +155,14 @@ export function closeAgentEditor(result: Agent | null = null): void {
 /**
  * Render the modal content.
  */
-function renderModal(agent?: Agent): void {
+function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
   if (!modalContainer) return;
 
   const isEditing = !!agent;
   const title = isEditing ? 'Edit Agent' : 'Create Agent';
+
+  // Get available tools filtered by user settings
+  const availableTools = getAvailableTools(userSettings ?? null);
 
   // Get initial values
   const name = agent?.name || '';
@@ -252,7 +280,7 @@ function renderModal(agent?: Agent): void {
           <div class="form-group">
             <label>Tool Permissions</label>
             <div class="tool-permissions-grid">
-              ${AVAILABLE_TOOLS.map(tool => `
+              ${availableTools.map(tool => `
                 <label class="tool-permission-card">
                   <input type="checkbox" name="tool-permission" value="${escapeHtml(tool.id)}" ${toolPermissions.includes(tool.id) ? 'checked' : ''}>
                   <span class="tool-permission-content">
@@ -332,6 +360,16 @@ function getTimezoneOptions(selected: string): string {
       ${escapeHtml(tz.replace(/_/g, ' '))}
     </option>
   `).join('');
+}
+
+/**
+ * Get the currently selected tool permissions within the modal.
+ */
+function getSelectedToolPermissions(): string[] {
+  if (!modalContainer) return [];
+
+  const toolCheckboxes = modalContainer.querySelectorAll('input[name="tool-permission"]:checked') as NodeListOf<HTMLInputElement>;
+  return Array.from(toolCheckboxes).map(cb => cb.value);
 }
 
 /**
@@ -471,6 +509,7 @@ function setupEnhancePromptHandler(): void {
   enhanceBtn?.addEventListener('click', async () => {
     const prompt = promptInput?.value?.trim();
     const agentName = nameInput?.value?.trim() || 'Agent';
+    const toolPermissions = getSelectedToolPermissions();
 
     if (!prompt) {
       toast.error('Enter a system prompt to enhance');
@@ -484,7 +523,7 @@ function setupEnhancePromptHandler(): void {
     enhanceBtn.innerHTML = `${SPARKLES_ICON}<span>Enhancing...</span>`;
 
     try {
-      const result = await aiAssist.enhancePrompt(prompt, agentName);
+      const result = await aiAssist.enhancePrompt(prompt, agentName, toolPermissions);
 
       if (result.error) {
         toast.error(result.error);
@@ -613,7 +652,6 @@ async function handleSave(): Promise<void> {
   const modelSelect = modalContainer.querySelector('#agent-model') as HTMLSelectElement;
   const budgetLimitInput = modalContainer.querySelector('#agent-budget-limit') as HTMLInputElement;
   const enabledInput = modalContainer.querySelector('#agent-enabled') as HTMLInputElement;
-  const toolCheckboxes = modalContainer.querySelectorAll('input[name="tool-permission"]:checked') as NodeListOf<HTMLInputElement>;
 
   const name = nameInput?.value?.trim();
   const nameError = modalContainer.querySelector('#agent-name-error') as HTMLElement;
@@ -651,7 +689,7 @@ async function handleSave(): Promise<void> {
   }
 
   // Get tool permissions
-  const toolPermissions = Array.from(toolCheckboxes).map(cb => cb.value);
+  const toolPermissions = getSelectedToolPermissions();
 
   // Parse budget limit - empty means no limit (undefined)
   const budgetLimitValue = budgetLimitInput?.value?.trim();

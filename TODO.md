@@ -13,7 +13,6 @@ This file tracks planned features, improvements, and technical debt.
 ## Autonomous Agents
 - [ ] **Multi-step workflows** - Allow agents to run multi-step workflows
 - [ ] **Lightweight database** - Provide agents with a lightweight database (k/v storage)
-- [ ] **Messaging integration** - Messaging integration (e.g., whatsapp)
 
 ## Code Quality
 - [ ] Consider async Flask (quart) for better concurrency

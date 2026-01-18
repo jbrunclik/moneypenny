@@ -17,6 +17,7 @@ from src.agent.content import extract_metadata_from_response
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     get_tools_for_agent,
+    set_agent_name,
     set_conversation_context,
     set_current_message_files,
 )
@@ -309,6 +310,7 @@ def execute_agent(
         set_current_request_id(request_id)
         set_current_message_files(None)
         set_conversation_context(conv.id, user.id)
+        set_agent_name(agent.name)  # For WhatsApp template messages
 
         # Set the agent context so permission checks know we're in autonomous mode
         # Include parent trigger chain to detect circular dependencies
@@ -352,6 +354,7 @@ def execute_agent(
         set_current_request_id(None)
         set_current_message_files(None)
         set_conversation_context(None, None)
+        set_agent_name(None)  # Clear agent name context
 
         logger.debug(
             "Agent execution completed",
@@ -421,6 +424,7 @@ def execute_agent(
         set_current_request_id(None)
         set_current_message_files(None)
         set_conversation_context(None, None)
+        set_agent_name(None)
         clear_agent_context()
 
         logger.info(
@@ -459,6 +463,7 @@ def execute_agent(
         set_current_request_id(None)
         set_current_message_files(None)
         set_conversation_context(None, None)
+        set_agent_name(None)
         clear_agent_context()
 
         # Return special status to indicate approval is required
@@ -479,6 +484,7 @@ def execute_agent(
         set_current_request_id(None)
         set_current_message_files(None)
         set_conversation_context(None, None)
+        set_agent_name(None)
         clear_agent_context()
 
         return False, str(e)
