@@ -149,7 +149,7 @@ class TestFormatAgentMessage:
         result, was_truncated = _format_agent_message("Hello", "#/conversations/abc123")
         assert "Hello" in result
         assert "#/conversations/abc123" in result
-        assert "View conversation:" in result
+        assert "View:" in result
         assert was_truncated is False
 
     def test_truncates_long_message_but_preserves_url(self) -> None:
@@ -162,7 +162,7 @@ class TestFormatAgentMessage:
 
         # URL must be preserved at the end
         assert result.endswith(conversation_url)
-        assert "View conversation:" in result
+        assert "View:" in result
         # Content should be truncated
         assert "..." in result
         # Total length should be within limit

@@ -180,6 +180,28 @@ def _truncate_message(message: str, max_length: int, suffix: str = "...") -> str
     return truncated + suffix
 
 
+def _sanitize_for_template(text: str) -> str:
+    """Sanitize text for WhatsApp template parameters.
+
+    WhatsApp template body parameters cannot contain:
+    - Newline characters
+    - Tab characters
+    - More than 4 consecutive spaces
+
+    This function replaces these with allowed alternatives.
+    """
+    # Replace newlines with " | " separator
+    text = re.sub(r"\n+", " | ", text)
+
+    # Replace tabs with single space
+    text = text.replace("\t", " ")
+
+    # Replace 4+ consecutive spaces with 3 spaces (max allowed)
+    text = re.sub(r" {4,}", "   ", text)
+
+    return text.strip()
+
+
 def _format_agent_message(
     content: str,
     conversation_url: str | None = None,
@@ -204,7 +226,7 @@ def _format_agent_message(
     # Build the URL suffix if provided
     url_suffix = ""
     if conversation_url:
-        url_suffix = f"\n\nView conversation: {conversation_url}"
+        url_suffix = f" | View: {conversation_url}"
 
     # Reserve space for URL suffix and truncate content first
     available_for_content = max_length - len(url_suffix)
@@ -213,8 +235,9 @@ def _format_agent_message(
     # Detect if truncation occurred by comparing converted content length
     was_truncated = len(whatsapp_content) > available_for_content
 
-    # Combine content and URL suffix
-    return truncated_content + url_suffix, was_truncated
+    # Combine content and URL suffix, then sanitize for template parameters
+    combined = truncated_content + url_suffix
+    return _sanitize_for_template(combined), was_truncated
 
 
 def _send_text_message(
@@ -362,12 +385,33 @@ def whatsapp(
     Use it to notify the user of important results, completed tasks, or
     information that needs their attention.
 
-    The message will be automatically truncated if it exceeds WhatsApp's
-    template body variable limit (1024 characters).
+    MESSAGE FORMATTING:
+    WhatsApp template messages have strict formatting requirements. Your message
+    will be automatically sanitized:
+    - Newlines are converted to " | " separators
+    - Multiple spaces are collapsed
+    - Messages exceeding 1024 characters are truncated
+
+    For best results, write CONCISE, SINGLE-PARAGRAPH messages. Avoid:
+    - Bullet points or numbered lists (use comma-separated items instead)
+    - Multiple paragraphs (summarize in one paragraph)
+    - Long explanations (provide key points only)
+
+    Good example: "Task completed successfully. Found 3 issues: missing auth,
+    slow query, outdated dependency."
+
+    NOTE: A link to this conversation is automatically appended to the message
+    (unless include_conversation_link=False), so you don't need to tell the user
+    where to find details - they can click the link.
+
+    Bad example (will be mangled):
+    "Results:
+    - Item 1
+    - Item 2"
 
     Args:
-        message: The message content to send. Can include the full results
-            of your work. Will be truncated if too long.
+        message: The message content to send. Keep it concise and avoid
+            newlines/bullet points. Will be truncated if too long.
         include_conversation_link: Whether to append a link to this conversation
             at the end of the message (default: True). Set to False if you want
             to send only the message content.
