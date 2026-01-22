@@ -9,6 +9,7 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Voice conversation mode** - Full voice-based conversation with speech-to-text input and text-to-speech output
 - [ ] **Planner: Use temp conversation during loading** - Replace `'planner-loading'` placeholder with a real temp conversation ID (e.g., `temp-planner-${timestamp}`). This would allow users to send messages immediately while planner loads, leveraging the existing temp conversation persistence flow instead of blocking with a toast message.
 - [ ] **Oura integration** - Allow planner to have access to health data
+- [ ] **Conversation compaction for regular chats** - Implement conversation compaction when approaching model context limits (similar to `src/agent/compaction.py`)
 
 ## Autonomous Agents
 - [ ] **Multi-step workflows** - Allow agents to run multi-step workflows

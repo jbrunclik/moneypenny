@@ -160,6 +160,60 @@ class ChatAgent:
 
         return blocks if blocks else text
 
+    def _format_message_with_metadata(self, msg: dict[str, Any]) -> str:
+        """Format message content with metadata context for LLM.
+
+        Enriches message content with temporal context, file references,
+        and tool usage summaries as a JSON metadata block. Uses the same
+        <!-- METADATA: --> format as assistant response metadata for consistency.
+
+        Args:
+            msg: Enriched message dict with 'role', 'content', and 'metadata' keys
+
+        Returns:
+            Formatted string with JSON metadata block prefixed to content
+        """
+        import json
+
+        metadata = msg.get("metadata", {})
+        content: str = msg["content"]
+
+        # Build compact metadata dict with only present fields
+        meta_dict: dict[str, Any] = {}
+
+        # Session gap indicator (if present)
+        if metadata.get("session_gap"):
+            meta_dict["session_gap"] = metadata["session_gap"]
+
+        # Timestamps
+        if metadata.get("timestamp"):
+            meta_dict["timestamp"] = metadata["timestamp"]
+        if metadata.get("relative_time"):
+            meta_dict["relative_time"] = metadata["relative_time"]
+
+        # Files (for user messages) - compact format for direct tool access
+        if metadata.get("files"):
+            meta_dict["files"] = [
+                {
+                    "name": f["name"],
+                    "type": f["type"],
+                    "id": f"{f['message_id']}:{f['file_index']}",
+                }
+                for f in metadata["files"]
+            ]
+
+        # Tool usage (for assistant messages)
+        if metadata.get("tools_used"):
+            meta_dict["tools_used"] = metadata["tools_used"]
+        if metadata.get("tool_summary"):
+            meta_dict["tool_summary"] = metadata["tool_summary"]
+
+        # Return with metadata block if we have any metadata
+        if meta_dict:
+            json_str = json.dumps(meta_dict, separators=(",", ":"))
+            return f"<!-- METADATA: {json_str} -->\n{content}"
+        return content
+
     def _build_messages(
         self,
         text: str,
@@ -199,12 +253,16 @@ class ChatAgent:
 
         if history:
             for msg in history:
+                # Format content with metadata context (timestamps, files, tools)
+                formatted_content = self._format_message_with_metadata(msg)
+
                 if msg["role"] == "user":
-                    content = self._build_message_content(msg["content"], msg.get("files"))
+                    # User messages may have file attachments (handled separately)
+                    content = self._build_message_content(formatted_content, msg.get("files"))
                     messages.append(HumanMessage(content=content))
                 elif msg["role"] == "assistant":
                     # Assistant messages are always text
-                    messages.append(AIMessage(content=msg["content"]))
+                    messages.append(AIMessage(content=formatted_content))
 
         # Add the current user message
         content = self._build_message_content(text, files)

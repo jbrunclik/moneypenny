@@ -707,6 +707,163 @@ class TestFormatCalendarDetail:
         assert result == "respond_event: accepted"
 
 
+class TestFormatMessageWithMetadata:
+    """Tests for ChatAgent._format_message_with_metadata method."""
+
+    def _format_message(self, msg: dict) -> str:
+        """Helper to call the method without instantiating full ChatAgent."""
+        import json
+
+        metadata = msg.get("metadata", {})
+        content: str = msg["content"]
+
+        meta_dict: dict = {}
+        if metadata.get("session_gap"):
+            meta_dict["session_gap"] = metadata["session_gap"]
+        if metadata.get("timestamp"):
+            meta_dict["timestamp"] = metadata["timestamp"]
+        if metadata.get("relative_time"):
+            meta_dict["relative_time"] = metadata["relative_time"]
+        if metadata.get("files"):
+            meta_dict["files"] = [
+                {
+                    "name": f["name"],
+                    "type": f["type"],
+                    "id": f"{f['message_id']}:{f['file_index']}",
+                }
+                for f in metadata["files"]
+            ]
+        if metadata.get("tools_used"):
+            meta_dict["tools_used"] = metadata["tools_used"]
+        if metadata.get("tool_summary"):
+            meta_dict["tool_summary"] = metadata["tool_summary"]
+
+        if meta_dict:
+            json_str = json.dumps(meta_dict, separators=(",", ":"))
+            return f"<!-- METADATA: {json_str} -->\n{content}"
+        return content
+
+    def test_message_without_metadata(self) -> None:
+        """Message without metadata should return content only."""
+        msg = {"role": "user", "content": "Hello", "metadata": {}}
+        result = self._format_message(msg)
+        assert result == "Hello"
+
+    def test_message_with_timestamps(self) -> None:
+        """Should include timestamp and relative_time in JSON."""
+        msg = {
+            "role": "user",
+            "content": "Hello",
+            "metadata": {
+                "timestamp": "2024-06-15 14:30 CET",
+                "relative_time": "3 hours ago",
+            },
+        }
+        result = self._format_message(msg)
+
+        assert result.startswith("<!-- METADATA:")
+        assert '"timestamp":"2024-06-15 14:30 CET"' in result
+        assert '"relative_time":"3 hours ago"' in result
+        assert result.endswith("-->\nHello")
+
+    def test_message_with_session_gap(self) -> None:
+        """Should include session_gap in JSON."""
+        msg = {
+            "role": "user",
+            "content": "Hi again",
+            "metadata": {
+                "session_gap": "2 days",
+                "timestamp": "2024-06-15 14:30 CET",
+                "relative_time": "just now",
+            },
+        }
+        result = self._format_message(msg)
+
+        assert '"session_gap":"2 days"' in result
+
+    def test_message_with_files(self) -> None:
+        """Should include files with compact ID format."""
+        msg = {
+            "role": "user",
+            "content": "Check this",
+            "metadata": {
+                "timestamp": "2024-06-15 14:30 CET",
+                "relative_time": "1 hour ago",
+                "files": [
+                    {
+                        "name": "report.pdf",
+                        "type": "PDF",
+                        "message_id": "msg-abc123",
+                        "file_index": 0,
+                    }
+                ],
+            },
+        }
+        result = self._format_message(msg)
+
+        assert '"files":[' in result
+        assert '"name":"report.pdf"' in result
+        assert '"type":"PDF"' in result
+        assert '"id":"msg-abc123:0"' in result
+
+    def test_assistant_message_with_tools(self) -> None:
+        """Should include tools_used and tool_summary for assistant messages."""
+        msg = {
+            "role": "assistant",
+            "content": "I found some results.",
+            "metadata": {
+                "timestamp": "2024-06-15 14:35 CET",
+                "relative_time": "1 hour ago",
+                "tools_used": ["web_search"],
+                "tool_summary": "searched 3 web sources",
+            },
+        }
+        result = self._format_message(msg)
+
+        assert '"tools_used":["web_search"]' in result
+        assert '"tool_summary":"searched 3 web sources"' in result
+
+    def test_json_is_compact(self) -> None:
+        """JSON should use compact separators (no spaces)."""
+        import json
+        import re
+
+        msg = {
+            "role": "user",
+            "content": "Test",
+            "metadata": {"timestamp": "2024-06-15 14:30 CET", "relative_time": "now"},
+        }
+        result = self._format_message(msg)
+
+        # Extract JSON part
+        json_match = re.search(r"\{.*\}", result)
+        assert json_match is not None
+        json_str = json_match.group(0)
+
+        # Verify it's valid JSON
+        parsed = json.loads(json_str)
+        assert parsed["timestamp"] == "2024-06-15 14:30 CET"
+
+        # Verify compact format (no pretty-print indentation/newlines)
+        assert "\n" not in json_str
+        # Keys should be directly followed by colon then value
+        assert '"timestamp":"' in json_str
+        assert '"relative_time":"' in json_str
+
+    def test_metadata_format_matches_response_format(self) -> None:
+        """Should use same <!-- METADATA: --> format as assistant responses."""
+        msg = {
+            "role": "user",
+            "content": "Hello",
+            "metadata": {"relative_time": "just now"},
+        }
+        result = self._format_message(msg)
+
+        # Should match the format used in assistant response metadata
+        assert result.startswith("<!-- METADATA: {")
+        assert "} -->" in result
+
+
 class TestGetSystemPromptAnonymousMode:
     """Tests for get_system_prompt with anonymous_mode parameter."""
 

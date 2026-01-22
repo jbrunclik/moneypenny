@@ -14,36 +14,32 @@ logger = get_logger(__name__)
 
 @tool
 def retrieve_file(
-    message_id: str | None = None,
+    message_id: str,
     file_index: int = 0,
-    list_files: bool = False,
 ) -> str | list[dict[str, Any]]:
-    """Retrieve a file from conversation history or list all available files.
+    """Retrieve a file from conversation history for analysis.
 
     Use this tool to:
-    - List all files in the conversation to see what's available
     - Retrieve a specific file by message_id and file_index for analysis
     - Get images from earlier messages to use with generate_image as references
 
+    The message_id and file_index can be found in the conversation history metadata.
+    Each user message with files includes a "files" array with "id" in format "message_id:file_index".
+
     Args:
-        message_id: The message ID containing the file. Required unless list_files=True.
+        message_id: The message ID containing the file (from history metadata).
         file_index: Index of the file in the message (0-based, default 0).
-        list_files: If True, returns a list of all files in the conversation.
-                   Ignores message_id and file_index when True.
 
     Returns:
-        For list_files=True: JSON with files array containing message_id, file_index,
-                            name, type, and size for each file.
-        For file retrieval: Multimodal content with the file data for analysis,
-                           or JSON with error field if not found.
+        Multimodal content with the file data for analysis (images, PDFs),
+        text content for text files, or JSON with error field if not found.
 
     Examples:
-        - retrieve_file(list_files=True) - List all files in conversation
         - retrieve_file(message_id="msg-abc123", file_index=0) - Get first file from message
         - retrieve_file(message_id="msg-abc123") - Same as above (file_index defaults to 0)
 
     After retrieving an image, you can pass it to generate_image using:
-        generate_image(prompt="...", retrieved_file_message_id="msg-abc123", retrieved_file_index=0)
+        generate_image(prompt="...", history_image_message_id="msg-abc123", history_image_file_index=0)
     """
     # Import here to avoid circular imports
     from src.db.blob_store import get_blob_store
@@ -67,51 +63,6 @@ def retrieve_file(
             extra={"conv_id": conv_id, "user_id": user_id},
         )
         return json.dumps({"error": "Conversation not found or not authorized."})
-
-    # List all files in conversation
-    if list_files:
-        logger.info(
-            "retrieve_file: listing files",
-            extra={"conv_id": conv_id, "user_id": user_id},
-        )
-        messages = db.get_messages(conv_id)
-        all_files: list[dict[str, Any]] = []
-
-        for msg in messages:
-            if msg.files:
-                for idx, file in enumerate(msg.files):
-                    all_files.append(
-                        {
-                            "message_id": msg.id,
-                            "file_index": idx,
-                            "name": file.get("name", f"file_{idx}"),
-                            "type": file.get("type", "application/octet-stream"),
-                            "size": file.get("size", 0),
-                            "role": msg.role.value,  # user or assistant
-                        }
-                    )
-
-        logger.info(
-            "retrieve_file: found files",
-            extra={"conv_id": conv_id, "file_count": len(all_files)},
-        )
-        return json.dumps(
-            {
-                "files": all_files,
-                "count": len(all_files),
-                "message": f"Found {len(all_files)} file(s) in conversation."
-                if all_files
-                else "No files found in conversation.",
-            }
-        )
-
-    # Retrieve specific file
-    if not message_id:
-        return json.dumps(
-            {
-                "error": "message_id is required to retrieve a file. Use list_files=True to see available files."
-            }
-        )
 
     logger.info(
         "retrieve_file: retrieving file",

@@ -150,11 +150,12 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     if files:
         queue_pending_thumbnails(user_msg.id, files)
 
-    # Get conversation history (excluding files from previous messages to save tokens)
+    # Get conversation history with enrichment (timestamps, file refs, tool summaries)
+    # Files are excluded from previous messages to save tokens (only metadata is included)
+    from src.agent.history import enrich_history
+
     messages = db.get_messages(conv_id)
-    history = [
-        {"role": m.role.value, "content": m.content} for m in messages[:-1]
-    ]  # Exclude the just-added message
+    history = enrich_history(messages[:-1])  # Exclude the just-added message
     logger.debug(
         "Starting chat agent",
         extra={
@@ -541,14 +542,14 @@ def chat_stream(
     if files:
         queue_pending_thumbnails(user_msg.id, files)
 
-    # Get conversation history for context
-    # NOTE: We exclude files from history to avoid re-sending large base64 data for every message.
-    # Only the current message files are sent to the LLM. Historical images are not needed
-    # since the LLM has seen them before and they're stored in the conversation context.
+    # Get conversation history with enrichment (timestamps, file refs, tool summaries)
+    # NOTE: We exclude file DATA from history to avoid re-sending large base64 data.
+    # Only file metadata (name, type, message_id, file_index) is included so the LLM
+    # can reference historical files using retrieve_file or generate_image tools.
+    from src.agent.history import enrich_history
+
     messages = db.get_messages(conv_id)
-    history = [
-        {"role": m.role.value, "content": m.content} for m in messages[:-1]
-    ]  # Exclude the just-added message, exclude files from history
+    history = enrich_history(messages[:-1])  # Exclude the just-added message
     logger.debug(
         "Starting stream chat agent",
         extra={

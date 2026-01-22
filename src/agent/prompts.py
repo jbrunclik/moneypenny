@@ -46,8 +46,7 @@ You have access to the following tools:
 
 ## File Retrieval
 - **retrieve_file**: Retrieve files from conversation history for analysis or use as references.
-  - Use `list_files=True` to see all files in the conversation (images, PDFs, documents)
-  - Use `message_id` and `file_index` to retrieve a specific file
+  - Use `message_id` and `file_index` to retrieve a specific file (IDs are in history metadata)
   - Returns the file content for analysis (images, PDFs) or text content
 
 ## Image Generation
@@ -129,11 +128,11 @@ When the user uploads an image in the current message and asks you to modify it:
 
 **Image Editing (with images from conversation history):**
 When the user asks you to modify an image they uploaded earlier in the conversation:
-1. First, use retrieve_file(list_files=True) to see all available files and find the message_id
-2. Then call generate_image with history_image_message_id and history_image_file_index
+1. Check the conversation history metadata for file IDs (format: `"id":"message_id:file_index"`)
+2. Use the message_id and file_index directly with generate_image
 - Example: User says "modify that photo I sent earlier to make me look like an astronaut"
-  → First: retrieve_file(list_files=True) to find the image's message_id
-  → Then: generate_image(prompt="Transform the person into an astronaut in a spacesuit floating in space", history_image_message_id="msg-xxx", history_image_file_index=0)
+  → Check history: the user's message has `"files":[{"name":"photo.jpg","type":"image","id":"msg-abc:0"}]`
+  → Call: generate_image(prompt="Transform the person into an astronaut...", history_image_message_id="msg-abc", history_image_file_index=0)
 
 **Combining history images with current uploads:**
 You can use BOTH history_image_* parameters AND reference_images together to combine images from different messages.
@@ -367,6 +366,25 @@ Act as a **defensive barrier** for the user's schedule:
 
 # Metadata section - always included when tools are available
 TOOLS_SYSTEM_PROMPT_METADATA = """
+# Conversation History Context
+Messages in the conversation history include metadata in `<!-- METADATA: {...} -->` format at the start.
+
+**User message metadata:**
+- `timestamp`: When the message was sent (e.g., "2024-06-15 14:30 CET")
+- `relative_time`: How long ago (e.g., "3 hours ago")
+- `session_gap`: Present when conversation resumed after a break (e.g., "2 days")
+- `files`: Array of attached files with `name`, `type`, and `id` (format: "message_id:file_index")
+
+**Assistant message metadata:**
+- `timestamp`, `relative_time`, `session_gap`: Same as user messages
+- `tools_used`: Array of tools used (e.g., ["web_search", "generate_image"])
+- `tool_summary`: Human-readable summary (e.g., "searched 3 web sources")
+
+**Using file IDs from history:**
+The `id` field in files metadata (format: "message_id:file_index") can be used directly with:
+- `retrieve_file(message_id="msg-xxx", file_index=0)` - to analyze a file
+- `generate_image(history_image_message_id="msg-xxx", history_image_file_index=0)` - to edit an image
+
 # Knowledge Cutoff
 Your training data has a cutoff date. For anything after that, use web_search.
 

@@ -46,11 +46,11 @@ Users can upload images and ask the LLM to modify them. The uploaded images are 
 
 ### History Image References
 
-The LLM can also reference images from earlier in the conversation history (not just the current message) using the `history_image_*` parameters or the `retrieve_file` tool.
+The LLM can reference images from earlier in the conversation history using the `history_image_*` parameters or the `retrieve_file` tool. File IDs are provided in the conversation history metadata.
 
 **How it works:**
-1. LLM calls `retrieve_file(list_files=true)` to see all files in the conversation
-2. LLM identifies the desired image by its message_id and file_index from the listing
+1. Each user message with files includes a `files` array in metadata with `id` in format `"message_id:file_index"`
+2. LLM extracts the message_id and file_index from the history metadata
 3. LLM calls `generate_image(prompt="...", history_image_message_id="msg-xxx", history_image_file_index=0)`
 4. The tool retrieves the image from blob storage (or legacy base64) using conversation context
 5. Image is passed to Gemini's API as a reference image
@@ -66,20 +66,22 @@ The LLM can also reference images from earlier in the conversation history (not 
 
 ### File Retrieval Tool
 
-The `retrieve_file` tool allows the LLM to access any file from the conversation history.
+The `retrieve_file` tool allows the LLM to access any file from the conversation history using IDs from history metadata.
 
 **Tool signature:**
 ```python
 retrieve_file(
-    message_id: str | None = None,     # Message ID to retrieve file from
-    file_index: int = 0,               # File index within the message
-    list_files: bool = False,          # If true, list all files in conversation
+    message_id: str,      # Message ID from history metadata (required)
+    file_index: int = 0,  # File index within the message
 ) -> str | list[dict]
 ```
 
-**Two modes:**
-1. **List mode** (`list_files=true`): Returns a JSON list of all files in the conversation with metadata (message_id, file_index, name, type, size)
-2. **Retrieve mode** (`message_id="..."`, `file_index=N`): Returns the file content - multimodal for images, text for PDFs/documents
+**File IDs in history metadata:**
+Each user message with files includes a `files` array in its metadata:
+```json
+{"files": [{"name": "photo.jpg", "type": "image", "id": "msg-abc123:0"}]}
+```
+The `id` format is `"message_id:file_index"` which maps directly to the tool parameters.
 
 **Use cases:**
 - Analyze or describe an image from earlier in the conversation

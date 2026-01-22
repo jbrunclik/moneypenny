@@ -255,8 +255,65 @@ When switching away from a conversation with an active request and back, the UI 
 
 A module-level `pendingConversationId` variable in [conversation.ts](../../web/src/core/conversation.ts) tracks which conversation the user most recently clicked. When an API call completes, we check if it matches - if not, the user navigated elsewhere and we cancel the operation.
 
+## History Enrichment
+
+Conversation history is enriched with contextual metadata before being sent to the LLM. This helps the model understand temporal context, reference historical files, and know which tools were used.
+
+### Metadata Format
+
+Each historical message includes a JSON metadata block using the same `<!-- METADATA: -->` format as assistant response metadata:
+
+```
+<!-- METADATA: {"timestamp":"2024-06-15 14:30 CET","relative_time":"3 hours ago","files":[{"name":"report.pdf","type":"PDF","id":"msg-abc123:0"}]} -->
+Can you analyze this data?
+```
+
+### Enrichment Fields
+
+**For all messages:**
+- `timestamp` - Absolute timestamp with timezone (e.g., "2024-06-15 14:30 CET")
+- `relative_time` - Human-readable relative time (e.g., "3 hours ago")
+- `session_gap` - Present when resuming after a gap (e.g., "2 days")
+
+**For user messages:**
+- `files` - Array of file metadata with `name`, `type`, and `id` (format: `message_id:file_index`)
+
+**For assistant messages:**
+- `tools_used` - Array of tool names used (e.g., `["web_search", "generate_image"]`)
+- `tool_summary` - Human-readable summary (e.g., "searched 3 web sources, generated 1 image")
+
+### Session Gap Detection
+
+When messages are more than `HISTORY_SESSION_GAP_HOURS` apart (default: 4 hours), a session gap indicator is included. This helps the LLM understand context breaks in the conversation.
+
+### File References
+
+The compact `id` format (`message_id:file_index`) allows the LLM to directly reference historical files:
+- `retrieve_file(message_id="msg-abc123", file_index=0)` - to analyze a file
+- `generate_image(history_image_message_id="msg-abc123", history_image_file_index=0)` - to edit an image
+
+### Configuration
+
+```bash
+# .env
+HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
+```
+
+### Key Files
+
+- [history.py](../../src/agent/history.py) - `enrich_history()`, timestamp/file/tool formatting functions
+- [agent.py](../../src/agent/agent.py) - `_format_message_with_metadata()`, `_build_messages()`
+- [routes/chat.py](../../src/api/routes/chat.py) - Integration in batch and stream endpoints
+- [config.py](../../src/config.py) - `HISTORY_SESSION_GAP_HOURS` configuration
+
+### Testing
+
+- Unit tests: `TestFormatMessageWithMetadata` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
+- Unit tests: [test_history.py](../../tests/unit/test_history.py) - comprehensive tests for enrichment functions
+
 ## See Also
 
 - [File Handling](file-handling.md) - Image generation, code execution, file uploads
 - [UI Features](ui-features.md) - Input toolbar, message sending behavior
+- [Memory and Context](memory-and-context.md) - User memories and custom instructions
 - [Testing](../testing.md) - E2E tests for chat functionality

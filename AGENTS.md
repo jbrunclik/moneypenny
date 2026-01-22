@@ -60,6 +60,7 @@ ai-chatbot/
   - [graph.py](src/agent/graph.py) - LangGraph state machine and nodes
   - [prompts.py](src/agent/prompts.py) - System prompts and user context
   - [content.py](src/agent/content.py) - Content extraction utilities
+  - [history.py](src/agent/history.py) - Conversation history enrichment with temporal context
   - [tool_results.py](src/agent/tool_results.py) - Tool result capture
   - [tool_display.py](src/agent/tool_display.py) - Tool metadata for UI
 - [tools/](src/agent/tools/) - Agent tools (web_search, generate_image, execute_code, todoist, google_calendar, retrieve_file, trigger_agent, whatsapp)

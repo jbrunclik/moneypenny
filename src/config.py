@@ -285,6 +285,9 @@ class Config:
     # Default daily budget limit per agent in USD (0 = unlimited)
     AGENT_DEFAULT_DAILY_BUDGET_USD: float = float(os.getenv("AGENT_DEFAULT_DAILY_BUDGET_USD", "0"))
 
+    # History enrichment: gap threshold for "session resumed" markers (hours)
+    HISTORY_SESSION_GAP_HOURS: int = int(os.getenv("HISTORY_SESSION_GAP_HOURS", "4"))
+
     # Logging truncation settings
     QUERY_LOG_MAX_LENGTH = 200
     PARAMS_LOG_MAX_LENGTH = 100

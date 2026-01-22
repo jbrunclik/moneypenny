@@ -1328,7 +1328,7 @@ class TestRetrieveFile:
     def test_returns_error_without_context(self) -> None:
         """Should return error when no conversation context is set."""
         set_conversation_context(None, None)
-        result = retrieve_file.invoke({"list_files": True})
+        result = retrieve_file.invoke({"message_id": "msg-123"})
         parsed = json.loads(result)
         assert "error" in parsed
         assert "No conversation context" in parsed["error"]
@@ -1339,87 +1339,11 @@ class TestRetrieveFile:
         set_conversation_context("conv-123", "user-456")
         mock_db.get_conversation.return_value = None
 
-        result = retrieve_file.invoke({"list_files": True})
+        result = retrieve_file.invoke({"message_id": "msg-123"})
         parsed = json.loads(result)
 
         assert "error" in parsed
         assert "not authorized" in parsed["error"]
-        set_conversation_context(None, None)
-
-    @patch("src.db.models.db")
-    def test_lists_files_in_conversation(self, mock_db: MagicMock) -> None:
-        """Should list all files in conversation."""
-        set_conversation_context("conv-123", "user-456")
-        mock_db.get_conversation.return_value = MagicMock()
-
-        # Mock messages with files
-        mock_msg1 = MagicMock()
-        mock_msg1.id = "msg-1"
-        mock_msg1.files = [
-            {"name": "photo.jpg", "type": "image/jpeg", "size": 1000},
-        ]
-        mock_msg1.role = MagicMock(value="user")
-
-        mock_msg2 = MagicMock()
-        mock_msg2.id = "msg-2"
-        mock_msg2.files = [
-            {"name": "result.png", "type": "image/png", "size": 2000},
-        ]
-        mock_msg2.role = MagicMock(value="assistant")
-
-        mock_msg3 = MagicMock()
-        mock_msg3.id = "msg-3"
-        mock_msg3.files = []  # No files
-        mock_msg3.role = MagicMock(value="user")
-
-        mock_db.get_messages.return_value = [mock_msg1, mock_msg2, mock_msg3]
-
-        result = retrieve_file.invoke({"list_files": True})
-        parsed = json.loads(result)
-
-        assert parsed["count"] == 2
-        assert len(parsed["files"]) == 2
-        assert parsed["files"][0]["message_id"] == "msg-1"
-        assert parsed["files"][0]["name"] == "photo.jpg"
-        assert parsed["files"][0]["role"] == "user"
-        assert parsed["files"][1]["message_id"] == "msg-2"
-        assert parsed["files"][1]["name"] == "result.png"
-        assert parsed["files"][1]["role"] == "assistant"
-
-        set_conversation_context(None, None)
-
-    @patch("src.db.models.db")
-    def test_lists_empty_files(self, mock_db: MagicMock) -> None:
-        """Should return empty list when no files in conversation."""
-        set_conversation_context("conv-123", "user-456")
-        mock_db.get_conversation.return_value = MagicMock()
-
-        mock_msg = MagicMock()
-        mock_msg.files = []
-        mock_msg.role = MagicMock(value="user")
-        mock_db.get_messages.return_value = [mock_msg]
-
-        result = retrieve_file.invoke({"list_files": True})
-        parsed = json.loads(result)
-
-        assert parsed["count"] == 0
-        assert parsed["files"] == []
-        assert "No files found" in parsed["message"]
-
-        set_conversation_context(None, None)
-
-    @patch("src.db.models.db")
-    def test_requires_message_id_for_retrieval(self, mock_db: MagicMock) -> None:
-        """Should require message_id when not listing files."""
-        set_conversation_context("conv-123", "user-456")
-        mock_db.get_conversation.return_value = MagicMock()
-
-        result = retrieve_file.invoke({})  # No message_id
-        parsed = json.loads(result)
-
-        assert "error" in parsed
-        assert "message_id is required" in parsed["error"]
-
         set_conversation_context(None, None)
 
     @patch("src.db.models.db")

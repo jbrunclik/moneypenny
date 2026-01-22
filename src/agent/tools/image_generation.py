@@ -38,8 +38,8 @@ def generate_image(
     to include the uploaded image(s) as reference for the generation.
 
     To use an image from earlier in the conversation, use history_image_message_id and
-    history_image_file_index to reference a previously uploaded image. Use retrieve_file
-    with list_files=True first to see what images are available.
+    history_image_file_index. The IDs can be found in the conversation history metadata
+    (each user message with files includes a "files" array with "id" in format "message_id:file_index").
 
     Args:
         prompt: A detailed description of the image to generate or the edit to make.
@@ -51,7 +51,7 @@ def generate_image(
                          Options: "all" (use all uploaded images), "0" (first image),
                          "0,1" (first and second), etc. None means generate from scratch.
         history_image_message_id: Message ID of a previously uploaded image to use as reference.
-                                 Use retrieve_file(list_files=True) to find available images.
+                                 Found in history metadata as "id" in format "message_id:file_index".
         history_image_file_index: File index within the message (default 0 for first file).
 
     Returns:
