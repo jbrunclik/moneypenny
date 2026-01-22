@@ -441,7 +441,9 @@ export function updateStreamingMessage(
 }
 
 /**
- * Finalize streaming message
+ * Finalize streaming message.
+ * @returns Whether the user was following (auto-scroll was active) when streaming ended.
+ *          Returns false if user had scrolled away during streaming.
  */
 export function finalizeStreamingMessage(
   messageEl: HTMLElement,
@@ -452,7 +454,7 @@ export function finalizeStreamingMessage(
   files?: FileMetadata[],
   role: 'user' | 'assistant' = 'assistant',
   language?: string
-): void {
+): boolean {
   messageEl.classList.remove('streaming');
   messageEl.dataset.messageId = messageId;
 
@@ -460,8 +462,14 @@ export function finalizeStreamingMessage(
   const cursor = messageEl.querySelector('.streaming-cursor');
   cursor?.remove();
 
+  // Capture whether user was following before cleaning up context
+  let wasFollowing = false;
+
   // Finalize thinking indicator and clean up streaming context
   if (currentStreamingContext && currentStreamingContext.element === messageEl) {
+    // Capture auto-scroll state before cleanup
+    wasFollowing = currentStreamingContext.shouldAutoScroll;
+
     finalizeThinkingIndicator(
       currentStreamingContext.thinkingIndicator,
       currentStreamingContext.thinkingState
@@ -508,4 +516,6 @@ export function finalizeStreamingMessage(
   requestAnimationFrame(() => {
     checkScrollButtonVisibility();
   });
+
+  return wasFollowing;
 }

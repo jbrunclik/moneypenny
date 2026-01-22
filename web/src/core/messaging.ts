@@ -42,7 +42,7 @@ import {
 import { clearPendingFiles, getPendingFiles } from '../components/FileUpload';
 import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
-import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom } from '../utils/thumbnails';
+import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom, programmaticScrollToElementTop } from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
 import type { Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
@@ -730,7 +730,7 @@ async function handleStreamDone(
   // doesn't match this conversation, fall back to the original element.
   const messageEl = getStreamingMessageElement(convId) ?? state.messageEl;
 
-  finalizeStreamingMessage(
+  const wasFollowing = finalizeStreamingMessage(
     messageEl,
     event.id,
     event.created_at,
@@ -741,7 +741,54 @@ async function handleStreamDone(
     event.language
   );
 
-  handleImageScrollAfterMessage(messageEl, event.files);
+  // Scroll to top of message if user was following, otherwise handle image scroll
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  log.info('Streaming done scroll decision', {
+    wasFollowing,
+    hasMessagesContainer: !!messagesContainer,
+    messageElOffsetTop: messageEl.offsetTop,
+  });
+
+  if (wasFollowing && messagesContainer) {
+    // Record scroll position to detect if user scrolls away before RAF fires
+    const scrollTopWhenDone = messagesContainer.scrollTop;
+
+    // User was following the stream - scroll to top of the assistant's response
+    // Use double RAF to ensure layout is fully settled after finalization
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Check if user scrolled away while waiting for RAFs
+        const currentScrollTop = messagesContainer.scrollTop;
+        const scrolledUp = currentScrollTop < scrollTopWhenDone - 100;
+        const nearTop = currentScrollTop < 50;
+        if (scrolledUp || nearTop) {
+          log.info('Scroll aborted - user scrolled away');
+          checkScrollButtonVisibility();
+          return;
+        }
+
+        // Also check distance from bottom
+        const scrollHeight = messagesContainer.scrollHeight;
+        const clientHeight = messagesContainer.clientHeight;
+        const distanceFromBottom = scrollHeight - currentScrollTop - clientHeight;
+        if (distanceFromBottom > 500) {
+          log.info('Scroll aborted - user far from bottom');
+          checkScrollButtonVisibility();
+          return;
+        }
+
+        log.info('Scrolling to top of message (programmatic)');
+        // Use instant scroll to avoid timing issues with animations
+        programmaticScrollToElementTop(messagesContainer, messageEl, false);
+        checkScrollButtonVisibility();
+      });
+    });
+  } else {
+    // User scrolled away during streaming - don't auto-scroll, just handle images
+    log.info('Not scrolling to top - user scrolled away or no container');
+    handleImageScrollAfterMessage(messageEl, event.files);
+  }
+
   updateConversationTitle(convId, event.title);
   await updateConversationCost(convId);
 
@@ -900,45 +947,44 @@ async function sendBatchMessage(
         (f) => f.type.startsWith('image/') && !f.previewUrl
       );
       const wasAtBottom = isScrolledToBottom(messagesContainer);
-      if (hasImagesToLoad && wasAtBottom) {
-        enableScrollOnImageLoad();
-      }
+      // Note: We intentionally don't call enableScrollOnImageLoad() here because
+      // we're using scroll-to-top-of-message behavior, not scroll-to-bottom.
+      // The scroll-on-image-load system is designed for bottom-scrolling.
       addMessageToUI(assistantMessage, messagesContainer);
-      if (hasImagesToLoad && wasAtBottom) {
-        // Scroll to bottom immediately to ensure images are visible
-        // IntersectionObserver will re-check after scroll and fire for visible images
-        programmaticScrollToBottom(messagesContainer, false);
-        // Use double RAF to ensure scroll completed and layout settled
-        // Then check if images need manual triggering (fallback)
+
+      // Only scroll if user was following (at bottom) - don't hijack scroll if user is browsing history
+      if (wasAtBottom) {
+        // Scroll to top of the assistant's response (batch mode shows complete message)
+        // Use RAF to ensure layout is settled after adding message
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            const messageEl = messagesContainer.querySelector(
-              `[data-message-id="${assistantMessage.id}"]`
-            );
-            if (messageEl) {
-              const images = messageEl.querySelectorAll<HTMLImageElement>(
-                'img[data-message-id][data-file-index]:not([src])'
-              );
-              // If images are visible but haven't started loading, manually trigger
-              // This is a fallback in case IntersectionObserver didn't fire
-              images.forEach((img) => {
-                const rect = img.getBoundingClientRect();
-                const containerRect = messagesContainer.getBoundingClientRect();
-                const isVisible = rect.top < containerRect.bottom && rect.bottom > containerRect.top;
-                if (isVisible && !img.src) {
-                  // Image is visible but not loading - unobserve and re-observe to trigger check
-                  getThumbnailObserver().unobserve(img);
-                  observeThumbnail(img);
-                }
+          const messageEl = messagesContainer.querySelector<HTMLElement>(
+            `[data-message-id="${assistantMessage.id}"]`
+          );
+          if (messageEl) {
+            programmaticScrollToElementTop(messagesContainer, messageEl, true);
+
+            // If message has images to load, trigger observation for visible ones
+            if (hasImagesToLoad) {
+              requestAnimationFrame(() => {
+                const images = messageEl.querySelectorAll<HTMLImageElement>(
+                  'img[data-message-id][data-file-index]:not([src])'
+                );
+                images.forEach((img) => {
+                  const rect = img.getBoundingClientRect();
+                  const containerRect = messagesContainer.getBoundingClientRect();
+                  const isVisible = rect.top < containerRect.bottom && rect.bottom > containerRect.top;
+                  if (isVisible && !img.src) {
+                    getThumbnailObserver().unobserve(img);
+                    observeThumbnail(img);
+                  }
+                });
               });
             }
-            checkScrollButtonVisibility();
-          });
+          }
+          checkScrollButtonVisibility();
         });
       } else {
-        if (wasAtBottom) {
-          programmaticScrollToBottom(messagesContainer);
-        }
+        // User is browsing history - just update scroll button visibility
         requestAnimationFrame(() => {
           checkScrollButtonVisibility();
         });

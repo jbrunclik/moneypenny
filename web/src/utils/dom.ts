@@ -155,6 +155,76 @@ export function isScrolledToBottom(element: HTMLElement, threshold = 100): boole
 }
 
 /**
+ * Scroll container so that the target element's top is at the top of the viewport.
+ * @param container - The scrollable container
+ * @param targetElement - The element to scroll to
+ * @param smooth - Whether to use smooth scrolling animation (default: true)
+ */
+export function scrollToElementTop(
+  container: HTMLElement,
+  targetElement: HTMLElement,
+  smooth = true
+): void {
+  // Cancel any ongoing smooth scroll animation before starting a new scroll
+  cancelSmoothScroll();
+
+  // Calculate target scroll position using getBoundingClientRect for accuracy.
+  // offsetTop can be unreliable if offsetParent isn't the scroll container.
+  // Formula: element's current visual position relative to container + current scroll
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = targetElement.getBoundingClientRect();
+  const targetTop = targetRect.top - containerRect.top + container.scrollTop;
+
+  if (!smooth) {
+    container.scrollTo({
+      top: targetTop,
+      behavior: 'auto',
+    });
+    return;
+  }
+
+  // Custom smooth scroll with easing
+  const start = container.scrollTop;
+  const distance = targetTop - start;
+  const duration = Math.min(600, Math.max(300, Math.abs(distance) * 0.5));
+  const startTime = performance.now();
+
+  // Track expected scroll position to detect external changes
+  let expectedScrollTop = start;
+
+  const easeOutCubic = (t: number): number => {
+    return 1 - Math.pow(1 - t, 3);
+  };
+
+  const animate = (currentTime: number): void => {
+    // Detect if scroll position was changed externally (user scrolled or other code)
+    // Allow small tolerance for rounding errors
+    const currentScrollTop = container.scrollTop;
+    if (Math.abs(currentScrollTop - expectedScrollTop) > 5) {
+      // External scroll detected - cancel our animation to respect user's intent
+      currentSmoothScrollAnimationId = null;
+      return;
+    }
+
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = easeOutCubic(progress);
+
+    const newScrollTop = start + distance * eased;
+    container.scrollTop = newScrollTop;
+    expectedScrollTop = newScrollTop;
+
+    if (progress < 1) {
+      currentSmoothScrollAnimationId = requestAnimationFrame(animate);
+    } else {
+      currentSmoothScrollAnimationId = null;
+    }
+  };
+
+  currentSmoothScrollAnimationId = requestAnimationFrame(animate);
+}
+
+/**
  * Toggle class on element
  */
 export function toggleClass(

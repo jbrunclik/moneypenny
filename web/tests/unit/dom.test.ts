@@ -10,6 +10,7 @@ import {
   createElement,
   autoResizeTextarea,
   scrollToBottom,
+  scrollToElementTop,
   isScrolledToBottom,
   toggleClass,
   showElement,
@@ -200,6 +201,119 @@ describe('scrollToBottom', () => {
     scrollToBottom(div, true);
 
     expect(rafSpy).toHaveBeenCalled();
+  });
+});
+
+describe('scrollToElementTop', () => {
+  // Helper to mock getBoundingClientRect for container and target
+  function mockBoundingRects(
+    container: HTMLElement,
+    target: HTMLElement,
+    containerTop: number,
+    targetTop: number,
+    scrollTop: number
+  ): void {
+    container.getBoundingClientRect = vi.fn().mockReturnValue({ top: containerTop });
+    target.getBoundingClientRect = vi.fn().mockReturnValue({ top: targetTop });
+    Object.defineProperty(container, 'scrollTop', { value: scrollTop, writable: true });
+  }
+
+  it('scrolls container so target element is at top (instant)', () => {
+    const container = document.createElement('div');
+    const target = document.createElement('div');
+    container.appendChild(target);
+
+    container.scrollTo = vi.fn();
+    // Container at y=100, target at y=300, scrollTop=0 → target is 200px into scroll content
+    mockBoundingRects(container, target, 100, 300, 0);
+
+    scrollToElementTop(container, target, false);
+
+    expect(container.scrollTo).toHaveBeenCalledWith({
+      top: 200,
+      behavior: 'auto',
+    });
+  });
+
+  it('uses requestAnimationFrame for smooth scroll', () => {
+    const container = document.createElement('div');
+    const target = document.createElement('div');
+    container.appendChild(target);
+
+    mockBoundingRects(container, target, 0, 500, 0);
+
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
+
+    scrollToElementTop(container, target, true);
+
+    expect(rafSpy).toHaveBeenCalled();
+  });
+
+  it('scrolls to correct offset when target is further down', () => {
+    const container = document.createElement('div');
+    const target = document.createElement('div');
+    container.appendChild(target);
+
+    container.scrollTo = vi.fn();
+    // Container at y=50, target at y=800, scrollTop=0 → target is 750px into scroll content
+    mockBoundingRects(container, target, 50, 800, 0);
+
+    scrollToElementTop(container, target, false);
+
+    expect(container.scrollTo).toHaveBeenCalledWith({
+      top: 750,
+      behavior: 'auto',
+    });
+  });
+
+  it('defaults to smooth scrolling when no smooth parameter provided', () => {
+    const container = document.createElement('div');
+    const target = document.createElement('div');
+    container.appendChild(target);
+
+    mockBoundingRects(container, target, 0, 300, 0);
+
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
+
+    // Call without the smooth parameter (defaults to true)
+    scrollToElementTop(container, target);
+
+    expect(rafSpy).toHaveBeenCalled();
+  });
+
+  it('handles element at top of container', () => {
+    const container = document.createElement('div');
+    const target = document.createElement('div');
+    container.appendChild(target);
+
+    container.scrollTo = vi.fn();
+    // Container and target at same position → scroll to 0
+    mockBoundingRects(container, target, 100, 100, 0);
+
+    scrollToElementTop(container, target, false);
+
+    expect(container.scrollTo).toHaveBeenCalledWith({
+      top: 0,
+      behavior: 'auto',
+    });
+  });
+
+  it('accounts for current scroll position when calculating target', () => {
+    const container = document.createElement('div');
+    const target = document.createElement('div');
+    container.appendChild(target);
+
+    container.scrollTo = vi.fn();
+    // Container at y=0, target at y=200, but container is already scrolled 500px
+    // Visual offset is 200, but absolute position in scroll content is 200 + 500 = 700
+    mockBoundingRects(container, target, 0, 200, 500);
+
+    scrollToElementTop(container, target, false);
+
+    expect(container.scrollTo).toHaveBeenCalledWith({
+      top: 700,
+      behavior: 'auto',
+    });
   });
 });
 

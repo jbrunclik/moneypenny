@@ -1,5 +1,5 @@
 import { files } from '../api/client';
-import { getElementById, scrollToBottom, isScrolledToBottom, cancelSmoothScroll } from './dom';
+import { getElementById, scrollToBottom, scrollToElementTop, isScrolledToBottom, cancelSmoothScroll } from './dom';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { createLogger } from './logger';
 import {
@@ -158,6 +158,32 @@ export function markProgrammaticScrollEnd(): void {
 export function programmaticScrollToBottom(element: HTMLElement, smooth = false): void {
     markProgrammaticScrollStart();
     scrollToBottom(element, smooth);
+
+    if (smooth) {
+        // Smooth scroll takes 300-600ms, wait a bit longer to ensure completion
+        setTimeout(() => {
+            markProgrammaticScrollEnd();
+        }, SCROLL_SMOOTH_COMPLETION_DELAY_MS);
+    } else {
+        // Instant scroll completes immediately
+        markProgrammaticScrollEnd();
+    }
+}
+
+/**
+ * Perform a programmatic scroll to element top that won't trigger user scroll detection.
+ * This is a convenience wrapper that handles the markers automatically.
+ * @param container The scrollable container
+ * @param targetElement The element to scroll to (its top will be at the top of the viewport)
+ * @param smooth Whether to use smooth scrolling (default: true)
+ */
+export function programmaticScrollToElementTop(
+    container: HTMLElement,
+    targetElement: HTMLElement,
+    smooth = true
+): void {
+    markProgrammaticScrollStart();
+    scrollToElementTop(container, targetElement, smooth);
 
     if (smooth) {
         // Smooth scroll takes 300-600ms, wait a bit longer to ensure completion
