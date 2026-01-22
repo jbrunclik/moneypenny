@@ -19,6 +19,8 @@ The app uses timestamp-based polling with `updated_at` instead of SSE or WebSock
 1. **Full sync**: On initial load or after >5 minutes hidden
    - Fetches all conversations with message counts
    - Detects deleted conversations by comparing local IDs with server response
+   - Adds genuinely new conversations created on other devices (after initialLoadTime)
+   - Pagination-discovered conversations (older than initialLoadTime) are NOT added
 
 2. **Incremental sync**: Every 60 seconds
    - Fetches only conversations updated since last sync
@@ -37,6 +39,8 @@ GET /api/conversations/sync?since={ISO_TIMESTAMP}&full={BOOLEAN}
 **Query params:**
 - `since`: ISO timestamp - return conversations updated after this time
 - `full`: Boolean - if true, return all conversations (for delete detection)
+
+**Note:** Only returns regular conversations. Planner conversations (`is_planning=1`) and autonomous agent conversations (`is_agent=1`) are filtered out at the database level. They have separate sync mechanisms.
 
 **Response:**
 ```json
@@ -98,7 +102,19 @@ Always uses `server_time` from response, never client time.
 
 Server returns `server_time` that becomes next sync's `since` param.
 
-### 5. Streaming Completion Race
+### 5. Server Time Capture Timing
+
+**Critical:** The backend captures `server_time` BEFORE running the database query, not after.
+
+```python
+# CORRECT - capture BEFORE query
+server_time = datetime.now()
+conv_with_counts = db.get_conversations_updated_since(user.id, since_dt)
+```
+
+If captured after the query, a conversation created/updated between the query and timestamp assignment would be missed forever (the cursor advances past it).
+
+### 6. Streaming Completion Race
 
 When streaming completes, the local message count must be incremented BEFORE clearing the streaming flag.
 
@@ -113,7 +129,7 @@ getSyncManager()?.setConversationStreaming(convId, false);   // 2. THEN clear st
 
 The same pattern applies to `sendBatchMessage()` where `incrementLocalMessageCount()` is called after successful response processing, before the function returns.
 
-### 6. Pagination Count Mismatch
+### 7. Pagination Count Mismatch
 
 When opening an existing conversation with pagination, use `message_pagination.total_count` (NOT `conv.messages.length`) to set the baseline message count.
 
@@ -129,7 +145,7 @@ getSyncManager()?.markConversationRead(conv.id, messageCount);
 
 Without this, an existing conversation with 100 messages but only 50 loaded (pagination) would set `localMessageCount=50`. After streaming adds 2 messages, `localCount=52` but `serverCount=102` → false "new messages available" banner.
 
-### 7. Paginated FullSync Discovery
+### 8. Paginated FullSync Discovery
 
 When fullSync returns conversations beyond the initial paginated load (e.g., user's 50th conversation when only 30 were loaded), these are NOT "unread" - they're newly discovered.
 
@@ -153,6 +169,7 @@ Full sync compares local conversation IDs with server response:
 | **Offline → Online** | On visibility change, syncs immediately |
 | **Deleted while viewing** | Shows toast and clears current conversation |
 | **Temp conversations** | Not synced (start with `temp-` prefix, not yet persisted) |
+| **Remote conv created while hidden** | Full sync adds genuinely new conversations (created after initialLoadTime) with unread badge |
 
 ## Configuration
 

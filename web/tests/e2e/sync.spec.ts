@@ -741,3 +741,164 @@ test.describe('Sync - Visibility Change', () => {
     await expect(convItemsAfter).toHaveCount(2);
   });
 });
+
+test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
+  /**
+   * Regression test for the bug where conversations created on another device
+   * while the current tab was hidden for >5 minutes were never synced.
+   *
+   * The bug:
+   * 1. Tab becomes hidden, user opens another device and creates a conversation
+   * 2. Tab becomes visible after >5 minutes, triggering fullSync()
+   * 3. fullSync() only updated existing conversations, ignoring new ones
+   * 4. lastSyncTime was advanced, so the new conversation was never fetched
+   *
+   * The fix: fullSync() now adds genuinely new conversations (created after
+   * initialLoadTime) in addition to updating existing ones.
+   */
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+  });
+
+  test('full sync discovers conversation created on another device while tab was hidden', async ({
+    page,
+    request,
+  }) => {
+    // Create an initial conversation to establish the user session
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Initial conversation on this device');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Verify we have 1 conversation
+    const convItemsBefore = page.locator('.conversation-item-wrapper');
+    await expect(convItemsBefore).toHaveCount(1);
+
+    // Wait a moment to ensure timestamps differ
+    await page.waitForTimeout(100);
+
+    // Create a NEW conversation directly via API (simulating another device)
+    // This bypasses the UI entirely, as if another device created it
+    const createResponse = await request.post('/api/conversations', {
+      data: { model: 'gemini-3-flash-preview' },
+    });
+    expect(createResponse.status()).toBe(201);
+    const newConv = await createResponse.json();
+
+    // Add a message to the new conversation (simulating activity on other device)
+    const chatResponse = await request.post(`/api/conversations/${newConv.id}/chat/batch`, {
+      data: {
+        message: 'Message from another device',
+      },
+    });
+    expect(chatResponse.status()).toBe(200);
+
+    // At this point, the new conversation exists on the server but the current
+    // tab doesn't know about it. This simulates what happens when:
+    // - User closes laptop
+    // - Opens phone, creates a conversation, sends messages
+    // - Opens laptop again (tab was hidden for >5 minutes, triggers fullSync)
+
+    // Trigger a full sync (simulates tab becoming visible after >5 minutes hidden)
+    await page.evaluate(() => window.__testFullSync());
+
+    // Wait for sync to complete and UI to update
+    await page.waitForTimeout(500);
+
+    // REGRESSION: Before the fix, this would fail - only 1 conversation would show
+    // After the fix, both conversations should appear
+    const convItemsAfter = page.locator('.conversation-item-wrapper');
+    await expect(convItemsAfter).toHaveCount(2);
+
+    // The new conversation should have an unread badge (since we haven't viewed it)
+    const unreadBadge = page.locator('.unread-badge');
+    await expect(unreadBadge).toHaveCount(1);
+  });
+
+  test('full sync shows unread count for all messages in new remote conversation', async ({
+    page,
+    request,
+  }) => {
+    // Create an initial conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Initial conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    await page.waitForTimeout(100);
+
+    // Create a conversation with multiple messages via API
+    const createResponse = await request.post('/api/conversations', {
+      data: { model: 'gemini-3-flash-preview' },
+    });
+    const newConv = await createResponse.json();
+
+    // Send multiple messages
+    await request.post(`/api/conversations/${newConv.id}/chat/batch`, {
+      data: { message: 'First message from other device' },
+    });
+    await request.post(`/api/conversations/${newConv.id}/chat/batch`, {
+      data: { message: 'Second message from other device' },
+    });
+
+    // Trigger full sync
+    await page.evaluate(() => window.__testFullSync());
+    await page.waitForTimeout(500);
+
+    // Should have 2 conversations
+    const convItems = page.locator('.conversation-item-wrapper');
+    await expect(convItems).toHaveCount(2);
+
+    // The unread badge should show the count (4 messages: 2 user + 2 assistant)
+    const unreadBadge = page.locator('.unread-badge');
+    await expect(unreadBadge).toHaveCount(1);
+    await expect(unreadBadge).toHaveText('4');
+  });
+
+  test('clicking on new remote conversation clears unread badge', async ({ page, request }) => {
+    // Create initial conversation
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Initial conversation');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    await page.waitForTimeout(100);
+
+    // Create conversation via API
+    const createResponse = await request.post('/api/conversations', {
+      data: { model: 'gemini-3-flash-preview' },
+    });
+    const newConv = await createResponse.json();
+
+    await request.post(`/api/conversations/${newConv.id}/chat/batch`, {
+      data: { message: 'Message from other device' },
+    });
+
+    // Trigger full sync
+    await page.evaluate(() => window.__testFullSync());
+    await page.waitForTimeout(500);
+
+    // Verify unread badge exists
+    const unreadBadge = page.locator('.unread-badge');
+    await expect(unreadBadge).toHaveCount(1);
+
+    // Click on the conversation with the unread badge
+    const convWithBadge = page.locator('.conversation-item-wrapper:has(.unread-badge)');
+    await convWithBadge.click();
+
+    // Wait for conversation to load
+    await page.waitForSelector('.message.user >> text=Message from other device');
+
+    // Unread badge should be cleared
+    await expect(unreadBadge).toHaveCount(0);
+  });
+});

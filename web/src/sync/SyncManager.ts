@@ -103,12 +103,14 @@ export class SyncManager {
   /**
    * Start the sync manager - performs initial full sync and begins polling.
    *
-   * Note: Full sync on startup is safe because applyFullSync() only updates
-   * existing conversations and detects deletions - it does NOT add new conversations.
-   * This preserves pagination while still allowing us to:
-   * 1. Update message counts for conversations already loaded
-   * 2. Detect deletions
-   * 3. Establish initialLoadTime for pagination-discovered distinction
+   * Full sync on startup:
+   * 1. Updates message counts for conversations already loaded
+   * 2. Detects deletions (conversations removed on other devices)
+   * 3. Establishes initialLoadTime for pagination vs genuinely-new distinction
+   * 4. Adds genuinely new conversations (created after initialLoadTime on other devices)
+   *
+   * Pagination-discovered conversations (older than initialLoadTime) are NOT added,
+   * preserving the pagination behavior.
    */
   async start(): Promise<void> {
     log.info('Starting SyncManager');
@@ -122,9 +124,9 @@ export class SyncManager {
     }
 
     // Perform initial full sync
-    // Note: applyFullSync() only updates existing conversations and detects deletions
-    // It does NOT add new conversations, preserving pagination
     // Note: initialLoadTime is set during fullSync() before applying results
+    // applyFullSync() updates existing conversations, detects deletions, and adds
+    // genuinely new conversations (created after initialLoadTime on other devices)
     await this.fullSync();
 
     // Start polling
@@ -278,21 +280,24 @@ export class SyncManager {
   }
 
   /**
-   * Apply full sync results - handles deletions and updates ONLY.
+   * Apply full sync results - handles deletions, updates, AND new conversations.
    *
-   * IMPORTANT: Full sync does NOT add new conversations to the store.
-   * It only:
+   * Full sync:
    * 1. Updates existing conversations (message counts, titles, etc.)
    * 2. Detects deletions (conversations in store but not on server)
+   * 3. Adds NEW conversations created on other devices (after initialLoadTime)
    *
-   * This preserves pagination - conversations are only added via:
-   * - Initial pagination load (loadInitialData)
-   * - User scrolling to load more (pagination)
-   * - Incremental sync adding genuinely new conversations (created on another device)
+   * Note: Pagination-discovered conversations (older than initialLoadTime) are NOT added,
+   * preserving the pagination behavior. Only genuinely new conversations are added.
+   *
+   * Note: The sync endpoint only returns regular conversations - planner and autonomous
+   * agent conversations are filtered out at the backend (is_planning=0, is_agent=0).
+   * They have separate sync mechanisms (syncPlanner, syncAgentConversation).
    */
   private applyFullSync(serverConversations: ConversationSummary[]): void {
     const store = useStore.getState();
     const serverIds = new Set(serverConversations.map((c) => c.id));
+    const localIds = new Set(store.conversations.map((c) => c.id));
 
     // Detect deleted conversations (in local but not in server)
     // Skip temp conversations (not yet persisted)
@@ -313,15 +318,57 @@ export class SyncManager {
       this.localMessageCounts.delete(id);
     }
 
-    // Apply updates to EXISTING conversations only (don't add new ones)
-    // Filter to only conversations that are already in the store
-    const existingServerConvs = serverConversations.filter((serverConv) =>
-      store.conversations.some((localConv) => localConv.id === serverConv.id)
-    );
+    // Separate existing conversations (for update) from new conversations (for add)
+    const existingServerConvs: ConversationSummary[] = [];
+    const newServerConvs: ConversationSummary[] = [];
 
+    for (const serverConv of serverConversations) {
+      if (localIds.has(serverConv.id)) {
+        existingServerConvs.push(serverConv);
+      } else {
+        // Check if this is a genuinely new conversation (created after initialLoadTime)
+        // or a pagination-discovered one (older, just not loaded yet)
+        const isPaginationDiscovered = this.isPaginationDiscovered(serverConv.updated_at);
+        if (!isPaginationDiscovered) {
+          newServerConvs.push(serverConv);
+        } else {
+          // Pagination-discovered: just track the message count for when it's loaded via pagination
+          this.localMessageCounts.set(serverConv.id, serverConv.message_count);
+          log.debug('Full sync: skipping pagination-discovered conversation', {
+            conversationId: serverConv.id,
+            updated_at: serverConv.updated_at,
+          });
+        }
+      }
+    }
+
+    // Apply updates to existing conversations
     this.applyChanges(existingServerConvs, true);
 
-    if (deletedIds.length > 0 || existingServerConvs.length > 0) {
+    // Add genuinely new conversations (created on other devices after initialLoadTime)
+    for (const serverConv of newServerConvs) {
+      log.info('Full sync: adding new conversation from another device', {
+        conversationId: serverConv.id,
+        updated_at: serverConv.updated_at,
+        messageCount: serverConv.message_count,
+      });
+
+      // Initialize local count to 0 so unread count shows all messages
+      this.localMessageCounts.set(serverConv.id, 0);
+
+      store.addConversation({
+        id: serverConv.id,
+        title: serverConv.title,
+        model: serverConv.model,
+        created_at: serverConv.updated_at, // We don't have created_at in sync response
+        updated_at: serverConv.updated_at,
+        messageCount: serverConv.message_count,
+        unreadCount: serverConv.message_count, // All messages are unread
+        hasExternalUpdate: false,
+      });
+    }
+
+    if (deletedIds.length > 0 || existingServerConvs.length > 0 || newServerConvs.length > 0) {
       this.callbacks.onConversationsUpdated();
     }
   }

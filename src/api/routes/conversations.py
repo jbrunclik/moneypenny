@@ -570,6 +570,11 @@ def sync_conversations(user: User) -> dict[str, Any]:
     # Determine if this is a full sync or incremental
     is_full_sync = full_param or since_param is None
 
+    # IMPORTANT: Capture server_time BEFORE the database query to prevent race conditions.
+    # If we capture it after, a conversation created/updated between the query and timestamp
+    # assignment would be missed and never fetched again (since cursor moves past it).
+    server_time = datetime.now()
+
     if is_full_sync:
         # Full sync: get all conversations with message counts
         conv_with_counts = db.list_conversations_with_message_count(user.id)
@@ -583,8 +588,6 @@ def sync_conversations(user: User) -> dict[str, Any]:
                 field="since",
             )
         conv_with_counts = db.get_conversations_updated_since(user.id, since_dt)
-
-    server_time = datetime.now()
 
     logger.info(
         "Sync conversations completed",
