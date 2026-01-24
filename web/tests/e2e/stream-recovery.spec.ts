@@ -150,14 +150,13 @@ test.describe('Stream Recovery - Visibility Changes', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    // No recovery toast should appear (stream completed, nothing to recover)
+    // No recovery toast should appear - user abort clears pending recovery
     await page.waitForTimeout(1000);
     const recoveryToast = page.locator('.toast-info:has-text("Recovering")');
     await expect(recoveryToast).toHaveCount(0);
 
-    // Message should be visible (either completed or aborted)
-    const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toBeVisible();
+    // Note: When user aborts, the streaming message is removed from UI.
+    // The key assertion is that no recovery is attempted after visibility change.
   });
 
   test('works on mobile viewport', async ({ page }) => {

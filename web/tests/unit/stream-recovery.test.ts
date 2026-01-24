@@ -38,6 +38,13 @@ vi.mock('@/components/messages', () => ({
   finalizeStreamingMessage: vi.fn(),
   getStreamingMessageElement: vi.fn(),
   cleanupStreamingContext: vi.fn(),
+  addMessageToUI: vi.fn(),
+}));
+
+// Mock DOM utilities
+vi.mock('@/utils/dom', () => ({
+  getElementById: vi.fn(),
+  scrollToBottom: vi.fn(),
 }));
 
 // Mock conversation/toolbar functions
@@ -53,10 +60,16 @@ vi.mock('@/core/toolbar', () => ({
 const mockSyncManager = {
   incrementLocalMessageCount: vi.fn(),
   setConversationStreaming: vi.fn(),
+  incrementalSync: vi.fn(),
 };
 
 vi.mock('@/sync/SyncManager', () => ({
   getSyncManager: vi.fn(() => mockSyncManager),
+}));
+
+// Mock sync-banner
+vi.mock('@/core/sync-banner', () => ({
+  hideNewMessagesAvailableBanner: vi.fn(),
 }));
 
 // Import after mocks are set up
@@ -74,8 +87,11 @@ import {
   finalizeStreamingMessage,
   getStreamingMessageElement,
   cleanupStreamingContext,
+  addMessageToUI,
 } from '@/components/messages';
+import { getElementById, scrollToBottom } from '@/utils/dom';
 import { getSyncManager } from '@/sync/SyncManager';
+import { hideNewMessagesAvailableBanner } from '@/core/sync-banner';
 
 // Helper to reset store state
 function resetStore() {
@@ -140,6 +156,10 @@ describe('stream-recovery', () => {
   const mockUpdateStreamingMessage = updateStreamingMessage as ReturnType<typeof vi.fn>;
   const mockFinalizeStreamingMessage = finalizeStreamingMessage as ReturnType<typeof vi.fn>;
   const mockCleanupStreamingContext = cleanupStreamingContext as ReturnType<typeof vi.fn>;
+  const mockAddMessageToUI = addMessageToUI as ReturnType<typeof vi.fn>;
+  const mockGetElementById = getElementById as ReturnType<typeof vi.fn>;
+  const mockScrollToBottom = scrollToBottom as ReturnType<typeof vi.fn>;
+  const mockHideNewMessagesBanner = hideNewMessagesAvailableBanner as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     resetStore();
@@ -150,10 +170,12 @@ describe('stream-recovery', () => {
     const mockDismiss = vi.fn();
     mockToastLoading.mockReturnValue({ dismiss: mockDismiss });
     mockGetStreamingElement.mockReturnValue(null);
+    mockGetElementById.mockReturnValue(null);
 
     // Reset shared sync manager mock
     mockSyncManager.incrementLocalMessageCount.mockClear();
     mockSyncManager.setConversationStreaming.mockClear();
+    mockSyncManager.incrementalSync.mockClear();
   });
 
   afterEach(() => {
@@ -176,13 +198,39 @@ describe('stream-recovery', () => {
       expect(recovery?.reason).toBe('visibility');
     });
 
-    it('does not overwrite existing pending recovery', () => {
+    it('does not overwrite existing pending recovery with same or lower severity', () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'content1', 'network');
+      markStreamForRecovery('conv-1', 'msg-456', 'content2', 'visibility');
+
+      const recovery = getPendingRecovery('conv-1');
+      expect(recovery?.expectedMessageId).toBe('msg-123'); // First one preserved
+      expect(recovery?.reason).toBe('network'); // Higher severity preserved
+    });
+
+    it('upgrades reason from visibility to network (more severe)', () => {
       markStreamForRecovery('conv-1', 'msg-123', 'content1', 'visibility');
       markStreamForRecovery('conv-1', 'msg-456', 'content2', 'network');
 
       const recovery = getPendingRecovery('conv-1');
-      expect(recovery?.expectedMessageId).toBe('msg-123'); // First one preserved
-      expect(recovery?.reason).toBe('visibility'); // First reason preserved
+      expect(recovery?.expectedMessageId).toBe('msg-123'); // Message ID preserved
+      expect(recovery?.reason).toBe('network'); // Reason upgraded
+    });
+
+    it('upgrades reason from visibility to timeout (more severe)', () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'content1', 'visibility');
+      markStreamForRecovery('conv-1', 'msg-456', 'content2', 'timeout');
+
+      const recovery = getPendingRecovery('conv-1');
+      expect(recovery?.expectedMessageId).toBe('msg-123'); // Message ID preserved
+      expect(recovery?.reason).toBe('timeout'); // Reason upgraded
+    });
+
+    it('does not downgrade reason from network to visibility', () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'content1', 'network');
+      markStreamForRecovery('conv-1', 'msg-456', 'content2', 'visibility');
+
+      const recovery = getPendingRecovery('conv-1');
+      expect(recovery?.reason).toBe('network'); // Not downgraded
     });
 
     it('allows multiple conversations to have pending recoveries', () => {
@@ -333,7 +381,7 @@ describe('stream-recovery', () => {
       expect(hasPendingRecovery('conv-1')).toBe(false);
     }, 30000);
 
-    it('shows warning toast when message has no content', async () => {
+    it('shows warning toast when message has no content, files, or images', async () => {
       markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
       const conv = createConversation('conv-1');
       useStore.getState().addConversation(conv);
@@ -344,6 +392,52 @@ describe('stream-recovery', () => {
       await attemptRecovery('conv-1');
 
       expect(mockToastWarning).toHaveBeenCalledWith('Response may be incomplete');
+    });
+
+    it('succeeds when message has files but no text content', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // Message with files but empty text content
+      mockGetMessage.mockResolvedValue({
+        id: 'msg-123',
+        role: 'assistant',
+        content: '',
+        created_at: '2024-01-01T00:00:00Z',
+        files: [{ id: 'file-1', name: 'doc.pdf', type: 'application/pdf', size: 1024 }],
+      });
+      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+
+      const result = await attemptRecovery('conv-1');
+
+      expect(result).toBe(true);
+      expect(mockToastSuccess).toHaveBeenCalledWith('Response recovered');
+      expect(mockToastWarning).not.toHaveBeenCalled();
+    });
+
+    it('succeeds when message has generated images but no text content', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // Message with generated images but empty text content
+      mockGetMessage.mockResolvedValue({
+        id: 'msg-123',
+        role: 'assistant',
+        content: '',
+        created_at: '2024-01-01T00:00:00Z',
+        generated_images: [{ url: 'https://example.com/image.png', prompt: 'test' }],
+      });
+      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+
+      const result = await attemptRecovery('conv-1');
+
+      expect(result).toBe(true);
+      expect(mockToastSuccess).toHaveBeenCalledWith('Response recovered');
+      expect(mockToastWarning).not.toHaveBeenCalled();
     });
 
     it('shows error toast with reload option on final failure', async () => {
@@ -385,7 +479,7 @@ describe('stream-recovery', () => {
       expect(mockCleanupStreamingContext).toHaveBeenCalled();
     });
 
-    it('updates sync manager message count on success', async () => {
+    it('does NOT increment message count (cleanup handles it to avoid double increment)', async () => {
       markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
       const conv = createConversation('conv-1');
       useStore.getState().addConversation(conv);
@@ -396,8 +490,9 @@ describe('stream-recovery', () => {
 
       await attemptRecovery('conv-1');
 
-      // Use the shared mock instance
-      expect(mockSyncManager.incrementLocalMessageCount).toHaveBeenCalledWith('conv-1', 2);
+      // Recovery does NOT increment the count - cleanupStreamingRequest handles it
+      // when messageSuccessful=true. Incrementing in both places would cause +4 drift.
+      expect(mockSyncManager.incrementLocalMessageCount).not.toHaveBeenCalled();
     });
   });
 
@@ -588,6 +683,157 @@ describe('stream-recovery', () => {
       expect(result).toBe(true);
       expect(mockUpdateStreamingMessage).not.toHaveBeenCalled();
       expect(mockFinalizeStreamingMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('fallback when streaming context is missing', () => {
+    it('updates orphaned streaming element in DOM when context is null', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // Mock: context returns null, but there's still a streaming element in DOM
+      mockGetStreamingElement.mockReturnValue(null);
+
+      // Create a mock container with an orphaned streaming element
+      const mockContainer = document.createElement('div');
+      const orphanedElement = document.createElement('div');
+      orphanedElement.className = 'message assistant streaming';
+      mockContainer.appendChild(orphanedElement);
+      mockGetElementById.mockReturnValue(mockContainer);
+
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', 'recovered content'));
+
+      const result = await attemptRecovery('conv-1');
+
+      expect(result).toBe(true);
+      // Should update the existing element, not add a new one
+      expect(mockUpdateStreamingMessage).toHaveBeenCalledWith(orphanedElement, 'recovered content');
+      expect(mockFinalizeStreamingMessage).toHaveBeenCalled();
+      // Should NOT add a new message
+      expect(mockAddMessageToUI).not.toHaveBeenCalled();
+      expect(mockScrollToBottom).toHaveBeenCalledWith(mockContainer);
+    });
+
+    it('updates orphaned incomplete element in DOM when context is null', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // Mock: context returns null, but there's an incomplete element in DOM
+      mockGetStreamingElement.mockReturnValue(null);
+
+      const mockContainer = document.createElement('div');
+      const incompleteElement = document.createElement('div');
+      incompleteElement.className = 'message assistant message-incomplete';
+      mockContainer.appendChild(incompleteElement);
+      mockGetElementById.mockReturnValue(mockContainer);
+
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', 'recovered content'));
+
+      const result = await attemptRecovery('conv-1');
+
+      expect(result).toBe(true);
+      // Should update the existing incomplete element
+      expect(mockUpdateStreamingMessage).toHaveBeenCalledWith(incompleteElement, 'recovered content');
+      expect(mockFinalizeStreamingMessage).toHaveBeenCalled();
+      expect(mockAddMessageToUI).not.toHaveBeenCalled();
+    });
+
+    it('finds element by data-message-id for reliable lookup', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // Mock: context returns null, but element exists with data-message-id
+      mockGetStreamingElement.mockReturnValue(null);
+
+      const mockContainer = document.createElement('div');
+      const elementWithId = document.createElement('div');
+      elementWithId.className = 'message assistant'; // No streaming/incomplete class
+      elementWithId.dataset.messageId = 'msg-123'; // But has the correct ID
+      mockContainer.appendChild(elementWithId);
+      mockGetElementById.mockReturnValue(mockContainer);
+
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', 'recovered content'));
+
+      const result = await attemptRecovery('conv-1');
+
+      expect(result).toBe(true);
+      // Should find and update the element by ID
+      expect(mockUpdateStreamingMessage).toHaveBeenCalledWith(elementWithId, 'recovered content');
+      expect(mockFinalizeStreamingMessage).toHaveBeenCalled();
+      expect(mockAddMessageToUI).not.toHaveBeenCalled();
+    });
+
+    it('adds new message only when no streaming element exists in DOM', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // Mock: no context and no streaming element in DOM
+      mockGetStreamingElement.mockReturnValue(null);
+
+      const mockContainer = document.createElement('div');
+      // Container has no streaming/incomplete elements
+      mockGetElementById.mockReturnValue(mockContainer);
+
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', 'recovered content'));
+
+      const result = await attemptRecovery('conv-1');
+
+      expect(result).toBe(true);
+      // Should add a new message since no existing element
+      expect(mockAddMessageToUI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'msg-123',
+          role: 'assistant',
+          content: 'recovered content',
+        }),
+        mockContainer
+      );
+      expect(mockScrollToBottom).toHaveBeenCalledWith(mockContainer);
+    });
+
+    it('hides banner and triggers sync to check for genuinely new messages', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', 'content'));
+
+      await attemptRecovery('conv-1');
+
+      // Should hide the "new messages available" banner
+      expect(mockHideNewMessagesBanner).toHaveBeenCalled();
+      // Should trigger incremental sync to re-check for genuinely new messages
+      // If there are new messages from another device, the sync will re-show the banner
+      expect(mockSyncManager.incrementalSync).toHaveBeenCalled();
+    });
+
+    it('appends message to store only when adding new message', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      mockGetStreamingElement.mockReturnValue(null);
+      const mockContainer = document.createElement('div');
+      // No existing streaming element
+      mockGetElementById.mockReturnValue(mockContainer);
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', 'recovered content'));
+
+      await attemptRecovery('conv-1');
+
+      // Check that appendMessage was called on the store
+      const messages = useStore.getState().getMessages('conv-1');
+      expect(messages.some(m => m.id === 'msg-123')).toBe(true);
     });
   });
 });

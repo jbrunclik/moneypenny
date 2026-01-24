@@ -604,6 +604,10 @@ function processStreamEvent(
           conversationId: convId,
           expectedMessageId: state.expectedAssistantMessageId,
         });
+        // Set the ID on the streaming element early for reliable recovery lookup
+        if (state.messageEl) {
+          state.messageEl.dataset.messageId = state.expectedAssistantMessageId;
+        }
       }
       break;
 
