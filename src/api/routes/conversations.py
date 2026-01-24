@@ -17,6 +17,7 @@ from src.api.schemas import (
     ConversationResponse,
     ConversationsListPaginatedResponse,
     CreateConversationRequest,
+    MessageResponse,
     MessagesListResponse,
     PaginationDirection,
     SearchResultsResponse,
@@ -400,6 +401,52 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 
     logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "deleted"}, 200
+
+
+@api.route("/messages/<message_id>", methods=["GET"])
+@api.output(MessageResponse)
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
+@require_auth
+def get_message(user: User, message_id: str) -> tuple[dict[str, Any], int]:
+    """Get a single message by ID.
+
+    Fetches a specific message. The message must belong to a conversation
+    owned by the authenticated user. Useful for stream recovery when the
+    connection drops but the message was saved server-side.
+    """
+    logger.debug("Getting message", extra={"user_id": user.id, "message_id": message_id})
+    message = db.get_message_by_id(message_id)
+    if not message:
+        logger.warning(
+            "Message not found",
+            extra={"user_id": user.id, "message_id": message_id},
+        )
+        raise_not_found_error("Message")
+
+    # Verify the message belongs to a conversation owned by this user
+    conv = db.get_conversation(message.conversation_id, user.id)
+    if not conv:
+        logger.warning(
+            "Message belongs to inaccessible conversation",
+            extra={"user_id": user.id, "message_id": message_id},
+        )
+        raise_not_found_error("Message")
+
+    # Convert to response format
+    response = {
+        "id": message.id,
+        "role": message.role,
+        "content": message.content,
+        "created_at": message.created_at.isoformat() if message.created_at else None,
+        "files": message.files,
+        "sources": message.sources,
+        "generated_images": normalize_generated_images(message.generated_images),
+        "language": message.language,
+    }
+
+    logger.debug("Message retrieved", extra={"user_id": user.id, "message_id": message_id})
+    return response, 200
 
 
 @api.route("/messages/<message_id>", methods=["DELETE"])

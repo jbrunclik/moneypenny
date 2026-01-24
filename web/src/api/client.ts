@@ -515,6 +515,15 @@ export const conversations = {
     );
   },
 
+  /**
+   * Get a single message by ID.
+   * Used for stream recovery when the connection drops but the message was saved server-side.
+   * @param messageId - The message ID to fetch
+   */
+  async getMessage(messageId: string): Promise<Message> {
+    return requestWithRetry<Message>(`/api/messages/${messageId}`);
+  },
+
   async create(model?: string): Promise<Conversation> {
     // POST - no retry (not idempotent - creates new resource)
     return request<Conversation>('/api/conversations', {

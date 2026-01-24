@@ -10,6 +10,7 @@ import json
 import queue
 import threading
 import time
+import uuid
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
@@ -79,6 +80,7 @@ def save_message_to_db(
     stream_request_id: str,
     anonymous_mode: bool,
     client_connected: bool,
+    assistant_message_id: str | None = None,
 ) -> SaveResult | None:
     """Save message to database. Called from both generator and cleanup thread.
 
@@ -95,6 +97,7 @@ def save_message_to_db(
         stream_request_id: Streaming request ID (for full tool results)
         anonymous_mode: Whether anonymous mode is enabled
         client_connected: Whether client is still connected (for logging)
+        assistant_message_id: Pre-generated message ID for streaming recovery
 
     Returns:
         SaveResult with extracted data for building done event, or None on error.
@@ -168,6 +171,7 @@ def save_message_to_db(
             sources=sources if sources else None,
             generated_images=generated_images_meta if generated_images_meta else None,
             language=language,
+            message_id=assistant_message_id,
         )
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)
@@ -506,6 +510,10 @@ class _StreamContext:
         self.usage_info: dict[str, Any] = {}
         self.client_connected = True
 
+        # Pre-generate assistant message ID for streaming recovery
+        # This allows the frontend to fetch the specific message if the stream fails
+        self.expected_assistant_msg_id = str(uuid.uuid4())
+
         # Threading
         self.event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
         self.final_results: dict[str, Any] = {"ready": False}
@@ -646,6 +654,7 @@ class _StreamContext:
                     self.stream_request_id,
                     self.anonymous_mode,
                     self.client_connected,
+                    self.expected_assistant_msg_id,
                 ),
             ),
             daemon=True,
@@ -667,9 +676,18 @@ class _StreamContext:
 
 
 def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
-    """Yield the user_message_saved event."""
+    """Yield the user_message_saved event.
+
+    Includes the expected assistant message ID so the frontend can recover
+    the message if the stream fails (e.g., connection drops mid-stream).
+    """
     try:
-        yield f"data: {json.dumps({'type': 'user_message_saved', 'user_message_id': context.user_msg.id})}\n\n"
+        event_data = {
+            "type": "user_message_saved",
+            "user_message_id": context.user_msg.id,
+            "expected_assistant_message_id": context.expected_assistant_msg_id,
+        }
+        yield f"data: {json.dumps(event_data)}\n\n"
     except (BrokenPipeError, ConnectionError, OSError):
         pass
 
@@ -783,16 +801,17 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
         context.stream_request_id,
         context.anonymous_mode,
         context.client_connected,
+        context.expected_assistant_msg_id,
     )
 
-    if not (context.client_connected and context.clean_content and save_result):
+    # Skip done event if no content or save failed (nothing to finalize)
+    if not context.clean_content or not save_result:
         return
 
-    messages = db.get_messages(context.conv_id)
-    if not messages or messages[-1].role != MessageRole.ASSISTANT:
+    # Fetch the message by its known ID (more reliable than getting last message)
+    assistant_msg = db.get_message_by_id(context.expected_assistant_msg_id)
+    if not assistant_msg:
         return
-
-    assistant_msg = messages[-1]
     done_data = build_stream_done_event(
         assistant_msg,
         save_result.all_generated_files,
@@ -803,6 +822,9 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
         language=save_result.language,
     )
 
+    # Try to send done event even if client may have disconnected.
+    # This ensures the frontend can finalize the message if still connected.
+    # If truly disconnected, the write will fail and be caught below.
     try:
         yield f"data: {json.dumps(done_data)}\n\n"
     except (BrokenPipeError, ConnectionError, OSError) as e:

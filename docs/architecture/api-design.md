@@ -82,7 +82,7 @@ This workflow should be run whenever you modify:
 
 ### Route Organization
 
-Routes are organized into focused modules by feature area (43 total endpoints across 11 modules):
+Routes are organized into focused modules by feature area (44 total endpoints across 11 modules):
 
 **Auth-related routes** (`/auth` prefix):
 - [routes/auth.py](../../src/api/routes/auth.py) - Google authentication (4 routes)
@@ -93,7 +93,7 @@ Routes are organized into focused modules by feature area (43 total endpoints ac
 - [routes/system.py](../../src/api/routes/system.py) - Models, config, version, health (5 routes)
 - [routes/memory.py](../../src/api/routes/memory.py) - User memory management (2 routes)
 - [routes/settings.py](../../src/api/routes/settings.py) - User settings (2 routes)
-- [routes/conversations.py](../../src/api/routes/conversations.py) - Conversation CRUD (9 routes)
+- [routes/conversations.py](../../src/api/routes/conversations.py) - Conversation CRUD, messages (10 routes)
 - [routes/planner.py](../../src/api/routes/planner.py) - Planner dashboard (4 routes)
 - [routes/chat.py](../../src/api/routes/chat.py) - Chat endpoints (2 routes: batch and streaming)
 - [routes/files.py](../../src/api/routes/files.py) - File serving (2 routes)

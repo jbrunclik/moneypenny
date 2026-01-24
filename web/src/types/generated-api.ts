@@ -1860,7 +1860,52 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get a single message by ID.
+         * @description Fetches a specific message. The message must belong to a conversation
+         *     owned by the authenticated user. Useful for stream recovery when the
+         *     connection drops but the message was saved server-side.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    message_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MessageResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         /**
@@ -4647,6 +4692,87 @@ export interface components {
              * @default false
              */
             was_reset: boolean;
+        };
+        /**
+         * FileMetadataResponse
+         * @description File metadata in message responses (excludes full data for performance).
+         */
+        "MessageResponse.FileMetadataResponse": {
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /**
+             * Messageid
+             * @default null
+             */
+            messageId: string | null;
+            /**
+             * Fileindex
+             * @default null
+             */
+            fileIndex: number | null;
+        };
+        /**
+         * GeneratedImageResponse
+         * @description Generated image metadata.
+         */
+        "MessageResponse.GeneratedImageResponse": {
+            /** Prompt */
+            prompt: string;
+            /**
+             * Image Index
+             * @default null
+             */
+            image_index: number | null;
+        };
+        /**
+         * SourceResponse
+         * @description Web search source citation.
+         */
+        "MessageResponse.SourceResponse": {
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * MessageResponse
+         * @description Message in a conversation.
+         */
+        MessageResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /**
+             * Files
+             * @default null
+             */
+            files: components["schemas"]["MessageResponse.FileMetadataResponse"][] | null;
+            /**
+             * Sources
+             * @default null
+             */
+            sources: components["schemas"]["MessageResponse.SourceResponse"][] | null;
+            /**
+             * Generated Images
+             * @default null
+             */
+            generated_images: components["schemas"]["MessageResponse.GeneratedImageResponse"][] | null;
+            /**
+             * Language
+             * @description ISO 639-1 language code for TTS (e.g., 'en', 'cs')
+             * @default null
+             */
+            language: string | null;
+            /** Created At */
+            created_at: string;
         };
         /**
          * AgentExecutionResponse

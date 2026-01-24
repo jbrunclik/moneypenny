@@ -63,6 +63,54 @@ The streaming implementation handles server restarts gracefully:
 - The final event is still yielded with whatever content was accumulated before the interruption
 - This allows partial responses to be saved to the database even during restarts
 
+### Stream Recovery with Pre-Generated Message ID
+
+When streaming responses, the connection can drop mid-stream (network issues, proxy timeouts, client disconnects). To handle this gracefully, we use a pre-generated message ID system:
+
+**How it works:**
+
+1. **Pre-generate ID on server**: When a stream starts, `_StreamContext` generates a UUID (`expected_assistant_msg_id`) for the assistant message
+2. **Send ID early**: The ID is included in the `user_message_saved` SSE event, sent at the very start of streaming
+3. **Frontend stores ID**: The frontend captures this ID in `StreamingState.expectedAssistantMessageId`
+4. **Message saved with known ID**: When the message is saved to DB, it uses this pre-generated ID (not a new one)
+5. **Recovery on failure**: If the stream ends without a `done` event, the frontend can fetch the specific message by its known ID
+
+**Why pre-generated IDs?**
+
+Without a known ID, the frontend would have to fetch "recent messages" and guess which one is the response - creating race conditions if:
+- Another message arrives (from another tab/device)
+- The user quickly sends another message
+- Multiple streams complete around the same time
+
+With pre-generated IDs, recovery is deterministic - we fetch exactly the message we expect.
+
+**Recovery flow:**
+
+```
+Stream starts → user_message_saved event (includes expected_assistant_message_id)
+     ↓
+[Connection drops during thinking/tokens]
+     ↓
+Stream ends without done event
+     ↓
+Frontend detects missing done event
+     ↓
+Frontend calls GET /api/messages/{expected_assistant_message_id}
+     ↓
+If found: Display recovered message
+If not found: Show incomplete indicator (message may not have been saved)
+```
+
+**Key files:**
+- [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `_StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`
+- [messaging.ts](../../web/src/core/messaging.ts) - `handleMissingDoneEvent()`, `StreamingState.expectedAssistantMessageId`
+- [conversations.py](../../src/api/routes/conversations.py) - `GET /api/messages/<message_id>` endpoint
+
+**Other uses for pre-generated IDs:**
+- **Idempotent saves**: The cleanup thread and main generator both use the same ID, preventing duplicates
+- **Reliable done event**: `_finalize_stream` fetches by known ID instead of "last message"
+- **Audit trails**: Message lifecycle can be tracked from stream start to completion
+
 ## Thinking Indicator
 
 During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.

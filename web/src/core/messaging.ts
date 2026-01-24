@@ -427,6 +427,8 @@ interface StreamingState {
   thinkingState: ThinkingState;
   messageSuccessful: boolean;
   uploadProgressHidden: boolean;
+  /** Pre-generated assistant message ID from server, used for stream recovery */
+  expectedAssistantMessageId: string | null;
 }
 
 /**
@@ -482,6 +484,7 @@ function initStreamingRequest(
     },
     messageSuccessful: false,
     uploadProgressHidden: false,
+    expectedAssistantMessageId: null,
   };
 
   return { state, requestId, abortController };
@@ -587,6 +590,14 @@ function processStreamEvent(
       if (event.user_message_id) {
         updateUserMessageId(tempUserMessageId, event.user_message_id as string);
       }
+      // Capture the expected assistant message ID for stream recovery
+      if (event.expected_assistant_message_id) {
+        state.expectedAssistantMessageId = event.expected_assistant_message_id as string;
+        log.debug('Captured expected assistant message ID', {
+          conversationId: convId,
+          expectedMessageId: state.expectedAssistantMessageId,
+        });
+      }
       break;
 
     case 'thinking':
@@ -690,6 +701,99 @@ function handleStreamError(
   );
 
   return { error: streamError };
+}
+
+/**
+ * Handle stream ending without a done event.
+ * This can happen if the connection drops mid-stream but the server still saves the message.
+ * We use the pre-generated message ID to fetch the specific message, avoiding race conditions.
+ */
+async function handleMissingDoneEvent(
+  state: StreamingState,
+  convId: string,
+  _tempUserMessageId: string
+): Promise<void> {
+  const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
+  if (!isCurrentConversation) {
+    // User switched away - just clean up the streaming element
+    state.messageEl.remove();
+    return;
+  }
+
+  // If we don't have the expected message ID, we can't reliably recover
+  if (!state.expectedAssistantMessageId) {
+    log.warn('Cannot recover - no expected assistant message ID', {
+      conversationId: convId,
+    });
+    if (state.fullContent.trim()) {
+      state.messageEl.classList.add('message-incomplete');
+    } else {
+      state.messageEl.remove();
+    }
+    return;
+  }
+
+  try {
+    // Fetch the specific message by its pre-generated ID
+    // This avoids race conditions where another message could be saved in between
+    const assistantMsg = await conversations.getMessage(state.expectedAssistantMessageId);
+
+    if (assistantMsg && assistantMsg.content) {
+      log.info('Recovered message from server using pre-generated ID', {
+        conversationId: convId,
+        messageId: assistantMsg.id,
+      });
+
+      // Update the streaming message with the recovered content
+      updateStreamingMessage(state.messageEl, assistantMsg.content);
+
+      // Finalize the message with the recovered data
+      finalizeStreamingMessage(
+        state.messageEl,
+        assistantMsg.id,
+        assistantMsg.created_at,
+        assistantMsg.sources,
+        assistantMsg.generated_images,
+        assistantMsg.files,
+        'assistant',
+        assistantMsg.language
+      );
+
+      state.messageSuccessful = true;
+
+      // Update conversation title if needed
+      const conv = useStore.getState().currentConversation;
+      if (conv && conv.title === 'New Conversation') {
+        // Refetch conversation to get updated title
+        const updatedConv = await conversations.get(convId);
+        if (updatedConv.title && updatedConv.title !== 'New Conversation') {
+          updateConversationTitle(convId, updatedConv.title);
+        }
+      }
+
+      await updateConversationCost(convId);
+    } else {
+      // Message exists but has no content - show as incomplete
+      log.warn('Recovered message has no content', {
+        conversationId: convId,
+        messageId: state.expectedAssistantMessageId,
+      });
+      state.messageEl.classList.add('message-incomplete');
+    }
+  } catch (error) {
+    // Message not found - it wasn't saved yet or save failed
+    // This is expected if the stream failed very early
+    log.warn('Failed to recover message - may not be saved yet', {
+      conversationId: convId,
+      error,
+    });
+    // Clean up the empty/partial message
+    if (state.fullContent.trim()) {
+      state.messageEl.classList.add('message-incomplete');
+    } else {
+      state.messageEl.remove();
+    }
+  }
 }
 
 /**
@@ -838,6 +942,16 @@ async function sendStreamingMessage(
       if (result.error) {
         throw result.error;
       }
+    }
+
+    // Handle stream ending without done event (connection dropped mid-stream)
+    // The message may have been saved server-side, so try to recover it
+    if (!state.messageSuccessful) {
+      log.warn('Stream ended without done event', {
+        conversationId: convId,
+        hadContent: state.fullContent.trim() !== '',
+      });
+      await handleMissingDoneEvent(state, convId, tempUserMessageId);
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

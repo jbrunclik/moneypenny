@@ -652,3 +652,365 @@ class TestChatWithGeneratedImages:
                     pass
 
         assert found_done, "Done event was not found in stream"
+
+
+class TestChatStreamDoneEvent:
+    """Tests for done event handling in streaming chat.
+
+    These tests verify the fix for a bug where the done event was not sent
+    when the client appeared to be disconnected (client_connected=False),
+    causing the frontend to show an empty message even though the message
+    was saved successfully on the server.
+    """
+
+    def test_done_event_sent_when_content_exists(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """Should send done event when content exists regardless of client status."""
+        import time
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "thinking", "text": "Thinking about the response..."}
+                yield {"type": "token", "text": "Hello"}
+                yield {"type": "token", "text": " there!"}
+                yield {
+                    "type": "final",
+                    "content": "Hello there!",
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Hello"},
+            )
+
+        assert response.status_code == 200
+
+        # Wait for background threads
+        time.sleep(1.0)
+
+        # Parse SSE events to verify done event was sent
+        response_text = response.data.decode("utf-8")
+        done_events = []
+        for line in response_text.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    if event.get("type") == "done":
+                        done_events.append(event)
+                except json.JSONDecodeError:
+                    pass
+
+        assert len(done_events) == 1, (
+            f"Expected exactly 1 done event, got {len(done_events)}. "
+            f"Full response: {response_text[:500]}"
+        )
+
+        # Verify done event has message ID
+        done_event = done_events[0]
+        assert "id" in done_event, "Done event should have message ID"
+
+    def test_done_event_includes_message_id_and_created_at(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Done event should include message id and created_at for finalization."""
+        import time
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Response content"}
+                yield {
+                    "type": "final",
+                    "content": "Response content",
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Test"},
+            )
+
+        assert response.status_code == 200
+
+        # Wait for background threads
+        time.sleep(1.0)
+
+        # Parse the done event
+        response_text = response.data.decode("utf-8")
+        done_event = None
+        for line in response_text.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    if event.get("type") == "done":
+                        done_event = event
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert done_event is not None, "Done event was not found"
+        assert "id" in done_event, "Done event missing 'id'"
+        assert "created_at" in done_event, "Done event missing 'created_at'"
+
+        # Verify the message was saved with matching ID
+        messages = test_database.get_messages(test_conversation.id)
+        assistant_msg = messages[-1]
+        assert assistant_msg.id == done_event["id"]
+
+    def test_no_done_event_when_content_empty(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """Should not send done event when content is empty (e.g., error case)."""
+        import time
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                # Only thinking, no actual content
+                yield {"type": "thinking", "text": "Thinking..."}
+                yield {
+                    "type": "final",
+                    "content": "",  # Empty content
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 0},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Hello"},
+            )
+
+        assert response.status_code == 200
+
+        # Wait for background threads
+        time.sleep(1.0)
+
+        # Parse SSE events - should not have done event since content is empty
+        response_text = response.data.decode("utf-8")
+        done_events = []
+        for line in response_text.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    if event.get("type") == "done":
+                        done_events.append(event)
+                except json.JSONDecodeError:
+                    pass
+
+        # No done event should be sent when content is empty
+        assert len(done_events) == 0, (
+            f"Should not send done event when content is empty, but got {len(done_events)}"
+        )
+
+    def test_user_message_saved_includes_expected_assistant_id(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """user_message_saved event should include expected_assistant_message_id for recovery."""
+        import time
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Response"}
+                yield {
+                    "type": "final",
+                    "content": "Response",
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Test"},
+            )
+
+        assert response.status_code == 200
+
+        # Wait for background threads
+        time.sleep(1.0)
+
+        # Parse SSE events to find user_message_saved
+        response_text = response.data.decode("utf-8")
+        user_saved_event = None
+        done_event = None
+        for line in response_text.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    if event.get("type") == "user_message_saved":
+                        user_saved_event = event
+                    elif event.get("type") == "done":
+                        done_event = event
+                except json.JSONDecodeError:
+                    pass
+
+        assert user_saved_event is not None, "user_message_saved event not found"
+        assert "expected_assistant_message_id" in user_saved_event, (
+            "user_message_saved event should include expected_assistant_message_id"
+        )
+
+        # The expected ID should match the actual message ID in done event
+        assert done_event is not None, "done event not found"
+        assert user_saved_event["expected_assistant_message_id"] == done_event["id"], (
+            "Expected assistant message ID should match actual message ID in done event"
+        )
+
+    def test_message_uses_pre_generated_id(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Message should be saved with the pre-generated ID for reliable recovery."""
+        import time
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Test message"}
+                yield {
+                    "type": "final",
+                    "content": "Test message",
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Test"},
+            )
+
+        assert response.status_code == 200
+
+        # Wait for background threads
+        time.sleep(1.0)
+
+        # Get the expected ID from user_message_saved event
+        response_text = response.data.decode("utf-8")
+        expected_id = None
+        for line in response_text.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    if event.get("type") == "user_message_saved":
+                        expected_id = event.get("expected_assistant_message_id")
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert expected_id is not None, "Expected ID not found in user_message_saved event"
+
+        # Verify the message was saved with this exact ID
+        saved_msg = test_database.get_message_by_id(expected_id)
+        assert saved_msg is not None, "Message should be saved with pre-generated ID"
+        assert saved_msg.content == "Test message"
+        assert saved_msg.role == "assistant"
+
+
+class TestGetMessage:
+    """Tests for GET /api/messages/<message_id> endpoint."""
+
+    def test_get_message_success(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Should return the message when it exists and belongs to user."""
+        # Create a message
+        msg = test_database.add_message(
+            test_conversation.id,
+            "assistant",
+            "Test response content",
+        )
+
+        response = client.get(
+            f"/api/messages/{msg.id}",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["id"] == msg.id
+        assert data["content"] == "Test response content"
+        assert data["role"] == "assistant"
+
+    def test_get_message_not_found(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """Should return 404 when message doesn't exist."""
+        response = client.get(
+            "/api/messages/nonexistent-id",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 404
+
+    def test_get_message_requires_auth(
+        self,
+        client: FlaskClient,
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Should return 401 without authentication."""
+        msg = test_database.add_message(
+            test_conversation.id,
+            "assistant",
+            "Test content",
+        )
+
+        response = client.get(f"/api/messages/{msg.id}")
+
+        assert response.status_code == 401

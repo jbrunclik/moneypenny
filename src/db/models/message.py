@@ -98,6 +98,7 @@ class MessageMixin:
         sources: list[dict[str, str]] | None = None,
         generated_images: list[dict[str, str]] | None = None,
         language: str | None = None,
+        message_id: str | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -112,6 +113,7 @@ class MessageMixin:
             sources: Optional list of web sources (for assistant messages)
             generated_images: Optional list of generated image metadata (for assistant messages)
             language: Optional ISO 639-1 language code (e.g., "en", "cs") for TTS
+            message_id: Optional pre-generated message ID (for streaming recovery)
 
         Returns:
             The created Message
@@ -119,7 +121,7 @@ class MessageMixin:
         # Normalize role to enum if passed as string
         if isinstance(role, str) and not isinstance(role, MessageRole):
             role = MessageRole(role)
-        msg_id = str(uuid.uuid4())
+        msg_id = message_id or str(uuid.uuid4())
         now = datetime.now()
         files = files or []
 
