@@ -713,15 +713,18 @@ class ChatAgent:
                         # Extract thinking and text separately
                         thinking, text_content = extract_thinking_and_text(message_chunk.content)
 
-                        # Debug: Log the extracted content
-                        if thinking:
-                            logger.debug(
-                                "Extracted thinking content",
+                        # Log extraction for first few chunks to diagnose streaming issues
+                        if chunk_count <= 3:
+                            logger.info(
+                                "Chunk extraction result",
                                 extra={
-                                    "thinking_length": len(thinking),
-                                    "thinking_preview": thinking[:100]
-                                    if len(thinking) > 100
-                                    else thinking,
+                                    "chunk_count": chunk_count,
+                                    "has_thinking": bool(thinking),
+                                    "thinking_len": len(thinking) if thinking else 0,
+                                    "has_text": bool(text_content),
+                                    "text_len": len(text_content) if text_content else 0,
+                                    "text_preview": text_content[:100] if text_content else None,
+                                    "raw_type": type(message_chunk.content).__name__,
                                 },
                             )
 
@@ -740,6 +743,18 @@ class ChatAgent:
 
                             # Add to buffer and check for metadata marker
                             buffer += text_content
+
+                            # Log buffer state for first few text chunks
+                            if chunk_count <= 5 and token_yield_count == 0:
+                                logger.info(
+                                    "Buffer state (no tokens yielded yet)",
+                                    extra={
+                                        "chunk_count": chunk_count,
+                                        "buffer_len": len(buffer),
+                                        "threshold": len(metadata_marker),
+                                        "would_yield": len(buffer) > len(metadata_marker),
+                                    },
+                                )
 
                             # Check if buffer contains the start of metadata
                             if metadata_marker in buffer:
