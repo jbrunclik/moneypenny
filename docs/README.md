@@ -24,6 +24,7 @@ System design and architectural decisions:
 - **[authentication.md](architecture/authentication.md)** - Google Sign-In, JWT token handling, token refresh, @require_auth decorator
 - **[database.md](architecture/database.md)** - Blob storage, connection pooling, indexes, performance monitoring, vacuum, backup, best practices
 - **[api-design.md](architecture/api-design.md)** - OpenAPI documentation, rate limiting, request validation (including magic bytes), comprehensive error handling
+- **[streaming-metadata.md](architecture/streaming-metadata.md)** - Streaming metadata handling, MSG_CONTEXT/METADATA markers, malformed metadata bug fix, debugging guide
 
 ### UI (`ui/`)
 User interface patterns and implementations:
@@ -72,6 +73,7 @@ Common debugging scenarios:
 - **Authentication errors**: See [Authentication](architecture/authentication.md) - Error codes and handling
 - **Database performance**: See [Database](architecture/database.md) - Slow query logging, indexes
 - **API errors**: See [API Design](architecture/api-design.md) - Error handling patterns
+- **Empty messages after reload**: See [Streaming Metadata](architecture/streaming-metadata.md) - Malformed METADATA bug
 
 ## Documentation Guidelines
 
