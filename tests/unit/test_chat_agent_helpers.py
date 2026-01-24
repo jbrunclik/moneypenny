@@ -451,6 +451,109 @@ class TestStripFullResultFromToolContent:
         assert strip_full_result_from_tool_content(content) == content
 
 
+class TestLanguageMetadataExtraction:
+    """Tests for language metadata extraction.
+
+    Regression tests for the bug where language stopped being extracted after
+    METADATA was stripped from full_response prematurely during streaming.
+    """
+
+    def test_extracts_language_from_complete_metadata(self) -> None:
+        """Should extract language from properly formatted METADATA block."""
+        response = """Here is my response in Czech.
+
+<!-- METADATA:
+{"language": "cs"}
+-->"""
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert clean == "Here is my response in Czech."
+        assert metadata.get("language") == "cs"
+
+    def test_extracts_language_with_other_fields(self) -> None:
+        """Should extract language when other fields are also present."""
+        response = """Response with sources.
+
+<!-- METADATA:
+{"language": "en", "sources": [{"title": "Test", "url": "https://example.com"}]}
+-->"""
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert metadata.get("language") == "en"
+        assert "sources" in metadata
+        assert len(metadata["sources"]) == 1
+
+    def test_extracts_language_from_incomplete_metadata(self) -> None:
+        """Should extract language from METADATA without proper closing -->.
+
+        Regression test: When LLM outputs METADATA but never closes it with -->,
+        we should still extract valid JSON and strip the incomplete block.
+        """
+        response = 'Response content.\n\n<!-- METADATA:\n{"language": "de"}'
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert "language" in metadata
+        assert metadata.get("language") == "de"
+        assert "<!-- METADATA" not in clean
+        assert "Response content" in clean
+
+    def test_strips_incomplete_metadata_with_invalid_json(self) -> None:
+        """Should strip incomplete METADATA even when JSON is invalid."""
+        response = 'Response content.\n\n<!-- METADATA:\n{"language": "invalid json'
+        clean, metadata = extract_metadata_from_response(response)
+
+        # JSON is invalid, so no metadata extracted
+        assert metadata == {}
+        # But the incomplete block should still be stripped from clean content
+        assert "Response content" in clean
+
+    def test_metadata_in_middle_with_language(self) -> None:
+        """Should extract language from METADATA in middle of response."""
+        response = """First part of response.
+
+<!-- METADATA:
+{"language": "fr"}
+-->
+
+Second part after metadata."""
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert metadata.get("language") == "fr"
+        assert "First part of response" in clean
+        assert "Second part after metadata" in clean
+        assert "METADATA" not in clean
+
+    def test_language_normalized_to_lowercase(self) -> None:
+        """Language codes should work regardless of case."""
+        from src.api.utils import extract_language_from_metadata
+
+        # The extract_language_from_metadata function normalizes the language
+        assert extract_language_from_metadata({"language": "EN"}) == "en"
+        assert extract_language_from_metadata({"language": "Cs"}) == "cs"
+        assert extract_language_from_metadata({"language": "en-US"}) == "en"
+
+    def test_extracts_nested_json_from_incomplete_metadata(self) -> None:
+        """Should handle nested JSON in incomplete METADATA (no closing -->)."""
+        response = 'Response content.\n\n<!-- METADATA:\n{"language": "en", "sources": [{"title": "Test", "url": "https://example.com"}]}'
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert metadata.get("language") == "en"
+        assert "sources" in metadata
+        assert len(metadata["sources"]) == 1
+        assert metadata["sources"][0]["title"] == "Test"
+        assert "<!-- METADATA" not in clean
+        assert "Response content" in clean
+
+    def test_handles_incomplete_metadata_with_partial_closing(self) -> None:
+        """Should handle incomplete METADATA with partial closing like --."""
+        response = 'Response content.\n\n<!-- METADATA:\n{"language": "fr"}\n--'
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert metadata.get("language") == "fr"
+        assert "<!-- METADATA" not in clean
+        assert "--" not in clean or "Response" in clean  # -- should be stripped
+
+
 class TestCleanToolCallJson:
     """Tests for clean_tool_call_json function."""
 

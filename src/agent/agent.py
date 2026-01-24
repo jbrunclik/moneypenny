@@ -805,22 +805,19 @@ class ChatAgent:
 
                             # Check if we're in response metadata block
                             if in_metadata:
+                                # Accumulate metadata content in full_response for later extraction
+                                full_response += text_content
                                 if end_marker in text_content:
                                     # Metadata block ended - extract any content after it
                                     end_pos = text_content.find(end_marker)
                                     remaining = text_content[end_pos + 3 :].lstrip()
                                     in_metadata = False
-                                    # Safety: ensure METADATA is stripped from full_response
-                                    # (should already be done when entering in_metadata, but handle edge cases)
-                                    marker_idx = full_response.rfind(metadata_marker)
-                                    if marker_idx != -1:
-                                        full_response = full_response[:marker_idx]
+                                    # Don't strip METADATA from full_response - let extract_metadata_from_response handle it
                                     if remaining:
                                         logger.info(
                                             "Content found after metadata block",
                                             extra={"remaining_len": len(remaining)},
                                         )
-                                        full_response += remaining
                                         buffer += remaining
                                     continue
                                 else:
@@ -853,15 +850,10 @@ class ChatAgent:
                                 # Check if METADATA block completes in this buffer
                                 meta_end_pos = buffer.find(end_marker, marker_pos)
                                 if meta_end_pos != -1:
-                                    # Complete METADATA block - strip it and keep content after
+                                    # Complete METADATA block - yield content before it
+                                    # Don't strip from full_response - let extract_metadata_from_response handle it
                                     before = buffer[:marker_pos].rstrip()
                                     after = buffer[meta_end_pos + 3 :].lstrip()
-                                    # Update full_response to remove METADATA block
-                                    full_response = full_response[
-                                        : full_response.rfind(metadata_marker)
-                                    ]
-                                    if after:
-                                        full_response += after
                                     if before:
                                         token_yield_count += 1
                                         yield {"type": "token", "text": before}
@@ -893,12 +885,8 @@ class ChatAgent:
                                         }
                                     in_metadata = True
                                     buffer = ""
-                                    # Strip incomplete METADATA from full_response NOW, not later
-                                    # This prevents malformed METADATA from being stored if LLM never
-                                    # outputs closing --> (which would cause HTML comment rendering bug)
-                                    fr_marker_idx = full_response.rfind(metadata_marker)
-                                    if fr_marker_idx != -1:
-                                        full_response = full_response[:fr_marker_idx]
+                                    # Don't strip METADATA from full_response - it will be extracted at the end
+                                    # by extract_metadata_from_response which also handles incomplete blocks
                             elif len(buffer) > len(metadata_marker):
                                 safe_length = len(buffer) - len(metadata_marker)
                                 token_yield_count += 1

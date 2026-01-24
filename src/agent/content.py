@@ -116,6 +116,13 @@ MALFORMED_METADATA_START_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Pattern to detect start of incomplete METADATA block (starts but doesn't close with -->)
+# We use _find_json_object_end for proper JSON extraction
+INCOMPLETE_METADATA_START_PATTERN = re.compile(
+    r"<!--\s*METADATA:\s*\n?",
+    re.IGNORECASE,
+)
+
 
 # Pattern to match Gemini's tool call JSON format that sometimes leaks into response text
 # This happens when the model outputs the tool call description as text alongside the actual tool call
@@ -192,7 +199,8 @@ def _extract_html_comment_metadata(content: str) -> tuple[str, dict[str, Any]]:
     """
     match = METADATA_PATTERN.search(content)
     if not match:
-        return content, {}
+        # Try incomplete METADATA pattern (started but not closed with -->)
+        return _extract_incomplete_metadata(content)
 
     try:
         metadata = json.loads(match.group(1).strip())
@@ -203,6 +211,75 @@ def _extract_html_comment_metadata(content: str) -> tuple[str, dict[str, Any]]:
         return clean_content, metadata
     except (json.JSONDecodeError, AttributeError):
         return content, {}
+
+
+def _extract_incomplete_metadata(content: str) -> tuple[str, dict[str, Any]]:
+    """Extract metadata from incomplete HTML comment format (no closing -->).
+
+    Handles cases where LLM outputs <!-- METADATA: {...} but never closes with -->
+    Uses _find_json_object_end to properly handle nested JSON objects.
+
+    Returns:
+        Tuple of (clean_content, metadata_dict)
+    """
+    match = INCOMPLETE_METADATA_START_PATTERN.search(content)
+    if not match:
+        return content, {}
+
+    # Check that there's no proper closing --> after the marker
+    remaining = content[match.end() :]
+    if "-->" in remaining:
+        # This has a closing tag, so it's not incomplete - should be handled by main pattern
+        # But main pattern might have failed (wrong format), so try to extract anyway
+        pass
+
+    # Find the JSON object
+    json_start = match.end()
+    # Skip any whitespace before the JSON
+    while json_start < len(content) and content[json_start] in " \t\n":
+        json_start += 1
+
+    if json_start >= len(content) or content[json_start] != "{":
+        # No JSON object found
+        # Still strip the incomplete marker to prevent rendering issues
+        clean_content = content[: match.start()].rstrip()
+        return clean_content, {}
+
+    json_end = _find_json_object_end(content, json_start)
+    if json_end is None:
+        # JSON is incomplete/malformed
+        clean_content = content[: match.start()].rstrip()
+        return clean_content, {}
+
+    try:
+        json_str = content[json_start:json_end]
+        metadata = json.loads(json_str)
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        # Strip the incomplete metadata block from content
+        # Keep content before the marker and any content after the JSON
+        before = content[: match.start()].rstrip()
+        # Check if there's content after (excluding potential incomplete closing)
+        after_json = content[json_end:].lstrip()
+        # Remove any trailing incomplete closing like "\n--" without ">"
+        if after_json.startswith("-->"):
+            after_json = after_json[3:].lstrip()
+        elif after_json.startswith("--"):
+            after_json = after_json[2:].lstrip()
+        elif after_json.startswith("-"):
+            after_json = after_json[1:].lstrip()
+
+        if after_json:
+            clean_content = f"{before}\n\n{after_json}".strip() if before else after_json
+        else:
+            clean_content = before
+
+        return clean_content, metadata
+    except (json.JSONDecodeError, AttributeError):
+        # Even if JSON is invalid, strip the incomplete block to prevent rendering issues
+        clean_content = content[: match.start()].rstrip()
+        return clean_content, {}
 
 
 def _extract_plain_json_metadata(content: str) -> tuple[str, dict[str, Any]]:
