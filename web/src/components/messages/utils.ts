@@ -60,6 +60,15 @@ export function updateUserMessageId(tempId: string, realId: string): void {
   const messagesContainer = getElementById('messages');
   if (!messagesContainer) return;
 
+  // Check if element with real ID already exists (idempotent - already updated)
+  const existingEl = messagesContainer.querySelector<HTMLDivElement>(
+    `.message.user[data-message-id="${realId}"]`
+  );
+  if (existingEl) {
+    // Already updated, nothing to do
+    return;
+  }
+
   // Find the message element with the temp ID
   const messageEl = messagesContainer.querySelector<HTMLDivElement>(
     `.message.user[data-message-id="${tempId}"]`
