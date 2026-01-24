@@ -741,9 +741,8 @@ test.describe('Scroll to bottom behavior', () => {
     // Simulate user scrolling up (not programmatic scroll)
     // We scroll up significantly to trigger the "user is browsing history" detection
     await messagesContainer.evaluate((el) => {
-      // Simulate a user scroll by directly setting scrollTop
-      // This mimics what happens when user uses scroll wheel/touch
-      el.scrollTop = 0;
+      // Scroll to top - use scrollTo with 'instant' behavior for reliable cross-browser support
+      el.scrollTo({ top: 0, behavior: 'instant' });
     });
 
     // Give a moment for scroll event to fire and be processed
