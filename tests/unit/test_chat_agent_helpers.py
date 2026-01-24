@@ -336,6 +336,56 @@ class TestExtractMetadataFromResponse:
         assert not clean.endswith(" ")
         assert clean == "Response with trailing space"
 
+    def test_metadata_in_middle_of_response(self) -> None:
+        """Should extract metadata and preserve content both before AND after."""
+        response = """Here is some content before.
+
+<!-- METADATA:
+{"language": "en", "sources": [{"title": "Test", "url": "https://example.com"}]}
+-->
+
+And here is content after the metadata block."""
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert "Here is some content before" in clean
+        assert "And here is content after" in clean
+        assert "METADATA" not in clean
+        assert metadata["language"] == "en"
+        assert len(metadata["sources"]) == 1
+
+    def test_metadata_at_very_start(self) -> None:
+        """Should handle metadata at the very start of response."""
+        response = """<!-- METADATA:
+{"language": "en"}
+-->
+The actual response content."""
+        clean, metadata = extract_metadata_from_response(response)
+
+        assert clean == "The actual response content."
+        assert metadata["language"] == "en"
+
+    def test_msg_context_is_not_extracted_as_metadata(self) -> None:
+        """MSG_CONTEXT blocks should NOT be extracted as response metadata.
+
+        MSG_CONTEXT is for history context and uses a different marker.
+        If echoed, it should be ignored, not extracted as metadata.
+        """
+        # Note: extract_metadata_from_response only looks for METADATA, not MSG_CONTEXT
+        response = """<!-- MSG_CONTEXT: {"timestamp":"2024-01-01"} -->
+Hello, this is the response.
+
+<!-- METADATA:
+{"language": "en"}
+-->"""
+        clean, metadata = extract_metadata_from_response(response)
+
+        # MSG_CONTEXT should remain in clean content (extract_metadata only handles METADATA)
+        # The streaming logic in agent.py handles stripping MSG_CONTEXT separately
+        assert "language" in metadata
+        assert metadata["language"] == "en"
+        # MSG_CONTEXT is NOT extracted as metadata
+        assert "timestamp" not in metadata
+
 
 class TestStripFullResultFromToolContent:
     """Tests for strip_full_result_from_tool_content function."""
@@ -740,7 +790,7 @@ class TestFormatMessageWithMetadata:
 
         if meta_dict:
             json_str = json.dumps(meta_dict, separators=(",", ":"))
-            return f"<!-- METADATA: {json_str} -->\n{content}"
+            return f"<!-- MSG_CONTEXT: {json_str} -->\n{content}"
         return content
 
     def test_message_without_metadata(self) -> None:
@@ -761,7 +811,7 @@ class TestFormatMessageWithMetadata:
         }
         result = self._format_message(msg)
 
-        assert result.startswith("<!-- METADATA:")
+        assert result.startswith("<!-- MSG_CONTEXT:")
         assert '"timestamp":"2024-06-15 14:30 CET"' in result
         assert '"relative_time":"3 hours ago"' in result
         assert result.endswith("-->\nHello")
@@ -850,8 +900,8 @@ class TestFormatMessageWithMetadata:
         assert '"timestamp":"' in json_str
         assert '"relative_time":"' in json_str
 
-    def test_metadata_format_matches_response_format(self) -> None:
-        """Should use same <!-- METADATA: --> format as assistant responses."""
+    def test_context_format_distinct_from_response_metadata(self) -> None:
+        """Should use <!-- MSG_CONTEXT: --> format (different from response METADATA)."""
         msg = {
             "role": "user",
             "content": "Hello",
@@ -859,9 +909,11 @@ class TestFormatMessageWithMetadata:
         }
         result = self._format_message(msg)
 
-        # Should match the format used in assistant response metadata
-        assert result.startswith("<!-- METADATA: {")
+        # Should use MSG_CONTEXT marker (distinct from response METADATA)
+        assert result.startswith("<!-- MSG_CONTEXT: {")
         assert "} -->" in result
+        # Should NOT use METADATA marker (reserved for response metadata)
+        assert "<!-- METADATA:" not in result
 
 
 class TestGetSystemPromptAnonymousMode:
@@ -937,3 +989,343 @@ class TestGetSystemPromptAnonymousMode:
             # User context (name, location) should still be included
             assert "John" in prompt
             assert "Prague" in prompt
+
+
+class TestStreamingMetadataBlockHandling:
+    """Tests for metadata block handling during streaming.
+
+    These tests verify that MSG_CONTEXT and METADATA blocks are handled correctly
+    when they appear in streaming chunks, including multi-chunk scenarios.
+    """
+
+    def _process_chunks(self, chunks: list[str]) -> tuple[str, list[str], bool, bool]:
+        """Simulate the chunk processing logic from stream_chat_events.
+
+        This handles cross-chunk boundary scenarios where markers like
+        <!-- MSG_CONTEXT: or --> are split across chunks.
+
+        Args:
+            chunks: List of text content chunks
+
+        Returns:
+            Tuple of (full_response, yielded_tokens, had_msg_context, had_metadata)
+        """
+        full_response = ""
+        buffer = ""
+        yielded_tokens: list[str] = []
+        in_msg_context = False
+        in_metadata = False
+        had_msg_context = False
+        had_metadata = False
+
+        msg_context_marker = "<!-- MSG_CONTEXT:"
+        metadata_marker = "<!-- METADATA:"
+        end_marker = "-->"
+        # Max marker length to buffer for cross-chunk detection
+        max_marker_len = max(len(msg_context_marker), len(metadata_marker))
+
+        # Carryover buffer for cross-chunk marker detection
+        carryover = ""
+
+        for chunk in chunks:
+            # Prepend carryover from previous chunk for cross-chunk marker detection
+            text_content = carryover + chunk
+            carryover = ""
+
+            # Handle MSG_CONTEXT blocks (echoed history context)
+            if in_msg_context:
+                if end_marker in text_content:
+                    end_pos = text_content.find(end_marker)
+                    text_content = text_content[end_pos + 3 :].lstrip()
+                    in_msg_context = False
+                    if not text_content:
+                        continue
+                else:
+                    # Check if end marker might be split at chunk boundary
+                    # Keep potential partial end marker for next chunk
+                    for i in range(len(end_marker) - 1, 0, -1):
+                        if text_content.endswith(end_marker[:i]):
+                            carryover = end_marker[:i]
+                            break
+                    continue
+
+            # Check for MSG_CONTEXT marker
+            if msg_context_marker in text_content:
+                had_msg_context = True
+                marker_pos = text_content.find(msg_context_marker)
+                end_pos = text_content.find(end_marker, marker_pos)
+                if end_pos != -1:
+                    before = text_content[:marker_pos]
+                    after = text_content[end_pos + 3 :]
+                    text_content = (before + after).strip()
+                else:
+                    # Block starts but doesn't end - check for partial end marker
+                    content_after_marker = text_content[marker_pos:]
+                    for i in range(len(end_marker) - 1, 0, -1):
+                        if content_after_marker.endswith(end_marker[:i]):
+                            carryover = end_marker[:i]
+                            break
+                    text_content = text_content[:marker_pos].rstrip()
+                    in_msg_context = True
+                if not text_content:
+                    continue
+            elif not in_msg_context:
+                # Check if MSG_CONTEXT marker might be split at chunk boundary
+                # Keep potential partial marker for next chunk
+                for i in range(len(msg_context_marker) - 1, 0, -1):
+                    partial = msg_context_marker[:i]
+                    if text_content.endswith(partial):
+                        carryover = partial
+                        text_content = text_content[:-i]
+                        break
+
+            # Handle METADATA blocks (response metadata)
+            if in_metadata:
+                if end_marker in text_content:
+                    end_pos = text_content.find(end_marker)
+                    remaining = text_content[end_pos + 3 :].lstrip()
+                    in_metadata = False
+                    if remaining:
+                        full_response += remaining
+                        buffer += remaining
+                    continue
+                else:
+                    # Check if end marker might be split at chunk boundary
+                    for i in range(len(end_marker) - 1, 0, -1):
+                        if text_content.endswith(end_marker[:i]):
+                            carryover = end_marker[:i]
+                            break
+                    continue
+
+            # Add to full response (before METADATA detection)
+            full_response += text_content
+            buffer += text_content
+
+            # Check for METADATA marker in buffer
+            if metadata_marker in buffer:
+                had_metadata = True
+                marker_pos = buffer.find(metadata_marker)
+                # Check if METADATA block completes in this buffer
+                end_pos = buffer.find(end_marker, marker_pos)
+                if end_pos != -1:
+                    # Complete METADATA block - strip it and keep content after
+                    before = buffer[:marker_pos].rstrip()
+                    after = buffer[end_pos + 3 :].lstrip()
+                    # Update full_response to remove METADATA block
+                    full_response = full_response[: full_response.rfind(metadata_marker)]
+                    if after:
+                        full_response += after
+                    if before:
+                        yielded_tokens.append(before)
+                    buffer = after
+                    # Don't set in_metadata since block is complete
+                else:
+                    # METADATA block starts but doesn't end - check for partial end marker
+                    content_after_marker = buffer[marker_pos:]
+                    for i in range(len(end_marker) - 1, 0, -1):
+                        if content_after_marker.endswith(end_marker[:i]):
+                            carryover = end_marker[:i]
+                            break
+                    # Remove METADATA block from full_response
+                    full_response = full_response[: full_response.rfind(metadata_marker)]
+                    if marker_pos > 0:
+                        yielded_tokens.append(buffer[:marker_pos].rstrip())
+                    in_metadata = True
+                    buffer = ""
+            elif len(buffer) > max_marker_len:
+                safe_length = len(buffer) - max_marker_len
+                yielded_tokens.append(buffer[:safe_length])
+                buffer = buffer[safe_length:]
+
+        # Handle any remaining carryover (wasn't part of a marker)
+        if carryover and not in_msg_context and not in_metadata:
+            full_response += carryover
+            buffer += carryover
+
+        # Yield remaining buffer
+        if buffer and not in_metadata:
+            yielded_tokens.append(buffer)
+
+        return full_response, yielded_tokens, had_msg_context, had_metadata
+
+    def test_msg_context_single_chunk_stripped(self) -> None:
+        """MSG_CONTEXT in a single chunk should be completely stripped."""
+        chunks = ['<!-- MSG_CONTEXT: {"timestamp":"2024-01-01"} -->Hello world']
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        assert "MSG_CONTEXT" not in full_response
+        assert "timestamp" not in full_response
+        assert "Hello world" in full_response
+        assert had_ctx is True
+
+    def test_msg_context_multi_chunk_stripped(self) -> None:
+        """MSG_CONTEXT spanning multiple chunks should be stripped."""
+        chunks = [
+            '<!-- MSG_CONTEXT: {"timestamp":',
+            '"2024-01-01","relative_time":"1 hour ago"} ',
+            "--> Here is the response.",
+        ]
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        assert "MSG_CONTEXT" not in full_response
+        assert "timestamp" not in full_response
+        assert "Here is the response" in full_response
+        assert had_ctx is True
+
+    def test_msg_context_at_start_content_preserved(self) -> None:
+        """Content after MSG_CONTEXT block should be preserved."""
+        chunks = [
+            "<!-- MSG_CONTEXT: {} -->",
+            "This is the actual response content.",
+        ]
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        assert "This is the actual response content" in full_response
+        assert had_ctx is True
+        # Tokens should contain the response content
+        joined_tokens = "".join(tokens)
+        assert "actual response" in joined_tokens
+
+    def test_metadata_at_end_normal_case(self) -> None:
+        """METADATA at end of response should be detected and content yielded."""
+        chunks = [
+            "Here is my response to your question.",
+            '\n\n<!-- METADATA:\n{"language": "en"}\n-->',
+        ]
+        full_response, tokens, _, had_meta = self._process_chunks(chunks)
+
+        assert "Here is my response" in full_response
+        assert had_meta is True
+        # Content before metadata should be in tokens
+        joined_tokens = "".join(tokens)
+        assert "Here is my response" in joined_tokens
+
+    def test_metadata_in_middle_content_preserved(self) -> None:
+        """Content both before AND after METADATA should be preserved."""
+        chunks = [
+            "Content before metadata. ",
+            '<!-- METADATA:\n{"language": "en"}\n-->',
+            " Content after metadata.",
+        ]
+        full_response, tokens, _, had_meta = self._process_chunks(chunks)
+
+        assert "Content before metadata" in full_response
+        assert "Content after metadata" in full_response
+        assert had_meta is True
+
+    def test_both_msg_context_and_metadata(self) -> None:
+        """Response with both echoed MSG_CONTEXT and METADATA should handle both."""
+        chunks = [
+            '<!-- MSG_CONTEXT: {"timestamp":"2024"} -->',
+            "The actual response. ",
+            '<!-- METADATA:\n{"language": "en"}\n-->',
+        ]
+        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
+
+        assert "MSG_CONTEXT" not in full_response
+        assert "timestamp" not in full_response
+        assert "The actual response" in full_response
+        assert had_ctx is True
+        assert had_meta is True
+
+    def test_no_metadata_blocks(self) -> None:
+        """Response without any metadata blocks should yield all content."""
+        chunks = ["Just a simple", " response with ", "no metadata."]
+        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
+
+        assert full_response == "Just a simple response with no metadata."
+        assert had_ctx is False
+        assert had_meta is False
+        joined_tokens = "".join(tokens)
+        assert "Just a simple" in joined_tokens
+
+    # Cross-chunk boundary tests
+
+    def test_msg_context_marker_split_across_chunks(self) -> None:
+        """MSG_CONTEXT marker split across chunk boundary."""
+        # "<!-- MSG_" in one chunk, "CONTEXT:" in next
+        chunks = ["Hello <!-- MSG_", "CONTEXT: {} --> world"]
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        # Should strip the MSG_CONTEXT block
+        assert "Hello" in full_response
+        assert "world" in full_response
+        assert "MSG_CONTEXT" not in full_response
+        assert had_ctx is True
+
+    def test_msg_context_end_marker_split_across_chunks(self) -> None:
+        """MSG_CONTEXT end marker (-->) split across chunk boundary."""
+        chunks = ['<!-- MSG_CONTEXT: {"key":"value"} -', "-> The response."]
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        assert "The response" in full_response
+        assert "MSG_CONTEXT" not in full_response
+        assert had_ctx is True
+
+    def test_metadata_marker_split_across_chunks(self) -> None:
+        """METADATA marker split across chunk boundary."""
+        chunks = ["Response content <!-- META", 'DATA:\n{"language": "en"}\n-->']
+        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
+
+        assert "Response content" in full_response
+        assert had_meta is True
+        joined_tokens = "".join(tokens)
+        assert "Response content" in joined_tokens
+
+    def test_metadata_end_marker_split_across_chunks(self) -> None:
+        """METADATA end marker (-->) split across chunk boundary."""
+        chunks = ['Response <!-- METADATA:\n{"language": "en"}\n-', "-> After metadata."]
+        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
+
+        assert "Response" in full_response
+        assert "After metadata" in full_response
+        assert had_meta is True
+
+    def test_metadata_json_split_across_chunks(self) -> None:
+        """METADATA JSON content split across multiple chunks."""
+        chunks = [
+            'Content <!-- METADATA:\n{"lang',
+            'uage": "en", "sources": [{"title":',
+            ' "Test"}]}\n--> More content',
+        ]
+        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
+
+        assert "Content" in full_response
+        assert "More content" in full_response
+        assert had_meta is True
+
+    def test_content_immediately_after_msg_context_end(self) -> None:
+        """Content immediately after --> of MSG_CONTEXT (no space)."""
+        chunks = ["<!-- MSG_CONTEXT: {} -->Response starts here."]
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        assert "Response starts here" in full_response
+        assert "MSG_CONTEXT" not in full_response
+
+    def test_content_immediately_after_metadata_end(self) -> None:
+        """Content immediately after --> of METADATA (no space)."""
+        chunks = ["Before <!-- METADATA:\n{}\n-->After"]
+        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
+
+        assert "Before" in full_response
+        assert "After" in full_response
+        assert had_meta is True
+
+    def test_empty_chunks_between_markers(self) -> None:
+        """Empty or whitespace-only chunks within metadata block."""
+        chunks = ["<!-- MSG_CONTEXT:", " ", '{"key": "value"}', "", " --> Content"]
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        assert "Content" in full_response
+        assert "MSG_CONTEXT" not in full_response
+        assert had_ctx is True
+
+    def test_multiple_msg_context_blocks(self) -> None:
+        """Multiple MSG_CONTEXT blocks (shouldn't happen but handle gracefully)."""
+        chunks = ['<!-- MSG_CONTEXT: {"a":1} --> First ', '<!-- MSG_CONTEXT: {"b":2} --> Second']
+        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+
+        assert "First" in full_response
+        assert "Second" in full_response
+        assert "MSG_CONTEXT" not in full_response
+        assert had_ctx is True

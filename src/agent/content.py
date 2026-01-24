@@ -175,6 +175,9 @@ def _find_json_object_end(text: str, start_pos: int) -> int | None:
 def _extract_html_comment_metadata(content: str) -> tuple[str, dict[str, Any]]:
     """Extract metadata from HTML comment format.
 
+    Handles metadata anywhere in the response (not just at end) by keeping
+    content both before and after the metadata block.
+
     Returns:
         Tuple of (clean_content, metadata_dict)
     """
@@ -184,7 +187,10 @@ def _extract_html_comment_metadata(content: str) -> tuple[str, dict[str, Any]]:
 
     try:
         metadata = json.loads(match.group(1).strip())
-        clean_content = content[: match.start()].rstrip()
+        # Keep content before AND after the metadata block
+        before = content[: match.start()].rstrip()
+        after = content[match.end() :].lstrip()
+        clean_content = f"{before}\n\n{after}".strip() if after else before
         return clean_content, metadata
     except (json.JSONDecodeError, AttributeError):
         return content, {}

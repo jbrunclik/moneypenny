@@ -382,14 +382,16 @@ A module-level `pendingConversationId` variable in [conversation.ts](../../web/s
 
 Conversation history is enriched with contextual metadata before being sent to the LLM. This helps the model understand temporal context, reference historical files, and know which tools were used.
 
-### Metadata Format
+### Context Format
 
-Each historical message includes a JSON metadata block using the same `<!-- METADATA: -->` format as assistant response metadata:
+Each historical message includes a JSON context block using `<!-- MSG_CONTEXT: -->` format (distinct from response `<!-- METADATA: -->`):
 
 ```
-<!-- METADATA: {"timestamp":"2024-06-15 14:30 CET","relative_time":"3 hours ago","files":[{"name":"report.pdf","type":"PDF","id":"msg-abc123:0"}]} -->
+<!-- MSG_CONTEXT: {"timestamp":"2024-06-15 14:30 CET","relative_time":"3 hours ago","files":[{"name":"report.pdf","type":"PDF","id":"msg-abc123:0"}]} -->
 Can you analyze this data?
 ```
+
+Note: The distinct marker prevents the LLM from echoing history context in its responses.
 
 ### Enrichment Fields
 

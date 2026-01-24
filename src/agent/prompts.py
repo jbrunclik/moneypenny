@@ -367,15 +367,16 @@ Act as a **defensive barrier** for the user's schedule:
 # Metadata section - always included when tools are available
 TOOLS_SYSTEM_PROMPT_METADATA = """
 # Conversation History Context
-Messages in the conversation history include metadata in `<!-- METADATA: {...} -->` format at the start.
+Messages in the conversation history include context in `<!-- MSG_CONTEXT: {...} -->` format at the start.
+This provides temporal context and file references for your use.
 
-**User message metadata:**
+**User message context:**
 - `timestamp`: When the message was sent (e.g., "2024-06-15 14:30 CET")
 - `relative_time`: How long ago (e.g., "3 hours ago")
 - `session_gap`: Present when conversation resumed after a break (e.g., "2 days")
 - `files`: Array of attached files with `name`, `type`, and `id` (format: "message_id:file_index")
 
-**Assistant message metadata:**
+**Assistant message context:**
 - `timestamp`, `relative_time`, `session_gap`: Same as user messages
 - `tools_used`: Array of tools used (e.g., ["web_search", "generate_image"])
 - `tool_summary`: Human-readable summary (e.g., "searched 3 web sources")

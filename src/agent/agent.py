@@ -164,8 +164,9 @@ class ChatAgent:
         """Format message content with metadata context for LLM.
 
         Enriches message content with temporal context, file references,
-        and tool usage summaries as a JSON metadata block. Uses the same
-        <!-- METADATA: --> format as assistant response metadata for consistency.
+        and tool usage summaries as a JSON metadata block. Uses a distinct
+        <!-- MSG_CONTEXT: --> marker (different from response <!-- METADATA: -->)
+        to prevent the LLM from echoing this format in its responses.
 
         Args:
             msg: Enriched message dict with 'role', 'content', and 'metadata' keys
@@ -209,9 +210,10 @@ class ChatAgent:
             meta_dict["tool_summary"] = metadata["tool_summary"]
 
         # Return with metadata block if we have any metadata
+        # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing
         if meta_dict:
             json_str = json.dumps(meta_dict, separators=(",", ":"))
-            return f"<!-- METADATA: {json_str} -->\n{content}"
+            return f"<!-- MSG_CONTEXT: {json_str} -->\n{content}"
         return content
 
     def _build_messages(
@@ -611,6 +613,11 @@ class ChatAgent:
         accumulated_thinking = ""
         # Track token yields for debugging
         token_yield_count = 0
+        # Track if we're inside an echoed MSG_CONTEXT block (spans multiple chunks)
+        in_msg_context = False
+        # Carryover buffer for cross-chunk boundary marker detection
+        carryover = ""
+        end_marker = "-->"
 
         # Stream the graph execution with messages mode for token-level streaming
         # Wrapped in try-except to handle executor shutdown gracefully
@@ -735,13 +742,92 @@ class ChatAgent:
 
                         # Process regular text content
                         if text_content:
-                            full_response += text_content
+                            # Handle echoed MSG_CONTEXT (history context) - may span multiple chunks
+                            msg_context_marker = "<!-- MSG_CONTEXT:"
 
-                            # If we've detected metadata, don't yield anything more
+                            # Prepend any carryover from previous chunk for marker detection
+                            if carryover:
+                                text_content = carryover + text_content
+                                carryover = ""
+
+                            # Check if we're currently inside a MSG_CONTEXT block
+                            if in_msg_context:
+                                if end_marker in text_content:
+                                    # Block ended - extract content after it
+                                    end_pos = text_content.find(end_marker)
+                                    text_content = text_content[end_pos + 3 :].lstrip()
+                                    in_msg_context = False
+                                    logger.info("MSG_CONTEXT block ended (multi-chunk)")
+                                    if not text_content:
+                                        continue
+                                else:
+                                    # Still inside MSG_CONTEXT block - check for partial end marker
+                                    for i in range(len(end_marker) - 1, 0, -1):
+                                        if text_content.endswith(end_marker[:i]):
+                                            carryover = end_marker[:i]
+                                            break
+                                    continue
+
+                            # Check if MSG_CONTEXT starts in this chunk
+                            if msg_context_marker in text_content:
+                                marker_pos = text_content.find(msg_context_marker)
+                                # Check if block completes in this chunk
+                                end_pos = text_content.find(end_marker, marker_pos)
+                                if end_pos != -1:
+                                    # Complete block in one chunk - strip it
+                                    before = text_content[:marker_pos]
+                                    after = text_content[end_pos + 3 :]
+                                    text_content = (before + after).strip()
+                                    logger.info(
+                                        "Stripped echoed MSG_CONTEXT from output",
+                                        extra={"remaining_len": len(text_content)},
+                                    )
+                                else:
+                                    # Block starts but doesn't end - check for partial end marker
+                                    content_after_marker = text_content[marker_pos:]
+                                    for i in range(len(end_marker) - 1, 0, -1):
+                                        if content_after_marker.endswith(end_marker[:i]):
+                                            carryover = end_marker[:i]
+                                            break
+                                    text_content = text_content[:marker_pos].rstrip()
+                                    in_msg_context = True
+                                    logger.info("MSG_CONTEXT block started (will span chunks)")
+                                if not text_content:
+                                    continue
+                            elif not in_msg_context:
+                                # Check if MSG_CONTEXT marker might be split at chunk boundary
+                                for i in range(len(msg_context_marker) - 1, 0, -1):
+                                    partial = msg_context_marker[:i]
+                                    if text_content.endswith(partial):
+                                        carryover = partial
+                                        text_content = text_content[:-i]
+                                        break
+
+                            # Check if we're in response metadata block
                             if in_metadata:
-                                continue
+                                if end_marker in text_content:
+                                    # Metadata block ended - extract any content after it
+                                    end_pos = text_content.find(end_marker)
+                                    remaining = text_content[end_pos + 3 :].lstrip()
+                                    in_metadata = False
+                                    if remaining:
+                                        logger.info(
+                                            "Content found after metadata block",
+                                            extra={"remaining_len": len(remaining)},
+                                        )
+                                        full_response += remaining
+                                        buffer += remaining
+                                    continue
+                                else:
+                                    # Still in metadata block - check for partial end marker
+                                    for i in range(len(end_marker) - 1, 0, -1):
+                                        if text_content.endswith(end_marker[:i]):
+                                            carryover = end_marker[:i]
+                                            break
+                                    continue
 
-                            # Add to buffer and check for metadata marker
+                            # Add to full response (before METADATA detection)
+                            full_response += text_content
                             buffer += text_content
 
                             # Log buffer state for first few text chunks
@@ -756,24 +842,52 @@ class ChatAgent:
                                     },
                                 )
 
-                            # Check if buffer contains the start of metadata
+                            # Check if buffer contains the start of response metadata
                             if metadata_marker in buffer:
                                 marker_pos = buffer.find(metadata_marker)
-                                # Early metadata (first 5 chunks) may cause token loss
-                                if chunk_count <= 5:
-                                    logger.warning(
-                                        "Early metadata marker detected - may cause token loss",
-                                        extra={
-                                            "marker_pos": marker_pos,
-                                            "buffer_length": len(buffer),
-                                            "chunk_count": chunk_count,
-                                        },
-                                    )
-                                if marker_pos > 0:
-                                    token_yield_count += 1
-                                    yield {"type": "token", "text": buffer[:marker_pos].rstrip()}
-                                in_metadata = True
-                                buffer = ""
+                                # Check if METADATA block completes in this buffer
+                                meta_end_pos = buffer.find(end_marker, marker_pos)
+                                if meta_end_pos != -1:
+                                    # Complete METADATA block - strip it and keep content after
+                                    before = buffer[:marker_pos].rstrip()
+                                    after = buffer[meta_end_pos + 3 :].lstrip()
+                                    # Update full_response to remove METADATA block
+                                    full_response = full_response[
+                                        : full_response.rfind(metadata_marker)
+                                    ]
+                                    if after:
+                                        full_response += after
+                                    if before:
+                                        token_yield_count += 1
+                                        yield {"type": "token", "text": before}
+                                    buffer = after
+                                    # Don't set in_metadata since block is complete
+                                else:
+                                    # METADATA block starts but doesn't end
+                                    # Early metadata (first 5 chunks) suggests model output metadata prematurely
+                                    if chunk_count <= 5 and marker_pos == 0:
+                                        logger.warning(
+                                            "Response metadata at start of output - model may have skipped content",
+                                            extra={
+                                                "marker_pos": marker_pos,
+                                                "buffer_length": len(buffer),
+                                                "chunk_count": chunk_count,
+                                            },
+                                        )
+                                    # Check for partial end marker at chunk boundary
+                                    content_after_marker = buffer[marker_pos:]
+                                    for i in range(len(end_marker) - 1, 0, -1):
+                                        if content_after_marker.endswith(end_marker[:i]):
+                                            carryover = end_marker[:i]
+                                            break
+                                    if marker_pos > 0:
+                                        token_yield_count += 1
+                                        yield {
+                                            "type": "token",
+                                            "text": buffer[:marker_pos].rstrip(),
+                                        }
+                                    in_metadata = True
+                                    buffer = ""
                             elif len(buffer) > len(metadata_marker):
                                 safe_length = len(buffer) - len(metadata_marker)
                                 token_yield_count += 1
@@ -796,6 +910,11 @@ class ChatAgent:
             else:
                 # Re-raise other RuntimeErrors
                 raise
+
+        # Handle any remaining carryover (wasn't part of a marker)
+        if carryover and not in_msg_context and not in_metadata:
+            full_response += carryover
+            buffer += carryover
 
         # Yield any remaining buffer that's not metadata
         if buffer and not in_metadata:
