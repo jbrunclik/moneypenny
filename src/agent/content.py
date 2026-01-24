@@ -107,6 +107,15 @@ METADATA_PATTERN = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 
+# Pattern to match malformed METADATA at start (no proper closing)
+# This catches cases where LLM outputs <!-- METADATA: {...} immediately followed by content
+# without proper newlines and closing -->
+# Uses negative lookahead to avoid matching valid METADATA blocks that have proper closing
+MALFORMED_METADATA_START_PATTERN = re.compile(
+    r"^<!--\s*METADATA:\s*\{[^}]*\}(?!\s*\n\s*-->)(?!\s*-->)",
+    re.IGNORECASE,
+)
+
 
 # Pattern to match Gemini's tool call JSON format that sometimes leaks into response text
 # This happens when the model outputs the tool call description as text alongside the actual tool call
@@ -248,6 +257,11 @@ def extract_metadata_from_response(response: str) -> tuple[str, dict[str, Any]]:
         - metadata_dict: Parsed metadata (empty dict if none found or parse error)
     """
     response = clean_tool_call_json(response)
+
+    # Clean malformed METADATA at start (no proper closing -->)
+    # This can happen when LLM outputs METADATA immediately after MSG_CONTEXT
+    # e.g., "<!-- METADATA: {"language": "en"}Actual content here..."
+    response = MALFORMED_METADATA_START_PATTERN.sub("", response).lstrip()
 
     # Try HTML comment format first (preferred)
     clean_content, metadata = _extract_html_comment_metadata(response)

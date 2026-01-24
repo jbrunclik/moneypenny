@@ -810,6 +810,11 @@ class ChatAgent:
                                     end_pos = text_content.find(end_marker)
                                     remaining = text_content[end_pos + 3 :].lstrip()
                                     in_metadata = False
+                                    # Safety: ensure METADATA is stripped from full_response
+                                    # (should already be done when entering in_metadata, but handle edge cases)
+                                    marker_idx = full_response.rfind(metadata_marker)
+                                    if marker_idx != -1:
+                                        full_response = full_response[:marker_idx]
                                     if remaining:
                                         logger.info(
                                             "Content found after metadata block",
@@ -863,7 +868,7 @@ class ChatAgent:
                                     buffer = after
                                     # Don't set in_metadata since block is complete
                                 else:
-                                    # METADATA block starts but doesn't end
+                                    # METADATA block starts but doesn't end in this chunk
                                     # Early metadata (first 5 chunks) suggests model output metadata prematurely
                                     if chunk_count <= 5 and marker_pos == 0:
                                         logger.warning(
@@ -888,6 +893,12 @@ class ChatAgent:
                                         }
                                     in_metadata = True
                                     buffer = ""
+                                    # Strip incomplete METADATA from full_response NOW, not later
+                                    # This prevents malformed METADATA from being stored if LLM never
+                                    # outputs closing --> (which would cause HTML comment rendering bug)
+                                    fr_marker_idx = full_response.rfind(metadata_marker)
+                                    if fr_marker_idx != -1:
+                                        full_response = full_response[:fr_marker_idx]
                             elif len(buffer) > len(metadata_marker):
                                 safe_length = len(buffer) - len(metadata_marker)
                                 token_yield_count += 1
