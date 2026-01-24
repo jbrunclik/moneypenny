@@ -84,7 +84,7 @@ Without a known ID, the frontend would have to fetch "recent messages" and guess
 
 With pre-generated IDs, recovery is deterministic - we fetch exactly the message we expect.
 
-**Recovery flow:**
+**Recovery flow (missing done event):**
 
 ```
 Stream starts → user_message_saved event (includes expected_assistant_message_id)
@@ -100,6 +100,36 @@ Frontend calls GET /api/messages/{expected_assistant_message_id}
 If found: Display recovered message
 If not found: Show incomplete indicator (message may not have been saved)
 ```
+
+### Content Recovery in Done Event
+
+Even when the stream completes successfully, token events can be lost during transmission (network hiccups, iOS Safari connection issues, proxy buffering). To handle this, the `done` event includes the full message content:
+
+```json
+{
+  "type": "done",
+  "id": "message-uuid",
+  "created_at": "2024-01-24T12:00:00.000Z",
+  "content": "The full message content...",
+  ...
+}
+```
+
+**Recovery flow (missing tokens):**
+
+```
+Stream starts → thinking events arrive → [tokens lost] → done event arrives
+     ↓
+Frontend receives done event but has no accumulated content
+     ↓
+Frontend detects: event.content exists but state.fullContent is empty
+     ↓
+Frontend renders content from done event instead
+     ↓
+Message displays correctly despite lost token events
+```
+
+This belt-and-suspenders approach ensures the message content is always available, even if individual token events were lost during streaming.
 
 **Key files:**
 - [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `_StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`

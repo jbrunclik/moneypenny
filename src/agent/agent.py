@@ -609,6 +609,8 @@ class ChatAgent:
         pending_tool_calls: set[str] = set()
         # Accumulate thinking text across chunks
         accumulated_thinking = ""
+        # Track token yields for debugging
+        token_yield_count = 0
 
         # Stream the graph execution with messages mode for token-level streaming
         # Wrapped in try-except to handle executor shutdown gracefully
@@ -743,11 +745,13 @@ class ChatAgent:
                             if metadata_marker in buffer:
                                 marker_pos = buffer.find(metadata_marker)
                                 if marker_pos > 0:
+                                    token_yield_count += 1
                                     yield {"type": "token", "text": buffer[:marker_pos].rstrip()}
                                 in_metadata = True
                                 buffer = ""
                             elif len(buffer) > len(metadata_marker):
                                 safe_length = len(buffer) - len(metadata_marker)
+                                token_yield_count += 1
                                 yield {"type": "token", "text": buffer[:safe_length]}
                                 buffer = buffer[safe_length:]
         except RuntimeError as e:
@@ -772,10 +776,23 @@ class ChatAgent:
         if buffer and not in_metadata:
             clean, _ = extract_metadata_from_response(buffer)
             if clean and clean.strip():
+                token_yield_count += 1
                 yield {"type": "token", "text": clean}
 
         # Extract metadata
         clean_content, metadata = extract_metadata_from_response(full_response)
+
+        # Log token streaming summary
+        if token_yield_count > 0 or len(full_response) > 0:
+            logger.info(
+                "Token streaming summary",
+                extra={
+                    "token_yield_count": token_yield_count,
+                    "full_response_length": len(full_response),
+                    "clean_content_length": len(clean_content),
+                    "chunk_count": chunk_count,
+                },
+            )
 
         usage_info = {
             "input_tokens": total_input_tokens,

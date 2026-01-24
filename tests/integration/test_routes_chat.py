@@ -781,6 +781,64 @@ class TestChatStreamDoneEvent:
         assistant_msg = messages[-1]
         assert assistant_msg.id == done_event["id"]
 
+    def test_done_event_includes_content_for_recovery(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """Done event should include content for stream recovery when tokens are lost."""
+        import time
+
+        expected_content = "This is the full response content."
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": expected_content}
+                yield {
+                    "type": "final",
+                    "content": expected_content,
+                    "metadata": {},
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Test"},
+            )
+
+        assert response.status_code == 200
+
+        # Wait for background threads
+        time.sleep(1.0)
+
+        # Parse the done event
+        response_text = response.data.decode("utf-8")
+        done_event = None
+        for line in response_text.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    if event.get("type") == "done":
+                        done_event = event
+                        break
+                except json.JSONDecodeError:
+                    pass
+
+        assert done_event is not None, "Done event was not found"
+        assert "content" in done_event, "Done event missing 'content' field for stream recovery"
+        assert done_event["content"] == expected_content, (
+            f"Done event content mismatch: expected '{expected_content}', "
+            f"got '{done_event.get('content')}'"
+        )
+
     def test_no_done_event_when_content_empty(
         self,
         client: FlaskClient,

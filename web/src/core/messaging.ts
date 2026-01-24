@@ -429,6 +429,8 @@ interface StreamingState {
   uploadProgressHidden: boolean;
   /** Pre-generated assistant message ID from server, used for stream recovery */
   expectedAssistantMessageId: string | null;
+  /** Count of token events received (for debugging) */
+  tokenCount?: number;
 }
 
 /**
@@ -649,12 +651,29 @@ function processStreamEvent(
 
     case 'token':
       state.fullContent += event.text as string;
+      state.tokenCount = (state.tokenCount ?? 0) + 1;
       if (state.thinkingState.isThinking) {
         state.thinkingState.isThinking = false;
       }
       store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
       if (isCurrentConversation) {
         updateStreamingMessage(state.messageEl, state.fullContent);
+      } else {
+        // Log when tokens are not rendered (helps diagnose streaming issues)
+        if (state.tokenCount === 1) {
+          log.warn('Token received but not current conversation', {
+            conversationId: convId,
+            currentConversation: store.currentConversation?.id,
+          });
+        }
+      }
+      // Log first token and periodically to track streaming progress
+      if (state.tokenCount === 1 || state.tokenCount % 50 === 0) {
+        log.debug('Token streaming progress', {
+          tokenCount: state.tokenCount,
+          contentLength: state.fullContent.length,
+          isCurrentConversation,
+        });
       }
       break;
 
@@ -803,6 +822,7 @@ async function handleStreamDone(
   event: {
     id: string;
     created_at: string;
+    content?: string;
     user_message_id?: string;
     sources?: Source[];
     generated_images?: GeneratedImage[];
@@ -820,6 +840,8 @@ async function handleStreamDone(
     conversationId: convId,
     messageId: event.id,
     approvalRequired: event.approval_required,
+    hasContent: !!event.content,
+    streamedContentLength: state.fullContent.length,
   });
 
   if (event.user_message_id) {
@@ -833,6 +855,18 @@ async function handleStreamDone(
   // when switching back to this conversation. If the context doesn't exist or
   // doesn't match this conversation, fall back to the original element.
   const messageEl = getStreamingMessageElement(convId) ?? state.messageEl;
+
+  // Recovery: If tokens weren't rendered during streaming but done event has content,
+  // render the content now. This handles cases where SSE token events were lost
+  // (e.g., connection issues, iOS Safari quirks) but the done event arrived.
+  if (event.content && !state.fullContent.trim()) {
+    log.warn('Recovering content from done event - tokens were not streamed', {
+      conversationId: convId,
+      contentLength: event.content.length,
+    });
+    // Render the content that should have been streamed
+    updateStreamingMessage(messageEl, event.content);
+  }
 
   const wasFollowing = finalizeStreamingMessage(
     messageEl,

@@ -326,12 +326,14 @@ def build_stream_done_event(
         language: Optional ISO 639-1 language code for TTS
 
     Returns:
-        Done event dictionary with type, id, created_at, and optional files/sources/generated_images/title/language
+        Done event dictionary with type, id, created_at, content, and optional files/sources/generated_images/title/language
     """
     done_data: dict[str, Any] = {
         "type": "done",
         "id": assistant_msg.id,
         "created_at": assistant_msg.created_at.isoformat(),
+        # Always include content for recovery if token events were lost
+        "content": assistant_msg.content or "",
     }
 
     if gen_image_files:

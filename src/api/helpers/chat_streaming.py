@@ -395,7 +395,9 @@ def cleanup_and_save(
             # Only save if:
             # 1. Final results are ready (stream completed successfully)
             # 2. Message hasn't been saved yet (generator didn't save)
-            if final_results["ready"] and not final_results["saved"]:
+            # 3. There's actual content to save (don't save empty messages)
+            clean_content = final_results.get("clean_content", "")
+            if final_results["ready"] and not final_results["saved"] and clean_content:
                 logger.info(
                     "Generator stopped early (client disconnected), saving message in cleanup thread",
                     extra={"user_id": user_id, "conversation_id": conv_id},
