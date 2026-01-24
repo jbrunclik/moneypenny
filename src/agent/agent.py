@@ -744,6 +744,16 @@ class ChatAgent:
                             # Check if buffer contains the start of metadata
                             if metadata_marker in buffer:
                                 marker_pos = buffer.find(metadata_marker)
+                                # Early metadata (first 5 chunks) may cause token loss
+                                if chunk_count <= 5:
+                                    logger.warning(
+                                        "Early metadata marker detected - may cause token loss",
+                                        extra={
+                                            "marker_pos": marker_pos,
+                                            "buffer_length": len(buffer),
+                                            "chunk_count": chunk_count,
+                                        },
+                                    )
                                 if marker_pos > 0:
                                     token_yield_count += 1
                                     yield {"type": "token", "text": buffer[:marker_pos].rstrip()}

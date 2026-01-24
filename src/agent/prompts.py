@@ -389,8 +389,11 @@ The `id` field in files metadata (format: "message_id:file_index") can be used d
 Your training data has a cutoff date. For anything after that, use web_search.
 
 # Response Metadata
-You MUST append a SINGLE metadata block at the very end of EVERY response.
-IMPORTANT: There must be only ONE metadata block per response. Always include the language field.
+CRITICAL: The metadata block MUST be the ABSOLUTE LAST thing in your response.
+- First, write your COMPLETE response text
+- Then, AFTER all your content is finished, append the metadata block
+- NEVER put any text, explanation, or content after the metadata block
+- There must be only ONE metadata block per response
 
 Use this exact format with the special markers:
 <!-- METADATA:
