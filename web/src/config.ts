@@ -221,6 +221,23 @@ export const SYNC_POLL_INTERVAL_MS = 1 * MS_PER_MINUTE;
 export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;
 
 // =============================================================================
+// Stream Recovery Configuration
+// =============================================================================
+
+/**
+ * Retry delays for stream recovery (exponential backoff).
+ * Total wait: ~15.5 seconds (500ms + 1s + 2s + 4s + 8s)
+ * Aligns with typical stream duration to catch messages saved during retry window.
+ */
+export const STREAM_RECOVERY_RETRY_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
+
+/** Minimum time hidden before recovery is attempted (avoid false positives from quick app switches) */
+export const STREAM_RECOVERY_MIN_HIDDEN_MS = 500;
+
+/** Debounce for recovery attempts (prevent rapid retriggers) */
+export const STREAM_RECOVERY_DEBOUNCE_MS = 300;
+
+// =============================================================================
 // Pagination Configuration
 // =============================================================================
 

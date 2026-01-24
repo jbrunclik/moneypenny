@@ -50,6 +50,11 @@ import { getSyncManager } from '../sync/SyncManager';
 import { isTempConversation, createConversation, updateConversationTitle } from './conversation';
 import { updateConversationCost, resetForceTools } from './toolbar';
 import { hasPendingApproval } from '../components/messages';
+import {
+  markStreamForRecovery,
+  clearPendingRecovery,
+  attemptRecovery,
+} from './stream-recovery';
 
 const log = createLogger('messaging');
 
@@ -725,7 +730,7 @@ function handleStreamError(
 /**
  * Handle stream ending without a done event.
  * This can happen if the connection drops mid-stream but the server still saves the message.
- * We use the pre-generated message ID to fetch the specific message, avoiding race conditions.
+ * Uses the stream recovery module which handles retries for race conditions.
  */
 async function handleMissingDoneEvent(
   state: StreamingState,
@@ -752,67 +757,14 @@ async function handleMissingDoneEvent(
     return;
   }
 
-  try {
-    // Fetch the specific message by its pre-generated ID
-    // This avoids race conditions where another message could be saved in between
-    const assistantMsg = await conversations.getMessage(state.expectedAssistantMessageId);
+  // Use the recovery module which handles retries for race conditions
+  markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'network');
+  const recovered = await attemptRecovery(convId);
 
-    if (assistantMsg && assistantMsg.content) {
-      log.info('Recovered message from server using pre-generated ID', {
-        conversationId: convId,
-        messageId: assistantMsg.id,
-      });
-
-      // Update the streaming message with the recovered content
-      updateStreamingMessage(state.messageEl, assistantMsg.content);
-
-      // Finalize the message with the recovered data
-      finalizeStreamingMessage(
-        state.messageEl,
-        assistantMsg.id,
-        assistantMsg.created_at,
-        assistantMsg.sources,
-        assistantMsg.generated_images,
-        assistantMsg.files,
-        'assistant',
-        assistantMsg.language
-      );
-
-      state.messageSuccessful = true;
-
-      // Update conversation title if needed
-      const conv = useStore.getState().currentConversation;
-      if (conv && conv.title === 'New Conversation') {
-        // Refetch conversation to get updated title
-        const updatedConv = await conversations.get(convId);
-        if (updatedConv.title && updatedConv.title !== 'New Conversation') {
-          updateConversationTitle(convId, updatedConv.title);
-        }
-      }
-
-      await updateConversationCost(convId);
-    } else {
-      // Message exists but has no content - show as incomplete
-      log.warn('Recovered message has no content', {
-        conversationId: convId,
-        messageId: state.expectedAssistantMessageId,
-      });
-      state.messageEl.classList.add('message-incomplete');
-    }
-  } catch (error) {
-    // Message not found - it wasn't saved yet or save failed
-    // This is expected if the stream failed very early
-    log.warn('Failed to recover message - may not be saved yet', {
-      conversationId: convId,
-      error,
-    });
-    // Clean up the empty/partial message
-    if (state.fullContent.trim()) {
-      state.messageEl.classList.add('message-incomplete');
-    } else {
-      state.messageEl.remove();
-    }
+  if (recovered) {
+    state.messageSuccessful = true;
   }
+  // If not recovered, the recovery module already handled showing error UI
 }
 
 /**
@@ -939,6 +891,9 @@ async function handleStreamDone(
     });
   }
 
+  // Clear any pending recovery since stream completed successfully
+  clearPendingRecovery(convId);
+
   state.messageSuccessful = true;
 }
 
@@ -956,7 +911,21 @@ async function sendStreamingMessage(
   const hasFiles = files && files.length > 0;
   const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
 
+  // Track if we set up recovery marking (for cleanup)
+  let visibilityListenerActive = false;
+
+  // Visibility change handler - marks stream for recovery when app goes to background
+  const handleVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden' && state.expectedAssistantMessageId) {
+      markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'visibility');
+    }
+  };
+
   try {
+    // Add visibility listener to mark for recovery on mobile background/lock
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    visibilityListenerActive = true;
+
     for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode)) {
       // Hide upload progress on first event
       if (hasFiles && !state.uploadProgressHidden) {
@@ -992,11 +961,27 @@ async function sendStreamingMessage(
       log.info('Stream aborted by user', { conversationId: convId });
       state.messageEl.remove();
       toast.info('Response stopped.');
+      // Clear any pending recovery since this was user-initiated
+      clearPendingRecovery(convId);
       return;
     }
 
     log.error('Streaming failed', { error, conversationId: convId });
 
+    // Attempt recovery for network/timeout errors if we have an expected message ID
+    if (state.expectedAssistantMessageId) {
+      const reason = (error instanceof ApiError && error.isTimeout) ? 'timeout' : 'network';
+      markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, reason);
+
+      // Attempt recovery immediately for non-visibility errors
+      const recovered = await attemptRecovery(convId);
+      if (recovered) {
+        // Recovery succeeded - don't show error or throw
+        return;
+      }
+    }
+
+    // Recovery failed or not possible - show error state
     if (state.fullContent.trim()) {
       state.messageEl.classList.add('message-incomplete');
     } else {
@@ -1008,6 +993,10 @@ async function sendStreamingMessage(
       throw error;
     }
   } finally {
+    // Clean up visibility listener
+    if (visibilityListenerActive) {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
     cleanupStreamingRequest(requestId, convId, state.messageSuccessful);
   }
 }

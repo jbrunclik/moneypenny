@@ -18,6 +18,7 @@ import {
   SYNC_POLL_INTERVAL_MS,
   SYNC_FULL_SYNC_THRESHOLD_MS,
 } from '../config';
+import { hasPendingRecovery, attemptRecovery } from '../core/stream-recovery';
 import type { ConversationSummary } from '../types/api';
 
 const log = createLogger('sync');
@@ -577,7 +578,7 @@ export class SyncManager {
   /**
    * Handle tab visibility changes.
    */
-  private handleVisibilityChange(): void {
+  private async handleVisibilityChange(): Promise<void> {
     const wasHidden = !this.isVisible;
     this.isVisible = document.visibilityState === 'visible';
 
@@ -592,6 +593,17 @@ export class SyncManager {
         : 0;
 
       log.debug('Tab visible', { hiddenDurationMs: hiddenDuration });
+
+      // Check for pending stream recovery FIRST (before sync)
+      // This ensures the user sees the recovered message immediately
+      const streamingConvId = useStore.getState().streamingConversationId;
+      if (streamingConvId && hasPendingRecovery(streamingConvId)) {
+        log.info('Attempting stream recovery on visibility change', {
+          conversationId: streamingConvId,
+          hiddenDuration,
+        });
+        await attemptRecovery(streamingConvId);
+      }
 
       // Full sync if hidden for >5 minutes (for delete detection)
       if (hiddenDuration > SYNC_FULL_SYNC_THRESHOLD_MS) {

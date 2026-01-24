@@ -380,17 +380,11 @@ def cleanup_and_save(
         # Timeout ensures we still save if generator gets stuck or client disconnects early
         generator_finished = generator_done_event.wait(timeout=Config.STREAM_CLEANUP_WAIT_DELAY)
 
-        if generator_finished:
-            # Generator finished - it either saved or decided not to (no content, etc.)
-            # No need for cleanup thread to do anything
-            logger.debug(
-                "Generator completed save attempt, cleanup thread not needed",
-                extra={"user_id": user_id, "conversation_id": conv_id},
-            )
-            return
-
-        # Generator didn't finish in time (likely client disconnected before it could)
         # Use lock to prevent race condition with generator's save
+        # NOTE: We must check saved status even if generator_finished is True, because
+        # GeneratorExit (raised when client disconnects) can kill the generator before
+        # it reaches _finalize_stream. The finally block sets generator_done_event, but
+        # the save never happened. This commonly occurs on mobile when the screen locks.
         with save_lock:
             # Only save if:
             # 1. Final results are ready (stream completed successfully)
@@ -398,13 +392,31 @@ def cleanup_and_save(
             # 3. There's actual content to save (don't save empty messages)
             clean_content = final_results.get("clean_content", "")
             if final_results["ready"] and not final_results["saved"] and clean_content:
-                logger.info(
-                    "Generator stopped early (client disconnected), saving message in cleanup thread",
-                    extra={"user_id": user_id, "conversation_id": conv_id},
-                )
+                if generator_finished:
+                    logger.info(
+                        "Generator exited without saving (likely GeneratorExit from client disconnect), "
+                        "saving message in cleanup thread",
+                        extra={"user_id": user_id, "conversation_id": conv_id},
+                    )
+                else:
+                    logger.info(
+                        "Generator stopped early (client disconnected), saving message in cleanup thread",
+                        extra={"user_id": user_id, "conversation_id": conv_id},
+                    )
                 # Save the message and mark as saved
                 save_func()
                 final_results["saved"] = True
+            elif generator_finished:
+                logger.debug(
+                    "Generator completed, cleanup thread not needed",
+                    extra={
+                        "user_id": user_id,
+                        "conversation_id": conv_id,
+                        "ready": final_results["ready"],
+                        "saved": final_results["saved"],
+                        "has_content": bool(clean_content),
+                    },
+                )
     except Exception as e:
         logger.error(
             "Error in cleanup thread",
