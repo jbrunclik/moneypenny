@@ -31,6 +31,12 @@ import { createDashboardElement, createDashboardLoadingElement } from '../compon
 import { PLANNER_DASHBOARD_CACHE_MS } from '../config';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
 
+import {
+  ensureInputAreaVisible,
+  focusMessageInput,
+  shouldAutoFocusInput,
+} from '../components/MessageInput';
+
 import { sendMessage } from './messaging';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
@@ -71,6 +77,12 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
 
   // Update state
   store.setIsPlannerView(true);
+
+  // If coming from agents view, unhide the input area (agents view hides it)
+  if (store.isAgentsView) {
+    ensureInputAreaVisible();
+  }
+
   store.setIsAgentsView(false); // Ensure agents view is off
   setActiveConversation(null);
   setPlannerActive(true);
@@ -179,6 +191,11 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
     if (convResponse.messages.length === 0) {
       await triggerProactiveAnalysis(convResponse);
     }
+
+    // Focus input after successful render (respects iOS auto-focus preferences)
+    if (shouldAutoFocusInput()) {
+      focusMessageInput();
+    }
   } catch (error) {
     log.error('Failed to load planner', { error });
     // Show error in the dashboard area
@@ -276,6 +293,12 @@ export function leavePlannerView(): void {
         <p>Start a conversation with Gemini AI</p>
       </div>
     `;
+  }
+
+  // Ensure input area is visible and focus input after leaving planner
+  ensureInputAreaVisible();
+  if (shouldAutoFocusInput()) {
+    focusMessageInput();
   }
 }
 

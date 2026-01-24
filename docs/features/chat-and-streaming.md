@@ -111,6 +111,51 @@ If not found: Show incomplete indicator (message may not have been saved)
 - **Reliable done event**: `_finalize_stream` fetches by known ID instead of "last message"
 - **Audit trails**: Message lifecycle can be tracked from stream start to completion
 
+### Generator vs Cleanup Thread Synchronization
+
+The streaming architecture has two paths that can save the assistant message:
+1. **Generator path**: The main streaming generator calls `_finalize_stream()` when complete
+2. **Cleanup thread path**: A background thread waits for the stream and saves if needed
+
+This dual-path design ensures messages are saved even if the client disconnects, but creates a race
+condition where both paths might try to save the same message simultaneously.
+
+**Synchronization mechanism:**
+
+```python
+# In _StreamContext
+save_lock = threading.Lock()           # Atomic check-then-save
+generator_done_event = threading.Event() # Signal from generator to cleanup
+final_results["saved"] = False         # Track if message was saved
+```
+
+**Why generator has priority:**
+- Generator can send the `done` SSE event to the client with the saved message
+- Cleanup thread can only save, not notify the client
+- If generator saves first, client gets proper confirmation
+
+**Flow:**
+
+```
+Generator thread                    Cleanup thread
+     |                                    |
+     |  (streaming tokens...)             |
+     |                                    | wait for stream thread
+     |  acquire save_lock                 |
+     |  save message                      |
+     |  set saved=True                    |
+     |  release save_lock                 |
+     |  set generator_done_event    -->   | event received
+     |  send done event to client         | return (no save needed)
+     |                                    |
+```
+
+**Timeout fallback:**
+If the generator hangs or crashes, the cleanup thread has a timeout
+(`STREAM_CLEANUP_WAIT_DELAY`) after which it will acquire the lock and save if `saved=False`.
+
+**Key file:** [chat_streaming.py](../../src/api/helpers/chat_streaming.py)
+
 ## Thinking Indicator
 
 During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.

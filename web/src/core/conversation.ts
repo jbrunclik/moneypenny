@@ -30,6 +30,7 @@ import {
 } from '../components/messages';
 import {
   focusMessageInput,
+  ensureInputAreaVisible,
   shouldAutoFocusInput,
 } from '../components/MessageInput';
 import { renderModelDropdown } from '../components/ModelSelector';
@@ -147,6 +148,11 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
 
   renderModelDropdown();
   closeSidebar();
+
+  // Ensure input area is visible (defensive fix for race conditions
+  // when navigating between agents/planner/conversation views)
+  ensureInputAreaVisible();
+
   if (shouldAutoFocusInput()) {
     focusMessageInput();
   }
@@ -361,6 +367,11 @@ export function createConversation(): void {
   renderMessages([]);
   renderModelDropdown();
   closeSidebar();
+
+  // Ensure input area is visible (defensive fix for race conditions
+  // when navigating between agents/planner/conversation views)
+  ensureInputAreaVisible();
+
   if (shouldAutoFocusInput()) {
     focusMessageInput();
   }

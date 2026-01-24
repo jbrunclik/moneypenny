@@ -403,6 +403,30 @@ When adding a new screen:
 This pattern automatically handles race conditions with all other screens
 without needing screen-specific flag checks.
 
+### Input Area Visibility During Navigation
+
+The agents view hides the input area (since it's not a chat). When navigating away from agents to
+other views, the input area must be restored. This is handled by `ensureInputAreaVisible()` in
+[MessageInput.ts](../../web/src/components/MessageInput.ts).
+
+**The bug scenario:**
+1. User is in agents view (input area hidden)
+2. User navigates to planner while it's loading
+3. Planner sets `isAgentsView = false` but the async fetch hasn't completed
+4. User navigates to a conversation before planner finishes
+5. Neither navigation restores the input area → input box invisible
+
+**The fix:**
+- `ensureInputAreaVisible()` is a defensive helper that removes `hidden` class from input area
+- Called in multiple places to ensure coverage regardless of navigation path:
+  - `navigateToPlanner()` - when coming from agents view
+  - `switchToConversation()` - defensive call for all conversation switches
+  - `createConversation()` - defensive call for new conversations
+  - `leaveAgentsView()` - primary restore point when leaving agents
+  - `leavePlannerView()` - ensures input visible after leaving planner
+
+**Regression tests:** [navigation-input-focus.test.ts](../../web/tests/unit/navigation-input-focus.test.ts)
+
 ## Future Enhancements
 
 - Agent conversation header showing status and run button

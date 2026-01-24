@@ -240,6 +240,22 @@ export function focusMessageInput(): void {
 }
 
 /**
+ * Ensure the input area is visible.
+ * This is a defensive function to recover from race conditions where the input
+ * might be hidden when navigating between views (e.g., agents -> planner -> chat).
+ */
+export function ensureInputAreaVisible(): void {
+  const inputArea = document.querySelector<HTMLDivElement>('.input-area');
+  if (inputArea) {
+    inputArea.classList.remove('hidden');
+  }
+  const scrollToBottomBtn = document.querySelector<HTMLButtonElement>('.scroll-to-bottom');
+  if (scrollToBottomBtn) {
+    scrollToBottomBtn.classList.remove('hidden');
+  }
+}
+
+/**
  * Update send button enabled state (only applies in send mode, not stop mode)
  */
 export function updateSendButtonState(): void {

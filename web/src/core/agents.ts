@@ -29,6 +29,11 @@ import {
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
 import { renderCommandCenter, renderCommandCenterLoading } from '../components/CommandCenter';
 import { initAgentEditor, showAgentEditor } from '../components/AgentEditor';
+import {
+  ensureInputAreaVisible,
+  focusMessageInput,
+  shouldAutoFocusInput,
+} from '../components/MessageInput';
 import type { Agent } from '../types/api';
 
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
@@ -361,14 +366,7 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
   setAgentsActive(false);
 
   // Show input area and scroll button (were hidden in agents view)
-  const inputArea = document.querySelector<HTMLDivElement>('.input-area');
-  if (inputArea) {
-    inputArea.classList.remove('hidden');
-  }
-  const scrollToBottomBtn = document.querySelector<HTMLButtonElement>('.scroll-to-bottom');
-  if (scrollToBottomBtn) {
-    scrollToBottomBtn.classList.remove('hidden');
-  }
+  ensureInputAreaVisible();
 
   // Update anonymous button state
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
@@ -400,6 +398,11 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
           <p>Start a conversation with Gemini AI</p>
         </div>
       `;
+    }
+
+    // Focus input after leaving agents view (respects iOS auto-focus preferences)
+    if (shouldAutoFocusInput()) {
+      focusMessageInput();
     }
   }
 }

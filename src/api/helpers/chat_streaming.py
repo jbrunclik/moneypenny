@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import queue
 import threading
-import time
 import uuid
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
@@ -342,15 +341,26 @@ def stream_events(
 def cleanup_and_save(
     stream_thread: threading.Thread,
     final_results: dict[str, Any],
+    save_lock: threading.Lock,
+    generator_done_event: threading.Event,
     conv_id: str,
     user_id: str,
     save_func: Callable[[], SaveResult | None],
 ) -> None:
     """Wait for stream thread to complete, then save message if generator stopped early.
 
+    This is a fallback mechanism - the generator path is preferred because it can
+    send the done event to the client. The cleanup thread only saves if the generator
+    didn't (e.g., because the client disconnected before the generator could save).
+
+    The cleanup thread waits for the generator to signal completion via an Event.
+    This ensures the generator always has priority over the cleanup thread.
+
     Args:
         stream_thread: Threading thread to wait for
-        final_results: Shared dict with final results
+        final_results: Shared dict with final results (includes "ready" and "saved" flags)
+        save_lock: Lock to prevent race condition with generator's save
+        generator_done_event: Event that generator sets when done with save attempt
         conv_id: Conversation ID
         user_id: User ID
         save_func: Function to call to save the message (no args, uses final_results)
@@ -365,22 +375,34 @@ def cleanup_and_save(
             )
             return
 
-        # Wait a bit for generator to process final tuple (if client still connected)
-        time.sleep(Config.STREAM_CLEANUP_WAIT_DELAY)
+        # Wait for generator to signal it's done with its save attempt
+        # This gives the generator priority - it can send the done event to the client
+        # Timeout ensures we still save if generator gets stuck or client disconnects early
+        generator_finished = generator_done_event.wait(timeout=Config.STREAM_CLEANUP_WAIT_DELAY)
 
-        # If final results are ready, save the message (generator may have stopped early)
-        # We check if message was already saved by trying to get the last message
-        # If it's the user message we just added, then assistant message wasn't saved yet
-        if final_results["ready"]:
-            messages = db.get_messages(conv_id)
-            # Check if last message is assistant (meaning it was already saved by generator)
-            if not messages or messages[-1].role != MessageRole.ASSISTANT:
+        if generator_finished:
+            # Generator finished - it either saved or decided not to (no content, etc.)
+            # No need for cleanup thread to do anything
+            logger.debug(
+                "Generator completed save attempt, cleanup thread not needed",
+                extra={"user_id": user_id, "conversation_id": conv_id},
+            )
+            return
+
+        # Generator didn't finish in time (likely client disconnected before it could)
+        # Use lock to prevent race condition with generator's save
+        with save_lock:
+            # Only save if:
+            # 1. Final results are ready (stream completed successfully)
+            # 2. Message hasn't been saved yet (generator didn't save)
+            if final_results["ready"] and not final_results["saved"]:
                 logger.info(
                     "Generator stopped early (client disconnected), saving message in cleanup thread",
                     extra={"user_id": user_id, "conversation_id": conv_id},
                 )
-                # Save the message using final results
+                # Save the message and mark as saved
                 save_func()
+                final_results["saved"] = True
     except Exception as e:
         logger.error(
             "Error in cleanup thread",
@@ -469,6 +491,9 @@ def create_stream_generator(
         finally:
             # Clean up agent context if this was an agent conversation
             context.cleanup_agent_context()
+            # Signal that generator is done with its save attempt
+            # This allows cleanup thread to proceed (or skip if we already saved)
+            context.generator_done_event.set()
 
     return generate()
 
@@ -516,7 +541,15 @@ class _StreamContext:
 
         # Threading
         self.event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
-        self.final_results: dict[str, Any] = {"ready": False}
+        # final_results is shared between generator and cleanup thread:
+        # - "ready": True when stream completed and results are available
+        # - "saved": True when message has been saved (prevents duplicate saves)
+        self.final_results: dict[str, Any] = {"ready": False, "saved": False}
+        # Lock to prevent race condition between generator and cleanup thread saves
+        self.save_lock = threading.Lock()
+        # Event that generator sets when it has finished its save attempt (or decided not to save)
+        # Cleanup thread waits on this to give generator priority
+        self.generator_done_event = threading.Event()
         self.stream_thread: threading.Thread | None = None
         self.cleanup_thread: threading.Thread | None = None
         self.dashboard_data: dict[str, Any] | None = None
@@ -639,6 +672,8 @@ class _StreamContext:
             args=(
                 self.stream_thread,
                 self.final_results,
+                self.save_lock,
+                self.generator_done_event,
                 self.conv_id,
                 self.user_id,
                 lambda: save_message_to_db(
@@ -788,21 +823,55 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
         yield from _finalize_approval_stream(context)
         return
 
-    save_result = save_message_to_db(
-        context.clean_content,
-        context.metadata,
-        context.tool_results,
-        context.usage_info,
-        context.conv_id,
-        context.user_id,
-        context.stream_user_id,
-        context.conv.model,
-        context.message_text,
-        context.stream_request_id,
-        context.anonymous_mode,
-        context.client_connected,
-        context.expected_assistant_msg_id,
-    )
+    # Use lock to prevent race condition with cleanup thread's save
+    # The lock ensures check-then-save is atomic
+    with context.save_lock:
+        # Check if cleanup thread already saved (shouldn't happen but be defensive)
+        if context.final_results["saved"]:
+            logger.debug(
+                "Message already saved by cleanup thread, skipping generator save",
+                extra={
+                    "user_id": context.user_id,
+                    "conversation_id": context.conv_id,
+                },
+            )
+            # Fetch the message to build done event
+            assistant_msg = db.get_message_by_id(context.expected_assistant_msg_id)
+            if assistant_msg:
+                done_data = build_stream_done_event(
+                    assistant_msg,
+                    assistant_msg.files or [],
+                    assistant_msg.sources or [],
+                    assistant_msg.generated_images or [],
+                    conversation_title=None,
+                    user_message_id=context.user_msg.id,
+                    language=assistant_msg.language,
+                )
+                try:
+                    yield f"data: {json.dumps(done_data)}\n\n"
+                except (BrokenPipeError, ConnectionError, OSError):
+                    pass
+            return
+
+        save_result = save_message_to_db(
+            context.clean_content,
+            context.metadata,
+            context.tool_results,
+            context.usage_info,
+            context.conv_id,
+            context.user_id,
+            context.stream_user_id,
+            context.conv.model,
+            context.message_text,
+            context.stream_request_id,
+            context.anonymous_mode,
+            context.client_connected,
+            context.expected_assistant_msg_id,
+        )
+
+        # Mark as saved so cleanup thread knows not to save again
+        if save_result:
+            context.final_results["saved"] = True
 
     # Skip done event if no content or save failed (nothing to finalize)
     if not context.clean_content or not save_result:
