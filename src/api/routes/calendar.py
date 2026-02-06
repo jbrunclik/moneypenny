@@ -59,7 +59,7 @@ def _is_google_calendar_configured() -> bool:
 def _compute_calendar_expiry(expires_in: Any) -> datetime:
     try:
         seconds = int(expires_in)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         seconds = 3600
     # Subtract one minute to refresh proactively
     seconds = max(60, seconds - 60)

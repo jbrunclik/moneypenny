@@ -169,7 +169,7 @@ def _parse_tool_result_json(msg: dict[str, Any]) -> dict[str, Any] | None:
         tool_result = json.loads(content)
         if isinstance(tool_result, dict):
             return tool_result
-    except json.JSONDecodeError, TypeError:
+    except (json.JSONDecodeError, TypeError):
         pass
 
     return None

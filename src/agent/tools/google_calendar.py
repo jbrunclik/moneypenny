@@ -58,7 +58,7 @@ def _get_google_calendar_access_token() -> tuple[str, str | None] | None:
             expires_in = refreshed.get("expires_in", 3600)
             try:
                 expires_in_int = int(expires_in)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 expires_in_int = 3600
             expires_delta = max(60, expires_in_int - 60)
             new_expires = datetime.now() + timedelta(seconds=expires_delta)
