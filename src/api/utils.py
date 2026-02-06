@@ -448,7 +448,7 @@ def calculate_image_generation_cost_from_tool_results(
 
         try:
             content_data = json.loads(content) if isinstance(content, str) else {}
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             continue
 
         # Check if this is a generate_image result with usage_metadata

@@ -8,14 +8,14 @@ Uses APIFlask's HTTPError for idiomatic error handling. Custom error classes
 inherit from HTTPError and are properly documented in the OpenAPI spec.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any, NoReturn
 
 from apiflask import HTTPError
 from pydantic import BaseModel
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     """Error codes for API responses.
 
     These codes provide semantic meaning for frontend error handling:

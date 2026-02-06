@@ -167,6 +167,14 @@ def _generate_thumbnail_task(
         except Exception:
             # Message might have been deleted, ignore
             pass
+    finally:
+        # Close thread-local DB connections so the pool doesn't leak them
+        try:
+            from src.db.models import db
+
+            db._pool.close_thread_connection()
+        except Exception:
+            pass
 
 
 def mark_files_for_thumbnail_generation(files: list[dict[str, Any]]) -> list[dict[str, Any]]:

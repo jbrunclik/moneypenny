@@ -46,6 +46,24 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _close_thread_db_connections() -> None:
+    """Close DB pool connections for the current thread.
+
+    Called when a short-lived background thread is about to exit so the
+    ConnectionPool doesn't keep a reference to the connection forever.
+    """
+    try:
+        db._pool.close_thread_connection()
+    except Exception:
+        pass
+    try:
+        from src.db.blob_store import get_blob_store
+
+        get_blob_store()._pool.close_thread_connection()
+    except Exception:
+        pass
+
+
 class SaveResult:
     """Result from save_message_to_db with extracted data for done event."""
 
@@ -336,6 +354,9 @@ def stream_events(
             exc_info=True,
         )
         event_queue.put(e)  # Signal error
+    finally:
+        # Close thread-local DB connections so the pool doesn't leak them
+        _close_thread_db_connections()
 
 
 def cleanup_and_save(
@@ -427,6 +448,9 @@ def cleanup_and_save(
             },
             exc_info=True,
         )
+    finally:
+        # Close thread-local DB connections so the pool doesn't leak them
+        _close_thread_db_connections()
 
 
 # ============================================================================
@@ -737,7 +761,7 @@ def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
             "expected_assistant_message_id": context.expected_assistant_msg_id,
         }
         yield f"data: {json.dumps(event_data)}\n\n"
-    except (BrokenPipeError, ConnectionError, OSError):
+    except BrokenPipeError, ConnectionError, OSError:
         pass
 
 
@@ -764,7 +788,7 @@ def _handle_queue_error(context: _StreamContext, error: Exception) -> Generator[
     error_data = _build_error_data(error)
     try:
         yield f"data: {json.dumps(error_data)}\n\n"
-    except (BrokenPipeError, ConnectionError, OSError):
+    except BrokenPipeError, ConnectionError, OSError:
         pass
 
 
@@ -863,7 +887,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                 )
                 try:
                     yield f"data: {json.dumps(done_data)}\n\n"
-                except (BrokenPipeError, ConnectionError, OSError):
+                except BrokenPipeError, ConnectionError, OSError:
                     pass
             return
 

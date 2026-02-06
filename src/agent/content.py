@@ -209,7 +209,7 @@ def _extract_html_comment_metadata(content: str) -> tuple[str, dict[str, Any]]:
         after = content[match.end() :].lstrip()
         clean_content = f"{before}\n\n{after}".strip() if after else before
         return clean_content, metadata
-    except (json.JSONDecodeError, AttributeError):
+    except json.JSONDecodeError, AttributeError:
         return content, {}
 
 
@@ -276,7 +276,7 @@ def _extract_incomplete_metadata(content: str) -> tuple[str, dict[str, Any]]:
             clean_content = before
 
         return clean_content, metadata
-    except (json.JSONDecodeError, AttributeError):
+    except json.JSONDecodeError, AttributeError:
         # Even if JSON is invalid, strip the incomplete block to prevent rendering issues
         clean_content = content[: match.start()].rstrip()
         return clean_content, {}
@@ -303,7 +303,7 @@ def _extract_plain_json_metadata(content: str) -> tuple[str, dict[str, Any]]:
                 parsed = json.loads(content[last_brace:end_pos])
                 if "sources" in parsed or "generated_images" in parsed:
                     return content[:last_brace].rstrip(), parsed
-            except (json.JSONDecodeError, ValueError):
+            except json.JSONDecodeError, ValueError:
                 pass
 
         search_start = last_brace
@@ -372,5 +372,5 @@ def strip_full_result_from_tool_content(content: str) -> str:
             data_for_llm = {k: v for k, v in data.items() if k != "_full_result"}
             return json.dumps(data_for_llm)
         return content
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return content

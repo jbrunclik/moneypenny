@@ -17,6 +17,7 @@ Usage:
 
 import sqlite3
 import threading
+import weakref
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -55,6 +56,51 @@ class ConnectionPool:
             "Connection pool created",
             extra={"db_path": str(self.db_path)},
         )
+
+    @staticmethod
+    def _release_connection(
+        lock: threading.Lock,
+        connections: dict[int, sqlite3.Connection],
+        thread_id: int,
+    ) -> None:
+        """Release a connection when its owning thread is garbage-collected.
+
+        This is called by weakref.finalize when the Thread object is GC'd,
+        providing automatic cleanup for short-lived threads. Uses only the
+        arguments passed at registration time (no reference to self, which
+        would prevent GC of the pool itself).
+        """
+        with lock:
+            conn = connections.pop(thread_id, None)
+        if conn is not None:
+            try:
+                conn.close()
+            except sqlite3.Error:
+                pass
+
+    def _reap_dead_threads(self) -> None:
+        """Close connections for threads that no longer exist.
+
+        Must be called with self._lock held. Acts as a fallback for cases
+        where weakref.finalize hasn't fired yet (e.g. Thread objects still
+        referenced elsewhere).
+        """
+        alive_thread_ids = {t.ident for t in threading.enumerate()}
+        dead_thread_ids = [tid for tid in self._connections if tid not in alive_thread_ids]
+        for tid in dead_thread_ids:
+            conn = self._connections.pop(tid)
+            try:
+                conn.close()
+            except sqlite3.Error:
+                pass
+        if dead_thread_ids:
+            logger.debug(
+                "Reaped dead thread connections",
+                extra={
+                    "dead_count": len(dead_thread_ids),
+                    "remaining": len(self._connections),
+                },
+            )
 
     def _create_connection(self) -> sqlite3.Connection:
         """Create a new connection with standard settings."""
@@ -99,7 +145,21 @@ class ConnectionPool:
         self._local.connection = conn
 
         with self._lock:
+            # Reap connections from threads that have exited before adding new one
+            self._reap_dead_threads()
             self._connections[thread_id] = conn
+
+        # Register a weak-reference callback so the connection is automatically
+        # closed when the Thread object is garbage-collected (i.e. after the
+        # thread exits and nothing else holds a reference to it).
+        current_thread = threading.current_thread()
+        weakref.finalize(
+            current_thread,
+            ConnectionPool._release_connection,
+            self._lock,
+            self._connections,
+            thread_id,
+        )
 
         logger.debug(
             "Created new thread connection",

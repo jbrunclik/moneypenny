@@ -11,7 +11,7 @@ validates the structure.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -23,14 +23,14 @@ from src.config import Config
 # -----------------------------------------------------------------------------
 
 
-class MessageRole(str, Enum):
+class MessageRole(StrEnum):
     """Role of a message sender."""
 
     USER = "user"
     ASSISTANT = "assistant"
 
 
-class ThumbnailStatus(str, Enum):
+class ThumbnailStatus(StrEnum):
     """Status of thumbnail generation."""
 
     PENDING = "pending"
@@ -38,7 +38,7 @@ class ThumbnailStatus(str, Enum):
     FAILED = "failed"
 
 
-class PaginationDirection(str, Enum):
+class PaginationDirection(StrEnum):
     """Direction for cursor-based pagination.
 
     Used when fetching paginated results relative to a cursor position.
@@ -920,7 +920,7 @@ class PlannerSyncResponse(BaseModel):
 # -----------------------------------------------------------------------------
 
 
-class AgentStatus(str, Enum):
+class AgentStatus(StrEnum):
     """Status of an agent execution."""
 
     RUNNING = "running"
@@ -929,7 +929,7 @@ class AgentStatus(str, Enum):
     WAITING_APPROVAL = "waiting_approval"
 
 
-class AgentTriggerType(str, Enum):
+class AgentTriggerType(StrEnum):
     """How an agent execution was triggered."""
 
     SCHEDULED = "scheduled"
@@ -937,7 +937,7 @@ class AgentTriggerType(str, Enum):
     AGENT_TRIGGER = "agent_trigger"
 
 
-class ApprovalStatus(str, Enum):
+class ApprovalStatus(StrEnum):
     """Status of an approval request."""
 
     PENDING = "pending"

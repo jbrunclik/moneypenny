@@ -210,7 +210,7 @@ def get_weather_for_location(
                 extra={"location": location},
             )
             return None
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         logger.warning("Invalid location format", extra={"location": location})
         return None
 

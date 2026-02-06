@@ -154,7 +154,7 @@ class ChatAgent:
                             "text": f"\n--- Content of {file_name} ---\n{decoded}\n--- End of {file_name} ---\n",
                         }
                     )
-                except (binascii.Error, UnicodeDecodeError):
+                except binascii.Error, UnicodeDecodeError:
                     # If decoding fails (invalid base64 or non-UTF-8), skip the file
                     pass
 

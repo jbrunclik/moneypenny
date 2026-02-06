@@ -15,6 +15,20 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+def _close_thread_pool_connections(db: Any = None) -> None:
+    """Close DB pool connections for the current thread.
+
+    Called in finally blocks of ThreadPoolExecutor workers so that the
+    ConnectionPool doesn't keep a reference to the connection after the
+    worker thread exits.
+    """
+    if db is not None:
+        try:
+            db._pool.close_thread_connection()
+        except Exception:
+            pass
+
+
 @dataclass
 class PlannerTask:
     """A task from Todoist for the planner dashboard."""
@@ -656,43 +670,49 @@ def build_planner_dashboard(
 
     def fetch_calendar_if_available() -> tuple[list[PlannerEvent], str | None]:
         """Fetch Google Calendar data if token available."""
-        if calendar_token:
-            # Get user's selected calendar IDs
-            selected_calendar_ids = ["primary"]  # Default
-            if user_id and db:
-                try:
-                    current_user = db.get_user_by_id(user_id)
-                    if current_user and current_user.google_calendar_selected_ids:
-                        selected_calendar_ids = current_user.google_calendar_selected_ids
-                except Exception as e:
-                    logger.warning(
-                        "Failed to get user calendar selection, using primary",
-                        extra={"user_id": user_id, "error": str(e)},
-                    )
+        try:
+            if calendar_token:
+                # Get user's selected calendar IDs
+                selected_calendar_ids = ["primary"]  # Default
+                if user_id and db:
+                    try:
+                        current_user = db.get_user_by_id(user_id)
+                        if current_user and current_user.google_calendar_selected_ids:
+                            selected_calendar_ids = current_user.google_calendar_selected_ids
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to get user calendar selection, using primary",
+                            extra={"user_id": user_id, "error": str(e)},
+                        )
 
-            return fetch_calendar_dashboard_data(calendar_token, selected_calendar_ids)
-        return [], None
+                return fetch_calendar_dashboard_data(calendar_token, selected_calendar_ids)
+            return [], None
+        finally:
+            _close_thread_pool_connections(db)
 
     def fetch_weather_if_available() -> tuple[Any | None, str | None]:
         """Fetch weather data if location configured."""
-        if Config.WEATHER_LOCATION:
-            try:
-                from src.utils.weather import get_weather_for_location
+        try:
+            if Config.WEATHER_LOCATION:
+                try:
+                    from src.utils.weather import get_weather_for_location
 
-                forecast = get_weather_for_location(
-                    Config.WEATHER_LOCATION,
-                    db=db,
-                    force_refresh=force_refresh,
-                )
-                return forecast, None
-            except Exception as e:
-                logger.error(
-                    "Failed to fetch weather for planner",
-                    extra={"error": str(e), "location": Config.WEATHER_LOCATION},
-                    exc_info=True,
-                )
-                return None, f"Weather error: {e}"
-        return None, None
+                    forecast = get_weather_for_location(
+                        Config.WEATHER_LOCATION,
+                        db=db,
+                        force_refresh=force_refresh,
+                    )
+                    return forecast, None
+                except Exception as e:
+                    logger.error(
+                        "Failed to fetch weather for planner",
+                        extra={"error": str(e), "location": Config.WEATHER_LOCATION},
+                        exc_info=True,
+                    )
+                    return None, f"Weather error: {e}"
+            return None, None
+        finally:
+            _close_thread_pool_connections(db)
 
     # Fetch all resources in parallel
     with ThreadPoolExecutor(max_workers=3) as executor:
