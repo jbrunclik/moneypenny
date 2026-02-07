@@ -2,7 +2,10 @@
 
 from src.agent.content import (
     clean_tool_call_json,
-    extract_metadata_from_response,
+    detect_response_language,
+    extract_image_prompts_from_messages,
+    extract_metadata_tool_args,
+    extract_sources_fallback_from_tool_results,
     extract_text_content,
     extract_thinking_and_text,
     strip_full_result_from_tool_content,
@@ -252,165 +255,294 @@ class TestExtractThinkingAndText:
         assert text == "Response."
 
 
-class TestExtractMetadataFromResponse:
-    """Tests for extract_metadata_from_response function."""
+class TestDetectResponseLanguage:
+    """Tests for detect_response_language function."""
 
-    def test_html_comment_format(self) -> None:
-        """Should extract metadata from HTML comment format."""
-        response = """Here is my response.
+    def test_detects_english(self) -> None:
+        """Should detect English text."""
+        result = detect_response_language("Hello, this is a test response in English.")
+        assert result == "en"
 
-<!-- METADATA:
-{"sources": [{"title": "Test", "url": "https://example.com"}]}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_detects_czech(self) -> None:
+        """Should detect Czech text."""
+        result = detect_response_language("Ahoj, toto je testovací odpověď v češtině.")
+        assert result == "cs"
 
-        assert clean == "Here is my response."
-        assert "sources" in metadata
-        assert len(metadata["sources"]) == 1
-        assert metadata["sources"][0]["title"] == "Test"
+    def test_returns_none_for_short_text(self) -> None:
+        """Should return None for text shorter than 10 chars."""
+        assert detect_response_language("Hi") is None
+        assert detect_response_language("") is None
 
-    def test_plain_json_format(self) -> None:
-        """Should extract metadata from plain JSON at end."""
-        response = """Response text.
+    def test_returns_none_for_empty_text(self) -> None:
+        """Should return None for None-like inputs."""
+        assert detect_response_language("") is None
 
-{"sources": [{"title": "Test", "url": "https://example.com"}]}"""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_normalizes_to_two_char_code(self) -> None:
+        """Should return 2-char ISO 639-1 code."""
+        result = detect_response_language(
+            "This is a longer English sentence for language detection."
+        )
+        assert result is not None
+        assert len(result) == 2
 
-        assert clean == "Response text."
-        assert "sources" in metadata
 
-    def test_no_metadata(self) -> None:
-        """Response without metadata should return empty dict."""
-        response = "Just plain text response."
-        clean, metadata = extract_metadata_from_response(response)
+class TestExtractImagePromptsFromMessages:
+    """Tests for extract_image_prompts_from_messages function."""
 
-        assert clean == "Just plain text response."
-        assert metadata == {}
+    def test_extracts_from_generate_image_tool_call(self) -> None:
+        """Should extract prompts from generate_image tool calls."""
+        from langchain_core.messages import AIMessage
 
-    def test_generated_images_metadata(self) -> None:
-        """Should extract generated_images metadata."""
-        response = """Image generated!
+        messages = [
+            AIMessage(
+                content="Here's the image.",
+                tool_calls=[
+                    {
+                        "name": "generate_image",
+                        "args": {"prompt": "a sunset over mountains"},
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        result = extract_image_prompts_from_messages(messages)
+        assert len(result) == 1
+        assert result[0]["prompt"] == "a sunset over mountains"
 
-<!-- METADATA:
-{"generated_images": [{"prompt": "A sunset over mountains"}]}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_ignores_non_image_tool_calls(self) -> None:
+        """Should ignore non-generate_image tool calls."""
+        from langchain_core.messages import AIMessage
 
-        assert "generated_images" in metadata
-        assert metadata["generated_images"][0]["prompt"] == "A sunset over mountains"
+        messages = [
+            AIMessage(
+                content="Here's what I found.",
+                tool_calls=[{"name": "web_search", "args": {"query": "test"}, "id": "1"}],
+            )
+        ]
+        result = extract_image_prompts_from_messages(messages)
+        assert result == []
 
-    def test_both_sources_and_images(self) -> None:
-        """Should extract both sources and generated_images."""
-        response = """Here's what I found and created.
+    def test_empty_messages(self) -> None:
+        """Should return empty list for no messages."""
+        assert extract_image_prompts_from_messages([]) == []
 
-<!-- METADATA:
-{"sources": [{"title": "Wiki", "url": "https://wiki.org"}], "generated_images": [{"prompt": "test"}]}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_multiple_images(self) -> None:
+        """Should extract prompts from multiple generate_image calls."""
+        from langchain_core.messages import AIMessage
 
-        assert "sources" in metadata
-        assert "generated_images" in metadata
+        messages = [
+            AIMessage(
+                content="First image",
+                tool_calls=[{"name": "generate_image", "args": {"prompt": "a cat"}, "id": "1"}],
+            ),
+            AIMessage(
+                content="Second image",
+                tool_calls=[{"name": "generate_image", "args": {"prompt": "a dog"}, "id": "2"}],
+            ),
+        ]
+        result = extract_image_prompts_from_messages(messages)
+        assert len(result) == 2
+        assert result[0]["prompt"] == "a cat"
+        assert result[1]["prompt"] == "a dog"
 
-    def test_malformed_json_in_html_comment(self) -> None:
-        """Malformed JSON in HTML comment should result in empty metadata."""
-        response = """Response text.
 
-<!-- METADATA:
-{invalid json here}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+class TestExtractMetadataToolArgs:
+    """Tests for extract_metadata_tool_args function."""
 
-        # Should fall through to plain JSON search (which also fails)
-        assert "Response text" in clean
-        assert metadata == {}
+    def test_extracts_sources_from_cite_sources(self) -> None:
+        """Should extract sources from cite_sources tool call."""
+        from langchain_core.messages import AIMessage
 
-    def test_strips_trailing_whitespace(self) -> None:
-        """Should strip trailing whitespace from cleaned content."""
-        response = """Response with trailing space
+        messages = [
+            AIMessage(
+                content="Here's what I found.",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {
+                            "sources": [
+                                {"title": "Example", "url": "https://example.com"},
+                                {"title": "Test", "url": "https://test.com"},
+                            ]
+                        },
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        sources, memory_ops = extract_metadata_tool_args(messages)
+        assert len(sources) == 2
+        assert sources[0]["title"] == "Example"
+        assert sources[1]["url"] == "https://test.com"
+        assert memory_ops == []
 
-<!-- METADATA:
-{"sources": []}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_extracts_memory_ops_from_manage_memory(self) -> None:
+        """Should extract memory operations from manage_memory tool call."""
+        from langchain_core.messages import AIMessage
 
-        assert not clean.endswith(" ")
-        assert clean == "Response with trailing space"
+        messages = [
+            AIMessage(
+                content="I'll remember that.",
+                tool_calls=[
+                    {
+                        "name": "manage_memory",
+                        "args": {
+                            "operations": [
+                                {
+                                    "action": "add",
+                                    "content": "User likes pizza",
+                                    "category": "preference",
+                                }
+                            ]
+                        },
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        sources, memory_ops = extract_metadata_tool_args(messages)
+        assert sources == []
+        assert len(memory_ops) == 1
+        assert memory_ops[0]["action"] == "add"
+        assert memory_ops[0]["content"] == "User likes pizza"
 
-    def test_metadata_in_middle_of_response(self) -> None:
-        """Should extract metadata and preserve content both before AND after."""
-        response = """Here is some content before.
+    def test_extracts_both_sources_and_memory(self) -> None:
+        """Should extract both sources and memory operations."""
+        from langchain_core.messages import AIMessage
 
-<!-- METADATA:
-{"language": "en", "sources": [{"title": "Test", "url": "https://example.com"}]}
--->
+        messages = [
+            AIMessage(
+                content="Here's the answer.",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {"sources": [{"title": "Wiki", "url": "https://wiki.org"}]},
+                        "id": "1",
+                    },
+                    {
+                        "name": "manage_memory",
+                        "args": {"operations": [{"action": "add", "content": "fact"}]},
+                        "id": "2",
+                    },
+                ],
+            )
+        ]
+        sources, memory_ops = extract_metadata_tool_args(messages)
+        assert len(sources) == 1
+        assert len(memory_ops) == 1
 
-And here is content after the metadata block."""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_no_metadata_tools(self) -> None:
+        """Should return empty lists when no metadata tools are called."""
+        from langchain_core.messages import AIMessage
 
-        assert "Here is some content before" in clean
-        assert "And here is content after" in clean
-        assert "METADATA" not in clean
-        assert metadata["language"] == "en"
-        assert len(metadata["sources"]) == 1
+        messages = [
+            AIMessage(
+                content="Just a response.",
+                tool_calls=[],
+            )
+        ]
+        sources, memory_ops = extract_metadata_tool_args(messages)
+        assert sources == []
+        assert memory_ops == []
 
-    def test_metadata_at_very_start(self) -> None:
-        """Should handle metadata at the very start of response."""
-        response = """<!-- METADATA:
-{"language": "en"}
--->
-The actual response content."""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_empty_messages(self) -> None:
+        """Should return empty lists for empty messages."""
+        sources, memory_ops = extract_metadata_tool_args([])
+        assert sources == []
+        assert memory_ops == []
 
-        assert clean == "The actual response content."
-        assert metadata["language"] == "en"
+    def test_skips_invalid_sources(self) -> None:
+        """Should skip source dicts that are missing title or url."""
+        from langchain_core.messages import AIMessage
 
-    def test_msg_context_is_not_extracted_as_metadata(self) -> None:
-        """MSG_CONTEXT blocks should NOT be extracted as response metadata.
+        messages = [
+            AIMessage(
+                content="Response",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {
+                            "sources": [
+                                {"title": "Valid", "url": "https://valid.com"},
+                                {"title": "Missing URL"},  # No url
+                                {"url": "https://no-title.com"},  # No title
+                            ]
+                        },
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        sources, _ = extract_metadata_tool_args(messages)
+        assert len(sources) == 1
+        assert sources[0]["title"] == "Valid"
 
-        MSG_CONTEXT is for history context and uses a different marker.
-        If echoed, it should be ignored, not extracted as metadata.
-        """
-        # Note: extract_metadata_from_response only looks for METADATA, not MSG_CONTEXT
-        response = """<!-- MSG_CONTEXT: {"timestamp":"2024-01-01"} -->
-Hello, this is the response.
 
-<!-- METADATA:
-{"language": "en"}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+class TestExtractSourcesFallbackFromToolResults:
+    """Tests for extract_sources_fallback_from_tool_results function."""
 
-        # MSG_CONTEXT should remain in clean content (extract_metadata only handles METADATA)
-        # The streaming logic in agent.py handles stripping MSG_CONTEXT separately
-        assert "language" in metadata
-        assert metadata["language"] == "en"
-        # MSG_CONTEXT is NOT extracted as metadata
-        assert "timestamp" not in metadata
+    def test_extracts_from_web_search_list_results(self) -> None:
+        """Should extract sources from web_search tool results (list format)."""
+        import json
 
-    def test_malformed_metadata_at_start_stripped(self) -> None:
-        """Malformed METADATA at start (no closing -->) should be stripped.
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    [
+                        {"title": "Result 1", "href": "https://example.com/1", "body": "..."},
+                        {"title": "Result 2", "href": "https://example.com/2", "body": "..."},
+                    ]
+                ),
+            }
+        ]
+        sources = extract_sources_fallback_from_tool_results(tool_results)
+        assert len(sources) == 2
+        assert sources[0]["title"] == "Result 1"
+        assert sources[0]["url"] == "https://example.com/1"
 
-        Regression test: When LLM outputs METADATA immediately after MSG_CONTEXT
-        without proper formatting (no newlines, no closing -->), the <!-- METADATA: {...}
-        prefix would cause the browser to treat everything as an HTML comment.
-        """
-        # This is what happens when LLM outputs: MSG_CONTEXT --> <!-- METADATA: {...}Content
-        response = '<!-- METADATA: {"language": "cs"}Aha, chápu. This is the actual content.'
-        clean, metadata = extract_metadata_from_response(response)
+    def test_extracts_from_dict_with_results_array(self) -> None:
+        """Should extract sources from tool results with nested results array."""
+        import json
 
-        # Malformed METADATA should be stripped
-        assert "<!-- METADATA" not in clean
-        assert "Aha, chápu" in clean
-        assert "This is the actual content" in clean
-        # Metadata is malformed so won't be extracted (that's OK)
-        assert metadata == {}
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "results": [
+                            {"title": "Result 1", "href": "https://example.com/1"},
+                        ]
+                    }
+                ),
+            }
+        ]
+        sources = extract_sources_fallback_from_tool_results(tool_results)
+        assert len(sources) == 1
+        assert sources[0]["title"] == "Result 1"
 
-    def test_malformed_metadata_with_language_only(self) -> None:
-        """Malformed METADATA with just language field should be stripped."""
-        response = '<!-- METADATA: {"language": "en"}The response content here.'
-        clean, metadata = extract_metadata_from_response(response)
+    def test_returns_empty_for_non_search_results(self) -> None:
+        """Should return empty list for non-search tool results."""
+        import json
 
-        assert "<!-- METADATA" not in clean
-        assert "The response content" in clean
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps({"success": True, "message": "Image generated"}),
+            }
+        ]
+        sources = extract_sources_fallback_from_tool_results(tool_results)
+        assert sources == []
+
+    def test_returns_empty_for_empty_results(self) -> None:
+        """Should return empty list for empty tool results."""
+        assert extract_sources_fallback_from_tool_results([]) == []
+
+    def test_handles_invalid_json(self) -> None:
+        """Should handle invalid JSON in tool results gracefully."""
+        tool_results = [{"type": "tool", "content": "not json"}]
+        sources = extract_sources_fallback_from_tool_results(tool_results)
+        assert sources == []
 
 
 class TestStripFullResultFromToolContent:
@@ -451,107 +583,75 @@ class TestStripFullResultFromToolContent:
         assert strip_full_result_from_tool_content(content) == content
 
 
-class TestLanguageMetadataExtraction:
-    """Tests for language metadata extraction.
+class TestValidateMemoryOperations:
+    """Tests for validate_memory_operations function."""
 
-    Regression tests for the bug where language stopped being extracted after
-    METADATA was stripped from full_response prematurely during streaming.
-    """
+    def test_validates_add_operation(self) -> None:
+        """Should accept valid add operations."""
+        from src.api.utils import validate_memory_operations
 
-    def test_extracts_language_from_complete_metadata(self) -> None:
-        """Should extract language from properly formatted METADATA block."""
-        response = """Here is my response in Czech.
+        ops = [{"action": "add", "content": "User likes pizza", "category": "preference"}]
+        result = validate_memory_operations(ops)
+        assert len(result) == 1
+        assert result[0]["action"] == "add"
 
-<!-- METADATA:
-{"language": "cs"}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_validates_update_operation(self) -> None:
+        """Should accept valid update operations."""
+        from src.api.utils import validate_memory_operations
 
-        assert clean == "Here is my response in Czech."
-        assert metadata.get("language") == "cs"
+        ops = [{"action": "update", "id": "mem-123", "content": "Updated content"}]
+        result = validate_memory_operations(ops)
+        assert len(result) == 1
 
-    def test_extracts_language_with_other_fields(self) -> None:
-        """Should extract language when other fields are also present."""
-        response = """Response with sources.
+    def test_validates_delete_operation(self) -> None:
+        """Should accept valid delete operations."""
+        from src.api.utils import validate_memory_operations
 
-<!-- METADATA:
-{"language": "en", "sources": [{"title": "Test", "url": "https://example.com"}]}
--->"""
-        clean, metadata = extract_metadata_from_response(response)
+        ops = [{"action": "delete", "id": "mem-456"}]
+        result = validate_memory_operations(ops)
+        assert len(result) == 1
 
-        assert metadata.get("language") == "en"
-        assert "sources" in metadata
-        assert len(metadata["sources"]) == 1
+    def test_rejects_add_without_content(self) -> None:
+        """Should reject add operations without content."""
+        from src.api.utils import validate_memory_operations
 
-    def test_extracts_language_from_incomplete_metadata(self) -> None:
-        """Should extract language from METADATA without proper closing -->.
+        ops = [{"action": "add", "category": "preference"}]
+        result = validate_memory_operations(ops)
+        assert result == []
 
-        Regression test: When LLM outputs METADATA but never closes it with -->,
-        we should still extract valid JSON and strip the incomplete block.
-        """
-        response = 'Response content.\n\n<!-- METADATA:\n{"language": "de"}'
-        clean, metadata = extract_metadata_from_response(response)
+    def test_rejects_update_without_id(self) -> None:
+        """Should reject update operations without id."""
+        from src.api.utils import validate_memory_operations
 
-        assert "language" in metadata
-        assert metadata.get("language") == "de"
-        assert "<!-- METADATA" not in clean
-        assert "Response content" in clean
+        ops = [{"action": "update", "content": "New content"}]
+        result = validate_memory_operations(ops)
+        assert result == []
 
-    def test_strips_incomplete_metadata_with_invalid_json(self) -> None:
-        """Should strip incomplete METADATA even when JSON is invalid."""
-        response = 'Response content.\n\n<!-- METADATA:\n{"language": "invalid json'
-        clean, metadata = extract_metadata_from_response(response)
+    def test_rejects_invalid_action(self) -> None:
+        """Should reject operations with invalid action."""
+        from src.api.utils import validate_memory_operations
 
-        # JSON is invalid, so no metadata extracted
-        assert metadata == {}
-        # But the incomplete block should still be stripped from clean content
-        assert "Response content" in clean
+        ops = [{"action": "invalid", "content": "Test"}]
+        result = validate_memory_operations(ops)
+        assert result == []
 
-    def test_metadata_in_middle_with_language(self) -> None:
-        """Should extract language from METADATA in middle of response."""
-        response = """First part of response.
+    def test_returns_empty_for_empty_input(self) -> None:
+        """Should return empty list for empty input."""
+        from src.api.utils import validate_memory_operations
 
-<!-- METADATA:
-{"language": "fr"}
--->
+        assert validate_memory_operations([]) == []
 
-Second part after metadata."""
-        clean, metadata = extract_metadata_from_response(response)
+    def test_filters_mixed_valid_and_invalid(self) -> None:
+        """Should keep valid ops and filter out invalid ones."""
+        from src.api.utils import validate_memory_operations
 
-        assert metadata.get("language") == "fr"
-        assert "First part of response" in clean
-        assert "Second part after metadata" in clean
-        assert "METADATA" not in clean
-
-    def test_language_normalized_to_lowercase(self) -> None:
-        """Language codes should work regardless of case."""
-        from src.api.utils import extract_language_from_metadata
-
-        # The extract_language_from_metadata function normalizes the language
-        assert extract_language_from_metadata({"language": "EN"}) == "en"
-        assert extract_language_from_metadata({"language": "Cs"}) == "cs"
-        assert extract_language_from_metadata({"language": "en-US"}) == "en"
-
-    def test_extracts_nested_json_from_incomplete_metadata(self) -> None:
-        """Should handle nested JSON in incomplete METADATA (no closing -->)."""
-        response = 'Response content.\n\n<!-- METADATA:\n{"language": "en", "sources": [{"title": "Test", "url": "https://example.com"}]}'
-        clean, metadata = extract_metadata_from_response(response)
-
-        assert metadata.get("language") == "en"
-        assert "sources" in metadata
-        assert len(metadata["sources"]) == 1
-        assert metadata["sources"][0]["title"] == "Test"
-        assert "<!-- METADATA" not in clean
-        assert "Response content" in clean
-
-    def test_handles_incomplete_metadata_with_partial_closing(self) -> None:
-        """Should handle incomplete METADATA with partial closing like --."""
-        response = 'Response content.\n\n<!-- METADATA:\n{"language": "fr"}\n--'
-        clean, metadata = extract_metadata_from_response(response)
-
-        assert metadata.get("language") == "fr"
-        assert "<!-- METADATA" not in clean
-        assert "--" not in clean or "Response" in clean  # -- should be stripped
+        ops = [
+            {"action": "add", "content": "Valid"},
+            {"action": "invalid"},
+            {"action": "delete", "id": "mem-1"},
+        ]
+        result = validate_memory_operations(ops)
+        assert len(result) == 2
 
 
 class TestCleanToolCallJson:
@@ -1120,15 +1220,17 @@ class TestGetSystemPromptAnonymousMode:
             assert "Prague" in prompt
 
 
-class TestStreamingMetadataBlockHandling:
-    """Tests for metadata block handling during streaming.
+class TestStreamingMsgContextHandling:
+    """Tests for MSG_CONTEXT block handling during streaming.
 
-    These tests verify that MSG_CONTEXT and METADATA blocks are handled correctly
+    These tests verify that echoed MSG_CONTEXT blocks are stripped correctly
     when they appear in streaming chunks, including multi-chunk scenarios.
+    Note: METADATA block handling has been removed (metadata is now extracted
+    via tool calls, not text blocks).
     """
 
-    def _process_chunks(self, chunks: list[str]) -> tuple[str, list[str], bool, bool]:
-        """Simulate the chunk processing logic from stream_chat_events.
+    def _process_chunks(self, chunks: list[str]) -> tuple[str, list[str], bool]:
+        """Simulate the MSG_CONTEXT chunk processing logic from stream_chat_events.
 
         This handles cross-chunk boundary scenarios where markers like
         <!-- MSG_CONTEXT: or --> are split across chunks.
@@ -1137,21 +1239,15 @@ class TestStreamingMetadataBlockHandling:
             chunks: List of text content chunks
 
         Returns:
-            Tuple of (full_response, yielded_tokens, had_msg_context, had_metadata)
+            Tuple of (full_response, yielded_tokens, had_msg_context)
         """
         full_response = ""
-        buffer = ""
         yielded_tokens: list[str] = []
         in_msg_context = False
-        in_metadata = False
         had_msg_context = False
-        had_metadata = False
 
         msg_context_marker = "<!-- MSG_CONTEXT:"
-        metadata_marker = "<!-- METADATA:"
         end_marker = "-->"
-        # Max marker length to buffer for cross-chunk detection
-        max_marker_len = max(len(msg_context_marker), len(metadata_marker))
 
         # Carryover buffer for cross-chunk marker detection
         carryover = ""
@@ -1170,8 +1266,6 @@ class TestStreamingMetadataBlockHandling:
                     if not text_content:
                         continue
                 else:
-                    # Check if end marker might be split at chunk boundary
-                    # Keep potential partial end marker for next chunk
                     for i in range(len(end_marker) - 1, 0, -1):
                         if text_content.endswith(end_marker[:i]):
                             carryover = end_marker[:i]
@@ -1188,7 +1282,6 @@ class TestStreamingMetadataBlockHandling:
                     after = text_content[end_pos + 3 :]
                     text_content = (before + after).strip()
                 else:
-                    # Block starts but doesn't end - check for partial end marker
                     content_after_marker = text_content[marker_pos:]
                     for i in range(len(end_marker) - 1, 0, -1):
                         if content_after_marker.endswith(end_marker[:i]):
@@ -1199,8 +1292,6 @@ class TestStreamingMetadataBlockHandling:
                 if not text_content:
                     continue
             elif not in_msg_context:
-                # Check if MSG_CONTEXT marker might be split at chunk boundary
-                # Keep potential partial marker for next chunk
                 for i in range(len(msg_context_marker) - 1, 0, -1):
                     partial = msg_context_marker[:i]
                     if text_content.endswith(partial):
@@ -1208,84 +1299,21 @@ class TestStreamingMetadataBlockHandling:
                         text_content = text_content[:-i]
                         break
 
-            # Handle METADATA blocks (response metadata)
-            if in_metadata:
-                if end_marker in text_content:
-                    end_pos = text_content.find(end_marker)
-                    remaining = text_content[end_pos + 3 :].lstrip()
-                    in_metadata = False
-                    # Strip incomplete METADATA from full_response before adding remaining
-                    # (full_response still has the incomplete block from when we entered in_metadata)
-                    marker_idx = full_response.rfind(metadata_marker)
-                    if marker_idx != -1:
-                        full_response = full_response[:marker_idx]
-                    if remaining:
-                        full_response += remaining
-                        buffer += remaining
-                    continue
-                else:
-                    # Check if end marker might be split at chunk boundary
-                    for i in range(len(end_marker) - 1, 0, -1):
-                        if text_content.endswith(end_marker[:i]):
-                            carryover = end_marker[:i]
-                            break
-                    continue
-
-            # Add to full response (before METADATA detection)
             full_response += text_content
-            buffer += text_content
+            if text_content:
+                yielded_tokens.append(text_content)
 
-            # Check for METADATA marker in buffer
-            if metadata_marker in buffer:
-                had_metadata = True
-                marker_pos = buffer.find(metadata_marker)
-                # Check if METADATA block completes in this buffer
-                end_pos = buffer.find(end_marker, marker_pos)
-                if end_pos != -1:
-                    # Complete METADATA block - strip it and keep content after
-                    before = buffer[:marker_pos].rstrip()
-                    after = buffer[end_pos + 3 :].lstrip()
-                    # Update full_response to remove METADATA block
-                    full_response = full_response[: full_response.rfind(metadata_marker)]
-                    if after:
-                        full_response += after
-                    if before:
-                        yielded_tokens.append(before)
-                    buffer = after
-                    # Don't set in_metadata since block is complete
-                else:
-                    # METADATA block starts but doesn't end - check for partial end marker
-                    content_after_marker = buffer[marker_pos:]
-                    for i in range(len(end_marker) - 1, 0, -1):
-                        if content_after_marker.endswith(end_marker[:i]):
-                            carryover = end_marker[:i]
-                            break
-                    # Remove METADATA block from full_response
-                    full_response = full_response[: full_response.rfind(metadata_marker)]
-                    if marker_pos > 0:
-                        yielded_tokens.append(buffer[:marker_pos].rstrip())
-                    in_metadata = True
-                    buffer = ""
-            elif len(buffer) > max_marker_len:
-                safe_length = len(buffer) - max_marker_len
-                yielded_tokens.append(buffer[:safe_length])
-                buffer = buffer[safe_length:]
-
-        # Handle any remaining carryover (wasn't part of a marker)
-        if carryover and not in_msg_context and not in_metadata:
+        # Handle any remaining carryover
+        if carryover and not in_msg_context:
             full_response += carryover
-            buffer += carryover
+            yielded_tokens.append(carryover)
 
-        # Yield remaining buffer
-        if buffer and not in_metadata:
-            yielded_tokens.append(buffer)
-
-        return full_response, yielded_tokens, had_msg_context, had_metadata
+        return full_response, yielded_tokens, had_msg_context
 
     def test_msg_context_single_chunk_stripped(self) -> None:
         """MSG_CONTEXT in a single chunk should be completely stripped."""
         chunks = ['<!-- MSG_CONTEXT: {"timestamp":"2024-01-01"} -->Hello world']
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert "MSG_CONTEXT" not in full_response
         assert "timestamp" not in full_response
@@ -1299,7 +1327,7 @@ class TestStreamingMetadataBlockHandling:
             '"2024-01-01","relative_time":"1 hour ago"} ',
             "--> Here is the response.",
         ]
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert "MSG_CONTEXT" not in full_response
         assert "timestamp" not in full_response
@@ -1312,76 +1340,28 @@ class TestStreamingMetadataBlockHandling:
             "<!-- MSG_CONTEXT: {} -->",
             "This is the actual response content.",
         ]
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert "This is the actual response content" in full_response
         assert had_ctx is True
-        # Tokens should contain the response content
         joined_tokens = "".join(tokens)
         assert "actual response" in joined_tokens
-
-    def test_metadata_at_end_normal_case(self) -> None:
-        """METADATA at end of response should be detected and content yielded."""
-        chunks = [
-            "Here is my response to your question.",
-            '\n\n<!-- METADATA:\n{"language": "en"}\n-->',
-        ]
-        full_response, tokens, _, had_meta = self._process_chunks(chunks)
-
-        assert "Here is my response" in full_response
-        assert had_meta is True
-        # Content before metadata should be in tokens
-        joined_tokens = "".join(tokens)
-        assert "Here is my response" in joined_tokens
-
-    def test_metadata_in_middle_content_preserved(self) -> None:
-        """Content both before AND after METADATA should be preserved."""
-        chunks = [
-            "Content before metadata. ",
-            '<!-- METADATA:\n{"language": "en"}\n-->',
-            " Content after metadata.",
-        ]
-        full_response, tokens, _, had_meta = self._process_chunks(chunks)
-
-        assert "Content before metadata" in full_response
-        assert "Content after metadata" in full_response
-        assert had_meta is True
-
-    def test_both_msg_context_and_metadata(self) -> None:
-        """Response with both echoed MSG_CONTEXT and METADATA should handle both."""
-        chunks = [
-            '<!-- MSG_CONTEXT: {"timestamp":"2024"} -->',
-            "The actual response. ",
-            '<!-- METADATA:\n{"language": "en"}\n-->',
-        ]
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
-
-        assert "MSG_CONTEXT" not in full_response
-        assert "timestamp" not in full_response
-        assert "The actual response" in full_response
-        assert had_ctx is True
-        assert had_meta is True
 
     def test_no_metadata_blocks(self) -> None:
         """Response without any metadata blocks should yield all content."""
         chunks = ["Just a simple", " response with ", "no metadata."]
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert full_response == "Just a simple response with no metadata."
         assert had_ctx is False
-        assert had_meta is False
         joined_tokens = "".join(tokens)
         assert "Just a simple" in joined_tokens
 
-    # Cross-chunk boundary tests
-
     def test_msg_context_marker_split_across_chunks(self) -> None:
         """MSG_CONTEXT marker split across chunk boundary."""
-        # "<!-- MSG_" in one chunk, "CONTEXT:" in next
         chunks = ["Hello <!-- MSG_", "CONTEXT: {} --> world"]
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
-        # Should strip the MSG_CONTEXT block
         assert "Hello" in full_response
         assert "world" in full_response
         assert "MSG_CONTEXT" not in full_response
@@ -1390,65 +1370,24 @@ class TestStreamingMetadataBlockHandling:
     def test_msg_context_end_marker_split_across_chunks(self) -> None:
         """MSG_CONTEXT end marker (-->) split across chunk boundary."""
         chunks = ['<!-- MSG_CONTEXT: {"key":"value"} -', "-> The response."]
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert "The response" in full_response
         assert "MSG_CONTEXT" not in full_response
         assert had_ctx is True
 
-    def test_metadata_marker_split_across_chunks(self) -> None:
-        """METADATA marker split across chunk boundary."""
-        chunks = ["Response content <!-- META", 'DATA:\n{"language": "en"}\n-->']
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
-
-        assert "Response content" in full_response
-        assert had_meta is True
-        joined_tokens = "".join(tokens)
-        assert "Response content" in joined_tokens
-
-    def test_metadata_end_marker_split_across_chunks(self) -> None:
-        """METADATA end marker (-->) split across chunk boundary."""
-        chunks = ['Response <!-- METADATA:\n{"language": "en"}\n-', "-> After metadata."]
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
-
-        assert "Response" in full_response
-        assert "After metadata" in full_response
-        assert had_meta is True
-
-    def test_metadata_json_split_across_chunks(self) -> None:
-        """METADATA JSON content split across multiple chunks."""
-        chunks = [
-            'Content <!-- METADATA:\n{"lang',
-            'uage": "en", "sources": [{"title":',
-            ' "Test"}]}\n--> More content',
-        ]
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
-
-        assert "Content" in full_response
-        assert "More content" in full_response
-        assert had_meta is True
-
     def test_content_immediately_after_msg_context_end(self) -> None:
         """Content immediately after --> of MSG_CONTEXT (no space)."""
         chunks = ["<!-- MSG_CONTEXT: {} -->Response starts here."]
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert "Response starts here" in full_response
         assert "MSG_CONTEXT" not in full_response
 
-    def test_content_immediately_after_metadata_end(self) -> None:
-        """Content immediately after --> of METADATA (no space)."""
-        chunks = ["Before <!-- METADATA:\n{}\n-->After"]
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
-
-        assert "Before" in full_response
-        assert "After" in full_response
-        assert had_meta is True
-
     def test_empty_chunks_between_markers(self) -> None:
         """Empty or whitespace-only chunks within metadata block."""
         chunks = ["<!-- MSG_CONTEXT:", " ", '{"key": "value"}', "", " --> Content"]
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert "Content" in full_response
         assert "MSG_CONTEXT" not in full_response
@@ -1457,81 +1396,12 @@ class TestStreamingMetadataBlockHandling:
     def test_multiple_msg_context_blocks(self) -> None:
         """Multiple MSG_CONTEXT blocks (shouldn't happen but handle gracefully)."""
         chunks = ['<!-- MSG_CONTEXT: {"a":1} --> First ', '<!-- MSG_CONTEXT: {"b":2} --> Second']
-        full_response, tokens, had_ctx, _ = self._process_chunks(chunks)
+        full_response, tokens, had_ctx = self._process_chunks(chunks)
 
         assert "First" in full_response
         assert "Second" in full_response
         assert "MSG_CONTEXT" not in full_response
         assert had_ctx is True
-
-    # Regression tests for specific bugs
-
-    def test_regression_metadata_multi_chunk_with_partial_end_marker(self) -> None:
-        """Regression: METADATA spanning chunks with partial end marker should not corrupt content.
-
-        Bug: When METADATA spanned chunks and the end marker (-->) was split,
-        the incomplete METADATA block in full_response wasn't stripped before
-        adding the remaining content, corrupting the response.
-        """
-        # Simulates: "Hello\n\n<!-- METADATA:\n{"lang": "en"}\n-" then "-> More content"
-        chunks = [
-            "Hello\n\n<!-- METADATA:\n",
-            '{"lang": "en"}\n-',
-            "-> More content",
-        ]
-        full_response, tokens, _, had_meta = self._process_chunks(chunks)
-
-        # Content should be preserved correctly
-        assert "Hello" in full_response
-        assert "More content" in full_response
-        # METADATA should be stripped, not corrupted
-        assert "<!-- METADATA:" not in full_response
-        assert '{"lang"' not in full_response
-        assert had_meta is True
-
-    def test_regression_metadata_at_position_zero_not_empty(self) -> None:
-        """Regression: METADATA at position 0 after MSG_CONTEXT strip should handle correctly.
-
-        If MSG_CONTEXT is immediately followed by METADATA with actual content after,
-        the content should be preserved.
-        """
-        chunks = ['<!-- MSG_CONTEXT: {} --><!-- METADATA:\n{"lang": "en"}\n--> Actual content']
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
-
-        assert "Actual content" in full_response
-        assert "MSG_CONTEXT" not in full_response
-        assert "METADATA" not in full_response
-        assert had_ctx is True
-        assert had_meta is True
-
-    def test_regression_malformed_metadata_no_closing(self) -> None:
-        """Regression: METADATA that starts but never closes should be stripped from full_response.
-
-        Bug: When LLM output malformed METADATA (no closing -->), the incomplete block
-        was added to full_response but never stripped. When we entered in_metadata mode,
-        we cleared buffer but forgot to strip full_response. This caused the stored message
-        to contain <!-- METADATA: {...}Content... which browsers render as an HTML comment,
-        hiding all content.
-
-        The fix: Strip from full_response when ENTERING in_metadata mode, not just when exiting.
-        """
-        # Simulates: MSG_CONTEXT ends, LLM outputs METADATA with no closing, then actual response
-        chunks = [
-            '<!-- MSG_CONTEXT: {"ts":"10:00"} -->',
-            '<!-- METADATA: {"language": "cs"}',  # No closing -->
-            "Aha, chápu. This is the actual content.",
-        ]
-        full_response, tokens, had_ctx, had_meta = self._process_chunks(chunks)
-
-        # Malformed METADATA should be stripped from full_response
-        assert "<!-- METADATA" not in full_response
-        # Content after the malformed METADATA should be preserved
-        # (note: in the actual implementation, subsequent chunks while in_metadata are skipped,
-        # but the test helper doesn't fully replicate that - the important thing is that
-        # METADATA is stripped from full_response)
-        assert "MSG_CONTEXT" not in full_response
-        assert had_ctx is True
-        assert had_meta is True
 
 
 class TestCleanupAndSave:
@@ -1714,3 +1584,288 @@ class TestCleanupAndSave:
 
         # save_func should NOT be called since ready=False
         save_func.assert_not_called()
+
+
+class TestSmartRouting:
+    """Tests for should_continue() smart routing in graph.py.
+
+    Verifies that metadata-only tool calls (cite_sources, manage_memory) route
+    to "end" while real tool calls route to "tools".
+    """
+
+    def test_metadata_only_routes_to_end(self) -> None:
+        """cite_sources-only tool calls should route to 'end'."""
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import AgentState, should_continue
+
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content="Answer.",
+                    tool_calls=[{"name": "cite_sources", "args": {"sources": []}, "id": "1"}],
+                )
+            ]
+        }
+        assert should_continue(state) == "end"
+
+    def test_manage_memory_only_routes_to_end(self) -> None:
+        """manage_memory-only tool calls should route to 'end'."""
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import AgentState, should_continue
+
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content="Noted.",
+                    tool_calls=[
+                        {
+                            "name": "manage_memory",
+                            "args": {"operations": [{"action": "add", "content": "x"}]},
+                            "id": "1",
+                        }
+                    ],
+                )
+            ]
+        }
+        assert should_continue(state) == "end"
+
+    def test_both_metadata_tools_route_to_end(self) -> None:
+        """cite_sources + manage_memory together should route to 'end'."""
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import AgentState, should_continue
+
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content="Done.",
+                    tool_calls=[
+                        {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
+                        {"name": "manage_memory", "args": {"operations": []}, "id": "2"},
+                    ],
+                )
+            ]
+        }
+        assert should_continue(state) == "end"
+
+    def test_real_tool_routes_to_tools(self) -> None:
+        """Non-metadata tool calls should route to 'tools'."""
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import AgentState, should_continue
+
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content="",
+                    tool_calls=[{"name": "web_search", "args": {"query": "test"}, "id": "1"}],
+                )
+            ]
+        }
+        assert should_continue(state) == "tools"
+
+    def test_mixed_real_and_metadata_routes_to_tools(self) -> None:
+        """Mix of real + metadata tool calls should route to 'tools'."""
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import AgentState, should_continue
+
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {"name": "web_search", "args": {"query": "test"}, "id": "1"},
+                        {"name": "cite_sources", "args": {"sources": []}, "id": "2"},
+                    ],
+                )
+            ]
+        }
+        assert should_continue(state) == "tools"
+
+    def test_no_tool_calls_routes_to_end(self) -> None:
+        """Message without tool calls should route to 'end'."""
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import AgentState, should_continue
+
+        state: AgentState = {"messages": [AIMessage(content="Just text.")]}
+        assert should_continue(state) == "end"
+
+
+class TestMetadataToolEdgeCases:
+    """Edge case tests for metadata extraction functions.
+
+    Regression tests for malformed tool calls, missing args, and boundary conditions
+    that could cause extraction failures.
+    """
+
+    def test_extract_metadata_with_non_ai_messages(self) -> None:
+        """Should safely skip non-AIMessage objects."""
+        from langchain_core.messages import HumanMessage, ToolMessage
+
+        messages = [
+            HumanMessage(content="Hello"),
+            ToolMessage(content="Result", tool_call_id="1"),
+        ]
+        sources, memory_ops = extract_metadata_tool_args(messages)
+        assert sources == []
+        assert memory_ops == []
+
+    def test_extract_metadata_cite_sources_missing_args(self) -> None:
+        """cite_sources with empty args should return empty sources."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="Response",
+                tool_calls=[{"name": "cite_sources", "args": {}, "id": "1"}],
+            )
+        ]
+        sources, _ = extract_metadata_tool_args(messages)
+        assert sources == []
+
+    def test_extract_metadata_manage_memory_missing_args(self) -> None:
+        """manage_memory with empty args should return empty memory ops."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="Response",
+                tool_calls=[{"name": "manage_memory", "args": {}, "id": "1"}],
+            )
+        ]
+        _, memory_ops = extract_metadata_tool_args(messages)
+        assert memory_ops == []
+
+    def test_extract_metadata_sources_non_dict_items(self) -> None:
+        """Sources list containing non-dict items should be filtered out."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="Response",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {
+                            "sources": [
+                                "not a dict",
+                                42,
+                                {"title": "Valid", "url": "https://valid.com"},
+                            ]
+                        },
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        sources, _ = extract_metadata_tool_args(messages)
+        assert len(sources) == 1
+        assert sources[0]["title"] == "Valid"
+
+    def test_extract_metadata_memory_ops_without_action(self) -> None:
+        """Memory operations without 'action' key should be filtered out."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="Response",
+                tool_calls=[
+                    {
+                        "name": "manage_memory",
+                        "args": {
+                            "operations": [
+                                {"content": "no action key"},
+                                {"action": "add", "content": "valid"},
+                            ]
+                        },
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        _, memory_ops = extract_metadata_tool_args(messages)
+        assert len(memory_ops) == 1
+        assert memory_ops[0]["action"] == "add"
+
+    def test_extract_image_prompts_missing_prompt_arg(self) -> None:
+        """generate_image without 'prompt' arg should be skipped."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="Image",
+                tool_calls=[
+                    {"name": "generate_image", "args": {}, "id": "1"},
+                    {"name": "generate_image", "args": {"prompt": "a cat"}, "id": "2"},
+                ],
+            )
+        ]
+        result = extract_image_prompts_from_messages(messages)
+        assert len(result) == 1
+        assert result[0]["prompt"] == "a cat"
+
+    def test_extract_image_prompts_with_non_ai_messages(self) -> None:
+        """Should safely skip non-AIMessage objects."""
+        from langchain_core.messages import HumanMessage
+
+        messages = [HumanMessage(content="Generate a cat")]
+        result = extract_image_prompts_from_messages(messages)
+        assert result == []
+
+    def test_extract_metadata_only_checks_last_ai_message_with_metadata_tools(self) -> None:
+        """Should only extract from the last AIMessage that has metadata tool calls."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="First turn",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {"sources": [{"title": "Old", "url": "https://old.com"}]},
+                        "id": "1",
+                    }
+                ],
+            ),
+            AIMessage(
+                content="Second turn",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {"sources": [{"title": "New", "url": "https://new.com"}]},
+                        "id": "2",
+                    }
+                ],
+            ),
+        ]
+        sources, _ = extract_metadata_tool_args(messages)
+        # Should get sources from the LAST AIMessage only
+        assert len(sources) == 1
+        assert sources[0]["title"] == "New"
+
+    def test_sources_fallback_handles_non_list_content(self) -> None:
+        """Fallback should handle tool results with string content."""
+        tool_results = [{"type": "tool", "content": '"just a string"'}]
+        sources = extract_sources_fallback_from_tool_results(tool_results)
+        assert sources == []
+
+    def test_sources_fallback_handles_empty_content(self) -> None:
+        """Fallback should handle tool results with empty content."""
+        tool_results = [{"type": "tool", "content": ""}]
+        sources = extract_sources_fallback_from_tool_results(tool_results)
+        assert sources == []
+
+    def test_detect_language_handles_whitespace_only(self) -> None:
+        """Language detection should return None for whitespace-only text."""
+        assert detect_response_language("   \n\t  ") is None
+
+    def test_detect_language_handles_special_characters(self) -> None:
+        """Language detection should handle text with special characters."""
+        # Enough chars for detection, but mostly symbols
+        result = detect_response_language("!@#$%^&*()_+!@#$%^&*()")
+        # Should either detect something or return None, not crash
+        assert result is None or (isinstance(result, str) and len(result) == 2)

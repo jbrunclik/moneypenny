@@ -13,7 +13,12 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from src.agent.agent import ChatAgent
-from src.agent.content import extract_metadata_from_response
+from src.agent.content import (
+    detect_response_language,
+    extract_image_prompts_from_messages,
+    extract_metadata_tool_args,
+    extract_sources_fallback_from_tool_results,
+)
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     get_tools_for_agent,
@@ -28,10 +33,8 @@ from src.agent.tools.request_approval import (
 from src.api.schemas import MessageRole
 from src.api.utils import (
     calculate_and_save_message_cost,
-    extract_language_from_metadata,
-    extract_memory_operations,
-    extract_metadata_fields,
     process_memory_operations,
+    validate_memory_operations,
 )
 from src.config import Config
 from src.db.models import db
@@ -335,7 +338,7 @@ def execute_agent(
         # Run the agent with retry logic for transient failures
         from src.agent.retry import with_retry
 
-        def run_chat() -> tuple[str, list[Any], dict[str, Any]]:
+        def run_chat() -> tuple[str, list[Any], dict[str, Any], list[Any]]:
             return chat_agent.chat_batch(
                 text=trigger_message,
                 files=None,
@@ -347,7 +350,7 @@ def execute_agent(
                 is_planning=False,
             )
 
-        raw_response, tool_results, usage_info = with_retry(run_chat)()
+        raw_response, tool_results, usage_info, result_messages = with_retry(run_chat)()
 
         # Get full tool results
         full_tool_results = get_full_tool_results(request_id)
@@ -367,13 +370,18 @@ def execute_agent(
             },
         )
 
-        # Extract metadata from response
-        clean_response, metadata = extract_metadata_from_response(raw_response)
-        sources, generated_images_meta = extract_metadata_fields(metadata)
-        language = extract_language_from_metadata(metadata)
+        # Extract metadata from tool calls and deterministic analysis
+        clean_response = raw_response
+        sources, memory_ops = extract_metadata_tool_args(result_messages)
+        generated_images_meta = extract_image_prompts_from_messages(result_messages)
+        language = detect_response_language(clean_response)
+
+        # Fallback: if web_search was used but no cite_sources, extract from tool results
+        if not sources and tool_results:
+            sources = extract_sources_fallback_from_tool_results(tool_results)
 
         # Process memory operations
-        memory_ops = extract_memory_operations(metadata)
+        memory_ops = validate_memory_operations(memory_ops)
         if memory_ops:
             logger.debug(
                 "Processing memory operations from agent",

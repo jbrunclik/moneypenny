@@ -15,6 +15,7 @@ from langgraph.prebuilt import ToolNode as BaseToolNode
 from src.agent.content import strip_full_result_from_tool_content
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import TOOLS
+from src.agent.tools.metadata import METADATA_TOOL_NAMES
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -80,12 +81,19 @@ def create_chat_model(
 
 
 def should_continue(state: AgentState) -> Literal["tools", "end"]:
-    """Decide whether to continue to tools or end the conversation."""
+    """Decide whether to continue to tools or end the conversation.
+
+    When all tool calls in the final message are metadata-only (cite_sources,
+    manage_memory), routes to "end" instead of "tools" to avoid an extra LLM
+    round-trip. The tool call args are extracted from the AIMessage in post-processing.
+    """
     messages = state["messages"]
     last_message = messages[-1]
 
-    # If the last message has tool calls, continue to tools
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
+        # If ALL tool calls are metadata-only, skip execution and end
+        if all(tc["name"] in METADATA_TOOL_NAMES for tc in last_message.tool_calls):
+            return "end"
         return "tools"
 
     return "end"

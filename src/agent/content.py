@@ -1,12 +1,18 @@
 """Content extraction utilities for chat agent responses.
 
-This module handles extracting text, thinking content, and metadata
+This module handles extracting text, thinking content, and structured metadata
 from various response formats (strings, dicts, lists).
 """
 
 import json
 import re
 from typing import Any
+
+from langchain_core.messages import AIMessage, BaseMessage
+
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:
@@ -101,29 +107,6 @@ def extract_thinking_and_text(
     return None, str(content)
 
 
-# Pattern to match metadata block: <!-- METADATA:\n{...}\n-->
-METADATA_PATTERN = re.compile(
-    r"<!--\s*METADATA:\s*\n(.*?)\n\s*-->",
-    re.DOTALL | re.IGNORECASE,
-)
-
-# Pattern to match malformed METADATA at start (no proper closing)
-# This catches cases where LLM outputs <!-- METADATA: {...} immediately followed by content
-# without proper newlines and closing -->
-# Uses negative lookahead to avoid matching valid METADATA blocks that have proper closing
-MALFORMED_METADATA_START_PATTERN = re.compile(
-    r"^<!--\s*METADATA:\s*\{[^}]*\}(?!\s*\n\s*-->)(?!\s*-->)",
-    re.IGNORECASE,
-)
-
-# Pattern to detect start of incomplete METADATA block (starts but doesn't close with -->)
-# We use _find_json_object_end for proper JSON extraction
-INCOMPLETE_METADATA_START_PATTERN = re.compile(
-    r"<!--\s*METADATA:\s*\n?",
-    re.IGNORECASE,
-)
-
-
 # Pattern to match Gemini's tool call JSON format that sometimes leaks into response text
 # This happens when the model outputs the tool call description as text alongside the actual tool call
 # Format: {"action": "tool_name", "action_input": "..."} or {"action": "tool_name", "action_input": {...}}
@@ -151,208 +134,6 @@ def clean_tool_call_json(response: str) -> str:
     return TOOL_CALL_JSON_PATTERN.sub("", response).strip()
 
 
-def _find_json_object_end(text: str, start_pos: int) -> int | None:
-    """Find the end position of a complete JSON object starting at start_pos.
-
-    Returns the position after the closing brace, or None if not found.
-    """
-    brace_count = 0
-    in_string = False
-    escape_next = False
-
-    for i in range(start_pos, len(text)):
-        char = text[i]
-
-        if escape_next:
-            escape_next = False
-            continue
-
-        if char == "\\":
-            escape_next = True
-            continue
-
-        if char == '"' and not escape_next:
-            in_string = not in_string
-            continue
-
-        if in_string:
-            continue
-
-        if char == "{":
-            brace_count += 1
-        elif char == "}":
-            brace_count -= 1
-            if brace_count == 0:
-                return i + 1
-
-    return None
-
-
-def _extract_html_comment_metadata(content: str) -> tuple[str, dict[str, Any]]:
-    """Extract metadata from HTML comment format.
-
-    Handles metadata anywhere in the response (not just at end) by keeping
-    content both before and after the metadata block.
-
-    Returns:
-        Tuple of (clean_content, metadata_dict)
-    """
-    match = METADATA_PATTERN.search(content)
-    if not match:
-        # Try incomplete METADATA pattern (started but not closed with -->)
-        return _extract_incomplete_metadata(content)
-
-    try:
-        metadata = json.loads(match.group(1).strip())
-        # Keep content before AND after the metadata block
-        before = content[: match.start()].rstrip()
-        after = content[match.end() :].lstrip()
-        clean_content = f"{before}\n\n{after}".strip() if after else before
-        return clean_content, metadata
-    except (json.JSONDecodeError, AttributeError):
-        return content, {}
-
-
-def _extract_incomplete_metadata(content: str) -> tuple[str, dict[str, Any]]:
-    """Extract metadata from incomplete HTML comment format (no closing -->).
-
-    Handles cases where LLM outputs <!-- METADATA: {...} but never closes with -->
-    Uses _find_json_object_end to properly handle nested JSON objects.
-
-    Returns:
-        Tuple of (clean_content, metadata_dict)
-    """
-    match = INCOMPLETE_METADATA_START_PATTERN.search(content)
-    if not match:
-        return content, {}
-
-    # Check that there's no proper closing --> after the marker
-    remaining = content[match.end() :]
-    if "-->" in remaining:
-        # This has a closing tag, so it's not incomplete - should be handled by main pattern
-        # But main pattern might have failed (wrong format), so try to extract anyway
-        pass
-
-    # Find the JSON object
-    json_start = match.end()
-    # Skip any whitespace before the JSON
-    while json_start < len(content) and content[json_start] in " \t\n":
-        json_start += 1
-
-    if json_start >= len(content) or content[json_start] != "{":
-        # No JSON object found
-        # Still strip the incomplete marker to prevent rendering issues
-        clean_content = content[: match.start()].rstrip()
-        return clean_content, {}
-
-    json_end = _find_json_object_end(content, json_start)
-    if json_end is None:
-        # JSON is incomplete/malformed
-        clean_content = content[: match.start()].rstrip()
-        return clean_content, {}
-
-    try:
-        json_str = content[json_start:json_end]
-        metadata = json.loads(json_str)
-        if not isinstance(metadata, dict):
-            metadata = {}
-
-        # Strip the incomplete metadata block from content
-        # Keep content before the marker and any content after the JSON
-        before = content[: match.start()].rstrip()
-        # Check if there's content after (excluding potential incomplete closing)
-        after_json = content[json_end:].lstrip()
-        # Remove any trailing incomplete closing like "\n--" without ">"
-        if after_json.startswith("-->"):
-            after_json = after_json[3:].lstrip()
-        elif after_json.startswith("--"):
-            after_json = after_json[2:].lstrip()
-        elif after_json.startswith("-"):
-            after_json = after_json[1:].lstrip()
-
-        if after_json:
-            clean_content = f"{before}\n\n{after_json}".strip() if before else after_json
-        else:
-            clean_content = before
-
-        return clean_content, metadata
-    except (json.JSONDecodeError, AttributeError):
-        # Even if JSON is invalid, strip the incomplete block to prevent rendering issues
-        clean_content = content[: match.start()].rstrip()
-        return clean_content, {}
-
-
-def _extract_plain_json_metadata(content: str) -> tuple[str, dict[str, Any]]:
-    """Extract metadata from plain JSON at end of content.
-
-    Searches backwards for JSON objects containing 'sources' or 'generated_images'.
-
-    Returns:
-        Tuple of (clean_content, metadata_dict)
-    """
-    search_start = len(content)
-
-    while True:
-        last_brace = content.rfind("{", 0, search_start)
-        if last_brace == -1:
-            break
-
-        end_pos = _find_json_object_end(content, last_brace)
-        if end_pos:
-            try:
-                parsed = json.loads(content[last_brace:end_pos])
-                if "sources" in parsed or "generated_images" in parsed:
-                    return content[:last_brace].rstrip(), parsed
-            except (json.JSONDecodeError, ValueError):
-                pass
-
-        search_start = last_brace
-
-    return content, {}
-
-
-def extract_metadata_from_response(response: str) -> tuple[str, dict[str, Any]]:
-    """Extract metadata from LLM response and return clean content.
-
-    The LLM is instructed to append metadata at the end of responses in the format:
-    <!-- METADATA:
-    {"sources": [...]}
-    -->
-
-    However, sometimes the LLM outputs plain JSON without the HTML comment wrapper,
-    or outputs it in both formats. This function prefers the HTML comment format,
-    but removes both if they both exist.
-
-    Also removes any tool call JSON artifacts that leaked into the response.
-
-    Args:
-        response: The raw LLM response text
-
-    Returns:
-        Tuple of (clean_content, metadata_dict)
-        - clean_content: Response with metadata block and tool call JSON removed
-        - metadata_dict: Parsed metadata (empty dict if none found or parse error)
-    """
-    response = clean_tool_call_json(response)
-
-    # Clean malformed METADATA at start (no proper closing -->)
-    # This can happen when LLM outputs METADATA immediately after MSG_CONTEXT
-    # e.g., "<!-- METADATA: {"language": "en"}Actual content here..."
-    response = MALFORMED_METADATA_START_PATTERN.sub("", response).lstrip()
-
-    # Try HTML comment format first (preferred)
-    clean_content, metadata = _extract_html_comment_metadata(response)
-
-    # Also check for plain JSON and remove it (even if HTML comment found)
-    plain_content, plain_metadata = _extract_plain_json_metadata(clean_content)
-
-    # Use HTML comment metadata if found, otherwise use plain JSON metadata
-    if not metadata and plain_metadata:
-        metadata = plain_metadata
-
-    return plain_content.rstrip(), metadata
-
-
 def strip_full_result_from_tool_content(content: str) -> str:
     """Strip the _full_result field from tool result JSON to avoid sending large data to LLM.
 
@@ -374,3 +155,149 @@ def strip_full_result_from_tool_content(content: str) -> str:
         return content
     except (json.JSONDecodeError, TypeError):
         return content
+
+
+# ============ Structured Metadata Extraction ============
+# These functions replace the old text-based <!-- METADATA: --> parsing.
+# Metadata is now extracted from tool calls (cite_sources, manage_memory)
+# and deterministic server-side analysis.
+
+
+def detect_response_language(text: str) -> str | None:
+    """Detect the language of a response using langdetect.
+
+    Args:
+        text: The response text to analyze
+
+    Returns:
+        ISO 639-1 language code (e.g., "en", "cs") or None if detection fails
+    """
+    if not text or len(text.strip()) < 10:
+        return None
+
+    try:
+        from langdetect import detect
+
+        lang = detect(text)
+        # langdetect returns codes like "en", "cs", "zh-cn" etc.
+        # Normalize to 2-char ISO 639-1
+        return str(lang).lower().split("-")[0][:2]
+    except Exception:
+        # langdetect can raise LangDetectException for short/ambiguous text
+        return None
+
+
+def extract_image_prompts_from_messages(messages: list[BaseMessage]) -> list[dict[str, str]]:
+    """Extract image generation prompts from generate_image tool calls in message history.
+
+    Scans AIMessage tool_calls for generate_image calls and returns the prompts used.
+
+    Args:
+        messages: List of LangChain messages from the graph result
+
+    Returns:
+        List of dicts with "prompt" key, e.g. [{"prompt": "a sunset over mountains"}]
+    """
+    prompts: list[dict[str, str]] = []
+    for msg in messages:
+        if isinstance(msg, AIMessage) and msg.tool_calls:
+            for tc in msg.tool_calls:
+                if tc.get("name") == "generate_image":
+                    prompt = tc.get("args", {}).get("prompt")
+                    if prompt:
+                        prompts.append({"prompt": prompt})
+    return prompts
+
+
+def extract_metadata_tool_args(
+    messages: list[BaseMessage],
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """Extract cite_sources and manage_memory args from the final AIMessage.
+
+    Scans the last AIMessage's tool_calls for metadata tools and returns
+    their structured args directly (no JSON parsing needed - Gemini validates
+    the schema at the API level).
+
+    Args:
+        messages: List of LangChain messages from the graph result
+
+    Returns:
+        Tuple of (sources, memory_operations)
+        - sources: List of source dicts with "title" and "url"
+        - memory_operations: List of memory operation dicts
+    """
+    from src.agent.tools.metadata import METADATA_TOOL_NAMES
+
+    sources: list[dict[str, str]] = []
+    memory_ops: list[dict[str, Any]] = []
+
+    # Scan from the end - metadata tools are typically on the last AIMessage
+    for msg in reversed(messages):
+        if not isinstance(msg, AIMessage) or not msg.tool_calls:
+            continue
+
+        for tc in msg.tool_calls:
+            name = tc.get("name")
+            args = tc.get("args", {})
+
+            if name == "cite_sources":
+                raw_sources = args.get("sources", [])
+                for s in raw_sources:
+                    if isinstance(s, dict) and "title" in s and "url" in s:
+                        sources.append({"title": str(s["title"]), "url": str(s["url"])})
+            elif name == "manage_memory":
+                raw_ops = args.get("operations", [])
+                for op in raw_ops:
+                    if isinstance(op, dict) and "action" in op:
+                        memory_ops.append(op)
+
+        # Only check the last AIMessage that has tool calls
+        if any(tc.get("name") in METADATA_TOOL_NAMES for tc in msg.tool_calls):
+            break
+
+    return sources, memory_ops
+
+
+def extract_sources_fallback_from_tool_results(
+    tool_results: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    """Fallback: extract sources from web_search tool results when cite_sources wasn't called.
+
+    If the model used web_search but didn't call cite_sources, this extracts
+    sources from the raw tool results to prevent silent source loss.
+
+    Args:
+        tool_results: List of tool result dicts with 'type' and 'content' keys
+
+    Returns:
+        List of source dicts with "title" and "url"
+    """
+    sources: list[dict[str, str]] = []
+
+    for result in tool_results:
+        if not isinstance(result, dict) or result.get("type") != "tool":
+            continue
+
+        content = result.get("content", "")
+        if not content:
+            continue
+
+        try:
+            data = json.loads(content) if isinstance(content, str) else {}
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        # web_search returns a list of result dicts
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "title" in item and "href" in item:
+                    sources.append({"title": str(item["title"]), "url": str(item["href"])})
+        elif isinstance(data, dict):
+            # Check for results array inside the response
+            results = data.get("results", [])
+            if isinstance(results, list):
+                for item in results:
+                    if isinstance(item, dict) and "title" in item and "href" in item:
+                        sources.append({"title": str(item["title"]), "url": str(item["href"])})
+
+    return sources

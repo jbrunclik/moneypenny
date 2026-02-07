@@ -18,6 +18,7 @@ from src.agent.tools.context import (
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
+from src.agent.tools.metadata import METADATA_TOOL_NAMES, cite_sources, manage_memory
 from src.agent.tools.planner import (
     is_refresh_planner_dashboard_available,
     refresh_planner_dashboard,
@@ -43,7 +44,14 @@ def get_available_tools() -> list[Any]:
 
     This function checks Docker availability on first call and caches the result.
     """
-    tools: list[Any] = [fetch_url, web_search, generate_image, retrieve_file]
+    tools: list[Any] = [
+        fetch_url,
+        web_search,
+        generate_image,
+        retrieve_file,
+        cite_sources,
+        manage_memory,
+    ]
 
     # Only add execute_code if sandbox is enabled and Docker is available
     if Config.CODE_SANDBOX_ENABLED:
@@ -116,8 +124,8 @@ def get_tools_for_request(
     """
     # For autonomous agents with specific permissions
     if agent_tool_permissions is not None:
-        # Always include basic safe tools
-        tools: list[Any] = [fetch_url, web_search, retrieve_file]
+        # Always include basic safe tools + metadata tools
+        tools: list[Any] = [fetch_url, web_search, retrieve_file, cite_sources, manage_memory]
 
         # Add permitted tools
         for tool_name in agent_tool_permissions:
@@ -161,6 +169,8 @@ _TOOL_MAP: dict[str, Any] = {
     "google_calendar": google_calendar,
     "trigger_agent": trigger_agent,
     "whatsapp": whatsapp,
+    "cite_sources": cite_sources,
+    "manage_memory": manage_memory,
 }
 
 
@@ -178,8 +188,8 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
         - tool_permissions=[]: Explicitly no extra tools, only basic safe tools
         - tool_permissions=["todoist", ...]: Only these specific tools plus basic safe tools
     """
-    # Always include basic safe tools
-    tools: list[Any] = [fetch_url, web_search, retrieve_file]
+    # Always include basic safe tools + metadata tools
+    tools: list[Any] = [fetch_url, web_search, retrieve_file, cite_sources, manage_memory]
 
     # Add request_approval for sensitive actions
     tools.append(request_approval)
@@ -244,6 +254,10 @@ __all__ = [
     "trigger_agent",
     "request_approval",
     "whatsapp",
+    "cite_sources",
+    "manage_memory",
+    # Metadata tool constants
+    "METADATA_TOOL_NAMES",
     # Exceptions
     "ApprovalRequestedException",
     # Context helpers

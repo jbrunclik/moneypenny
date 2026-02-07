@@ -10,7 +10,12 @@ from apiflask import APIBlueprint
 from flask import Response
 
 from src.agent.agent import ChatAgent, generate_title
-from src.agent.content import extract_metadata_from_response
+from src.agent.content import (
+    detect_response_language,
+    extract_image_prompts_from_messages,
+    extract_metadata_tool_args,
+    extract_sources_fallback_from_tool_results,
+)
 
 # Agent context imports for interactive agent conversations
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
@@ -28,10 +33,8 @@ from src.api.schemas import ChatBatchResponse, ChatRequest, MessageRole
 from src.api.utils import (
     build_chat_response,
     calculate_and_save_message_cost,
-    extract_language_from_metadata,
-    extract_memory_operations,
-    extract_metadata_fields,
     process_memory_operations,
+    validate_memory_operations,
 )
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
@@ -241,7 +244,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             is_autonomous=is_autonomous,
             agent_context=agent_context,
         )
-        raw_response, tool_results, usage_info = agent.chat_batch(
+        raw_response, tool_results, usage_info, result_messages = agent.chat_batch(
             message_text,
             files,
             history,
@@ -277,10 +280,16 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             },
         )
 
-        # Extract metadata from response
-        clean_response, metadata = extract_metadata_from_response(raw_response)
-        sources, generated_images_meta = extract_metadata_fields(metadata)
-        language = extract_language_from_metadata(metadata)
+        # Extract metadata from tool calls and deterministic analysis
+        clean_response = raw_response
+        sources, memory_ops = extract_metadata_tool_args(result_messages)
+        generated_images_meta = extract_image_prompts_from_messages(result_messages)
+        language = detect_response_language(clean_response)
+
+        # Fallback: if web_search was used but no cite_sources, extract from tool results
+        if not sources and tool_results:
+            sources = extract_sources_fallback_from_tool_results(tool_results)
+
         logger.debug(
             "Extracted metadata",
             extra={
@@ -294,9 +303,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             },
         )
 
-        # Process memory operations from metadata (skip in anonymous mode)
+        # Process memory operations (skip in anonymous mode)
         if not anonymous_mode:
-            memory_ops = extract_memory_operations(metadata)
+            memory_ops = validate_memory_operations(memory_ops)
             if memory_ops:
                 logger.debug(
                     "Processing memory operations",

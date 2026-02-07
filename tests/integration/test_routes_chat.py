@@ -26,6 +26,7 @@ class TestChatBatch:
                 "Hello! How can I help?",  # response
                 [],  # tool_results
                 {"input_tokens": 100, "output_tokens": 50},  # usage_info
+                [],  # result_messages
             )
             mock_agent_class.return_value = mock_agent
 
@@ -71,6 +72,7 @@ class TestChatBatch:
                 "Response text",
                 [],
                 {"input_tokens": 100, "output_tokens": 50},
+                [],  # result_messages
             )
             mock_agent_class.return_value = mock_agent
 
@@ -93,18 +95,30 @@ class TestChatBatch:
         test_conversation: Conversation,
     ) -> None:
         """Should include sources when web tools are used."""
+        from langchain_core.messages import AIMessage
+
         with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
-            # Response with metadata that will be extracted
-            response_with_metadata = """Based on search results...
-
-<!-- METADATA:
-{"sources": [{"title": "Test Source", "url": "https://example.com"}]}
--->"""
+            # Sources are now extracted from cite_sources tool calls in result_messages
+            result_msgs = [
+                AIMessage(
+                    content="Based on search results...",
+                    tool_calls=[
+                        {
+                            "name": "cite_sources",
+                            "args": {
+                                "sources": [{"title": "Test Source", "url": "https://example.com"}]
+                            },
+                            "id": "tc-1",
+                        }
+                    ],
+                )
+            ]
             mock_agent.chat_batch.return_value = (
-                response_with_metadata,
+                "Based on search results...",
                 [],
                 {"input_tokens": 150, "output_tokens": 100},
+                result_msgs,
             )
             mock_agent_class.return_value = mock_agent
 
@@ -152,6 +166,7 @@ class TestChatBatch:
                 "Response",
                 [],
                 {"input_tokens": 100, "output_tokens": 50},
+                [],  # result_messages
             )
             mock_agent_class.return_value = mock_agent
 
@@ -185,7 +200,7 @@ class TestChatStream:
                 yield {
                     "type": "final",
                     "content": "Hello world",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }
@@ -218,7 +233,7 @@ class TestChatStream:
                 yield {
                     "type": "final",
                     "content": "Token1Token2",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }
@@ -281,7 +296,7 @@ class TestChatStream:
                 yield {
                     "type": "final",
                     "content": "Token1Token2",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }
@@ -342,6 +357,7 @@ class TestChatWithFiles:
                 "I see your image",
                 [],
                 {"input_tokens": 200, "output_tokens": 50},
+                [],  # result_messages
             )
             mock_agent_class.return_value = mock_agent
 
@@ -370,6 +386,7 @@ class TestChatWithFiles:
                 "This is an image of...",
                 [],
                 {"input_tokens": 200, "output_tokens": 50},
+                [],  # result_messages
             )
             mock_agent_class.return_value = mock_agent
 
@@ -403,6 +420,8 @@ class TestChatWithGeneratedImages:
         sample_png_base64: str,
     ) -> None:
         """Should extract generated images from tool results and include in response."""
+        from langchain_core.messages import AIMessage
+
         from src.agent.tool_results import _current_request_id, _full_tool_results
 
         # Build tool result with _full_result containing image data
@@ -440,10 +459,24 @@ class TestChatWithGeneratedImages:
                         "results": [{"type": "tool", "content": tool_result_content}],
                         "created_at": time.time(),
                     }
+                # Result messages include an AIMessage with generate_image tool call
+                result_msgs = [
+                    AIMessage(
+                        content="Here is the image I generated for you.",
+                        tool_calls=[
+                            {
+                                "name": "generate_image",
+                                "args": {"prompt": "a red square"},
+                                "id": "tc-1",
+                            }
+                        ],
+                    )
+                ]
                 return (
-                    'Here is the image I generated for you.\n\n<!-- METADATA:\n{"generated_images": [{"prompt": "a red square"}]}\n-->',
+                    "Here is the image I generated for you.",
                     [{"type": "tool", "content": tool_result_content}],
                     {"input_tokens": 100, "output_tokens": 50},
+                    result_msgs,
                 )
 
             mock_agent.chat_batch = mock_chat_batch
@@ -491,6 +524,8 @@ class TestChatWithGeneratedImages:
         """
         import time
 
+        from langchain_core.messages import AIMessage
+
         from src.agent.tool_results import _current_request_id, _full_tool_results
 
         # Build tool result with _full_result containing image data
@@ -531,15 +566,29 @@ class TestChatWithGeneratedImages:
                         "created_at": time.time(),
                     }
 
+                # Build result_messages with generate_image tool call for extraction
+                result_msgs = [
+                    AIMessage(
+                        content="Here is the image",
+                        tool_calls=[
+                            {
+                                "name": "generate_image",
+                                "args": {"prompt": "a blue circle"},
+                                "id": "tc-1",
+                            }
+                        ],
+                    )
+                ]
+
                 yield {"type": "token", "text": "Here"}
                 yield {"type": "token", "text": " is"}
                 yield {"type": "token", "text": " the"}
                 yield {"type": "token", "text": " image"}
-                # Final event with content, metadata, and tool results
+                # Final event with content, result_messages, and tool results
                 yield {
                     "type": "final",
-                    "content": 'Here is the image\n\n<!-- METADATA:\n{"generated_images": [{"prompt": "a blue circle"}]}\n-->',
-                    "metadata": {"generated_images": [{"prompt": "a blue circle"}]},
+                    "content": "Here is the image",
+                    "result_messages": result_msgs,
                     "tool_results": [{"type": "tool", "content": tool_result_content}],
                     "usage_info": {"input_tokens": 100, "output_tokens": 50},
                 }
@@ -615,7 +664,7 @@ class TestChatWithGeneratedImages:
                 yield {
                     "type": "final",
                     "content": "Test response",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],  # No tool results
                     "usage_info": {"input_tokens": 10, "output_tokens": 5},
                 }
@@ -682,7 +731,7 @@ class TestChatStreamDoneEvent:
                 yield {
                     "type": "final",
                     "content": "Hello there!",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }
@@ -740,7 +789,7 @@ class TestChatStreamDoneEvent:
                 yield {
                     "type": "final",
                     "content": "Response content",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }
@@ -800,7 +849,7 @@ class TestChatStreamDoneEvent:
                 yield {
                     "type": "final",
                     "content": expected_content,
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }
@@ -857,7 +906,7 @@ class TestChatStreamDoneEvent:
                 yield {
                     "type": "final",
                     "content": "",  # Empty content
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 0},
                 }
@@ -910,7 +959,7 @@ class TestChatStreamDoneEvent:
                 yield {
                     "type": "final",
                     "content": "Response",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }
@@ -973,7 +1022,7 @@ class TestChatStreamDoneEvent:
                 yield {
                     "type": "final",
                     "content": "Test message",
-                    "metadata": {},
+                    "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 10},
                 }

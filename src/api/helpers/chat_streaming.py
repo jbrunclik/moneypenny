@@ -14,6 +14,12 @@ from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
 from src.agent.agent import ChatAgent, generate_title
+from src.agent.content import (
+    detect_response_language,
+    extract_image_prompts_from_messages,
+    extract_metadata_tool_args,
+    extract_sources_fallback_from_tool_results,
+)
 
 # Agent context imports for interactive agent conversations
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
@@ -27,10 +33,8 @@ from src.api.schemas import MessageRole
 from src.api.utils import (
     build_stream_done_event,
     calculate_and_save_message_cost,
-    extract_language_from_metadata,
-    extract_memory_operations,
-    extract_metadata_fields,
     process_memory_operations,
+    validate_memory_operations,
 )
 from src.config import Config
 from src.db.models import db
@@ -86,7 +90,7 @@ class SaveResult:
 
 def save_message_to_db(
     content: str,
-    meta: dict[str, Any],
+    result_messages: list[Any],
     tools: list[dict[str, Any]],
     usage: dict[str, Any],
     conv_id: str,
@@ -103,7 +107,7 @@ def save_message_to_db(
 
     Args:
         content: Message content to save
-        meta: Metadata dictionary
+        result_messages: All messages from the graph for metadata extraction
         tools: Tool results list
         usage: Usage info dictionary
         conv_id: Conversation ID
@@ -120,9 +124,15 @@ def save_message_to_db(
         SaveResult with extracted data for building done event, or None on error.
     """
     try:
-        # Extract metadata fields
-        sources, generated_images_meta = extract_metadata_fields(meta)
-        language = extract_language_from_metadata(meta)
+        # Extract metadata from tool calls and deterministic analysis
+        sources, memory_ops = extract_metadata_tool_args(result_messages)
+        generated_images_meta = extract_image_prompts_from_messages(result_messages)
+        language = detect_response_language(content)
+
+        # Fallback: if web_search was used but no cite_sources, extract from tool results
+        if not sources and tools:
+            sources = extract_sources_fallback_from_tool_results(tools)
+
         logger.debug(
             "Extracted metadata from stream",
             extra={
@@ -136,9 +146,9 @@ def save_message_to_db(
             },
         )
 
-        # Process memory operations from metadata (skip in anonymous mode)
+        # Process memory operations (skip in anonymous mode)
         if not anonymous_mode:
-            memory_ops = extract_memory_operations(meta)
+            memory_ops = validate_memory_operations(memory_ops)
             if memory_ops:
                 logger.debug(
                     "Processing memory operations from stream",
@@ -313,7 +323,7 @@ def stream_events(
             if event.get("type") == "final":
                 # Store final results for cleanup thread
                 final_results["clean_content"] = event.get("content", "")
-                final_results["metadata"] = event.get("metadata", {})
+                final_results["result_messages"] = event.get("result_messages", [])
                 final_results["tool_results"] = event.get("tool_results", [])
                 final_results["usage_info"] = event.get("usage_info", {})
                 final_results["ready"] = True
@@ -568,7 +578,7 @@ class _StreamContext:
 
         # State
         self.clean_content = ""
-        self.metadata: dict[str, Any] = {}
+        self.result_messages: list[Any] = []
         self.tool_results: list[dict[str, Any]] = []
         self.usage_info: dict[str, Any] = {}
         self.client_connected = True
@@ -716,7 +726,7 @@ class _StreamContext:
                 self.user_id,
                 lambda: save_message_to_db(
                     self.final_results["clean_content"],
-                    self.final_results["metadata"],
+                    self.final_results["result_messages"],
                     self.final_results["tool_results"],
                     self.final_results["usage_info"],
                     self.conv_id,
@@ -824,7 +834,7 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
 
     if event_type == "final":
         context.clean_content = item.get("content", "")
-        context.metadata = item.get("metadata", {})
+        context.result_messages = item.get("result_messages", [])
         context.tool_results = item.get("tool_results", [])
         context.usage_info = item.get("usage_info", {})
     elif event_type == "approval_required":
@@ -893,7 +903,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
 
         save_result = save_message_to_db(
             context.clean_content,
-            context.metadata,
+            context.result_messages,
             context.tool_results,
             context.usage_info,
             context.conv_id,

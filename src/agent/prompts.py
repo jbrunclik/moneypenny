@@ -364,8 +364,8 @@ Act as a **defensive barrier** for the user's schedule:
 6. **Proactive time-blocking**: When adding high-priority tasks, suggest calendar blocks
 """
 
-# Metadata section - always included when tools are available
-TOOLS_SYSTEM_PROMPT_METADATA = """
+# Context and source citation section - always included when tools are available
+TOOLS_SYSTEM_PROMPT_CONTEXT = """
 # Conversation History Context
 Messages in the conversation history include context in `<!-- MSG_CONTEXT: {...} -->` format at the start.
 This provides temporal context and file references for your use.
@@ -389,58 +389,11 @@ The `id` field in files metadata (format: "message_id:file_index") can be used d
 # Knowledge Cutoff
 Your training data has a cutoff date. For anything after that, use web_search.
 
-# Response Metadata
-CRITICAL: The metadata block MUST be the ABSOLUTE LAST thing in your response.
-- First, write your COMPLETE response text
-- Then, AFTER all your content is finished, append the metadata block
-- NEVER put any text, explanation, or content after the metadata block
-- There must be only ONE metadata block per response
-
-Use this exact format with the special markers:
-<!-- METADATA:
-{"language": "en", "sources": [...], "generated_images": [...]}
--->
-
-## Language Field (REQUIRED for every response)
-- Always include "language" with the ISO 639-1 code of your response (e.g., "en", "cs", "de", "es")
-- Use the primary language of your response content
-- This is used for text-to-speech pronunciation
-
-## Rules for Sources (web_search, fetch_url)
-- Include ALL sources you referenced: both from web_search results AND any URLs you fetched with fetch_url
-- Only include sources you actually used information from in your response
+# Source Citation
+After using web_search or fetch_url, call the **cite_sources** tool with the sources you referenced.
+- Only include sources you actually cited in your response
 - Each source needs "title" and "url" fields
-- For fetch_url sources, use the page title (or URL domain if unknown) as the title
-
-## Rules for Generated Images (generate_image)
-- Include the exact prompt you used to generate the image
-- Each generated_images entry needs: {"prompt": "the exact prompt you used"}
-
-## General Metadata Rules
-- The JSON must be valid - use double quotes, escape special characters
-- If you used BOTH web tools AND generate_image, include BOTH "sources" and "generated_images" arrays in the SAME metadata block
-- Do NOT create separate metadata blocks for different tools - combine everything into ONE block
-- Always include the language field, even if you didn't use any tools
-
-Example with language only (no tools used):
-<!-- METADATA:
-{"language": "en"}
--->
-
-Example with language and sources:
-<!-- METADATA:
-{"language": "en", "sources": [{"title": "Wikipedia", "url": "https://en.wikipedia.org/..."}]}
--->
-
-Example with language and generated images:
-<!-- METADATA:
-{"language": "cs", "generated_images": [{"prompt": "a majestic mountain sunset, photorealistic, golden hour lighting"}]}
--->
-
-Example with all fields:
-<!-- METADATA:
-{"language": "en", "sources": [{"title": "Wikipedia", "url": "https://en.wikipedia.org/..."}], "generated_images": [{"prompt": "a sunset"}]}
--->"""
+- For fetch_url sources, use the page title (or URL domain if unknown) as the title"""
 
 # ============ Planner System Prompt ============
 
@@ -601,15 +554,11 @@ MEMORY_SYSTEM_PROMPT = """
 # User Memory System
 You have access to a memory system that stores facts about the user for personalization.
 
-## Memory Operations (in metadata block)
-Include memory_operations in your metadata block when you want to modify the user's memories:
-```json
-{{"memory_operations": [
-  {{"action": "add", "content": "Has a golden retriever named Max, adopted in 2020", "category": "fact"}},
-  {{"action": "update", "id": "mem-xxx", "content": "Updated and consolidated fact about the user"}},
-  {{"action": "delete", "id": "mem-xxx"}}
-]}}
-```
+## Memory Operations
+Use the **manage_memory** tool to add, update, or delete user memories:
+- `manage_memory(operations=[{{"action": "add", "content": "...", "category": "fact"}}])`
+- `manage_memory(operations=[{{"action": "update", "id": "mem-xxx", "content": "..."}}])`
+- `manage_memory(operations=[{{"action": "delete", "id": "mem-xxx"}}])`
 
 ## Categories
 - **preference**: Preferences and choices that affect recommendations (e.g., "Prefers Python for backend work due to its readability; uses TypeScript for frontend")
@@ -980,8 +929,8 @@ def get_system_prompt(
         # Include productivity tools (Todoist, Calendar) docs only when NOT in anonymous mode
         if not anonymous_mode:
             prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
-        # Always include metadata section
-        prompt += TOOLS_SYSTEM_PROMPT_METADATA
+        # Always include context and citation section
+        prompt += TOOLS_SYSTEM_PROMPT_CONTEXT
 
     # Add planner-specific prompt if in planning mode
     if is_planning:

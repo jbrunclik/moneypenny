@@ -72,62 +72,22 @@ def normalize_generated_images(
     return normalized
 
 
-def extract_metadata_fields(
-    metadata: dict[str, Any] | None,
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Extract sources and generated_images from metadata dict.
-
-    Args:
-        metadata: Metadata dict from extract_metadata_from_response, or None
-
-    Returns:
-        Tuple of (sources list, generated_images list)
-    """
-    if not metadata:
-        return [], []
-    sources = metadata.get("sources", [])
-    generated_images = normalize_generated_images(metadata.get("generated_images", []))
-    return sources, generated_images
-
-
-def extract_language_from_metadata(metadata: dict[str, Any] | None) -> str | None:
-    """Extract language code from metadata dict.
-
-    Args:
-        metadata: Metadata dict from extract_metadata_from_response, or None
-
-    Returns:
-        ISO 639-1 language code (e.g., "en", "cs") or None if not present
-    """
-    if not metadata:
-        return None
-    language = metadata.get("language")
-    if language and isinstance(language, str):
-        # Normalize to lowercase and handle edge cases like "EN" or "en-US"
-        normalized: str = language.lower().split("-")[0][:2]
-        return normalized
-    return None
-
-
-def extract_memory_operations(
-    metadata: dict[str, Any] | None,
+def validate_memory_operations(
+    operations: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Extract memory operations from metadata dict.
+    """Validate memory operations extracted from manage_memory tool calls.
 
-    Memory operations allow the LLM to add, update, or delete user memories.
+    Filters out invalid operations that are missing required fields.
 
     Args:
-        metadata: Metadata dict from extract_metadata_from_response, or None
+        operations: List of memory operation dicts from extract_metadata_tool_args
 
     Returns:
-        List of memory operation dicts with 'action', 'content', 'category', 'id' fields
+        List of valid memory operation dicts with 'action', 'content', 'category', 'id' fields
     """
-    if not metadata:
+    if not operations:
         return []
 
-    operations = metadata.get("memory_operations", [])
-
-    # Validate each operation has required fields
     valid_operations = []
     valid_actions = {"add", "update", "delete"}
 

@@ -21,7 +21,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.agent.content import (
     clean_tool_call_json,
-    extract_metadata_from_response,
     extract_text_content,
     extract_thinking_and_text,
 )
@@ -283,7 +282,7 @@ class ChatAgent:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
-    ) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
+    ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
         """
         Send a message and get a response (non-streaming).
 
@@ -299,7 +298,7 @@ class ChatAgent:
             dashboard_data: Dashboard data to inject into planner prompt (required if is_planning=True)
 
         Returns:
-            Tuple of (response_text, tool_results, usage_info)
+            Tuple of (response_text, tool_results, usage_info, result_messages)
         """
         messages = self._build_messages(
             text,
@@ -326,10 +325,11 @@ class ChatAgent:
 
         # Run the graph
         result = self.graph.invoke(cast(Any, {"messages": messages}))
+        result_messages: list[BaseMessage] = result["messages"]
 
         # Extract response (last AI message with actual content)
         response_text = ""
-        for msg in reversed(result["messages"]):
+        for msg in reversed(result_messages):
             if isinstance(msg, AIMessage):
                 text_content = extract_text_content(msg.content)
                 if msg.tool_calls and not text_content:
@@ -341,7 +341,7 @@ class ChatAgent:
 
         # Extract tool results
         tool_results: list[dict[str, Any]] = []
-        for msg in result["messages"]:
+        for msg in result_messages:
             if isinstance(msg, ToolMessage):
                 tool_results.append({"type": "tool", "content": msg.content})
 
@@ -351,7 +351,7 @@ class ChatAgent:
         # Aggregate usage metadata from all AIMessages
         total_input_tokens = 0
         total_output_tokens = 0
-        for msg in result["messages"]:
+        for msg in result_messages:
             if isinstance(msg, AIMessage):
                 if hasattr(msg, "usage_metadata") and msg.usage_metadata:
                     usage = msg.usage_metadata
@@ -383,7 +383,7 @@ class ChatAgent:
                 },
             )
 
-        return response_text, tool_results, usage_info
+        return response_text, tool_results, usage_info, result_messages
 
     def stream_chat(
         self,
@@ -396,7 +396,7 @@ class ChatAgent:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
-    ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
+    ) -> Generator[str | tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]]:
         """
         Stream response tokens using LangGraph's stream method.
 
@@ -411,11 +411,11 @@ class ChatAgent:
 
         Yields:
             - str: Text tokens for streaming display
-            - tuple: Final (content, metadata, tool_results, usage_info) where:
-              - content: Clean response text (metadata stripped)
-              - metadata: Extracted metadata dict (sources, generated_images, etc.)
+            - tuple: Final (content, tool_results, usage_info, result_messages) where:
+              - content: Clean response text
               - tool_results: List of tool message dicts for server-side processing
               - usage_info: Dict with 'input_tokens' and 'output_tokens'
+              - result_messages: All messages from the graph for metadata extraction
         """
         messages = self._build_messages(
             text,
@@ -429,15 +429,12 @@ class ChatAgent:
             dashboard_data=dashboard_data,
         )
 
-        # Accumulate full response to extract metadata at the end
+        # Accumulate full response text
         full_response = ""
-        # Buffer to detect metadata marker - we hold back chars until we're sure
-        # they're not part of the metadata marker
-        buffer = ""
-        metadata_marker = "<!-- METADATA:"
-        in_metadata = False
         # Capture tool results for server-side extraction (e.g., generated images)
         tool_results: list[dict[str, Any]] = []
+        # Collect all messages for metadata tool arg extraction
+        all_messages: list[BaseMessage] = list(messages)
         # Track token counts as we stream (memory efficient - only store numbers, not message objects)
         total_input_tokens = 0
         total_output_tokens = 0
@@ -460,6 +457,7 @@ class ChatAgent:
                             "content": message_chunk.content,
                         }
                     )
+                    all_messages.append(message_chunk)
                     continue
 
                 # Only yield content from AI message chunks (not tool calls or tool results)
@@ -474,13 +472,9 @@ class ChatAgent:
                             if input_tokens > 0 or output_tokens > 0:
                                 total_input_tokens += input_tokens
                                 total_output_tokens += output_tokens
-                                logger.debug(
-                                    "Found usage in chunk",
-                                    extra={
-                                        "input_tokens": input_tokens,
-                                        "output_tokens": output_tokens,
-                                    },
-                                )
+
+                    # Collect AIMessage chunks for metadata extraction
+                    all_messages.append(message_chunk)
 
                     # Skip chunks that are only tool calls (no text content)
                     if message_chunk.tool_calls or message_chunk.tool_call_chunks:
@@ -489,37 +483,7 @@ class ChatAgent:
                         content = extract_text_content(message_chunk.content)
                         if content:
                             full_response += content
-
-                            # If we've detected metadata, don't yield anything more
-                            if in_metadata:
-                                continue
-
-                            # Add to buffer and check for metadata marker
-                            buffer += content
-
-                            # Check if buffer contains the start of metadata (HTML comment format)
-                            if metadata_marker in buffer:
-                                # Yield everything before the marker
-                                marker_pos = buffer.find(metadata_marker)
-                                if marker_pos > 0:
-                                    yield buffer[:marker_pos].rstrip()
-                                in_metadata = True
-                                buffer = ""
-                            elif len(buffer) > len(metadata_marker):
-                                # Buffer is longer than marker, safe to yield the excess
-                                safe_length = len(buffer) - len(metadata_marker)
-                                yield buffer[:safe_length]
-                                buffer = buffer[safe_length:]
-
-        # Yield any remaining buffer that's not metadata
-        if buffer and not in_metadata:
-            # Final check - might end with partial marker or JSON
-            clean, _ = extract_metadata_from_response(buffer)
-            if clean and clean.strip():
-                yield clean
-
-        # Extract metadata and yield final tuple
-        clean_content, metadata = extract_metadata_from_response(full_response)
+                            yield content
 
         # Log a warning if we didn't find any usage metadata (should be rare)
         if total_input_tokens == 0 and total_output_tokens == 0 and chunk_count > 0:
@@ -546,8 +510,8 @@ class ChatAgent:
                 },
             )
 
-        # Final yield: (content, metadata, tool_results, usage_info) for server processing
-        yield (clean_content, metadata, tool_results, usage_info)
+        # Final yield: (content, tool_results, usage_info, all_messages) for server processing
+        yield (full_response, tool_results, usage_info, all_messages)
 
     def stream_chat_events(
         self,
@@ -581,7 +545,7 @@ class ChatAgent:
             - {"type": "tool_start", "tool": "tool_name"} - Tool execution starting
             - {"type": "tool_end", "tool": "tool_name"} - Tool execution finished
             - {"type": "token", "text": "..."} - Text token for streaming display
-            - {"type": "final", "content": "...", "metadata": {...}, "tool_results": [...], "usage_info": {...}}
+            - {"type": "final", "content": "...", "tool_results": [...], "usage_info": {...}, "result_messages": [...]}
         """
         messages = self._build_messages(
             text,
@@ -595,14 +559,12 @@ class ChatAgent:
             dashboard_data=dashboard_data,
         )
 
-        # Accumulate full response to extract metadata at the end
+        # Accumulate full response text
         full_response = ""
-        # Buffer to detect metadata marker
-        buffer = ""
-        metadata_marker = "<!-- METADATA:"
-        in_metadata = False
         # Capture tool results for server-side extraction
         tool_results: list[dict[str, Any]] = []
+        # Collect all messages for metadata tool arg extraction
+        all_messages: list[BaseMessage] = list(messages)
         # Track token counts
         total_input_tokens = 0
         total_output_tokens = 0
@@ -637,6 +599,7 @@ class ChatAgent:
                             "content": message_chunk.content,
                         }
                     )
+                    all_messages.append(message_chunk)
                     # Signal tool execution ended
                     tool_name = getattr(message_chunk, "name", None)
                     if tool_name and tool_name in pending_tool_calls:
@@ -656,6 +619,9 @@ class ChatAgent:
                             if input_tokens > 0 or output_tokens > 0:
                                 total_input_tokens += input_tokens
                                 total_output_tokens += output_tokens
+
+                    # Collect AIMessage chunks for metadata extraction
+                    all_messages.append(message_chunk)
 
                     # Check for tool calls starting
                     if message_chunk.tool_calls or message_chunk.tool_call_chunks:
@@ -803,95 +769,11 @@ class ChatAgent:
                                         text_content = text_content[:-i]
                                         break
 
-                            # Check if we're in response metadata block
-                            if in_metadata:
-                                # Accumulate metadata content in full_response for later extraction
-                                full_response += text_content
-                                if end_marker in text_content:
-                                    # Metadata block ended - extract any content after it
-                                    end_pos = text_content.find(end_marker)
-                                    remaining = text_content[end_pos + 3 :].lstrip()
-                                    in_metadata = False
-                                    # Don't strip METADATA from full_response - let extract_metadata_from_response handle it
-                                    if remaining:
-                                        logger.info(
-                                            "Content found after metadata block",
-                                            extra={"remaining_len": len(remaining)},
-                                        )
-                                        buffer += remaining
-                                    continue
-                                else:
-                                    # Still in metadata block - check for partial end marker
-                                    for i in range(len(end_marker) - 1, 0, -1):
-                                        if text_content.endswith(end_marker[:i]):
-                                            carryover = end_marker[:i]
-                                            break
-                                    continue
-
-                            # Add to full response (before METADATA detection)
+                            # Add to full response and yield token
                             full_response += text_content
-                            buffer += text_content
-
-                            # Log buffer state for first few text chunks
-                            if chunk_count <= 5 and token_yield_count == 0:
-                                logger.info(
-                                    "Buffer state (no tokens yielded yet)",
-                                    extra={
-                                        "chunk_count": chunk_count,
-                                        "buffer_len": len(buffer),
-                                        "threshold": len(metadata_marker),
-                                        "would_yield": len(buffer) > len(metadata_marker),
-                                    },
-                                )
-
-                            # Check if buffer contains the start of response metadata
-                            if metadata_marker in buffer:
-                                marker_pos = buffer.find(metadata_marker)
-                                # Check if METADATA block completes in this buffer
-                                meta_end_pos = buffer.find(end_marker, marker_pos)
-                                if meta_end_pos != -1:
-                                    # Complete METADATA block - yield content before it
-                                    # Don't strip from full_response - let extract_metadata_from_response handle it
-                                    before = buffer[:marker_pos].rstrip()
-                                    after = buffer[meta_end_pos + 3 :].lstrip()
-                                    if before:
-                                        token_yield_count += 1
-                                        yield {"type": "token", "text": before}
-                                    buffer = after
-                                    # Don't set in_metadata since block is complete
-                                else:
-                                    # METADATA block starts but doesn't end in this chunk
-                                    # Early metadata (first 5 chunks) suggests model output metadata prematurely
-                                    if chunk_count <= 5 and marker_pos == 0:
-                                        logger.warning(
-                                            "Response metadata at start of output - model may have skipped content",
-                                            extra={
-                                                "marker_pos": marker_pos,
-                                                "buffer_length": len(buffer),
-                                                "chunk_count": chunk_count,
-                                            },
-                                        )
-                                    # Check for partial end marker at chunk boundary
-                                    content_after_marker = buffer[marker_pos:]
-                                    for i in range(len(end_marker) - 1, 0, -1):
-                                        if content_after_marker.endswith(end_marker[:i]):
-                                            carryover = end_marker[:i]
-                                            break
-                                    if marker_pos > 0:
-                                        token_yield_count += 1
-                                        yield {
-                                            "type": "token",
-                                            "text": buffer[:marker_pos].rstrip(),
-                                        }
-                                    in_metadata = True
-                                    buffer = ""
-                                    # Don't strip METADATA from full_response - it will be extracted at the end
-                                    # by extract_metadata_from_response which also handles incomplete blocks
-                            elif len(buffer) > len(metadata_marker):
-                                safe_length = len(buffer) - len(metadata_marker)
+                            if text_content:
                                 token_yield_count += 1
-                                yield {"type": "token", "text": buffer[:safe_length]}
-                                buffer = buffer[safe_length:]
+                                yield {"type": "token", "text": text_content}
         except RuntimeError as e:
             # Handle executor shutdown gracefully (e.g., during server restart)
             # Python's ThreadPoolExecutor raises generic RuntimeError with specific messages
@@ -911,19 +793,13 @@ class ChatAgent:
                 raise
 
         # Handle any remaining carryover (wasn't part of a marker)
-        if carryover and not in_msg_context and not in_metadata:
+        if carryover and not in_msg_context:
             full_response += carryover
-            buffer += carryover
+            token_yield_count += 1
+            yield {"type": "token", "text": carryover}
 
-        # Yield any remaining buffer that's not metadata
-        if buffer and not in_metadata:
-            clean, _ = extract_metadata_from_response(buffer)
-            if clean and clean.strip():
-                token_yield_count += 1
-                yield {"type": "token", "text": clean}
-
-        # Extract metadata
-        clean_content, metadata = extract_metadata_from_response(full_response)
+        # Apply tool call JSON cleanup to the full response
+        clean_content = clean_tool_call_json(full_response)
 
         # Log token streaming summary
         if token_yield_count > 0 or len(full_response) > 0:
@@ -946,9 +822,9 @@ class ChatAgent:
         yield {
             "type": "final",
             "content": clean_content,
-            "metadata": metadata,
             "tool_results": tool_results,
             "usage_info": usage_info,
+            "result_messages": all_messages,
         }
 
 
