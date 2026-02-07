@@ -303,7 +303,7 @@ class Config:
     # Memory defragmentation settings
     # Automated nightly job consolidates and cleans up memories using LLM
     MEMORY_DEFRAG_THRESHOLD: int = int(
-        os.getenv("MEMORY_DEFRAG_THRESHOLD", "50")
+        os.getenv("MEMORY_DEFRAG_THRESHOLD", "30")
     )  # Only defrag users with >= this many memories
     MEMORY_DEFRAG_MODEL: str = os.getenv(
         "MEMORY_DEFRAG_MODEL", "gemini-3-pro-preview"

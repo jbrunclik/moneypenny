@@ -649,6 +649,15 @@ When near the limit ({warning_threshold}+ memories), prioritize keeping space:
 - REMOVE: Completed goals, outdated projects, stale context that no longer applies
 - UPDATE rather than create new: If a memory about the same topic exists, update it with new info
 
+### 5. Avoid Unnecessary Updates
+Do NOT update a memory unless there is genuinely new, substantive information to add:
+- Do NOT rephrase or reword existing memories for style improvements
+- Do NOT re-store information that is already accurately captured
+- If a memory was recently updated (check the updated date), leave it alone unless the user shared brand new facts
+- Only UPDATE when the user shares new facts that meaningfully extend or correct an existing memory
+- If a memory already captures the key facts, leave it alone — even if you would word it slightly differently
+- In a long conversation, resist the urge to "refine" memories — stability is more valuable than perfect wording
+
 ## What to Memorize
 - Family members: names, relationships, birthdays, and key facts about each
 - Strong preferences that help personalize responses (with reasoning when known)
@@ -694,13 +703,21 @@ def get_user_memories_prompt(user_id: str) -> str:
         )
 
     if memories:
-        prompt_parts.append("\n")
+        import json as _json
+
+        memory_list = []
         for mem in memories:
-            category_str = f"[{mem.category}]" if mem.category else ""
-            created_date = mem.created_at.strftime("%Y-%m-%d")
-            prompt_parts.append(
-                f"- {category_str} {mem.content} (id: {mem.id}, created: {created_date})"
-            )
+            entry: dict[str, str] = {
+                "id": mem.id,
+                "category": mem.category or "",
+                "content": mem.content,
+                "created": mem.created_at.strftime("%Y-%m-%d"),
+            }
+            updated_date = mem.updated_at.strftime("%Y-%m-%d")
+            if updated_date != entry["created"]:
+                entry["updated"] = updated_date
+            memory_list.append(entry)
+        prompt_parts.append("\n```json\n" + _json.dumps(memory_list, indent=2) + "\n```")
     else:
         prompt_parts.append("\nNo memories stored yet.")
 
