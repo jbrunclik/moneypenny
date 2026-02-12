@@ -14,9 +14,9 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-TODOIST_AUTH_URL = "https://todoist.com/oauth/authorize"
-TODOIST_TOKEN_URL = "https://todoist.com/oauth/access_token"
-TODOIST_SYNC_URL = "https://api.todoist.com/sync/v9/sync"
+TODOIST_AUTH_URL = "https://app.todoist.com/oauth/authorize"
+TODOIST_TOKEN_URL = "https://api.todoist.com/oauth/access_token"
+TODOIST_USER_URL = "https://api.todoist.com/api/v1/user"
 
 
 class TodoistAuthError(Exception):
@@ -101,7 +101,7 @@ def exchange_code_for_token(code: str) -> str:
 def get_user_info(access_token: str) -> dict[str, Any]:
     """Get the authenticated user's Todoist profile.
 
-    Uses the Sync API since the REST API v2 doesn't have a user endpoint.
+    Uses the API v1 user endpoint.
 
     Args:
         access_token: The user's Todoist access token
@@ -112,16 +112,12 @@ def get_user_info(access_token: str) -> dict[str, Any]:
     Raises:
         TodoistAuthError: If the request fails
     """
-    logger.debug("Fetching Todoist user info via Sync API")
+    logger.debug("Fetching Todoist user info")
 
     try:
-        response = requests.post(
-            TODOIST_SYNC_URL,
+        response = requests.get(
+            TODOIST_USER_URL,
             headers={"Authorization": f"Bearer {access_token}"},
-            data={
-                "sync_token": "*",
-                "resource_types": '["user"]',
-            },
             timeout=Config.TODOIST_API_TIMEOUT,
         )
 
@@ -132,15 +128,13 @@ def get_user_info(access_token: str) -> dict[str, Any]:
             )
             raise TodoistAuthError("Failed to fetch Todoist user info")
 
-        sync_data = response.json()
-        user_data = sync_data.get("user")
+        user_data: dict[str, Any] = response.json()
 
         if not user_data:
-            logger.error("Todoist sync response missing user data")
+            logger.error("Todoist user response empty")
             raise TodoistAuthError("No user data in response")
 
-        result: dict[str, Any] = user_data
-        return result
+        return user_data
 
     except requests.RequestException as e:
         logger.error("Todoist user info request failed", extra={"error": str(e)}, exc_info=True)
@@ -150,17 +144,31 @@ def get_user_info(access_token: str) -> dict[str, Any]:
 def revoke_token(access_token: str) -> bool:
     """Revoke a Todoist access token.
 
-    Note: Todoist doesn't have a token revocation endpoint.
-    This function is a placeholder that returns True - the token
-    will be removed from our database on disconnect.
-
     Args:
-        access_token: The access token to revoke (unused)
+        access_token: The access token to revoke
 
     Returns:
-        Always True
+        True if revocation succeeded or was a no-op
     """
-    # Todoist doesn't support token revocation via API
-    # The user must revoke access manually in Todoist settings
-    logger.debug("Todoist token revocation requested (no-op - Todoist doesn't support revocation)")
-    return True
+    try:
+        response = requests.delete(
+            "https://api.todoist.com/api/v1/access_tokens",
+            data={
+                "client_id": Config.TODOIST_CLIENT_ID,
+                "client_secret": Config.TODOIST_CLIENT_SECRET,
+                "access_token": access_token,
+            },
+            timeout=Config.TODOIST_API_TIMEOUT,
+        )
+        if response.status_code < 300:
+            logger.debug("Todoist token revoked successfully")
+            return True
+        else:
+            logger.warning(
+                "Todoist token revocation failed",
+                extra={"status_code": response.status_code},
+            )
+            return False
+    except requests.RequestException as e:
+        logger.warning("Todoist token revocation request failed", extra={"error": str(e)})
+        return False

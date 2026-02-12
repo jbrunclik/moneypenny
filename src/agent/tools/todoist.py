@@ -87,7 +87,7 @@ def _todoist_api_request(
                 },
             )
             # Handle auth errors with clear reconnection message
-            if response.status_code in (401, 403):
+            if response.status_code in (401, 403, 410):
                 raise Exception(
                     "Todoist access has been revoked or expired. "
                     "Please reconnect your Todoist account in Settings."
@@ -126,7 +126,7 @@ def _todoist_sync_request(
 
     import requests
 
-    url = "https://api.todoist.com/sync/v9/sync"
+    url = "https://api.todoist.com/api/v1/sync"
     headers = {"Authorization": f"Bearer {token}"}
 
     # Add UUIDs to commands if not present
@@ -148,7 +148,7 @@ def _todoist_sync_request(
                 "Todoist Sync API error",
                 extra={"status_code": response.status_code, "error": error_msg},
             )
-            if response.status_code in (401, 403):
+            if response.status_code in (401, 403, 410):
                 raise Exception(
                     "Todoist access has been revoked or expired. "
                     "Please reconnect your Todoist account in Settings."

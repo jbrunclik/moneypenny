@@ -333,7 +333,7 @@ class Config:
         "TODOIST_REDIRECT_URI", "http://localhost:8000/auth/todoist/callback"
     )
     TODOIST_API_TIMEOUT: int = int(os.getenv("TODOIST_API_TIMEOUT", "10"))  # seconds
-    TODOIST_API_BASE_URL: str = "https://api.todoist.com/rest/v2"
+    TODOIST_API_BASE_URL: str = "https://api.todoist.com/api/v1"
 
     # Google Calendar Integration
     GOOGLE_CALENDAR_CLIENT_ID: str = os.getenv("GOOGLE_CALENDAR_CLIENT_ID", "")
