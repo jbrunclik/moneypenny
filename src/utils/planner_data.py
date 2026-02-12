@@ -250,7 +250,7 @@ def fetch_todoist_dashboard_data(
             timeout=Config.TODOIST_API_TIMEOUT,
         )
 
-        if response.status_code == 401 or response.status_code == 403:
+        if response.status_code in (401, 403, 410):
             return [], [], "Todoist access has expired. Please reconnect in Settings."
 
         if response.status_code >= 400:
@@ -260,8 +260,13 @@ def fetch_todoist_dashboard_data(
             )
             return [], [], f"Todoist API error ({response.status_code})"
 
-        tasks = response.json()
-        if not isinstance(tasks, list):
+        tasks_data = response.json()
+        # API v1 wraps list responses in {"results": [...]}
+        if isinstance(tasks_data, dict) and "results" in tasks_data:
+            tasks = tasks_data["results"]
+        elif isinstance(tasks_data, list):
+            tasks = tasks_data
+        else:
             tasks = []
 
         # Build section and project maps for enrichment
@@ -280,7 +285,13 @@ def fetch_todoist_dashboard_data(
                     timeout=Config.TODOIST_API_TIMEOUT,
                 )
                 if sections_response.status_code == 200:
-                    sections = sections_response.json()
+                    sections_data = sections_response.json()
+                    # API v1 wraps in {"results": [...]}
+                    sections = (
+                        sections_data.get("results", [])
+                        if isinstance(sections_data, dict)
+                        else sections_data
+                    )
                     if isinstance(sections, list):
                         section_map = {s["id"]: s["name"] for s in sections if s.get("id")}
             except Exception as e:
@@ -298,7 +309,13 @@ def fetch_todoist_dashboard_data(
                     timeout=Config.TODOIST_API_TIMEOUT,
                 )
                 if projects_response.status_code == 200:
-                    projects = projects_response.json()
+                    projects_data = projects_response.json()
+                    # API v1 wraps in {"results": [...]}
+                    projects = (
+                        projects_data.get("results", [])
+                        if isinstance(projects_data, dict)
+                        else projects_data
+                    )
                     if isinstance(projects, list):
                         project_map = {p["id"]: p["name"] for p in projects if p.get("id")}
             except Exception as e:

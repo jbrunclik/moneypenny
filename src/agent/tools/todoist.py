@@ -95,6 +95,11 @@ def _todoist_api_request(
             raise Exception(f"Todoist API error ({response.status_code}): {error_msg}")
 
         result: dict[str, Any] | list[dict[str, Any]] = response.json()
+
+        # API v1 wraps list responses in {"results": [...], "next_cursor": ...}
+        if isinstance(result, dict) and "results" in result:
+            result = result["results"]
+
         return result
 
     except requests.RequestException as e:
@@ -186,7 +191,7 @@ def _format_task(
         "description": task.get("description", ""),
         "priority": task.get("priority", 1),
         "labels": task.get("labels", []),
-        "is_completed": task.get("is_completed", False),
+        "is_completed": task.get("checked", False),
     }
     # Due date and recurrence
     if task.get("due"):
@@ -205,21 +210,18 @@ def _format_task(
     # Parent task ID for subtask hierarchy
     if task.get("parent_id"):
         formatted["parent_id"] = task["parent_id"]
-    # Assignment information
-    if task.get("assignee_id"):
-        formatted["assignee_id"] = task["assignee_id"]
-    if task.get("assigner_id"):
-        formatted["assigner_id"] = task["assigner_id"]
+    # Assignment information (API v1: responsible_uid, assigned_by_uid)
+    if task.get("responsible_uid"):
+        formatted["assignee_id"] = task["responsible_uid"]
+    if task.get("assigned_by_uid"):
+        formatted["assigner_id"] = task["assigned_by_uid"]
     # Duration/time estimate
     if task.get("duration"):
         duration = task["duration"]
         formatted["duration"] = f"{duration.get('amount', 0)} {duration.get('unit', 'minute')}"
-    # Comment count (useful context)
-    if task.get("comment_count", 0) > 0:
-        formatted["comment_count"] = task["comment_count"]
-    # Direct URL to task in Todoist
-    if task.get("url"):
-        formatted["url"] = task["url"]
+    # Comment count (API v1: note_count)
+    if task.get("note_count", 0) > 0:
+        formatted["comment_count"] = task["note_count"]
     return formatted
 
 
@@ -302,8 +304,8 @@ def _todoist_list_projects(token: str) -> dict[str, Any]:
         # View style (list or board) - useful for understanding project structure
         if p.get("view_style"):
             proj["view_style"] = p["view_style"]
-        # Mark the inbox project for special handling
-        if p.get("is_inbox_project"):
+        # Mark the inbox project for special handling (API v1: inbox_project)
+        if p.get("inbox_project"):
             proj["is_inbox_project"] = True
         # Shared/collaborative projects
         if p.get("is_shared"):
@@ -427,7 +429,7 @@ def _todoist_list_sections(token: str, project_id: str) -> dict[str, Any]:
         {
             "id": s["id"],
             "name": s["name"],
-            "order": s.get("order", 0),
+            "order": s.get("section_order", 0),
         }
         for s in sections
     ]

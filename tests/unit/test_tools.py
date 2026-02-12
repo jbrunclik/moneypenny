@@ -1735,8 +1735,8 @@ class TestTodoistTool:
                 "content": "Assigned task",
                 "project_id": "proj-1",
                 "priority": 1,
-                "assignee_id": "user-1",
-                "assigner_id": "user-2",
+                "responsible_uid": "user-1",
+                "assigned_by_uid": "user-2",
             }
         ]
 
