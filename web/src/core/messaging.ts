@@ -1095,9 +1095,20 @@ async function sendBatchMessage(
 
       // Only scroll if user was following (at bottom) - don't hijack scroll if user is browsing history
       if (wasAtBottom) {
+        // Capture scroll position right after adding the message to detect user scrolling
+        // between now and when the RAF fires (race condition on slower engines like WebKit)
+        const scrollTopAfterAdd = messagesContainer.scrollTop;
+
         // Scroll to top of the assistant's response (batch mode shows complete message)
         // Use RAF to ensure layout is settled after adding message
         requestAnimationFrame(() => {
+          // Re-check: if user scrolled away between adding message and this frame,
+          // respect their intent rather than hijacking their scroll position
+          if (Math.abs(messagesContainer.scrollTop - scrollTopAfterAdd) > 20) {
+            checkScrollButtonVisibility();
+            return;
+          }
+
           const messageEl = messagesContainer.querySelector<HTMLElement>(
             `[data-message-id="${assistantMessage.id}"]`
           );
