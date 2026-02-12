@@ -26,7 +26,7 @@
     "@playwright/test": "^1.58.2",
     "@types/node": "^25.1.0",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^9.0.0",
+    "eslint": "^10.0.0",
     "jsdom": "^28.0.0",
     "openapi-typescript": "^7.13.0",
     "rollup-plugin-visualizer": "^6.0.5",
