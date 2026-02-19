@@ -109,7 +109,7 @@ export function createSwipeHandler(config: SwipeConfig): SwipeHandlers {
     // Restore transition
     swipeTarget.style.transition = '';
 
-    let handled = false;
+    let handled: boolean;
 
     if (isSwiping && Math.abs(deltaX) > deltaY) {
       // It was a swipe

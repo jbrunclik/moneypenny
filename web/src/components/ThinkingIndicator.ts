@@ -155,13 +155,10 @@ export function updateThinkingIndicator(
     const item = state.trace[i];
     // Thinking item is active if isThinking is true and no tool is active
     // Tool item is active if it matches the currently active tool and is not completed
-    let isActive = false;
-    if (item.type === 'thinking') {
-      isActive = state.isThinking && !state.activeTool;
-    } else {
-      // Tool is active if it matches the currently active tool and is not completed
-      isActive = state.activeTool === item.label && !item.completed;
-    }
+    const isActive =
+      item.type === 'thinking'
+        ? state.isThinking && !state.activeTool
+        : state.activeTool === item.label && !item.completed;
     traceItems.push(renderTraceItem(item, isActive));
   }
 
