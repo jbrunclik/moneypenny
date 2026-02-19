@@ -271,6 +271,18 @@ class Config:
     # Number of recent messages to keep uncompacted (for immediate context)
     AGENT_COMPACTION_KEEP_RECENT: int = int(os.getenv("AGENT_COMPACTION_KEEP_RECENT", "10"))
 
+    # Graph self-correction: max consecutive tool error retries before giving up
+    AGENT_MAX_TOOL_RETRIES: int = int(os.getenv("AGENT_MAX_TOOL_RETRIES", "2"))
+
+    # Planning node: optional planning step for complex multi-step requests
+    AGENT_PLANNING_ENABLED: bool = os.getenv("AGENT_PLANNING_ENABLED", "true").lower() == "true"
+    AGENT_PLANNING_MIN_LENGTH: int = int(os.getenv("AGENT_PLANNING_MIN_LENGTH", "200"))
+
+    # LangGraph checkpointing: MemorySaver for state persistence within requests
+    AGENT_CHECKPOINTING_ENABLED: bool = (
+        os.getenv("AGENT_CHECKPOINTING_ENABLED", "true").lower() == "true"
+    )
+
     # Transient failure retry settings
     # Maximum retries for transient failures (network errors, rate limits)
     AGENT_MAX_RETRIES: int = int(os.getenv("AGENT_MAX_RETRIES", "3"))

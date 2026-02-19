@@ -2,12 +2,20 @@
 
 This module handles creating and configuring the LangGraph state machine
 that powers the chat agent's conversation flow with tool support.
+
+Graph flow (with tools):
+  START -> should_plan -> "plan": plan_node -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
+                       -> "chat": chat -> should_continue -> ...                                                -> "end": END
+
+Graph flow (without tools or planning disabled):
+  START -> chat -> END
 """
 
 from typing import Annotated, Any, Literal, TypedDict
 
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
@@ -37,6 +45,11 @@ def _get_permission_modules() -> dict[str, Any]:
     }
 
 
+# ============ Checkpointing ============
+
+_checkpointer = MemorySaver()
+
+
 # ============ Agent State ============
 
 
@@ -44,6 +57,27 @@ class AgentState(TypedDict):
     """State for the chat agent."""
 
     messages: Annotated[list[BaseMessage], add_messages]
+    tool_retries: int  # Consecutive tool failure count
+    plan: str  # Execution plan for complex requests
+
+
+# ============ Planning Constants ============
+
+PLANNING_PROMPT = (
+    "Analyze the user's request and create a concise execution plan.\n"
+    "- List 3-5 concrete steps you'll take\n"
+    "- Mention which tools you'll use for each step\n"
+    "- Keep it brief - this is an internal plan, not a response to the user"
+)
+
+PLANNING_DECISION_PROMPT = (
+    "You are a routing classifier. Decide if the user's request requires multi-step "
+    "planning (using multiple tools sequentially, combining results, or multi-part tasks) "
+    "or can be handled directly.\n\n"
+    "Reply with ONLY one word: PLAN or CHAT\n"
+    "- PLAN: Complex requests needing 3+ steps, multiple tools, or multi-part work\n"
+    "- CHAT: Simple questions, single-tool tasks, greetings, or short requests"
+)
 
 
 # ============ Model Creation ============
@@ -54,6 +88,7 @@ def create_chat_model(
     with_tools: bool = True,
     include_thoughts: bool = False,
     tools: list[Any] | None = None,
+    temperature: float | None = None,
 ) -> ChatGoogleGenerativeAI:
     """Create a Gemini chat model, optionally with tools bound.
 
@@ -62,11 +97,12 @@ def create_chat_model(
         with_tools: Whether to bind tools to the model
         include_thoughts: Whether to include thinking/reasoning summaries in responses
         tools: Custom list of tools to bind (defaults to TOOLS if not provided)
+        temperature: Override for model temperature (defaults to Config.GEMINI_DEFAULT_TEMPERATURE)
     """
     model = ChatGoogleGenerativeAI(
         model=model_name,
         google_api_key=Config.GEMINI_API_KEY,
-        temperature=Config.GEMINI_DEFAULT_TEMPERATURE,
+        temperature=temperature if temperature is not None else Config.GEMINI_DEFAULT_TEMPERATURE,
         convert_system_message_to_human=True,
         include_thoughts=include_thoughts,
     )
@@ -100,9 +136,114 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     return "end"
 
 
-def chat_node(state: AgentState, model: ChatGoogleGenerativeAI) -> dict[str, list[BaseMessage]]:
-    """Process messages and generate a response."""
+def should_plan(state: AgentState) -> Literal["plan", "chat"]:
+    """Decide whether to run the planning node before chat.
+
+    Uses a fast LLM call to classify whether the request needs planning.
+    This is language-agnostic (works with Czech and any other language).
+    Falls back to "chat" on any error.
+    """
+    if not Config.AGENT_PLANNING_ENABLED:
+        return "chat"
+
+    # Safety: don't re-plan if plan already exists
+    if state.get("plan"):
+        return "chat"
+
+    # Find the latest HumanMessage
     messages = state["messages"]
+    last_human = None
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            last_human = msg
+            break
+
+    if not last_human:
+        return "chat"
+
+    content = last_human.content if isinstance(last_human.content, str) else str(last_human.content)
+
+    # Short messages skip planning (fast path, no LLM call needed)
+    if len(content) < Config.AGENT_PLANNING_MIN_LENGTH:
+        return "chat"
+
+    # Use fast LLM to decide (language-agnostic)
+    try:
+        classifier = ChatGoogleGenerativeAI(
+            model=Config.AI_ASSIST_MODEL,
+            google_api_key=Config.GEMINI_API_KEY,
+            temperature=0.0,
+        )
+        from src.agent.content import extract_text_content
+
+        response = classifier.invoke(
+            [
+                SystemMessage(content=PLANNING_DECISION_PROMPT),
+                HumanMessage(content=content[:500]),  # Truncate to save tokens
+            ]
+        )
+        decision = extract_text_content(response.content).strip().upper()
+
+        if "PLAN" in decision and "CHAT" not in decision:
+            logger.info(
+                "Planning triggered by LLM classifier",
+                extra={"content_length": len(content), "decision": decision},
+            )
+            return "plan"
+
+        return "chat"
+    except Exception:
+        logger.debug("Planning classifier failed, falling back to chat", exc_info=True)
+        return "chat"
+
+
+def plan_node(state: AgentState, model_name: str) -> dict[str, str]:
+    """Generate an execution plan for complex requests.
+
+    Creates a separate model instance (no tools) to analyze the request
+    and produce a concise plan. The plan is stored in state but not
+    added to messages (invisible to the user).
+    """
+    planner = create_chat_model(model_name, with_tools=False, temperature=0.3)
+
+    # Build minimal messages for planning: system prompt + user messages
+    plan_messages: list[BaseMessage] = [SystemMessage(content=PLANNING_PROMPT)]
+    for msg in state["messages"]:
+        if isinstance(msg, (HumanMessage, SystemMessage)):
+            plan_messages.append(msg)
+
+    from src.agent.content import extract_text_content
+
+    response = with_retry(planner.invoke)(plan_messages)
+    plan_text = extract_text_content(response.content)
+
+    logger.info("Plan generated", extra={"plan_length": len(plan_text)})
+    return {"plan": plan_text}
+
+
+def chat_node(
+    state: AgentState, model: ChatGoogleGenerativeAI
+) -> dict[str, list[BaseMessage] | str]:
+    """Process messages and generate a response.
+
+    If a plan exists in state, it's injected as a SystemMessage for this
+    invocation only, then cleared from state.
+    """
+    messages = list(state["messages"])
+
+    # Inject plan as SystemMessage if present
+    plan = state.get("plan", "")
+    if plan:
+        plan_message = SystemMessage(content=f"[EXECUTION PLAN]\n{plan}\n[END PLAN]")
+        # Insert after the first SystemMessage (system prompt)
+        insert_idx = 1
+        for i, msg in enumerate(messages):
+            if isinstance(msg, SystemMessage):
+                insert_idx = i + 1
+                break
+        messages.insert(insert_idx, plan_message)
+        logger.debug("Injected plan into chat messages", extra={"plan_length": len(plan)})
+
     message_count = len(messages)
     logger.debug(
         "Invoking LLM",
@@ -139,7 +280,85 @@ def chat_node(state: AgentState, model: ChatGoogleGenerativeAI) -> dict[str, lis
         else:
             logger.debug("No usage_metadata attribute found on AIMessage")
 
-    return {"messages": [response]}
+    result: dict[str, list[BaseMessage] | str] = {"messages": [response]}
+    # Clear plan after first use
+    if plan:
+        result["plan"] = ""
+    return result
+
+
+def check_tool_results(state: AgentState) -> dict[str, Any]:
+    """Inspect tool results and provide self-correction guidance if errors occurred.
+
+    After tools execute, this node checks for errors:
+    - If errors found and retries < max: increment retries, add correction guidance
+    - If errors found and retries >= max: increment retries, add give-up guidance
+    - If no errors: reset retries to 0
+    Always routes back to "chat" - the LLM decides whether to retry or respond.
+    """
+    messages = state["messages"]
+    tool_retries = state.get("tool_retries", 0)
+    max_retries = Config.AGENT_MAX_TOOL_RETRIES
+
+    # Scan latest ToolMessages for errors
+    has_error = False
+    error_details: list[str] = []
+    for msg in reversed(messages):
+        if isinstance(msg, ToolMessage):
+            # Check for explicit error status
+            if getattr(msg, "status", None) == "error":
+                has_error = True
+                error_details.append(str(msg.content)[:200])
+            # Check for error content patterns
+            elif isinstance(msg.content, str) and (
+                "Error:" in msg.content
+                or "error:" in msg.content
+                or "Exception:" in msg.content
+                or "Traceback" in msg.content
+                or "failed" in msg.content.lower()[:50]
+            ):
+                has_error = True
+                error_details.append(msg.content[:200])
+        elif isinstance(msg, AIMessage):
+            # Stop scanning once we hit the AIMessage that triggered the tools
+            break
+
+    if not has_error:
+        # No errors - reset retry counter
+        if tool_retries > 0:
+            logger.debug("Tool retries reset after successful execution")
+        return {"tool_retries": 0}
+
+    new_retries = tool_retries + 1
+    error_summary = "; ".join(error_details[:3])
+
+    if new_retries <= max_retries:
+        logger.info(
+            "Tool error detected, providing self-correction guidance",
+            extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
+        )
+        guidance = SystemMessage(
+            content=(
+                "The tool call failed with the following error. "
+                "Analyze the error and try a different approach or different arguments. "
+                "Do not repeat the same failing call.\n\n"
+                f"Error: {error_summary}"
+            )
+        )
+        return {"tool_retries": new_retries, "messages": [guidance]}
+    else:
+        logger.warning(
+            "Tool error after max retries, providing give-up guidance",
+            extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
+        )
+        guidance = SystemMessage(
+            content=(
+                "The tool has failed after multiple retries. "
+                "Respond to the user explaining what happened and offer alternatives. "
+                "Do not attempt to call the same tool again."
+            )
+        )
+        return {"tool_retries": new_retries, "messages": [guidance]}
 
 
 # ============ Tool Node Factory ============
@@ -161,7 +380,7 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
         tools: List of tools to use
         is_autonomous: If True, check permissions and require approval for dangerous operations
     """
-    base_tool_node = BaseToolNode(tools)
+    base_tool_node = BaseToolNode(tools, handle_tool_errors=True)
 
     def tool_node_with_stripping(state: AgentState) -> dict[str, Any]:
         """Execute tools and strip _full_result from results."""
@@ -247,6 +466,12 @@ def create_chat_graph(
 ) -> StateGraph[AgentState]:
     """Create a chat graph with optional tool support.
 
+    The graph includes:
+    - Planning node (optional, for complex multi-step requests)
+    - Chat node (LLM invocation)
+    - Tool node (with error handling and result stripping)
+    - Self-correction node (inspects tool errors and guides retries)
+
     Args:
         model_name: The Gemini model to use
         with_tools: Whether to bind tools to the model
@@ -266,22 +491,69 @@ def create_chat_graph(
     graph.add_node("chat", lambda state: chat_node(state, model))
 
     if with_tools and active_tools:
-        # Add tool node with stripping of large results
-        # For autonomous agents, also check permissions
+        # Add tool node with stripping of large results and error handling
         tool_node = create_tool_node(active_tools, is_autonomous=is_autonomous)
         graph.add_node("tools", tool_node)
 
-        # Set entry point
-        graph.set_entry_point("chat")
+        # Add self-correction node
+        graph.add_node("check_tool_results", check_tool_results)
+
+        # Add planning node
+        graph.add_node("plan", lambda state: plan_node(state, model_name))
+
+        # Entry point: conditional routing to plan or chat
+        graph.add_conditional_edges(
+            "__start__",
+            should_plan,
+            {"plan": "plan", "chat": "chat"},
+        )
+
+        # After planning, go to chat
+        graph.add_edge("plan", "chat")
 
         # Add conditional edge based on whether to use tools
         graph.add_conditional_edges("chat", should_continue, {"tools": "tools", "end": END})
 
-        # After tools, go back to chat
-        graph.add_edge("tools", "chat")
+        # After tools, check results for errors
+        graph.add_edge("tools", "check_tool_results")
+
+        # After checking results, go back to chat
+        graph.add_edge("check_tool_results", "chat")
     else:
         # Simple graph without tools
         graph.set_entry_point("chat")
         graph.add_edge("chat", END)
 
     return graph
+
+
+def compile_graph(
+    graph: StateGraph[AgentState],
+    conversation_id: str | None = None,
+) -> Any:
+    """Compile a StateGraph with optional checkpointing.
+
+    Args:
+        graph: The StateGraph to compile
+        conversation_id: Optional conversation ID for checkpointing thread
+
+    Returns:
+        Compiled graph ready for invoke/stream
+    """
+    if Config.AGENT_CHECKPOINTING_ENABLED:
+        return graph.compile(checkpointer=_checkpointer)
+    return graph.compile()
+
+
+def get_graph_config(conversation_id: str | None = None) -> dict[str, Any]:
+    """Build config dict for graph invoke/stream calls.
+
+    Args:
+        conversation_id: Optional conversation ID for checkpointing thread
+
+    Returns:
+        Config dict with thread_id for checkpointing
+    """
+    if Config.AGENT_CHECKPOINTING_ENABLED and conversation_id:
+        return {"configurable": {"thread_id": conversation_id}, "recursion_limit": 25}
+    return {"recursion_limit": 25}

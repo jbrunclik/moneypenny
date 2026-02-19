@@ -348,6 +348,7 @@ def execute_agent(
                 user_id=user.id,
                 custom_instructions=user.custom_instructions,
                 is_planning=False,
+                conversation_id=agent.conversation_id,
             )
 
         raw_response, tool_results, usage_info, result_messages = with_retry(run_chat)()

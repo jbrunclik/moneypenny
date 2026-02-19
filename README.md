@@ -42,6 +42,8 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Streaming responses**: Real-time token-by-token display (toggleable) with thinking indicator showing model processing and tool activity
 - **Stop streaming**: Abort streaming responses mid-generation
 - Model selection (Gemini 3 Pro for complex tasks, Flash for speed)
+- **Agentic planning**: Automatically plans execution steps for complex multi-tool requests before responding
+- **Self-correcting tools**: When a tool fails, the AI analyzes the error and retries with a different approach (up to configurable limit)
 - Markdown rendering with syntax highlighting
 
 ### Tools & Capabilities

@@ -254,6 +254,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             custom_instructions=user.custom_instructions,
             is_planning=conv.is_planning,
             dashboard_data=dashboard_data,
+            conversation_id=conv.id,
         )
 
         # Get the FULL tool results (with _full_result) captured before stripping

@@ -436,6 +436,92 @@ HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
 - Unit tests: `TestFormatMessageWithMetadata` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
 - Unit tests: [test_history.py](../../tests/unit/test_history.py) - comprehensive tests for enrichment functions
 
+## LangGraph Agent Graph
+
+The chat agent is implemented as a LangGraph state machine in [graph.py](../../src/agent/graph.py). The graph has three major capabilities beyond the basic chat loop.
+
+### Graph Flow
+
+```
+START -> should_plan -> "plan": plan_node -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
+                     -> "chat": chat -> should_continue -> ...                                                -> "end": END
+```
+
+Without tools or when planning is disabled: `START -> chat -> END`
+
+### Self-Correction Node
+
+After tool execution, `check_tool_results()` inspects `ToolMessage` results for errors before returning control to the LLM.
+
+**How it works:**
+
+1. Scans the latest batch of `ToolMessage` objects (stops at the preceding `AIMessage`)
+2. Detects errors by checking `status="error"` or content patterns (`"Error:"`, `"Exception:"`, `"Traceback"`, `"failed"`)
+3. On error with retries remaining: increments `tool_retries` counter, injects a `SystemMessage` telling the LLM to try a different approach
+4. On error after max retries: injects a `SystemMessage` telling the LLM to give up gracefully and explain the issue
+5. On success: resets `tool_retries` to 0
+6. Always routes back to the `chat` node - the LLM decides the next step
+
+The `ToolNode` is created with `handle_tool_errors=True` so unhandled exceptions in tools become `ToolMessage` errors rather than crashes.
+
+**Configuration:**
+- `AGENT_MAX_TOOL_RETRIES`: Max consecutive tool failures before giving up (default: `2`)
+
+### Planning Node
+
+For complex multi-step requests, `plan_node()` generates an internal execution plan before the first LLM call.
+
+**How it works:**
+
+1. `should_plan()` runs at graph entry as a conditional router
+2. Checks `AGENT_PLANNING_ENABLED` and skips if disabled
+3. Skips if a plan already exists in state (prevents re-planning in tool loops)
+4. Finds the latest `HumanMessage`; short messages (< `AGENT_PLANNING_MIN_LENGTH`) skip planning without an LLM call
+5. Uses a fast LLM classifier (`AI_ASSIST_MODEL`, Gemini Flash) with `temperature=0.0` to decide `PLAN` or `CHAT`
+6. The classifier prompt is language-agnostic (works with Czech and other languages)
+7. `plan_node()` calls the main model (without tools) to generate a 3-5 step execution plan
+8. The plan is stored in `AgentState.plan` as a string
+9. `chat_node()` injects it as a `SystemMessage` for the first LLM invocation, then clears it
+
+The plan is never shown to the user - it is internal guidance only.
+
+**Configuration:**
+- `AGENT_PLANNING_ENABLED`: Toggle the planning node on/off (default: `true`)
+- `AGENT_PLANNING_MIN_LENGTH`: Minimum message length in characters to trigger LLM classifier (default: `200`)
+
+### LangGraph Checkpointing
+
+A `MemorySaver` singleton (`_checkpointer`) persists graph state across invocations within a session.
+
+**How it works:**
+
+1. `compile_graph()` compiles a `StateGraph` with the checkpointer attached (if enabled)
+2. `get_graph_config()` returns a config dict with `thread_id` set to the `conversation_id`
+3. The `conversation_id` is threaded from the API routes down through `chat_batch()` / `stream_chat_events()` into the graph invocation
+4. LangGraph uses `thread_id` to restore and persist state between requests in the same conversation
+
+**Configuration:**
+- `AGENT_CHECKPOINTING_ENABLED`: Toggle checkpointing on/off (default: `true`)
+
+### AgentState Fields
+
+```python
+class AgentState(TypedDict):
+    messages: Annotated[list[BaseMessage], add_messages]  # Full message history
+    tool_retries: int   # Consecutive tool failure count (reset to 0 on success)
+    plan: str           # Current execution plan (cleared after first chat_node use)
+```
+
+### Key Files
+
+- [graph.py](../../src/agent/graph.py) - Graph construction, all nodes and routers
+- [agent.py](../../src/agent/agent.py) - `ChatAgent`, `stream_chat_events()`, `chat_batch()`
+- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_PLANNING_*`, `AGENT_CHECKPOINTING_ENABLED`
+
+### Testing
+
+- Unit tests: [test_graph.py](../../tests/unit/test_graph.py) - 25 tests covering self-correction, planning, checkpointing, and graph structure
+
 ## See Also
 
 - [File Handling](file-handling.md) - Image generation, code execution, file uploads

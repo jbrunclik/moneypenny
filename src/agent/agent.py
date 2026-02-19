@@ -85,13 +85,17 @@ class ChatAgent:
                 "tool_names": [t.name for t in active_tools],
             },
         )
-        self.graph = create_chat_graph(
-            model_name,
-            with_tools=with_tools,
-            include_thoughts=include_thoughts,
-            tools=active_tools,
-            is_autonomous=is_autonomous,
-        ).compile()
+        from src.agent.graph import compile_graph
+
+        self.graph = compile_graph(
+            create_chat_graph(
+                model_name,
+                with_tools=with_tools,
+                include_thoughts=include_thoughts,
+                tools=active_tools,
+                is_autonomous=is_autonomous,
+            )
+        )
 
     def _build_message_content(
         self, text: str, files: list[dict[str, Any]] | None = None
@@ -282,6 +286,7 @@ class ChatAgent:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
         """
         Send a message and get a response (non-streaming).
@@ -324,7 +329,10 @@ class ChatAgent:
         )
 
         # Run the graph
-        result = self.graph.invoke(cast(Any, {"messages": messages}))
+        from src.agent.graph import get_graph_config
+
+        config = get_graph_config(conversation_id)
+        result = self.graph.invoke(cast(Any, {"messages": messages}), config=config)
         result_messages: list[BaseMessage] = result["messages"]
 
         # Extract response (last AI message with actual content)
@@ -396,6 +404,7 @@ class ChatAgent:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
     ) -> Generator[str | tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]]:
         """
         Stream response tokens using LangGraph's stream method.
@@ -441,8 +450,12 @@ class ChatAgent:
         chunk_count = 0
 
         # Stream the graph execution with messages mode for token-level streaming
+        from src.agent.graph import get_graph_config
+
+        config = get_graph_config(conversation_id)
         for event in self.graph.stream(
             cast(Any, {"messages": messages}),
+            config=config,
             stream_mode="messages",
         ):
             # event is a tuple of (message_chunk, metadata) in messages mode
@@ -524,6 +537,7 @@ class ChatAgent:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -583,9 +597,13 @@ class ChatAgent:
 
         # Stream the graph execution with messages mode for token-level streaming
         # Wrapped in try-except to handle executor shutdown gracefully
+        from src.agent.graph import get_graph_config
+
+        config = get_graph_config(conversation_id)
         try:
             for event in self.graph.stream(
                 cast(Any, {"messages": messages}),
+                config=config,
                 stream_mode="messages",
             ):
                 if isinstance(event, tuple) and len(event) >= 1:

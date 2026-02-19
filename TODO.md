@@ -19,9 +19,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Multi-step workflows** - Allow agents to run multi-step workflows
 - [ ] **Lightweight database** - Provide agents with a lightweight database (k/v storage)
 
-## Architecture
-- [ ] **Agentic graph improvements** - Add self-correction node (retry failed tools), planning node (for complex multi-step requests), LangGraph checkpointing for state persistence
-
 ## Code Quality
 - [ ] **Async Flask (Quart)** - Consider migrating to Quart for better concurrency
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing. **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.

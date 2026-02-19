@@ -280,6 +280,7 @@ def stream_events(
     dashboard_data: dict[str, Any] | None,
     conv_id: str,
     stream_request_id: str,
+    conversation_id: str | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -318,6 +319,7 @@ def stream_events(
             custom_instructions=custom_instructions,
             is_planning=is_planning,
             dashboard_data=dashboard_data,
+            conversation_id=conversation_id,
         ):
             event_count += 1
             if event.get("type") == "final":
@@ -710,6 +712,7 @@ class _StreamContext:
                 self.dashboard_data,
                 self.conv_id,
                 self.stream_request_id,
+                self.conv_id,  # conversation_id for checkpointing
             ),
             daemon=False,
         )
