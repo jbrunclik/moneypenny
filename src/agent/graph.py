@@ -61,7 +61,10 @@ class AgentState(TypedDict):
     plan: str  # Execution plan for complex requests
 
 
-# ============ Planning Constants ============
+# ============ Node & Planning Constants ============
+
+# Node name used to filter streaming output — only chunks from this node are sent to frontend
+CHAT_NODE_NAME = "chat"
 
 PLANNING_PROMPT = (
     "Analyze the user's request and create a concise execution plan.\n"

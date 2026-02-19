@@ -1695,6 +1695,177 @@ class TestSmartRouting:
         assert should_continue(state) == "end"
 
 
+class TestStreamNodeFiltering:
+    """Tests for langgraph_node-based filtering in streaming methods.
+
+    Verifies that only AIMessageChunks from the "chat" node are yielded as tokens,
+    while chunks from planning/classifier nodes are filtered out. Usage metadata
+    from all nodes is still tracked for cost accounting.
+    """
+
+    def _simulate_stream_chat_events(self, events: list[tuple]) -> tuple[list[dict], dict | None]:
+        """Simulate stream_chat_events processing of raw graph.stream events.
+
+        Extracts the node-filtering logic to test it in isolation without
+        needing a real LangGraph graph or LLM.
+
+        Args:
+            events: List of (message_chunk, metadata_dict) tuples
+
+        Returns:
+            Tuple of (yielded_events, final_event)
+        """
+        from langchain_core.messages import AIMessageChunk, ToolMessage
+
+        from src.agent.graph import CHAT_NODE_NAME
+
+        yielded_events: list[dict] = []
+        full_response = ""
+        tool_results: list[dict] = []
+        total_input_tokens = 0
+        total_output_tokens = 0
+        chunk_count = 0
+
+        for event in events:
+            if isinstance(event, tuple) and len(event) >= 1:
+                message_chunk = event[0]
+                event_meta = event[1] if len(event) >= 2 and isinstance(event[1], dict) else {}
+                source_node = event_meta.get("langgraph_node", "")
+
+                if isinstance(message_chunk, ToolMessage):
+                    tool_results.append({"type": "tool", "content": message_chunk.content})
+                    continue
+
+                if isinstance(message_chunk, AIMessageChunk):
+                    chunk_count += 1
+                    if hasattr(message_chunk, "usage_metadata") and message_chunk.usage_metadata:
+                        usage = message_chunk.usage_metadata
+                        if isinstance(usage, dict):
+                            total_input_tokens += usage.get("input_tokens", 0)
+                            total_output_tokens += usage.get("output_tokens", 0)
+
+                    # Filter non-chat node output
+                    if source_node and source_node != CHAT_NODE_NAME:
+                        continue
+
+                    if message_chunk.tool_calls or message_chunk.tool_call_chunks:
+                        continue
+                    if message_chunk.content:
+                        content = (
+                            message_chunk.content
+                            if isinstance(message_chunk.content, str)
+                            else str(message_chunk.content)
+                        )
+                        if content:
+                            full_response += content
+                            yielded_events.append({"type": "token", "text": content})
+
+        final_event = {
+            "type": "final",
+            "content": full_response,
+            "tool_results": tool_results,
+            "usage_info": {
+                "input_tokens": total_input_tokens,
+                "output_tokens": total_output_tokens,
+            },
+        }
+        return yielded_events, final_event
+
+    def test_plan_node_output_filtered(self) -> None:
+        """AIMessageChunks from 'plan' node should not yield token events."""
+        from langchain_core.messages import AIMessageChunk
+
+        events = [
+            (AIMessageChunk(content="Step 1: Search the web\n"), {"langgraph_node": "plan"}),
+            (AIMessageChunk(content="Step 2: Summarize results\n"), {"langgraph_node": "plan"}),
+        ]
+        yielded, final = self._simulate_stream_chat_events(events)
+
+        assert len(yielded) == 0
+        assert final is not None
+        assert final["content"] == ""
+
+    def test_classifier_output_filtered(self) -> None:
+        """Classifier output ('PLAN'/'CHAT') from __start__ should not leak."""
+        from langchain_core.messages import AIMessageChunk
+
+        events = [
+            (AIMessageChunk(content="PLAN"), {"langgraph_node": "__start__"}),
+        ]
+        yielded, final = self._simulate_stream_chat_events(events)
+
+        assert len(yielded) == 0
+        assert "PLAN" not in final["content"]
+
+    def test_chat_node_output_passes_through(self) -> None:
+        """AIMessageChunks from 'chat' node should yield token events."""
+        from langchain_core.messages import AIMessageChunk
+
+        events = [
+            (AIMessageChunk(content="Hello "), {"langgraph_node": "chat"}),
+            (AIMessageChunk(content="world!"), {"langgraph_node": "chat"}),
+        ]
+        yielded, final = self._simulate_stream_chat_events(events)
+
+        assert len(yielded) == 2
+        assert yielded[0]["text"] == "Hello "
+        assert yielded[1]["text"] == "world!"
+        assert final["content"] == "Hello world!"
+
+    def test_tool_messages_unaffected(self) -> None:
+        """ToolMessages from 'tools' node should still be captured."""
+        from langchain_core.messages import ToolMessage
+
+        events = [
+            (
+                ToolMessage(content='{"result": "data"}', tool_call_id="tc1"),
+                {"langgraph_node": "tools"},
+            ),
+        ]
+        yielded, final = self._simulate_stream_chat_events(events)
+
+        assert len(yielded) == 0  # ToolMessages don't yield token events
+        assert len(final["tool_results"]) == 1
+        assert final["tool_results"][0]["content"] == '{"result": "data"}'
+
+    def test_usage_tracked_from_all_nodes(self) -> None:
+        """Usage metadata should be tracked from ALL nodes, not just chat."""
+        from langchain_core.messages import AIMessageChunk
+
+        plan_chunk = AIMessageChunk(content="Plan step")
+        plan_chunk.usage_metadata = {"input_tokens": 100, "output_tokens": 20}
+
+        chat_chunk = AIMessageChunk(content="Response")
+        chat_chunk.usage_metadata = {"input_tokens": 500, "output_tokens": 80}
+
+        events = [
+            (plan_chunk, {"langgraph_node": "plan"}),
+            (chat_chunk, {"langgraph_node": "chat"}),
+        ]
+        yielded, final = self._simulate_stream_chat_events(events)
+
+        # Only chat content should be yielded
+        assert len(yielded) == 1
+        assert yielded[0]["text"] == "Response"
+        # But usage from BOTH nodes should be tracked
+        assert final["usage_info"]["input_tokens"] == 600
+        assert final["usage_info"]["output_tokens"] == 100
+
+    def test_missing_metadata_falls_through(self) -> None:
+        """Events with empty metadata should be processed normally (defensive)."""
+        from langchain_core.messages import AIMessageChunk
+
+        events = [
+            (AIMessageChunk(content="Fallback content"), {}),
+        ]
+        yielded, final = self._simulate_stream_chat_events(events)
+
+        # Empty source_node means no filtering — content passes through
+        assert len(yielded) == 1
+        assert yielded[0]["text"] == "Fallback content"
+        assert final["content"] == "Fallback content"
+
+
 class TestMetadataToolEdgeCases:
     """Edge case tests for metadata extraction functions.
 

@@ -25,7 +25,7 @@ from src.agent.content import (
     extract_thinking_and_text,
 )
 from src.agent.context_cache import CacheProfile
-from src.agent.graph import create_chat_graph
+from src.agent.graph import CHAT_NODE_NAME, create_chat_graph
 from src.agent.prompts import get_system_prompt
 from src.agent.tool_display import TOOL_METADATA, extract_tool_detail
 from src.agent.tools import get_tools_for_request
@@ -507,6 +507,8 @@ class ChatAgent:
             # event is a tuple of (message_chunk, metadata) in messages mode
             if isinstance(event, tuple) and len(event) >= 1:
                 message_chunk = event[0]
+                event_meta = event[1] if len(event) >= 2 and isinstance(event[1], dict) else {}
+                source_node = event_meta.get("langgraph_node", "")
 
                 # Capture tool messages (results from tool execution)
                 if isinstance(message_chunk, ToolMessage):
@@ -532,7 +534,11 @@ class ChatAgent:
                                 total_input_tokens += input_tokens
                                 total_output_tokens += output_tokens
 
-                    # Collect AIMessage chunks for metadata extraction
+                    # Filter out non-chat node output (plan classifier, plan generation)
+                    if source_node and source_node != CHAT_NODE_NAME:
+                        continue
+
+                    # Collect AIMessage chunks for metadata extraction (chat node only)
                     all_messages.append(message_chunk)
 
                     # Skip chunks that are only tool calls (no text content)
@@ -654,6 +660,8 @@ class ChatAgent:
             ):
                 if isinstance(event, tuple) and len(event) >= 1:
                     message_chunk = event[0]
+                    event_meta = event[1] if len(event) >= 2 and isinstance(event[1], dict) else {}
+                    source_node = event_meta.get("langgraph_node", "")
 
                 # Capture tool messages (results from tool execution)
                 if isinstance(message_chunk, ToolMessage):
@@ -684,7 +692,11 @@ class ChatAgent:
                                 total_input_tokens += input_tokens
                                 total_output_tokens += output_tokens
 
-                    # Collect AIMessage chunks for metadata extraction
+                    # Filter out non-chat node output (plan classifier, plan generation)
+                    if source_node and source_node != CHAT_NODE_NAME:
+                        continue
+
+                    # Collect AIMessage chunks for metadata extraction (chat node only)
                     all_messages.append(message_chunk)
 
                     # Check for tool calls starting
