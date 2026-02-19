@@ -218,7 +218,7 @@ class Config:
     AI_ASSIST_TIMEOUT_SECONDS = 15  # Minimum allowed by Gemini API is 10s
 
     # LLM settings
-    GEMINI_DEFAULT_TEMPERATURE = 1.0
+    GEMINI_DEFAULT_TEMPERATURE = 0.7
 
     # Default values (must match frontend)
     DEFAULT_CONVERSATION_TITLE = "New Conversation"
