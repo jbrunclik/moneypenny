@@ -318,6 +318,10 @@ def create_mock_stream_chat() -> Any:
         force_tools: list[str] | None = None,
         user_name: str | None = None,
         user_id: str | None = None,
+        custom_instructions: str | None = None,
+        is_planning: bool = False,
+        dashboard_data: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
     ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
         """Mock streaming that yields tokens word-by-word."""
         # Use custom response if set, otherwise use prefix + message
@@ -369,6 +373,7 @@ def create_mock_stream_chat_events() -> Any:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
         # Use custom response if set, otherwise use prefix + message
