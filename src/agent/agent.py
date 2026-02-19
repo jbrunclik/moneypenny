@@ -24,6 +24,7 @@ from src.agent.content import (
     extract_text_content,
     extract_thinking_and_text,
 )
+from src.agent.context_cache import CacheProfile
 from src.agent.graph import create_chat_graph
 from src.agent.prompts import get_system_prompt
 from src.agent.tool_display import TOOL_METADATA, extract_tool_detail
@@ -54,6 +55,8 @@ class ChatAgent:
         agent_context: dict[str, Any] | None = None,
         tools: list[Any] | None = None,
     ) -> None:
+        from src.agent.context_cache import get_cached_content_name
+
         self.model_name = model_name
         self.with_tools = with_tools
         self.include_thoughts = include_thoughts
@@ -73,6 +76,15 @@ class ChatAgent:
             )
         else:
             active_tools = get_tools_for_request(anonymous_mode, is_planning)
+
+        # Determine cache profile and get cached content name
+        self._cached_content_name: str | None = None
+        cache_profile = self._get_cache_profile()
+        if cache_profile and with_tools and active_tools:
+            self._cached_content_name = get_cached_content_name(
+                cache_profile, model_name, active_tools
+            )
+
         logger.debug(
             "Creating ChatAgent",
             extra={
@@ -83,6 +95,7 @@ class ChatAgent:
                 "is_planning": is_planning,
                 "is_autonomous": is_autonomous,
                 "tool_names": [t.name for t in active_tools],
+                "cached": self._cached_content_name is not None,
             },
         )
         from src.agent.graph import compile_graph
@@ -94,8 +107,24 @@ class ChatAgent:
                 include_thoughts=include_thoughts,
                 tools=active_tools,
                 is_autonomous=is_autonomous,
+                cached_content=self._cached_content_name,
             )
         )
+
+    def _get_cache_profile(self) -> CacheProfile | None:
+        """Determine the cache profile based on agent mode.
+
+        Returns None for modes incompatible with caching (autonomous agents,
+        no-tools mode).
+        """
+        # No caching for autonomous agents (variable tools) or no-tools mode
+        if self.is_autonomous or not self.with_tools:
+            return None
+        if self.is_planning:
+            return CacheProfile.PLANNING
+        if self.anonymous_mode:
+            return CacheProfile.ANONYMOUS
+        return CacheProfile.STANDARD
 
     def _build_message_content(
         self, text: str, files: list[dict[str, Any]] | None = None
@@ -232,29 +261,46 @@ class ChatAgent:
         dashboard_data: dict[str, Any] | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
+        from src.agent.prompts import get_dynamic_prompt_parts
+
         messages: list[BaseMessage] = []
 
-        # Always add system prompt (with tool instructions if tools are enabled)
-        # In anonymous mode, user memories are not included in the prompt
         # Check for updated dashboard context from refresh_planner_dashboard tool
         refreshed_dashboard = _planner_dashboard_context.get()
-        messages.append(
-            SystemMessage(
-                content=get_system_prompt(
-                    self.with_tools,
-                    force_tools=force_tools,
-                    user_name=user_name,
-                    user_id=user_id,
-                    custom_instructions=custom_instructions,
-                    anonymous_mode=self.anonymous_mode,
-                    is_planning=is_planning,
-                    dashboard_data=dashboard_data,
-                    planner_dashboard_context=refreshed_dashboard,
-                    is_autonomous=self.is_autonomous,
-                    agent_context=self.agent_context,
+
+        if self._cached_content_name:
+            # Cached mode: no SystemMessage (it's in the cache)
+            # Dynamic content goes as a HumanMessage with [CONTEXT] markers
+            dynamic = get_dynamic_prompt_parts(
+                force_tools=force_tools,
+                user_name=user_name,
+                user_id=user_id,
+                custom_instructions=custom_instructions,
+                anonymous_mode=self.anonymous_mode,
+                is_planning=is_planning,
+                dashboard_data=dashboard_data,
+                planner_dashboard_context=refreshed_dashboard,
+            )
+            messages.append(HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]"))
+        else:
+            # Uncached mode: full SystemMessage with everything
+            messages.append(
+                SystemMessage(
+                    content=get_system_prompt(
+                        self.with_tools,
+                        force_tools=force_tools,
+                        user_name=user_name,
+                        user_id=user_id,
+                        custom_instructions=custom_instructions,
+                        anonymous_mode=self.anonymous_mode,
+                        is_planning=is_planning,
+                        dashboard_data=dashboard_data,
+                        planner_dashboard_context=refreshed_dashboard,
+                        is_autonomous=self.is_autonomous,
+                        agent_context=self.agent_context,
+                    )
                 )
             )
-        )
 
         if history:
             for msg in history:

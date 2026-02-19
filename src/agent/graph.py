@@ -89,6 +89,7 @@ def create_chat_model(
     include_thoughts: bool = False,
     tools: list[Any] | None = None,
     temperature: float | None = None,
+    cached_content: str | None = None,
 ) -> ChatGoogleGenerativeAI:
     """Create a Gemini chat model, optionally with tools bound.
 
@@ -98,14 +99,29 @@ def create_chat_model(
         include_thoughts: Whether to include thinking/reasoning summaries in responses
         tools: Custom list of tools to bind (defaults to TOOLS if not provided)
         temperature: Override for model temperature (defaults to Config.GEMINI_DEFAULT_TEMPERATURE)
+        cached_content: Gemini cached content name. When provided, tools are NOT bound
+            (they're already in the cache) and system_instruction is omitted.
     """
-    model = ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=Config.GEMINI_API_KEY,
-        temperature=temperature if temperature is not None else Config.GEMINI_DEFAULT_TEMPERATURE,
-        convert_system_message_to_human=True,
-        include_thoughts=include_thoughts,
-    )
+    kwargs: dict[str, Any] = {
+        "model": model_name,
+        "google_api_key": Config.GEMINI_API_KEY,
+        "temperature": temperature
+        if temperature is not None
+        else Config.GEMINI_DEFAULT_TEMPERATURE,
+        "convert_system_message_to_human": True,
+        "include_thoughts": include_thoughts,
+    }
+
+    if cached_content:
+        kwargs["cached_content"] = cached_content
+        # Do NOT bind_tools when using cached_content — tools are in the cache
+        logger.info(
+            "Creating model with cached content",
+            extra={"cached_content": cached_content, "model": model_name},
+        )
+        return ChatGoogleGenerativeAI(**kwargs)
+
+    model = ChatGoogleGenerativeAI(**kwargs)
 
     active_tools = tools if tools is not None else TOOLS
     if with_tools and active_tools:
@@ -222,25 +238,36 @@ def plan_node(state: AgentState, model_name: str) -> dict[str, str]:
 
 
 def chat_node(
-    state: AgentState, model: ChatGoogleGenerativeAI
+    state: AgentState,
+    model: ChatGoogleGenerativeAI,
+    use_cache: bool = False,
 ) -> dict[str, list[BaseMessage] | str]:
     """Process messages and generate a response.
 
-    If a plan exists in state, it's injected as a SystemMessage for this
-    invocation only, then cleared from state.
+    If a plan exists in state, it's injected for this invocation only,
+    then cleared from state. When use_cache is True, uses HumanMessage
+    instead of SystemMessage (LangChain silently drops mid-conversation
+    SystemMessages when there's no SystemMessage at position 0).
     """
     messages = list(state["messages"])
 
-    # Inject plan as SystemMessage if present
+    # Inject plan if present
     plan = state.get("plan", "")
     if plan:
-        plan_message = SystemMessage(content=f"[EXECUTION PLAN]\n{plan}\n[END PLAN]")
-        # Insert after the first SystemMessage (system prompt)
+        plan_message: HumanMessage | SystemMessage
+        if use_cache:
+            plan_message = HumanMessage(
+                content=f"[SYSTEM GUIDANCE]\n[EXECUTION PLAN]\n{plan}\n[END PLAN]\n[/SYSTEM GUIDANCE]"
+            )
+        else:
+            plan_message = SystemMessage(content=f"[EXECUTION PLAN]\n{plan}\n[END PLAN]")
+        # Insert after the first SystemMessage (system prompt) or at start if cached
         insert_idx = 1
-        for i, msg in enumerate(messages):
-            if isinstance(msg, SystemMessage):
-                insert_idx = i + 1
-                break
+        if not use_cache:
+            for i, msg in enumerate(messages):
+                if isinstance(msg, SystemMessage):
+                    insert_idx = i + 1
+                    break
         messages.insert(insert_idx, plan_message)
         logger.debug("Injected plan into chat messages", extra={"plan_length": len(plan)})
 
@@ -287,7 +314,10 @@ def chat_node(
     return result
 
 
-def check_tool_results(state: AgentState) -> dict[str, Any]:
+def check_tool_results(
+    state: AgentState,
+    use_cache: bool = False,
+) -> dict[str, Any]:
     """Inspect tool results and provide self-correction guidance if errors occurred.
 
     After tools execute, this node checks for errors:
@@ -295,6 +325,9 @@ def check_tool_results(state: AgentState) -> dict[str, Any]:
     - If errors found and retries >= max: increment retries, add give-up guidance
     - If no errors: reset retries to 0
     Always routes back to "chat" - the LLM decides whether to retry or respond.
+
+    When use_cache is True, guidance is sent as HumanMessage (not SystemMessage)
+    because LangChain drops mid-conversation SystemMessages in cached mode.
     """
     messages = state["messages"]
     tool_retries = state.get("tool_retries", 0)
@@ -332,32 +365,37 @@ def check_tool_results(state: AgentState) -> dict[str, Any]:
     new_retries = tool_retries + 1
     error_summary = "; ".join(error_details[:3])
 
+    # Use HumanMessage in cached mode (LangChain drops mid-conversation SystemMessages)
+    GuidanceMessage = HumanMessage if use_cache else SystemMessage
+
     if new_retries <= max_retries:
         logger.info(
             "Tool error detected, providing self-correction guidance",
             extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
         )
-        guidance = SystemMessage(
-            content=(
-                "The tool call failed with the following error. "
-                "Analyze the error and try a different approach or different arguments. "
-                "Do not repeat the same failing call.\n\n"
-                f"Error: {error_summary}"
-            )
+        guidance_content = (
+            "The tool call failed with the following error. "
+            "Analyze the error and try a different approach or different arguments. "
+            "Do not repeat the same failing call.\n\n"
+            f"Error: {error_summary}"
         )
+        if use_cache:
+            guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
+        guidance = GuidanceMessage(content=guidance_content)
         return {"tool_retries": new_retries, "messages": [guidance]}
     else:
         logger.warning(
             "Tool error after max retries, providing give-up guidance",
             extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
         )
-        guidance = SystemMessage(
-            content=(
-                "The tool has failed after multiple retries. "
-                "Respond to the user explaining what happened and offer alternatives. "
-                "Do not attempt to call the same tool again."
-            )
+        guidance_content = (
+            "The tool has failed after multiple retries. "
+            "Respond to the user explaining what happened and offer alternatives. "
+            "Do not attempt to call the same tool again."
         )
+        if use_cache:
+            guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
+        guidance = GuidanceMessage(content=guidance_content)
         return {"tool_retries": new_retries, "messages": [guidance]}
 
 
@@ -463,6 +501,7 @@ def create_chat_graph(
     include_thoughts: bool = False,
     tools: list[Any] | None = None,
     is_autonomous: bool = False,
+    cached_content: str | None = None,
 ) -> StateGraph[AgentState]:
     """Create a chat graph with optional tool support.
 
@@ -478,17 +517,25 @@ def create_chat_graph(
         include_thoughts: Whether to include thinking/reasoning summaries
         tools: Custom list of tools to use (defaults to TOOLS if not provided)
         is_autonomous: If True, check permissions and require approval for dangerous operations
+        cached_content: Gemini cached content name (tools are in the cache, not bound)
     """
     active_tools = tools if tools is not None else TOOLS
     model = create_chat_model(
-        model_name, with_tools=with_tools, include_thoughts=include_thoughts, tools=active_tools
+        model_name,
+        with_tools=with_tools,
+        include_thoughts=include_thoughts,
+        tools=active_tools,
+        cached_content=cached_content,
     )
+
+    # Capture whether cache is active for nodes that inject guidance messages
+    use_cache = cached_content is not None
 
     # Define the graph
     graph: StateGraph[AgentState] = StateGraph(AgentState)
 
     # Add the chat node
-    graph.add_node("chat", lambda state: chat_node(state, model))
+    graph.add_node("chat", lambda state: chat_node(state, model, use_cache=use_cache))
 
     if with_tools and active_tools:
         # Add tool node with stripping of large results and error handling
@@ -496,7 +543,10 @@ def create_chat_graph(
         graph.add_node("tools", tool_node)
 
         # Add self-correction node
-        graph.add_node("check_tool_results", check_tool_results)
+        graph.add_node(
+            "check_tool_results",
+            lambda state: check_tool_results(state, use_cache=use_cache),
+        )
 
         # Add planning node
         graph.add_node("plan", lambda state: plan_node(state, model_name))

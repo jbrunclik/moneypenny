@@ -884,6 +884,88 @@ def get_autonomous_agent_prompt(
     )
 
 
+def get_static_prompt_for_profile(profile: str) -> str:
+    """Return only the static (cacheable) portion of the system prompt for a given profile.
+
+    This is used by the context cache to create a cached prompt that doesn't change
+    across requests. Dynamic content (date, user context, memories) is added separately.
+
+    Args:
+        profile: One of "standard", "anonymous", "planning"
+
+    Returns:
+        Static prompt string suitable for caching
+    """
+    prompt = BASE_SYSTEM_PROMPT
+    # All profiles get base tools
+    prompt += TOOLS_SYSTEM_PROMPT_BASE
+    # Standard and planning profiles get productivity tools
+    if profile in ("standard", "planning"):
+        prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
+    # All profiles get context/citation section
+    prompt += TOOLS_SYSTEM_PROMPT_CONTEXT
+    # Planning profile gets the planner prompt
+    if profile == "planning":
+        prompt += PLANNER_SYSTEM_PROMPT
+    return prompt
+
+
+def get_dynamic_prompt_parts(
+    force_tools: list[str] | None = None,
+    user_name: str | None = None,
+    user_id: str | None = None,
+    custom_instructions: str | None = None,
+    anonymous_mode: bool = False,
+    is_planning: bool = False,
+    dashboard_data: dict[str, Any] | None = None,
+    planner_dashboard_context: Any | None = None,
+) -> str:
+    """Return only the dynamic (per-request) parts of the prompt.
+
+    Used in cached mode where the static prompt is in the cache
+    and dynamic content is passed as a HumanMessage with [CONTEXT] markers.
+
+    Args:
+        force_tools: Optional list of tool names that must be used
+        user_name: The user's name from JWT authentication
+        user_id: The user's ID for memory retrieval
+        custom_instructions: User-provided custom instructions
+        anonymous_mode: If True, skip memory retrieval
+        is_planning: If True, include dashboard context
+        dashboard_data: Dashboard data dict for planner
+        planner_dashboard_context: Refreshed dashboard data
+
+    Returns:
+        Dynamic prompt string
+    """
+    from datetime import datetime
+
+    now = datetime.now().astimezone()
+    parts: list[str] = [f"Current date and time: {now.strftime('%Y-%m-%d %H:%M %Z')}"]
+
+    user_context = get_user_context(user_name)
+    if user_context:
+        parts.append(user_context)
+
+    if custom_instructions and custom_instructions.strip():
+        parts.append(CUSTOM_INSTRUCTIONS_PROMPT.format(instructions=custom_instructions.strip()))
+
+    if user_id and not anonymous_mode:
+        parts.append(get_user_memories_prompt(user_id))
+
+    if is_planning:
+        active_dashboard = (
+            planner_dashboard_context if planner_dashboard_context else dashboard_data
+        )
+        if active_dashboard:
+            parts.append(get_dashboard_context_prompt(active_dashboard))
+
+    if force_tools:
+        parts.append(get_force_tools_prompt(force_tools))
+
+    return "\n\n".join(parts)
+
+
 def get_system_prompt(
     with_tools: bool = True,
     force_tools: list[str] | None = None,

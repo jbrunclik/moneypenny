@@ -11,7 +11,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Oura integration** - Allow planner to have access to health data
 - [ ] **Conversation compaction for regular chats** - Implement conversation compaction when approaching model context limits (similar to `src/agent/compaction.py`)
 - [ ] **Smarter memory retrieval** - Use FTS5 to retrieve only contextually relevant memories instead of dumping all 100 into the system prompt. Always include `category=fact` memories. Phase 2: embedding-based semantic search
-- [ ] **Gemini context caching** - Cache the large static system prompt (~830+ lines) using Gemini's Context Caching API for 75% cost reduction on cached tokens
 - [ ] **Parallel tool execution** - Verify/ensure multi-tool calls execute in parallel through `create_tool_node()`, not sequentially
 - [ ] **Tool result caching** - In-memory TTL cache for repeated tool calls (e.g., same web search query within a conversation)
 

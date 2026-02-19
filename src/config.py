@@ -283,6 +283,14 @@ class Config:
         os.getenv("AGENT_CHECKPOINTING_ENABLED", "true").lower() == "true"
     )
 
+    # Context caching: cache static system prompt + tools via Gemini's Context Caching API
+    # Reduces input token costs by ~75% on cached tokens
+    CONTEXT_CACHE_ENABLED: bool = os.getenv("CONTEXT_CACHE_ENABLED", "true").lower() == "true"
+    CONTEXT_CACHE_TTL_SECONDS: int = int(os.getenv("CONTEXT_CACHE_TTL_SECONDS", "3600"))  # 1 hour
+    CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS: int = int(
+        os.getenv("CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS", "300")
+    )  # 5 min before expiry
+
     # Transient failure retry settings
     # Maximum retries for transient failures (network errors, rate limits)
     AGENT_MAX_RETRIES: int = int(os.getenv("AGENT_MAX_RETRIES", "3"))

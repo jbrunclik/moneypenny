@@ -398,3 +398,142 @@ class TestChatNodePlanInjection:
         # No plan key in result (plan was empty)
         assert "plan" not in result
         assert result["messages"] == [mock_response]
+
+    @patch("src.agent.graph.with_retry")
+    def test_cached_mode_uses_human_message_for_plan(self, mock_retry: MagicMock) -> None:
+        """When use_cache=True, plan should be injected as HumanMessage."""
+        from src.agent.graph import chat_node
+
+        mock_model = MagicMock()
+        mock_response = AIMessage(content="Cached response")
+        # Capture the messages passed to invoke
+        invoked_messages: list[list] = []
+
+        def capture_invoke(msgs: list) -> AIMessage:
+            invoked_messages.append(msgs)
+            return mock_response
+
+        mock_retry.return_value = capture_invoke
+
+        state: AgentState = {
+            "messages": [
+                HumanMessage(content="[CONTEXT]\ndate info\n[/CONTEXT]"),
+                HumanMessage(content="Do complex task"),
+            ],
+            "tool_retries": 0,
+            "plan": "1. Search web\n2. Analyze results",
+        }
+
+        result = chat_node(state, mock_model, use_cache=True)
+
+        # Plan should be cleared
+        assert result.get("plan") == ""
+        # The injected plan message should be a HumanMessage with SYSTEM GUIDANCE markers
+        assert len(invoked_messages) == 1
+        msgs = invoked_messages[0]
+        plan_msg = msgs[1]  # Inserted at index 1
+        assert isinstance(plan_msg, HumanMessage)
+        assert "[SYSTEM GUIDANCE]" in plan_msg.content
+        assert "[EXECUTION PLAN]" in plan_msg.content
+
+
+# ============ Cached Model Creation Tests ============
+
+
+class TestCachedModelCreation:
+    """Tests for create_chat_model with cached_content."""
+
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    def test_cached_content_passed_to_model(self, mock_llm_class: MagicMock) -> None:
+        """cached_content should be passed as kwarg to ChatGoogleGenerativeAI."""
+        from src.agent.graph import create_chat_model
+
+        mock_instance = MagicMock()
+        mock_llm_class.return_value = mock_instance
+
+        create_chat_model(
+            "test-model",
+            with_tools=True,
+            cached_content="cachedContents/abc123",
+        )
+
+        # Should be called with cached_content kwarg
+        call_kwargs = mock_llm_class.call_args[1]
+        assert call_kwargs["cached_content"] == "cachedContents/abc123"
+
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    def test_cached_mode_does_not_bind_tools(self, mock_llm_class: MagicMock) -> None:
+        """When cached_content is provided, bind_tools should NOT be called."""
+        from src.agent.graph import create_chat_model
+
+        mock_instance = MagicMock()
+        mock_llm_class.return_value = mock_instance
+
+        result = create_chat_model(
+            "test-model",
+            with_tools=True,
+            tools=[MagicMock(name="test_tool")],
+            cached_content="cachedContents/abc123",
+        )
+
+        # bind_tools should not be called
+        mock_instance.bind_tools.assert_not_called()
+        # Should return the model directly
+        assert result == mock_instance
+
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    def test_uncached_mode_binds_tools(self, mock_llm_class: MagicMock) -> None:
+        """Without cached_content, tools should be bound normally."""
+        from src.agent.graph import create_chat_model
+
+        mock_instance = MagicMock()
+        mock_llm_class.return_value = mock_instance
+        mock_tool = MagicMock(name="test_tool")
+
+        create_chat_model(
+            "test-model",
+            with_tools=True,
+            tools=[mock_tool],
+        )
+
+        # bind_tools should be called
+        mock_instance.bind_tools.assert_called_once_with([mock_tool])
+
+
+# ============ Cached check_tool_results Tests ============
+
+
+class TestCachedCheckToolResults:
+    """Tests for check_tool_results with use_cache=True."""
+
+    def test_cached_mode_uses_human_message_for_guidance(self) -> None:
+        """In cached mode, error guidance should use HumanMessage."""
+        state: AgentState = {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
+                ToolMessage(content="Error: API returned 500", tool_call_id="1"),
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        result = check_tool_results(state, use_cache=True)
+        assert result["tool_retries"] == 1
+        guidance = result["messages"][0]
+        assert isinstance(guidance, HumanMessage)
+        assert "[SYSTEM GUIDANCE]" in guidance.content
+
+    def test_uncached_mode_uses_system_message_for_guidance(self) -> None:
+        """In uncached mode, error guidance should use SystemMessage."""
+        state: AgentState = {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
+                ToolMessage(content="Error: API returned 500", tool_call_id="1"),
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        result = check_tool_results(state, use_cache=False)
+        assert result["tool_retries"] == 1
+        guidance = result["messages"][0]
+        assert isinstance(guidance, SystemMessage)
+        assert "[SYSTEM GUIDANCE]" not in guidance.content
