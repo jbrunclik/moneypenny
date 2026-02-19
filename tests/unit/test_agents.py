@@ -1221,6 +1221,66 @@ class TestRetryLogic:
         # Should only be called once (no retries for non-transient)
         assert call_count == 1
 
+    def test_chat_node_retries_on_transient_error(self):
+        """Test that chat_node retries model.invoke on transient errors."""
+        from unittest.mock import MagicMock, patch
+
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import chat_node
+
+        model = MagicMock()
+        model.model_name = "test-model"
+
+        # Fail twice with ConnectionError, succeed on 3rd attempt
+        success_response = AIMessage(content="Hello!")
+        model.invoke.side_effect = [
+            ConnectionError("Connection reset"),
+            ConnectionError("Connection reset"),
+            success_response,
+        ]
+
+        state = {"messages": [AIMessage(content="Hi")]}
+
+        with patch("src.agent.retry.time.sleep"):
+            result = chat_node(state, model)
+
+        assert result["messages"] == [success_response]
+        assert model.invoke.call_count == 3
+
+    def test_chat_node_no_retry_on_non_transient_error(self):
+        """Test that chat_node does not retry on non-transient errors."""
+        from unittest.mock import MagicMock
+
+        from langchain_core.messages import AIMessage
+
+        from src.agent.graph import chat_node
+
+        model = MagicMock()
+        model.model_name = "test-model"
+        model.invoke.side_effect = ValueError("Invalid input")
+
+        state = {"messages": [AIMessage(content="Hi")]}
+
+        with pytest.raises(ValueError, match="Invalid input"):
+            chat_node(state, model)
+
+        assert model.invoke.call_count == 1
+
+    def test_retry_on_google_api_errors(self):
+        """Test that Google API exceptions are detected as transient."""
+        from google.api_core.exceptions import (
+            DeadlineExceeded,
+            ResourceExhausted,
+            ServiceUnavailable,
+        )
+
+        from src.agent.retry import is_transient_error
+
+        assert is_transient_error(ResourceExhausted("429 rate limit"))
+        assert is_transient_error(ServiceUnavailable("503 unavailable"))
+        assert is_transient_error(DeadlineExceeded("504 deadline"))
+
 
 # =============================================================================
 # Compaction logic tests

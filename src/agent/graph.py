@@ -13,6 +13,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
 from src.agent.content import strip_full_result_from_tool_content
+from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import TOOLS
 from src.agent.tools.metadata import METADATA_TOOL_NAMES
@@ -110,7 +111,7 @@ def chat_node(state: AgentState, model: ChatGoogleGenerativeAI) -> dict[str, lis
             "model": model.model_name if hasattr(model, "model_name") else "unknown",
         },
     )
-    response = model.invoke(messages)
+    response = with_retry(model.invoke)(messages)
 
     # Log tool calls if present
     if isinstance(response, AIMessage) and response.tool_calls:

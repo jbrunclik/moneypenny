@@ -10,7 +10,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Planner: Use temp conversation during loading** - Replace `'planner-loading'` placeholder with a real temp conversation ID (e.g., `temp-planner-${timestamp}`). This would allow users to send messages immediately while planner loads, leveraging the existing temp conversation persistence flow instead of blocking with a toast message.
 - [ ] **Oura integration** - Allow planner to have access to health data
 - [ ] **Conversation compaction for regular chats** - Implement conversation compaction when approaching model context limits (similar to `src/agent/compaction.py`)
-- [ ] **Retry logic for regular chat** - Wrap `model.invoke()` in `chat_node()` with existing `with_retry` decorator from `retry.py` (currently only used by autonomous agent executor)
 - [ ] **Smarter memory retrieval** - Use FTS5 to retrieve only contextually relevant memories instead of dumping all 100 into the system prompt. Always include `category=fact` memories. Phase 2: embedding-based semantic search
 - [ ] **Gemini context caching** - Cache the large static system prompt (~830+ lines) using Gemini's Context Caching API for 75% cost reduction on cached tokens
 - [ ] **Parallel tool execution** - Verify/ensure multi-tool calls execute in parallel through `create_tool_node()`, not sequentially

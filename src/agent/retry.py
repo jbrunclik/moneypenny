@@ -14,6 +14,12 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
+from google.api_core.exceptions import (
+    DeadlineExceeded,
+    ResourceExhausted,
+    ServiceUnavailable,
+)
+
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -25,6 +31,9 @@ TRANSIENT_EXCEPTIONS = (
     ConnectionError,
     TimeoutError,
     OSError,  # Includes socket errors
+    ResourceExhausted,  # Google API 429 rate limit
+    ServiceUnavailable,  # Google API 503
+    DeadlineExceeded,  # Google API 504
 )
 
 # Error messages that indicate transient failures
