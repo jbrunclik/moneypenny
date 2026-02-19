@@ -49,7 +49,7 @@ class ResourceListResponse(BaseModel):
     total: int
 ```
 
-### 2. Route Handler (`src/api/routes.py`)
+### 2. Route Handler (`src/api/routes/`)
 
 ```python
 from src.api.schemas import CreateResourceRequest, ResourceResponse
@@ -97,7 +97,20 @@ def create_resource(user: User, data: CreateResourceRequest) -> tuple[dict, int]
 - Add `@api.output()` for OpenAPI documentation
 - Add `@api.doc(responses=[...])` for error status codes
 
-### 3. Database Methods (`src/db/models.py`)
+**Route module selection** - add to the appropriate module in `src/api/routes/`:
+- `conversations.py` - Conversation CRUD, listing, archiving
+- `chat.py` - Message sending, streaming, batch mode
+- `auth.py` - Authentication, login, token refresh
+- `files.py` - File uploads, downloads, thumbnails
+- `agents.py` - Autonomous agents, scheduling, approval
+- `search.py` - Full-text search
+- `memory.py` - User memory operations
+- `settings.py` - User preferences, custom instructions
+- `costs.py` - Cost tracking, usage stats
+- `tts.py` - Text-to-speech
+- `health.py` - Health check, version info
+
+### 3. Database Methods (`src/db/models/`)
 
 If new data access is needed:
 ```python
@@ -232,8 +245,8 @@ Purpose: Create a new resource
 
 Files modified:
 - src/api/schemas.py - Added CreateResourceRequest, ResourceResponse
-- src/api/routes.py - Added create_resource handler
-- src/db/models.py - Added create_resource, get_resource methods
+- src/api/routes/<module>.py - Added create_resource handler
+- src/db/models/<entity>.py - Added create_resource, get_resource methods
 - web/src/api/client.ts - Added resources.create method
 - tests/integration/test_routes_resources.py - Added test cases
 

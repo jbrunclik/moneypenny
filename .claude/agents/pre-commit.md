@@ -75,7 +75,25 @@ grep -rn "console\.log\|debugger" web/src/ --include="*.ts" || true
 grep -rn "print(" src/ --include="*.py" | grep -v "# noqa" || true
 ```
 
-### 6. Check for uncommitted test files
+### 6. Dependency Security Audit
+```bash
+cd web && npm audit --audit-level=high 2>/dev/null || true
+```
+
+### 7. Config Sync Check
+If new config variables were added to `src/config.py`, verify they're documented in `.env.example`:
+```bash
+# Check for new os.environ references not in .env.example
+git diff HEAD -- src/config.py | grep "os.environ" || true
+```
+
+### 8. Migration Check
+If new model fields were added in `src/db/models/`, check for corresponding migration:
+```bash
+git diff HEAD --name-only | grep -E "src/db/models/" && echo "Check: is there a matching migration file?" || true
+```
+
+### 9. Check for uncommitted test files
 Verify no test files were accidentally modified without being staged.
 
 ## Output Format

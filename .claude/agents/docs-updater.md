@@ -15,8 +15,8 @@ You are a documentation specialist for the AI Chatbot project. Your job is to ke
 
 ## Documentation Files
 
-### CLAUDE.md (Primary - most important)
-**Purpose**: Context for Claude Code to work effectively on the project.
+### AGENTS.md (Primary - most important)
+**Purpose**: Context for Claude Code to work effectively on the project. Note: `CLAUDE.md` is a symlink to `AGENTS.md`.
 
 **When to update**:
 - New features added (add dedicated section explaining how it works)
@@ -109,12 +109,25 @@ Add to Configuration section:
 5. **Maintain consistency**: Follow existing formatting and style
 6. **Verify links**: Ensure file paths are correct
 
+### docs/ Feature Files
+**Purpose**: Detailed documentation organized by feature area.
+
+**When to update**:
+- New feature implemented (create or update in `docs/features/`)
+- Architecture changes (update in `docs/architecture/`)
+- UI changes (update in `docs/ui/`)
+- New test patterns (update `docs/testing.md`)
+
+**After schema changes**: Regenerate OpenAPI spec with `make openapi && make types`.
+
+**Update `docs/README.md`** index when adding new doc files.
+
 ## Important Rules
 
 - **Don't add emojis** unless they already exist in the section
 - **Use relative links** for file references: `[file.py](src/path/file.py)`
-- **Keep CLAUDE.md comprehensive** - it's the primary reference
-- **Keep README.md concise** - link to CLAUDE.md for details
+- **Keep AGENTS.md comprehensive** - it's the primary reference
+- **Keep README.md concise** - link to AGENTS.md for details
 - **Preserve existing structure** - add to existing sections when possible
 - **Include line numbers** when referencing specific code: `[file.py:42](src/path/file.py#L42)`
 

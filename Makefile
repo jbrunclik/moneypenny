@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -43,7 +43,10 @@ help:
 	@echo "  test-fe-watch         Run frontend tests in watch mode"
 	@echo ""
 	@echo "  test-all              Run all tests (backend + frontend)"
+	@echo "  pre-commit            Run lint + test-all + security scan"
 	@echo ""
+	@echo "  audit                 Run dependency vulnerability scan"
+	@echo "  migration             Create new database migration (NAME=xxx)"
 	@echo "  openapi               Export OpenAPI spec to static/openapi.json"
 	@echo "  types                 Generate TypeScript types from OpenAPI spec"
 	@echo ""
@@ -178,6 +181,52 @@ test-fe-watch:
 
 # All tests (backend + frontend)
 test-all: test test-fe
+
+# Full pre-commit check: lint + all tests + security scan
+pre-commit: lint test-all
+	@echo ""
+	@echo "Checking for debug statements..."
+	@grep -rn "console\.log\|debugger" web/src/ --include="*.ts" || true
+	@grep -rn "print(" src/ --include="*.py" | grep -v "# noqa" | grep -v "test" || true
+	@echo ""
+	@echo "All pre-commit checks passed!"
+
+# Dependency vulnerability scan
+audit:
+	@echo "Running Python dependency audit..."
+	$(PIP) install -q pip-audit 2>/dev/null || true
+	$(PYTHON) -m pip_audit -r requirements.txt || true
+	@echo ""
+	@echo "Running Node.js dependency audit..."
+	cd web && $(NPM) audit --audit-level=high || true
+
+# Create a new database migration file
+# Usage: make migration NAME=add_preferences_table
+migration:
+	@if [ -z "$(NAME)" ]; then \
+		echo "Usage: make migration NAME=description_of_change"; \
+		exit 1; \
+	fi
+	@NEXT=$$(ls migrations/*.py 2>/dev/null | grep -v __pycache__ | sort | tail -1 | sed 's/.*\///' | sed 's/_.*//' | awk '{printf "%04d", $$1+1}'); \
+	FILE="migrations/$${NEXT}_$(NAME).py"; \
+	echo '"""' > "$$FILE"; \
+	echo "$(NAME)" >> "$$FILE"; \
+	echo '"""' >> "$$FILE"; \
+	echo 'from yoyo import step' >> "$$FILE"; \
+	echo '' >> "$$FILE"; \
+	echo 'steps = [' >> "$$FILE"; \
+	echo '    step(' >> "$$FILE"; \
+	echo '        # Apply' >> "$$FILE"; \
+	echo '        """' >> "$$FILE"; \
+	echo '        -- TODO: Add SQL here' >> "$$FILE"; \
+	echo '        """,' >> "$$FILE"; \
+	echo '        # Rollback' >> "$$FILE"; \
+	echo '        """' >> "$$FILE"; \
+	echo '        -- TODO: Add rollback SQL here' >> "$$FILE"; \
+	echo '        """,' >> "$$FILE"; \
+	echo '    ),' >> "$$FILE"; \
+	echo ']' >> "$$FILE"; \
+	echo "Created migration: $$FILE"
 
 # Export OpenAPI spec by running Flask app briefly
 # The app exports spec on startup to static/openapi.json

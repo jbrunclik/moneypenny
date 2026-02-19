@@ -41,6 +41,14 @@ You are a senior code reviewer for the AI Chatbot project (Flask + TypeScript). 
 - Constants in `constants.{ts,py}`, config in `config.{ts,py}`
 - No over-engineering (only changes directly requested)
 - No magic numbers (use named constants with units in name)
+- Files under 500 lines (flag violations - see `docs/conventions.md`)
+- No deep nesting (max 3 levels of indentation)
+
+### API Endpoints (if new endpoints added)
+- `@api.output()` decorator present for OpenAPI documentation
+- `@api.doc(responses=[...])` for error status codes
+- Rate limiting applied (check `src/api/routes/` for patterns)
+- Request validation via `@validate_request(Schema)`
 
 ### Project Conventions
 - Type hints in all Python code

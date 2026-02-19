@@ -37,6 +37,7 @@ User interface patterns and implementations:
 
 - **[testing.md](testing.md)** - Test structure (backend and frontend), patterns, E2E server with parallel execution, visual regression tests
 - **[logging.md](logging.md)** - Structured logging (backend JSON format, frontend logger utility), request IDs, logging guidelines
+- **[conventions.md](conventions.md)** - Code quality guidelines, refactoring patterns, file size rules
 
 ## Quick Links
 

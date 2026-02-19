@@ -1,0 +1,49 @@
+name: Dependency Audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly on Monday at 9am UTC
+  push:
+    paths:
+      - 'requirements.txt'
+      - 'web/package-lock.json'
+  pull_request:
+    paths:
+      - 'requirements.txt'
+      - 'web/package-lock.json'
+
+jobs:
+  python-audit:
+    name: Python Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit
+        run: pip-audit -r requirements.txt
+
+  node-audit:
+    name: Node.js Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '25'
+
+      - name: Install dependencies
+        run: cd web && npm ci
+
+      - name: Run npm audit
+        run: cd web && npm audit --audit-level=high
