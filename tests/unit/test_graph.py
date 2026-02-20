@@ -40,8 +40,8 @@ class TestShouldContinue:
         }
         assert should_continue(state) == "end"
 
-    def test_routes_to_end_on_metadata_only_tools(self) -> None:
-        """AI message with only metadata tool calls should route to 'end'."""
+    def test_routes_to_end_on_metadata_only_tools_with_text(self) -> None:
+        """AI message with text + metadata-only tool calls should route to 'end'."""
         state: AgentState = {
             "messages": [
                 AIMessage(
@@ -49,6 +49,62 @@ class TestShouldContinue:
                     tool_calls=[
                         {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
                         {"name": "manage_memory", "args": {"operations": []}, "id": "2"},
+                    ],
+                )
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        assert should_continue(state) == "end"
+
+    def test_routes_to_tools_on_metadata_only_without_text(self) -> None:
+        """AI message with metadata-only tool calls but NO text should route to 'tools'.
+
+        This ensures the LLM gets another turn to produce a text response,
+        preventing empty messages (e.g. manage_memory-only calls).
+        """
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {"name": "manage_memory", "args": {"operations": []}, "id": "1"},
+                    ],
+                )
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        assert should_continue(state) == "tools"
+
+    def test_routes_to_tools_on_metadata_only_with_thinking_only(self) -> None:
+        """AI message with thinking content but no text should route to 'tools'.
+
+        Gemini thinking models may produce thinking parts but no text alongside
+        metadata tools. The thinking parts have no extractable text content.
+        """
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content=[{"type": "thinking", "thinking": "Let me save this..."}],
+                    tool_calls=[
+                        {"name": "manage_memory", "args": {"operations": []}, "id": "1"},
+                    ],
+                )
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        assert should_continue(state) == "tools"
+
+    def test_routes_to_end_on_metadata_with_gemini_text_content(self) -> None:
+        """AI message with Gemini list-format text + metadata tools should route to 'end'."""
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content=[{"type": "text", "text": "Here is my response."}],
+                    tool_calls=[
+                        {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
                     ],
                 )
             ],

@@ -807,6 +807,19 @@ async function handleStreamDone(
   const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
   if (!isCurrentConversation) return;
 
+  // If the done event has no visible content (e.g. metadata-only tool calls),
+  // remove the empty message element instead of leaving an empty bubble
+  const hasVisibleContent = event.content?.trim() ||
+    event.files?.length || event.generated_images?.length || event.sources?.length;
+  if (!hasVisibleContent) {
+    const messageEl = getStreamingMessageElement(convId) ?? state.messageEl;
+    messageEl.remove();
+    clearPendingRecovery(convId);
+    state.messageSuccessful = true;
+    await updateConversationCost(convId);
+    return;
+  }
+
   // Get the current streaming element from context, which may have been restored
   // when switching back to this conversation. If the context doesn't exist or
   // doesn't match this conversation, fall back to the original element.

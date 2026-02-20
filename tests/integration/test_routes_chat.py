@@ -888,24 +888,24 @@ class TestChatStreamDoneEvent:
             f"got '{done_event.get('content')}'"
         )
 
-    def test_no_done_event_when_content_empty(
+    def test_done_event_sent_when_content_empty(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_conversation: Conversation,
     ) -> None:
-        """Should not send done event when content is empty (e.g., error case)."""
+        """Should send done event even when content is empty (e.g., memory-only tool calls)."""
         import time
 
         with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
-                # Only thinking, no actual content
+                # Only thinking, no actual content (e.g. manage_memory only)
                 yield {"type": "thinking", "text": "Thinking..."}
                 yield {
                     "type": "final",
-                    "content": "",  # Empty content
+                    "content": "",  # Empty content - memory-only operation
                     "result_messages": [],
                     "tool_results": [],
                     "usage_info": {"input_tokens": 50, "output_tokens": 0},
@@ -925,7 +925,8 @@ class TestChatStreamDoneEvent:
         # Wait for background threads
         time.sleep(1.0)
 
-        # Parse SSE events - should not have done event since content is empty
+        # Parse SSE events - done event must be sent even when content is empty
+        # so the frontend can finalize the message (e.g. manage_memory-only responses)
         response_text = response.data.decode("utf-8")
         done_events = []
         for line in response_text.split("\n"):
@@ -937,9 +938,9 @@ class TestChatStreamDoneEvent:
                 except json.JSONDecodeError:
                     pass
 
-        # No done event should be sent when content is empty
-        assert len(done_events) == 0, (
-            f"Should not send done event when content is empty, but got {len(done_events)}"
+        # Done event should always be sent when save succeeded, even with empty content
+        assert len(done_events) == 1, (
+            f"Should send done event even when content is empty, but got {len(done_events)}"
         )
 
     def test_user_message_saved_includes_expected_assistant_id(

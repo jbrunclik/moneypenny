@@ -1507,8 +1507,8 @@ class TestCleanupAndSave:
         # save_func should NOT be called since saved=True
         save_func.assert_not_called()
 
-    def test_cleanup_does_not_save_empty_content(self) -> None:
-        """Should not save when content is empty (nothing to save)."""
+    def test_cleanup_saves_empty_content(self) -> None:
+        """Should save even when content is empty (e.g. manage_memory-only tool calls)."""
         import threading
         from unittest.mock import MagicMock
 
@@ -1521,7 +1521,7 @@ class TestCleanupAndSave:
         final_results = {
             "ready": True,
             "saved": False,
-            "clean_content": "",  # Empty content
+            "clean_content": "",  # Empty content - memory-only operation
             "metadata": {},
             "tool_results": [],
             "usage_info": {},
@@ -1543,8 +1543,9 @@ class TestCleanupAndSave:
             save_func=save_func,
         )
 
-        # save_func should NOT be called since content is empty
-        save_func.assert_not_called()
+        # save_func should be called even when content is empty
+        # (e.g. manage_memory-only responses still need to be persisted)
+        save_func.assert_called_once()
 
     def test_cleanup_does_not_save_when_not_ready(self) -> None:
         """Should not save when results are not ready (stream thread didn't complete)."""

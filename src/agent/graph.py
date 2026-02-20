@@ -20,7 +20,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
-from src.agent.content import strip_full_result_from_tool_content
+from src.agent.content import extract_text_content, strip_full_result_from_tool_content
 from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import TOOLS
@@ -140,16 +140,26 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     """Decide whether to continue to tools or end the conversation.
 
     When all tool calls in the final message are metadata-only (cite_sources,
-    manage_memory), routes to "end" instead of "tools" to avoid an extra LLM
-    round-trip. The tool call args are extracted from the AIMessage in post-processing.
+    manage_memory) AND the LLM already produced text, routes to "end" instead
+    of "tools" to avoid an extra LLM round-trip. The tool call args are
+    extracted from the AIMessage in post-processing.
+
+    If the LLM produced metadata-only tool calls but NO text, routes to "tools"
+    so the tools execute normally and the LLM gets another turn to respond with text.
+    This prevents empty messages when e.g. manage_memory is the only output.
     """
     messages = state["messages"]
     last_message = messages[-1]
 
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
-        # If ALL tool calls are metadata-only, skip execution and end
         if all(tc["name"] in METADATA_TOOL_NAMES for tc in last_message.tool_calls):
-            return "end"
+            # If LLM already generated text alongside metadata tools,
+            # skip execution - args are extracted in post-processing
+            if extract_text_content(last_message.content).strip():
+                return "end"
+            # No text generated - execute tools so LLM gets another
+            # turn to produce a text response
+            return "tools"
         return "tools"
 
     return "end"
@@ -193,7 +203,6 @@ def should_plan(state: AgentState) -> Literal["plan", "chat"]:
             google_api_key=Config.GEMINI_API_KEY,
             temperature=0.0,
         )
-        from src.agent.content import extract_text_content
 
         response = classifier.invoke(
             [
@@ -230,8 +239,6 @@ def plan_node(state: AgentState, model_name: str) -> dict[str, str]:
     for msg in state["messages"]:
         if isinstance(msg, (HumanMessage, SystemMessage)):
             plan_messages.append(msg)
-
-    from src.agent.content import extract_text_content
 
     response = with_retry(planner.invoke)(plan_messages)
     plan_text = extract_text_content(response.content)

@@ -422,9 +422,7 @@ def cleanup_and_save(
             # Only save if:
             # 1. Final results are ready (stream completed successfully)
             # 2. Message hasn't been saved yet (generator didn't save)
-            # 3. There's actual content to save (don't save empty messages)
-            clean_content = final_results.get("clean_content", "")
-            if final_results["ready"] and not final_results["saved"] and clean_content:
+            if final_results["ready"] and not final_results["saved"]:
                 if generator_finished:
                     logger.info(
                         "Generator exited without saving (likely GeneratorExit from client disconnect), "
@@ -447,7 +445,6 @@ def cleanup_and_save(
                         "conversation_id": conv_id,
                         "ready": final_results["ready"],
                         "saved": final_results["saved"],
-                        "has_content": bool(clean_content),
                     },
                 )
     except Exception as e:
@@ -924,8 +921,8 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
         if save_result:
             context.final_results["saved"] = True
 
-    # Skip done event if no content or save failed (nothing to finalize)
-    if not context.clean_content or not save_result:
+    # Skip done event if save failed (nothing to finalize)
+    if not save_result:
         return
 
     # Fetch the message by its known ID (more reliable than getting last message)
