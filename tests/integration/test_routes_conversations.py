@@ -237,7 +237,7 @@ class TestUpdateConversation:
         response = client.patch(
             f"/api/conversations/{test_conversation.id}",
             headers=auth_headers,
-            json={"model": "gemini-3-pro-preview"},
+            json={"model": "gemini-3.1-pro-preview"},
         )
 
         assert response.status_code == 200

@@ -18,7 +18,7 @@ class Config:
     # Available models - each model has a full name and short name for compact display
     MODELS = {
         "gemini-3-flash-preview": {"name": "Gemini 3 Flash", "short_name": "Fast"},
-        "gemini-3-pro-preview": {"name": "Gemini 3 Pro", "short_name": "Advanced"},
+        "gemini-3.1-pro-preview": {"name": "Gemini 3.1 Pro", "short_name": "Advanced"},
     }
     DEFAULT_MODEL = "gemini-3-flash-preview"
 
@@ -93,16 +93,20 @@ class Config:
         os.getenv("COST_HISTORY_MAX_MONTHS", "120")
     )  # Max 10 years of history (120 months)
 
-    # Gemini 3 pricing (per million tokens) - as of Dec 2025
+    # Gemini pricing (per million tokens) - as of Feb 2026
     # These should be updated when Google changes pricing
     MODEL_PRICING = {
         "gemini-3-flash-preview": {
             "input": 0.075,  # $0.075 per million input tokens
             "output": 0.30,  # $0.30 per million output tokens
         },
+        "gemini-3.1-pro-preview": {
+            "input": 2.00,  # $2.00 per million input tokens
+            "output": 12.00,  # $12.00 per million output tokens
+        },
         "gemini-3-pro-preview": {
-            "input": 1.25,  # $1.25 per million input tokens
-            "output": 5.00,  # $5.00 per million output tokens
+            "input": 1.25,  # $1.25 per million input tokens (historical)
+            "output": 5.00,  # $5.00 per million output tokens (historical)
         },
         "gemini-3-pro-image-preview": {
             "input": 2.00,  # $2.00 per million input tokens (text prompts)
@@ -326,7 +330,7 @@ class Config:
         os.getenv("MEMORY_DEFRAG_THRESHOLD", "30")
     )  # Only defrag users with >= this many memories
     MEMORY_DEFRAG_MODEL: str = os.getenv(
-        "MEMORY_DEFRAG_MODEL", "gemini-3-pro-preview"
+        "MEMORY_DEFRAG_MODEL", "gemini-3.1-pro-preview"
     )  # Use advanced model for quality consolidation
 
     # Pagination settings

@@ -198,13 +198,13 @@ class TestConversationOperations:
         conv = test_database.create_conversation(test_user.id, model="gemini-3-flash-preview")
 
         result = test_database.update_conversation(
-            conv.id, test_user.id, model="gemini-3-pro-preview"
+            conv.id, test_user.id, model="gemini-3.1-pro-preview"
         )
 
         assert result is True
         updated = test_database.get_conversation(conv.id, test_user.id)
         assert updated is not None
-        assert updated.model == "gemini-3-pro-preview"
+        assert updated.model == "gemini-3.1-pro-preview"
 
     def test_update_nonexistent_conversation(
         self, test_database: Database, test_user: User

@@ -22,10 +22,10 @@ class TestGetModelPricing:
         assert pricing["output"] == 0.30
 
     def test_pro_model_pricing(self) -> None:
-        """Test pricing for gemini-3-pro-preview model."""
-        pricing = get_model_pricing("gemini-3-pro-preview")
-        assert pricing["input"] == 1.25
-        assert pricing["output"] == 5.00
+        """Test pricing for gemini-3.1-pro-preview model."""
+        pricing = get_model_pricing("gemini-3.1-pro-preview")
+        assert pricing["input"] == 2.00
+        assert pricing["output"] == 12.00
 
     def test_image_model_pricing(self) -> None:
         """Test pricing for image generation model."""
@@ -51,9 +51,9 @@ class TestCalculateTokenCost:
 
     def test_pro_model_cost_one_million_tokens(self) -> None:
         """Calculate cost for 1M input + 1M output tokens on pro."""
-        # 1M input at $1.25 + 1M output at $5.00 = $6.25
-        cost = calculate_token_cost("gemini-3-pro-preview", 1_000_000, 1_000_000)
-        assert cost == pytest.approx(6.25)
+        # 1M input at $2.00 + 1M output at $12.00 = $14.00
+        cost = calculate_token_cost("gemini-3.1-pro-preview", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(14.00)
 
     def test_zero_tokens_zero_cost(self) -> None:
         """Zero tokens should result in zero cost."""

@@ -147,8 +147,8 @@ class TestUpdateConversationRequest:
 
     def test_valid_model(self) -> None:
         """Should accept valid model."""
-        data = UpdateConversationRequest(model="gemini-3-pro-preview")
-        assert data.model == "gemini-3-pro-preview"
+        data = UpdateConversationRequest(model="gemini-3.1-pro-preview")
+        assert data.model == "gemini-3.1-pro-preview"
 
     def test_invalid_model(self) -> None:
         """Should reject invalid model."""

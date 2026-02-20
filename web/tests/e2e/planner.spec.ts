@@ -436,9 +436,9 @@ test.describe('Planner - UI State Management', () => {
     // Create a conversation with non-default model
     await page.click('#new-chat-btn');
 
-    // Change to Advanced model (gemini-3-pro-preview)
+    // Change to Advanced model (gemini-3.1-pro-preview)
     await page.click('#model-selector-btn');
-    await page.click('[data-model-id="gemini-3-pro-preview"]');
+    await page.click('[data-model-id="gemini-3.1-pro-preview"]');
 
     // Verify model changed
     const modelSelector = page.locator('#current-model-name');
