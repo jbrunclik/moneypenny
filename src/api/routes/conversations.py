@@ -18,6 +18,7 @@ from src.api.schemas import (
     ConversationsListPaginatedResponse,
     CreateConversationRequest,
     MessageResponse,
+    MessageRole,
     MessagesListResponse,
     PaginationDirection,
     SearchResultsResponse,
@@ -46,7 +47,21 @@ def _optimize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
     """Convert Message objects to optimized response format.
 
     Only includes file metadata (name, type, messageId, fileIndex), not full data.
+    Filters out empty placeholder messages that are still being processed by stream.
     """
+    # Filter out empty placeholder messages (still being processed by stream)
+    messages = [
+        m
+        for m in messages
+        if not (
+            m.role == MessageRole.ASSISTANT
+            and not m.content
+            and not m.files
+            and not m.sources
+            and not m.generated_images
+        )
+    ]
+
     optimized_messages = []
     for m in messages:
         optimized_files = []

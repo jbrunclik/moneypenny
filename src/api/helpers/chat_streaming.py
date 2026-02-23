@@ -186,20 +186,45 @@ def save_message_to_db(
             )
 
         # Save complete response to DB
+        # If a placeholder was saved at stream start, UPDATE it; otherwise INSERT
         logger.debug(
             "Saving assistant message from stream",
             extra={"user_id": user_id, "conversation_id": conv_id},
         )
-        assistant_msg = db.add_message(
-            conv_id,
-            MessageRole.ASSISTANT,
-            content,
-            files=all_generated_files if all_generated_files else None,
-            sources=sources if sources else None,
-            generated_images=generated_images_meta if generated_images_meta else None,
-            language=language,
-            message_id=assistant_message_id,
-        )
+        if assistant_message_id:
+            assistant_msg = db.update_message_content(
+                assistant_message_id,
+                content,
+                files=all_generated_files if all_generated_files else None,
+                sources=sources if sources else None,
+                generated_images=generated_images_meta if generated_images_meta else None,
+                language=language,
+            )
+            if not assistant_msg:
+                # Placeholder was deleted (user deleted while processing) — fall back to INSERT
+                logger.info(
+                    "Placeholder message deleted during processing, falling back to INSERT",
+                    extra={"user_id": user_id, "conversation_id": conv_id},
+                )
+                assistant_msg = db.add_message(
+                    conv_id,
+                    MessageRole.ASSISTANT,
+                    content,
+                    files=all_generated_files if all_generated_files else None,
+                    sources=sources if sources else None,
+                    generated_images=generated_images_meta if generated_images_meta else None,
+                    language=language,
+                )
+        else:
+            assistant_msg = db.add_message(
+                conv_id,
+                MessageRole.ASSISTANT,
+                content,
+                files=all_generated_files if all_generated_files else None,
+                sources=sources if sources else None,
+                generated_images=generated_images_meta if generated_images_meta else None,
+                language=language,
+            )
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)
         calculate_and_save_message_cost(
@@ -538,6 +563,17 @@ def create_stream_generator(
         finally:
             # Clean up agent context if this was an agent conversation
             context.cleanup_agent_context()
+            # Delete placeholder if stream failed before producing results
+            # (cleanup thread won't save because final_results["ready"] is False)
+            if (
+                context.placeholder_saved
+                and not context.final_results["ready"]
+                and not context.final_results["saved"]
+            ):
+                try:
+                    db.delete_message_by_id(context.expected_assistant_msg_id)
+                except Exception:
+                    pass
             # Signal that generator is done with its save attempt
             # This allows cleanup thread to proceed (or skip if we already saved)
             context.generator_done_event.set()
@@ -585,6 +621,9 @@ class _StreamContext:
         # Pre-generate assistant message ID for streaming recovery
         # This allows the frontend to fetch the specific message if the stream fails
         self.expected_assistant_msg_id = str(uuid.uuid4())
+
+        # Whether a placeholder message was saved to DB at stream start
+        self.placeholder_saved: bool = False
 
         # Threading
         self.event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
@@ -761,9 +800,30 @@ class _StreamContext:
 def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
     """Yield the user_message_saved event.
 
-    Includes the expected assistant message ID so the frontend can recover
+    Saves an empty placeholder assistant message to DB first so that
+    GET /api/messages/{id} returns 200 during stream recovery (instead of 404).
+    Then includes the expected assistant message ID so the frontend can recover
     the message if the stream fails (e.g., connection drops mid-stream).
     """
+    # Save empty placeholder so GET /api/messages/{id} returns 200 during recovery
+    try:
+        db.add_message(
+            context.conv_id,
+            MessageRole.ASSISTANT,
+            "",
+            message_id=context.expected_assistant_msg_id,
+        )
+        context.placeholder_saved = True
+    except Exception:
+        logger.warning(
+            "Failed to save placeholder message, falling back to INSERT-at-end",
+            extra={
+                "user_id": context.user_id,
+                "conversation_id": context.conv_id,
+                "message_id": context.expected_assistant_msg_id,
+            },
+        )
+
     try:
         event_data = {
             "type": "user_message_saved",
@@ -977,11 +1037,18 @@ def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
         },
     )
 
-    assistant_msg = db.add_message(
-        context.conv_id,
-        MessageRole.ASSISTANT,
-        approval_message,
-    )
+    if context.placeholder_saved:
+        assistant_msg = db.update_message_content(
+            context.expected_assistant_msg_id,
+            approval_message,
+        )
+        if not assistant_msg:
+            assistant_msg = db.add_message(context.conv_id, MessageRole.ASSISTANT, approval_message)
+    else:
+        assistant_msg = db.add_message(context.conv_id, MessageRole.ASSISTANT, approval_message)
+
+    # Mark as saved so cleanup thread doesn't try to save again
+    context.final_results["saved"] = True
 
     # Clean up context
     set_current_request_id(None)
@@ -1027,6 +1094,20 @@ def _handle_generator_error(context: _StreamContext, error: Exception) -> Genera
         },
         exc_info=True,
     )
+
+    # Delete placeholder if no useful content was generated
+    if context.placeholder_saved and not context.clean_content.strip():
+        try:
+            db.delete_message_by_id(context.expected_assistant_msg_id)
+        except Exception:
+            logger.warning(
+                "Failed to clean up placeholder message after error",
+                extra={
+                    "user_id": context.user_id,
+                    "conversation_id": context.conv_id,
+                    "message_id": context.expected_assistant_msg_id,
+                },
+            )
 
     error_data = {
         "type": "error",

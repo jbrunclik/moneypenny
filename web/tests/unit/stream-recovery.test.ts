@@ -387,12 +387,19 @@ describe('stream-recovery', () => {
       useStore.getState().addConversation(conv);
       useStore.getState().setCurrentConversation(conv);
 
+      // All calls return empty message (no content, files, or images)
+      // Phase 2 content polling will be triggered and must be exhausted
       mockGetMessage.mockResolvedValue(createMessage('msg-123', ''));
 
-      await attemptRecovery('conv-1');
+      const recoveryPromise = attemptRecovery('conv-1');
+
+      // Advance through all Phase 2 poll delays (total ~120s)
+      await vi.advanceTimersByTimeAsync(150_000);
+
+      await recoveryPromise;
 
       expect(mockToastWarning).toHaveBeenCalledWith('Response may be incomplete');
-    });
+    }, 30000);
 
     it('succeeds when message has files but no text content', async () => {
       markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
@@ -834,6 +841,143 @@ describe('stream-recovery', () => {
       // Check that appendMessage was called on the store
       const messages = useStore.getState().getMessages('conv-1');
       expect(messages.some(m => m.id === 'msg-123')).toBe(true);
+    });
+  });
+
+  describe('Phase 2: content polling for placeholder messages', () => {
+    it('polls for content when message is found but empty (placeholder)', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // First call returns empty placeholder, second returns with content
+      mockGetMessage
+        .mockResolvedValueOnce(createMessage('msg-123', ''))   // Phase 1: found but empty
+        .mockResolvedValueOnce(createMessage('msg-123', ''))   // Phase 2, poll 1: still empty
+        .mockResolvedValueOnce(createMessage('msg-123', 'final content')); // Phase 2, poll 2: content!
+      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+
+      const recoveryPromise = attemptRecovery('conv-1');
+
+      // Advance through Phase 2 poll delays: 2000ms, then 3000ms
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(3000);
+
+      const result = await recoveryPromise;
+
+      expect(result).toBe(true);
+      expect(mockGetMessage).toHaveBeenCalledTimes(3);
+      expect(mockToastSuccess).toHaveBeenCalledWith('Response recovered');
+    });
+
+    it('returns null and shows warning when content polling is exhausted', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // All calls return empty placeholder
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', ''));
+
+      const recoveryPromise = attemptRecovery('conv-1');
+
+      // Advance through all Phase 2 poll delays (total ~120s)
+      await vi.advanceTimersByTimeAsync(150_000);
+
+      const result = await recoveryPromise;
+
+      expect(result).toBe(false);
+      expect(mockToastWarning).toHaveBeenCalledWith('Response may be incomplete');
+    }, 30000);
+
+    it('handles message deleted during content polling (404)', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // First call returns empty, second returns 404 (user deleted message)
+      mockGetMessage
+        .mockResolvedValueOnce(createMessage('msg-123', ''))  // Phase 1: placeholder
+        .mockRejectedValueOnce(new ApiError('Not found', 404)); // Phase 2: deleted
+      mockGetStreamingElement.mockReturnValue(null);
+
+      const recoveryPromise = attemptRecovery('conv-1');
+
+      // Advance through first Phase 2 poll delay (2000ms)
+      await vi.advanceTimersByTimeAsync(2000);
+
+      const result = await recoveryPromise;
+
+      expect(result).toBe(false);
+      expect(mockToastWarning).toHaveBeenCalledWith('Response may be incomplete');
+    });
+
+    it('fires onContentPolling callback when entering Phase 2', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // First call returns empty placeholder, second returns with content
+      mockGetMessage
+        .mockResolvedValueOnce(createMessage('msg-123', ''))
+        .mockResolvedValueOnce(createMessage('msg-123', 'content'));
+      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+
+      const recoveryPromise = attemptRecovery('conv-1');
+
+      // Advance through Phase 2 first poll delay
+      await vi.advanceTimersByTimeAsync(2000);
+
+      await recoveryPromise;
+
+      // Should show both toast messages: initial and updated
+      expect(mockToastLoading).toHaveBeenCalledWith('Recovering response...');
+      expect(mockToastLoading).toHaveBeenCalledWith('Response still being generated...');
+    });
+
+    it('skips Phase 2 when message has content on first try', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // First call returns message with content (no placeholder pattern)
+      mockGetMessage.mockResolvedValueOnce(createMessage('msg-123', 'immediate content'));
+      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+
+      const result = await attemptRecovery('conv-1');
+
+      expect(result).toBe(true);
+      expect(mockGetMessage).toHaveBeenCalledTimes(1);
+      // Should NOT show the "still being generated" toast
+      expect(mockToastLoading).toHaveBeenCalledTimes(1);
+      expect(mockToastLoading).toHaveBeenCalledWith('Recovering response...');
+    });
+
+    it('Phase 1 404 retries still work as safety net', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+
+      // First call returns 404 (placeholder not saved yet), second returns message with content
+      mockGetMessage
+        .mockRejectedValueOnce(new ApiError('Not found', 404))
+        .mockResolvedValueOnce(createMessage('msg-123', 'content'));
+      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+
+      const recoveryPromise = attemptRecovery('conv-1');
+
+      // Advance through Phase 1 retry delay (500ms)
+      await vi.advanceTimersByTimeAsync(500);
+
+      const result = await recoveryPromise;
+
+      expect(result).toBe(true);
+      expect(mockGetMessage).toHaveBeenCalledTimes(2);
     });
   });
 });

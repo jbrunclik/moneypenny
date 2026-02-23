@@ -15,6 +15,7 @@ import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
 import {
   STREAM_RECOVERY_RETRY_DELAYS_MS,
+  STREAM_RECOVERY_CONTENT_POLL_DELAYS_MS,
   STREAM_RECOVERY_MIN_HIDDEN_MS,
   STREAM_RECOVERY_DEBOUNCE_MS,
 } from '../config';
@@ -243,11 +244,15 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
   const isCurrentConversation = store.currentConversation?.id === conversationId;
 
   // Show loading toast
-  const loadingToast = toast.loading('Recovering response...');
+  let loadingToast = toast.loading('Recovering response...');
 
   try {
     // Try to fetch the message with retries
-    const message = await fetchMessageWithRetry(expectedMessageId);
+    // The callback updates the toast when entering Phase 2 (content polling)
+    const message = await fetchMessageWithRetry(expectedMessageId, () => {
+      loadingToast.dismiss();
+      loadingToast = toast.loading('Response still being generated...');
+    });
 
     if (message) {
       log.info('Recovery succeeded', {
@@ -320,36 +325,50 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
 }
 
 /**
- * Fetch message with exponential backoff retry for race conditions.
- * Returns null if message has no valid content, throws if not found after max retries.
+ * Check if a message has meaningful content (text, files, or generated images).
+ */
+function hasContent(message: {
+  content: string | null;
+  files?: unknown[];
+  generated_images?: unknown[];
+}): boolean {
+  const hasText = !!message.content && message.content.trim() !== '';
+  const hasFiles = Array.isArray(message.files) && message.files.length > 0;
+  const hasImages = Array.isArray(message.generated_images) && message.generated_images.length > 0;
+  return hasText || hasFiles || hasImages;
+}
+
+/**
+ * Fetch message with two-phase retry:
+ *
+ * Phase 1 (find): Retry on 404 with exponential backoff. With the placeholder
+ * pattern, this succeeds on the first try. Kept as a safety net.
+ *
+ * Phase 2 (content poll): If the message exists but is empty (placeholder),
+ * poll until content appears. This covers long-running agent tool chains
+ * (60-120s) where the server hasn't finished processing yet.
+ *
+ * @param messageId - The expected assistant message ID
+ * @param onContentPolling - Callback fired when entering Phase 2
+ * @returns Message with content, or null if content never arrived
  */
 async function fetchMessageWithRetry(
-  messageId: string
+  messageId: string,
+  onContentPolling?: () => void,
 ): Promise<{ id: string; content: string | null; created_at: string; sources?: unknown[]; generated_images?: unknown[]; files?: unknown[]; language?: string } | null> {
-  const retryDelays = STREAM_RECOVERY_RETRY_DELAYS_MS;
+  // Phase 1: Find the message (existing retry logic, should succeed immediately with placeholder)
+  type MessageResult = { id: string; content: string | null; created_at: string; sources?: unknown[]; generated_images?: unknown[]; files?: unknown[]; language?: string };
+  let message: MessageResult | null = null;
 
-  for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
+  for (let attempt = 0; attempt <= STREAM_RECOVERY_RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const message = await conversationsApi.getMessage(messageId);
-
-      // Check if message has content (text, files, or generated images)
-      const hasTextContent = message.content && message.content.trim() !== '';
-      const hasFiles = Array.isArray(message.files) && message.files.length > 0;
-      const hasImages = Array.isArray(message.generated_images) && message.generated_images.length > 0;
-
-      if (!hasTextContent && !hasFiles && !hasImages) {
-        log.debug('Message found but empty (no text, files, or images)', { messageId, attempt });
-        // Return null to indicate incomplete message
-        return null;
-      }
-
-      return message;
+      message = await conversationsApi.getMessage(messageId);
+      break; // Found the message
     } catch (error) {
       const is404 = error instanceof ApiError && error.status === 404;
 
-      if (is404 && attempt < retryDelays.length) {
-        // Message not saved yet - wait and retry
-        const delay = retryDelays[attempt];
+      if (is404 && attempt < STREAM_RECOVERY_RETRY_DELAYS_MS.length) {
+        const delay = STREAM_RECOVERY_RETRY_DELAYS_MS[attempt];
         log.debug('Message not found, retrying', { messageId, attempt, delay });
         await sleep(delay);
         continue;
@@ -360,8 +379,43 @@ async function fetchMessageWithRetry(
     }
   }
 
-  // Should not reach here, but TypeScript needs it
-  throw new ApiError('Message not found after max retries', 404);
+  if (!message) {
+    throw new ApiError('Message not found after max retries', 404);
+  }
+
+  // Check if message already has content
+  if (hasContent(message)) {
+    return message;
+  }
+
+  // Phase 2: Message exists but is empty (placeholder) — poll until content appears
+  log.info('Message found but empty (placeholder), polling for content', { messageId });
+  onContentPolling?.();
+
+  for (const delay of STREAM_RECOVERY_CONTENT_POLL_DELAYS_MS) {
+    await sleep(delay);
+
+    try {
+      message = await conversationsApi.getMessage(messageId);
+    } catch (error) {
+      const is404 = error instanceof ApiError && error.status === 404;
+      if (is404) {
+        // Message was deleted (user deleted or cleanup) — give up
+        log.warn('Message deleted during content polling', { messageId });
+        return null;
+      }
+      throw error;
+    }
+
+    if (hasContent(message)) {
+      log.info('Content arrived during polling', { messageId });
+      return message;
+    }
+  }
+
+  // Content never arrived
+  log.warn('Content polling exhausted, message still empty', { messageId });
+  return null;
 }
 
 /**

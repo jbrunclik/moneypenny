@@ -175,7 +175,21 @@ Malformed input with nested markers (e.g., METADATA containing MSG_CONTEXT marke
 
 ## Stream Recovery
 
-When streams are interrupted (mobile disconnect, network failure, timeout), the frontend attempts to recover the message:
+When streams are interrupted (mobile disconnect, network failure, timeout), the frontend attempts to recover the message using the **placeholder message pattern**.
+
+### Placeholder Message Pattern
+
+At stream start, `_yield_user_message_saved()` saves an empty assistant message (placeholder) to the database with the pre-generated ID. This ensures `GET /api/messages/{id}` returns 200 immediately during recovery, eliminating the 404 race condition. When streaming completes, the placeholder is updated (UPDATE) with the final content. On error/failure, the placeholder is deleted.
+
+**Backend lifecycle:**
+1. **Create**: `_yield_user_message_saved()` calls `db.add_message(..., content="")` and sets `context.placeholder_saved = True`
+2. **Update on success**: `save_message_to_db()` calls `db.update_message_content()` instead of `db.add_message()`
+3. **Delete on error**: `_handle_generator_error()` and the `finally` block call `db.delete_message_by_id()` to clean up
+4. **Filter from API**: `_optimize_messages_for_response()` filters out empty placeholders from GET /messages responses
+
+**New DB methods on `MessageMixin`:**
+- `update_message_content()` - Updates placeholder with final content, sources, files, language
+- `delete_message_by_id()` - Lightweight cleanup for placeholder messages
 
 ### Recovery Flow
 
@@ -187,24 +201,27 @@ When streams are interrupted (mobile disconnect, network failure, timeout), the 
 
 2. **Attempt recovery**: When visibility returns (or immediately for network errors):
    - Show "Recovering response..." toast
-   - Fetch message by pre-generated ID with exponential backoff retries
-   - Handle race condition where message may not be saved yet
+   - Two-phase fetch with retries
 
-3. **Retry strategy**:
-   - Delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms (5 attempts, ~15.5s total)
-   - Retry on 404 (message not saved yet)
-   - Give up on other errors or after max attempts
+3. **Two-phase retry strategy**:
+   - **Phase 1 (find)**: Retry on 404 with exponential backoff. With the placeholder pattern, this succeeds on the first try. Kept as a safety net.
+     - Delays: 500ms, 1000ms, 2000ms, 4000ms, 8000ms (5 attempts, ~15.5s total)
+   - **Phase 2 (content poll)**: If the message exists but is empty (placeholder), poll until content appears. Covers long-running agent tool chains (60-120s).
+     - Delays: 2s, 3s, 5s, 5s, 5s, then 10s intervals (15 attempts, ~120s total)
+     - Toast updates to "Response still being generated..."
+   - Handles 404 during Phase 2 (message deleted by user/cleanup) — returns null
 
 4. **Update UI**:
    - Success: Update streaming message with recovered content, finalize
-   - Empty content: Show "Response may be incomplete" warning
+   - Empty content (after polling exhausted): Show "Response may be incomplete" warning
    - Failed: Show error toast with "Reload" action button
 
 ### Configuration
 
 ```typescript
 // web/src/config.ts
-STREAM_RECOVERY_RETRY_DELAYS_MS = [500, 1000, 2000, 4000, 8000];
+STREAM_RECOVERY_RETRY_DELAYS_MS = [500, 1000, 2000, 4000, 8000];         // Phase 1
+STREAM_RECOVERY_CONTENT_POLL_DELAYS_MS = [2000, 3000, 5000, ..., 10000]; // Phase 2 (~120s)
 STREAM_RECOVERY_MIN_HIDDEN_MS = 500;  // Avoid false positives
 STREAM_RECOVERY_DEBOUNCE_MS = 300;    // Prevent rapid retriggers
 ```
@@ -227,9 +244,8 @@ STREAM_RECOVERY_DEBOUNCE_MS = 300;    // Prevent rapid retriggers
                ▼
 ┌─────────────────────────────────────┐
 │       Recovery In Progress          │
-│   attemptRecovery(convId)           │
-│   - Show "Recovering..." toast      │
-│   - Fetch message with retries      │
+│   Phase 1: Find message (instant)   │
+│   Phase 2: Poll for content (~120s) │
 └──────────────┬──────────────────────┘
                │
     ┌──────────┼──────────┐
@@ -244,11 +260,13 @@ STREAM_RECOVERY_DEBOUNCE_MS = 300;    // Prevent rapid retriggers
 
 ### Related Files
 
-- `web/src/core/stream-recovery.ts` - Unified recovery logic
+- `web/src/core/stream-recovery.ts` - Two-phase recovery logic
 - `web/src/core/messaging.ts` - Integration with streaming
 - `web/src/sync/SyncManager.ts` - Visibility change handling
-- `web/tests/unit/stream-recovery.test.ts` - Unit tests
+- `src/db/models/message.py` - `update_message_content()`, `delete_message_by_id()`
+- `web/tests/unit/stream-recovery.test.ts` - Unit tests (Phase 2 content polling)
 - `web/tests/e2e/stream-recovery.spec.ts` - E2E tests
+- `tests/unit/test_message_placeholder.py` - Backend placeholder DB tests
 
 ## Related Files
 

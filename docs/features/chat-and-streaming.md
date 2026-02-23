@@ -63,31 +63,33 @@ The streaming implementation handles server restarts gracefully:
 - The final event is still yielded with whatever content was accumulated before the interruption
 - This allows partial responses to be saved to the database even during restarts
 
-### Stream Recovery with Pre-Generated Message ID
+### Stream Recovery with Placeholder Message Pattern
 
-When streaming responses, the connection can drop mid-stream (network issues, proxy timeouts, client disconnects). To handle this gracefully, we use a pre-generated message ID system:
+When streaming responses, the connection can drop mid-stream (network issues, proxy timeouts, client disconnects). To handle this gracefully, we use a **placeholder message pattern** with pre-generated IDs:
 
 **How it works:**
 
 1. **Pre-generate ID on server**: When a stream starts, `_StreamContext` generates a UUID (`expected_assistant_msg_id`) for the assistant message
-2. **Send ID early**: The ID is included in the `user_message_saved` SSE event, sent at the very start of streaming
-3. **Frontend stores ID**: The frontend captures this ID in `StreamingState.expectedAssistantMessageId`
-4. **Message saved with known ID**: When the message is saved to DB, it uses this pre-generated ID (not a new one)
-5. **Recovery on failure**: If the stream ends without a `done` event, the frontend can fetch the specific message by its known ID
+2. **Save placeholder to DB**: `_yield_user_message_saved()` saves an empty assistant message with this ID to the database immediately, so `GET /api/messages/{id}` returns 200 from the start
+3. **Send ID early**: The ID is included in the `user_message_saved` SSE event, sent at the very start of streaming
+4. **Frontend stores ID**: The frontend captures this ID in `StreamingState.expectedAssistantMessageId`
+5. **Update placeholder on completion**: When streaming finishes, `save_message_to_db()` calls `db.update_message_content()` to fill in the placeholder with final content
+6. **Clean up on failure**: If an error occurs with no content, the placeholder is deleted via `db.delete_message_by_id()`
+7. **Recovery on failure**: If the stream ends without a `done` event, the frontend can fetch the specific message by its known ID — and since the placeholder exists, the fetch succeeds immediately
 
-**Why pre-generated IDs?**
+**Why pre-generated IDs + placeholders?**
 
 Without a known ID, the frontend would have to fetch "recent messages" and guess which one is the response - creating race conditions if:
 - Another message arrives (from another tab/device)
 - The user quickly sends another message
 - Multiple streams complete around the same time
 
-With pre-generated IDs, recovery is deterministic - we fetch exactly the message we expect.
+Without placeholders, the frontend would get 404s until the message is saved at stream end, requiring multiple retries. With placeholders, the message exists in DB from the start — recovery shifts from "find the message" to "wait for content to arrive."
 
 **Recovery flow (missing done event):**
 
 ```
-Stream starts → user_message_saved event (includes expected_assistant_message_id)
+Stream starts → placeholder saved to DB → user_message_saved event (includes ID)
      ↓
 [Connection drops during thinking/tokens]
      ↓
@@ -95,10 +97,12 @@ Stream ends without done event
      ↓
 Frontend detects missing done event
      ↓
-Frontend calls GET /api/messages/{expected_assistant_message_id}
+Phase 1: GET /api/messages/{id} → 200 (placeholder found instantly)
      ↓
-If found: Display recovered message
-If not found: Show incomplete indicator (message may not have been saved)
+Phase 2: Message empty? Poll for content (~120s, covers long tool chains)
+     ↓
+Content arrives: Display recovered message
+Content never arrives: Show "Response may be incomplete" warning
 ```
 
 ### Content Recovery in Done Event
@@ -132,9 +136,11 @@ Message displays correctly despite lost token events
 This belt-and-suspenders approach ensures the message content is always available, even if individual token events were lost during streaming.
 
 **Key files:**
-- [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `_StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`
+- [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `_StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`, placeholder lifecycle
+- [message.py](../../src/db/models/message.py) - `update_message_content()`, `delete_message_by_id()`
+- [stream-recovery.ts](../../web/src/core/stream-recovery.ts) - Two-phase `fetchMessageWithRetry()` (Phase 1: find, Phase 2: content poll)
 - [messaging.ts](../../web/src/core/messaging.ts) - `handleMissingDoneEvent()`, `StreamingState.expectedAssistantMessageId`
-- [conversations.py](../../src/api/routes/conversations.py) - `GET /api/messages/<message_id>` endpoint
+- [conversations.py](../../src/api/routes/conversations.py) - `GET /api/messages/<message_id>` endpoint, placeholder filtering
 
 **Other uses for pre-generated IDs:**
 - **Idempotent saves**: The cleanup thread and main generator both use the same ID, preventing duplicates

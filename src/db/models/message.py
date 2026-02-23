@@ -502,6 +502,110 @@ class MessageMixin:
                 language=row["language"],
             )
 
+    def update_message_content(
+        self,
+        message_id: str,
+        content: str,
+        files: list[dict[str, Any]] | None = None,
+        sources: list[dict[str, str]] | None = None,
+        generated_images: list[dict[str, str]] | None = None,
+        language: str | None = None,
+    ) -> Message | None:
+        """Update an existing message's content fields.
+
+        Used to fill in a placeholder message saved at stream start with the
+        final content once streaming completes.
+
+        Args:
+            message_id: The message ID to update
+            content: The message content text
+            files: Optional list of file attachments (with 'data' and optional 'thumbnail')
+            sources: Optional list of web sources
+            generated_images: Optional list of generated image metadata
+            language: Optional ISO 639-1 language code
+
+        Returns:
+            The updated Message, or None if the message no longer exists
+        """
+        files = files or []
+
+        # Extract metadata and save binary data to blob store
+        files_metadata: list[dict[str, Any]] = []
+        for idx, file_data in enumerate(files):
+            save_file_to_blob_store(message_id, idx, file_data)
+            files_metadata.append(extract_file_metadata(file_data))
+
+        files_json = json.dumps(files_metadata) if files_metadata else None
+        sources_json = json.dumps(sources) if sources else None
+        generated_images_json = json.dumps(generated_images) if generated_images else None
+        now = datetime.now()
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE messages
+                   SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?
+                   WHERE id = ?""",
+                (content, files_json, sources_json, generated_images_json, language, message_id),
+            )
+
+            if cursor.rowcount == 0:
+                return None
+
+            # Update conversation's updated_at
+            self._execute_with_timing(
+                conn,
+                """UPDATE conversations SET updated_at = ?
+                   WHERE id = (SELECT conversation_id FROM messages WHERE id = ?)""",
+                (now.isoformat(), message_id),
+            )
+            conn.commit()
+
+            # Fetch the updated message to return
+            row = self._execute_with_timing(
+                conn,
+                "SELECT * FROM messages WHERE id = ?",
+                (message_id,),
+            ).fetchone()
+
+        if not row:
+            return None
+
+        return Message(
+            id=row["id"],
+            conversation_id=row["conversation_id"],
+            role=MessageRole(row["role"]),
+            content=row["content"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            files=json.loads(row["files"]) if row["files"] else [],
+            sources=json.loads(row["sources"]) if row["sources"] else None,
+            generated_images=json.loads(row["generated_images"])
+            if row["generated_images"]
+            else None,
+            language=row["language"],
+        )
+
+    def delete_message_by_id(self, message_id: str) -> bool:
+        """Delete a message by ID without ownership checks.
+
+        Lightweight internal cleanup for placeholder messages that have no
+        blobs or associated data.
+
+        Args:
+            message_id: The message ID to delete
+
+        Returns:
+            True if the message was deleted, False if not found
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "DELETE FROM messages WHERE id = ?",
+                (message_id,),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def update_message_file_thumbnail(
         self,
         message_id: str,

@@ -237,6 +237,16 @@ export const STREAM_RECOVERY_MIN_HIDDEN_MS = 500;
 /** Debounce for recovery attempts (prevent rapid retriggers) */
 export const STREAM_RECOVERY_DEBOUNCE_MS = 300;
 
+/**
+ * Polling delays for waiting for placeholder content to be filled.
+ * Total: ~120s. Starts faster (2s, 3s, 5s) for quick finishes,
+ * settles to 10s intervals to cover long tool chains (60-120s).
+ */
+export const STREAM_RECOVERY_CONTENT_POLL_DELAYS_MS = [
+  2_000, 3_000, 5_000, 5_000, 5_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000, 10_000,
+  10_000, 10_000, 10_000,
+];
+
 // =============================================================================
 // Pagination Configuration
 // =============================================================================
