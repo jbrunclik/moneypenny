@@ -497,17 +497,19 @@ The plan is never shown to the user - it is internal guidance only.
 
 ### LangGraph Checkpointing
 
-A `MemorySaver` singleton (`_checkpointer`) persists graph state across invocations within a session.
+A lazy `SqliteSaver` factory (`_get_checkpointer()`) persists graph state to disk (`data/checkpoints.db`) instead of keeping it in process memory. Each gunicorn worker opens its own SQLite connection; WAL mode enables concurrent reads.
 
 **How it works:**
 
-1. `compile_graph()` compiles a `StateGraph` with the checkpointer attached (if enabled)
-2. `get_graph_config()` returns a config dict with `thread_id` set to the `conversation_id`
-3. The `conversation_id` is threaded from the API routes down through `chat_batch()` / `stream_chat_events()` into the graph invocation
-4. LangGraph uses `thread_id` to restore and persist state between requests in the same conversation
+1. `_get_checkpointer()` lazily creates a `SqliteSaver` backed by `CHECKPOINT_DB_PATH` on first use
+2. `compile_graph()` compiles a `StateGraph` with the checkpointer attached (if enabled)
+3. `get_graph_config()` returns a config dict with `thread_id` set to the `conversation_id`
+4. The `conversation_id` is threaded from the API routes down through `chat_batch()` / `stream_chat_events()` into the graph invocation
+5. LangGraph uses `thread_id` to restore and persist state between requests in the same conversation
 
 **Configuration:**
 - `AGENT_CHECKPOINTING_ENABLED`: Toggle checkpointing on/off (default: `true`)
+- `CHECKPOINT_DB_PATH`: Path to the SQLite checkpoint database (default: `data/checkpoints.db`)
 
 ### AgentState Fields
 
@@ -522,11 +524,11 @@ class AgentState(TypedDict):
 
 - [graph.py](../../src/agent/graph.py) - Graph construction, all nodes and routers
 - [agent.py](../../src/agent/agent.py) - `ChatAgent`, `stream_chat_events()`, `chat_batch()`
-- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_PLANNING_*`, `AGENT_CHECKPOINTING_ENABLED`
+- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_PLANNING_*`, `AGENT_CHECKPOINTING_ENABLED`, `CHECKPOINT_DB_PATH`
 
 ### Testing
 
-- Unit tests: [test_graph.py](../../tests/unit/test_graph.py) - 25 tests covering self-correction, planning, checkpointing, and graph structure
+- Unit tests: [test_graph.py](../../tests/unit/test_graph.py) - 35 tests covering self-correction, planning, checkpointing, and graph structure
 
 ## See Also
 

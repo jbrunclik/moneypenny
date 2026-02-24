@@ -11,11 +11,12 @@ Graph flow (without tools or planning disabled):
   START -> chat -> END
 """
 
+import sqlite3
 from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
@@ -45,9 +46,27 @@ def _get_permission_modules() -> dict[str, Any]:
     }
 
 
-# ============ Checkpointing ============
+_checkpointer: SqliteSaver | None = None
 
-_checkpointer = MemorySaver()
+
+def _get_checkpointer() -> SqliteSaver:
+    """Lazily create a SqliteSaver backed by a file on disk.
+
+    Each gunicorn worker (separate process) gets its own SQLite connection.
+    WAL mode (set by SqliteSaver.setup()) enables concurrent reads.
+    """
+    global _checkpointer  # noqa: PLW0603
+    if _checkpointer is None:
+        db_path = Config.CHECKPOINT_DB_PATH
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(
+            str(db_path),
+            check_same_thread=False,
+        )
+        _checkpointer = SqliteSaver(conn)
+        _checkpointer.setup()
+        logger.info("SqliteSaver checkpointer initialized", extra={"path": str(db_path)})
+    return _checkpointer
 
 
 # ============ Agent State ============
@@ -601,7 +620,7 @@ def compile_graph(
         Compiled graph ready for invoke/stream
     """
     if Config.AGENT_CHECKPOINTING_ENABLED:
-        return graph.compile(checkpointer=_checkpointer)
+        return graph.compile(checkpointer=_get_checkpointer())
     return graph.compile()
 
 

@@ -1,5 +1,6 @@
 """Unit tests for graph improvements: self-correction, planning, and checkpointing."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -320,16 +321,20 @@ class TestShouldPlan:
 class TestCheckpointing:
     """Tests for graph compilation with checkpointing."""
 
+    @patch("src.agent.graph._get_checkpointer")
     @patch("src.agent.graph.Config")
-    def test_checkpointer_passed_to_compile(self, mock_config: MagicMock) -> None:
-        """Graph should be compiled with checkpointer when enabled."""
+    def test_checkpointer_passed_to_compile(
+        self, mock_config: MagicMock, mock_get_cp: MagicMock
+    ) -> None:
+        """Graph should be compiled with SqliteSaver when enabled."""
         mock_config.AGENT_CHECKPOINTING_ENABLED = True
+        mock_saver = MagicMock()
+        mock_get_cp.return_value = mock_saver
         mock_graph = MagicMock()
         compile_graph(mock_graph)
         mock_graph.compile.assert_called_once()
         call_kwargs = mock_graph.compile.call_args[1]
-        assert "checkpointer" in call_kwargs
-        assert call_kwargs["checkpointer"] is not None
+        assert call_kwargs["checkpointer"] is mock_saver
 
     @patch("src.agent.graph.Config")
     def test_no_checkpointer_when_disabled(self, mock_config: MagicMock) -> None:
@@ -362,6 +367,34 @@ class TestCheckpointing:
         config = get_graph_config("conv-123")
         assert "recursion_limit" in config
         assert "configurable" not in config
+
+    def test_get_checkpointer_creates_sqlite_saver(self, tmp_path: "Path") -> None:
+        """_get_checkpointer should create a SqliteSaver backed by a file."""
+        import src.agent.graph as graph_module
+
+        db_path = tmp_path / "test_checkpoints.db"
+
+        # Reset module-level singleton so we get a fresh one
+        original = graph_module._checkpointer
+        graph_module._checkpointer = None
+        try:
+            with patch.object(graph_module.Config, "CHECKPOINT_DB_PATH", db_path):
+                from src.agent.graph import _get_checkpointer
+
+                saver = _get_checkpointer()
+
+                from langgraph.checkpoint.sqlite import SqliteSaver
+
+                assert isinstance(saver, SqliteSaver)
+                assert db_path.exists()
+
+                # Calling again returns the same instance (singleton)
+                assert _get_checkpointer() is saver
+        finally:
+            # Clean up: close connection and restore original
+            if graph_module._checkpointer is not None:
+                graph_module._checkpointer.conn.close()
+            graph_module._checkpointer = original
 
 
 # ============ Graph Structure Tests ============

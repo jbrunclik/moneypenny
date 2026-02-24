@@ -313,7 +313,10 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 | `AGENT_MAX_TOOL_RETRIES` | 2 | Max consecutive tool errors before LLM is told to give up |
 | `AGENT_PLANNING_ENABLED` | true | Enable planning node for complex multi-step requests |
 | `AGENT_PLANNING_MIN_LENGTH` | 200 | Minimum message length (chars) to trigger LLM planning classifier |
-| `AGENT_CHECKPOINTING_ENABLED` | true | Enable LangGraph MemorySaver checkpointing for state persistence |
+| `AGENT_CHECKPOINTING_ENABLED` | true | Enable LangGraph SqliteSaver checkpointing for state persistence |
+| `CHECKPOINT_DB_PATH` | data/checkpoints.db | Path to SQLite checkpoint database |
+| `GUNICORN_MAX_REQUESTS` | 1000 | Recycle workers after N requests (memory leak safety net) |
+| `GUNICORN_MAX_REQUESTS_JITTER` | 50 | Random jitter to stagger worker recycling |
 
 Agents also use existing configuration for:
 - `GEMINI_API_KEY` - LLM access
