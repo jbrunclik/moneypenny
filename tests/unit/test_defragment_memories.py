@@ -400,3 +400,41 @@ class TestDefragmentUserMemories:
         assert result["deleted"] == 0
         assert result["updated"] == 0
         assert result["added"] == 0
+
+    def test_handles_list_content_from_llm(self, mock_llm, mock_user, sample_memories):
+        """Test that list content from Gemini multimodal format is handled correctly."""
+        from scripts.defragment_memories import defragment_user_memories
+
+        # Gemini returns content as list of dicts instead of plain string
+        mock_llm.invoke.return_value = MagicMock(
+            content=[{"type": "text", "text": '{"no_changes": true}'}]
+        )
+
+        result = defragment_user_memories(mock_user, sample_memories, mock_llm)
+
+        assert result["skipped"] is True
+        assert result["deleted"] == 0
+
+    @patch("scripts.defragment_memories.db")
+    def test_handles_list_content_with_changes(self, mock_db, mock_llm, mock_user, sample_memories):
+        """Test that list content with actual changes triggers DB updates."""
+        from scripts.defragment_memories import defragment_user_memories
+
+        mock_llm.invoke.return_value = MagicMock(
+            content=[
+                {
+                    "type": "text",
+                    "text": '{"reasoning": "Merging duplicates", "delete": ["mem-1"]}',
+                }
+            ]
+        )
+        mock_db.bulk_update_memories.return_value = {
+            "deleted": 1,
+            "updated": 0,
+            "added": 0,
+        }
+
+        result = defragment_user_memories(mock_user, sample_memories, mock_llm, dry_run=False)
+
+        mock_db.bulk_update_memories.assert_called_once()
+        assert result["deleted"] == 1

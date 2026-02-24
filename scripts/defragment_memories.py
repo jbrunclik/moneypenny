@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+from src.agent.content import extract_text_content
 from src.config import Config
 from src.db.models import Memory, User, db
 from src.utils.logging import get_logger
@@ -238,7 +239,8 @@ Please analyze these memories and provide consolidation recommendations."""
             ]
         )
 
-        response_text = response.content if hasattr(response, "content") else str(response)
+        content = response.content if hasattr(response, "content") else str(response)
+        response_text = extract_text_content(content)
         logger.debug("LLM response received", extra={"response_length": len(response_text)})
 
         # Parse the response
