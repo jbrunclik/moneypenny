@@ -102,6 +102,9 @@ DEFAULT_CONFIG = {
     "planner_todoist_connected": False,
     "planner_calendar_connected": False,
     "planner_dashboard": None,  # Custom dashboard data
+    # Garmin mock config
+    "garmin_connected": False,
+    "garmin_needs_reconnect": False,
     # Agents mock config
     "agents_command_center": None,  # Custom command center data
 }
@@ -829,6 +832,31 @@ def main() -> None:
             return {"status": "cleared"}, 200
 
         # =============================================================================
+        # Garmin test routes
+        # =============================================================================
+
+        @test_bp.route("/test/set-garmin-status", methods=["POST"])
+        def set_garmin_status() -> tuple[dict[str, Any], int]:
+            """Set Garmin integration status for testing."""
+            from flask import request
+
+            data = request.get_json() or {}
+            MOCK_CONFIG["garmin_connected"] = data.get("connected", False)
+            MOCK_CONFIG["garmin_needs_reconnect"] = data.get("needs_reconnect", False)
+            return {
+                "status": "set",
+                "connected": MOCK_CONFIG["garmin_connected"],
+                "needs_reconnect": MOCK_CONFIG["garmin_needs_reconnect"],
+            }, 200
+
+        @test_bp.route("/test/clear-garmin-config", methods=["POST"])
+        def clear_garmin_config() -> tuple[dict[str, str], int]:
+            """Clear Garmin mock config to restore defaults."""
+            MOCK_CONFIG["garmin_connected"] = False
+            MOCK_CONFIG["garmin_needs_reconnect"] = False
+            return {"status": "cleared"}, 200
+
+        # =============================================================================
         # Agents test routes
         # =============================================================================
 
@@ -1116,6 +1144,18 @@ def main() -> None:
                         "calendar_email": "test@gmail.com" if connected else None,
                         "connected_at": datetime.now().isoformat() if connected else None,
                         "needs_reconnect": False,
+                    }
+                )
+
+            # Intercept /auth/garmin/status
+            if request.path == "/auth/garmin/status" and request.method == "GET":
+                garmin_connected = MOCK_CONFIG.get("garmin_connected", False)
+                garmin_needs_reconnect = MOCK_CONFIG.get("garmin_needs_reconnect", False)
+                return jsonify(
+                    {
+                        "connected": garmin_connected,
+                        "connected_at": datetime.now().isoformat() if garmin_connected else None,
+                        "needs_reconnect": garmin_needs_reconnect,
                     }
                 )
 

@@ -92,6 +92,19 @@ class TodoistConnectRequest(BaseModel):
     state: str = Field(..., min_length=1, description="CSRF state token for validation")
 
 
+class GarminConnectRequest(BaseModel):
+    """Schema for POST /auth/garmin/connect - Login with email and password."""
+
+    email: str = Field(..., min_length=1, description="Garmin Connect email address")
+    password: str = Field(..., min_length=1, description="Garmin Connect password (never stored)")
+
+
+class GarminMfaRequest(BaseModel):
+    """Schema for POST /auth/garmin/mfa - Complete MFA login."""
+
+    mfa_code: str = Field(..., min_length=1, description="MFA verification code")
+
+
 class GoogleCalendarConnectRequest(BaseModel):
     """Schema for POST /auth/calendar/connect - Exchange OAuth code for token."""
 
@@ -303,6 +316,24 @@ class TodoistStatusResponse(BaseModel):
     connected_at: str | None = Field(None, description="ISO timestamp when connected")
     needs_reconnect: bool = Field(
         False, description="True if token is invalid and user needs to reconnect"
+    )
+
+
+class GarminConnectResponse(BaseModel):
+    """Response from Garmin Connect login attempt."""
+
+    connected: bool = Field(..., description="Whether connection was successful")
+    mfa_required: bool = Field(default=False, description="True if MFA verification is needed")
+    display_name: str | None = Field(None, description="Display name of connected Garmin account")
+
+
+class GarminStatusResponse(BaseModel):
+    """Response containing Garmin connection status."""
+
+    connected: bool = Field(..., description="Whether Garmin is connected")
+    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    needs_reconnect: bool = Field(
+        False, description="True if session has expired and user must reconnect"
     )
 
 

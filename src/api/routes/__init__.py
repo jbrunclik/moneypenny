@@ -6,6 +6,7 @@ Route Organization:
 - auth.py: Google authentication (4 routes)
 - todoist.py: Todoist integration (4 routes)
 - calendar.py: Google Calendar integration (7 routes)
+- garmin.py: Garmin Connect integration (4 routes)
 - conversations.py: Conversation management (9 routes)
 - planner.py: Planner dashboard (4 routes)
 - agents.py: Autonomous agents (11 routes)
@@ -16,7 +17,7 @@ Route Organization:
 - memory.py: User memory management (2 routes)
 - system.py: System routes (5 routes)
 
-Total: 54 endpoints across 12 modules
+Total: 58 endpoints across 13 modules
 """
 
 from apiflask import APIFlask
@@ -30,6 +31,7 @@ from src.api.routes import (
     conversations,
     costs,
     files,
+    garmin,
     memory,
     planner,
     settings,
@@ -57,6 +59,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(auth.auth)
     app.register_blueprint(todoist.auth)
     app.register_blueprint(calendar.auth)
+    app.register_blueprint(garmin.auth)
 
     # Register API blueprints (under /api prefix)
     app.register_blueprint(system.api)

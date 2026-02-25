@@ -13,7 +13,7 @@ Feature-specific documentation covering user-facing functionality:
 - **[voice-and-tts.md](features/voice-and-tts.md)** - Voice input (speech-to-text), text-to-speech
 - **[search.md](features/search.md)** - Full-text search with SQLite FTS5, O(1) message navigation
 - **[sync.md](features/sync.md)** - Real-time synchronization across devices/tabs with timestamp-based polling
-- **[integrations.md](features/integrations.md)** - Todoist and Google Calendar OAuth integrations with full API coverage
+- **[integrations.md](features/integrations.md)** - Todoist, Google Calendar, and Garmin Connect integrations with full API coverage
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
 - **[cost-tracking.md](features/cost-tracking.md)** - Token usage tracking, image generation costs, currency rates, monthly aggregation
 - **[ui-features.md](features/ui-features.md)** - Input toolbar, conversation management, deep linking, version banner, color scheme, clipboard operations

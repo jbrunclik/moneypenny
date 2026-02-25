@@ -409,6 +409,9 @@ class Config:
     WHATSAPP_API_VERSION: str = "v18.0"
     WHATSAPP_API_BASE_URL: str = "https://graph.facebook.com"
 
+    # Garmin Connect Integration (no API keys needed — uses garth session tokens)
+    GARMIN_API_TIMEOUT: int = int(os.getenv("GARMIN_API_TIMEOUT", "15"))
+
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"

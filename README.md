@@ -55,6 +55,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
 - **Todoist integration**: Manage tasks via AI - list, add, complete, prioritize, and organize tasks across projects
 - **Google Calendar integration**: Schedule meetings/focus blocks, update events, and RSVP directly from the chat
+- **Garmin Connect integration**: Query health and fitness data - steps, sleep, heart rate, HRV, SpO2, training readiness, and activities
 
 ### Planner Dashboard
 - **Unified schedule view**: See all your Todoist tasks and Google Calendar events in one place
@@ -191,6 +192,9 @@ TODOIST_REDIRECT_URI=http://localhost:5173  # Your app URL (OAuth redirects here
 GOOGLE_CALENDAR_CLIENT_ID=your-google-oauth-client-id
 GOOGLE_CALENDAR_CLIENT_SECRET=your-google-client-secret
 GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Same origin as your frontend
+
+# Garmin Connect integration (optional, no API keys required)
+GARMIN_API_TIMEOUT=15  # API request timeout in seconds
 ```
 
 ### Setting up Code Execution (Docker)
@@ -359,6 +363,34 @@ GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Use Vite port in dev
    - "Cancel my 3pm meeting"
 
 **Disabling:** Leave `GOOGLE_CALENDAR_CLIENT_ID` empty - the integration won't appear.
+
+### Setting up Garmin Connect Integration
+
+The Garmin Connect integration allows the AI to query your health and fitness data — steps, sleep, heart rate, HRV, SpO2, body composition, training readiness, and activities. It is read-only; no data is written to Garmin.
+
+**Prerequisites:**
+- A Garmin Connect account
+
+**No app registration required** — users authenticate with their own Garmin email and password. The password is never stored; only session tokens (valid ~1 year) are persisted.
+
+**MFA support:** If your Garmin account has two-factor authentication enabled, you will be prompted for a verification code after entering your credentials.
+
+**Configuration:**
+```bash
+GARMIN_API_TIMEOUT=15  # Optional, default is 15 seconds
+```
+
+**Usage:**
+1. Open Settings (gear icon in sidebar)
+2. Click "Connect Garmin" and enter your Garmin Connect email and password
+3. If MFA is enabled, enter the verification code from your email or authenticator app
+4. Once connected, ask the AI about your fitness data:
+   - "How did I sleep last night?"
+   - "What's my training readiness today?"
+   - "Show me my last 5 runs"
+   - "What was my resting heart rate this week?"
+
+**Disabling:** If you do not want Garmin Connect to appear, it is available whenever the `garminconnect` Python package is installed (included in `requirements.txt`). Users who do not connect their account simply won't have the tool available.
 
 ### Setting up WhatsApp Integration (Autonomous Agents)
 

@@ -2007,7 +2007,9 @@ class TestGetToolsForRequest:
 
         # Count how many integration tools are actually configured
         normal_tool_names = {t.name for t in normal_tools}
-        integration_tools_available = len({"todoist", "google_calendar"} & normal_tool_names)
+        integration_tools_available = len(
+            {"todoist", "google_calendar", "garmin_connect"} & normal_tool_names
+        )
 
         # Should be exactly this many fewer
         assert len(anonymous_tools) == len(normal_tools) - integration_tools_available

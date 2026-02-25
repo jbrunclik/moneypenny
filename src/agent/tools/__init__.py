@@ -16,6 +16,7 @@ from src.agent.tools.context import (
     set_current_message_files,
 )
 from src.agent.tools.file_retrieval import retrieve_file
+from src.agent.tools.garmin import garmin_connect, is_garmin_available
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
 from src.agent.tools.metadata import METADATA_TOOL_NAMES, cite_sources, manage_memory
@@ -36,7 +37,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Integration tools that are disabled in anonymous mode
-_INTEGRATION_TOOLS = {"todoist", "google_calendar"}
+_INTEGRATION_TOOLS = {"todoist", "google_calendar", "garmin_connect"}
 
 
 def get_available_tools() -> list[Any]:
@@ -69,6 +70,11 @@ def get_available_tools() -> list[Any]:
     if is_google_calendar_available():
         tools.append(google_calendar)
         logger.debug("google_calendar tool added to available tools")
+
+    # Add Garmin Connect tool if package is installed
+    if is_garmin_available():
+        tools.append(garmin_connect)
+        logger.debug("garmin_connect tool added to available tools")
 
     # Add WhatsApp tool if configured
     if is_whatsapp_available():
@@ -139,6 +145,8 @@ def get_tools_for_request(
                         continue
                     if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
                         continue
+                    if tool_name == "garmin_connect" and not is_garmin_available():
+                        continue
                     if tool_name == "whatsapp" and not is_whatsapp_available():
                         continue
                     tools.append(tool)
@@ -167,6 +175,7 @@ _TOOL_MAP: dict[str, Any] = {
     "execute_code": execute_code,
     "todoist": todoist,
     "google_calendar": google_calendar,
+    "garmin_connect": garmin_connect,
     "trigger_agent": trigger_agent,
     "whatsapp": whatsapp,
     "cite_sources": cite_sources,
@@ -209,6 +218,8 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
                         continue
                     if tool_name == "google_calendar" and not is_google_calendar_available():
                         continue
+                    if tool_name == "garmin_connect" and not is_garmin_available():
+                        continue
                     if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
                         continue
                     # WhatsApp requires both app config AND user phone number
@@ -223,6 +234,8 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
             tools.append(todoist)
         if is_google_calendar_available():
             tools.append(google_calendar)
+        if is_garmin_available():
+            tools.append(garmin_connect)
         # WhatsApp requires both app config AND user phone number
         if _is_whatsapp_available_for_user(agent.user_id):
             tools.append(whatsapp)
@@ -250,6 +263,7 @@ __all__ = [
     "retrieve_file",
     "todoist",
     "google_calendar",
+    "garmin_connect",
     "refresh_planner_dashboard",
     "trigger_agent",
     "request_approval",
@@ -271,6 +285,7 @@ __all__ = [
     "is_code_sandbox_available",
     "is_todoist_available",
     "is_google_calendar_available",
+    "is_garmin_available",
     "is_refresh_planner_dashboard_available",
     "is_whatsapp_available",
     # Tool lists

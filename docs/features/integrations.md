@@ -1,6 +1,6 @@
 # Integrations
 
-The app integrates with Todoist and Google Calendar for AI-powered task and time management.
+The app integrates with Todoist, Google Calendar, and Garmin Connect for AI-powered task, time, and health management.
 
 ## Todoist Integration
 
@@ -634,6 +634,76 @@ Messages containing Markdown are automatically converted to WhatsApp-compatible 
 
 **"User has not configured their WhatsApp phone number" error:**
 - User needs to add their phone number in Settings
+
+---
+
+## Garmin Connect Integration
+
+The assistant can query the user's health, fitness, and training data from Garmin Connect. This is a read-only integration — no data is written to Garmin.
+
+### Overview
+
+1. **Auth Method**: Email/password login via `garminconnect`/`garth` library (not OAuth)
+2. **Password Never Stored**: Only serialized garth session tokens (OAuth1 + OAuth2) are persisted; tokens are valid ~1 year
+3. **MFA Support**: If the account has MFA enabled, a two-step flow is used (connect → mfa)
+4. **Tool Availability**: When connected, the `garmin_connect` LangGraph tool is available to the LLM
+5. **Token Refresh**: Tokens are automatically re-serialized after API calls in case garth refreshed them
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/garmin/connect` | POST | Authenticate with email/password; returns `mfa_required=True` if MFA is needed |
+| `/auth/garmin/mfa` | POST | Complete MFA login with verification code (OTP from email or authenticator) |
+| `/auth/garmin/disconnect` | POST | Remove stored tokens |
+| `/auth/garmin/status` | GET | Report connection status (connected, connected_at, needs_reconnect) |
+
+### Garmin Connect Tool Actions
+
+The `garmin_connect` tool is read-only and exposes the following actions:
+
+| Action | Parameters | Description |
+|--------|------------|-------------|
+| `get_stats` | `date_str` (optional) | Daily summary: steps, distance, calories, floors, active minutes |
+| `get_heart_rates` | `date_str` (optional) | Resting HR, HR zones, min/max for a day |
+| `get_sleep_data` | `date_str` (optional) | Sleep quality, stages (deep/light/REM/awake), duration |
+| `get_stress_data` | `date_str` (optional) | Stress levels throughout the day |
+| `get_hrv_data` | `date_str` (optional) | Heart rate variability data |
+| `get_spo2_data` | `date_str` (optional) | Blood oxygen (SpO2) readings |
+| `get_body_composition` | `date_str` (optional) | Weight, body fat %, BMI, muscle mass |
+| `get_activities` | `limit` (optional), `activity_type` (optional) | List recent activities (last 90 days, default 10) |
+| `get_activity_details` | `activity_id` (required) | Detailed data for one activity |
+| `get_training_readiness` | `date_str` (optional) | Training readiness score and contributing factors |
+| `get_training_status` | `date_str` (optional) | Training status and load metrics |
+| `get_steps` | `date_str` (optional) | Step count and daily goal |
+
+All date parameters default to today. `date_str` format: `YYYY-MM-DD`.
+
+### Configuration
+
+```bash
+# .env
+GARMIN_API_TIMEOUT=15  # API request timeout in seconds (default: 15)
+```
+
+No client ID or secret is required — the user authenticates with their own Garmin credentials.
+
+### Key Files
+
+**Backend:**
+- [config.py](../../src/config.py) - `GARMIN_API_TIMEOUT` constant
+- [garmin_auth.py](../../src/auth/garmin_auth.py) - Authentication helpers (login, MFA, token serialization)
+- [tools/garmin.py](../../src/agent/tools/garmin.py) - `garmin_connect` LangGraph tool
+- [routes/garmin.py](../../src/api/routes/garmin.py) - Auth endpoints
+- [migrations/0028_add_garmin_fields.py](../../migrations/0028_add_garmin_fields.py) - Database schema
+
+**Frontend:**
+- [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - Connection UI (email/password form, MFA step)
+- [client.ts](../../web/src/api/client.ts) - API methods
+- [api.ts](../../web/src/types/api.ts) - Type definitions
+- [popups.css](../../web/src/styles/components/popups.css) - Styles
+
+---
 
 ## See Also
 

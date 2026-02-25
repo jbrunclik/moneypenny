@@ -673,6 +673,7 @@ class _StreamContext:
         dashboard_obj = build_planner_dashboard(
             todoist_token=self.user.todoist_access_token,
             calendar_token=calendar_token,
+            garmin_token=self.user.garmin_token,
             user_id=self.user_id,
             force_refresh=False,
             db=db,

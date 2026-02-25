@@ -137,6 +137,7 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
             "conversations",
             "costs",
             "files",
+            "garmin",
             "memory",
             "planner",
             "settings",

@@ -88,6 +88,12 @@ class UserMixin:
             google_calendar_selected_ids=calendar_selected_ids,
             planner_last_reset_at=planner_last_reset,
             whatsapp_phone=row["whatsapp_phone"] if "whatsapp_phone" in row.keys() else None,
+            garmin_token=row["garmin_token"] if "garmin_token" in row.keys() else None,
+            garmin_connected_at=(
+                datetime.fromisoformat(row["garmin_connected_at"])
+                if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]
+                else None
+            ),
         )
 
     def get_or_create_user(self, email: str, name: str, picture: str | None = None) -> User:
@@ -394,6 +400,45 @@ class UserMixin:
         else:
             logger.warning(
                 "User not found for WhatsApp phone update",
+                extra={"user_id": user_id},
+            )
+        return updated
+
+    def update_user_garmin_token(self, user_id: str, token: str | None) -> bool:
+        """Update a user's Garmin Connect session token.
+
+        Args:
+            user_id: The user ID
+            token: Serialized garth session tokens (JSON), or None to disconnect
+
+        Returns:
+            True if user was updated, False if not found
+        """
+        logger.debug(
+            "Updating user Garmin token",
+            extra={"user_id": user_id, "connecting": bool(token)},
+        )
+
+        connected_at = datetime.now().isoformat() if token else None
+
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET garmin_token = ?, garmin_connected_at = ? WHERE id = ?",
+                (token, connected_at, user_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            action = "connected" if token else "disconnected"
+            logger.info(
+                f"User Garmin {action}",
+                extra={"user_id": user_id},
+            )
+        else:
+            logger.warning(
+                "User not found for Garmin token update",
                 extra={"user_id": user_id},
             )
         return updated

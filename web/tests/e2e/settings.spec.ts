@@ -30,13 +30,14 @@ test.describe('Settings', () => {
     await expect(popup.locator('.settings-label').first()).toHaveText('Appearance');
     await expect(popup.locator('.settings-label').nth(1)).toHaveText('Todoist Integration');
     await expect(popup.locator('.settings-label').nth(2)).toHaveText('Google Calendar Integration');
+    await expect(popup.locator('.settings-label').nth(3)).toHaveText('Garmin Connect');
 
     const whatsappLabel = popup.locator('.settings-label', { hasText: 'WhatsApp Notifications' });
     if (await whatsappLabel.count()) {
       await expect(whatsappLabel.first()).toBeVisible();
       await expect(popup.locator('.settings-label').last()).toHaveText('Custom Instructions');
     } else {
-      await expect(popup.locator('.settings-label').nth(3)).toHaveText('Custom Instructions');
+      await expect(popup.locator('.settings-label').nth(4)).toHaveText('Custom Instructions');
     }
     await expect(popup.locator('#custom-instructions')).toBeVisible();
     await expect(popup.locator('.settings-save-btn')).toBeVisible();

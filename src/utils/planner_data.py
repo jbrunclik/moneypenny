@@ -89,6 +89,21 @@ class PlannerDay:
 
 
 @dataclass
+class PlannerHealthSummary:
+    """Health data from Garmin for the planner dashboard."""
+
+    training_readiness: dict[str, Any] | None = None
+    training_status: dict[str, Any] | None = None
+    sleep: dict[str, Any] | None = None
+    stress_avg: float | None = None
+    resting_hr: int | None = None
+    hrv_status: str | None = None
+    body_battery: int | None = None
+    steps_today: int | None = None
+    recent_activities: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class PlannerDashboard:
     """The complete planner dashboard data."""
 
@@ -96,12 +111,15 @@ class PlannerDashboard:
     overdue_tasks: list[PlannerTask] = field(default_factory=list)
     todoist_connected: bool = False
     calendar_connected: bool = False
+    garmin_connected: bool = False
     weather_connected: bool = False
     todoist_error: str | None = None
     calendar_error: str | None = None
+    garmin_error: str | None = None
     weather_error: str | None = None
     server_time: str = ""  # ISO timestamp
     weather_location: str | None = None  # Location name for weather
+    health_summary: PlannerHealthSummary | None = None
 
 
 def _get_day_name(date: datetime, today: datetime) -> str:
@@ -593,23 +611,32 @@ def _dict_to_dashboard(data: dict[str, Any]) -> PlannerDashboard:
     # Convert overdue tasks
     overdue_tasks = [PlannerTask(**task_data) for task_data in data.get("overdue_tasks", [])]
 
+    # Convert health summary
+    health_summary = None
+    if data.get("health_summary"):
+        health_summary = PlannerHealthSummary(**data["health_summary"])
+
     return PlannerDashboard(
         days=days,
         overdue_tasks=overdue_tasks,
         todoist_connected=data.get("todoist_connected", False),
         calendar_connected=data.get("calendar_connected", False),
+        garmin_connected=data.get("garmin_connected", False),
         weather_connected=data.get("weather_connected", False),
         todoist_error=data.get("todoist_error"),
         calendar_error=data.get("calendar_error"),
+        garmin_error=data.get("garmin_error"),
         weather_error=data.get("weather_error"),
         server_time=data.get("server_time", ""),
         weather_location=data.get("weather_location"),
+        health_summary=health_summary,
     )
 
 
 def build_planner_dashboard(
     todoist_token: str | None = None,
     calendar_token: str | None = None,
+    garmin_token: str | None = None,
     user_id: str | None = None,
     force_refresh: bool = False,
     db: Any = None,
@@ -623,6 +650,7 @@ def build_planner_dashboard(
     Args:
         todoist_token: The user's Todoist access token (None if not connected)
         calendar_token: The user's Google Calendar access token (None if not connected)
+        garmin_token: The user's serialized Garmin session tokens (None if not connected)
         user_id: The user ID for cache key (required for caching)
         force_refresh: Bypass cache and fetch fresh data (for refresh button)
         db: Database instance for caching (optional)
@@ -645,6 +673,7 @@ def build_planner_dashboard(
         extra={
             "todoist_connected": bool(todoist_token),
             "calendar_connected": bool(calendar_token),
+            "garmin_connected": bool(garmin_token),
             "weather_configured": bool(Config.WEATHER_LOCATION),
             "force_refresh": force_refresh,
         },
@@ -672,11 +701,12 @@ def build_planner_dashboard(
         days=days,
         todoist_connected=bool(todoist_token),
         calendar_connected=bool(calendar_token),
+        garmin_connected=bool(garmin_token),
         weather_connected=bool(Config.WEATHER_LOCATION),
         server_time=server_time,
     )
 
-    # Fetch all dashboard resources in parallel (Todoist, Calendar, Weather)
+    # Fetch all dashboard resources in parallel (Todoist, Calendar, Garmin, Weather)
     from concurrent.futures import ThreadPoolExecutor
 
     def fetch_todoist_if_available() -> tuple[list[Any], list[Any], str | None]:
@@ -731,16 +761,138 @@ def build_planner_dashboard(
         finally:
             _close_thread_pool_connections(db)
 
+    def fetch_garmin_if_available() -> tuple[PlannerHealthSummary | None, str | None]:
+        """Fetch Garmin health data if token available."""
+        if not garmin_token:
+            return None, None
+        try:
+            from src.auth.garmin_auth import create_client_from_tokens
+
+            garmin = create_client_from_tokens(garmin_token)
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            summary = PlannerHealthSummary()
+
+            # Fetch stats (steps, etc.)
+            try:
+                stats = garmin.get_stats(today_str)
+                if isinstance(stats, dict):
+                    summary.steps_today = stats.get("totalSteps")
+                    summary.resting_hr = stats.get("restingHeartRate")
+                    summary.body_battery = stats.get("bodyBatteryChargedValue")
+                    summary.stress_avg = stats.get("averageStressLevel")
+            except Exception as e:
+                logger.debug("Garmin stats fetch failed", extra={"error": str(e)})
+
+            # Fetch sleep
+            try:
+                sleep_data = garmin.get_sleep_data(today_str)
+                if isinstance(sleep_data, dict):
+                    daily_sleep = sleep_data.get("dailySleepDTO", {})
+                    # API field is 'sleepTimeSeconds', not 'sleepTimeInSeconds'
+                    duration_secs = daily_sleep.get("sleepTimeSeconds", 0)
+                    # Sleep quality is nested inside 'sleepScores.overall.qualifierKey'
+                    sleep_scores = daily_sleep.get("sleepScores", {})
+                    overall = (
+                        sleep_scores.get("overall", {}) if isinstance(sleep_scores, dict) else {}
+                    )
+                    quality = overall.get("qualifierKey") if isinstance(overall, dict) else None
+                    summary.sleep = {
+                        "duration_hours": round(duration_secs / 3600, 1) if duration_secs else None,
+                        "quality": quality,
+                    }
+            except Exception as e:
+                logger.debug("Garmin sleep fetch failed", extra={"error": str(e)})
+
+            # Fetch heart rates
+            try:
+                hr_data = garmin.get_heart_rates(today_str)
+                if isinstance(hr_data, dict):
+                    summary.resting_hr = summary.resting_hr or hr_data.get("restingHeartRate")
+            except Exception as e:
+                logger.debug("Garmin HR fetch failed", extra={"error": str(e)})
+
+            # Fetch training readiness
+            # NOTE: get_training_readiness() returns a list of records (one per sync),
+            # not a dict.  We take the most recent record for today if available,
+            # falling back to the most-recent overall record.
+            try:
+                tr = garmin.get_training_readiness(today_str)
+                tr_record: dict[str, Any] | None = None
+                if isinstance(tr, list) and tr:
+                    # Prefer a record whose calendarDate matches today
+                    today_records = [r for r in tr if r.get("calendarDate") == today_str]
+                    tr_record = today_records[0] if today_records else tr[0]
+                elif isinstance(tr, dict):
+                    tr_record = tr
+                if tr_record:
+                    summary.training_readiness = {
+                        "score": tr_record.get("score") or tr_record.get("overallScore"),
+                        "level": tr_record.get("level") or tr_record.get("overallReadiness"),
+                    }
+            except Exception as e:
+                logger.debug("Garmin training readiness fetch failed", extra={"error": str(e)})
+
+            # Fetch HRV
+            try:
+                hrv = garmin.get_hrv_data(today_str)
+                if isinstance(hrv, dict):
+                    summary.hrv_status = hrv.get("hrvSummary", {}).get("status") or hrv.get(
+                        "status"
+                    )
+            except Exception as e:
+                logger.debug("Garmin HRV fetch failed", extra={"error": str(e)})
+
+            # Fetch recent activities (last 3)
+            try:
+                from datetime import timedelta as td
+
+                start = (datetime.now() - td(days=14)).strftime("%Y-%m-%d")
+                end = today_str
+                activities = garmin.get_activities_by_date(start, end)
+                if isinstance(activities, list):
+                    summary.recent_activities = [
+                        {
+                            "name": a.get("activityName", "Activity"),
+                            "date": a.get("startTimeLocal", "")[:10]
+                            if a.get("startTimeLocal")
+                            else "",
+                            "distance_km": round(a.get("distance", 0) / 1000, 1)
+                            if a.get("distance")
+                            else None,
+                            "duration_min": round(a.get("duration", 0) / 60, 0)
+                            if a.get("duration")
+                            else None,
+                        }
+                        for a in activities[:3]
+                    ]
+            except Exception as e:
+                logger.debug("Garmin activities fetch failed", extra={"error": str(e)})
+
+            return summary, None
+
+        except Exception as e:
+            error_str = str(e).lower()
+            if "expired" in error_str or "unauthorized" in error_str:
+                return None, "Garmin session expired. Please reconnect in Settings."
+            logger.error("Garmin dashboard fetch failed", extra={"error": str(e)}, exc_info=True)
+            return None, f"Garmin error: {e}"
+
     # Fetch all resources in parallel
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         todoist_future = executor.submit(fetch_todoist_if_available)
         calendar_future = executor.submit(fetch_calendar_if_available)
+        garmin_future = executor.submit(fetch_garmin_if_available)
         weather_future = executor.submit(fetch_weather_if_available)
 
         # Wait for all results
         tasks_7_days, overdue_tasks, todoist_error = todoist_future.result()
         events, calendar_error = calendar_future.result()
+        health_summary, garmin_error = garmin_future.result()
         forecast, weather_error = weather_future.result()
+
+    # Process Garmin data
+    dashboard.health_summary = health_summary
+    dashboard.garmin_error = garmin_error
 
     # Process Todoist data
     dashboard.overdue_tasks = overdue_tasks

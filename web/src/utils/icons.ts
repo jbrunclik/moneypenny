@@ -461,3 +461,11 @@ export const IMAGE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentC
   <circle cx="8.5" cy="8.5" r="1.5"/>
   <path d="M21 15l-5-5L5 21"/>
 </svg>`;
+
+/**
+ * Activity icon (heart with pulse line - for Garmin Connect health tracking)
+ */
+export const ACTIVITY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0L12 5.34l-.77-.76a5.4 5.4 0 0 0-7.65 0 5.4 5.4 0 0 0 0 7.65L12 20.65l8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>
+  <path d="M3.5 12h4l1.5-3 2 6 1.5-3h8"/>
+</svg>`;

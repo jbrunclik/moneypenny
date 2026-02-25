@@ -42,6 +42,8 @@ import {
   type CalendarConnectResponse,
   type CalendarListResponse,
   type CalendarStatus,
+  type GarminConnectResponse,
+  type GarminStatus,
   type SelectedCalendarsResponse,
   type UpdateAgentRequest,
   type UploadConfig,
@@ -1001,6 +1003,36 @@ export const calendar = {
       method: 'PUT',
       body: JSON.stringify({ calendar_ids: calendarIds }),
     });
+  },
+};
+
+// Garmin Connect endpoints
+export const garmin = {
+  async connect(
+    email: string,
+    password: string,
+  ): Promise<GarminConnectResponse> {
+    return request<GarminConnectResponse>('/auth/garmin/connect', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  async submitMfa(mfaCode: string): Promise<GarminConnectResponse> {
+    return request<GarminConnectResponse>('/auth/garmin/mfa', {
+      method: 'POST',
+      body: JSON.stringify({ mfa_code: mfaCode }),
+    });
+  },
+
+  async disconnect(): Promise<void> {
+    await request<{ status: string }>('/auth/garmin/disconnect', {
+      method: 'POST',
+    });
+  },
+
+  async getStatus(): Promise<GarminStatus> {
+    return requestWithRetry<GarminStatus>('/auth/garmin/status');
   },
 };
 

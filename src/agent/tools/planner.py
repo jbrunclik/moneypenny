@@ -17,19 +17,19 @@ from src.utils.planner_data import build_planner_dashboard
 logger = get_logger(__name__)
 
 
-def _get_user_tokens() -> tuple[str | None, str | None, str | None]:
+def _get_user_tokens() -> tuple[str | None, str | None, str | None, str | None]:
     """Get the current user's ID and integration tokens.
 
     Returns:
-        Tuple of (user_id, todoist_token, calendar_token)
+        Tuple of (user_id, todoist_token, calendar_token, garmin_token)
     """
     _, user_id = get_conversation_context()
     if not user_id:
-        return None, None, None
+        return None, None, None, None
 
     user = db.get_user_by_id(user_id)
     if not user:
-        return None, None, None
+        return None, None, None, None
 
     # Get calendar token (may need refresh)
     calendar_token = user.google_calendar_access_token
@@ -41,7 +41,7 @@ def _get_user_tokens() -> tuple[str | None, str | None, str | None]:
         if refreshed_data and "access_token" in refreshed_data:
             calendar_token = refreshed_data["access_token"]
 
-    return user.id, user.todoist_access_token, calendar_token
+    return user.id, user.todoist_access_token, calendar_token, user.garmin_token
 
 
 @tool
@@ -69,7 +69,7 @@ def refresh_planner_dashboard() -> str:
     """
     logger.info("Refreshing planner dashboard data")
 
-    user_id, todoist_token, calendar_token = _get_user_tokens()
+    user_id, todoist_token, calendar_token, garmin_token = _get_user_tokens()
 
     if not user_id:
         return (
@@ -89,6 +89,7 @@ def refresh_planner_dashboard() -> str:
         dashboard = build_planner_dashboard(
             todoist_token=todoist_token,
             calendar_token=calendar_token,
+            garmin_token=garmin_token,
             user_id=user_id,
             force_refresh=True,
             db=db,

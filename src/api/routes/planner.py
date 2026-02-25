@@ -123,6 +123,7 @@ def get_planner_dashboard(user: User) -> dict[str, Any]:
     dashboard = build_planner_dashboard(
         todoist_token=todoist_token,
         calendar_token=calendar_token,
+        garmin_token=current_user.garmin_token,
         user_id=user.id,
         force_refresh=force_refresh,
         db=db,

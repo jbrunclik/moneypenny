@@ -504,6 +504,18 @@ test.describe('Visual: Lightbox', () => {
 
 const SETTINGS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 const PHONE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>`;
+const ACTIVITY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0L12 5.34l-.77-.76a5.4 5.4 0 0 0-7.65 0 5.4 5.4 0 0 0 0 7.65L12 20.65l8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>
+  <path d="M3.5 12h4l1.5-3 2 6 1.5-3h8"/>
+</svg>`;
+const CHECK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="20 6 9 17 4 12"/>
+</svg>`;
+const WARNING_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+  <line x1="12" y1="9" x2="12" y2="13"/>
+  <line x1="12" y1="17" x2="12.01" y2="17"/>
+</svg>`;
 
 test.describe('Visual: Settings Popup', () => {
   test('settings popup', async ({ page }) => {
@@ -887,5 +899,143 @@ test.describe('Visual: Mobile Popups', () => {
     await expect(page).toHaveScreenshot('mobile-lightbox.png', {
       fullPage: true,
     });
+  });
+});
+
+test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
+  /**
+   * Helper to inject a settings popup with only the Garmin section content.
+   * This isolates the Garmin section for focused visual testing.
+   */
+  async function injectGarminSettingsPopup(
+    page: Page,
+    garminSectionHtml: string
+  ): Promise<void> {
+    await page.evaluate(
+      ({ SETTINGS_ICON, CLOSE_ICON, ACTIVITY_ICON, garminSectionHtml }) => {
+        const popup = document.createElement('div');
+        popup.id = 'settings-popup-garmin';
+        popup.className = 'info-popup';
+        popup.innerHTML = `
+          <div class="info-popup-content">
+            <div class="info-popup-header">
+              <span class="info-popup-icon">${SETTINGS_ICON}</span>
+              <h3>Settings</h3>
+              <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            </div>
+            <div class="info-popup-body">
+              <div class="settings-body">
+                <div class="settings-field" data-section="garmin">
+                  <label class="settings-label settings-label-with-icon">
+                    <span class="settings-label-icon">${ACTIVITY_ICON}</span>
+                    Garmin Connect
+                  </label>
+                  ${garminSectionHtml}
+                </div>
+              </div>
+            </div>
+            <div class="info-popup-footer settings-footer">
+              <button class="btn btn-primary settings-save-btn">Save</button>
+            </div>
+          </div>
+        `;
+        const existing = document.getElementById('settings-popup-garmin');
+        if (existing) existing.remove();
+        document.body.appendChild(popup);
+      },
+      { SETTINGS_ICON, CLOSE_ICON, ACTIVITY_ICON, garminSectionHtml }
+    );
+
+    await page.waitForTimeout(300);
+  }
+
+  test('garmin section disconnected state', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    const disconnectedHtml = `
+      <div class="settings-garmin-disconnected">
+        <p class="settings-helper">Connect your Garmin account to access health and training data</p>
+        <div class="settings-garmin-login-form">
+          <input
+            type="email"
+            class="settings-input settings-garmin-email"
+            placeholder="Garmin email"
+            autocomplete="email"
+          />
+          <input
+            type="password"
+            class="settings-input settings-garmin-password"
+            placeholder="Garmin password"
+            autocomplete="current-password"
+          />
+          <p class="settings-helper settings-helper-muted">Your password is used to create a session token and is never stored.</p>
+          <button type="button" class="btn btn-primary btn-sm settings-garmin-connect">
+            Connect Garmin
+          </button>
+        </div>
+      </div>
+    `;
+
+    await injectGarminSettingsPopup(page, disconnectedHtml);
+
+    await expect(page.locator('#settings-popup-garmin')).toHaveScreenshot(
+      'popup-settings-garmin-disconnected.png'
+    );
+  });
+
+  test('garmin section connected state', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    const connectedHtml = `
+      <div class="settings-garmin-connected">
+        <span class="settings-garmin-status">
+          <span class="settings-garmin-icon connected">${CHECK_ICON}</span>
+          Connected
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm settings-garmin-disconnect">
+          Disconnect
+        </button>
+      </div>
+    `;
+
+    await injectGarminSettingsPopup(page, connectedHtml);
+
+    await expect(page.locator('#settings-popup-garmin')).toHaveScreenshot(
+      'popup-settings-garmin-connected.png'
+    );
+  });
+
+  test('garmin section needs reconnect state', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await dismissOverlays(page);
+
+    const needsReconnectHtml = `
+      <div class="settings-garmin-needs-reconnect">
+        <span class="settings-garmin-status">
+          <span class="settings-garmin-icon warning">${WARNING_ICON}</span>
+          Garmin session expired
+        </span>
+        <p class="settings-helper">Your Garmin session has expired. Please reconnect with your credentials.</p>
+        <div class="settings-garmin-actions">
+          <button type="button" class="btn btn-primary btn-sm settings-garmin-show-login">
+            Reconnect
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm settings-garmin-disconnect">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    `;
+
+    await injectGarminSettingsPopup(page, needsReconnectHtml);
+
+    await expect(page.locator('#settings-popup-garmin')).toHaveScreenshot(
+      'popup-settings-garmin-needs-reconnect.png'
+    );
   });
 });

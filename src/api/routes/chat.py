@@ -194,6 +194,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             dashboard_obj = build_planner_dashboard(
                 todoist_token=user.todoist_access_token,
                 calendar_token=calendar_token,
+                garmin_token=user.garmin_token,
                 user_id=user.id,
                 force_refresh=False,
                 db=db,

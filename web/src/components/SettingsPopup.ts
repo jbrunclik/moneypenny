@@ -12,8 +12,9 @@ import {
   EDIT_ICON,
   STAR_ICON,
   PHONE_ICON,
+  ACTIVITY_ICON,
 } from '../utils/icons';
-import { settings, todoist, calendar } from '../api/client';
+import { settings, todoist, calendar, garmin } from '../api/client';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import {
@@ -24,7 +25,7 @@ import {
   setupSystemPreferenceListener,
 } from '../utils/theme';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
-import type { TodoistStatus, CalendarStatus, Calendar } from '../types/api';
+import type { TodoistStatus, CalendarStatus, GarminStatus, Calendar } from '../types/api';
 import { useStore } from '../state/store';
 import { renderConversationsList } from './Sidebar';
 
@@ -64,6 +65,14 @@ let calendarsLoading = false;
 
 /** Error message when fetching calendar list fails */
 let calendarsError: string | null = null;
+
+/** Current Garmin Connect status */
+
+let garminStatus: GarminStatus | null = null;
+
+/** Garmin MFA state: awaiting MFA code input */
+
+let garminMfaRequired = false;
 
 /**
  * Render color scheme option
@@ -287,13 +296,107 @@ function renderCalendarSection(status: CalendarStatus | null): string {
 }
 
 /**
+ * Render Garmin Connect section
+ */
+function renderGarminSection(status: GarminStatus | null, mfaRequired: boolean): string {
+  if (status === null) {
+    return `
+      <div class="settings-garmin-loading">Loading Garmin status...</div>
+    `;
+  }
+
+  if (mfaRequired) {
+    return `
+      <div class="settings-garmin-mfa">
+        <p class="settings-helper">Garmin requires a verification code. Check your email or authenticator app.</p>
+        <input
+          type="text"
+          class="settings-input settings-garmin-mfa-input"
+          placeholder="Enter MFA code"
+          maxlength="10"
+          autocomplete="one-time-code"
+        />
+        <div class="settings-garmin-actions">
+          <button type="button" class="btn btn-primary settings-garmin-mfa-submit">
+            Submit
+          </button>
+          <button type="button" class="btn btn-secondary settings-garmin-mfa-cancel">
+            Cancel
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (status.connected && status.needs_reconnect) {
+    return `
+      <div class="settings-garmin-needs-reconnect">
+        <span class="settings-garmin-status">
+          <span class="settings-garmin-icon warning">${WARNING_ICON}</span>
+          Garmin session expired
+        </span>
+        <p class="settings-helper">Your Garmin session has expired. Please reconnect with your credentials.</p>
+        <div class="settings-garmin-actions">
+          <button type="button" class="btn btn-primary btn-sm settings-garmin-show-login">
+            Reconnect
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm settings-garmin-disconnect">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (status.connected) {
+    return `
+      <div class="settings-garmin-connected">
+        <span class="settings-garmin-status">
+          <span class="settings-garmin-icon connected">${CHECK_ICON}</span>
+          Connected
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm settings-garmin-disconnect">
+          Disconnect
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="settings-garmin-disconnected">
+      <p class="settings-helper">Connect your Garmin account to access health and training data</p>
+      <div class="settings-garmin-login-form">
+        <input
+          type="email"
+          class="settings-input settings-garmin-email"
+          placeholder="Garmin email"
+          autocomplete="email"
+        />
+        <input
+          type="password"
+          class="settings-input settings-garmin-password"
+          placeholder="Garmin password"
+          autocomplete="current-password"
+        />
+        <p class="settings-helper settings-helper-muted">Your password is used to create a session token and is never stored.</p>
+        <button type="button" class="btn btn-primary settings-garmin-connect">
+          Connect Garmin
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Render the popup content
  */
 function renderContent(
   instructions: string,
   colorScheme: ColorScheme,
   todoistSt: TodoistStatus | null,
-  calendarSt: CalendarStatus | null
+  calendarSt: CalendarStatus | null,
+  garminSt: GarminStatus | null = null,
+  garminMfa: boolean = false,
 ): string {
   const charCount = instructions.length;
   const charCountClass = charCount > CHAR_LIMIT ? 'error' : charCount > CHAR_LIMIT * 0.9 ? 'warning' : '';
@@ -330,6 +433,16 @@ function renderContent(
           Google Calendar Integration
         </label>
         ${renderCalendarSection(calendarSt)}
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field" data-section="garmin">
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${ACTIVITY_ICON}</span>
+          Garmin Connect
+        </label>
+        ${renderGarminSection(garminSt, garminMfa)}
       </div>
 
       ${whatsappAvailable ? `
@@ -548,6 +661,112 @@ async function handleCalendarDisconnect(): Promise<void> {
     log.error('Failed to disconnect Google Calendar', { error });
     toast.error('Failed to disconnect Google Calendar');
   }
+}
+
+/**
+ * Handle Garmin connect button click - submit email/password
+ */
+async function handleGarminConnect(): Promise<void> {
+  const emailInput = document.querySelector<HTMLInputElement>('.settings-garmin-email');
+  const passwordInput = document.querySelector<HTMLInputElement>('.settings-garmin-password');
+  if (!emailInput || !passwordInput) return;
+
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+
+  if (!email || !password) {
+    toast.error('Please enter both email and password');
+    return;
+  }
+
+  try {
+    log.debug('Connecting to Garmin');
+    const result = await garmin.connect(email, password);
+
+    // Clear password from DOM immediately
+    passwordInput.value = '';
+
+    if (result.mfa_required) {
+      garminMfaRequired = true;
+      updateGarminSection();
+      return;
+    }
+
+    garminStatus = { connected: true, connected_at: new Date().toISOString(), needs_reconnect: false };
+    garminMfaRequired = false;
+    updateGarminSection();
+    toast.success('Garmin connected successfully');
+    log.info('Garmin connected');
+  } catch (error) {
+    log.error('Failed to connect Garmin', { error });
+    passwordInput.value = '';
+    toast.error('Failed to connect to Garmin. Check your credentials.');
+  }
+}
+
+/**
+ * Handle Garmin MFA code submission
+ */
+async function handleGarminMfaSubmit(): Promise<void> {
+  const mfaInput = document.querySelector<HTMLInputElement>('.settings-garmin-mfa-input');
+  if (!mfaInput) return;
+
+  const mfaCode = mfaInput.value.trim();
+  if (!mfaCode) {
+    toast.error('Please enter the MFA code');
+    return;
+  }
+
+  try {
+    log.debug('Submitting Garmin MFA code');
+    await garmin.submitMfa(mfaCode);
+
+    garminStatus = { connected: true, connected_at: new Date().toISOString(), needs_reconnect: false };
+    garminMfaRequired = false;
+    updateGarminSection();
+    toast.success('Garmin connected successfully');
+    log.info('Garmin connected via MFA');
+  } catch (error) {
+    log.error('Failed to submit Garmin MFA', { error });
+    toast.error('Invalid MFA code, please try again');
+  }
+}
+
+/**
+ * Handle Garmin disconnect button click
+ */
+async function handleGarminDisconnect(): Promise<void> {
+  try {
+    log.debug('Disconnecting Garmin');
+    await garmin.disconnect();
+    garminStatus = { connected: false, connected_at: null, needs_reconnect: false };
+    garminMfaRequired = false;
+    updateGarminSection();
+    toast.success('Garmin disconnected');
+    log.info('Garmin disconnected');
+  } catch (error) {
+    log.error('Failed to disconnect Garmin', { error });
+    toast.error('Failed to disconnect Garmin');
+  }
+}
+
+/**
+ * Update Garmin section in the popup
+ */
+function updateGarminSection(): void {
+  const popup = getElementById<HTMLDivElement>(POPUP_ID);
+  if (!popup) return;
+
+  const field = popup.querySelector('.settings-field[data-section="garmin"]');
+  if (!field) return;
+
+  field.innerHTML = `
+    <label class="settings-label settings-label-with-icon">
+      <span class="settings-label-icon">${ACTIVITY_ICON}</span>
+      Garmin Connect
+    </label>
+    ${renderGarminSection(garminStatus, garminMfaRequired)}
+  `;
 }
 
 /**
@@ -823,7 +1042,7 @@ export async function openSettingsPopup(): Promise<void> {
   try {
     log.debug('Fetching settings and Todoist status');
 
-    const [settingsData, todoistData, calendarData] = await Promise.all([
+    const [settingsData, todoistData, calendarData, garminData] = await Promise.all([
       settings.get(),
       todoist.getStatus().catch((err) => {
         log.warn('Failed to fetch Todoist status', { error: err });
@@ -833,6 +1052,10 @@ export async function openSettingsPopup(): Promise<void> {
         log.warn('Failed to fetch Google Calendar status', { error: err });
         return null;
       }),
+      garmin.getStatus().catch((err) => {
+        log.warn('Failed to fetch Garmin status', { error: err });
+        return null;
+      }),
     ]);
 
     currentInstructions = settingsData.custom_instructions || '';
@@ -840,18 +1063,21 @@ export async function openSettingsPopup(): Promise<void> {
     whatsappAvailable = settingsData.whatsapp_available ?? false;
     todoistStatus = todoistData;
     calendarStatus = calendarData;
+    garminStatus = garminData;
+    garminMfaRequired = false;
     log.info('Settings loaded', {
       instructionsLength: currentInstructions.length,
       hasWhatsappPhone: !!currentWhatsappPhone,
       whatsappAvailable,
       todoistConnected: todoistStatus?.connected ?? false,
       calendarConnected: calendarStatus?.connected ?? false,
+      garminConnected: garminStatus?.connected ?? false,
     });
 
     // Update popup body
     const body = popup.querySelector('.info-popup-body');
     if (body) {
-      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus, calendarStatus)}</div>`;
+      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus, calendarStatus, garminStatus, garminMfaRequired)}</div>`;
     }
 
     // If calendar is connected, fetch available calendars and selected calendars
@@ -990,6 +1216,35 @@ export function initSettingsPopup(): void {
 
     if (target.classList.contains('settings-calendar-save-btn')) {
       handleCalendarSaveSelection();
+    }
+
+    // Garmin connect button
+    if (target.classList.contains('settings-garmin-connect')) {
+      handleGarminConnect();
+    }
+
+    // Garmin show login form (reconnect)
+    if (target.classList.contains('settings-garmin-show-login')) {
+      garminStatus = { connected: false, connected_at: null, needs_reconnect: false };
+      garminMfaRequired = false;
+      updateGarminSection();
+    }
+
+    // Garmin disconnect button
+    if (target.classList.contains('settings-garmin-disconnect')) {
+      handleGarminDisconnect();
+    }
+
+    // Garmin MFA submit
+    if (target.classList.contains('settings-garmin-mfa-submit')) {
+      handleGarminMfaSubmit();
+    }
+
+    // Garmin MFA cancel
+    if (target.classList.contains('settings-garmin-mfa-cancel')) {
+      garminMfaRequired = false;
+      garminStatus = { connected: false, connected_at: null, needs_reconnect: false };
+      updateGarminSection();
     }
   });
 

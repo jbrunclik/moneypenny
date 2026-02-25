@@ -88,6 +88,7 @@ Routes are organized into focused modules by feature area (44 total endpoints ac
 - [routes/auth.py](../../src/api/routes/auth.py) - Google authentication (4 routes)
 - [routes/todoist.py](../../src/api/routes/todoist.py) - Todoist integration (4 routes)
 - [routes/calendar.py](../../src/api/routes/calendar.py) - Google Calendar integration (7 routes)
+- [routes/garmin.py](../../src/api/routes/garmin.py) - Garmin Connect integration (4 routes)
 
 **API routes** (`/api` prefix):
 - [routes/system.py](../../src/api/routes/system.py) - Models, config, version, health (5 routes)

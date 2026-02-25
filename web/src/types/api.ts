@@ -423,6 +423,22 @@ export interface UpdateSelectedCalendarsRequest {
 }
 
 // =============================================================================
+// Garmin Connect types
+// =============================================================================
+
+export interface GarminConnectResponse {
+  connected: boolean;
+  mfa_required: boolean;
+  display_name: string | null;
+}
+
+export interface GarminStatus {
+  connected: boolean;
+  connected_at: string | null;
+  needs_reconnect: boolean;
+}
+
+// =============================================================================
 // Search types
 // =============================================================================
 
