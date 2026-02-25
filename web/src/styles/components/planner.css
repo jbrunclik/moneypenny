@@ -525,38 +525,24 @@
 .planner-item {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-3);
+    gap: var(--space-1);
+    padding: var(--space-2);
     border-radius: var(--radius-lg);
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
     position: relative;
     background: var(--bg-primary);
     border: 1px solid var(--border);
     border-left-width: 2px; /* Default border for P1/no priority */
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    animation: slideInItem 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+    animation: fadeInItem 0.2s ease-out both;
 }
 
-/* Staggered animation for items */
-.planner-item:nth-child(1) { animation-delay: 0s; }
-.planner-item:nth-child(2) { animation-delay: 0.05s; }
-.planner-item:nth-child(3) { animation-delay: 0.1s; }
-.planner-item:nth-child(4) { animation-delay: 0.15s; }
-.planner-item:nth-child(5) { animation-delay: 0.2s; }
-.planner-item:nth-child(6) { animation-delay: 0.25s; }
-.planner-item:nth-child(7) { animation-delay: 0.3s; }
-.planner-item:nth-child(8) { animation-delay: 0.35s; }
-.planner-item:nth-child(9) { animation-delay: 0.4s; }
-.planner-item:nth-child(10) { animation-delay: 0.45s; }
-
-@keyframes slideInItem {
+@keyframes fadeInItem {
     from {
         opacity: 0;
-        transform: translateY(-12px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
@@ -584,14 +570,12 @@
 }
 
 .planner-item:not(:last-child) {
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
 }
 
 .planner-item:hover {
     background: var(--bg-hover);
     border-color: var(--accent);
-    transform: translateX(4px) scale(1.01);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .planner-item-content {
@@ -608,15 +592,14 @@
     justify-content: space-between;
     gap: var(--space-2);
     width: 100%;
-    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
-    font-size: var(--font-size-sm);
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
     font-weight: 700;
     color: var(--color-brand-600);
     background: rgba(99, 102, 241, 0.12);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     border: 1px solid rgba(99, 102, 241, 0.3);
     position: relative;
-    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.1);
 }
 
 .planner-item-text {
@@ -792,17 +775,17 @@
     }
 }
 
-/* All-day event style - Purple/pink gradient badge */
+/* All-day event style - Subtle purple badge */
 .planner-item.all-day .planner-item-time {
     font-style: normal;
-    font-weight: 800;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    background: linear-gradient(135deg, var(--color-purple-400), #EC4899);
-    color: white;
-    border: none;
-    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
-    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    background: rgba(168, 85, 247, 0.15);
+    color: var(--color-purple-400);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    padding: var(--space-1) var(--space-2);
 }
 
 /* ----------------------------------------
@@ -938,6 +921,178 @@
 }
 
 /* ----------------------------------------
+   Health Summary Strip
+   ---------------------------------------- */
+
+.health-summary-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.health-metric {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.health-metric-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.health-metric-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.health-metric-value {
+    font-weight: 700;
+    font-size: var(--font-size-base);
+}
+
+.health-metric-label {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+/* ----------------------------------------
+   Weather Badges
+   ---------------------------------------- */
+
+.weather-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.weather-badge-icon {
+    display: inline-flex;
+    align-items: center;
+    width: 14px;
+    height: 14px;
+    color: var(--color-warning-500);
+}
+
+.weather-badge-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.weather-badge-temp {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.weather-badge-precip {
+    color: var(--color-info-500);
+}
+
+/* ----------------------------------------
+   Time Indicator ("Now" line)
+   ---------------------------------------- */
+
+.time-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-2) 0;
+    position: relative;
+}
+
+.time-indicator-label {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    color: var(--error);
+    white-space: nowrap;
+    padding: var(--space-1) var(--space-2);
+    background: var(--bg-primary);
+    border: 1px solid var(--error);
+    border-radius: var(--radius-sm);
+}
+
+.time-indicator-line {
+    flex: 1;
+    height: 2px;
+    background: var(--error);
+    border-radius: 1px;
+}
+
+/* ----------------------------------------
+   Past Event Dimming
+   ---------------------------------------- */
+
+.planner-item[data-past="true"] {
+    opacity: 0.5;
+}
+
+.planner-item[data-past="true"] .planner-item-time {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------
+   Inline Location
+   ---------------------------------------- */
+
+.planner-item-location-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--font-size-xs);
+    color: var(--color-brand-500);
+    margin-left: var(--space-2);
+}
+
+.planner-item-location-inline .location-icon {
+    display: inline-flex;
+    width: 12px;
+    height: 12px;
+}
+
+.planner-item-location-inline .location-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.planner-item-location-inline a {
+    color: inherit;
+    text-decoration: none;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: bottom;
+}
+
+.planner-item-location-inline a:hover {
+    text-decoration: underline;
+}
+
+/* ----------------------------------------
    Accessibility & Focus States
    ---------------------------------------- */
 
@@ -1052,11 +1207,31 @@
         height: 18px;
     }
 
+    /* Mobile: Health strip wraps */
+    .health-summary-strip {
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-3);
+    }
+
+    .health-metric {
+        font-size: var(--font-size-xs);
+    }
+
+    .health-metric-value {
+        font-size: var(--font-size-sm);
+    }
+
+    /* Mobile: Weather badge stays compact */
+    .weather-badge {
+        padding: var(--space-1);
+        font-size: 10px;
+    }
+
     /* Mobile: More spacing for items */
     .planner-item {
-        gap: var(--space-3);
-        padding: var(--space-4);
-        margin-bottom: var(--space-3);
+        gap: var(--space-2);
+        padding: var(--space-3);
+        margin-bottom: var(--space-2);
     }
 
     .planner-item-time {

@@ -940,3 +940,308 @@ test.describe('Visual: Planner Integration States', () => {
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('calendar-only.png');
   });
 });
+
+test.describe('Visual: Health Summary Strip', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.request.post('/test/set-planner-integrations', {
+      data: { todoist: true, calendar: true },
+    });
+  });
+
+  test('health summary with all values', async ({ page }) => {
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            {
+              date: '2024-12-25',
+              day_name: 'Today',
+              events: [
+                {
+                  id: 'event-1',
+                  summary: 'Morning Meeting',
+                  start: '2024-12-25T09:00:00',
+                  end: '2024-12-25T10:00:00',
+                  is_all_day: false,
+                },
+              ],
+              tasks: [],
+            },
+            {
+              date: '2024-12-26',
+              day_name: 'Tomorrow',
+              events: [],
+              tasks: [],
+            },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          garmin_connected: true,
+          weather_connected: false,
+          health_summary: {
+            training_readiness: { score: 85, level: 'HIGH' },
+            sleep: { duration_hours: 7.5, quality: 'GOOD' },
+            resting_hr: 52,
+            body_battery: 78,
+            stress_avg: 28,
+            steps_today: 8432,
+            recent_activities: [],
+          },
+          server_time: '2024-12-25T08:00:00',
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await page.waitForSelector('.health-summary-strip');
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.health-summary-strip')).toHaveScreenshot('health-summary-full.png');
+  });
+
+  test('health summary with partial values', async ({ page }) => {
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            { date: '2024-12-25', day_name: 'Today', events: [], tasks: [] },
+            { date: '2024-12-26', day_name: 'Tomorrow', events: [], tasks: [] },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          garmin_connected: true,
+          weather_connected: false,
+          health_summary: {
+            training_readiness: null,
+            sleep: { duration_hours: 6.2, quality: 'FAIR' },
+            resting_hr: 58,
+            body_battery: null,
+            stress_avg: 42,
+            steps_today: null,
+            recent_activities: [],
+          },
+          server_time: '2024-12-25T08:00:00',
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await page.waitForSelector('.health-summary-strip');
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.health-summary-strip')).toHaveScreenshot('health-summary-partial.png');
+  });
+
+  test('health summary hidden when garmin not connected', async ({ page }) => {
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            { date: '2024-12-25', day_name: 'Today', events: [], tasks: [] },
+            { date: '2024-12-26', day_name: 'Tomorrow', events: [], tasks: [] },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          garmin_connected: false,
+          weather_connected: false,
+          health_summary: null,
+          server_time: '2024-12-25T08:00:00',
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await page.waitForSelector('#planner-dashboard');
+    await page.waitForTimeout(300);
+
+    // Health strip should not be present
+    const healthStrip = page.locator('.health-summary-strip');
+    await expect(healthStrip).toHaveCount(0);
+  });
+
+  test('health summary mobile wrap', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            { date: '2024-12-25', day_name: 'Today', events: [], tasks: [] },
+            { date: '2024-12-26', day_name: 'Tomorrow', events: [], tasks: [] },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          garmin_connected: true,
+          weather_connected: false,
+          health_summary: {
+            training_readiness: { score: 100, level: 'PRIME' },
+            sleep: { duration_hours: 7.9, quality: 'EXCELLENT' },
+            resting_hr: 49,
+            body_battery: 46,
+            stress_avg: 34,
+            steps_today: 3705,
+            recent_activities: [],
+          },
+          server_time: '2024-12-25T08:00:00',
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await page.waitForSelector('.health-summary-strip');
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.health-summary-strip')).toHaveScreenshot('health-summary-mobile.png');
+  });
+});
+
+test.describe('Visual: Weather Badges', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.request.post('/test/set-planner-integrations', {
+      data: { todoist: true, calendar: true },
+    });
+  });
+
+  test('weather badges on day headers', async ({ page }) => {
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            {
+              date: '2024-12-25',
+              day_name: 'Today',
+              events: [
+                { id: 'event-1', summary: 'Meeting', start: '2024-12-25T10:00:00', end: '2024-12-25T11:00:00', is_all_day: false },
+              ],
+              tasks: [],
+              weather: { temperature_high: 8, temperature_low: 2, precipitation: 0, symbol_code: 'clearsky_day', summary: '2-8°C' },
+            },
+            {
+              date: '2024-12-26',
+              day_name: 'Tomorrow',
+              events: [],
+              tasks: [{ id: 'task-1', content: 'Task', priority: 2 }],
+              weather: { temperature_high: 5, temperature_low: -1, precipitation: 3.2, symbol_code: 'rain', summary: '-1-5°C, 3.2mm rain' },
+            },
+            {
+              date: '2024-12-27',
+              day_name: 'Friday',
+              events: [],
+              tasks: [{ id: 'task-2', content: 'Friday task', priority: 1 }],
+              weather: { temperature_high: -3, temperature_low: -8, precipitation: 5.0, symbol_code: 'snow', summary: '-8--3°C, 5mm snow' },
+            },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          garmin_connected: false,
+          weather_connected: true,
+          server_time: '2024-12-25T08:00:00',
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await page.waitForSelector('.weather-badge');
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#planner-dashboard')).toHaveScreenshot('weather-badges.png');
+  });
+
+  test('days without weather data', async ({ page }) => {
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            {
+              date: '2024-12-25',
+              day_name: 'Today',
+              events: [{ id: 'event-1', summary: 'Meeting', start: '2024-12-25T10:00:00', is_all_day: false }],
+              tasks: [],
+              weather: null,
+            },
+            {
+              date: '2024-12-26',
+              day_name: 'Tomorrow',
+              events: [],
+              tasks: [{ id: 'task-1', content: 'Task', priority: 2 }],
+              weather: null,
+            },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          garmin_connected: false,
+          weather_connected: false,
+          server_time: '2024-12-25T08:00:00',
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await page.waitForSelector('#planner-dashboard');
+    await page.waitForTimeout(300);
+
+    // No weather badges should be present
+    const badges = page.locator('.weather-badge');
+    await expect(badges).toHaveCount(0);
+  });
+});
+
+test.describe('Visual: Time Indicator & Past Events', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.request.post('/test/set-planner-integrations', {
+      data: { todoist: true, calendar: true },
+    });
+  });
+
+  test('time indicator and dimmed past events', async ({ page }) => {
+    // Use a fixed reference time so screenshots are deterministic
+    const refNow = new Date('2024-12-25T14:00:00');
+    const pastStart = new Date(refNow.getTime() - 3 * 3600000); // 3 hours ago = 11:00
+    const pastEnd = new Date(refNow.getTime() - 2 * 3600000); // 2 hours ago = 12:00
+    const futureStart = new Date(refNow.getTime() + 1 * 3600000); // 1 hour from now = 15:00
+    const futureEnd = new Date(refNow.getTime() + 2 * 3600000); // 2 hours from now = 16:00
+    const todayStr = refNow.toISOString().split('T')[0];
+
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            {
+              date: todayStr,
+              day_name: 'Today',
+              events: [
+                { id: 'event-past', summary: 'Past Meeting', start: pastStart.toISOString(), end: pastEnd.toISOString(), is_all_day: false },
+                { id: 'event-future', summary: 'Upcoming Meeting', start: futureStart.toISOString(), end: futureEnd.toISOString(), is_all_day: false, location: 'Conference Room' },
+              ],
+              tasks: [{ id: 'task-1', content: 'Today task', priority: 3, project_name: 'Work' }],
+            },
+            {
+              date: new Date(refNow.getTime() + 86400000).toISOString().split('T')[0],
+              day_name: 'Tomorrow',
+              events: [],
+              tasks: [],
+            },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          garmin_connected: false,
+          weather_connected: false,
+          server_time: refNow.toISOString(),
+        },
+      },
+    });
+
+    await page.goto('/#/planner');
+    await page.waitForSelector('.time-indicator');
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.dashboard-day').first()).toHaveScreenshot('time-indicator-past-events.png');
+  });
+});

@@ -182,6 +182,15 @@ def get_planner_dashboard(user: User) -> dict[str, Any]:
                     }
                     for t in day.tasks
                 ],
+                "weather": {
+                    "temperature_high": day.weather.temperature_high,
+                    "temperature_low": day.weather.temperature_low,
+                    "precipitation": day.weather.precipitation,
+                    "symbol_code": day.weather.symbol_code,
+                    "summary": day.weather.summary,
+                }
+                if day.weather
+                else None,
             }
             for day in dashboard.days
         ],
@@ -203,8 +212,24 @@ def get_planner_dashboard(user: User) -> dict[str, Any]:
         ],
         "todoist_connected": dashboard.todoist_connected,
         "calendar_connected": dashboard.calendar_connected,
+        "garmin_connected": dashboard.garmin_connected,
+        "weather_connected": dashboard.weather_connected,
         "todoist_error": dashboard.todoist_error,
         "calendar_error": dashboard.calendar_error,
+        "garmin_error": dashboard.garmin_error,
+        "weather_error": dashboard.weather_error,
+        "weather_location": dashboard.weather_location,
+        "health_summary": {
+            "training_readiness": dashboard.health_summary.training_readiness,
+            "sleep": dashboard.health_summary.sleep,
+            "stress_avg": dashboard.health_summary.stress_avg,
+            "resting_hr": dashboard.health_summary.resting_hr,
+            "body_battery": dashboard.health_summary.body_battery,
+            "steps_today": dashboard.health_summary.steps_today,
+            "recent_activities": dashboard.health_summary.recent_activities,
+        }
+        if dashboard.health_summary
+        else None,
         "server_time": dashboard.server_time,
     }
 

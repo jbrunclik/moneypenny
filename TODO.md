@@ -18,6 +18,10 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Multi-step workflows** - Allow agents to run multi-step workflows
 - [ ] **Lightweight database** - Provide agents with a lightweight database (k/v storage)
 
+## Planner Dashboard
+- [ ] **Phase 2: Two-column layout** - Desktop two-column layout (events left, tasks right), task completion via Todoist API, open-in-Calendar links
+- [ ] **Phase 3: Summary + timeline** - AI-generated daily summary strip, timeline view with hour markers, quick-add task from dashboard
+
 ## Code Quality
 - [ ] **Async Flask (Quart)** - Consider migrating to Quart for better concurrency
 - [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing. **Future improvement**: Consider consolidating into a single scroll manager that dispatches to subsystems.

@@ -500,11 +500,30 @@ export interface PlannerEvent {
   calendar_summary?: string | null;
 }
 
+export interface PlannerWeather {
+  temperature_high: number | null;
+  temperature_low: number | null;
+  precipitation: number;
+  symbol_code: string | null;
+  summary: string;
+}
+
+export interface PlannerHealthSummary {
+  training_readiness: { score?: number; level?: string } | null;
+  sleep: { duration_hours?: number; quality?: string } | null;
+  stress_avg: number | null;
+  resting_hr: number | null;
+  body_battery: number | null;
+  steps_today: number | null;
+  recent_activities: Array<{ name?: string; date?: string; distance_km?: number; duration_min?: number }>;
+}
+
 export interface PlannerDay {
   date: string;
   day_name: string;
   events: PlannerEvent[];
   tasks: PlannerTask[];
+  weather?: PlannerWeather | null;
 }
 
 export interface PlannerDashboard {
@@ -512,8 +531,14 @@ export interface PlannerDashboard {
   overdue_tasks: PlannerTask[];
   todoist_connected: boolean;
   calendar_connected: boolean;
+  garmin_connected: boolean;
+  weather_connected: boolean;
   todoist_error?: string | null;
   calendar_error?: string | null;
+  garmin_error?: string | null;
+  weather_error?: string | null;
+  weather_location?: string | null;
+  health_summary?: PlannerHealthSummary | null;
   server_time: string;
 }
 

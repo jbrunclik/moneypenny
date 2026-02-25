@@ -14,6 +14,9 @@
       "name": "Calendar"
     },
     {
+      "name": "Garmin"
+    },
+    {
       "name": "System"
     },
     {
@@ -511,6 +514,48 @@
         "summary": "Return Google Client ID for frontend initialization."
       }
     },
+    "/auth/garmin/mfa": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GarminConnectResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Garmin"
+        ],
+        "summary": "Complete Garmin MFA login with verification code.",
+        "description": "Must be called after POST /auth/garmin/connect returns mfa_required=True.\nThe MFA session expires after 5 minutes."
+      }
+    },
     "/api/planner/sync": {
       "get": {
         "parameters": [],
@@ -667,6 +712,38 @@
         "description": "Physically deletes all messages from the planner conversation\n(not soft delete). Message costs are preserved for accurate\ncost tracking.\n\nThis also clears the dashboard cache so the next request fetches\nfresh data.\n\nReturns:\n- success: True if reset was successful\n- message: Human-readable status message"
       }
     },
+    "/auth/garmin/status": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GarminStatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Garmin"
+        ],
+        "summary": "Get current Garmin connection status.",
+        "description": "Returns whether Garmin is connected. If connected, validates the\nstored tokens and reports needs_reconnect=True if expired."
+      }
+    },
     "/auth/todoist/status": {
       "get": {
         "parameters": [],
@@ -697,6 +774,48 @@
         ],
         "summary": "Get current Todoist connection status.",
         "description": "Returns whether Todoist is connected, and if so, the connected email.\nAlso detects invalid tokens and reports needs_reconnect=True."
+      }
+    },
+    "/auth/garmin/connect": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GarminConnectResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Garmin"
+        ],
+        "summary": "Connect Garmin account with email and password.",
+        "description": "The password is used only for garth login and is never stored.\nOnly serialized session tokens are persisted in the database.\n\nMay return mfa_required=True if the account has MFA enabled.\nIn that case, call POST /auth/garmin/mfa with the verification code."
       }
     },
     "/auth/todoist/connect": {
@@ -1124,6 +1243,37 @@
           "Calendar"
         ],
         "summary": "Return the Google Calendar OAuth URL."
+      }
+    },
+    "/auth/garmin/disconnect": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Garmin"
+        ],
+        "summary": "Disconnect Garmin account by clearing stored tokens."
       }
     },
     "/api/conversations/sync": {
@@ -3518,6 +3668,18 @@
             },
             "title": "Tasks",
             "type": "array"
+          },
+          "weather": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerWeatherResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Weather forecast for this day"
           }
         },
         "required": [
@@ -3761,6 +3923,95 @@
         "title": "PlannerEventResponse",
         "type": "object"
       },
+      "PlannerDashboardResponse.PlannerHealthSummaryResponse": {
+        "description": "Health data summary from Garmin.",
+        "properties": {
+          "training_readiness": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Training Readiness"
+          },
+          "sleep": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sleep"
+          },
+          "stress_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stress Avg"
+          },
+          "resting_hr": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resting Hr"
+          },
+          "body_battery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Body Battery"
+          },
+          "steps_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Steps Today"
+          },
+          "recent_activities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Recent Activities",
+            "type": "array"
+          }
+        },
+        "title": "PlannerHealthSummaryResponse",
+        "type": "object"
+      },
       "PlannerDashboardResponse.PlannerTaskResponse": {
         "description": "A task from Todoist for the planner dashboard.",
         "properties": {
@@ -3868,6 +4119,59 @@
         "title": "PlannerTaskResponse",
         "type": "object"
       },
+      "PlannerDashboardResponse.PlannerWeatherResponse": {
+        "description": "Weather forecast for a single day.",
+        "properties": {
+          "temperature_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Temperature High"
+          },
+          "temperature_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Temperature Low"
+          },
+          "precipitation": {
+            "default": 0.0,
+            "title": "Precipitation",
+            "type": "number"
+          },
+          "symbol_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Symbol Code"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "title": "PlannerWeatherResponse",
+        "type": "object"
+      },
       "PlannerDashboardResponse": {
         "description": "Complete planner dashboard data.",
         "properties": {
@@ -3899,6 +4203,18 @@
             "title": "Calendar Connected",
             "type": "boolean"
           },
+          "garmin_connected": {
+            "default": false,
+            "description": "Whether Garmin is connected",
+            "title": "Garmin Connected",
+            "type": "boolean"
+          },
+          "weather_connected": {
+            "default": false,
+            "description": "Whether weather is configured",
+            "title": "Weather Connected",
+            "type": "boolean"
+          },
           "todoist_error": {
             "anyOf": [
               {
@@ -3924,6 +4240,57 @@
             "default": null,
             "description": "Error message if Calendar fetch failed",
             "title": "Calendar Error"
+          },
+          "garmin_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if Garmin fetch failed",
+            "title": "Garmin Error"
+          },
+          "weather_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if weather fetch failed",
+            "title": "Weather Error"
+          },
+          "weather_location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Location name for weather data",
+            "title": "Weather Location"
+          },
+          "health_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannerDashboardResponse.PlannerHealthSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Health data from Garmin"
           },
           "server_time": {
             "description": "Server timestamp for cache validation",
@@ -4023,6 +4390,40 @@
           "client_id"
         ],
         "title": "ClientIdResponse",
+        "type": "object"
+      },
+      "GarminConnectResponse": {
+        "description": "Response from Garmin Connect login attempt.",
+        "properties": {
+          "connected": {
+            "description": "Whether connection was successful",
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "mfa_required": {
+            "default": false,
+            "description": "True if MFA verification is needed",
+            "title": "Mfa Required",
+            "type": "boolean"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Display name of connected Garmin account",
+            "title": "Display Name"
+          }
+        },
+        "required": [
+          "connected"
+        ],
+        "title": "GarminConnectResponse",
         "type": "object"
       },
       "PlannerSyncResponse.PlannerConversationSyncData": {
@@ -4281,6 +4682,40 @@
           }
         },
         "title": "PlannerResetResponse",
+        "type": "object"
+      },
+      "GarminStatusResponse": {
+        "description": "Response containing Garmin connection status.",
+        "properties": {
+          "connected": {
+            "description": "Whether Garmin is connected",
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ISO timestamp when connected",
+            "title": "Connected At"
+          },
+          "needs_reconnect": {
+            "default": false,
+            "description": "True if session has expired and user must reconnect",
+            "title": "Needs Reconnect",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "connected"
+        ],
+        "title": "GarminStatusResponse",
         "type": "object"
       },
       "TodoistStatusResponse": {

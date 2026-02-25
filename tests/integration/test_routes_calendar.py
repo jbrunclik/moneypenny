@@ -118,13 +118,16 @@ class TestDisconnectGoogleCalendar:
         test_database: Database,
     ) -> None:
         """Should disconnect calendar."""
-        # First connect calendar
+        # First connect calendar and set custom selected IDs
         test_database.update_user_google_calendar_tokens(
             test_user.id,
             access_token="test-token",
             refresh_token="refresh-token",
             expires_at=datetime.now() + timedelta(hours=1),
             email="user@example.com",
+        )
+        test_database.update_user_calendar_selected_ids(
+            test_user.id, ["primary", "old-calendar-id@group.calendar.google.com"]
         )
 
         response = client.post("/auth/calendar/disconnect", headers=auth_headers)
@@ -133,9 +136,10 @@ class TestDisconnectGoogleCalendar:
         data = response.get_json()
         assert data["status"] == "disconnected"
 
-        # Verify token was cleared
+        # Verify token was cleared and selected IDs were reset
         user = test_database.get_user_by_id(test_user.id)
         assert user.google_calendar_access_token is None
+        assert user.google_calendar_selected_ids == ["primary"]
 
     def test_disconnect_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""

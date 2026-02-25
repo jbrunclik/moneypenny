@@ -725,6 +725,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/garmin/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Garmin MFA login with verification code.
+         * @description Must be called after POST /auth/garmin/connect returns mfa_required=True.
+         *     The MFA session expires after 5 minutes.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GarminConnectResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/planner/sync": {
         parameters: {
             query?: never;
@@ -965,6 +1023,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/garmin/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current Garmin connection status.
+         * @description Returns whether Garmin is connected. If connected, validates the
+         *     stored tokens and reports needs_reconnect=True if expired.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GarminStatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/todoist/status": {
         parameters: {
             query?: never;
@@ -1008,6 +1115,67 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/garmin/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect Garmin account with email and password.
+         * @description The password is used only for garth login and is never stored.
+         *     Only serialized session tokens are persisted in the database.
+         *
+         *     May return mfa_required=True if the account has MFA enabled.
+         *     In that case, call POST /auth/garmin/mfa with the verification code.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GarminConnectResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1539,6 +1707,51 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/garmin/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disconnect Garmin account by clearing stored tokens. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -3835,6 +4048,11 @@ export interface components {
             events?: components["schemas"]["PlannerDashboardResponse.PlannerEventResponse"][];
             /** Tasks */
             tasks?: components["schemas"]["PlannerDashboardResponse.PlannerTaskResponse"][];
+            /**
+             * @description Weather forecast for this day
+             * @default null
+             */
+            weather: components["schemas"]["PlannerDashboardResponse.PlannerWeatherResponse"] | null;
         };
         /**
          * PlannerEventAttendeeResponse
@@ -3957,6 +4175,50 @@ export interface components {
             calendar_summary: string | null;
         };
         /**
+         * PlannerHealthSummaryResponse
+         * @description Health data summary from Garmin.
+         */
+        "PlannerDashboardResponse.PlannerHealthSummaryResponse": {
+            /**
+             * Training Readiness
+             * @default null
+             */
+            training_readiness: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Sleep
+             * @default null
+             */
+            sleep: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Stress Avg
+             * @default null
+             */
+            stress_avg: number | null;
+            /**
+             * Resting Hr
+             * @default null
+             */
+            resting_hr: number | null;
+            /**
+             * Body Battery
+             * @default null
+             */
+            body_battery: number | null;
+            /**
+             * Steps Today
+             * @default null
+             */
+            steps_today: number | null;
+            /** Recent Activities */
+            recent_activities?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
          * PlannerTaskResponse
          * @description A task from Todoist for the planner dashboard.
          */
@@ -4013,6 +4275,37 @@ export interface components {
             url: string | null;
         };
         /**
+         * PlannerWeatherResponse
+         * @description Weather forecast for a single day.
+         */
+        "PlannerDashboardResponse.PlannerWeatherResponse": {
+            /**
+             * Temperature High
+             * @default null
+             */
+            temperature_high: number | null;
+            /**
+             * Temperature Low
+             * @default null
+             */
+            temperature_low: number | null;
+            /**
+             * Precipitation
+             * @default 0
+             */
+            precipitation: number;
+            /**
+             * Symbol Code
+             * @default null
+             */
+            symbol_code: string | null;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+        };
+        /**
          * PlannerDashboardResponse
          * @description Complete planner dashboard data.
          */
@@ -4040,6 +4333,18 @@ export interface components {
              */
             calendar_connected: boolean;
             /**
+             * Garmin Connected
+             * @description Whether Garmin is connected
+             * @default false
+             */
+            garmin_connected: boolean;
+            /**
+             * Weather Connected
+             * @description Whether weather is configured
+             * @default false
+             */
+            weather_connected: boolean;
+            /**
              * Todoist Error
              * @description Error message if Todoist fetch failed
              * @default null
@@ -4051,6 +4356,29 @@ export interface components {
              * @default null
              */
             calendar_error: string | null;
+            /**
+             * Garmin Error
+             * @description Error message if Garmin fetch failed
+             * @default null
+             */
+            garmin_error: string | null;
+            /**
+             * Weather Error
+             * @description Error message if weather fetch failed
+             * @default null
+             */
+            weather_error: string | null;
+            /**
+             * Weather Location
+             * @description Location name for weather data
+             * @default null
+             */
+            weather_location: string | null;
+            /**
+             * @description Health data from Garmin
+             * @default null
+             */
+            health_summary: components["schemas"]["PlannerDashboardResponse.PlannerHealthSummaryResponse"] | null;
             /**
              * Server Time
              * @description Server timestamp for cache validation
@@ -4102,6 +4430,29 @@ export interface components {
         ClientIdResponse: {
             /** Client Id */
             client_id: string;
+        };
+        /**
+         * GarminConnectResponse
+         * @description Response from Garmin Connect login attempt.
+         */
+        GarminConnectResponse: {
+            /**
+             * Connected
+             * @description Whether connection was successful
+             */
+            connected: boolean;
+            /**
+             * Mfa Required
+             * @description True if MFA verification is needed
+             * @default false
+             */
+            mfa_required: boolean;
+            /**
+             * Display Name
+             * @description Display name of connected Garmin account
+             * @default null
+             */
+            display_name: string | null;
         };
         /**
          * PlannerConversationSyncData
@@ -4246,6 +4597,29 @@ export interface components {
              * @default Planner conversation reset
              */
             message: string;
+        };
+        /**
+         * GarminStatusResponse
+         * @description Response containing Garmin connection status.
+         */
+        GarminStatusResponse: {
+            /**
+             * Connected
+             * @description Whether Garmin is connected
+             */
+            connected: boolean;
+            /**
+             * Connected At
+             * @description ISO timestamp when connected
+             * @default null
+             */
+            connected_at: string | null;
+            /**
+             * Needs Reconnect
+             * @description True if session has expired and user must reconnect
+             * @default false
+             */
+            needs_reconnect: boolean;
         };
         /**
          * TodoistStatusResponse

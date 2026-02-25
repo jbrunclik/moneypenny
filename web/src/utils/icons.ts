@@ -469,3 +469,131 @@ export const ACTIVITY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curre
   <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0L12 5.34l-.77-.76a5.4 5.4 0 0 0-7.65 0 5.4 5.4 0 0 0 0 7.65L12 20.65l8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>
   <path d="M3.5 12h4l1.5-3 2 6 1.5-3h8"/>
 </svg>`;
+
+// ============================================
+// Weather Icons (mapped from Yr.no symbol_code)
+// ============================================
+
+/**
+ * Weather: clear sky / sun
+ */
+export const WEATHER_SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="5"/>
+  <line x1="12" y1="1" x2="12" y2="3"/>
+  <line x1="12" y1="21" x2="12" y2="23"/>
+  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+  <line x1="1" y1="12" x2="3" y2="12"/>
+  <line x1="21" y1="12" x2="23" y2="12"/>
+  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+</svg>`;
+
+/**
+ * Weather: cloud
+ */
+export const WEATHER_CLOUD_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+</svg>`;
+
+/**
+ * Weather: partly cloudy (sun + cloud)
+ */
+export const WEATHER_PARTLY_CLOUDY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 2v2"/>
+  <path d="M4.93 4.93l1.41 1.41"/>
+  <path d="M20 12h2"/>
+  <path d="M19.07 4.93l-1.41 1.41"/>
+  <path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/>
+  <path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/>
+</svg>`;
+
+/**
+ * Weather: rain (cloud with drops)
+ */
+export const WEATHER_RAIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+  <path d="M16 14v6"/>
+  <path d="M8 14v6"/>
+  <path d="M12 16v6"/>
+</svg>`;
+
+/**
+ * Weather: snow (cloud with snowflakes)
+ */
+export const WEATHER_SNOW_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+  <path d="M8 15h.01"/>
+  <path d="M8 19h.01"/>
+  <path d="M12 17h.01"/>
+  <path d="M12 21h.01"/>
+  <path d="M16 15h.01"/>
+  <path d="M16 19h.01"/>
+</svg>`;
+
+/**
+ * Weather: fog
+ */
+export const WEATHER_FOG_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+  <path d="M16 17H7"/>
+  <path d="M17 21H9"/>
+</svg>`;
+
+/**
+ * Get weather icon SVG based on Yr.no symbol_code.
+ */
+export function getWeatherIcon(symbolCode: string | null | undefined): string {
+  if (!symbolCode) return WEATHER_CLOUD_ICON;
+  const code = symbolCode.toLowerCase();
+  if (code.includes('clearsky') || code.includes('fair')) return WEATHER_SUN_ICON;
+  if (code.includes('partlycloudy')) return WEATHER_PARTLY_CLOUDY_ICON;
+  if (code.includes('snow') || code.includes('sleet')) return WEATHER_SNOW_ICON;
+  if (code.includes('rain') || code.includes('drizzle') || code.includes('shower')) return WEATHER_RAIN_ICON;
+  if (code.includes('fog')) return WEATHER_FOG_ICON;
+  return WEATHER_CLOUD_ICON;
+}
+
+// ============================================
+// Health Icons (for Garmin dashboard strip)
+// ============================================
+
+/**
+ * Heart icon (for resting heart rate)
+ */
+export const HEART_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+</svg>`;
+
+/**
+ * Battery icon (for body battery - simple bold outline with charge level)
+ */
+export const BATTERY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2" y="6" width="18" height="12" rx="2"/>
+  <line x1="22" y1="10" x2="22" y2="14"/>
+  <rect x="5" y="9" width="8" height="6" rx="1" fill="currentColor"/>
+</svg>`;
+
+/**
+ * Stress icon (single pulse/heartbeat line - clean at small sizes)
+ */
+export const STRESS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="2 12 6 12 9 4 12 20 15 12 18 12 22 12"/>
+</svg>`;
+
+/**
+ * Zap/lightning icon (for training readiness - energy to train)
+ */
+export const READINESS_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M13 2L4 13h7l-1 9 9-11h-7l1-9z"/>
+</svg>`;
+
+/**
+ * Footprints icon (for step count - two simple shoe prints, offset diagonally)
+ */
+export const STEPS_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+  <ellipse cx="8" cy="5" rx="2.5" ry="4" transform="rotate(10 8 5)"/>
+  <ellipse cx="8" cy="12" rx="1.8" ry="1.2" transform="rotate(10 8 12)"/>
+  <ellipse cx="16" cy="12" rx="2.5" ry="4" transform="rotate(-10 16 12)"/>
+  <ellipse cx="16" cy="19" rx="1.8" ry="1.2" transform="rotate(-10 16 19)"/>
+</svg>`;

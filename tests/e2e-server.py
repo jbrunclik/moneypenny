@@ -1054,8 +1054,14 @@ def main() -> None:
                         else [],
                         "todoist_connected": todoist_connected,
                         "calendar_connected": calendar_connected,
+                        "garmin_connected": False,
+                        "weather_connected": False,
                         "todoist_error": None,
                         "calendar_error": None,
+                        "garmin_error": None,
+                        "weather_error": None,
+                        "weather_location": None,
+                        "health_summary": None,
                         "server_time": datetime.now().isoformat(),
                     }
                 )

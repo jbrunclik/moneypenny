@@ -876,6 +876,28 @@ class PlannerEventResponse(BaseModel):
     calendar_summary: str | None = Field(default=None, description="Source calendar name/title")
 
 
+class PlannerWeatherResponse(BaseModel):
+    """Weather forecast for a single day."""
+
+    temperature_high: float | None = None
+    temperature_low: float | None = None
+    precipitation: float = 0.0
+    symbol_code: str | None = None
+    summary: str = ""
+
+
+class PlannerHealthSummaryResponse(BaseModel):
+    """Health data summary from Garmin."""
+
+    training_readiness: dict[str, Any] | None = None
+    sleep: dict[str, Any] | None = None
+    stress_avg: float | None = None
+    resting_hr: int | None = None
+    body_battery: int | None = None
+    steps_today: int | None = None
+    recent_activities: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class PlannerDayResponse(BaseModel):
     """A single day in the planner dashboard."""
 
@@ -883,6 +905,9 @@ class PlannerDayResponse(BaseModel):
     day_name: str = Field(..., description="Day label (Today, Tomorrow, or weekday name)")
     events: list[PlannerEventResponse] = Field(default_factory=list)
     tasks: list[PlannerTaskResponse] = Field(default_factory=list)
+    weather: PlannerWeatherResponse | None = Field(
+        default=None, description="Weather forecast for this day"
+    )
 
 
 class PlannerDashboardResponse(BaseModel):
@@ -898,11 +923,23 @@ class PlannerDashboardResponse(BaseModel):
     calendar_connected: bool = Field(
         default=False, description="Whether Google Calendar is connected"
     )
+    garmin_connected: bool = Field(default=False, description="Whether Garmin is connected")
+    weather_connected: bool = Field(default=False, description="Whether weather is configured")
     todoist_error: str | None = Field(
         default=None, description="Error message if Todoist fetch failed"
     )
     calendar_error: str | None = Field(
         default=None, description="Error message if Calendar fetch failed"
+    )
+    garmin_error: str | None = Field(
+        default=None, description="Error message if Garmin fetch failed"
+    )
+    weather_error: str | None = Field(
+        default=None, description="Error message if weather fetch failed"
+    )
+    weather_location: str | None = Field(default=None, description="Location name for weather data")
+    health_summary: PlannerHealthSummaryResponse | None = Field(
+        default=None, description="Health data from Garmin"
     )
     server_time: str = Field(..., description="Server timestamp for cache validation")
 

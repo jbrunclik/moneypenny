@@ -1,7 +1,7 @@
 import { escapeHtml, getElementById } from '../utils/dom';
-import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, SUN_ICON, SUNRISE_ICON, SPARKLES_ICON, CHECKLIST_ICON } from '../utils/icons';
+import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, SUN_ICON, SUNRISE_ICON, SPARKLES_ICON, CHECKLIST_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, getWeatherIcon } from '../utils/icons';
 import { createLogger } from '../utils/logger';
-import type { PlannerDashboard, PlannerDay, PlannerEvent, PlannerTask } from '../types/api';
+import type { PlannerDashboard, PlannerDay, PlannerEvent, PlannerTask, PlannerHealthSummary } from '../types/api';
 
 const log = createLogger('planner-dashboard');
 
@@ -26,8 +26,13 @@ export function createDashboardElement(
   // Build dashboard content HTML
   let contentHtml = '';
 
+  // Health summary strip (if Garmin connected)
+  if (dashboard.health_summary && dashboard.garmin_connected) {
+    contentHtml += renderHealthSummary(dashboard.health_summary);
+  }
+
   // Errors if any
-  if (dashboard.todoist_error || dashboard.calendar_error) {
+  if (dashboard.todoist_error || dashboard.calendar_error || dashboard.garmin_error || dashboard.weather_error) {
     contentHtml += renderErrors(dashboard);
   }
 
@@ -38,7 +43,8 @@ export function createDashboardElement(
 
   // Today and Tomorrow - always expanded
   if (dashboard.days.length >= 1) {
-    contentHtml += renderDaySection(dashboard.days[0]); // Today
+    const serverNow = new Date(dashboard.server_time);
+    contentHtml += renderDaySection(dashboard.days[0], true, serverNow); // Today
 
     if (dashboard.days.length >= 2) {
       contentHtml += renderDaySection(dashboard.days[1]); // Tomorrow
@@ -132,8 +138,13 @@ export function renderPlannerDashboard(dashboard: PlannerDashboard): void {
   // Build HTML (same as createDashboardElement but without wrapper)
   let html = '';
 
+  // Health summary strip (if Garmin connected)
+  if (dashboard.health_summary && dashboard.garmin_connected) {
+    html += renderHealthSummary(dashboard.health_summary);
+  }
+
   // Errors if any
-  if (dashboard.todoist_error || dashboard.calendar_error) {
+  if (dashboard.todoist_error || dashboard.calendar_error || dashboard.garmin_error || dashboard.weather_error) {
     html += renderErrors(dashboard);
   }
 
@@ -144,7 +155,8 @@ export function renderPlannerDashboard(dashboard: PlannerDashboard): void {
 
   // Today and Tomorrow - always expanded
   if (dashboard.days.length >= 2) {
-    html += renderDaySection(dashboard.days[0]); // Today
+    const serverNow = new Date(dashboard.server_time);
+    html += renderDaySection(dashboard.days[0], true, serverNow); // Today
     html += renderDaySection(dashboard.days[1]); // Tomorrow
   }
 
@@ -202,6 +214,22 @@ function renderErrors(dashboard: PlannerDashboard): string {
     `;
   }
 
+  if (dashboard.garmin_error) {
+    html += `
+      <div class="dashboard-error">
+        <strong>Garmin:</strong> ${escapeHtml(dashboard.garmin_error)}
+      </div>
+    `;
+  }
+
+  if (dashboard.weather_error) {
+    html += `
+      <div class="dashboard-error">
+        <strong>Weather:</strong> ${escapeHtml(dashboard.weather_error)}
+      </div>
+    `;
+  }
+
   return html;
 }
 
@@ -223,10 +251,12 @@ function renderOverdueSection(tasks: PlannerTask[]): string {
 
 /**
  * Render a day section (Today, Tomorrow, or a weekday).
+ * @param isToday - If true, adds time indicator and dims past events
  */
-function renderDaySection(day: PlannerDay): string {
+function renderDaySection(day: PlannerDay, isToday = false, now = new Date()): string {
   const hasContent = day.events.length > 0 || day.tasks.length > 0;
   const dayLabel = formatDayLabel(day.day_name, day.date);
+  const weatherBadge = renderWeatherBadge(day);
 
   if (!hasContent) {
     return `
@@ -234,6 +264,7 @@ function renderDaySection(day: PlannerDay): string {
         <div class="dashboard-day-header">
           ${dayLabel}
           <span class="dashboard-day-date">${formatDate(day.date)}</span>
+          ${weatherBadge}
         </div>
         <div class="dashboard-day-empty">
           <p>No events or tasks</p>
@@ -241,20 +272,42 @@ function renderDaySection(day: PlannerDay): string {
       </div>
     `;
   }
-
   let content = '';
+  let timeIndicatorInserted = false;
 
   // Events
   if (day.events.length > 0) {
+    let eventsHtml = '';
+    for (const event of day.events) {
+      const isPast = isToday && isEventPast(event, now);
+
+      // Insert time indicator between past and future timed events (skip all-day)
+      if (isToday && !timeIndicatorInserted && !event.is_all_day && !isPast) {
+        eventsHtml += renderTimeIndicator(now);
+        timeIndicatorInserted = true;
+      }
+
+      eventsHtml += renderEventItem(event, isPast);
+    }
+
+    // If all timed events are past, insert time indicator after the last one
+    const hasTimedEvents = day.events.some((e) => !e.is_all_day);
+    if (isToday && !timeIndicatorInserted && hasTimedEvents) {
+      eventsHtml += renderTimeIndicator(now);
+    }
+
     content += `
       <div class="dashboard-events">
         <div class="dashboard-events-header">
           <span class="dashboard-section-icon">${SPARKLES_ICON}</span>
           Events
         </div>
-        ${day.events.map((event) => renderEventItem(event)).join('')}
+        ${eventsHtml}
       </div>
     `;
+  } else if (isToday) {
+    // No events but still today - show time indicator before tasks
+    content += renderTimeIndicator(now);
   }
 
   // Tasks
@@ -275,6 +328,7 @@ function renderDaySection(day: PlannerDay): string {
       <div class="dashboard-day-header">
         ${dayLabel}
         <span class="dashboard-day-date">${formatDate(day.date)}</span>
+        ${weatherBadge}
       </div>
       ${content}
     </div>
@@ -301,14 +355,16 @@ function renderWeekSection(days: PlannerDay[], itemCount: number): string {
 
 /**
  * Render a single event item.
+ * @param isPast - If true, dims the event (for today's past events)
  */
-function renderEventItem(event: PlannerEvent): string {
+function renderEventItem(event: PlannerEvent, isPast = false): string {
   const time = event.is_all_day
     ? 'All day'
     : formatEventTime(event.start, event.end);
 
-  const locationHtml = event.location
-    ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener noreferrer" class="planner-item-location"><span class="location-icon">${MAP_PIN_ICON}</span>${escapeHtml(event.location)}</a>`
+  // Location inline with title when possible
+  const locationInline = event.location
+    ? ` <span class="planner-item-location-inline"><span class="location-icon">${MAP_PIN_ICON}</span><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener noreferrer">${escapeHtml(event.location)}</a></span>`
     : '';
 
   // Show calendar name for non-primary calendars
@@ -319,9 +375,10 @@ function renderEventItem(event: PlannerEvent): string {
 
   // Build copy text
   const copyText = buildEventCopyText(event);
+  const pastAttr = isPast ? ' data-past="true"' : '';
 
   return `
-    <div class="planner-item planner-item-event ${event.is_all_day ? 'all-day' : ''}" data-copy-text="${escapeHtml(copyText)}">
+    <div class="planner-item planner-item-event ${event.is_all_day ? 'all-day' : ''}"${pastAttr} data-copy-text="${escapeHtml(copyText)}">
       <div class="planner-item-time">
         <span>${time}</span>
         <button class="planner-item-copy" title="Copy to clipboard">
@@ -329,8 +386,7 @@ function renderEventItem(event: PlannerEvent): string {
         </button>
       </div>
       <div class="planner-item-text">
-        <span>${escapeHtml(event.summary)}${calendarHtml}</span>
-        ${locationHtml}
+        <span>${escapeHtml(event.summary)}${calendarHtml}${locationInline}</span>
       </div>
     </div>
   `;
@@ -354,6 +410,129 @@ function renderTaskItem(task: PlannerTask): string {
       </div>
     </div>
   `;
+}
+
+/**
+ * Render health summary strip.
+ */
+function renderHealthSummary(health: PlannerHealthSummary): string {
+  const metrics: string[] = [];
+
+  if (health.training_readiness?.score != null) {
+    const level = health.training_readiness.level || '';
+    metrics.push(`
+      <div class="health-metric">
+        <span class="health-metric-icon">${READINESS_ICON}</span>
+        <span class="health-metric-value">${Math.round(health.training_readiness.score)}</span>
+        <span class="health-metric-label">Readiness${level ? ` (${level})` : ''}</span>
+      </div>
+    `);
+  }
+
+  if (health.sleep?.duration_hours != null) {
+    const quality = health.sleep.quality || '';
+    metrics.push(`
+      <div class="health-metric">
+        <span class="health-metric-icon">${MOON_ICON}</span>
+        <span class="health-metric-value">${health.sleep.duration_hours}h</span>
+        <span class="health-metric-label">Sleep${quality ? ` (${quality})` : ''}</span>
+      </div>
+    `);
+  }
+
+  if (health.resting_hr != null) {
+    metrics.push(`
+      <div class="health-metric">
+        <span class="health-metric-icon">${HEART_ICON}</span>
+        <span class="health-metric-value">${health.resting_hr}</span>
+        <span class="health-metric-label">Resting HR</span>
+      </div>
+    `);
+  }
+
+  if (health.body_battery != null) {
+    metrics.push(`
+      <div class="health-metric">
+        <span class="health-metric-icon">${BATTERY_ICON}</span>
+        <span class="health-metric-value">${health.body_battery}</span>
+        <span class="health-metric-label">Body Battery</span>
+      </div>
+    `);
+  }
+
+  if (health.stress_avg != null) {
+    metrics.push(`
+      <div class="health-metric">
+        <span class="health-metric-icon">${STRESS_ICON}</span>
+        <span class="health-metric-value">${Math.round(health.stress_avg)}</span>
+        <span class="health-metric-label">Stress</span>
+      </div>
+    `);
+  }
+
+  if (health.steps_today != null) {
+    metrics.push(`
+      <div class="health-metric">
+        <span class="health-metric-icon">${STEPS_ICON}</span>
+        <span class="health-metric-value">${health.steps_today.toLocaleString()}</span>
+        <span class="health-metric-label">Steps</span>
+      </div>
+    `);
+  }
+
+  if (metrics.length === 0) return '';
+
+  return `
+    <div class="health-summary-strip">
+      ${metrics.join('')}
+    </div>
+  `;
+}
+
+/**
+ * Render weather badge for a day header.
+ */
+function renderWeatherBadge(day: PlannerDay): string {
+  if (!day.weather) return '';
+  const w = day.weather;
+  if (w.temperature_high == null && w.temperature_low == null) return '';
+
+  const icon = getWeatherIcon(w.symbol_code);
+  const tempLow = w.temperature_low != null ? `${Math.round(w.temperature_low)}°` : '';
+  const tempHigh = w.temperature_high != null ? `${Math.round(w.temperature_high)}°` : '';
+  const tempRange = tempLow && tempHigh ? `${tempLow}/${tempHigh}` : tempLow || tempHigh;
+  const precip = w.precipitation > 0 ? ` ${w.precipitation.toFixed(1)}mm` : '';
+
+  return `
+    <span class="weather-badge">
+      <span class="weather-badge-icon">${icon}</span>
+      <span class="weather-badge-temp">${tempRange}</span>${precip ? `<span class="weather-badge-precip">${precip}</span>` : ''}
+    </span>
+  `;
+}
+
+/**
+ * Render time indicator ("Now" line) for today's section.
+ */
+function renderTimeIndicator(now: Date): string {
+  const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `
+    <div class="time-indicator">
+      <span class="time-indicator-label">Now ${timeStr}</span>
+      <div class="time-indicator-line"></div>
+    </div>
+  `;
+}
+
+/**
+ * Check if an event has ended (is in the past).
+ */
+function isEventPast(event: PlannerEvent, now: Date): boolean {
+  if (event.is_all_day) return false; // All-day events don't dim
+  const endStr = event.end || event.start;
+  if (!endStr) return false;
+  const endDate = new Date(endStr);
+  return endDate < now;
 }
 
 /**
@@ -401,6 +580,7 @@ function formatEventTime(start?: string | null, end?: string | null): string {
   const startTime = startDate.toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 
   if (!end) return startTime;
@@ -409,6 +589,7 @@ function formatEventTime(start?: string | null, end?: string | null): string {
   const endTime = endDate.toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 
   return `${startTime}-${endTime}`;

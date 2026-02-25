@@ -42,7 +42,15 @@ class TestGetPlannerDashboard:
         assert "overdue_tasks" in data
         assert "todoist_connected" in data
         assert "calendar_connected" in data
+        assert "garmin_connected" in data
+        assert "weather_connected" in data
         assert "server_time" in data
+
+        # Check optional fields are present (may be null)
+        assert "garmin_error" in data
+        assert "weather_error" in data
+        assert "weather_location" in data
+        assert "health_summary" in data
 
         # Days should be a list of 7 days
         assert isinstance(data["days"], list)
@@ -54,6 +62,8 @@ class TestGetPlannerDashboard:
             assert "day_name" in day
             assert "events" in day
             assert "tasks" in day
+            # Weather field should be present (may be null)
+            assert "weather" in day
 
     def test_first_day_is_today(
         self,
@@ -98,12 +108,16 @@ class TestGetPlannerDashboard:
         # Default test user has no integrations connected
         assert data["todoist_connected"] is False
         assert data["calendar_connected"] is False
+        assert data["garmin_connected"] is False
         assert data["overdue_tasks"] == []
+        assert data["health_summary"] is None
 
         # Each day should have empty events and tasks
         for day in data["days"]:
             assert day["events"] == []
             assert day["tasks"] == []
+            # Weather may be present if WEATHER_LOCATION is configured in env
+            assert "weather" in day
 
     def test_server_time_is_valid_iso_format(
         self,

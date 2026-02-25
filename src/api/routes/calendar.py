@@ -164,7 +164,8 @@ def connect_google_calendar(user: User, data: GoogleCalendarConnectRequest) -> d
             email=calendar_email,
         )
 
-        # Clear calendar cache to prevent stale data when reconnecting with different account
+        # Reset selected calendars and clear cache when reconnecting with different account
+        db.update_user_calendar_selected_ids(user.id, ["primary"])
         db.clear_calendar_cache(user.id)
 
         logger.info(
@@ -189,6 +190,9 @@ def disconnect_google_calendar(user: User) -> dict[str, str]:
     """Disconnect Google Calendar tokens."""
     logger.info("Google Calendar disconnection requested", extra={"user_id": user.id})
     db.update_user_google_calendar_tokens(user.id, None)
+
+    # Reset selected calendar IDs to prevent stale IDs on reconnect with different account
+    db.update_user_calendar_selected_ids(user.id, ["primary"])
 
     # Clear calendar cache to prevent stale data on reconnect
     db.clear_calendar_cache(user.id)
