@@ -679,6 +679,14 @@ async function handleGarminConnect(): Promise<void> {
     return;
   }
 
+  const submitBtn = document.querySelector<HTMLButtonElement>('.settings-garmin-connect');
+  if (submitBtn?.disabled) return;
+  const originalText = submitBtn?.textContent ?? '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Connecting...';
+  }
+
   try {
     log.debug('Connecting to Garmin');
     const result = await garmin.connect(email, password);
@@ -701,6 +709,10 @@ async function handleGarminConnect(): Promise<void> {
     log.error('Failed to connect Garmin', { error });
     passwordInput.value = '';
     toast.error('Failed to connect to Garmin. Check your credentials.');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+    }
   }
 }
 
@@ -717,6 +729,14 @@ async function handleGarminMfaSubmit(): Promise<void> {
     return;
   }
 
+  const submitBtn = document.querySelector<HTMLButtonElement>('.settings-garmin-mfa-submit');
+  if (submitBtn?.disabled) return;
+  const originalText = submitBtn?.textContent ?? '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Verifying...';
+  }
+
   try {
     log.debug('Submitting Garmin MFA code');
     await garmin.submitMfa(mfaCode);
@@ -729,6 +749,10 @@ async function handleGarminMfaSubmit(): Promise<void> {
   } catch (error) {
     log.error('Failed to submit Garmin MFA', { error });
     toast.error('Invalid MFA code, please try again');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+    }
   }
 }
 

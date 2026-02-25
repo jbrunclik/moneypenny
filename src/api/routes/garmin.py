@@ -110,7 +110,7 @@ def garmin_mfa(user: User, data: GarminMfaRequest) -> dict[str, Any]:
     logger.info("Garmin MFA attempt", extra={"user_id": user.id})
     _cleanup_expired_mfa()
 
-    pending = _mfa_pending.get(user.id)
+    pending = _mfa_pending.pop(user.id, None)
     if not pending:
         raise_validation_error("No pending MFA session. Please start the connection again.")
 
@@ -119,9 +119,6 @@ def garmin_mfa(user: User, data: GarminMfaRequest) -> dict[str, Any]:
             pending["garmin"], pending["mfa_context"], data.mfa_code
         )
 
-        # Clean up MFA state
-        del _mfa_pending[user.id]
-
         # Store tokens
         db.update_user_garmin_token(user.id, tokens)
 
@@ -129,6 +126,7 @@ def garmin_mfa(user: User, data: GarminMfaRequest) -> dict[str, Any]:
         return {"connected": True, "mfa_required": False, "display_name": display_name}
 
     except GarminAuthError as e:
+        _mfa_pending[user.id] = pending  # Re-store so user can retry
         logger.warning(
             "Garmin MFA failed",
             extra={"user_id": user.id, "error": str(e)},

@@ -145,7 +145,7 @@ class TestGarminMfa:
         auth_headers: dict[str, str],
         test_user: User,
     ) -> None:
-        """Should return 422 when MFA code is invalid."""
+        """Should return 400 when MFA code is invalid."""
         mock_garmin_client = MagicMock()
         mfa_context = {"signin_params": "some-params"}
 
@@ -167,6 +167,89 @@ class TestGarminMfa:
             )
 
         assert response.status_code == 400
+
+    def test_mfa_concurrent_second_request_rejected(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+    ) -> None:
+        """Second concurrent MFA request should get 400 (pop removes state)."""
+        mock_garmin_client = MagicMock()
+        mfa_context = {"signin_params": "some-params"}
+
+        import time
+
+        garmin_module._mfa_pending[test_user.id] = {
+            "garmin": mock_garmin_client,
+            "mfa_context": mfa_context,
+            "created_at": time.time(),
+        }
+
+        with patch("src.api.routes.garmin.complete_mfa_login") as mock_mfa:
+            mock_mfa.return_value = ("base64-token-string", "Jane Doe")
+
+            # First request succeeds and pops the pending state
+            response1 = client.post(
+                "/auth/garmin/mfa",
+                headers=auth_headers,
+                json={"mfa_code": "123456"},
+            )
+            assert response1.status_code == 200
+
+            # Second request gets 400 — state was already consumed
+            response2 = client.post(
+                "/auth/garmin/mfa",
+                headers=auth_headers,
+                json={"mfa_code": "123456"},
+            )
+            assert response2.status_code == 400
+
+        assert test_user.id not in garmin_module._mfa_pending
+
+    def test_mfa_invalid_code_allows_retry(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+    ) -> None:
+        """Invalid MFA code should re-store state so user can retry."""
+        mock_garmin_client = MagicMock()
+        mfa_context = {"signin_params": "some-params"}
+
+        import time
+
+        garmin_module._mfa_pending[test_user.id] = {
+            "garmin": mock_garmin_client,
+            "mfa_context": mfa_context,
+            "created_at": time.time(),
+        }
+
+        with patch("src.api.routes.garmin.complete_mfa_login") as mock_mfa:
+            # First attempt: invalid code
+            mock_mfa.side_effect = GarminAuthError("Invalid MFA code. Please try again.")
+            response1 = client.post(
+                "/auth/garmin/mfa",
+                headers=auth_headers,
+                json={"mfa_code": "000000"},
+            )
+            assert response1.status_code == 400
+            # State should be re-stored for retry
+            assert test_user.id in garmin_module._mfa_pending
+
+            # Second attempt: correct code
+            mock_mfa.side_effect = None
+            mock_mfa.return_value = ("base64-token-string", "Jane Doe")
+            response2 = client.post(
+                "/auth/garmin/mfa",
+                headers=auth_headers,
+                json={"mfa_code": "123456"},
+            )
+            assert response2.status_code == 200
+            data = response2.get_json()
+            assert data["connected"] is True
+
+        assert test_user.id not in garmin_module._mfa_pending
 
     def test_mfa_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
