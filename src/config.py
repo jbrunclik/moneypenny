@@ -212,8 +212,8 @@ class Config:
     # Title generation settings
     TITLE_GENERATION_MODEL = "gemini-2.0-flash"
     TITLE_GENERATION_TEMPERATURE = 0.7
-    TITLE_MAX_LENGTH = 60
-    TITLE_TRUNCATE_LENGTH = 57  # Leaves room for "..."
+    TITLE_MAX_LENGTH = 62  # Extra 2 chars for emoji + space prefix
+    TITLE_TRUNCATE_LENGTH = 59  # Leaves room for "..."
     TITLE_CONTEXT_MAX_LENGTH = 500  # Max chars of context to send for title generation
     TITLE_FALLBACK_LENGTH = 50  # Length for fallback title from user message
 

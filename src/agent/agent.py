@@ -926,10 +926,13 @@ def generate_title(user_message: str, assistant_response: str) -> str:
     # Truncate context to avoid sending too much data
     max_context = Config.TITLE_CONTEXT_MAX_LENGTH
     prompt = f"""Generate a very short, concise title (3-6 words max) for this conversation.
+The title MUST start with a single relevant emoji followed by a space.
 The title should capture the main topic or intent.
 Do NOT use quotes around the title.
 Do NOT include prefixes like "Title:" or "Topic:".
-Just output the title text directly.
+Just output the emoji and title text directly.
+
+Example format: 🐍 Python List Sorting
 
 User: {user_message[:max_context]}
 Assistant: {assistant_response[:max_context]}
@@ -946,11 +949,13 @@ Title:"""
         # Truncate if too long
         if len(title) > Config.TITLE_MAX_LENGTH:
             title = title[: Config.TITLE_TRUNCATE_LENGTH] + "..."
-        final_title = title or user_message[: Config.TITLE_FALLBACK_LENGTH]
+        final_title = title or f"💬 {user_message[: Config.TITLE_FALLBACK_LENGTH]}"
         logger.debug("Title generated", extra={"title": final_title})
         return final_title
     except (GoogleAPIError, ValueError, TimeoutError) as e:
         # Fallback to truncated message on API or parsing errors
         logger.warning("Title generation failed, using fallback", extra={"error": str(e)})
         fallback_len = Config.TITLE_FALLBACK_LENGTH
-        return user_message[:fallback_len] + ("..." if len(user_message) > fallback_len else "")
+        return (
+            f"💬 {user_message[:fallback_len]}{'...' if len(user_message) > fallback_len else ''}"
+        )
