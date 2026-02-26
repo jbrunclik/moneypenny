@@ -68,6 +68,7 @@ import { initToolbarButtons } from './toolbar';
 import { loadDeepLinkedConversation, handleDeepLinkNavigation, deleteMessage } from './conversation';
 import { navigateToPlanner, leavePlannerView } from './planner';
 import { navigateToAgents, initAgents } from './agents';
+import { navigateToStorage } from './kv-store';
 import { showNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('init');
@@ -276,6 +277,8 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       await navigateToPlanner();
     } else if (initialRoute?.isAgents) {
       await navigateToAgents();
+    } else if (initialRoute?.isStorage) {
+      await navigateToStorage();
     } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {
       await loadDeepLinkedConversation(initialRoute.conversationId);
     }
@@ -431,6 +434,7 @@ export async function init(): Promise<void> {
         conversationId: route.type === 'conversation' ? route.conversationId ?? null : null,
         isPlanner: route.type === 'planner',
         isAgents: route.type === 'agents',
+        isStorage: route.type === 'storage',
       };
       await loadInitialData(initialRoute);
     } catch (error) {
@@ -456,8 +460,9 @@ export async function init(): Promise<void> {
     const store = useStore.getState();
     store.setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
     store.setCurrentConversation(null);
-    // Clear agents data to prevent exposing previous user's data
+    // Clear agents and storage data to prevent exposing previous user's data
     store.clearAgentsState();
+    store.clearStorageState();
     renderConversationsList();
     renderMessages([]);
 

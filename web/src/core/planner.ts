@@ -78,12 +78,13 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   // Update state
   store.setIsPlannerView(true);
 
-  // If coming from agents view, unhide the input area (agents view hides it)
-  if (store.isAgentsView) {
+  // If coming from agents or storage view, unhide the input area (they hide it)
+  if (store.isAgentsView || store.isStorageView) {
     ensureInputAreaVisible();
   }
 
   store.setIsAgentsView(false); // Ensure agents view is off
+  store.setIsStorageView(false); // Ensure storage view is off
   setActiveConversation(null);
   setPlannerActive(true);
   setPlannerHash();

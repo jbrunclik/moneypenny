@@ -237,21 +237,21 @@ describe('initDeepLinking and cleanupDeepLinking', () => {
   it('returns null conversationId when no conversation in hash', () => {
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toEqual({ conversationId: null, isPlanner: false, isAgents: false });
+    expect(result).toEqual({ conversationId: null, isPlanner: false, isAgents: false, isStorage: false });
   });
 
   it('returns conversation ID when present in hash', () => {
     window.location.hash = '#/conversations/conv-123';
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toEqual({ conversationId: 'conv-123', isPlanner: false, isAgents: false });
+    expect(result).toEqual({ conversationId: 'conv-123', isPlanner: false, isAgents: false, isStorage: false });
   });
 
   it('returns planner route info when on planner hash', () => {
     window.location.hash = '#/planner';
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toEqual({ conversationId: null, isPlanner: true, isAgents: false });
+    expect(result).toEqual({ conversationId: null, isPlanner: true, isAgents: false, isStorage: false });
   });
 
   it('registers hashchange listener', () => {
@@ -322,7 +322,7 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith('conv-456', false, false);
+    expect(callback).toHaveBeenCalledWith('conv-456', false, false, false);
   });
 
   it('calls callback with null for non-conversation hash', async () => {
@@ -336,7 +336,7 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith(null, false, false);
+    expect(callback).toHaveBeenCalledWith(null, false, false, false);
   });
 
   it('calls callback with isPlanner=true for planner hash', async () => {
@@ -350,7 +350,7 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith(null, true, false);
+    expect(callback).toHaveBeenCalledWith(null, true, false, false);
   });
 
   it('ignores hashchange during programmatic updates', async () => {

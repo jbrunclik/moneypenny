@@ -8,7 +8,6 @@ import { costs } from '../api/client';
 import { toast } from '../components/Toast';
 import { logout } from '../auth/google';
 import { toggleSidebar } from '../components/Sidebar';
-import { openMemoriesPopup } from '../components/MemoriesPopup';
 import { openSettingsPopup } from '../components/SettingsPopup';
 import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
@@ -16,6 +15,7 @@ import { resetSwipeStates } from '../gestures/swipe';
 import { createConversation, selectConversation, deleteConversation, renameConversation } from './conversation';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
+import { navigateToStorage } from './kv-store';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent } from './file-actions';
 
 const log = createLogger('events');
@@ -48,7 +48,7 @@ export function setupEventListeners(): void {
       return;
     }
     if ((e.target as HTMLElement).closest('#memories-btn')) {
-      openMemoriesPopup();
+      navigateToStorage();
       return;
     }
     if ((e.target as HTMLElement).closest('#settings-btn')) {

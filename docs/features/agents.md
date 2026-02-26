@@ -125,6 +125,7 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | `retrieve_file` | Retrieve files from conversations | Always available |
 | `request_approval` | Request user approval | Always available |
 | `trigger_agent` | Trigger another agent | Always available |
+| `kv_store` | Per-user key-value storage | Always available |
 | `generate_image` | AI image generation | Requires `GEMINI_API_KEY` |
 | `execute_code` | Code execution in sandbox | Requires `CODE_SANDBOX_ENABLED` |
 | `todoist` | Todoist task management | Requires user integration |
@@ -433,6 +434,50 @@ other views, the input area must be restored. This is handled by `ensureInputAre
   - `leavePlannerView()` - ensures input visible after leaving planner
 
 **Regression tests:** [navigation-input-focus.test.ts](../../web/tests/unit/navigation-input-focus.test.ts)
+
+## K/V Store
+
+Autonomous agents have access to a per-user key-value store for persisting data between executions. This allows agents to remember state, cache results, and share data across runs without requiring a full database.
+
+### How it works
+
+1. Agents call the `kv_store` tool with an `action` and a `key` (and optionally a `value`)
+2. Keys are automatically namespaced to `agent:<agent_id>` so each agent has its own isolated storage
+3. The namespace is injected by the tool at runtime - agents never need to specify it explicitly
+4. Data is stored in the `kv_store` SQLite table and scoped per user
+
+### Usage (from an agent's perspective)
+
+```
+# Store a value
+kv_store(action="set", key="last_checked_at", value="2026-02-26T09:00:00Z")
+
+# Retrieve a value
+kv_store(action="get", key="last_checked_at")
+
+# List all keys in the agent's namespace
+kv_store(action="list")
+
+# Delete a key
+kv_store(action="delete", key="last_checked_at")
+```
+
+### Limits
+
+| Limit | Value |
+|-------|-------|
+| Max key length | 256 characters |
+| Max value size | 64 KB |
+| Max keys per namespace | 1,000 |
+
+### Management
+
+Users can view and manage all K/V entries via the **Storage** page at `#/storage` in the frontend. The REST API is available at `/api/kv` (6 endpoints in `kv_store.py`).
+
+### Key files
+
+- [src/agent/tools/agent_kv.py](../../src/agent/tools/agent_kv.py) - Tool implementation
+- [src/api/routes/kv_store.py](../../src/api/routes/kv_store.py) - REST API endpoints (6 routes)
 
 ## Future Enhancements
 

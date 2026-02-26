@@ -358,6 +358,13 @@ export const PLANNER_DASHBOARD_CACHE_MS = 5 * MS_PER_MINUTE;
 export const COMMAND_CENTER_CACHE_MS = 5 * MS_PER_MINUTE;
 
 // =============================================================================
+// Storage Configuration
+// =============================================================================
+
+/** Cache duration for K/V storage data (5 minutes) */
+export const STORAGE_CACHE_MS = 5 * MS_PER_MINUTE;
+
+// =============================================================================
 // Default Values
 // =============================================================================
 

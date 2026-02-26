@@ -841,6 +841,7 @@ _PROMPT_TOOL_DESCRIPTIONS: dict[str, str] = {
     "todoist": "Create, update, and organize Todoist tasks, sections, and projects.",
     "google_calendar": "Read or modify Google Calendar events, attendees, and reminders.",
     "whatsapp": "Send WhatsApp notifications to the user with concise summaries and links.",
+    "kv_store": "Persist and retrieve key-value data across conversations and executions.",
 }
 
 _PROMPT_BASE_TOOL_ORDER = [

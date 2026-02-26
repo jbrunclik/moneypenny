@@ -202,6 +202,12 @@ export async function selectConversation(convId: string): Promise<void> {
     leaveAgentsView(false);
   }
 
+  // If we're in storage view, leave it first
+  if (store.isStorageView) {
+    const { leaveStorageView } = await import('./kv-store');
+    leaveStorageView(false);
+  }
+
   // For temp conversations, just switch to them locally (no API call needed)
   if (isTempConversation(convId)) {
     const conv = store.conversations.find((c) => c.id === convId);
@@ -315,6 +321,13 @@ export function createConversation(): void {
   // If we're in agents view, leave it first
   if (store.isAgentsView) {
     leaveAgentsView(false);
+  }
+
+  // If we're in storage view, leave it first
+  if (store.isStorageView) {
+    import('./kv-store').then(({ leaveStorageView }) => {
+      leaveStorageView(false);
+    });
   }
 
   // Clear any tracked agent since we're starting a new conversation
@@ -663,8 +676,8 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean): void {
-  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents });
+export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean): void {
+  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage });
   const store = useStore.getState();
 
   // Handle planner navigation - import dynamically to avoid circular dependency
@@ -683,6 +696,14 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
     return;
   }
 
+  // Handle storage navigation - import dynamically to avoid circular dependency
+  if (isStorage) {
+    import('./kv-store').then(({ navigateToStorage }) => {
+      navigateToStorage();
+    });
+    return;
+  }
+
   // If we were in planner view and navigating away, leave planner
   if (store.isPlannerView) {
     leavePlannerView();
@@ -692,6 +713,13 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
   if (store.isAgentsView) {
     import('./agents').then(({ leaveAgentsView }) => {
       leaveAgentsView();
+    });
+  }
+
+  // If we were in storage view and navigating away, leave storage
+  if (store.isStorageView) {
+    import('./kv-store').then(({ leaveStorageView }) => {
+      leaveStorageView();
     });
   }
 

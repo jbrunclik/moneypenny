@@ -1,0 +1,592 @@
+/* ============================================
+   K/V Store Management Page
+   ============================================
+
+   Storage management page styling.
+*/
+
+/* ----------------------------------------
+   K/V Store Container
+   ---------------------------------------- */
+
+.kv-store {
+    padding: var(--space-4);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.kv-store--loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+
+.kv-store-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.kv-store-loading p {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+}
+
+.kv-store-error {
+    padding: var(--space-6);
+    text-align: center;
+}
+
+.kv-store-error .error-message {
+    background: var(--color-error-900);
+    border: 2px solid rgba(248, 113, 113, 0.3);
+    border-left: 4px solid var(--color-error-500);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    color: var(--text-primary);
+}
+
+.kv-store-stale-warning {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--color-warning-900);
+    border: 1px solid var(--color-warning-500);
+    border-radius: var(--radius-md);
+    color: var(--color-warning-600);
+    font-size: var(--font-size-sm);
+}
+
+.kv-store-stale-warning .warning-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.kv-store-stale-warning .warning-icon svg {
+    width: 18px;
+    height: 18px;
+    color: var(--color-warning-500);
+}
+
+.kv-store-stale-warning .btn-retry {
+    margin-left: auto;
+    padding: var(--space-1) var(--space-3);
+    background: transparent;
+    border: 1px solid var(--color-warning-500);
+    border-radius: var(--radius-sm);
+    color: var(--color-warning-500);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.kv-store-stale-warning .btn-retry:hover {
+    background: var(--color-warning-500);
+    color: white;
+}
+
+/* ----------------------------------------
+   Header
+   ---------------------------------------- */
+
+.kv-store-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.kv-store-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.kv-store-title h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.kv-store-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kv-store-icon svg {
+    width: 28px;
+    height: 28px;
+    color: var(--accent);
+}
+
+.kv-store-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.kv-store-header .btn-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.kv-store-header .btn-refresh svg {
+    width: 16px;
+    height: 16px;
+}
+
+.kv-store-header .btn-refresh:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ----------------------------------------
+   Empty State
+   ---------------------------------------- */
+
+.kv-store-empty {
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--text-secondary);
+}
+
+.kv-store-empty p {
+    margin: 0;
+}
+
+.kv-store-empty p:first-child {
+    font-size: var(--font-size-base);
+    margin-bottom: var(--space-2);
+}
+
+.kv-store-empty .text-muted {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------
+   Namespace Cards
+   ---------------------------------------- */
+
+.kv-store-namespaces {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.kv-namespace-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color var(--transition-fast);
+}
+
+.kv-namespace-card:hover {
+    border-color: var(--border-hover);
+}
+
+.kv-namespace-card.expanded {
+    border-color: var(--accent);
+}
+
+.kv-namespace-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+}
+
+.kv-namespace-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+}
+
+.kv-namespace-chevron {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+}
+
+.kv-namespace-chevron svg {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+}
+
+.kv-namespace-card.expanded .kv-namespace-chevron {
+    transform: rotate(90deg);
+}
+
+.kv-namespace-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+}
+
+.kv-namespace-count {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.kv-namespace-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.btn-clear-namespace {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-clear-namespace svg {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-clear-namespace:hover {
+    background: var(--color-error-900);
+    border-color: var(--color-error-500);
+    color: var(--color-error-500);
+}
+
+/* ----------------------------------------
+   Namespace Body (Keys)
+   ---------------------------------------- */
+
+.kv-namespace-body {
+    border-top: 1px solid var(--border);
+    padding: var(--space-3) var(--space-4);
+}
+
+.kv-namespace-body.collapsed {
+    display: none;
+}
+
+.kv-keys-loading {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-3);
+}
+
+.kv-keys-error {
+    text-align: center;
+    color: var(--color-error-500);
+    padding: var(--space-3);
+    font-size: var(--font-size-sm);
+}
+
+.kv-keys-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: var(--space-3);
+    font-size: var(--font-size-sm);
+}
+
+.kv-keys-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.kv-key-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+.kv-key-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.kv-key-name {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    word-break: break-all;
+}
+
+.kv-key-value {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: var(--font-mono);
+    margin: 0;
+    padding: var(--space-2);
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+}
+
+/* JSON syntax highlighting */
+.kv-key-value .json-string {
+    color: rgb(152, 195, 121);
+}
+
+.kv-key-value .json-number {
+    color: rgb(209, 154, 102);
+}
+
+.kv-key-value .json-keyword {
+    color: rgb(198, 120, 221);
+}
+
+.kv-key-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.kv-key-delete svg {
+    width: 14px;
+    height: 14px;
+}
+
+.kv-key-delete:hover {
+    color: var(--color-error-500);
+}
+
+/* ----------------------------------------
+   Sections (Memories + K/V)
+   ---------------------------------------- */
+
+.kv-store-section {
+    margin-bottom: var(--space-6);
+}
+
+.kv-store-section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-4) 0;
+}
+
+.kv-store-section-title .section-icon {
+    display: flex;
+    align-items: center;
+}
+
+.kv-store-section-title .section-icon svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent);
+}
+
+.kv-store-section-count {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+}
+
+.kv-store-section-empty {
+    text-align: center;
+    padding: var(--space-4);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.kv-store-section-empty p {
+    margin: 0;
+}
+
+/* ----------------------------------------
+   Memories Section
+   ---------------------------------------- */
+
+.kv-memories-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.memory-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    transition: border-color var(--transition-fast);
+}
+
+.memory-item:hover {
+    border-color: var(--border-hover);
+}
+
+.memory-content-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.memory-text {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    line-height: 1.5;
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.memory-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--transition-fast);
+}
+
+.memory-delete svg {
+    width: 14px;
+    height: 14px;
+}
+
+.memory-delete:hover {
+    color: var(--color-error-500);
+}
+
+.memory-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.memory-category {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    text-transform: capitalize;
+}
+
+.memory-category--preference {
+    background: rgba(139, 92, 246, 0.15);
+    color: rgb(167, 139, 250);
+}
+
+.memory-category--fact {
+    background: rgba(59, 130, 246, 0.15);
+    color: rgb(96, 165, 250);
+}
+
+.memory-category--context {
+    background: rgba(34, 197, 94, 0.15);
+    color: rgb(74, 222, 128);
+}
+
+.memory-category--goal {
+    background: rgba(245, 158, 11, 0.15);
+    color: rgb(251, 191, 36);
+}
+
+.memory-time {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------
+   Mobile Responsive
+   ---------------------------------------- */
+
+@media (max-width: 768px) {
+    .kv-store {
+        padding: var(--space-3);
+    }
+
+    .kv-store-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-3);
+    }
+
+    .kv-store-title h2 {
+        font-size: var(--font-size-xl);
+    }
+
+    .kv-namespace-header {
+        padding: var(--space-2) var(--space-3);
+    }
+
+    .kv-namespace-body {
+        padding: var(--space-2) var(--space-3);
+    }
+}

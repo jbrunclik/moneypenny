@@ -1,3 +1,6 @@
 # Visual regression test baselines stored with Git LFS
 web/tests/visual/**/*-snapshots/*.png filter=lfs diff=lfs merge=lfs -text
 web/tests/visual/**/*.png filter=lfs diff=lfs merge=lfs -text
+
+# Design assets stored with Git LFS
+assets/*.png filter=lfs diff=lfs merge=lfs -text

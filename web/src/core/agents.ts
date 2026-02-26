@@ -98,6 +98,7 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   // Update state
   store.setIsAgentsView(true);
   store.setIsPlannerView(false); // Ensure planner view is off
+  store.setIsStorageView(false); // Ensure storage view is off
   setActiveConversation(null);
   setAgentsActive(true);
   setAgentsHash();

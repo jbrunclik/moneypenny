@@ -6,6 +6,7 @@ import type {
   Conversation,
   ConversationsPagination,
   FileUpload,
+  KVNamespacesResponse,
   Message,
   MessagesPagination,
   Model,
@@ -136,6 +137,11 @@ interface AppState {
   commandCenterLastFetch: number | null; // Timestamp for cache invalidation
   isAgentsView: boolean;
 
+  // Storage (K/V) state
+  isStorageView: boolean;
+  storageData: KVNamespacesResponse | null;
+  storageLastFetch: number | null;
+
   // Actions - Auth
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
@@ -237,6 +243,12 @@ interface AppState {
   setIsAgentsView: (active: boolean) => void;
   invalidateCommandCenterCache: () => void;
   clearAgentsState: () => void;
+
+  // Actions - Storage (K/V)
+  setIsStorageView: (active: boolean) => void;
+  setStorageData: (data: KVNamespacesResponse | null) => void;
+  invalidateStorageCache: () => void;
+  clearStorageState: () => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -314,6 +326,11 @@ export const useStore = create<AppState>()(
       commandCenterData: null,
       commandCenterLastFetch: null,
       isAgentsView: false,
+
+      // Storage (K/V) state
+      isStorageView: false,
+      storageData: null,
+      storageLastFetch: null,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -674,6 +691,18 @@ export const useStore = create<AppState>()(
           commandCenterData: null,
           commandCenterLastFetch: null,
           isAgentsView: false,
+        }),
+
+      // Storage (K/V) actions
+      setIsStorageView: (isStorageView) => set({ isStorageView }),
+      setStorageData: (storageData) =>
+        set({ storageData, storageLastFetch: storageData ? Date.now() : null }),
+      invalidateStorageCache: () => set({ storageLastFetch: null }),
+      clearStorageState: () =>
+        set({
+          isStorageView: false,
+          storageData: null,
+          storageLastFetch: null,
         }),
     }),
     {

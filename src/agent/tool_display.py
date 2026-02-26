@@ -53,6 +53,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Sent WhatsApp message",
         "icon": "message",
     },
+    "kv_store": {
+        "label": "Accessing storage",
+        "label_past": "Accessed storage",
+        "icon": "database",
+    },
 }
 
 # Check if Google Calendar is configured
@@ -95,7 +100,8 @@ def validate_tool_names() -> None:
 
     # Add conditional tools that are only available in specific contexts
     # refresh_planner_dashboard is only added in planner mode via get_tools_for_request()
-    conditional_tools = {"refresh_planner_dashboard"}
+    # kv_store is only added for autonomous agents via get_tools_for_agent()
+    conditional_tools = {"refresh_planner_dashboard", "kv_store"}
     valid_tool_names = actual_tool_names | conditional_tools
 
     # Check TOOL_METADATA

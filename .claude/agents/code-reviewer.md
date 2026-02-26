@@ -63,6 +63,8 @@ You are a senior code reviewer for the AI Chatbot project (Flask + TypeScript). 
 - Bug fixes follow TDD (failing test first)
 - Tests don't make real API calls (mocked externals)
 - No flaky tests (no timing assumptions)
+- **Interface extensions**: When TypeScript interfaces are extended (InitialRoute, store state, HashChangeCallback, etc.), check that ALL test files mocking those interfaces are updated. Search: `grep -rn 'InterfaceName\|mockStore' web/tests/`
+- **UI replacement**: When a UI feature is replaced (e.g., popup → page), check that old visual tests and snapshots are removed
 
 ## Output Format
 

@@ -518,6 +518,13 @@ class AgentMixin:
                 conn, "DELETE FROM agent_executions WHERE agent_id = ?", (agent_id,)
             )
 
+            # Delete K/V store data for this agent's namespace
+            self._execute_with_timing(
+                conn,
+                "DELETE FROM kv_store WHERE user_id = ? AND namespace = ?",
+                (user_id, f"agent:{agent_id}"),
+            )
+
             # Delete the agent
             self._execute_with_timing(
                 conn,

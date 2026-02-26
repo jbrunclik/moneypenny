@@ -958,6 +958,37 @@ def main() -> None:
                 "approval_id": approval.id,
             }, 200
 
+        # =============================================================================
+        # KV Store test routes
+        # =============================================================================
+
+        @test_bp.route("/test/set-kv-store-data", methods=["POST"])
+        def set_kv_store_data() -> tuple[dict[str, Any], int]:
+            """Set custom KV store data for testing."""
+            from flask import request
+
+            data = request.get_json() or {}
+            MOCK_CONFIG["kv_namespaces"] = data.get("namespaces")
+            MOCK_CONFIG["kv_keys"] = data.get("keys")  # dict: namespace -> keys list
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/set-memories-data", methods=["POST"])
+        def set_memories_data() -> tuple[dict[str, Any], int]:
+            """Set custom memories data for testing."""
+            from flask import request
+
+            data = request.get_json() or {}
+            MOCK_CONFIG["memories"] = data.get("memories")
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/clear-kv-store-config", methods=["POST"])
+        def clear_kv_store_config() -> tuple[dict[str, str], int]:
+            """Clear KV store mock config to restore defaults."""
+            MOCK_CONFIG["kv_namespaces"] = None
+            MOCK_CONFIG["kv_keys"] = None
+            MOCK_CONFIG["memories"] = None
+            return {"status": "cleared"}, 200
+
         app.register_blueprint(test_bp)
 
         # Override search endpoint using before_request to intercept /api/search
@@ -1190,6 +1221,30 @@ def main() -> None:
                 if agent_id in agents_by_id:
                     return jsonify(agents_by_id[agent_id])
                 # Fall through to real endpoint if no mock data
+
+            return None
+
+        # Override KV store and memories endpoints to return mock data
+        @app.before_request
+        def intercept_kv_store() -> Any | None:
+            from flask import jsonify, request
+
+            if request.path == "/api/kv" and request.method == "GET":
+                if MOCK_CONFIG.get("kv_namespaces") is not None:
+                    return jsonify({"namespaces": MOCK_CONFIG["kv_namespaces"]})
+
+            if (
+                request.path.startswith("/api/kv/")
+                and request.method == "GET"
+                and MOCK_CONFIG.get("kv_keys") is not None
+            ):
+                namespace = request.path[len("/api/kv/") :]
+                keys = MOCK_CONFIG["kv_keys"].get(namespace, [])
+                return jsonify({"namespace": namespace, "keys": keys})
+
+            if request.path == "/api/memories" and request.method == "GET":
+                if MOCK_CONFIG.get("memories") is not None:
+                    return jsonify({"memories": MOCK_CONFIG["memories"]})
 
             return None
 

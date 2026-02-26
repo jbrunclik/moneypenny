@@ -698,6 +698,35 @@ export interface AgentConversationSyncResponse {
 }
 
 // =============================================================================
+// KV Store types
+// =============================================================================
+
+export interface KVNamespace {
+  namespace: string;
+  key_count: number;
+}
+
+export interface KVEntry {
+  key: string;
+  value: string;
+}
+
+export interface KVNamespacesResponse {
+  namespaces: KVNamespace[];
+}
+
+export interface KVKeysResponse {
+  namespace: string;
+  keys: KVEntry[];
+}
+
+export interface KVValueResponse {
+  namespace: string;
+  key: string;
+  value: string;
+}
+
+// =============================================================================
 // AI Assist types
 // =============================================================================
 

@@ -19,7 +19,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('deeplink');
 
 /** Route types supported by the router */
-type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'unknown';
+type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'unknown';
 
 /** Parsed route information */
 interface ParsedRoute {
@@ -27,8 +27,8 @@ interface ParsedRoute {
   conversationId?: string;
 }
 
-/** Callback when hash changes to a conversation, planner, or agents */
-type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean) => void;
+/** Callback when hash changes to a conversation, planner, agents, or storage */
+type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean) => void;
 
 // Module state
 let hashChangeCallback: HashChangeCallback | null = null;
@@ -54,6 +54,11 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   // Match /agents route
   if (cleanHash === '/agents') {
     return { type: 'agents' };
+  }
+
+  // Match /storage route
+  if (cleanHash === '/storage') {
+    return { type: 'storage' };
   }
 
   // Match /conversations/{id}
@@ -201,6 +206,34 @@ export function isAgentsRoute(): boolean {
 }
 
 /**
+ * Set the URL hash to the storage route.
+ */
+export function setStorageHash(): void {
+  const newHash = '#/storage';
+  const currentHash = window.location.hash;
+
+  if (currentHash === newHash) {
+    return;
+  }
+
+  log.debug('Setting storage hash', { from: currentHash });
+
+  isIgnoringHashChange = true;
+  history.pushState(null, '', newHash);
+  setTimeout(() => {
+    isIgnoringHashChange = false;
+  }, 0);
+}
+
+/**
+ * Check if the current route is storage.
+ */
+export function isStorageRoute(): boolean {
+  const route = parseHash();
+  return route.type === 'storage';
+}
+
+/**
  * Push an empty hash entry to browser history.
  * Use this when creating a new temp conversation so back button navigates to previous conversation.
  */
@@ -222,14 +255,16 @@ function handleHashChange(): void {
 
   if (hashChangeCallback) {
     if (route.type === 'planner') {
-      hashChangeCallback(null, true, false);
+      hashChangeCallback(null, true, false, false);
     } else if (route.type === 'agents') {
-      hashChangeCallback(null, false, true);
+      hashChangeCallback(null, false, true, false);
+    } else if (route.type === 'storage') {
+      hashChangeCallback(null, false, false, true);
     } else if (route.type === 'conversation' && route.conversationId) {
-      hashChangeCallback(route.conversationId, false, false);
+      hashChangeCallback(route.conversationId, false, false, false);
     } else {
       // Home or unknown route - pass null to indicate no conversation selected
-      hashChangeCallback(null, false, false);
+      hashChangeCallback(null, false, false, false);
     }
   }
 }
@@ -239,6 +274,7 @@ export interface InitialRoute {
   conversationId: string | null;
   isPlanner: boolean;
   isAgents: boolean;
+  isStorage: boolean;
 }
 
 /**
@@ -261,17 +297,22 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
 
   if (initialRoute.type === 'planner') {
     log.info('Initial route is planner');
-    return { conversationId: null, isPlanner: true, isAgents: false };
+    return { conversationId: null, isPlanner: true, isAgents: false, isStorage: false };
   }
 
   if (initialRoute.type === 'agents') {
     log.info('Initial route is agents');
-    return { conversationId: null, isPlanner: false, isAgents: true };
+    return { conversationId: null, isPlanner: false, isAgents: true, isStorage: false };
+  }
+
+  if (initialRoute.type === 'storage') {
+    log.info('Initial route is storage');
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: true };
   }
 
   if (initialRoute.type === 'conversation' && initialRoute.conversationId) {
     log.info('Initial route has conversation', { conversationId: initialRoute.conversationId });
-    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false };
+    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false, isStorage: false };
   }
 
   // Check if the hash contains a temp conversation ID and clear it
@@ -282,7 +323,7 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
     clearConversationHash();
   }
 
-  return { conversationId: null, isPlanner: false, isAgents: false };
+  return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false };
 }
 
 /**

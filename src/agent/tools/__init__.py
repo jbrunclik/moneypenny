@@ -6,6 +6,7 @@ This package contains all tools available to the LLM agent.
 from typing import Any
 
 # Import tools from submodules
+from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.code_execution import execute_code, is_code_sandbox_available
 from src.agent.tools.context import (
     get_agent_name,
@@ -180,6 +181,7 @@ _TOOL_MAP: dict[str, Any] = {
     "whatsapp": whatsapp,
     "cite_sources": cite_sources,
     "manage_memory": manage_memory,
+    "kv_store": kv_store,
 }
 
 
@@ -205,6 +207,9 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
 
     # Add trigger_agent for agent-to-agent communication
     tools.append(trigger_agent)
+
+    # Add kv_store for persistent storage
+    tools.append(kv_store)
 
     # If agent has specific permissions (including empty list), filter tools
     if agent.tool_permissions is not None:
@@ -270,6 +275,7 @@ __all__ = [
     "whatsapp",
     "cite_sources",
     "manage_memory",
+    "kv_store",
     # Metadata tool constants
     "METADATA_TOOL_NAMES",
     # Exceptions
