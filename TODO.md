@@ -20,7 +20,6 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Summary + timeline** - AI-generated daily summary strip, timeline view with hour markers, quick-add task from dashboard
 
 ## Security
-- [ ] **[Critical] Sanitize assistant markdown rendering (XSS)** - `innerHTML = renderMarkdown(...)` runs without sanitization; `marked` allows raw HTML by default, enabling stored XSS via crafted assistant/tool output. Add DOMPurify or disable raw HTML in `marked`. Files: `render.ts`, `streaming.ts`, `markdown.ts`
 - [ ] **Rate limiting: proxy-aware client IP** - Limiter uses `request.remote_addr` which collapses to the load-balancer IP behind a reverse proxy. Add `ProxyFix` middleware and switch limiter key to honor `X-Forwarded-For`. Files: `app.py`, `rate_limiting.py`
 - [ ] **Logout: clear all sensitive state** - `store.logout()` only clears token/user/currentConversation, leaving messages, pagination, activeRequests in memory. Add `resetStore()` that wipes all maps/sets on `auth:logout`. Files: `store.ts`, `init.ts`
 

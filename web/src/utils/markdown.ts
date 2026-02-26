@@ -66,6 +66,11 @@ marked.use({
   breaks: true,
   gfm: true,
   renderer: {
+    // Prevent raw HTML pass-through (XSS protection)
+    html(token: { text: string }): string {
+      return escapeHtml(token.text);
+    },
+
     // Open all links in new tab with security attributes
     link(token): string {
       const href = token.href;
