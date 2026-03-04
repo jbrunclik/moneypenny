@@ -197,6 +197,11 @@ class PlannerMixin:
 
             conn.commit()
 
+            # Clear LangGraph checkpoint for this conversation thread
+            # Without this, stale dashboard context (including deleted calendar
+            # events) accumulates across resets in the checkpoint state.
+            self._clear_planner_checkpoint(conv_id)
+
             logger.info(
                 "Planner conversation reset",
                 extra={
@@ -207,6 +212,28 @@ class PlannerMixin:
             )
 
             return self._row_to_conversation(row)
+
+    @staticmethod
+    def _clear_planner_checkpoint(conversation_id: str) -> None:
+        """Clear LangGraph checkpoint state for a planner conversation."""
+        if not Config.AGENT_CHECKPOINTING_ENABLED:
+            return
+        try:
+            from src.agent.graph import _get_checkpointer
+
+            checkpointer = _get_checkpointer()
+            checkpointer.delete_thread(conversation_id)
+            logger.debug(
+                "Planner checkpoint cleared",
+                extra={"conversation_id": conversation_id},
+            )
+        except Exception as e:
+            # Non-fatal: planner still works without checkpoint, just loses
+            # graph state (tool retries, plan). Log and continue.
+            logger.warning(
+                "Failed to clear planner checkpoint",
+                extra={"conversation_id": conversation_id, "error": str(e)},
+            )
 
     def get_planner_conversation_with_auto_reset(
         self, user: User, model: str | None = None

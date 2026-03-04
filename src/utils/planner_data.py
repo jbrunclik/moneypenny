@@ -528,6 +528,10 @@ def fetch_calendar_dashboard_data(
                     if not event_id:
                         continue
 
+                    # Skip cancelled events (deleted occurrences of recurring series)
+                    if event.get("status") == "cancelled":
+                        continue
+
                     # Skip duplicate events (can happen when both "primary" and actual primary calendar ID are selected)
                     if event_id in seen_event_ids:
                         logger.debug(
@@ -778,7 +782,7 @@ def build_planner_dashboard(
                 if isinstance(stats, dict):
                     summary.steps_today = stats.get("totalSteps")
                     summary.resting_hr = stats.get("restingHeartRate")
-                    summary.body_battery = stats.get("bodyBatteryChargedValue")
+                    summary.body_battery = stats.get("bodyBatteryMostRecentValue")
                     summary.stress_avg = stats.get("averageStressLevel")
             except Exception as e:
                 logger.debug("Garmin stats fetch failed", extra={"error": str(e)})
