@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { DATABASE_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, UNARCHIVE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -20,6 +20,9 @@ const log = createLogger('sidebar');
 
 // Track if infinite scroll listener is set up
 let scrollListenerCleanup: (() => void) | null = null;
+
+// Track if archive infinite scroll listener is set up
+let archiveScrollListenerCleanup: (() => void) | null = null;
 
 /**
  * Check if the planner entry should be shown.
@@ -91,8 +94,16 @@ function calculatePageSize(containerHeight: number): number {
 }
 
 /**
+ * Check if the archive view is currently visible.
+ */
+function isArchiveViewVisible(): boolean {
+  return useStore.getState().isArchiveView;
+}
+
+/**
  * Render the conversations list in the sidebar
  * If search is active, renders search results instead
+ * If archive view is active, renders archive view instead
  */
 export function renderConversationsList(): void {
   const container = getElementById<HTMLDivElement>('conversations-list');
@@ -101,6 +112,12 @@ export function renderConversationsList(): void {
   // If search is active, render search results instead
   if (isSearchResultsVisible()) {
     renderSearchResults();
+    return;
+  }
+
+  // If archive view is active, render archive view instead
+  if (isArchiveViewVisible()) {
+    renderArchiveView(container);
     return;
   }
 
@@ -164,6 +181,9 @@ export function renderConversationsList(): void {
 
   container.innerHTML = navEntriesHtml + conversationsHtml + loadMoreHtml;
 
+  // Render archive entry in its own pinned container (always visible, not scrolled)
+  renderArchiveEntry();
+
   // Set up infinite scroll if not already set up
   setupInfiniteScroll(container);
 }
@@ -188,6 +208,9 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
           <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
             ${EDIT_ICON}
           </button>
+          <button class="conversation-archive" data-archive-id="${conv.id}" aria-label="Archive">
+            ${ARCHIVE_ICON}
+          </button>
           <button class="conversation-delete" data-delete-id="${conv.id}" aria-label="Delete">
             ${DELETE_ICON}
           </button>
@@ -196,6 +219,46 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
       <div class="conversation-actions-swipe">
         <button class="conversation-rename-swipe" data-rename-id="${conv.id}" aria-label="Rename">
           ${EDIT_ICON}
+        </button>
+        <button class="conversation-archive-swipe" data-archive-id="${conv.id}" aria-label="Archive">
+          ${ARCHIVE_ICON}
+        </button>
+        <button class="conversation-delete-swipe" data-delete-id="${conv.id}" aria-label="Delete">
+          ${DELETE_ICON}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render a single archived conversation item (with rename + unarchive + delete actions)
+ */
+function renderArchivedConversationItem(conv: Conversation): string {
+  const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
+
+  return `
+    <div class="conversation-item-wrapper" data-conv-id="${conv.id}">
+      <div class="conversation-item">
+        <div class="conversation-title">${title}</div>
+        <div class="conversation-actions">
+          <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
+            ${EDIT_ICON}
+          </button>
+          <button class="conversation-unarchive" data-unarchive-id="${conv.id}" aria-label="Unarchive">
+            ${UNARCHIVE_ICON}
+          </button>
+          <button class="conversation-delete" data-delete-id="${conv.id}" aria-label="Delete">
+            ${DELETE_ICON}
+          </button>
+        </div>
+      </div>
+      <div class="conversation-actions-swipe">
+        <button class="conversation-rename-swipe" data-rename-id="${conv.id}" aria-label="Rename">
+          ${EDIT_ICON}
+        </button>
+        <button class="conversation-unarchive-swipe" data-unarchive-id="${conv.id}" aria-label="Unarchive">
+          ${UNARCHIVE_ICON}
         </button>
         <button class="conversation-delete-swipe" data-delete-id="${conv.id}" aria-label="Delete">
           ${DELETE_ICON}
@@ -226,12 +289,6 @@ export function renderUserInfo(): void {
     <div class="user-profile">
       ${avatarHtml}
       <span class="user-name">${escapeHtml(name)}</span>
-    </div>
-    <div class="user-actions">
-      <button id="monthly-cost" class="btn-monthly-cost" title="Click to view cost history">
-        <span class="cost-label">This month:</span>
-        <span class="cost-value">—</span>
-      </button>
       <div class="user-actions-buttons">
         <button id="settings-btn" class="btn-icon-action" title="Settings">
           ${SETTINGS_ICON}
@@ -244,6 +301,10 @@ export function renderUserInfo(): void {
         </button>
       </div>
     </div>
+    <button id="monthly-cost" class="btn-monthly-cost" title="Click to view cost history">
+      <span class="cost-label">This month:</span>
+      <span class="cost-value">—</span>
+    </button>
   `;
 
   // Fetch monthly cost after rendering
@@ -411,6 +472,195 @@ function updateSidebarVisibility(): void {
     sidebar.classList.remove('open');
     const overlay = app.querySelector<HTMLDivElement>('.sidebar-overlay');
     overlay?.classList.remove('visible');
+  }
+}
+
+/**
+ * Load archived conversations from API and update store.
+ */
+export async function loadArchivedConversations(): Promise<void> {
+  try {
+    const result = await conversationsApi.listArchived();
+    useStore.getState().setArchivedConversations(result.conversations, result.pagination);
+    renderConversationsList();
+  } catch (error) {
+    log.error('Failed to load archived conversations', { error });
+  }
+}
+
+/**
+ * Render the archive entry in its own pinned container (between conversations and footer).
+ * Hidden when archive view is active (the full view replaces conversations-list).
+ */
+function renderArchiveEntry(): void {
+  const entryContainer = getElementById<HTMLDivElement>('archive-entry-container');
+  if (!entryContainer) return;
+
+  const { archivedConversations, archivedPagination, isArchiveView } = useStore.getState();
+
+  // Hide when archive view is active or no archived conversations
+  if (isArchiveView || (archivedPagination.totalCount === 0 && archivedConversations.length === 0)) {
+    clearElement(entryContainer);
+    return;
+  }
+
+  entryContainer.innerHTML = `
+    <div class="archive-entry" data-route="archive">
+      <span class="archive-entry-icon">${ARCHIVE_ICON}</span>
+      <span class="archive-entry-label">Archive</span>
+      <span class="archive-count">${archivedPagination.totalCount}</span>
+    </div>
+  `;
+}
+
+/**
+ * Render the full archive view (replaces conversation list content).
+ */
+function renderArchiveView(container: HTMLDivElement): void {
+  // Clear archive entry when showing full archive view
+  renderArchiveEntry();
+  const { archivedConversations, archivedPagination } = useStore.getState();
+
+  // Header with back button
+  const headerHtml = `
+    <div class="archive-view-header">
+      <button class="archive-back-btn" data-archive-back aria-label="Back to conversations">
+        <span class="archive-back-icon">${CHEVRON_RIGHT_ICON}</span>
+      </button>
+      <span class="archive-view-title">Archive</span>
+      <span class="archive-count">${archivedPagination.totalCount}</span>
+    </div>
+  `;
+
+  // Loading state
+  if (archivedConversations.length === 0 && archivedPagination.isLoadingMore) {
+    container.innerHTML = headerHtml + `
+      <div class="conversations-loading">
+        <div class="loading-spinner"></div>
+      </div>
+    `;
+    return;
+  }
+
+  // Empty state
+  if (archivedConversations.length === 0) {
+    container.innerHTML = headerHtml + `
+      <div class="conversations-empty">
+        <p>No archived conversations</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Archived items
+  const archivedItemsHtml = archivedConversations
+    .map((conv) => renderArchivedConversationItem(conv))
+    .join('');
+
+  // Load more indicator
+  const loadMoreHtml = archivedPagination.hasMore
+    ? `<div class="archive-load-more ${archivedPagination.isLoadingMore ? 'loading' : ''}">
+        <div class="loading-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>`
+    : '';
+
+  container.innerHTML = headerHtml + archivedItemsHtml + loadMoreHtml;
+
+  // Set up infinite scroll for archive
+  setupArchiveInfiniteScroll(container);
+}
+
+/**
+ * Set up infinite scroll for the archive view.
+ */
+function setupArchiveInfiniteScroll(container: HTMLDivElement): void {
+  if (archiveScrollListenerCleanup) return;
+
+  let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const handleScroll = () => {
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+
+    debounceTimeout = setTimeout(() => {
+      const { archivedPagination } = useStore.getState();
+
+      if (archivedPagination.isLoadingMore || !archivedPagination.hasMore) {
+        return;
+      }
+
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom < LOAD_MORE_THRESHOLD_PX) {
+        loadMoreArchivedConversations();
+      }
+    }, INFINITE_SCROLL_DEBOUNCE_MS);
+  };
+
+  container.addEventListener('scroll', handleScroll);
+
+  archiveScrollListenerCleanup = () => {
+    container.removeEventListener('scroll', handleScroll);
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+  };
+
+  log.debug('Archive infinite scroll set up');
+}
+
+/**
+ * Clean up archive infinite scroll listener.
+ */
+export function cleanupArchiveInfiniteScroll(): void {
+  if (archiveScrollListenerCleanup) {
+    archiveScrollListenerCleanup();
+    archiveScrollListenerCleanup = null;
+    log.debug('Archive infinite scroll cleaned up');
+  }
+}
+
+/**
+ * Load more archived conversations from API (pagination).
+ */
+async function loadMoreArchivedConversations(): Promise<void> {
+  const store = useStore.getState();
+  const { archivedPagination } = store;
+
+  if (!archivedPagination.hasMore || archivedPagination.isLoadingMore) {
+    return;
+  }
+
+  log.debug('Loading more archived conversations', { cursor: archivedPagination.nextCursor });
+
+  store.setLoadingMoreArchived(true);
+  renderConversationsList();
+
+  try {
+    const result = await conversationsApi.listArchived(
+      undefined,
+      archivedPagination.nextCursor ?? undefined
+    );
+
+    store.appendArchivedConversations(result.conversations, result.pagination);
+
+    log.info('Loaded more archived conversations', {
+      count: result.conversations.length,
+      hasMore: result.pagination.has_more,
+    });
+  } catch (error) {
+    log.error('Failed to load more archived conversations', { error });
+  } finally {
+    store.setLoadingMoreArchived(false);
+    renderConversationsList();
   }
 }
 

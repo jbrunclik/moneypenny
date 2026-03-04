@@ -157,6 +157,7 @@ def list_conversations(user: User) -> dict[str, Any]:
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat(),
                 "message_count": message_count,
+                "archived": c.archived or None,
             }
             for c, message_count in conv_with_counts
         ],
@@ -238,6 +239,50 @@ def search_conversations(user: User) -> dict[str, Any]:
         ],
         "total": total,
         "query": query,
+    }
+
+
+@api.route("/conversations/archived", methods=["GET"])
+@api.output(ConversationsListPaginatedResponse)
+@api.doc(responses=[429])
+@rate_limit_conversations
+@require_auth
+def list_archived_conversations(user: User) -> dict[str, Any]:
+    """List archived conversations with pagination."""
+    limit_param = request.args.get("limit")
+    cursor_param = request.args.get("cursor")
+
+    if limit_param:
+        try:
+            limit = int(limit_param)
+            limit = max(1, min(limit, Config.CONVERSATIONS_MAX_PAGE_SIZE))
+        except ValueError:
+            limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
+    else:
+        limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
+
+    conv_with_counts, next_cursor, has_more, total_count = db.list_archived_conversations_paginated(
+        user.id, limit=limit, cursor=cursor_param
+    )
+
+    return {
+        "conversations": [
+            {
+                "id": c.id,
+                "title": c.title,
+                "model": c.model,
+                "created_at": c.created_at.isoformat(),
+                "updated_at": c.updated_at.isoformat(),
+                "message_count": message_count,
+                "archived": True,
+            }
+            for c, message_count in conv_with_counts
+        ],
+        "pagination": {
+            "next_cursor": next_cursor,
+            "has_more": has_more,
+            "total_count": total_count,
+        },
     }
 
 
@@ -359,6 +404,7 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         "is_agent": conv.is_agent,
         "agent_id": conv.agent_id,
         "has_pending_approval": has_pending_approval,
+        "archived": conv.archived,
         "messages": optimized_messages,
         "message_pagination": {
             "older_cursor": pagination.older_cursor,
@@ -416,6 +462,36 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 
     logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "deleted"}, 200
+
+
+@api.route("/conversations/<conv_id>/archive", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
+@require_auth
+def archive_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
+    """Archive a conversation (hide from main list)."""
+    logger.debug("Archiving conversation", extra={"user_id": user.id, "conversation_id": conv_id})
+    if not db.archive_conversation(conv_id, user.id):
+        raise_not_found_error("Conversation")
+
+    logger.info("Conversation archived", extra={"user_id": user.id, "conversation_id": conv_id})
+    return {"status": "archived"}, 200
+
+
+@api.route("/conversations/<conv_id>/unarchive", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
+@require_auth
+def unarchive_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
+    """Unarchive a conversation (restore to main list)."""
+    logger.debug("Unarchiving conversation", extra={"user_id": user.id, "conversation_id": conv_id})
+    if not db.unarchive_conversation(conv_id, user.id):
+        raise_not_found_error("Conversation")
+
+    logger.info("Conversation unarchived", extra={"user_id": user.id, "conversation_id": conv_id})
+    return {"status": "unarchived"}, 200
 
 
 @api.route("/messages/<message_id>", methods=["GET"])

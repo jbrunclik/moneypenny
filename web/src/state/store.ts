@@ -137,6 +137,11 @@ interface AppState {
   commandCenterLastFetch: number | null; // Timestamp for cache invalidation
   isAgentsView: boolean;
 
+  // Archive state
+  archivedConversations: Conversation[];
+  archivedPagination: ConversationsPaginationState;
+  isArchiveView: boolean;
+
   // Storage (K/V) state
   isStorageView: boolean;
   storageData: KVNamespacesResponse | null;
@@ -244,6 +249,15 @@ interface AppState {
   invalidateCommandCenterCache: () => void;
   clearAgentsState: () => void;
 
+  // Actions - Archive
+  setArchivedConversations: (conversations: Conversation[], pagination: ConversationsPagination) => void;
+  appendArchivedConversations: (conversations: Conversation[], pagination: ConversationsPagination) => void;
+  removeArchivedConversation: (id: string) => void;
+  addArchivedConversation: (conversation: Conversation) => void;
+  updateArchivedConversation: (id: string, updates: Partial<Conversation>) => void;
+  setIsArchiveView: (active: boolean) => void;
+  setLoadingMoreArchived: (loading: boolean) => void;
+
   // Actions - Storage (K/V)
   setIsStorageView: (active: boolean) => void;
   setStorageData: (data: KVNamespacesResponse | null) => void;
@@ -326,6 +340,16 @@ export const useStore = create<AppState>()(
       commandCenterData: null,
       commandCenterLastFetch: null,
       isAgentsView: false,
+
+      // Archive state
+      archivedConversations: [],
+      archivedPagination: {
+        nextCursor: null,
+        hasMore: false,
+        totalCount: 0,
+        isLoadingMore: false,
+      },
+      isArchiveView: false,
 
       // Storage (K/V) state
       isStorageView: false,
@@ -692,6 +716,62 @@ export const useStore = create<AppState>()(
           commandCenterLastFetch: null,
           isAgentsView: false,
         }),
+
+      // Archive actions
+      setArchivedConversations: (conversations, pagination) =>
+        set({
+          archivedConversations: conversations,
+          archivedPagination: {
+            nextCursor: pagination.next_cursor,
+            hasMore: pagination.has_more,
+            totalCount: pagination.total_count,
+            isLoadingMore: false,
+          },
+        }),
+      appendArchivedConversations: (newConversations, pagination) =>
+        set((state) => {
+          const existingIds = new Set(state.archivedConversations.map((c) => c.id));
+          const filtered = newConversations.filter((c) => !existingIds.has(c.id));
+          return {
+            archivedConversations: [...state.archivedConversations, ...filtered],
+            archivedPagination: {
+              nextCursor: pagination.next_cursor,
+              hasMore: pagination.has_more,
+              totalCount: pagination.total_count,
+              isLoadingMore: false,
+            },
+          };
+        }),
+      removeArchivedConversation: (id) =>
+        set((state) => ({
+          archivedConversations: state.archivedConversations.filter((c) => c.id !== id),
+          archivedPagination: {
+            ...state.archivedPagination,
+            totalCount: Math.max(0, state.archivedPagination.totalCount - 1),
+          },
+        })),
+      addArchivedConversation: (conversation) =>
+        set((state) => ({
+          archivedConversations: [conversation, ...state.archivedConversations],
+          archivedPagination: {
+            ...state.archivedPagination,
+            totalCount: state.archivedPagination.totalCount + 1,
+          },
+        })),
+      updateArchivedConversation: (id, updates) =>
+        set((state) => ({
+          archivedConversations: state.archivedConversations.map((c) =>
+            c.id === id ? { ...c, ...updates } : c
+          ),
+        })),
+      setIsArchiveView: (isArchiveView) => set({ isArchiveView }),
+      setLoadingMoreArchived: (loading) =>
+        set((state) => ({
+          archivedPagination: {
+            ...state.archivedPagination,
+            isLoadingMore: loading,
+          },
+        })),
 
       // Storage (K/V) actions
       setIsStorageView: (isStorageView) => set({ isStorageView }),

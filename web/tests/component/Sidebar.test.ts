@@ -64,6 +64,14 @@ function resetStore() {
     appVersion: null,
     newVersionAvailable: false,
     versionBannerDismissed: false,
+    archivedConversations: [],
+    archivedPagination: {
+      nextCursor: null,
+      hasMore: false,
+      totalCount: 0,
+      isLoadingMore: false,
+    },
+    isArchiveView: false,
   });
 }
 
@@ -73,6 +81,7 @@ describe('Sidebar', () => {
       <div id="app">
         <aside id="sidebar">
           <div id="conversations-list"></div>
+          <div id="archive-entry-container"></div>
           <div id="user-info"></div>
         </aside>
       </div>
@@ -254,6 +263,207 @@ describe('Sidebar', () => {
       // Should no longer show loading
       const loadMoreDone = document.querySelector('.conversations-load-more');
       expect(loadMoreDone?.classList.contains('loading')).toBe(false);
+    });
+
+    it('includes archive button with correct data-archive-id attribute', () => {
+      useStore.setState({
+        conversations: [createConversation('conv-456', 'Archivable Chat')],
+      });
+
+      renderConversationsList();
+
+      const archiveBtn = document.querySelector('.conversation-archive');
+      expect(archiveBtn?.getAttribute('data-archive-id')).toBe('conv-456');
+    });
+
+    it('renders archive button for every conversation item', () => {
+      useStore.setState({
+        conversations: [
+          createConversation('a', 'First'),
+          createConversation('b', 'Second'),
+          createConversation('c', 'Third'),
+        ],
+      });
+
+      renderConversationsList();
+
+      const archiveBtns = document.querySelectorAll('.conversation-archive');
+      expect(archiveBtns.length).toBe(3);
+      expect(archiveBtns[0].getAttribute('data-archive-id')).toBe('a');
+      expect(archiveBtns[1].getAttribute('data-archive-id')).toBe('b');
+      expect(archiveBtns[2].getAttribute('data-archive-id')).toBe('c');
+    });
+
+    it('renders archive entry in pinned container when archivedPagination.totalCount > 0', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Active Chat')],
+        archivedConversations: [createConversation('2', 'Archived Chat')],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 1,
+          isLoadingMore: false,
+        },
+      });
+
+      renderConversationsList();
+
+      const entryContainer = document.getElementById('archive-entry-container');
+      const archiveEntry = entryContainer?.querySelector('.archive-entry');
+      expect(archiveEntry).not.toBeNull();
+    });
+
+    it('renders archive entry when archivedConversations length > 0 with totalCount > 0', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Active')],
+        archivedConversations: [
+          createConversation('arch-1', 'Old Chat'),
+          createConversation('arch-2', 'Another Old Chat'),
+        ],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 2,
+          isLoadingMore: false,
+        },
+      });
+
+      renderConversationsList();
+
+      const entryContainer = document.getElementById('archive-entry-container');
+      const archiveEntry = entryContainer?.querySelector('.archive-entry');
+      expect(archiveEntry).not.toBeNull();
+    });
+
+    it('hides archive entry when totalCount is 0 and no archived conversations', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Active Chat')],
+        archivedConversations: [],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 0,
+          isLoadingMore: false,
+        },
+      });
+
+      renderConversationsList();
+
+      const entryContainer = document.getElementById('archive-entry-container');
+      const archiveEntry = entryContainer?.querySelector('.archive-entry');
+      expect(archiveEntry).toBeNull();
+    });
+
+    it('renders archive view with back button and items when isArchiveView is true', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Active')],
+        archivedConversations: [createConversation('arch-1', 'Archived Chat')],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 1,
+          isLoadingMore: false,
+        },
+        isArchiveView: true,
+      });
+
+      renderConversationsList();
+
+      const header = document.querySelector('.archive-view-header');
+      expect(header).not.toBeNull();
+      const backBtn = document.querySelector('.archive-back-btn');
+      expect(backBtn).not.toBeNull();
+      const unarchiveBtn = document.querySelector('.conversation-unarchive');
+      expect(unarchiveBtn).not.toBeNull();
+      expect(unarchiveBtn?.getAttribute('data-unarchive-id')).toBe('arch-1');
+    });
+
+    it('renders rename button on archived items in archive view', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Active')],
+        archivedConversations: [createConversation('arch-1', 'Archived Chat')],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 1,
+          isLoadingMore: false,
+        },
+        isArchiveView: true,
+      });
+
+      renderConversationsList();
+
+      const renameBtn = document.querySelector('.conversation-rename');
+      expect(renameBtn).not.toBeNull();
+      expect(renameBtn?.getAttribute('data-rename-id')).toBe('arch-1');
+    });
+
+    it('renders unarchive button for each archived item in archive view', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Active')],
+        archivedConversations: [
+          createConversation('a1', 'Archived One'),
+          createConversation('a2', 'Archived Two'),
+        ],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 2,
+          isLoadingMore: false,
+        },
+        isArchiveView: true,
+      });
+
+      renderConversationsList();
+
+      const unarchiveBtns = document.querySelectorAll('.conversation-unarchive');
+      expect(unarchiveBtns.length).toBe(2);
+      expect(unarchiveBtns[0].getAttribute('data-unarchive-id')).toBe('a1');
+      expect(unarchiveBtns[1].getAttribute('data-unarchive-id')).toBe('a2');
+    });
+
+    it('does not render archived items in normal view (only archive entry in pinned container)', () => {
+      useStore.setState({
+        conversations: [createConversation('1', 'Active')],
+        archivedConversations: [createConversation('arch-1', 'Archived Chat')],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 1,
+          isLoadingMore: false,
+        },
+        isArchiveView: false,
+      });
+
+      renderConversationsList();
+
+      // Archive entry should be in pinned container but items should not be visible
+      const entryContainer = document.getElementById('archive-entry-container');
+      const archiveEntry = entryContainer?.querySelector('.archive-entry');
+      expect(archiveEntry).not.toBeNull();
+      const unarchiveBtn = document.querySelector('.conversation-unarchive');
+      expect(unarchiveBtn).toBeNull();
+    });
+
+    it('shows archive entry with totalCount even when local list is empty', () => {
+      // totalCount > 0 but archivedConversations not yet loaded
+      useStore.setState({
+        conversations: [createConversation('1', 'Active')],
+        archivedConversations: [],
+        archivedPagination: {
+          nextCursor: null,
+          hasMore: false,
+          totalCount: 3,
+          isLoadingMore: false,
+        },
+      });
+
+      renderConversationsList();
+
+      const entryContainer = document.getElementById('archive-entry-container');
+      const archiveEntry = entryContainer?.querySelector('.archive-entry');
+      expect(archiveEntry).not.toBeNull();
+      expect(archiveEntry?.innerHTML).toContain('3');
     });
 
     it('loader state persists correctly after re-render', () => {

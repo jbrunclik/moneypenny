@@ -479,6 +479,25 @@ export const ACTIVITY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curre
   <path d="M3.5 12h4l1.5-3 2 6 1.5-3h8"/>
 </svg>`;
 
+/**
+ * Archive icon (box with down arrow - Lucide-style)
+ */
+export const ARCHIVE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2" y="3" width="20" height="5" rx="1"/>
+  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+  <path d="M10 12h4"/>
+</svg>`;
+
+/**
+ * Unarchive icon (box with up arrow)
+ */
+export const UNARCHIVE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2" y="3" width="20" height="5" rx="1"/>
+  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+  <polyline points="9 14 12 11 15 14"/>
+  <line x1="12" y1="11" x2="12" y2="19"/>
+</svg>`;
+
 // ============================================
 // Weather Icons (mapped from Yr.no symbol_code)
 // ============================================

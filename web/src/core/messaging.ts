@@ -251,6 +251,22 @@ export async function sendMessage(): Promise<void> {
   let conv = store.currentConversation;
   if (!conv) return;
 
+  // Auto-unarchive if sending a message in an archived conversation
+  if (conv.archived && !isTempConversation(conv.id)) {
+    try {
+      await conversations.unarchive(conv.id);
+      store.removeArchivedConversation(conv.id);
+      store.updateConversation(conv.id, { archived: false });
+      conv = { ...conv, archived: false };
+      store.setCurrentConversation(conv);
+      renderConversationsList();
+      log.info('Auto-unarchived conversation on message send', { conversationId: conv.id });
+    } catch (error) {
+      log.warn('Failed to auto-unarchive conversation', { error, conversationId: conv.id });
+      // Continue sending - unarchive failure shouldn't block the message
+    }
+  }
+
   // If this is a temp conversation, persist it to the backend first
   if (isTempConversation(conv.id)) {
     try {

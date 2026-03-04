@@ -55,6 +55,10 @@ class ConversationMixin:
             is_agent = bool(row["is_agent"]) if row["is_agent"] else False
             agent_id = row["agent_id"]
 
+        archived = False
+        if "archived" in row.keys():
+            archived = bool(row["archived"]) if row["archived"] else False
+
         return Conversation(
             id=row["id"],
             user_id=row["user_id"],
@@ -66,6 +70,7 @@ class ConversationMixin:
             last_reset=last_reset,
             is_agent=is_agent,
             agent_id=agent_id,
+            archived=archived,
         )
 
     def create_conversation(
@@ -140,6 +145,7 @@ class ConversationMixin:
                     """SELECT * FROM conversations WHERE user_id = ?
                        AND (is_planning = 0 OR is_planning IS NULL)
                        AND (is_agent = 0 OR is_agent IS NULL)
+                       AND (archived = 0 OR archived IS NULL)
                        ORDER BY updated_at DESC""",
                     (user_id,),
                 ).fetchall()
@@ -171,18 +177,19 @@ class ConversationMixin:
             - total_count: Total number of conversations for this user (excluding planner)
         """
         with self._pool.get_connection() as conn:
-            # Get total count for this user (excluding planning and agent conversations)
+            # Get total count for this user (excluding planning, agent, and archived conversations)
             total_row = self._execute_with_timing(
                 conn,
                 """SELECT COUNT(*) as count FROM conversations
                    WHERE user_id = ?
                      AND (is_planning = 0 OR is_planning IS NULL)
-                     AND (is_agent = 0 OR is_agent IS NULL)""",
+                     AND (is_agent = 0 OR is_agent IS NULL)
+                     AND (archived = 0 OR archived IS NULL)""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
 
-            # Build the query based on cursor (excluding planning and agent conversations)
+            # Build the query based on cursor (excluding planning, agent, and archived conversations)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
                 # Use tuple comparison for stable pagination:
@@ -194,6 +201,7 @@ class ConversationMixin:
                        WHERE user_id = ?
                          AND (is_planning = 0 OR is_planning IS NULL)
                          AND (is_agent = 0 OR is_agent IS NULL)
+                         AND (archived = 0 OR archived IS NULL)
                          AND (updated_at < ? OR (updated_at = ? AND id < ?))
                        ORDER BY updated_at DESC, id DESC
                        LIMIT ?""",
@@ -206,6 +214,7 @@ class ConversationMixin:
                        WHERE user_id = ?
                          AND (is_planning = 0 OR is_planning IS NULL)
                          AND (is_agent = 0 OR is_agent IS NULL)
+                         AND (archived = 0 OR archived IS NULL)
                        ORDER BY updated_at DESC, id DESC
                        LIMIT ?""",
                     (user_id, limit + 1),
@@ -251,18 +260,19 @@ class ConversationMixin:
             - total_count: Total number of conversations for this user (excluding planner)
         """
         with self._pool.get_connection() as conn:
-            # Get total count for this user (excluding planning and agent conversations)
+            # Get total count for this user (excluding planning, agent, and archived conversations)
             total_row = self._execute_with_timing(
                 conn,
                 """SELECT COUNT(*) as count FROM conversations
                    WHERE user_id = ?
                      AND (is_planning = 0 OR is_planning IS NULL)
-                     AND (is_agent = 0 OR is_agent IS NULL)""",
+                     AND (is_agent = 0 OR is_agent IS NULL)
+                     AND (archived = 0 OR archived IS NULL)""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
 
-            # Build the query with JOIN for message counts (excluding planning and agent conversations)
+            # Build the query with JOIN for message counts (excluding planning, agent, and archived)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
                 rows = self._execute_with_timing(
@@ -274,6 +284,7 @@ class ConversationMixin:
                        WHERE c.user_id = ?
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
+                         AND (c.archived = 0 OR c.archived IS NULL)
                          AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
@@ -290,6 +301,7 @@ class ConversationMixin:
                        WHERE c.user_id = ?
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
+                         AND (c.archived = 0 OR c.archived IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
                        LIMIT ?""",
@@ -353,6 +365,7 @@ class ConversationMixin:
                        WHERE c.user_id = ?
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
+                         AND (c.archived = 0 OR c.archived IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC""",
                     (user_id,),
@@ -401,12 +414,100 @@ class ConversationMixin:
                        WHERE c.user_id = ? AND c.updated_at > ?
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
+                         AND (c.archived = 0 OR c.archived IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC""",
                     (user_id, since.isoformat()),
                 ).fetchall()
 
             return [(self._row_to_conversation(row), int(row["message_count"])) for row in rows]
+
+    def archive_conversation(self, conv_id: str, user_id: str) -> bool:
+        """Archive a conversation (hide from main list)."""
+        now = datetime.now().isoformat()
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE conversations SET archived = 1, updated_at = ? WHERE id = ? AND user_id = ?",
+                (now, conv_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def unarchive_conversation(self, conv_id: str, user_id: str) -> bool:
+        """Unarchive a conversation (restore to main list)."""
+        now = datetime.now().isoformat()
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE conversations SET archived = 0, updated_at = ? WHERE id = ? AND user_id = ?",
+                (now, conv_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def list_archived_conversations_paginated(
+        self,
+        user_id: str,
+        limit: int = 30,
+        cursor: str | None = None,
+    ) -> tuple[list[tuple[Conversation, int]], str | None, bool, int]:
+        """List archived conversations with message counts and pagination.
+
+        Same structure as list_conversations_paginated_with_counts but filtering archived = 1.
+        """
+        with self._pool.get_connection() as conn:
+            total_row = self._execute_with_timing(
+                conn,
+                """SELECT COUNT(*) as count FROM conversations
+                   WHERE user_id = ? AND archived = 1""",
+                (user_id,),
+            ).fetchone()
+            total_count = int(total_row["count"]) if total_row else 0
+
+            if cursor:
+                cursor_timestamp, cursor_id = parse_cursor(cursor)
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              c.is_planning, COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ? AND c.archived = 1
+                         AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC, c.id DESC
+                       LIMIT ?""",
+                    (user_id, cursor_timestamp, cursor_timestamp, cursor_id, limit + 1),
+                ).fetchall()
+            else:
+                rows = self._execute_with_timing(
+                    conn,
+                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
+                              c.is_planning, COUNT(m.id) as message_count
+                       FROM conversations c
+                       LEFT JOIN messages m ON m.conversation_id = c.id
+                       WHERE c.user_id = ? AND c.archived = 1
+                       GROUP BY c.id
+                       ORDER BY c.updated_at DESC, c.id DESC
+                       LIMIT ?""",
+                    (user_id, limit + 1),
+                ).fetchall()
+
+            has_more = len(rows) > limit
+            if has_more:
+                rows = rows[:limit]
+
+            next_cursor = None
+            if has_more and rows:
+                last_row = rows[-1]
+                next_cursor = build_cursor(last_row["updated_at"], last_row["id"])
+
+            conversations_with_counts = [
+                (self._row_to_conversation(row), int(row["message_count"])) for row in rows
+            ]
+
+            return conversations_with_counts, next_cursor, has_more, total_count
 
     # Whitelist of allowed columns for update_conversation to prevent SQL injection
     _CONVERSATION_UPDATE_COLUMNS = frozenset({"title", "model"})

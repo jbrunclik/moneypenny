@@ -49,6 +49,7 @@ class Conversation:
     last_reset: datetime | None = None  # For planner conversations
     is_agent: bool = False  # Whether this is an autonomous agent's conversation
     agent_id: str | None = None  # Link to autonomous_agents table
+    archived: bool = False  # Whether conversation is archived (hidden from main list)
 
 
 @dataclass

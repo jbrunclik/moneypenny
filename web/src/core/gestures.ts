@@ -21,7 +21,7 @@ export function setupTouchGestures(): void {
 
   // Constants
   const SWIPE_THRESHOLD = 60;
-  const SWIPE_DISTANCE = 160; // Updated from 80 to accommodate both rename and delete buttons
+  const SWIPE_DISTANCE = 240; // 3 buttons x 80px (rename, archive, delete)
   const EDGE_ZONE = 50; // px from left edge to trigger sidebar swipe
 
   // Track active swipe type to prevent conflicts

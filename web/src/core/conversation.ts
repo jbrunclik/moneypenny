@@ -13,6 +13,8 @@ import {
   setActiveConversation,
   closeSidebar,
   setPlannerActive,
+  loadArchivedConversations,
+  cleanupArchiveInfiniteScroll,
 } from '../components/Sidebar';
 import {
   renderMessages,
@@ -437,9 +439,19 @@ export async function deleteConversation(convId: string): Promise<void> {
     return;
   }
 
+  // Check if the conversation is archived
+  const store = useStore.getState();
+  const isArchived = store.archivedConversations.some(c => c.id === convId);
+
   try {
     await conversations.delete(convId);
-    removeConversationFromUI(convId);
+
+    if (isArchived) {
+      store.removeArchivedConversation(convId);
+      renderConversationsList();
+    } else {
+      removeConversationFromUI(convId);
+    }
   } catch (error) {
     log.error('Failed to delete conversation', { error, conversationId: convId });
     toast.error('Failed to delete conversation. Please try again.');
@@ -479,12 +491,15 @@ export async function deleteMessage(messageId: string): Promise<void> {
  */
 export async function renameConversation(convId: string): Promise<void> {
   const store = useStore.getState();
-  const conv = store.conversations.find(c => c.id === convId);
+  const conv = store.conversations.find(c => c.id === convId)
+    || store.archivedConversations.find(c => c.id === convId);
 
   if (!conv) {
     log.warn('Conversation not found for rename', { conversationId: convId });
     return;
   }
+
+  const isArchived = store.archivedConversations.some(c => c.id === convId);
 
   const currentTitle = conv.title || DEFAULT_CONVERSATION_TITLE;
 
@@ -530,7 +545,11 @@ export async function renameConversation(convId: string): Promise<void> {
     await conversations.update(convId, { title: trimmedTitle });
 
     // Update local state
-    store.updateConversation(convId, { title: trimmedTitle });
+    if (isArchived) {
+      store.updateArchivedConversation(convId, { title: trimmedTitle });
+    } else {
+      store.updateConversation(convId, { title: trimmedTitle });
+    }
 
     // Update chat title if this is the current conversation
     if (store.currentConversation?.id === convId) {
@@ -756,4 +775,91 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
     // This handles going back to a conversation that was beyond the paginated list
     loadDeepLinkedConversation(conversationId);
   }
+}
+
+/**
+ * Archive a conversation (no confirmation needed - it's reversible).
+ */
+export async function archiveConversation(convId: string): Promise<void> {
+  if (isTempConversation(convId)) return;
+
+  const store = useStore.getState();
+  const conv = store.conversations.find((c) => c.id === convId);
+  if (!conv) return;
+
+  try {
+    await conversations.archive(convId);
+
+    // Move from active to archived list
+    store.removeConversation(convId);
+    store.addArchivedConversation({ ...conv, archived: true });
+
+    // If this was the current conversation, clear it
+    if (store.currentConversation?.id === convId) {
+      store.setCurrentConversation(null);
+      renderMessages([]);
+      updateChatTitle('AI Chatbot');
+      clearConversationHash();
+    }
+
+    renderConversationsList();
+    toast.success('Conversation archived.', {
+      action: {
+        label: 'Undo',
+        onClick: () => unarchiveConversation(convId),
+      },
+    });
+  } catch (error) {
+    log.error('Failed to archive conversation', { error, conversationId: convId });
+    toast.error('Failed to archive conversation.');
+  }
+}
+
+/**
+ * Unarchive a conversation (restore to main list).
+ */
+export async function unarchiveConversation(convId: string): Promise<void> {
+  const store = useStore.getState();
+  const conv = store.archivedConversations.find((c) => c.id === convId);
+  if (!conv) return;
+
+  try {
+    await conversations.unarchive(convId);
+
+    // Move from archived to active list
+    store.removeArchivedConversation(convId);
+    store.addConversation({ ...conv, archived: false });
+    renderConversationsList();
+    toast.success('Conversation restored.');
+  } catch (error) {
+    log.error('Failed to unarchive conversation', { error, conversationId: convId });
+    toast.error('Failed to unarchive conversation.');
+  }
+}
+
+/**
+ * Navigate to the archive view (full-view, like search).
+ * Lazy-loads archived conversations on first open.
+ */
+export function navigateToArchive(): void {
+  const store = useStore.getState();
+  store.setIsArchiveView(true);
+
+  // Lazy-load archived conversations on first open
+  if (store.archivedConversations.length === 0) {
+    loadArchivedConversations();
+    return; // loadArchivedConversations will re-render
+  }
+
+  renderConversationsList();
+}
+
+/**
+ * Leave the archive view and return to conversations list.
+ */
+export function leaveArchiveView(): void {
+  const store = useStore.getState();
+  store.setIsArchiveView(false);
+  cleanupArchiveInfiniteScroll();
+  renderConversationsList();
 }

@@ -689,3 +689,74 @@ class TestSyncOperations:
 
         assert len(result) == 1
         assert result[0][0].title == "Test User Conv"
+
+
+class TestArchiveOperations:
+    """Tests for conversation archive/unarchive operations."""
+
+    def test_archive_conversation(self, test_database: Database, test_user: User) -> None:
+        """Should archive a conversation and exclude it from list_conversations."""
+        conv = test_database.create_conversation(test_user.id, "Active Conv")
+
+        result = test_database.archive_conversation(conv.id, test_user.id)
+
+        assert result is True
+        # Archived conversation should not appear in regular listing
+        active_conversations = test_database.list_conversations(test_user.id)
+        assert not any(c.id == conv.id for c in active_conversations)
+
+    def test_unarchive_conversation(self, test_database: Database, test_user: User) -> None:
+        """Should unarchive a conversation and restore it to list_conversations."""
+        conv = test_database.create_conversation(test_user.id, "To Restore")
+
+        test_database.archive_conversation(conv.id, test_user.id)
+        result = test_database.unarchive_conversation(conv.id, test_user.id)
+
+        assert result is True
+        # Unarchived conversation should appear in regular listing again
+        active_conversations = test_database.list_conversations(test_user.id)
+        assert any(c.id == conv.id for c in active_conversations)
+
+    def test_archive_excluded_from_paginated_list(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should exclude archived conversations from list_conversations_paginated_with_counts."""
+        active_conv = test_database.create_conversation(test_user.id, "Active")
+        archived_conv = test_database.create_conversation(test_user.id, "Archived")
+
+        test_database.archive_conversation(archived_conv.id, test_user.id)
+
+        conv_with_counts, _next_cursor, _has_more, total_count = (
+            test_database.list_conversations_paginated_with_counts(test_user.id)
+        )
+        returned_ids = [c.id for c, _count in conv_with_counts]
+
+        assert active_conv.id in returned_ids
+        assert archived_conv.id not in returned_ids
+        assert total_count == 1
+
+    def test_list_archived_conversations(self, test_database: Database, test_user: User) -> None:
+        """Should return only archived conversations from list_archived_conversations_paginated."""
+        active_conv = test_database.create_conversation(test_user.id, "Active Chat")
+        archived_conv1 = test_database.create_conversation(test_user.id, "Archived 1")
+        archived_conv2 = test_database.create_conversation(test_user.id, "Archived 2")
+
+        test_database.archive_conversation(archived_conv1.id, test_user.id)
+        test_database.archive_conversation(archived_conv2.id, test_user.id)
+
+        archived_with_counts, _next_cursor, _has_more, total_count = (
+            test_database.list_archived_conversations_paginated(test_user.id)
+        )
+        returned_ids = [c.id for c, _count in archived_with_counts]
+
+        assert archived_conv1.id in returned_ids
+        assert archived_conv2.id in returned_ids
+        assert active_conv.id not in returned_ids
+        assert total_count == 2
+
+    def test_archive_nonexistent_conversation(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """Should return False when archiving a nonexistent conversation."""
+        result = test_database.archive_conversation("nonexistent-conv-id", test_user.id)
+        assert result is False

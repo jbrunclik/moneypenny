@@ -132,6 +132,7 @@ The following indexes are defined to optimize common query patterns:
 
 - `idx_conversations_user_id` - For filtering by user
 - `idx_conversations_user_id_updated_at` - Composite index for `list_conversations()` (filter + sort)
+- `idx_conversations_user_archived` - Composite index for archive filtering `(user_id, archived)`
 
 ### Messages Table
 

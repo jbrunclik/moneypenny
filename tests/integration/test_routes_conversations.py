@@ -319,3 +319,146 @@ class TestDeleteConversation:
         """Should return 401 without authentication."""
         response = client.delete(f"/api/conversations/{test_conversation.id}")
         assert response.status_code == 401
+
+
+class TestArchiveConversation:
+    """Tests for POST /api/conversations/<conv_id>/archive endpoint."""
+
+    def test_archive_conversation(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """Should archive a conversation and return status archived."""
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/archive",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["status"] == "archived"
+
+    def test_archive_nonexistent_returns_404(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        """Should return 404 when archiving a nonexistent conversation."""
+        response = client.post(
+            "/api/conversations/nonexistent-id/archive",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 404
+
+    def test_archive_requires_auth(
+        self, client: FlaskClient, test_conversation: Conversation
+    ) -> None:
+        """Should return 401 without authentication."""
+        response = client.post(f"/api/conversations/{test_conversation.id}/archive")
+        assert response.status_code == 401
+
+    def test_archived_excluded_from_list(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """Should exclude archived conversation from GET /api/conversations."""
+        # Archive the conversation
+        client.post(
+            f"/api/conversations/{test_conversation.id}/archive",
+            headers=auth_headers,
+        )
+
+        # The conversation should not appear in the regular list
+        response = client.get("/api/conversations", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        returned_ids = [c["id"] for c in data["conversations"]]
+        assert test_conversation.id not in returned_ids
+
+
+class TestUnarchiveConversation:
+    """Tests for POST /api/conversations/<conv_id>/unarchive endpoint."""
+
+    def test_unarchive_conversation(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Should unarchive a conversation and return status unarchived."""
+        # Archive first so we can unarchive
+        test_database.archive_conversation(test_conversation.id, test_conversation.user_id)
+
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/unarchive",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["status"] == "unarchived"
+
+    def test_unarchive_nonexistent_returns_404(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        """Should return 404 when unarchiving a nonexistent conversation."""
+        response = client.post(
+            "/api/conversations/nonexistent-id/unarchive",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 404
+
+    def test_unarchive_requires_auth(
+        self, client: FlaskClient, test_conversation: Conversation
+    ) -> None:
+        """Should return 401 without authentication."""
+        response = client.post(f"/api/conversations/{test_conversation.id}/unarchive")
+        assert response.status_code == 401
+
+
+class TestListArchivedConversations:
+    """Tests for GET /api/conversations/archived endpoint."""
+
+    def test_list_archived(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """Should return archived conversations after archiving one."""
+        # Archive the test conversation
+        client.post(
+            f"/api/conversations/{test_conversation.id}/archive",
+            headers=auth_headers,
+        )
+
+        response = client.get("/api/conversations/archived", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert "conversations" in data
+        assert "pagination" in data
+        returned_ids = [c["id"] for c in data["conversations"]]
+        assert test_conversation.id in returned_ids
+        # Each archived conversation should have archived flag set
+        archived_conv = next(c for c in data["conversations"] if c["id"] == test_conversation.id)
+        assert archived_conv["archived"] is True
+
+    def test_list_archived_empty(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        """Should return empty list when no conversations are archived."""
+        response = client.get("/api/conversations/archived", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["conversations"] == []
+
+    def test_list_archived_requires_auth(self, client: FlaskClient) -> None:
+        """Should return 401 without authentication."""
+        response = client.get("/api/conversations/archived")
+        assert response.status_code == 401

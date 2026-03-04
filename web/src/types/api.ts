@@ -55,6 +55,8 @@ export interface Conversation {
   is_agent?: boolean; // True if this is an agent's dedicated conversation
   agent_id?: string | null; // ID of the agent if is_agent is true
   has_pending_approval?: boolean; // True if agent has pending approval request (from server)
+  // Archive state
+  archived?: boolean; // True if conversation is archived (hidden from main list)
   // Sync-related fields
   unreadCount?: number; // Number of unread messages from other devices
   hasExternalUpdate?: boolean; // True if conversation was updated externally while viewing
@@ -219,6 +221,7 @@ export interface ConversationDetailResponse {
   is_agent?: boolean;
   agent_id?: string | null;
   has_pending_approval?: boolean; // True if agent has pending approval request
+  archived?: boolean;
   messages: Message[];
   message_pagination: MessagesPagination;
 }

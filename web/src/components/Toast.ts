@@ -206,8 +206,10 @@ function renderToasts(notifications: Notification[]): void {
 
 // Convenience functions for common toast types
 export const toast = {
-  success: (message: string, options?: { duration?: number }) =>
-    showToast({ type: 'success', message, ...options }),
+  success: (
+    message: string,
+    options?: { action?: { label: string; onClick: () => void }; duration?: number }
+  ) => showToast({ type: 'success', message, ...options }),
 
   error: (
     message: string,

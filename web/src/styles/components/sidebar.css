@@ -83,11 +83,6 @@
     transition: margin-right var(--transition-fast);
 }
 
-/* On hover, make room for action buttons */
-.conversation-item:hover .conversation-title {
-    margin-right: 56px;
-}
-
 /* ----------------------------------------
    Conversation Actions (Desktop)
    ---------------------------------------- */
@@ -106,7 +101,8 @@
 }
 
 .conversation-rename,
-.conversation-delete {
+.conversation-delete,
+.conversation-archive {
     background: none;
     border: none;
     color: var(--text-muted);
@@ -121,7 +117,8 @@
 }
 
 .conversation-rename svg,
-.conversation-delete svg {
+.conversation-delete svg,
+.conversation-archive svg {
     width: 16px;
     height: 16px;
 }
@@ -131,9 +128,19 @@
     background-color: var(--accent-muted);
 }
 
+.conversation-archive:hover {
+    color: var(--text-secondary);
+    background-color: var(--bg-hover);
+}
+
 .conversation-delete:hover {
     color: var(--error);
     background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* On hover, make room for 3 action buttons */
+.conversation-item:hover .conversation-title {
+    margin-right: 80px;
 }
 
 /* ----------------------------------------
@@ -151,10 +158,10 @@
 
     .conversation-actions-swipe {
         position: absolute;
-        right: -160px;
+        right: -240px;
         top: 0;
         bottom: 0;
-        width: 160px;
+        width: 240px;
         display: flex;
         flex-shrink: 0;
         transition: right var(--transition-slow);
@@ -164,6 +171,7 @@
     }
 
     .conversation-rename-swipe,
+    .conversation-archive-swipe,
     .conversation-delete-swipe {
         width: 80px;
         color: white;
@@ -183,11 +191,16 @@
         background-color: var(--accent);
     }
 
+    .conversation-archive-swipe {
+        background-color: var(--text-muted);
+    }
+
     .conversation-delete-swipe {
         background-color: var(--error);
     }
 
     .conversation-rename-swipe svg,
+    .conversation-archive-swipe svg,
     .conversation-delete-swipe svg {
         width: 20px;
         height: 20px;
@@ -195,7 +208,7 @@
 
     /* Swiped state */
     .conversation-item-wrapper.swiped .conversation-item {
-        transform: translateX(-160px);
+        transform: translateX(-240px);
         border-radius: var(--radius-sm) 0 0 var(--radius-sm);
     }
 
@@ -213,34 +226,27 @@
 .user-info {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-}
-
-.user-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    width: 100%;
+    gap: var(--space-2);
 }
 
 .user-actions-buttons {
     display: flex;
     align-items: center;
     gap: var(--space-1);
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .user-profile {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
-    flex: 1;
+    gap: var(--space-2);
     min-width: 0;
 }
 
 .user-avatar {
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-full);
     background-color: var(--bg-tertiary);
     object-fit: cover;
@@ -253,12 +259,12 @@
     justify-content: center;
     background-color: var(--bg-user);
     color: white;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-xs);
     font-weight: 500;
 }
 
 .user-name {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -520,4 +526,174 @@
 
 .search-loading p {
     margin-top: var(--space-3);
+}
+
+/* ----------------------------------------
+   Archive Entry (sidebar navigation item)
+   ---------------------------------------- */
+
+#archive-entry-container {
+    flex-shrink: 0;
+    padding: 0 var(--space-2);
+    border-top: 1px solid var(--border);
+}
+
+#archive-entry-container:empty {
+    display: none;
+}
+
+.archive-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition-fast);
+    user-select: none;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.archive-entry:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-secondary);
+}
+
+.archive-entry-icon {
+    display: flex;
+    align-items: center;
+}
+
+.archive-entry-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.archive-entry-label {
+    flex: 1;
+}
+
+.archive-count {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    background-color: var(--bg-tertiary);
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-full);
+    min-width: 18px;
+    text-align: center;
+}
+
+/* ----------------------------------------
+   Archive View (full-view, like search)
+   ---------------------------------------- */
+
+.archive-view-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-2);
+}
+
+.archive-back-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.archive-back-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
+}
+
+.archive-back-icon {
+    display: flex;
+    align-items: center;
+    transform: rotate(180deg);
+}
+
+.archive-back-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.archive-view-title {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.archive-load-more {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-4);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.archive-load-more.loading {
+    opacity: 1;
+}
+
+.archive-load-more .loading-dots {
+    justify-content: center;
+}
+
+/* Unarchive button in archived items */
+.conversation-unarchive {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.conversation-unarchive svg {
+    width: 16px;
+    height: 16px;
+}
+
+.conversation-unarchive:hover {
+    color: var(--accent);
+    background-color: var(--accent-muted);
+}
+
+/* Swipe actions for archived items */
+@media (hover: none) {
+    .conversation-unarchive-swipe {
+        width: 80px;
+        color: white;
+        border: none;
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-1);
+        flex-shrink: 0;
+        background-color: var(--accent);
+    }
+
+    .conversation-unarchive-swipe svg {
+        width: 20px;
+        height: 20px;
+    }
 }

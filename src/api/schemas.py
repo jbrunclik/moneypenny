@@ -484,6 +484,7 @@ class ConversationResponse(BaseModel):
     created_at: str
     updated_at: str
     message_count: int | None = None
+    archived: bool | None = None
 
 
 class ConversationDetailResponse(BaseModel):
@@ -760,6 +761,7 @@ class ConversationDetailPaginatedResponse(BaseModel):
     is_agent: bool = False
     agent_id: str | None = None
     has_pending_approval: bool = False  # True if agent has pending approval request
+    archived: bool = False
     messages: list[MessageResponse]
     message_pagination: MessagesPaginationResponse
 

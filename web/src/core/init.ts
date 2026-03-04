@@ -13,6 +13,7 @@ import {
   renderConversationsList,
   renderUserInfo,
   cleanupInfiniteScroll,
+  loadArchivedConversations,
 } from '../components/Sidebar';
 import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
@@ -86,6 +87,7 @@ export function renderAppShell(): string {
       </div>
       <div id="search-container" class="search-container"></div>
       <div id="conversations-list" class="conversations-list"></div>
+      <div id="archive-entry-container"></div>
       <div class="sidebar-footer">
         <div id="user-info" class="user-info"></div>
       </div>
@@ -270,6 +272,11 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     renderConversationsList();
     renderUserInfo();
     renderModelDropdown();
+
+    // Load archive count in background (non-blocking) to show archive section
+    loadArchivedConversations().catch(() => {
+      // Ignore errors - archive section is optional
+    });
 
     // Handle initial route from URL hash BEFORE starting sync manager
     // This prevents false "new messages available" banners for the deep-linked conversation

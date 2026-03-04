@@ -12,7 +12,7 @@ import { openSettingsPopup } from '../components/SettingsPopup';
 import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
 
-import { createConversation, selectConversation, deleteConversation, renameConversation } from './conversation';
+import { createConversation, selectConversation, deleteConversation, renameConversation, archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView } from './conversation';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToStorage } from './kv-store';
@@ -56,6 +56,15 @@ export function setupEventListeners(): void {
     }
   });
 
+  // Archive entry container clicks (pinned below conversations list)
+  getElementById('archive-entry-container')?.addEventListener('click', (e) => {
+    const archiveEntry = (e.target as HTMLElement).closest('.archive-entry');
+    if (archiveEntry) {
+      e.stopPropagation();
+      navigateToArchive();
+    }
+  });
+
   // Conversation list clicks
   getElementById('conversations-list')?.addEventListener('click', (e) => {
     // Handle rename button clicks
@@ -70,6 +79,30 @@ export function setupEventListeners(): void {
       return;
     }
 
+    // Handle archive button clicks
+    const archiveBtn = (e.target as HTMLElement).closest('[data-archive-id]');
+    if (archiveBtn) {
+      e.stopPropagation();
+      const id = (archiveBtn as HTMLElement).dataset.archiveId;
+      if (id) {
+        resetSwipeStates();
+        archiveConversation(id);
+      }
+      return;
+    }
+
+    // Handle unarchive button clicks
+    const unarchiveBtn = (e.target as HTMLElement).closest('[data-unarchive-id]');
+    if (unarchiveBtn) {
+      e.stopPropagation();
+      const id = (unarchiveBtn as HTMLElement).dataset.unarchiveId;
+      if (id) {
+        resetSwipeStates();
+        unarchiveConversation(id);
+      }
+      return;
+    }
+
     // Handle delete button clicks
     const deleteBtn = (e.target as HTMLElement).closest('[data-delete-id]');
     if (deleteBtn) {
@@ -79,6 +112,14 @@ export function setupEventListeners(): void {
         resetSwipeStates();
         deleteConversation(id);
       }
+      return;
+    }
+
+    // Handle archive back button click (leave archive view)
+    const archiveBack = (e.target as HTMLElement).closest('[data-archive-back]');
+    if (archiveBack) {
+      e.stopPropagation();
+      leaveArchiveView();
       return;
     }
 

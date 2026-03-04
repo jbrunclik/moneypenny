@@ -557,6 +557,40 @@ export const conversations = {
     });
   },
 
+  async archive(id: string): Promise<void> {
+    await request<{ status: string }>(`/api/conversations/${id}/archive`, {
+      method: 'POST',
+      retry: true,
+    });
+  },
+
+  async unarchive(id: string): Promise<void> {
+    await request<{ status: string }>(`/api/conversations/${id}/unarchive`, {
+      method: 'POST',
+      retry: true,
+    });
+  },
+
+  async listArchived(
+    limit?: number,
+    cursor?: string | null
+  ): Promise<{ conversations: Conversation[]; pagination: ConversationsPagination }> {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit.toString());
+    if (cursor) params.set('cursor', cursor);
+    const query = params.toString();
+    const data = await requestWithRetry<ConversationsResponse>(
+      `/api/conversations/archived${query ? `?${query}` : ''}`
+    );
+    return {
+      conversations: data.conversations.map((conv) => ({
+        ...conv,
+        messageCount: (conv as { message_count?: number }).message_count,
+      })),
+      pagination: data.pagination,
+    };
+  },
+
   /**
    * Sync conversations with the server.
    * @param since - ISO timestamp to get conversations updated since (null for full sync)

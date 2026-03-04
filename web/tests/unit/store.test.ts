@@ -28,6 +28,14 @@ function resetStore() {
     appVersion: null,
     newVersionAvailable: false,
     versionBannerDismissed: false,
+    archivedConversations: [],
+    archivedPagination: {
+      nextCursor: null,
+      hasMore: false,
+      totalCount: 0,
+      isLoadingMore: false,
+    },
+    isArchiveView: false,
   });
 }
 
@@ -503,6 +511,256 @@ describe('Store - Version', () => {
     it('sets version banner dismissed', () => {
       useStore.getState().dismissVersionBanner();
       expect(useStore.getState().versionBannerDismissed).toBe(true);
+    });
+  });
+});
+
+describe('Store - Archive', () => {
+  beforeEach(resetStore);
+
+  describe('setArchivedConversations', () => {
+    it('sets archived conversations and pagination', () => {
+      const convs = [createConversation('1', 'Archived One'), createConversation('2', 'Archived Two')];
+      useStore.getState().setArchivedConversations(convs, createPagination(false, 2));
+
+      expect(useStore.getState().archivedConversations).toHaveLength(2);
+    });
+
+    it('replaces existing archived conversations', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Old Archived')],
+        createPagination(false, 1)
+      );
+      useStore.getState().setArchivedConversations(
+        [createConversation('2', 'New Archived')],
+        createPagination(false, 1)
+      );
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived).toHaveLength(1);
+      expect(archived[0].title).toBe('New Archived');
+    });
+
+    it('updates pagination state from API response', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Test')],
+        createPagination(true, 10)
+      );
+
+      const pagination = useStore.getState().archivedPagination;
+      expect(pagination.hasMore).toBe(true);
+      expect(pagination.totalCount).toBe(10);
+      expect(pagination.nextCursor).toBe('next-cursor');
+      expect(pagination.isLoadingMore).toBe(false);
+    });
+
+    it('resets isLoadingMore to false regardless of prior state', () => {
+      useStore.getState().setLoadingMoreArchived(true);
+      useStore.getState().setArchivedConversations([], createPagination(false, 0));
+
+      expect(useStore.getState().archivedPagination.isLoadingMore).toBe(false);
+    });
+  });
+
+  describe('appendArchivedConversations', () => {
+    it('appends new archived conversations to existing list', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'First')],
+        createPagination(true, 3)
+      );
+
+      useStore.getState().appendArchivedConversations(
+        [createConversation('2', 'Second'), createConversation('3', 'Third')],
+        createPagination(false, 3)
+      );
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived).toHaveLength(3);
+      expect(archived[0].id).toBe('1');
+      expect(archived[1].id).toBe('2');
+      expect(archived[2].id).toBe('3');
+    });
+
+    it('does not append duplicate conversations', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Already Here')],
+        createPagination(true, 2)
+      );
+
+      useStore.getState().appendArchivedConversations(
+        [createConversation('1', 'Already Here'), createConversation('2', 'New')],
+        createPagination(false, 2)
+      );
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived).toHaveLength(2);
+      expect(archived.filter((c) => c.id === '1')).toHaveLength(1);
+    });
+
+    it('updates pagination after appending', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'First')],
+        createPagination(true, 5)
+      );
+
+      useStore.getState().appendArchivedConversations(
+        [createConversation('2', 'Second')],
+        createPagination(false, 5)
+      );
+
+      const pagination = useStore.getState().archivedPagination;
+      expect(pagination.hasMore).toBe(false);
+      expect(pagination.nextCursor).toBeNull();
+      expect(pagination.isLoadingMore).toBe(false);
+    });
+  });
+
+  describe('removeArchivedConversation', () => {
+    it('removes conversation from archived list', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Keep'), createConversation('2', 'Remove')],
+        createPagination(false, 2)
+      );
+
+      useStore.getState().removeArchivedConversation('2');
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived).toHaveLength(1);
+      expect(archived[0].id).toBe('1');
+    });
+
+    it('decrements totalCount when removing', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Test')],
+        createPagination(false, 5)
+      );
+
+      useStore.getState().removeArchivedConversation('1');
+
+      expect(useStore.getState().archivedPagination.totalCount).toBe(4);
+    });
+
+    it('does not decrement totalCount below zero', () => {
+      useStore.getState().setArchivedConversations([], createPagination(false, 0));
+
+      useStore.getState().removeArchivedConversation('nonexistent');
+
+      expect(useStore.getState().archivedPagination.totalCount).toBe(0);
+    });
+  });
+
+  describe('addArchivedConversation', () => {
+    it('prepends conversation to archived list', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Existing')],
+        createPagination(false, 1)
+      );
+
+      useStore.getState().addArchivedConversation(createConversation('2', 'Newly Archived'));
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived).toHaveLength(2);
+      expect(archived[0].id).toBe('2');
+      expect(archived[1].id).toBe('1');
+    });
+
+    it('increments totalCount when adding', () => {
+      useStore.getState().setArchivedConversations([], createPagination(false, 3));
+
+      useStore.getState().addArchivedConversation(createConversation('1', 'New'));
+
+      expect(useStore.getState().archivedPagination.totalCount).toBe(4);
+    });
+
+    it('adds to empty archived list', () => {
+      useStore.getState().addArchivedConversation(createConversation('1', 'First Archived'));
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived).toHaveLength(1);
+      expect(archived[0].id).toBe('1');
+    });
+  });
+
+  describe('setIsArchiveView', () => {
+    it('sets archive view to true', () => {
+      useStore.getState().setIsArchiveView(true);
+      expect(useStore.getState().isArchiveView).toBe(true);
+    });
+
+    it('sets archive view to false', () => {
+      useStore.getState().setIsArchiveView(true);
+      useStore.getState().setIsArchiveView(false);
+      expect(useStore.getState().isArchiveView).toBe(false);
+    });
+
+    it('starts as false by default', () => {
+      expect(useStore.getState().isArchiveView).toBe(false);
+    });
+
+    it('can toggle archive view state', () => {
+      expect(useStore.getState().isArchiveView).toBe(false);
+      useStore.getState().setIsArchiveView(true);
+      expect(useStore.getState().isArchiveView).toBe(true);
+      useStore.getState().setIsArchiveView(false);
+      expect(useStore.getState().isArchiveView).toBe(false);
+    });
+  });
+
+  describe('updateArchivedConversation', () => {
+    it('updates conversation in archived list', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Original Title')],
+        createPagination(false, 1)
+      );
+
+      useStore.getState().updateArchivedConversation('1', { title: 'Updated Title' });
+
+      expect(useStore.getState().archivedConversations[0].title).toBe('Updated Title');
+    });
+
+    it('preserves other properties when updating', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'Test')],
+        createPagination(false, 1)
+      );
+
+      useStore.getState().updateArchivedConversation('1', { title: 'Updated' });
+
+      expect(useStore.getState().archivedConversations[0].model).toBe('gemini-3-flash-preview');
+    });
+
+    it('does not affect other archived conversations', () => {
+      useStore.getState().setArchivedConversations(
+        [createConversation('1', 'First'), createConversation('2', 'Second')],
+        createPagination(false, 2)
+      );
+
+      useStore.getState().updateArchivedConversation('1', { title: 'Updated' });
+
+      expect(useStore.getState().archivedConversations[1].title).toBe('Second');
+    });
+  });
+
+  describe('setLoadingMoreArchived', () => {
+    it('sets isLoadingMore in archivedPagination', () => {
+      useStore.getState().setLoadingMoreArchived(true);
+      expect(useStore.getState().archivedPagination.isLoadingMore).toBe(true);
+    });
+
+    it('clears isLoadingMore in archivedPagination', () => {
+      useStore.getState().setLoadingMoreArchived(true);
+      useStore.getState().setLoadingMoreArchived(false);
+      expect(useStore.getState().archivedPagination.isLoadingMore).toBe(false);
+    });
+
+    it('preserves other pagination fields when setting loading', () => {
+      useStore.getState().setArchivedConversations([], createPagination(true, 7));
+      useStore.getState().setLoadingMoreArchived(true);
+
+      const pagination = useStore.getState().archivedPagination;
+      expect(pagination.hasMore).toBe(true);
+      expect(pagination.totalCount).toBe(7);
+      expect(pagination.isLoadingMore).toBe(true);
     });
   });
 });
