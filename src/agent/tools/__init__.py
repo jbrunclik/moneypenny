@@ -12,9 +12,11 @@ from src.agent.tools.context import (
     get_agent_name,
     get_conversation_context,
     get_current_message_files,
+    get_sports_context,
     set_agent_name,
     set_conversation_context,
     set_current_message_files,
+    set_sports_context,
 )
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.garmin import garmin_connect, is_garmin_available
@@ -116,6 +118,7 @@ TOOLS = get_available_tools()
 def get_tools_for_request(
     anonymous_mode: bool = False,
     is_planning: bool = False,
+    is_sports: bool = False,
     agent_tool_permissions: list[str] | None = None,
 ) -> list[Any]:
     """Get tools for a specific request, optionally excluding integration tools.
@@ -163,6 +166,10 @@ def get_tools_for_request(
     # Add refresh_planner_dashboard tool only in planner mode
     if is_planning and is_refresh_planner_dashboard_available():
         tools.append(refresh_planner_dashboard)
+
+    # Add kv_store tool in sports mode (for storing goals, progress, etc.)
+    if is_sports and kv_store not in tools:
+        tools.append(kv_store)
 
     return tools
 
@@ -287,6 +294,8 @@ __all__ = [
     "get_conversation_context",
     "set_agent_name",
     "get_agent_name",
+    "set_sports_context",
+    "get_sports_context",
     # Availability checks
     "is_code_sandbox_available",
     "is_todoist_available",

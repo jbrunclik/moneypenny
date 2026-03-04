@@ -75,16 +75,13 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   }
   hideNewMessagesAvailableBanner();
 
-  // Update state
-  store.setIsPlannerView(true);
-
   // If coming from agents or storage view, unhide the input area (they hide it)
   if (store.isAgentsView || store.isStorageView) {
     ensureInputAreaVisible();
   }
 
-  store.setIsAgentsView(false); // Ensure agents view is off
-  store.setIsStorageView(false); // Ensure storage view is off
+  // Update state — atomically clear all other views
+  store.setActiveView('planner');
   setActiveConversation(null);
   setPlannerActive(true);
   setPlannerHash();
@@ -263,7 +260,7 @@ export function leavePlannerView(): void {
   log.debug('Leaving planner view');
   const store = useStore.getState();
 
-  store.setIsPlannerView(false);
+  store.setActiveView('chat');
   setPlannerActive(false);
 
   // Clear the planner hash

@@ -64,3 +64,19 @@ def set_agent_name(agent_name: str | None) -> None:
 def get_agent_name() -> str | None:
     """Get the current agent name (for autonomous agent executions)."""
     return _current_agent_name.get()
+
+
+# Contextvar to hold the current sports program context
+_sports_program: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_sports_program", default=None
+)
+
+
+def set_sports_context(program: str | None) -> None:
+    """Set the current sports program context for tool access."""
+    _sports_program.set(program)
+
+
+def get_sports_context() -> str | None:
+    """Get the current sports program (for KV store namespace defaulting)."""
+    return _sports_program.get()

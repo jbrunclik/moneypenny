@@ -226,6 +226,9 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) return;
 
+  // Remove sticky header class when re-rendering (will be re-added if needed)
+  container.classList.remove('has-sticky-header');
+
   if (messages.length === 0) {
     container.innerHTML = `
       <div class="welcome-message">

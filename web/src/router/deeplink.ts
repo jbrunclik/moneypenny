@@ -19,7 +19,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('deeplink');
 
 /** Route types supported by the router */
-type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'unknown';
+type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'unknown';
 
 /** Parsed route information */
 interface ParsedRoute {
@@ -27,8 +27,8 @@ interface ParsedRoute {
   conversationId?: string;
 }
 
-/** Callback when hash changes to a conversation, planner, agents, or storage */
-type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean) => void;
+/** Callback when hash changes to a conversation, planner, agents, storage, or sports */
+type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean) => void;
 
 // Module state
 let hashChangeCallback: HashChangeCallback | null = null;
@@ -59,6 +59,11 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   // Match /storage route
   if (cleanHash === '/storage') {
     return { type: 'storage' };
+  }
+
+  // Match /sports route (program list) and /sports/{program} (program chat)
+  if (cleanHash === '/sports' || cleanHash.startsWith('/sports/')) {
+    return { type: 'sports' };
   }
 
   // Match /conversations/{id}
@@ -234,6 +239,46 @@ export function isStorageRoute(): boolean {
 }
 
 /**
+ * Set the URL hash to the sports route.
+ * @param program Optional program ID for program-specific deep link
+ */
+export function setSportsHash(program?: string): void {
+  const newHash = program ? `#/sports/${program}` : '#/sports';
+  const currentHash = window.location.hash;
+
+  if (currentHash === newHash) {
+    return;
+  }
+
+  log.debug('Setting sports hash', { from: currentHash, program });
+
+  isIgnoringHashChange = true;
+  history.pushState(null, '', newHash);
+  setTimeout(() => {
+    isIgnoringHashChange = false;
+  }, 0);
+}
+
+/**
+ * Check if the current route is sports.
+ */
+export function isSportsRoute(): boolean {
+  const route = parseHash();
+  return route.type === 'sports';
+}
+
+/**
+ * Get the sports program ID from the current hash, if any.
+ */
+export function getSportsProgramFromHash(): string | null {
+  const cleanHash = window.location.hash.startsWith('#')
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const match = cleanHash.match(/^\/sports\/([^/]+)$/);
+  return match ? match[1] : null;
+}
+
+/**
  * Push an empty hash entry to browser history.
  * Use this when creating a new temp conversation so back button navigates to previous conversation.
  */
@@ -255,16 +300,18 @@ function handleHashChange(): void {
 
   if (hashChangeCallback) {
     if (route.type === 'planner') {
-      hashChangeCallback(null, true, false, false);
+      hashChangeCallback(null, true, false, false, false);
     } else if (route.type === 'agents') {
-      hashChangeCallback(null, false, true, false);
+      hashChangeCallback(null, false, true, false, false);
     } else if (route.type === 'storage') {
-      hashChangeCallback(null, false, false, true);
+      hashChangeCallback(null, false, false, true, false);
+    } else if (route.type === 'sports') {
+      hashChangeCallback(null, false, false, false, true);
     } else if (route.type === 'conversation' && route.conversationId) {
-      hashChangeCallback(route.conversationId, false, false, false);
+      hashChangeCallback(route.conversationId, false, false, false, false);
     } else {
       // Home or unknown route - pass null to indicate no conversation selected
-      hashChangeCallback(null, false, false, false);
+      hashChangeCallback(null, false, false, false, false);
     }
   }
 }
@@ -275,6 +322,7 @@ export interface InitialRoute {
   isPlanner: boolean;
   isAgents: boolean;
   isStorage: boolean;
+  isSports: boolean;
 }
 
 /**
@@ -297,22 +345,27 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
 
   if (initialRoute.type === 'planner') {
     log.info('Initial route is planner');
-    return { conversationId: null, isPlanner: true, isAgents: false, isStorage: false };
+    return { conversationId: null, isPlanner: true, isAgents: false, isStorage: false, isSports: false };
   }
 
   if (initialRoute.type === 'agents') {
     log.info('Initial route is agents');
-    return { conversationId: null, isPlanner: false, isAgents: true, isStorage: false };
+    return { conversationId: null, isPlanner: false, isAgents: true, isStorage: false, isSports: false };
   }
 
   if (initialRoute.type === 'storage') {
     log.info('Initial route is storage');
-    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: true };
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: true, isSports: false };
+  }
+
+  if (initialRoute.type === 'sports') {
+    log.info('Initial route is sports');
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: true };
   }
 
   if (initialRoute.type === 'conversation' && initialRoute.conversationId) {
     log.info('Initial route has conversation', { conversationId: initialRoute.conversationId });
-    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false, isStorage: false };
+    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false, isStorage: false, isSports: false };
   }
 
   // Check if the hash contains a temp conversation ID and clear it
@@ -323,7 +376,7 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
     clearConversationHash();
   }
 
-  return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false };
+  return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false };
 }
 
 /**

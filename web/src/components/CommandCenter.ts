@@ -502,3 +502,35 @@ function renderExecutionItem(
 
   return item;
 }
+
+// ============================================================================
+// Agent Conversation Header
+// ============================================================================
+
+/**
+ * Create a header for agent conversations (back arrow + robot icon + name + edit).
+ * Similar to the sports program header pattern.
+ */
+export function createAgentConversationHeader(
+  agentName: string,
+  onBack: () => void,
+  onEdit: () => void,
+): HTMLElement {
+  const header = document.createElement('div');
+  header.className = 'agent-conversation-header';
+  header.innerHTML = `
+    <button class="agent-conv-back-btn" title="Back to Command Center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <polyline points="15,18 9,12 15,6"/>
+      </svg>
+    </button>
+    <span class="agent-conv-icon">${ROBOT_ICON}</span>
+    <span class="agent-conv-name">${escapeHtml(agentName)}</span>
+    <button class="btn-icon agent-conv-edit" title="Edit agent">${EDIT_ICON}</button>
+  `;
+
+  header.querySelector('.agent-conv-back-btn')!.addEventListener('click', onBack);
+  header.querySelector('.agent-conv-edit')!.addEventListener('click', onEdit);
+
+  return header;
+}

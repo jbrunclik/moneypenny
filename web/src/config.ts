@@ -350,6 +350,9 @@ export const LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200;
 /** Cache duration for planner dashboard data (5 minutes) */
 export const PLANNER_DASHBOARD_CACHE_MS = 5 * MS_PER_MINUTE;
 
+/** Cache duration for sports programs list (5 minutes) */
+export const SPORTS_PROGRAMS_CACHE_MS = 5 * MS_PER_MINUTE;
+
 // =============================================================================
 // Agents Configuration
 // =============================================================================

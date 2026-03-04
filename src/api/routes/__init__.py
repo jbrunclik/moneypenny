@@ -17,8 +17,9 @@ Route Organization:
 - memory.py: User memory management (2 routes)
 - system.py: System routes (5 routes)
 - kv_store.py: K/V store management (6 routes)
+- sports.py: Sports tracking (5 routes)
 
-Total: 64 endpoints across 14 modules
+Total: 69 endpoints across 15 modules
 """
 
 from apiflask import APIFlask
@@ -37,6 +38,7 @@ from src.api.routes import (
     memory,
     planner,
     settings,
+    sports,
     system,
     todoist,
 )
@@ -74,6 +76,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(files.api)
     app.register_blueprint(costs.api)
     app.register_blueprint(kv_store.api)
+    app.register_blueprint(sports.api)
 
 
 __all__ = [

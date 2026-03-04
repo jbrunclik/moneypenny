@@ -77,7 +77,10 @@ export function createDashboardElement(
 
   element.innerHTML = `
     <div class="dashboard-header">
-      <span class="dashboard-title">Your Schedule</span>
+      <div class="dashboard-title">
+        <span class="dashboard-title-icon">${CALENDAR_ICON}</span>
+        <span class="dashboard-title-text">Your Schedule</span>
+      </div>
       <div class="dashboard-actions">
         <button class="planner-refresh-btn" title="Fetch latest data from Todoist and Google Calendar">
           ${REFRESH_ICON}

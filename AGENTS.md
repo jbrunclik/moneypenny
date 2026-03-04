@@ -71,16 +71,16 @@ ai-chatbot/
 │   ├── config.py                 # Environment config
 │   ├── auth/                     # Authentication (JWT, Google, Todoist, Calendar OAuth)
 │   ├── api/                      # REST endpoints, validation, errors
-│   │   └── routes/               # 11 modules, 43 endpoints (organized by feature)
+│   │   └── routes/               # 12 modules, 48 endpoints (organized by feature)
 │   ├── agent/                    # LangGraph agent with Gemini + tools
 │   │   └── tools/                # web_search, generate_image, execute_code, todoist, etc.
-│   ├── db/                       # SQLite: User, Conversation, Message
+│   ├── db/                       # SQLite: User, Conversation, Message, sports columns
 │   │   └── models/               # Split by entity
 │   └── utils/                    # Images, costs, logging, files
 ├── web/                          # Vite + TypeScript frontend
 │   └── src/
 │       ├── main.ts               # Entry point (delegates to core/)
-│       ├── core/                  # 11 core modules (conversation, messaging, etc.)
+│       ├── core/                  # 12 core modules (conversation, messaging, sports, etc.)
 │       ├── components/            # UI modules (messages/, etc.)
 │       ├── types/                 # TypeScript interfaces
 │       ├── api/client.ts          # Typed fetch wrapper
@@ -89,7 +89,7 @@ ai-chatbot/
 │       └── styles/                # CSS (modular structure)
 ├── tests/                        # Backend tests (unit, integration)
 ├── web/tests/                    # Frontend tests (unit, component, E2E, visual)
-├── migrations/                   # Database migrations (yoyo, 27 migrations)
+├── migrations/                   # Database migrations (yoyo, 31 migrations)
 ├── docs/                         # Detailed documentation
 └── .claude/                      # Claude Code config (agents, commands, hooks)
 ```
@@ -194,6 +194,43 @@ Edit [config.py](src/config.py) `MODELS` dict.
 1. Add to [config.py](src/config.py) with a sensible default
 2. **Update [.env.example](.env.example)**
 3. Document in the relevant `docs/features/` file
+
+## Sports Tracking
+
+Users can create sports training programs (running, cycling, pushups, etc.) where each program gets a dedicated AI chat conversation with the AI acting as a personal trainer. Programs are fully configurable and persist until manually reset.
+
+### How it works
+
+1. User creates a program via the Sports section in the sidebar (name + optional description)
+2. A dedicated conversation is created in SQLite with `is_sports=True` and `sports_program` set to the program slug
+3. The AI acts as a personal trainer in that conversation, using the `kv_store` tool to persist goals, preferences, routine, progress, and last session data (namespace: `sports:<program_id>`)
+4. Optional Garmin integration provides fitness data to the AI for personalized coaching
+5. Programs can be deleted or their conversation reset at any time
+
+### API endpoints
+
+- `GET /api/sports/programs` - List user's programs
+- `POST /api/sports/programs` - Create a new program
+- `DELETE /api/sports/programs/<id>` - Delete a program
+- `GET /api/sports/<program>/conversation` - Get or create the program's conversation
+- `POST /api/sports/<program>/reset` - Reset the conversation (start fresh)
+
+### Key files
+
+- [src/api/routes/sports.py](src/api/routes/sports.py) - 5 REST endpoints
+- [src/db/models/sports.py](src/db/models/sports.py) - `SportsTrackingMixin` for DB operations
+- [web/src/core/sports.ts](web/src/core/sports.ts) - Navigation and CRUD logic
+- [web/src/components/SportsDashboard.ts](web/src/components/SportsDashboard.ts) - Programs list, add view, chat header
+- [web/src/styles/components/sports.css](web/src/styles/components/sports.css) - Sports UI styles
+- [migrations/0031_add_sports_tracking.py](migrations/0031_add_sports_tracking.py) - Adds `is_sports` and `sports_program` columns
+
+### Testing
+
+- Unit tests: [tests/unit/test_sports_db.py](tests/unit/test_sports_db.py)
+- Integration tests: [tests/integration/test_routes_sports.py](tests/integration/test_routes_sports.py)
+- Visual tests: [web/tests/visual/sports.visual.ts](web/tests/visual/sports.visual.ts)
+
+---
 
 ## Related Files
 

@@ -15,6 +15,7 @@ import { resetSwipeStates } from '../gestures/swipe';
 import { createConversation, selectConversation, deleteConversation, renameConversation, archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView } from './conversation';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
+import { navigateToSports } from './sports';
 import { navigateToStorage } from './kv-store';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent } from './file-actions';
 
@@ -136,6 +137,14 @@ export function setupEventListeners(): void {
     if (agentsEntry) {
       resetSwipeStates();
       navigateToAgents();
+      return;
+    }
+
+    // Handle sports entry click
+    const sportsEntry = (e.target as HTMLElement).closest('.sports-entry');
+    if (sportsEntry) {
+      resetSwipeStates();
+      navigateToSports();
       return;
     }
 

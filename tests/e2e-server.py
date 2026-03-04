@@ -325,6 +325,10 @@ def create_mock_stream_chat() -> Any:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
+        is_autonomous: bool = False,
+        agent_context: dict[str, Any] | None = None,
+        is_sports: bool = False,
+        sports_context: dict[str, Any] | None = None,
     ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
         """Mock streaming that yields tokens word-by-word."""
         # Use custom response if set, otherwise use prefix + message
@@ -377,6 +381,10 @@ def create_mock_stream_chat_events() -> Any:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
+        is_autonomous: bool = False,
+        agent_context: dict[str, Any] | None = None,
+        is_sports: bool = False,
+        sports_context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
         # Use custom response if set, otherwise use prefix + message
@@ -558,15 +566,18 @@ def main() -> None:
 
         # Patch database in all route modules (routes are split across multiple files)
         route_modules = [
+            "agents",
             "auth",
             "calendar",
             "chat",
             "conversations",
             "costs",
             "files",
+            "garmin",
             "memory",
             "planner",
             "settings",
+            "sports",
             "todoist",
         ]
         for module in route_modules:
@@ -988,6 +999,28 @@ def main() -> None:
             MOCK_CONFIG["kv_keys"] = None
             MOCK_CONFIG["memories"] = None
             return {"status": "cleared"}, 200
+
+        # =============================================================================
+        # Sports test routes
+        # =============================================================================
+
+        @test_bp.route("/test/set-sports-programs", methods=["POST"])
+        def set_sports_programs() -> tuple[dict[str, Any], int]:
+            """Seed sports programs into KV store for the test user."""
+            import json
+
+            from flask import request as flask_request
+
+            data = flask_request.get_json() or {}
+            programs = data.get("programs", [])
+
+            # Get test user
+            user = proxy_db.get_user_by_email("test@example.com")
+            if not user:
+                return {"error": "Test user not found"}, 404
+
+            proxy_db.kv_set(user.id, "sports", "programs", json.dumps(programs))
+            return {"status": "set", "count": len(programs)}, 200
 
         app.register_blueprint(test_bp)
 

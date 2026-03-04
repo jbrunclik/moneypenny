@@ -325,12 +325,22 @@ function renderKeysInBody(
     const keyRow = document.createElement('div');
     keyRow.className = 'kv-key-row';
 
+    const highlighted = highlightJson(entry.value);
+    const lineCount = highlighted.split('\n').length;
+    const isLong = lineCount > 6;
+
     keyRow.innerHTML = `
       <div class="kv-key-info">
-        <span class="kv-key-name">${escapeHtml(entry.key)}</span>
-        <pre class="kv-key-value">${highlightJson(entry.value)}</pre>
+        <div class="kv-key-header">
+          <span class="kv-key-name">${escapeHtml(entry.key)}</span>
+          <button class="kv-key-delete" title="Delete key">${DELETE_ICON}</button>
+        </div>
+        <div class="kv-key-value-wrapper${isLong ? ' collapsed' : ''}">
+          <pre class="kv-key-value">${highlighted}</pre>
+          ${isLong ? '<div class="kv-key-value-fade"></div>' : ''}
+        </div>
+        ${isLong ? '<button class="kv-key-expand">Show all ' + lineCount + ' lines</button>' : ''}
       </div>
-      <button class="kv-key-delete" title="Delete key">${DELETE_ICON}</button>
     `;
 
     keyRow.querySelector('.kv-key-delete')?.addEventListener('click', async () => {
@@ -344,6 +354,17 @@ function renderKeysInBody(
         // Error handled by caller
       }
     });
+
+    const expandBtn = keyRow.querySelector('.kv-key-expand');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        const wrapper = keyRow.querySelector('.kv-key-value-wrapper');
+        if (!wrapper) return;
+        const isCollapsed = wrapper.classList.contains('collapsed');
+        wrapper.classList.toggle('collapsed', !isCollapsed);
+        expandBtn.textContent = isCollapsed ? 'Show less' : `Show all ${lineCount} lines`;
+      });
+    }
 
     keysList.appendChild(keyRow);
   }

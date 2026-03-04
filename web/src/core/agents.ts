@@ -95,10 +95,8 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   }
   hideNewMessagesAvailableBanner();
 
-  // Update state
-  store.setIsAgentsView(true);
-  store.setIsPlannerView(false); // Ensure planner view is off
-  store.setIsStorageView(false); // Ensure storage view is off
+  // Update state — atomically clear all other views
+  store.setActiveView('agents');
   setActiveConversation(null);
   setAgentsActive(true);
   setAgentsHash();
@@ -335,6 +333,24 @@ async function handleNewAgent(): Promise<void> {
  * Handle agent edit.
  * Opens the agent editor modal with existing agent data.
  */
+/**
+ * Handle agent edit by ID (used from agent conversation header).
+ */
+export async function handleAgentEditById(agentId: string): Promise<void> {
+  try {
+    const fullAgent = await agents.get(agentId);
+    const result = await showAgentEditor(fullAgent);
+    if (result) {
+      log.info('Agent updated', { agentId: result.id });
+      await navigateToAgents(true);
+      renderConversationsList();
+    }
+  } catch (error) {
+    log.error('Failed to load agent for editing', { error });
+    toast.error('Failed to load agent.');
+  }
+}
+
 async function handleAgentEdit(agent: Agent): Promise<void> {
   log.debug('Edit agent clicked', { agentId: agent.id });
 
@@ -363,7 +379,7 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
   log.debug('Leaving agents view', { clearMessages });
   const store = useStore.getState();
 
-  store.setIsAgentsView(false);
+  store.setActiveView('chat');
   setAgentsActive(false);
 
   // Show input area and scroll button (were hidden in agents view)

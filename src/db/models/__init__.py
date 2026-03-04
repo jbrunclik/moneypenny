@@ -49,6 +49,7 @@ from src.db.models.message import MessageMixin
 from src.db.models.planner import PlannerMixin
 from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
+from src.db.models.sports import SportsTrackingMixin
 from src.db.models.user import UserMixin
 
 
@@ -65,6 +66,7 @@ class Database(
     SettingsMixin,
     AgentMixin,
     KVStoreMixin,
+    SportsTrackingMixin,
 ):
     """Main database class combining all mixins.
 

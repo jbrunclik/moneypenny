@@ -141,6 +141,7 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
             "memory",
             "planner",
             "settings",
+            "sports",
             "todoist",
         ]
         for module in route_modules:

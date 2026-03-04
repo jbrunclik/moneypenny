@@ -7,7 +7,7 @@ This directory contains detailed documentation for the AI Chatbot project, organ
 ### Features (`features/`)
 Feature-specific documentation covering user-facing functionality:
 
-- **[agents.md](features/agents.md)** - Autonomous agents with cron scheduling, approval workflow, Command Center UI, agent-to-agent communication
+- **[agents.md](features/agents.md)** - Autonomous agents with cron scheduling, approval workflow, Command Center UI, agent-to-agent communication, K/V store (also used by sports tracking)
 - **[chat-and-streaming.md](features/chat-and-streaming.md)** - Gemini API integration, streaming responses, thinking indicators, web search sources, tool forcing
 - **[file-handling.md](features/file-handling.md)** - Image generation (including image-to-image editing), code execution sandbox, file uploads, clipboard paste, upload progress, background thumbnail generation
 - **[voice-and-tts.md](features/voice-and-tts.md)** - Voice input (speech-to-text), text-to-speech
@@ -16,7 +16,7 @@ Feature-specific documentation covering user-facing functionality:
 - **[integrations.md](features/integrations.md)** - Todoist, Google Calendar, and Garmin Connect integrations with full API coverage
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
 - **[cost-tracking.md](features/cost-tracking.md)** - Token usage tracking, image generation costs, currency rates, monthly aggregation
-- **[ui-features.md](features/ui-features.md)** - Input toolbar, conversation management, deep linking, version banner, color scheme, clipboard operations
+- **[ui-features.md](features/ui-features.md)** - Input toolbar, conversation management, deep linking, version banner, color scheme, clipboard operations, sports training programs UI
 
 ### Architecture (`architecture/`)
 System design and architectural decisions:

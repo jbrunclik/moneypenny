@@ -499,7 +499,7 @@ class TestKVStoreTool:
         ):
             result = _invoke_kv_store(action="get", key="k", namespace="ns")
 
-        assert "only available during autonomous agent execution" in result
+        assert "only available during autonomous agent" in result
         mock_db_for_tool.kv_get.assert_not_called()
 
     def test_kv_store_key_length_limit(

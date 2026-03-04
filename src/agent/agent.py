@@ -54,6 +54,8 @@ class ChatAgent:
         is_autonomous: bool = False,
         agent_context: dict[str, Any] | None = None,
         tools: list[Any] | None = None,
+        is_sports: bool = False,
+        sports_context: dict[str, Any] | None = None,
     ) -> None:
         from src.agent.context_cache import get_cached_content_name
 
@@ -64,6 +66,8 @@ class ChatAgent:
         self.is_planning = is_planning
         self.is_autonomous = is_autonomous
         self.agent_context = agent_context
+        self.is_sports = is_sports
+        self.sports_context = sports_context
         # Use provided tools, or get filtered tools based on mode
         if tools is not None:
             active_tools = tools
@@ -75,7 +79,7 @@ class ChatAgent:
                 anonymous_mode, is_planning, agent_tool_permissions=agent_tools
             )
         else:
-            active_tools = get_tools_for_request(anonymous_mode, is_planning)
+            active_tools = get_tools_for_request(anonymous_mode, is_planning, is_sports=is_sports)
 
         # Determine cache profile and get cached content name
         self._cached_content_name: str | None = None
@@ -117,8 +121,8 @@ class ChatAgent:
         Returns None for modes incompatible with caching (autonomous agents,
         no-tools mode).
         """
-        # No caching for autonomous agents (variable tools) or no-tools mode
-        if self.is_autonomous or not self.with_tools:
+        # No caching for autonomous agents (variable tools), sports, or no-tools mode
+        if self.is_autonomous or self.is_sports or not self.with_tools:
             return None
         if self.is_planning:
             return CacheProfile.PLANNING
@@ -259,6 +263,8 @@ class ChatAgent:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
+        is_sports: bool = False,
+        sports_context: dict[str, Any] | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
         from src.agent.prompts import get_dynamic_prompt_parts
@@ -280,6 +286,8 @@ class ChatAgent:
                 is_planning=is_planning,
                 dashboard_data=dashboard_data,
                 planner_dashboard_context=refreshed_dashboard,
+                is_sports=is_sports,
+                sports_context=sports_context,
             )
             messages.append(HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]"))
         else:
@@ -298,6 +306,8 @@ class ChatAgent:
                         planner_dashboard_context=refreshed_dashboard,
                         is_autonomous=self.is_autonomous,
                         agent_context=self.agent_context,
+                        is_sports=is_sports,
+                        sports_context=sports_context,
                     )
                 )
             )
@@ -333,6 +343,8 @@ class ChatAgent:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
+        is_sports: bool = False,
+        sports_context: dict[str, Any] | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
         """
         Send a message and get a response (non-streaming).
@@ -347,6 +359,8 @@ class ChatAgent:
             custom_instructions: Optional user-provided custom instructions for LLM behavior
             is_planning: If True, use planner-specific system prompt with dashboard context
             dashboard_data: Dashboard data to inject into planner prompt (required if is_planning=True)
+            is_sports: If True, use sports trainer system prompt
+            sports_context: Sports context dict with program info
 
         Returns:
             Tuple of (response_text, tool_results, usage_info, result_messages)
@@ -361,6 +375,8 @@ class ChatAgent:
             custom_instructions=custom_instructions,
             is_planning=is_planning,
             dashboard_data=dashboard_data,
+            is_sports=is_sports,
+            sports_context=sports_context,
         )
         logger.debug(
             "Starting chat_batch",
@@ -451,6 +467,8 @@ class ChatAgent:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
+        is_sports: bool = False,
+        sports_context: dict[str, Any] | None = None,
     ) -> Generator[str | tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]]:
         """
         Stream response tokens using LangGraph's stream method.
@@ -482,6 +500,8 @@ class ChatAgent:
             custom_instructions=custom_instructions,
             is_planning=is_planning,
             dashboard_data=dashboard_data,
+            is_sports=is_sports,
+            sports_context=sports_context,
         )
 
         # Accumulate full response text
@@ -590,6 +610,8 @@ class ChatAgent:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
+        is_sports: bool = False,
+        sports_context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -623,6 +645,8 @@ class ChatAgent:
             custom_instructions=custom_instructions,
             is_planning=is_planning,
             dashboard_data=dashboard_data,
+            is_sports=is_sports,
+            sports_context=sports_context,
         )
 
         # Accumulate full response text

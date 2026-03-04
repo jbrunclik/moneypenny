@@ -18,7 +18,7 @@ MIME_TYPE_ALIASES: dict[str, set[str]] = {
     "image/png": {"image/png"},
     "image/jpeg": {"image/jpeg"},
     "image/gif": {"image/gif"},
-    "image/webp": {"image/webp"},
+    "image/webp": {"image/webp", "application/octet-stream"},
     # PDF
     "application/pdf": {"application/pdf"},
     # Text files - libmagic may detect various text subtypes

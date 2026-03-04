@@ -470,6 +470,88 @@ When starting a fresh planning session:
 - Remember this conversation resets daily - capture important insights in memories
 """
 
+# ============ Sports Trainer System Prompt ============
+
+SPORTS_TRAINER_SYSTEM_PROMPT = """
+# Personal Sports Trainer — {program_name}
+
+You are a dedicated personal trainer for the user's **{program_name}** training program.
+
+## CRITICAL: Data Storage Rules
+
+**ALWAYS use the `kv_store` tool** to persist training data. NEVER use `manage_memory` for sports data.
+
+- The `kv_store` tool is your notebook. The conversation may be reset at any time — only data saved to `kv_store` survives a reset.
+- If the user shares goals, progress, workout results, or any training data, you MUST call `kv_store` with action `set` to save it BEFORE responding. Do not just say you saved it — actually call the tool.
+- Namespace is always `sports`. Keys are prefixed with `{program_id}:`.
+
+### Required KV Keys
+
+| Key | What to store |
+|-----|---------------|
+| `{program_id}:goals` | Primary goal, target metrics, timeline |
+| `{program_id}:preferences` | Schedule, experience level, equipment, constraints |
+| `{program_id}:routine` | Current training plan (days, exercises, sets/reps) |
+| `{program_id}:progress` | Baseline numbers, PRs, test results with dates |
+| `{program_id}:last_session` | Summary of the most recent session |
+
+### KV Workflow
+
+1. **Every message**: Before replying, call `kv_store(action="list", namespace="sports", key="{program_id}:")` to see what's stored.
+2. **When user shares data**: Immediately call `kv_store(action="set", ...)` to persist it. Then reference it in your reply.
+3. **Merge, don't overwrite**: Call `kv_store(action="get", ...)` first, then merge new data into the existing JSON before writing back.
+
+{kv_data_section}
+
+## Coaching Role
+
+- Be a knowledgeable, motivating personal trainer
+- This is a persistent conversation — reference previous discussions
+- Be encouraging but honest. Push the user while respecting their limits
+
+## First Session (No KV Data)
+
+1. Welcome them, ask about goals, fitness level, schedule
+2. **Immediately store** their answers via `kv_store` (goals, preferences, routine)
+3. Propose an initial training plan
+
+## Returning Sessions
+
+1. Read stored goals, progress, and last session from KV
+2. Check Garmin Connect (if available) for readiness, recent activity, sleep
+3. Review progress, recommend today's workout
+4. After discussing the workout, update `progress` and `last_session` in KV
+
+## Garmin Connect (Optional)
+
+- Check training readiness, body battery, HRV, stress, sleep
+- Review recent activities relevant to this program
+- Don't require Garmin — it enhances but is not necessary
+
+## Coaching Guidelines
+
+- Specific, actionable plans (sets, reps, duration, intensity)
+- Warm-up and cool-down recommendations
+- Progressive overload when appropriate
+- Monitor for overtraining signs
+- Celebrate milestones and progress
+"""
+
+
+def _format_sports_kv_data(sports_context: dict[str, Any]) -> str:
+    """Format stored KV data for injection into the sports system prompt."""
+    kv_data = sports_context.get("kv_data", {})
+    if not kv_data:
+        return "## Stored Data\n\nNo data stored yet — this is a new program. After the user shares goals and preferences, store them immediately via `kv_store`."
+
+    lines = [
+        "## Stored Data (from KV store)\n\nThe following data is already persisted. Reference it and keep it up to date.\n"
+    ]
+    for key, value in kv_data.items():
+        lines.append(f"### {key}\n```json\n{value}\n```\n")
+    return "\n".join(lines)
+
+
 # ============ Autonomous Agent System Prompt ============
 
 AUTONOMOUS_AGENT_SYSTEM_PROMPT = """
@@ -929,7 +1011,7 @@ def get_static_prompt_for_profile(profile: str) -> str:
     across requests. Dynamic content (date, user context, memories) is added separately.
 
     Args:
-        profile: One of "standard", "anonymous", "planning"
+        profile: One of "standard", "anonymous", "planning", "sports"
 
     Returns:
         Static prompt string suitable for caching
@@ -937,14 +1019,18 @@ def get_static_prompt_for_profile(profile: str) -> str:
     prompt = BASE_SYSTEM_PROMPT
     # All profiles get base tools
     prompt += TOOLS_SYSTEM_PROMPT_BASE
-    # Standard and planning profiles get productivity tools
-    if profile in ("standard", "planning"):
+    # Standard, planning, and sports profiles get productivity tools
+    if profile in ("standard", "planning", "sports"):
         prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
     # All profiles get context/citation section
     prompt += TOOLS_SYSTEM_PROMPT_CONTEXT
     # Planning profile gets the planner prompt
     if profile == "planning":
         prompt += PLANNER_SYSTEM_PROMPT
+    # Sports profile: the trainer prompt is added dynamically (has format placeholders)
+    # so we only include a marker here for cache key differentiation
+    if profile == "sports":
+        prompt += "\n# Sports Trainer Mode (program-specific prompt injected dynamically)"
     return prompt
 
 
@@ -957,6 +1043,8 @@ def get_dynamic_prompt_parts(
     is_planning: bool = False,
     dashboard_data: dict[str, Any] | None = None,
     planner_dashboard_context: Any | None = None,
+    is_sports: bool = False,
+    sports_context: dict[str, Any] | None = None,
 ) -> str:
     """Return only the dynamic (per-request) parts of the prompt.
 
@@ -972,6 +1060,8 @@ def get_dynamic_prompt_parts(
         is_planning: If True, include dashboard context
         dashboard_data: Dashboard data dict for planner
         planner_dashboard_context: Refreshed dashboard data
+        is_sports: If True, include sports context
+        sports_context: Sports context dict with program info
 
     Returns:
         Dynamic prompt string
@@ -998,6 +1088,9 @@ def get_dynamic_prompt_parts(
         if active_dashboard:
             parts.append(get_dashboard_context_prompt(active_dashboard))
 
+    if is_sports and sports_context:
+        parts.append(_format_sports_kv_data(sports_context))
+
     if force_tools:
         parts.append(get_force_tools_prompt(force_tools))
 
@@ -1016,6 +1109,8 @@ def get_system_prompt(
     planner_dashboard_context: Any | None = None,
     is_autonomous: bool = False,
     agent_context: dict[str, Any] | None = None,
+    is_sports: bool = False,
+    sports_context: dict[str, Any] | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -1031,6 +1126,8 @@ def get_system_prompt(
         planner_dashboard_context: Contextvar value for refreshed dashboard data (optional)
         is_autonomous: If True, include autonomous agent-specific system prompt
         agent_context: Agent context dict with keys: name, description, schedule, timezone, goals, tools, trigger_type
+        is_sports: If True, include sports trainer system prompt
+        sports_context: Sports context dict with keys: program_name, program_id
     """
     from src.agent.tools import TOOLS
 
@@ -1063,6 +1160,14 @@ def get_system_prompt(
         # Add dashboard context if available
         if active_dashboard:
             prompt += get_dashboard_context_prompt(active_dashboard)
+
+    # Add sports trainer prompt if in sports mode
+    if is_sports and sports_context:
+        prompt += SPORTS_TRAINER_SYSTEM_PROMPT.format(
+            program_name=sports_context.get("program_name", "Training"),
+            program_id=sports_context.get("program_id", "program"),
+            kv_data_section=_format_sports_kv_data(sports_context),
+        )
 
     # Add autonomous agent prompt if running as an agent
     if is_autonomous and agent_context:

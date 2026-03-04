@@ -50,6 +50,42 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def load_sports_context(user_id: str, program_id: str) -> dict[str, Any] | None:
+    """Load sports program context from K/V store for the system prompt.
+
+    Loads the program metadata AND any existing KV data (goals, preferences,
+    routine, progress, last_session) so the agent can see what's stored.
+
+    Args:
+        user_id: The user's ID
+        program_id: The sports program ID
+
+    Returns:
+        Sports context dict with program info and stored KV data, or None
+    """
+    raw = db.kv_get(user_id, "sports", "programs")
+    if not raw:
+        return None
+    try:
+        programs = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+    program = next((p for p in programs if p.get("id") == program_id), None)
+    if not program:
+        return None
+
+    # Load existing KV data for this program (single query with prefix)
+    items = db.kv_list(user_id, "sports", prefix=f"{program_id}:")
+    kv_data = {k.split(":", 1)[1]: v for k, v in items}
+
+    return {
+        "program_name": program.get("name", "Training"),
+        "program_id": program_id,
+        "kv_data": kv_data,
+    }
+
+
 def _close_thread_db_connections() -> None:
     """Close DB pool connections for the current thread.
 
@@ -306,6 +342,8 @@ def stream_events(
     conv_id: str,
     stream_request_id: str,
     conversation_id: str | None = None,
+    is_sports: bool = False,
+    sports_context: dict[str, Any] | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -329,6 +367,10 @@ def stream_events(
     set_current_request_id(stream_request_id)
     set_current_message_files(files if files else None)
     set_conversation_context(conv_id, user_id)
+    if is_sports and sports_context:
+        from src.agent.tools.context import set_sports_context
+
+        set_sports_context(sports_context.get("program_id"))
     try:
         logger.debug(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
@@ -345,6 +387,8 @@ def stream_events(
             is_planning=is_planning,
             dashboard_data=dashboard_data,
             conversation_id=conversation_id,
+            is_sports=is_sports,
+            sports_context=sports_context,
         ):
             event_count += 1
             if event.get("type") == "final":
@@ -640,6 +684,9 @@ class _StreamContext:
         self.cleanup_thread: threading.Thread | None = None
         self.dashboard_data: dict[str, Any] | None = None
 
+        # Sports context for sports conversations
+        self.sports_context: dict[str, Any] | None = None
+
         # Agent context for interactive agent conversations
         self.is_autonomous = False
         self.agent_context: dict[str, Any] | None = None
@@ -656,6 +703,10 @@ class _StreamContext:
         # Fetch planner dashboard if needed
         if self.conv.is_planning:
             self._setup_planner_context()
+
+        # Set up sports context if this is a sports conversation
+        if self.conv.is_sports and self.conv.sports_program:
+            self._setup_sports_context()
 
         # Set up agent context if this is an agent conversation
         if self.conv.is_agent and self.conv.agent_id:
@@ -680,6 +731,14 @@ class _StreamContext:
         )
         self.dashboard_data = asdict(dashboard_obj)
         _planner_dashboard_context.set(self.dashboard_data)
+
+    def _setup_sports_context(self) -> None:
+        """Set up sports program context for sports conversations."""
+        from src.agent.tools import set_sports_context
+
+        assert self.conv.sports_program is not None
+        self.sports_context = load_sports_context(self.user_id, self.conv.sports_program)
+        set_sports_context(self.conv.sports_program)
 
     def _setup_agent_context(self) -> None:
         """Set up agent context if this is an interactive agent conversation."""
@@ -717,7 +776,11 @@ class _StreamContext:
             }
 
     def cleanup_agent_context(self) -> None:
-        """Clean up agent context if this was an agent conversation."""
+        """Clean up agent and sports context."""
+        if self.conv.is_sports:
+            from src.agent.tools import set_sports_context
+
+            set_sports_context(None)
         if self.is_autonomous:
             clear_agent_context()
 
@@ -730,6 +793,8 @@ class _StreamContext:
             is_planning=self.conv.is_planning,
             is_autonomous=self.is_autonomous,
             agent_context=self.agent_context,
+            is_sports=self.conv.is_sports,
+            sports_context=self.sports_context,
         )
 
         self.stream_thread = threading.Thread(
@@ -750,6 +815,8 @@ class _StreamContext:
                 self.conv_id,
                 self.stream_request_id,
                 self.conv_id,  # conversation_id for checkpointing
+                self.conv.is_sports,
+                self.sports_context,
             ),
             daemon=False,
         )

@@ -13,6 +13,7 @@ import type {
   PlannerConversation,
   PlannerDashboard,
   SearchResult,
+  SportsProgram,
   UploadConfig,
   User,
   ThinkingState,
@@ -147,6 +148,12 @@ interface AppState {
   storageData: KVNamespacesResponse | null;
   storageLastFetch: number | null;
 
+  // Sports state
+  isSportsView: boolean;
+  sportsPrograms: SportsProgram[] | null;
+  sportsCurrentProgram: string | null;
+  sportsProgramsLastFetch: number | null;
+
   // Actions - Auth
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
@@ -232,10 +239,14 @@ interface AppState {
   // Returns true if the navigation should proceed, false if cancelled.
   isNavigationValid: (token: number) => boolean;
 
+  // Actions - View switching
+  // Atomically sets the active view, clearing all other view flags.
+  // Prefer this over individual setIsXXXView calls to avoid forgetting to clear flags.
+  setActiveView: (view: 'chat' | 'planner' | 'agents' | 'storage' | 'sports') => void;
+
   // Actions - Planner
   setPlannerDashboard: (dashboard: PlannerDashboard | null) => void;
   setPlannerConversation: (conversation: PlannerConversation | null) => void;
-  setIsPlannerView: (active: boolean) => void;
   invalidatePlannerCache: () => void;
   clearPlannerState: () => void;
 
@@ -245,7 +256,6 @@ interface AppState {
   updateAgent: (id: string, updates: Partial<Agent>) => void;
   removeAgent: (id: string) => void;
   setCommandCenterData: (data: CommandCenterResponse | null) => void;
-  setIsAgentsView: (active: boolean) => void;
   invalidateCommandCenterCache: () => void;
   clearAgentsState: () => void;
 
@@ -259,10 +269,15 @@ interface AppState {
   setLoadingMoreArchived: (loading: boolean) => void;
 
   // Actions - Storage (K/V)
-  setIsStorageView: (active: boolean) => void;
   setStorageData: (data: KVNamespacesResponse | null) => void;
   invalidateStorageCache: () => void;
   clearStorageState: () => void;
+
+  // Actions - Sports
+  setSportsPrograms: (programs: SportsProgram[] | null) => void;
+  setSportsCurrentProgram: (programId: string | null) => void;
+  invalidateSportsCache: () => void;
+  clearSportsState: () => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -355,6 +370,12 @@ export const useStore = create<AppState>()(
       isStorageView: false,
       storageData: null,
       storageLastFetch: null,
+
+      // Sports state
+      isSportsView: false,
+      sportsPrograms: null,
+      sportsCurrentProgram: null,
+      sportsProgramsLastFetch: null,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -675,11 +696,19 @@ export const useStore = create<AppState>()(
       },
       isNavigationValid: (token) => get().navigationToken === token,
 
+      // View switching
+      setActiveView: (view) =>
+        set({
+          isPlannerView: view === 'planner',
+          isAgentsView: view === 'agents',
+          isStorageView: view === 'storage',
+          isSportsView: view === 'sports',
+        }),
+
       // Planner actions
       setPlannerDashboard: (plannerDashboard) =>
         set({ plannerDashboard, plannerDashboardLastFetch: plannerDashboard ? Date.now() : null }),
       setPlannerConversation: (plannerConversation) => set({ plannerConversation }),
-      setIsPlannerView: (isPlannerView) => set({ isPlannerView }),
       invalidatePlannerCache: () => set({ plannerDashboardLastFetch: null }),
       clearPlannerState: () =>
         set({
@@ -707,7 +736,6 @@ export const useStore = create<AppState>()(
         })),
       setCommandCenterData: (commandCenterData) =>
         set({ commandCenterData, commandCenterLastFetch: commandCenterData ? Date.now() : null }),
-      setIsAgentsView: (isAgentsView) => set({ isAgentsView }),
       invalidateCommandCenterCache: () => set({ commandCenterLastFetch: null }),
       clearAgentsState: () =>
         set({
@@ -774,7 +802,6 @@ export const useStore = create<AppState>()(
         })),
 
       // Storage (K/V) actions
-      setIsStorageView: (isStorageView) => set({ isStorageView }),
       setStorageData: (storageData) =>
         set({ storageData, storageLastFetch: storageData ? Date.now() : null }),
       invalidateStorageCache: () => set({ storageLastFetch: null }),
@@ -783,6 +810,19 @@ export const useStore = create<AppState>()(
           isStorageView: false,
           storageData: null,
           storageLastFetch: null,
+        }),
+
+      // Sports actions
+      setSportsPrograms: (sportsPrograms) =>
+        set({ sportsPrograms, sportsProgramsLastFetch: sportsPrograms ? Date.now() : null }),
+      setSportsCurrentProgram: (sportsCurrentProgram) => set({ sportsCurrentProgram }),
+      invalidateSportsCache: () => set({ sportsProgramsLastFetch: null }),
+      clearSportsState: () =>
+        set({
+          isSportsView: false,
+          sportsPrograms: null,
+          sportsCurrentProgram: null,
+          sportsProgramsLastFetch: null,
         }),
     }),
     {

@@ -1311,3 +1311,50 @@ class KVSetRequest(BaseModel):
     """Request to set a key value."""
 
     value: str = Field(..., max_length=65536)
+
+
+# ============================================================================
+# Sports Tracking Schemas
+# ============================================================================
+
+
+class SportsProgramItem(BaseModel):
+    """A single sports training program."""
+
+    id: str
+    name: str
+    emoji: str
+    created_at: str
+    has_conversation: bool = False
+
+
+class SportsProgramsResponse(BaseModel):
+    """List of user's sports programs."""
+
+    programs: list[SportsProgramItem]
+
+
+class CreateSportsProgramRequest(BaseModel):
+    """Request to create a new sports program."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    emoji: str = Field(..., min_length=1, max_length=10)
+
+
+class SportsConversationResponse(BaseModel):
+    """Sports program conversation with messages."""
+
+    id: str
+    title: str
+    model: str
+    program: str
+    created_at: str
+    updated_at: str
+    messages: list[dict[str, Any]]
+
+
+class SportsResetResponse(BaseModel):
+    """Response from resetting a sports conversation."""
+
+    success: bool
+    message: str

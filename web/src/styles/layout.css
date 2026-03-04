@@ -111,6 +111,11 @@
     scroll-behavior: auto;
 }
 
+/* Remove top padding when a sticky header is the first child */
+.messages.has-sticky-header {
+    padding-top: 0;
+}
+
 /* ============================================
    Input Area
    ============================================ */

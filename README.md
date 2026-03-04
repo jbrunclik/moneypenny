@@ -67,6 +67,12 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Proactive AI analysis**: AI automatically analyzes your schedule and provides insights
 - **Real-time sync**: Refresh button fetches latest data; reset button clears and triggers fresh analysis
 
+### Sports Tracking
+- **Training programs**: Create custom sports programs (running, cycling, pushups, etc.) with a dedicated AI personal trainer conversation per program
+- **Persistent coaching**: AI remembers your goals, preferences, routine, and progress across sessions using per-program storage
+- **Garmin integration**: Optional Garmin Connect data provides fitness context for personalized coaching advice
+- **Full control**: Reset a program's conversation at any time to start fresh; delete programs you no longer need
+
 ### Autonomous Agents
 - **Scheduled execution**: Create agents that run automatically on cron schedules
 - **Command Center**: Dashboard showing all agents, pending approvals, and recent activity

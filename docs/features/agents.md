@@ -442,8 +442,10 @@ Autonomous agents have access to a per-user key-value store for persisting data 
 ### How it works
 
 1. Agents call the `kv_store` tool with an `action` and a `key` (and optionally a `value`)
-2. Keys are automatically namespaced to `agent:<agent_id>` so each agent has its own isolated storage
-3. The namespace is injected by the tool at runtime - agents never need to specify it explicitly
+2. Keys are automatically namespaced so each context has its own isolated storage:
+   - Autonomous agents: `agent:<agent_id>`
+   - Sports training programs: `sports:<program_id>` (stores goals, preferences, routine, progress, last_session)
+3. The namespace is injected by the tool at runtime - agents/programs never need to specify it explicitly
 4. Data is stored in the `kv_store` SQLite table and scoped per user
 
 ### Usage (from an agent's perspective)

@@ -1,0 +1,702 @@
+/* ============================================
+   Sports Components
+   ============================================
+
+   Sports training programs and program chat styling.
+*/
+
+/* ----------------------------------------
+   Sports Sidebar Entry
+   ---------------------------------------- */
+
+.sports-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+    background-color: var(--bg-secondary);
+}
+
+.sports-entry:hover {
+    background-color: var(--bg-hover);
+}
+
+.sports-entry.active {
+    background-color: var(--accent-muted);
+}
+
+.sports-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sports-icon svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent);
+}
+
+.sports-label {
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Nav row: hide label when multiple entries shown */
+.sidebar-nav-row:not(.single) .sports-label {
+    display: none;
+}
+
+.sidebar-nav-row:not(.single) .sports-entry {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+}
+
+.sidebar-nav-row.single .sports-entry {
+    flex: 1;
+    justify-content: flex-start;
+}
+
+.sidebar-nav-row.single .sports-label {
+    display: block;
+}
+
+/* ----------------------------------------
+   Sports Programs Container
+   ---------------------------------------- */
+
+.sports-programs-container {
+    padding: var(--space-4);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ----------------------------------------
+   Programs Header
+   ---------------------------------------- */
+
+.sports-programs-header {
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.sports-programs-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+}
+
+.sports-programs-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.sports-programs-title-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+}
+
+.sports-programs-title-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.sports-programs-title h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.sports-programs-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.sports-add-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    color: white;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.sports-add-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.sports-add-btn:hover {
+    background: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+}
+
+/* ----------------------------------------
+   New Program Modal
+   ---------------------------------------- */
+
+.sports-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    animation: sports-overlay-in 0.15s ease-out;
+}
+
+.sports-modal-overlay.sports-modal-exit {
+    animation: sports-overlay-out 0.15s ease-in forwards;
+}
+
+.sports-modal {
+    width: 90%;
+    max-width: 440px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+    animation: sports-modal-in 0.15s ease-out;
+}
+
+.sports-modal-exit .sports-modal {
+    animation: sports-modal-out 0.15s ease-in forwards;
+}
+
+@keyframes sports-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes sports-overlay-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes sports-modal-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes sports-modal-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+}
+
+.sports-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.sports-modal-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.sports-modal-icon {
+    display: flex;
+    color: var(--accent);
+}
+
+.sports-modal-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.sports-modal-title-row h2 {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.sports-modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.sports-modal-close svg {
+    width: 18px;
+    height: 18px;
+}
+
+.sports-modal-close:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+.sports-modal-body {
+    padding: var(--space-4);
+}
+
+.sports-modal-body .sports-add-name {
+    padding: var(--space-3);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    font-family: inherit;
+    transition: border-color var(--transition-fast);
+    flex: 1;
+    min-width: 0;
+}
+
+.sports-modal-body .sports-add-name:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.sports-modal-body .sports-add-name::placeholder {
+    color: var(--text-muted);
+}
+
+.sports-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border);
+}
+
+.sports-modal-cancel {
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.sports-modal-cancel:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.sports-add-input-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.sports-emoji-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.sports-emoji-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+    line-height: 1;
+}
+
+.sports-emoji-trigger:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.sports-emoji-popover {
+    display: none;
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    left: 0;
+    z-index: 50;
+    padding: var(--space-3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    width: 240px;
+}
+
+.sports-emoji-popover.open {
+    display: block;
+}
+
+.sports-emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: var(--space-1);
+}
+
+.sports-emoji-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    font-size: var(--font-size-lg);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+    line-height: 1;
+}
+
+.sports-emoji-option:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+}
+
+.sports-add-submit {
+    padding: var(--space-2) var(--space-4);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.sports-add-submit:hover {
+    background: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+}
+
+/* ----------------------------------------
+   Programs Grid
+   ---------------------------------------- */
+
+.sports-programs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+}
+
+/* ----------------------------------------
+   Program Card
+   ---------------------------------------- */
+
+.sports-program-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.sports-program-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.sports-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.sports-card-emoji {
+    font-size: var(--font-size-2xl);
+    flex-shrink: 0;
+}
+
+.sports-card-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sports-card-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.sports-card-action-label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+.sports-card-continue {
+    gap: var(--space-1);
+}
+
+.sports-card-delete:hover {
+    border-color: var(--color-error-500);
+    color: var(--color-error-500);
+}
+
+/* ----------------------------------------
+   Empty State
+   ---------------------------------------- */
+
+.sports-empty-state {
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--text-secondary);
+}
+
+.sports-empty-state p {
+    margin: 0;
+}
+
+.sports-empty-state p:first-child {
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.sports-empty-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------
+   Program Chat Header
+   ---------------------------------------- */
+
+.sports-program-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    margin-left: calc(-1 * var(--space-6));
+    margin-right: calc(-1 * var(--space-6));
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.sports-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.sports-back-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.sports-program-header-emoji {
+    font-size: var(--font-size-xl);
+    flex-shrink: 0;
+}
+
+.sports-program-header-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sports-reset-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.sports-reset-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.sports-reset-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--color-error-500);
+    color: var(--color-error-500);
+}
+
+/* ----------------------------------------
+   Loading State
+   ---------------------------------------- */
+
+.sports-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-12);
+    min-height: 300px;
+}
+
+.sports-loading p {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.sports-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: sports-spin 0.8s linear infinite;
+}
+
+@keyframes sports-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ----------------------------------------
+   Accessibility
+   ---------------------------------------- */
+
+.sports-entry:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    background-color: var(--bg-hover);
+}
+
+.sports-program-card:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.sports-back-btn:focus-visible,
+.sports-reset-btn:focus-visible,
+.sports-add-btn:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ----------------------------------------
+   Mobile Responsive
+   ---------------------------------------- */
+
+@media (max-width: 768px) {
+    .sports-programs-container {
+        padding: var(--space-3);
+    }
+
+    .sports-programs-title-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-3);
+    }
+
+    .sports-programs-title {
+        font-size: var(--font-size-xl);
+    }
+
+    .sports-programs-actions {
+        display: flex;
+        gap: var(--space-2);
+    }
+
+    .sports-add-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .sports-programs-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sports-program-card {
+        padding: var(--space-3);
+    }
+
+    .sports-program-header {
+        display: none; /* Layout already provides header with title on mobile */
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .sports-program-card:hover {
+        transform: none;
+    }
+
+    .sports-loading-spinner {
+        animation: none;
+    }
+}

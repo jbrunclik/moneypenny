@@ -34,6 +34,10 @@ import {
   type PlannerDashboard,
   type PlannerResetResponse,
   type PlannerSyncResponse,
+  type SportsConversation,
+  type SportsProgram,
+  type SportsProgramsResponse,
+  type SportsResetResponse,
   type SearchResponse,
   type StreamEvent,
   type SyncResponse,
@@ -1319,6 +1323,38 @@ export const kvStore = {
   async clearNamespace(namespace: string): Promise<void> {
     await request<{ status: string }>(`/api/kv/${encodeURIComponent(namespace)}`, {
       method: 'DELETE',
+    });
+  },
+};
+
+// Sports endpoints
+export const sports = {
+  async getPrograms(): Promise<SportsProgram[]> {
+    const data = await requestWithRetry<SportsProgramsResponse>('/api/sports/programs');
+    return data.programs;
+  },
+
+  async createProgram(data: { name: string; emoji: string }): Promise<SportsProgram> {
+    const response = await request<SportsProgramsResponse>('/api/sports/programs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.programs[0];
+  },
+
+  async deleteProgram(id: string): Promise<void> {
+    await request<{ status: string }>(`/api/sports/programs/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async getConversation(program: string): Promise<SportsConversation> {
+    return requestWithRetry<SportsConversation>(`/api/sports/${encodeURIComponent(program)}/conversation`);
+  },
+
+  async reset(program: string): Promise<SportsResetResponse> {
+    return request<SportsResetResponse>(`/api/sports/${encodeURIComponent(program)}/reset`, {
+      method: 'POST',
     });
   },
 };

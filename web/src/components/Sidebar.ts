@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, UNARCHIVE_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -40,6 +40,14 @@ export function shouldShowPlanner(user: User | null): boolean {
  * Always visible when user is logged in (agents are a core feature).
  */
 export function shouldShowAgents(user: User | null): boolean {
+  return !!user;
+}
+
+/**
+ * Check if the sports entry should be shown.
+ * Always visible when user is logged in.
+ */
+export function shouldShowSports(user: User | null): boolean {
   return !!user;
 }
 
@@ -85,6 +93,18 @@ function renderAgentsEntryWithoutDivider(
 }
 
 /**
+ * Render the sports entry in the sidebar nav row.
+ */
+function renderSportsEntry(isActive: boolean): string {
+  return `
+    <div class="sports-entry ${isActive ? 'active' : ''}" data-route="sports">
+      <span class="sports-icon">${SPORTS_ICON}</span>
+      <span class="sports-label">Sports</span>
+    </div>
+  `;
+}
+
+/**
  * Calculate optimal page size based on container height
  */
 function calculatePageSize(containerHeight: number): number {
@@ -121,24 +141,27 @@ export function renderConversationsList(): void {
     return;
   }
 
-  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, commandCenterData } = useStore.getState();
+  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, isSportsView, commandCenterData } = useStore.getState();
 
-  // Build navigation entries row (planner + agents side by side)
+  // Build navigation entries row (planner + agents + sports side by side)
   const showPlanner = shouldShowPlanner(user);
   const showAgents = shouldShowAgents(user);
+  const showSports = shouldShowSports(user);
   const agentUnreadCount = commandCenterData?.total_unread ?? 0;
   const agentWaitingCount = commandCenterData?.agents_waiting ?? 0;
   const agentErrorsCount = commandCenterData?.agents_with_errors ?? 0;
 
   let navEntriesHtml = '';
-  if (showPlanner || showAgents) {
+  if (showPlanner || showAgents || showSports) {
     const plannerHtml = showPlanner ? renderPlannerEntry(isPlannerView) : '';
     const agentsHtml = showAgents ? renderAgentsEntryWithoutDivider(isAgentsView, agentUnreadCount, agentWaitingCount, agentErrorsCount) : '';
-    // Use 'single' class when only one entry is shown
-    const rowClass = (showPlanner && showAgents) ? '' : ' single';
+    const sportsHtml = showSports ? renderSportsEntry(isSportsView) : '';
+    // Count visible entries for layout
+    const visibleCount = [showPlanner, showAgents, showSports].filter(Boolean).length;
+    const rowClass = visibleCount === 1 ? ' single' : '';
     navEntriesHtml = `
       <div class="sidebar-nav-row${rowClass}">
-        ${plannerHtml}${agentsHtml}
+        ${plannerHtml}${agentsHtml}${sportsHtml}
       </div>
       <div class="sidebar-divider"></div>
     `;
@@ -376,6 +399,11 @@ export function setActiveConversation(convId: string | null): void {
     .querySelectorAll<HTMLDivElement>('.agents-entry.active')
     .forEach((el) => el.classList.remove('active'));
 
+  // Remove active from sports entry
+  document
+    .querySelectorAll<HTMLDivElement>('.sports-entry.active')
+    .forEach((el) => el.classList.remove('active'));
+
   // Add active to current conversation
   if (convId) {
     const wrapper = document.querySelector<HTMLDivElement>(
@@ -393,15 +421,9 @@ export function setPlannerActive(active: boolean): void {
   if (!plannerEntry) return;
 
   if (active) {
-    // Remove active from all conversations
-    document
-      .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
-      .forEach((el) => el.classList.remove('active'));
-    // Remove active from agents
-    document
-      .querySelectorAll<HTMLDivElement>('.agents-entry.active')
-      .forEach((el) => el.classList.remove('active'));
-    // Set planner as active
+    document.querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll<HTMLDivElement>('.agents-entry.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll<HTMLDivElement>('.sports-entry.active').forEach((el) => el.classList.remove('active'));
     plannerEntry.classList.add('active');
   } else {
     plannerEntry.classList.remove('active');
@@ -416,18 +438,38 @@ export function setAgentsActive(active: boolean): void {
   if (!agentsEntry) return;
 
   if (active) {
+    document.querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll<HTMLDivElement>('.planner-entry.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll<HTMLDivElement>('.sports-entry.active').forEach((el) => el.classList.remove('active'));
+    agentsEntry.classList.add('active');
+  } else {
+    agentsEntry.classList.remove('active');
+  }
+}
+
+/**
+ * Set sports entry as active in sidebar
+ */
+export function setSportsActive(active: boolean): void {
+  const sportsEntry = document.querySelector<HTMLDivElement>('.sports-entry');
+  if (!sportsEntry) return;
+
+  if (active) {
     // Remove active from all conversations
     document
       .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
       .forEach((el) => el.classList.remove('active'));
-    // Remove active from planner
+    // Remove active from planner and agents
     document
       .querySelectorAll<HTMLDivElement>('.planner-entry.active')
       .forEach((el) => el.classList.remove('active'));
-    // Set agents as active
-    agentsEntry.classList.add('active');
+    document
+      .querySelectorAll<HTMLDivElement>('.agents-entry.active')
+      .forEach((el) => el.classList.remove('active'));
+    // Set sports as active
+    sportsEntry.classList.add('active');
   } else {
-    agentsEntry.classList.remove('active');
+    sportsEntry.classList.remove('active');
   }
 }
 

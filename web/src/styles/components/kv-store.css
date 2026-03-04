@@ -338,11 +338,7 @@
 }
 
 .kv-key-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-3);
     background: var(--bg-tertiary);
     border-radius: var(--radius-md);
 }
@@ -350,18 +346,43 @@
 .kv-key-info {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
-    flex: 1;
+    gap: var(--space-2);
     min-width: 0;
     overflow: hidden;
+}
+
+.kv-key-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
 }
 
 .kv-key-name {
     font-size: var(--font-size-sm);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--accent);
     font-family: var(--font-mono);
     word-break: break-all;
+}
+
+.kv-key-value-wrapper {
+    position: relative;
+}
+
+.kv-key-value-wrapper.collapsed {
+    max-height: 120px;
+    overflow: hidden;
+}
+
+.kv-key-value-wrapper.collapsed .kv-key-value-fade {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(to bottom, transparent, var(--bg-tertiary));
+    pointer-events: none;
 }
 
 .kv-key-value {
@@ -375,6 +396,25 @@
     padding: var(--space-2);
     background: var(--bg-primary);
     border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.kv-key-expand {
+    display: block;
+    width: 100%;
+    padding: var(--space-1) 0;
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    transition: color var(--transition-fast);
+}
+
+.kv-key-expand:hover {
+    color: var(--text-primary);
 }
 
 /* JSON syntax highlighting */
@@ -401,7 +441,7 @@
     color: var(--text-muted);
     cursor: pointer;
     flex-shrink: 0;
-    transition: all var(--transition-fast);
+    transition: color var(--transition-fast);
 }
 
 .kv-key-delete svg {

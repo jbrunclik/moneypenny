@@ -50,6 +50,8 @@ class Conversation:
     is_agent: bool = False  # Whether this is an autonomous agent's conversation
     agent_id: str | None = None  # Link to autonomous_agents table
     archived: bool = False  # Whether conversation is archived (hidden from main list)
+    is_sports: bool = False  # Whether this is a sports training conversation
+    sports_program: str | None = None  # Program ID (e.g., "pushups")
 
 
 @dataclass

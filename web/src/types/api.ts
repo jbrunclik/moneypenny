@@ -730,6 +730,37 @@ export interface KVValueResponse {
 }
 
 // =============================================================================
+// Sports types
+// =============================================================================
+
+export interface SportsProgram {
+  id: string;
+  name: string;
+  emoji: string;
+  created_at: string;
+  has_conversation: boolean;
+}
+
+export interface SportsProgramsResponse {
+  programs: SportsProgram[];
+}
+
+export interface SportsConversation {
+  id: string;
+  title: string;
+  model: string;
+  program: string;
+  created_at: string;
+  updated_at: string;
+  messages: Message[];
+}
+
+export interface SportsResetResponse {
+  success: boolean;
+  message: string;
+}
+
+// =============================================================================
 // AI Assist types
 // =============================================================================
 

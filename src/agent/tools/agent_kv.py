@@ -50,20 +50,25 @@ def kv_store(
     import json
 
     from src.agent.executor import get_agent_context
+    from src.agent.tools.context import get_sports_context
 
     # Get user context
     _, user_id = get_conversation_context()
     if not user_id:
         return "Error: No user context available. Cannot access K/V store."
 
-    # Only available during autonomous agent execution
+    # Available during autonomous agent execution or sports conversations
     agent_context = get_agent_context()
-    if not agent_context:
-        return "Error: kv_store is only available during autonomous agent execution."
+    sports_program = get_sports_context()
+    if not agent_context and not sports_program:
+        return "Error: kv_store is only available during autonomous agent or sports conversations."
 
-    # Auto-default namespace for agents
+    # Auto-default namespace
     if not namespace:
-        namespace = f"agent:{agent_context.agent.id}"
+        if sports_program:
+            namespace = "sports"
+        elif agent_context:
+            namespace = f"agent:{agent_context.agent.id}"
 
     # Validate action
     if action not in ("get", "set", "delete", "list"):

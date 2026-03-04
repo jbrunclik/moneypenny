@@ -125,6 +125,24 @@
 }
 
 .dashboard-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.dashboard-title-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dashboard-title-icon svg {
+    width: 28px;
+    height: 28px;
+    color: var(--accent);
+}
+
+.dashboard-title-text {
     font-size: var(--font-size-2xl);
     font-weight: 700;
     background: linear-gradient(135deg, var(--text-primary), var(--accent));
@@ -1177,8 +1195,13 @@
         margin-bottom: var(--space-4);
     }
 
-    .dashboard-title {
+    .dashboard-title-text {
         font-size: var(--font-size-xl);
+    }
+
+    .dashboard-title-icon svg {
+        width: 24px;
+        height: 24px;
     }
 
     .dashboard-actions {

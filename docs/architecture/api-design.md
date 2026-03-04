@@ -82,7 +82,7 @@ This workflow should be run whenever you modify:
 
 ### Route Organization
 
-Routes are organized into focused modules by feature area (44 total endpoints across 11 modules):
+Routes are organized into focused modules by feature area (48 total endpoints across 12 modules):
 
 **Auth-related routes** (`/auth` prefix):
 - [routes/auth.py](../../src/api/routes/auth.py) - Google authentication (4 routes)
@@ -99,6 +99,7 @@ Routes are organized into focused modules by feature area (44 total endpoints ac
 - [routes/chat.py](../../src/api/routes/chat.py) - Chat endpoints (2 routes: batch and streaming)
 - [routes/files.py](../../src/api/routes/files.py) - File serving (2 routes)
 - [routes/costs.py](../../src/api/routes/costs.py) - Cost tracking (4 routes)
+- [routes/sports.py](../../src/api/routes/sports.py) - Sports training programs (5 routes)
 
 **Helper modules**:
 - [helpers/validation.py](../../src/api/helpers/validation.py) - Common validation patterns

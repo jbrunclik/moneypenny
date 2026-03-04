@@ -286,6 +286,16 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       await navigateToAgents();
     } else if (initialRoute?.isStorage) {
       await navigateToStorage();
+    } else if (initialRoute?.isSports) {
+      const { getSportsProgramFromHash } = await import('../router/deeplink');
+      const sportsProgramId = getSportsProgramFromHash();
+      if (sportsProgramId) {
+        const { navigateToSportsProgram } = await import('./sports');
+        await navigateToSportsProgram(sportsProgramId);
+      } else {
+        const { navigateToSports } = await import('./sports');
+        await navigateToSports();
+      }
     } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {
       await loadDeepLinkedConversation(initialRoute.conversationId);
     }
@@ -442,6 +452,7 @@ export async function init(): Promise<void> {
         isPlanner: route.type === 'planner',
         isAgents: route.type === 'agents',
         isStorage: route.type === 'storage',
+        isSports: route.type === 'sports',
       };
       await loadInitialData(initialRoute);
     } catch (error) {
@@ -467,9 +478,10 @@ export async function init(): Promise<void> {
     const store = useStore.getState();
     store.setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
     store.setCurrentConversation(null);
-    // Clear agents and storage data to prevent exposing previous user's data
+    // Clear agents, storage, and sports data to prevent exposing previous user's data
     store.clearAgentsState();
     store.clearStorageState();
+    store.clearSportsState();
     renderConversationsList();
     renderMessages([]);
 

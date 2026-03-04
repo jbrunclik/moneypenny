@@ -58,10 +58,8 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   }
   hideNewMessagesAvailableBanner();
 
-  // Update state
-  store.setIsStorageView(true);
-  store.setIsPlannerView(false);
-  store.setIsAgentsView(false);
+  // Update state — atomically clear all other views
+  store.setActiveView('storage');
   setActiveConversation(null);
   setStorageHash();
 
@@ -228,7 +226,7 @@ export function leaveStorageView(clearMessages: boolean = true): void {
   log.debug('Leaving storage view', { clearMessages });
   const store = useStore.getState();
 
-  store.setIsStorageView(false);
+  store.setActiveView('chat');
 
   // Show input area and scroll button
   ensureInputAreaVisible();

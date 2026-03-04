@@ -31,7 +31,7 @@ export function setupPlannerView(): void {
  */
 export function clearPlannerView(): void {
   log.debug('Clearing planner view');
-  useStore.getState().setIsPlannerView(false);
+  useStore.getState().setActiveView('chat');
 }
 
 /**

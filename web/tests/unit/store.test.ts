@@ -768,13 +768,44 @@ describe('Store - Archive', () => {
 describe('Store - Planner', () => {
   beforeEach(resetStore);
 
-  describe('setIsPlannerView', () => {
+  describe('setActiveView', () => {
     it('sets planner view state', () => {
-      useStore.getState().setIsPlannerView(true);
+      useStore.getState().setActiveView('planner');
+      expect(useStore.getState().isPlannerView).toBe(true);
+      expect(useStore.getState().isAgentsView).toBe(false);
+      expect(useStore.getState().isStorageView).toBe(false);
+      expect(useStore.getState().isSportsView).toBe(false);
+    });
+
+    it('sets agents view state', () => {
+      useStore.getState().setActiveView('agents');
+      expect(useStore.getState().isAgentsView).toBe(true);
+      expect(useStore.getState().isPlannerView).toBe(false);
+    });
+
+    it('sets sports view state', () => {
+      useStore.getState().setActiveView('sports');
+      expect(useStore.getState().isSportsView).toBe(true);
+      expect(useStore.getState().isPlannerView).toBe(false);
+      expect(useStore.getState().isAgentsView).toBe(false);
+    });
+
+    it('clears all view flags when setting chat', () => {
+      useStore.getState().setActiveView('planner');
+      useStore.getState().setActiveView('chat');
+      expect(useStore.getState().isPlannerView).toBe(false);
+      expect(useStore.getState().isAgentsView).toBe(false);
+      expect(useStore.getState().isStorageView).toBe(false);
+      expect(useStore.getState().isSportsView).toBe(false);
+    });
+
+    it('atomically switches between views', () => {
+      useStore.getState().setActiveView('planner');
       expect(useStore.getState().isPlannerView).toBe(true);
 
-      useStore.getState().setIsPlannerView(false);
+      useStore.getState().setActiveView('agents');
       expect(useStore.getState().isPlannerView).toBe(false);
+      expect(useStore.getState().isAgentsView).toBe(true);
     });
   });
 
@@ -842,7 +873,7 @@ describe('Store - Planner', () => {
 
   describe('clearPlannerState', () => {
     it('clears all planner state', () => {
-      useStore.getState().setIsPlannerView(true);
+      useStore.getState().setActiveView('planner');
       useStore.getState().setPlannerDashboard({
         days: [],
         overdue_tasks: [],

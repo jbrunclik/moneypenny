@@ -256,6 +256,16 @@ export function ensureInputAreaVisible(): void {
 }
 
 /**
+ * Hide the input area. Used by views that don't need a chat input (programs list, agents list).
+ */
+export function hideInputArea(): void {
+  const inputArea = document.querySelector<HTMLDivElement>('.input-area');
+  if (inputArea) {
+    inputArea.classList.add('hidden');
+  }
+}
+
+/**
  * Update send button enabled state (only applies in send mode, not stop mode)
  */
 export function updateSendButtonState(): void {

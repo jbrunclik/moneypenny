@@ -46,6 +46,7 @@ import {
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
+import { createAgentConversationHeader } from '../components/CommandCenter';
 
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { leavePlannerView } from './planner';
@@ -53,6 +54,14 @@ import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { leaveAgentsView } from './agents';
 
 const log = createLogger('conversation');
+
+/** Look up agent name from command center data in the store. */
+function getAgentNameById(agentId: string): string | null {
+  const { commandCenterData } = useStore.getState();
+  if (!commandCenterData) return null;
+  const agent = commandCenterData.agents.find(a => a.id === agentId);
+  return agent?.name ?? null;
+}
 
 // Track the most recently requested conversation ID to handle race conditions
 // When user clicks a conversation, we store its ID. If they click another
@@ -125,6 +134,29 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
     hasPendingApproval: conv.has_pending_approval,
   });
 
+  // Add agent conversation header after renderMessages (which clears the container)
+  if (conv.is_agent && conv.agent_id) {
+    const messagesContainer = getElementById<HTMLDivElement>('messages');
+    if (messagesContainer) {
+      messagesContainer.classList.add('has-sticky-header');
+      const agentName = getAgentNameById(conv.agent_id) || conv.title;
+      const headerEl = createAgentConversationHeader(
+        agentName,
+        () => {
+          import('./agents').then(({ navigateToAgents }) => navigateToAgents());
+        },
+        () => {
+          if (conv.agent_id) {
+            import('./agents').then(({ handleAgentEditById }) => {
+              handleAgentEditById(conv.agent_id!);
+            });
+          }
+        },
+      );
+      messagesContainer.prepend(headerEl);
+    }
+  }
+
   // Set up scroll listener for loading older messages (if not a temp conversation)
   if (!isTempConversation(conv.id)) {
     setupOlderMessagesScrollListener(conv.id);
@@ -193,22 +225,22 @@ export async function selectConversation(convId: string): Promise<void> {
   // See docs/features/agents.md section "Routing Race Condition Prevention"
   const navToken = store.startNavigation();
 
-  // If we're in planner view, leave it first
+  // Leave any special view before switching to a conversation
   if (store.isPlannerView) {
-    store.setIsPlannerView(false);
     setPlannerActive(false);
   }
-
-  // If we're in agents view, leave it first (but don't clear messages - we'll load the conversation)
   if (store.isAgentsView) {
     leaveAgentsView(false);
   }
-
-  // If we're in storage view, leave it first
   if (store.isStorageView) {
     const { leaveStorageView } = await import('./kv-store');
     leaveStorageView(false);
   }
+  if (store.isSportsView) {
+    const { leaveSportsView } = await import('./sports');
+    leaveSportsView();
+  }
+  store.setActiveView('chat');
 
   // For temp conversations, just switch to them locally (no API call needed)
   if (isTempConversation(convId)) {
@@ -314,23 +346,24 @@ export function createConversation(): void {
   log.debug('Creating new conversation');
   const store = useStore.getState();
 
-  // If we're in planner view, leave it first
+  // Leave any special view before creating new conversation
   if (store.isPlannerView) {
-    store.setIsPlannerView(false);
     setPlannerActive(false);
   }
-
-  // If we're in agents view, leave it first
   if (store.isAgentsView) {
     leaveAgentsView(false);
   }
-
-  // If we're in storage view, leave it first
   if (store.isStorageView) {
     import('./kv-store').then(({ leaveStorageView }) => {
       leaveStorageView(false);
     });
   }
+  if (store.isSportsView) {
+    import('./sports').then(({ leaveSportsView }) => {
+      leaveSportsView();
+    });
+  }
+  store.setActiveView('chat');
 
   // Clear any tracked agent since we're starting a new conversation
   getSyncManager()?.setViewedAgent(null);
@@ -695,8 +728,8 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean): void {
-  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage });
+export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean): void {
+  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports });
   const store = useStore.getState();
 
   // Handle planner navigation - import dynamically to avoid circular dependency
@@ -723,6 +756,23 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
     return;
   }
 
+  // Handle sports navigation - import dynamically to avoid circular dependency
+  if (isSports) {
+    import('../router/deeplink').then(({ getSportsProgramFromHash }) => {
+      const sportsProgramId = getSportsProgramFromHash();
+      if (sportsProgramId) {
+        import('./sports').then(({ navigateToSportsProgram }) => {
+          navigateToSportsProgram(sportsProgramId);
+        });
+      } else {
+        import('./sports').then(({ navigateToSports }) => {
+          navigateToSports();
+        });
+      }
+    });
+    return;
+  }
+
   // If we were in planner view and navigating away, leave planner
   if (store.isPlannerView) {
     leavePlannerView();
@@ -739,6 +789,13 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
   if (store.isStorageView) {
     import('./kv-store').then(({ leaveStorageView }) => {
       leaveStorageView();
+    });
+  }
+
+  // If we were in sports view and navigating away, leave sports
+  if (store.isSportsView) {
+    import('./sports').then(({ leaveSportsView }) => {
+      leaveSportsView();
     });
   }
 

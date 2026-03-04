@@ -58,17 +58,15 @@ describe('Routing Race Conditions - Navigation Token Pattern', () => {
 
       // User clicks Agents
       const agentsToken1 = store.startNavigation();
-      store.setIsAgentsView(true);
+      store.setActiveView('agents');
 
       // User quickly clicks Planner
       const plannerToken = store.startNavigation();
-      store.setIsPlannerView(true);
-      store.setIsAgentsView(false);
+      store.setActiveView('planner');
 
       // User quickly clicks Agents again
       const agentsToken2 = store.startNavigation();
-      store.setIsAgentsView(true);
-      store.setIsPlannerView(false);
+      store.setActiveView('agents');
 
       // First Agents navigation should be invalid
       expect(store.isNavigationValid(agentsToken1)).toBe(false);
@@ -86,7 +84,7 @@ describe('Routing Race Conditions - Navigation Token Pattern', () => {
 
       // User quickly clicks Planner
       const plannerToken = store.startNavigation();
-      store.setIsPlannerView(true);
+      store.setActiveView('planner');
 
       // Conversation navigation should be invalid
       expect(store.isNavigationValid(convToken)).toBe(false);
@@ -122,8 +120,7 @@ describe('Routing Race Conditions - Navigation Token Pattern', () => {
 
       // User navigated to Planner during the "load"
       store.startNavigation();
-      store.setIsPlannerView(true);
-      store.setIsAgentsView(false);
+      store.setActiveView('planner');
 
       // After "load" completes, check if should render
       if (store.isNavigationValid(agentsToken)) {
@@ -138,7 +135,7 @@ describe('Routing Race Conditions - Navigation Token Pattern', () => {
 
       // Simulate starting Agents load
       const agentsToken = store.startNavigation();
-      store.setIsAgentsView(true);
+      store.setActiveView('agents');
       let shouldRender = false;
 
       // Simulate delay (async operation)
@@ -181,7 +178,7 @@ describe('Routing Race Conditions - Navigation Token Pattern', () => {
 
       // Navigate to Planner
       const token = store.startNavigation();
-      store.setIsPlannerView(true);
+      store.setActiveView('planner');
 
       // Both checks should indicate Planner is active
       expect(store.isNavigationValid(token)).toBe(true);
@@ -193,7 +190,7 @@ describe('Routing Race Conditions - Navigation Token Pattern', () => {
 
       // Navigate to Agents
       const token = store.startNavigation();
-      store.setIsAgentsView(true);
+      store.setActiveView('agents');
 
       // Both checks should indicate Agents is active
       expect(store.isNavigationValid(token)).toBe(true);

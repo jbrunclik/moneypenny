@@ -20,13 +20,17 @@ from src.agent.content import (
 # Agent context imports for interactive agent conversations
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
-from src.agent.tools import set_conversation_context, set_current_message_files
+from src.agent.tools import (
+    set_conversation_context,
+    set_current_message_files,
+)
 from src.api.errors import (
     raise_llm_error,
     raise_not_found_error,
     raise_server_error,
     raise_validation_error,
 )
+from src.api.helpers.chat_streaming import load_sports_context as _load_sports_context
 from src.api.rate_limiting import rate_limit_chat
 from src.api.routes.calendar import _get_valid_calendar_access_token
 from src.api.schemas import ChatBatchResponse, ChatRequest, MessageRole
@@ -238,12 +242,22 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
                     "trigger_type": "interactive",
                 }
 
+        # Check if this is a sports conversation - set up sports context
+        sports_context = None
+        if conv.is_sports and conv.sports_program:
+            from src.agent.tools import set_sports_context
+
+            sports_context = _load_sports_context(user.id, conv.sports_program)
+            set_sports_context(conv.sports_program)
+
         agent = ChatAgent(
             model_name=conv.model,
             anonymous_mode=anonymous_mode,
             is_planning=conv.is_planning,
             is_autonomous=is_autonomous,
             agent_context=agent_context,
+            is_sports=conv.is_sports,
+            sports_context=sports_context,
         )
         raw_response, tool_results, usage_info, result_messages = agent.chat_batch(
             message_text,
@@ -256,6 +270,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             is_planning=conv.is_planning,
             dashboard_data=dashboard_data,
             conversation_id=conv.id,
+            is_sports=conv.is_sports,
+            sports_context=sports_context,
         )
 
         # Get the FULL tool results (with _full_result) captured before stripping
@@ -265,6 +281,10 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         set_current_request_id(None)  # Clean up
         set_current_message_files(None)  # Clean up
         set_conversation_context(None, None)  # Clean up
+        if conv.is_sports:
+            from src.agent.tools import set_sports_context
+
+            set_sports_context(None)  # Clean up
         if is_autonomous:
             clear_agent_context()  # Clean up agent context
 
