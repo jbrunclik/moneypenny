@@ -14,6 +14,7 @@ import type {
   PlannerDashboard,
   SearchResult,
   SportsProgram,
+  LanguageProgram,
   UploadConfig,
   User,
   ThinkingState,
@@ -154,6 +155,12 @@ interface AppState {
   sportsCurrentProgram: string | null;
   sportsProgramsLastFetch: number | null;
 
+  // Language learning state
+  isLanguageView: boolean;
+  languagePrograms: LanguageProgram[] | null;
+  languageCurrentProgram: string | null;
+  languageProgramsLastFetch: number | null;
+
   // Actions - Auth
   setToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
@@ -242,7 +249,7 @@ interface AppState {
   // Actions - View switching
   // Atomically sets the active view, clearing all other view flags.
   // Prefer this over individual setIsXXXView calls to avoid forgetting to clear flags.
-  setActiveView: (view: 'chat' | 'planner' | 'agents' | 'storage' | 'sports') => void;
+  setActiveView: (view: 'chat' | 'planner' | 'agents' | 'storage' | 'sports' | 'language') => void;
 
   // Actions - Planner
   setPlannerDashboard: (dashboard: PlannerDashboard | null) => void;
@@ -278,6 +285,12 @@ interface AppState {
   setSportsCurrentProgram: (programId: string | null) => void;
   invalidateSportsCache: () => void;
   clearSportsState: () => void;
+
+  // Actions - Language
+  setLanguagePrograms: (programs: LanguageProgram[] | null) => void;
+  setLanguageCurrentProgram: (programId: string | null) => void;
+  invalidateLanguageCache: () => void;
+  clearLanguageState: () => void;
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -376,6 +389,12 @@ export const useStore = create<AppState>()(
       sportsPrograms: null,
       sportsCurrentProgram: null,
       sportsProgramsLastFetch: null,
+
+      // Language learning state
+      isLanguageView: false,
+      languagePrograms: null,
+      languageCurrentProgram: null,
+      languageProgramsLastFetch: null,
 
       // Auth actions
       setToken: (token) => set({ token }),
@@ -703,6 +722,7 @@ export const useStore = create<AppState>()(
           isAgentsView: view === 'agents',
           isStorageView: view === 'storage',
           isSportsView: view === 'sports',
+          isLanguageView: view === 'language',
         }),
 
       // Planner actions
@@ -823,6 +843,19 @@ export const useStore = create<AppState>()(
           sportsPrograms: null,
           sportsCurrentProgram: null,
           sportsProgramsLastFetch: null,
+        }),
+
+      // Language actions
+      setLanguagePrograms: (languagePrograms) =>
+        set({ languagePrograms, languageProgramsLastFetch: languagePrograms ? Date.now() : null }),
+      setLanguageCurrentProgram: (languageCurrentProgram) => set({ languageCurrentProgram }),
+      invalidateLanguageCache: () => set({ languageProgramsLastFetch: null }),
+      clearLanguageState: () =>
+        set({
+          isLanguageView: false,
+          languagePrograms: null,
+          languageCurrentProgram: null,
+          languageProgramsLastFetch: null,
         }),
     }),
     {

@@ -249,6 +249,9 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
 
   messages.forEach((msg) => addMessageToUI(msg, container, approvalResolutions));
 
+  // Lock quiz blocks in all messages except the last assistant message
+  lockOlderQuizBlocks(container);
+
   if (!options.skipScrollToBottom) {
     scheduleScrollToBottom(container);
   }
@@ -573,3 +576,40 @@ async function handleApprovalAction(approvalId: string, approved: boolean, messa
 
 // Note: addActionApprovedMessageToUI removed - approval status is now shown
 // directly on the approval request message instead of as a separate message
+
+// ============================================================================
+// Quiz Block Locking
+// ============================================================================
+
+/**
+ * Lock quiz blocks in all messages except the last assistant message.
+ * Quizzes in older messages become non-interactive (opacity reduced, no pointer events).
+ * Called after rendering all messages and after streaming finalization.
+ */
+export function lockOlderQuizBlocks(container?: HTMLElement): void {
+  const el = container ?? getElementById<HTMLDivElement>('messages');
+  if (!el) return;
+
+  const allMessages = el.querySelectorAll('.message');
+  if (allMessages.length === 0) return;
+
+  // Find the last assistant message
+  let lastAssistantMsg: Element | null = null;
+  for (let i = allMessages.length - 1; i >= 0; i--) {
+    if (allMessages[i].classList.contains('assistant')) {
+      lastAssistantMsg = allMessages[i];
+      break;
+    }
+  }
+
+  // Lock quiz blocks in all messages that aren't the last assistant message
+  for (const msg of allMessages) {
+    const quizBlocks = msg.querySelectorAll('.quiz-block');
+    if (quizBlocks.length === 0) continue;
+
+    const shouldLock = msg !== lastAssistantMsg;
+    for (const block of quizBlocks) {
+      block.classList.toggle('locked', shouldLock);
+    }
+  }
+}

@@ -56,6 +56,8 @@ class ChatAgent:
         tools: list[Any] | None = None,
         is_sports: bool = False,
         sports_context: dict[str, Any] | None = None,
+        is_language: bool = False,
+        language_context: dict[str, Any] | None = None,
     ) -> None:
         from src.agent.context_cache import get_cached_content_name
 
@@ -68,6 +70,8 @@ class ChatAgent:
         self.agent_context = agent_context
         self.is_sports = is_sports
         self.sports_context = sports_context
+        self.is_language = is_language
+        self.language_context = language_context
         # Use provided tools, or get filtered tools based on mode
         if tools is not None:
             active_tools = tools
@@ -79,7 +83,9 @@ class ChatAgent:
                 anonymous_mode, is_planning, agent_tool_permissions=agent_tools
             )
         else:
-            active_tools = get_tools_for_request(anonymous_mode, is_planning, is_sports=is_sports)
+            active_tools = get_tools_for_request(
+                anonymous_mode, is_planning, is_sports=is_sports, is_language=is_language
+            )
 
         # Determine cache profile and get cached content name
         self._cached_content_name: str | None = None
@@ -121,8 +127,8 @@ class ChatAgent:
         Returns None for modes incompatible with caching (autonomous agents,
         no-tools mode).
         """
-        # No caching for autonomous agents (variable tools), sports, or no-tools mode
-        if self.is_autonomous or self.is_sports or not self.with_tools:
+        # No caching for autonomous agents (variable tools), sports, language, or no-tools mode
+        if self.is_autonomous or self.is_sports or self.is_language or not self.with_tools:
             return None
         if self.is_planning:
             return CacheProfile.PLANNING
@@ -265,6 +271,8 @@ class ChatAgent:
         dashboard_data: dict[str, Any] | None = None,
         is_sports: bool = False,
         sports_context: dict[str, Any] | None = None,
+        is_language: bool = False,
+        language_context: dict[str, Any] | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
         from src.agent.prompts import get_dynamic_prompt_parts
@@ -288,6 +296,8 @@ class ChatAgent:
                 planner_dashboard_context=refreshed_dashboard,
                 is_sports=is_sports,
                 sports_context=sports_context,
+                is_language=is_language,
+                language_context=language_context,
             )
             messages.append(HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]"))
         else:
@@ -308,6 +318,8 @@ class ChatAgent:
                         agent_context=self.agent_context,
                         is_sports=is_sports,
                         sports_context=sports_context,
+                        is_language=is_language,
+                        language_context=language_context,
                     )
                 )
             )
@@ -345,6 +357,8 @@ class ChatAgent:
         conversation_id: str | None = None,
         is_sports: bool = False,
         sports_context: dict[str, Any] | None = None,
+        is_language: bool = False,
+        language_context: dict[str, Any] | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
         """
         Send a message and get a response (non-streaming).
@@ -377,6 +391,8 @@ class ChatAgent:
             dashboard_data=dashboard_data,
             is_sports=is_sports,
             sports_context=sports_context,
+            is_language=is_language,
+            language_context=language_context,
         )
         logger.debug(
             "Starting chat_batch",
@@ -469,6 +485,8 @@ class ChatAgent:
         conversation_id: str | None = None,
         is_sports: bool = False,
         sports_context: dict[str, Any] | None = None,
+        is_language: bool = False,
+        language_context: dict[str, Any] | None = None,
     ) -> Generator[str | tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]]:
         """
         Stream response tokens using LangGraph's stream method.
@@ -502,6 +520,8 @@ class ChatAgent:
             dashboard_data=dashboard_data,
             is_sports=is_sports,
             sports_context=sports_context,
+            is_language=is_language,
+            language_context=language_context,
         )
 
         # Accumulate full response text
@@ -612,6 +632,8 @@ class ChatAgent:
         conversation_id: str | None = None,
         is_sports: bool = False,
         sports_context: dict[str, Any] | None = None,
+        is_language: bool = False,
+        language_context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -647,6 +669,8 @@ class ChatAgent:
             dashboard_data=dashboard_data,
             is_sports=is_sports,
             sports_context=sports_context,
+            is_language=is_language,
+            language_context=language_context,
         )
 
         # Accumulate full response text

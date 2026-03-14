@@ -353,6 +353,9 @@ export const PLANNER_DASHBOARD_CACHE_MS = 5 * MS_PER_MINUTE;
 /** Cache duration for sports programs list (5 minutes) */
 export const SPORTS_PROGRAMS_CACHE_MS = 5 * MS_PER_MINUTE;
 
+/** Cache duration for language programs list (5 minutes) */
+export const LANGUAGE_PROGRAMS_CACHE_MS = 5 * MS_PER_MINUTE;
+
 // =============================================================================
 // Agents Configuration
 // =============================================================================

@@ -1358,3 +1358,50 @@ class SportsResetResponse(BaseModel):
 
     success: bool
     message: str
+
+
+# -----------------------------------------------------------------------------
+# Language Learning Schemas
+# -----------------------------------------------------------------------------
+
+
+class LanguageProgramItem(BaseModel):
+    """A single language learning program."""
+
+    id: str
+    name: str
+    emoji: str
+    created_at: str
+    has_conversation: bool = False
+
+
+class LanguageProgramsResponse(BaseModel):
+    """List of user's language programs."""
+
+    programs: list[LanguageProgramItem]
+
+
+class CreateLanguageProgramRequest(BaseModel):
+    """Request to create a new language program."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    emoji: str = Field(..., min_length=1, max_length=10)
+
+
+class LanguageConversationResponse(BaseModel):
+    """Language program conversation with messages."""
+
+    id: str
+    title: str
+    model: str
+    program: str
+    created_at: str
+    updated_at: str
+    messages: list[dict[str, Any]]
+
+
+class LanguageResetResponse(BaseModel):
+    """Response from resetting a language conversation."""
+
+    success: bool
+    message: str

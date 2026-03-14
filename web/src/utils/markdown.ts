@@ -2,6 +2,7 @@ import { marked } from 'marked';
 import hljs from 'highlight.js/lib/core';
 import { COPY_ICON } from './icons';
 import { escapeHtml } from './dom';
+import { renderQuizBlock } from '../components/QuizBlock';
 
 // Import only the languages we need
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -105,8 +106,17 @@ marked.use({
     },
 
     // Wrap code blocks in container with copy button and language label
+    // Special handling: ```quiz blocks are rendered as interactive quiz components
     code(token): string {
       const lang = token.lang || '';
+
+      // Intercept quiz blocks — render as interactive quiz components
+      if (lang === 'quiz') {
+        const quizHtml = renderQuizBlock(token.text);
+        if (quizHtml) return quizHtml;
+        // Fallback to regular code block on parse error
+      }
+
       const langClass = lang ? `language-${escapeHtml(lang)}` : '';
       const langLabel = lang ? `<span class="code-language">${escapeHtml(lang)}</span>` : '';
       // Don't escape the code here - highlightAllCodeBlocks will handle it

@@ -16,8 +16,10 @@ import { createConversation, selectConversation, deleteConversation, renameConve
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';
+import { navigateToLanguage } from './language';
 import { navigateToStorage } from './kv-store';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent } from './file-actions';
+import { handleQuizOptionClick, handleQuizContinue } from '../components/QuizBlock';
 
 const log = createLogger('events');
 
@@ -148,6 +150,14 @@ export function setupEventListeners(): void {
       return;
     }
 
+    // Handle language entry click
+    const languageEntry = (e.target as HTMLElement).closest('.language-entry');
+    if (languageEntry) {
+      resetSwipeStates();
+      navigateToLanguage();
+      return;
+    }
+
     // Handle conversation selection
     const convItem = (e.target as HTMLElement).closest('.conversation-item');
     if (convItem) {
@@ -198,6 +208,20 @@ export function setupEventListeners(): void {
     const inlineCopyBtn = (e.target as HTMLElement).closest('.inline-copy-btn');
     if (inlineCopyBtn) {
       copyInlineContent(inlineCopyBtn as HTMLButtonElement);
+      return;
+    }
+
+    // Quiz option click (multiple-choice)
+    const quizOption = (e.target as HTMLElement).closest('.quiz-option');
+    if (quizOption) {
+      handleQuizOptionClick(quizOption as HTMLButtonElement);
+      return;
+    }
+
+    // Quiz continue / send answers click
+    const quizContinue = (e.target as HTMLElement).closest('.quiz-continue');
+    if (quizContinue) {
+      handleQuizContinue(quizContinue as HTMLButtonElement);
     }
   });
 }

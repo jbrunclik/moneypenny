@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -48,6 +48,14 @@ export function shouldShowAgents(user: User | null): boolean {
  * Always visible when user is logged in.
  */
 export function shouldShowSports(user: User | null): boolean {
+  return !!user;
+}
+
+/**
+ * Check if the language entry should be shown.
+ * Always visible when user is logged in.
+ */
+export function shouldShowLanguage(user: User | null): boolean {
   return !!user;
 }
 
@@ -105,6 +113,18 @@ function renderSportsEntry(isActive: boolean): string {
 }
 
 /**
+ * Render the language entry in the sidebar nav row.
+ */
+function renderLanguageEntry(isActive: boolean): string {
+  return `
+    <div class="language-entry ${isActive ? 'active' : ''}" data-route="language">
+      <span class="language-icon">${LANGUAGE_ICON}</span>
+      <span class="language-label">Language</span>
+    </div>
+  `;
+}
+
+/**
  * Calculate optimal page size based on container height
  */
 function calculatePageSize(containerHeight: number): number {
@@ -141,27 +161,29 @@ export function renderConversationsList(): void {
     return;
   }
 
-  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, isSportsView, commandCenterData } = useStore.getState();
+  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, isSportsView, isLanguageView, commandCenterData } = useStore.getState();
 
-  // Build navigation entries row (planner + agents + sports side by side)
+  // Build navigation entries row (planner + agents + sports + language side by side)
   const showPlanner = shouldShowPlanner(user);
   const showAgents = shouldShowAgents(user);
   const showSports = shouldShowSports(user);
+  const showLanguage = shouldShowLanguage(user);
   const agentUnreadCount = commandCenterData?.total_unread ?? 0;
   const agentWaitingCount = commandCenterData?.agents_waiting ?? 0;
   const agentErrorsCount = commandCenterData?.agents_with_errors ?? 0;
 
   let navEntriesHtml = '';
-  if (showPlanner || showAgents || showSports) {
+  if (showPlanner || showAgents || showSports || showLanguage) {
     const plannerHtml = showPlanner ? renderPlannerEntry(isPlannerView) : '';
     const agentsHtml = showAgents ? renderAgentsEntryWithoutDivider(isAgentsView, agentUnreadCount, agentWaitingCount, agentErrorsCount) : '';
     const sportsHtml = showSports ? renderSportsEntry(isSportsView) : '';
+    const languageHtml = showLanguage ? renderLanguageEntry(isLanguageView) : '';
     // Count visible entries for layout
-    const visibleCount = [showPlanner, showAgents, showSports].filter(Boolean).length;
+    const visibleCount = [showPlanner, showAgents, showSports, showLanguage].filter(Boolean).length;
     const rowClass = visibleCount === 1 ? ' single' : '';
     navEntriesHtml = `
       <div class="sidebar-nav-row${rowClass}">
-        ${plannerHtml}${agentsHtml}${sportsHtml}
+        ${plannerHtml}${agentsHtml}${sportsHtml}${languageHtml}
       </div>
       <div class="sidebar-divider"></div>
     `;
@@ -404,6 +426,11 @@ export function setActiveConversation(convId: string | null): void {
     .querySelectorAll<HTMLDivElement>('.sports-entry.active')
     .forEach((el) => el.classList.remove('active'));
 
+  // Remove active from language entry
+  document
+    .querySelectorAll<HTMLDivElement>('.language-entry.active')
+    .forEach((el) => el.classList.remove('active'));
+
   // Add active to current conversation
   if (convId) {
     const wrapper = document.querySelector<HTMLDivElement>(
@@ -424,6 +451,7 @@ export function setPlannerActive(active: boolean): void {
     document.querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active').forEach((el) => el.classList.remove('active'));
     document.querySelectorAll<HTMLDivElement>('.agents-entry.active').forEach((el) => el.classList.remove('active'));
     document.querySelectorAll<HTMLDivElement>('.sports-entry.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll<HTMLDivElement>('.language-entry.active').forEach((el) => el.classList.remove('active'));
     plannerEntry.classList.add('active');
   } else {
     plannerEntry.classList.remove('active');
@@ -441,6 +469,7 @@ export function setAgentsActive(active: boolean): void {
     document.querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active').forEach((el) => el.classList.remove('active'));
     document.querySelectorAll<HTMLDivElement>('.planner-entry.active').forEach((el) => el.classList.remove('active'));
     document.querySelectorAll<HTMLDivElement>('.sports-entry.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll<HTMLDivElement>('.language-entry.active').forEach((el) => el.classList.remove('active'));
     agentsEntry.classList.add('active');
   } else {
     agentsEntry.classList.remove('active');
@@ -459,17 +488,49 @@ export function setSportsActive(active: boolean): void {
     document
       .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
       .forEach((el) => el.classList.remove('active'));
-    // Remove active from planner and agents
+    // Remove active from planner, agents, and language
     document
       .querySelectorAll<HTMLDivElement>('.planner-entry.active')
       .forEach((el) => el.classList.remove('active'));
     document
       .querySelectorAll<HTMLDivElement>('.agents-entry.active')
       .forEach((el) => el.classList.remove('active'));
+    document
+      .querySelectorAll<HTMLDivElement>('.language-entry.active')
+      .forEach((el) => el.classList.remove('active'));
     // Set sports as active
     sportsEntry.classList.add('active');
   } else {
     sportsEntry.classList.remove('active');
+  }
+}
+
+/**
+ * Set language entry as active in sidebar
+ */
+export function setLanguageActive(active: boolean): void {
+  const languageEntry = document.querySelector<HTMLDivElement>('.language-entry');
+  if (!languageEntry) return;
+
+  if (active) {
+    // Remove active from all conversations
+    document
+      .querySelectorAll<HTMLDivElement>('.conversation-item-wrapper.active')
+      .forEach((el) => el.classList.remove('active'));
+    // Remove active from planner, agents, and sports
+    document
+      .querySelectorAll<HTMLDivElement>('.planner-entry.active')
+      .forEach((el) => el.classList.remove('active'));
+    document
+      .querySelectorAll<HTMLDivElement>('.agents-entry.active')
+      .forEach((el) => el.classList.remove('active'));
+    document
+      .querySelectorAll<HTMLDivElement>('.sports-entry.active')
+      .forEach((el) => el.classList.remove('active'));
+    // Set language as active
+    languageEntry.classList.add('active');
+  } else {
+    languageEntry.classList.remove('active');
   }
 }
 

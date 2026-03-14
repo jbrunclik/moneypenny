@@ -25,6 +25,7 @@ import {
   getStreamingMessageElement,
   cleanupStreamingContext,
   addMessageToUI,
+  lockOlderQuizBlocks,
 } from '../components/messages';
 import { getElementById, scrollToBottom } from '../utils/dom';
 import type { Message, Source, GeneratedImage, FileMetadata } from '../types/api';
@@ -514,6 +515,7 @@ async function updateUIWithRecoveredMessage(
         };
 
         addMessageToUI(messageObj, container);
+        lockOlderQuizBlocks(container);
 
         // Also update the store's messages
         const store = useStore.getState();

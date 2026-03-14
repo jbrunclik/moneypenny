@@ -24,6 +24,7 @@ import {
 } from '../ThinkingIndicator';
 import { createMessageActions } from './actions';
 import { renderMessageFiles } from './attachments';
+import { lockOlderQuizBlocks } from './render';
 import type { StreamingMessageContext } from './types';
 import type { Source, GeneratedImage, FileMetadata, ThinkingState, ToolMetadata } from '../../types/api';
 
@@ -511,6 +512,9 @@ export function finalizeStreamingMessage(
     );
     contentWrapper.appendChild(actions);
   }
+
+  // Lock quiz blocks in older messages now that this one is the latest
+  lockOlderQuizBlocks();
 
   // Update button visibility after finalizing message
   requestAnimationFrame(() => {

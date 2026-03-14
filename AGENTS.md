@@ -195,40 +195,14 @@ Edit [config.py](src/config.py) `MODELS` dict.
 2. **Update [.env.example](.env.example)**
 3. Document in the relevant `docs/features/` file
 
-## Sports Tracking
+## Program-Based Features (Sports, Language)
 
-Users can create sports training programs (running, cycling, pushups, etc.) where each program gets a dedicated AI chat conversation with the AI acting as a personal trainer. Programs are fully configurable and persist until manually reset.
+Sports and Language share the same architecture: each "program" is a dedicated conversation (`is_sports`/`is_language` flag + program slug) with a specialized system prompt and `kv_store` persistence. The pattern:
+- **Backend**: `routes/{feature}.py` (5 CRUD+reset endpoints), `models/{feature}.py` (DB mixin), `prompts.py` (system prompt + KV formatting)
+- **Frontend**: `core/{feature}.ts` (navigation + CRUD), `components/{Feature}Dashboard.ts` (UI + modal), `styles/components/{feature}.css`
+- **Language-specific**: `QuizBlock.ts` renders interactive quizzes from ` ```quiz ` fenced code blocks (MC, fill-blank, translate, batch types). All evaluation is done by the LLM — the client only collects and sends answers.
 
-### How it works
-
-1. User creates a program via the Sports section in the sidebar (name + optional description)
-2. A dedicated conversation is created in SQLite with `is_sports=True` and `sports_program` set to the program slug
-3. The AI acts as a personal trainer in that conversation, using the `kv_store` tool to persist goals, preferences, routine, progress, and last session data (namespace: `sports:<program_id>`)
-4. Optional Garmin integration provides fitness data to the AI for personalized coaching
-5. Programs can be deleted or their conversation reset at any time
-
-### API endpoints
-
-- `GET /api/sports/programs` - List user's programs
-- `POST /api/sports/programs` - Create a new program
-- `DELETE /api/sports/programs/<id>` - Delete a program
-- `GET /api/sports/<program>/conversation` - Get or create the program's conversation
-- `POST /api/sports/<program>/reset` - Reset the conversation (start fresh)
-
-### Key files
-
-- [src/api/routes/sports.py](src/api/routes/sports.py) - 5 REST endpoints
-- [src/db/models/sports.py](src/db/models/sports.py) - `SportsTrackingMixin` for DB operations
-- [web/src/core/sports.ts](web/src/core/sports.ts) - Navigation and CRUD logic
-- [web/src/components/SportsDashboard.ts](web/src/components/SportsDashboard.ts) - Programs list, add view, chat header
-- [web/src/styles/components/sports.css](web/src/styles/components/sports.css) - Sports UI styles
-- [migrations/0031_add_sports_tracking.py](migrations/0031_add_sports_tracking.py) - Adds `is_sports` and `sports_program` columns
-
-### Testing
-
-- Unit tests: [tests/unit/test_sports_db.py](tests/unit/test_sports_db.py)
-- Integration tests: [tests/integration/test_routes_sports.py](tests/integration/test_routes_sports.py)
-- Visual tests: [web/tests/visual/sports.visual.ts](web/tests/visual/sports.visual.ts)
+See [docs/features/language-learning.md](docs/features/language-learning.md) for detailed language feature docs.
 
 ---
 

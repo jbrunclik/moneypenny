@@ -19,7 +19,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('deeplink');
 
 /** Route types supported by the router */
-type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'unknown';
+type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'unknown';
 
 /** Parsed route information */
 interface ParsedRoute {
@@ -27,8 +27,8 @@ interface ParsedRoute {
   conversationId?: string;
 }
 
-/** Callback when hash changes to a conversation, planner, agents, storage, or sports */
-type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean) => void;
+/** Callback when hash changes to a conversation, planner, agents, storage, sports, or language */
+type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean) => void;
 
 // Module state
 let hashChangeCallback: HashChangeCallback | null = null;
@@ -64,6 +64,11 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   // Match /sports route (program list) and /sports/{program} (program chat)
   if (cleanHash === '/sports' || cleanHash.startsWith('/sports/')) {
     return { type: 'sports' };
+  }
+
+  // Match /language route (program list) and /language/{program} (program chat)
+  if (cleanHash === '/language' || cleanHash.startsWith('/language/')) {
+    return { type: 'language' };
   }
 
   // Match /conversations/{id}
@@ -279,6 +284,46 @@ export function getSportsProgramFromHash(): string | null {
 }
 
 /**
+ * Set the URL hash to the language route.
+ * @param program Optional program ID for program-specific deep link
+ */
+export function setLanguageHash(program?: string): void {
+  const newHash = program ? `#/language/${program}` : '#/language';
+  const currentHash = window.location.hash;
+
+  if (currentHash === newHash) {
+    return;
+  }
+
+  log.debug('Setting language hash', { from: currentHash, program });
+
+  isIgnoringHashChange = true;
+  history.pushState(null, '', newHash);
+  setTimeout(() => {
+    isIgnoringHashChange = false;
+  }, 0);
+}
+
+/**
+ * Check if the current route is language.
+ */
+export function isLanguageRoute(): boolean {
+  const route = parseHash();
+  return route.type === 'language';
+}
+
+/**
+ * Get the language program ID from the current hash, if any.
+ */
+export function getLanguageProgramFromHash(): string | null {
+  const cleanHash = window.location.hash.startsWith('#')
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const match = cleanHash.match(/^\/language\/([^/]+)$/);
+  return match ? match[1] : null;
+}
+
+/**
  * Push an empty hash entry to browser history.
  * Use this when creating a new temp conversation so back button navigates to previous conversation.
  */
@@ -300,18 +345,20 @@ function handleHashChange(): void {
 
   if (hashChangeCallback) {
     if (route.type === 'planner') {
-      hashChangeCallback(null, true, false, false, false);
+      hashChangeCallback(null, true, false, false, false, false);
     } else if (route.type === 'agents') {
-      hashChangeCallback(null, false, true, false, false);
+      hashChangeCallback(null, false, true, false, false, false);
     } else if (route.type === 'storage') {
-      hashChangeCallback(null, false, false, true, false);
+      hashChangeCallback(null, false, false, true, false, false);
     } else if (route.type === 'sports') {
-      hashChangeCallback(null, false, false, false, true);
+      hashChangeCallback(null, false, false, false, true, false);
+    } else if (route.type === 'language') {
+      hashChangeCallback(null, false, false, false, false, true);
     } else if (route.type === 'conversation' && route.conversationId) {
-      hashChangeCallback(route.conversationId, false, false, false, false);
+      hashChangeCallback(route.conversationId, false, false, false, false, false);
     } else {
       // Home or unknown route - pass null to indicate no conversation selected
-      hashChangeCallback(null, false, false, false, false);
+      hashChangeCallback(null, false, false, false, false, false);
     }
   }
 }
@@ -323,6 +370,7 @@ export interface InitialRoute {
   isAgents: boolean;
   isStorage: boolean;
   isSports: boolean;
+  isLanguage: boolean;
 }
 
 /**
@@ -345,27 +393,32 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
 
   if (initialRoute.type === 'planner') {
     log.info('Initial route is planner');
-    return { conversationId: null, isPlanner: true, isAgents: false, isStorage: false, isSports: false };
+    return { conversationId: null, isPlanner: true, isAgents: false, isStorage: false, isSports: false, isLanguage: false };
   }
 
   if (initialRoute.type === 'agents') {
     log.info('Initial route is agents');
-    return { conversationId: null, isPlanner: false, isAgents: true, isStorage: false, isSports: false };
+    return { conversationId: null, isPlanner: false, isAgents: true, isStorage: false, isSports: false, isLanguage: false };
   }
 
   if (initialRoute.type === 'storage') {
     log.info('Initial route is storage');
-    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: true, isSports: false };
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: true, isSports: false, isLanguage: false };
   }
 
   if (initialRoute.type === 'sports') {
     log.info('Initial route is sports');
-    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: true };
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: true, isLanguage: false };
+  }
+
+  if (initialRoute.type === 'language') {
+    log.info('Initial route is language');
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: true };
   }
 
   if (initialRoute.type === 'conversation' && initialRoute.conversationId) {
     log.info('Initial route has conversation', { conversationId: initialRoute.conversationId });
-    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false, isStorage: false, isSports: false };
+    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false };
   }
 
   // Check if the hash contains a temp conversation ID and clear it
@@ -376,7 +429,7 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
     clearConversationHash();
   }
 
-  return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false };
+  return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false };
 }
 
 /**

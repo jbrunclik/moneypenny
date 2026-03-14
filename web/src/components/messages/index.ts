@@ -14,7 +14,7 @@
  */
 
 // Render
-export { renderMessages, addMessageToUI, hasPendingApproval } from './render';
+export { renderMessages, addMessageToUI, hasPendingApproval, lockOlderQuizBlocks } from './render';
 
 // Streaming
 export {

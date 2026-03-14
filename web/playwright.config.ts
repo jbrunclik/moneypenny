@@ -18,6 +18,7 @@ export default defineConfig({
     baseURL: 'http://localhost:8001',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    reducedMotion: 'reduce',
   },
 
   // Only run on chromium by default - mobile tests use viewport emulation

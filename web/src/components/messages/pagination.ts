@@ -13,7 +13,7 @@ import {
   INFINITE_SCROLL_DEBOUNCE_MS,
 } from '../../config';
 import { PaginationDirection } from '../../types/api';
-import { addMessageToUI } from './render';
+import { addMessageToUI, lockOlderQuizBlocks } from './render';
 import type { Message } from '../../types/api';
 
 const log = createLogger('messages');
@@ -257,6 +257,8 @@ function prependMessagesToUI(messages: Message[], container: HTMLElement): void 
   newImages.forEach((img) => {
     observeThumbnail(img);
   });
+
+  lockOlderQuizBlocks(container);
 
   log.debug('Prepended messages to UI', { count: messages.length });
 }
@@ -515,6 +517,8 @@ function appendMessagesToUI(messages: Message[], container: HTMLElement): void {
   newImages.forEach((img) => {
     observeThumbnail(img);
   });
+
+  lockOlderQuizBlocks(container);
 
   log.debug('Appended messages to UI', { count: messages.length });
 }

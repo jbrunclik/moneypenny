@@ -86,6 +86,42 @@ def load_sports_context(user_id: str, program_id: str) -> dict[str, Any] | None:
     }
 
 
+def load_language_context(user_id: str, program_id: str) -> dict[str, Any] | None:
+    """Load language program context from K/V store for the system prompt.
+
+    Loads the program metadata AND any existing KV data (profile, assessment,
+    vocabulary, grammar, etc.) so the agent can see what's stored.
+
+    Args:
+        user_id: The user's ID
+        program_id: The language program ID
+
+    Returns:
+        Language context dict with program info and stored KV data, or None
+    """
+    raw = db.kv_get(user_id, "language", "programs")
+    if not raw:
+        return None
+    try:
+        programs = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+    program = next((p for p in programs if p.get("id") == program_id), None)
+    if not program:
+        return None
+
+    # Load existing KV data for this program (single query with prefix)
+    items = db.kv_list(user_id, "language", prefix=f"{program_id}:")
+    kv_data = {k.split(":", 1)[1]: v for k, v in items}
+
+    return {
+        "program_name": program.get("name", "Language"),
+        "program_id": program_id,
+        "kv_data": kv_data,
+    }
+
+
 def _close_thread_db_connections() -> None:
     """Close DB pool connections for the current thread.
 
@@ -344,6 +380,8 @@ def stream_events(
     conversation_id: str | None = None,
     is_sports: bool = False,
     sports_context: dict[str, Any] | None = None,
+    is_language: bool = False,
+    language_context: dict[str, Any] | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -371,6 +409,10 @@ def stream_events(
         from src.agent.tools.context import set_sports_context
 
         set_sports_context(sports_context.get("program_id"))
+    if is_language and language_context:
+        from src.agent.tools.context import set_language_context
+
+        set_language_context(language_context.get("program_id"))
     try:
         logger.debug(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
@@ -389,6 +431,8 @@ def stream_events(
             conversation_id=conversation_id,
             is_sports=is_sports,
             sports_context=sports_context,
+            is_language=is_language,
+            language_context=language_context,
         ):
             event_count += 1
             if event.get("type") == "final":
@@ -687,6 +731,9 @@ class _StreamContext:
         # Sports context for sports conversations
         self.sports_context: dict[str, Any] | None = None
 
+        # Language context for language learning conversations
+        self.language_context: dict[str, Any] | None = None
+
         # Agent context for interactive agent conversations
         self.is_autonomous = False
         self.agent_context: dict[str, Any] | None = None
@@ -707,6 +754,10 @@ class _StreamContext:
         # Set up sports context if this is a sports conversation
         if self.conv.is_sports and self.conv.sports_program:
             self._setup_sports_context()
+
+        # Set up language context if this is a language learning conversation
+        if self.conv.is_language and self.conv.language_program:
+            self._setup_language_context()
 
         # Set up agent context if this is an agent conversation
         if self.conv.is_agent and self.conv.agent_id:
@@ -739,6 +790,14 @@ class _StreamContext:
         assert self.conv.sports_program is not None
         self.sports_context = load_sports_context(self.user_id, self.conv.sports_program)
         set_sports_context(self.conv.sports_program)
+
+    def _setup_language_context(self) -> None:
+        """Set up language program context for language learning conversations."""
+        from src.agent.tools import set_language_context
+
+        assert self.conv.language_program is not None
+        self.language_context = load_language_context(self.user_id, self.conv.language_program)
+        set_language_context(self.conv.language_program)
 
     def _setup_agent_context(self) -> None:
         """Set up agent context if this is an interactive agent conversation."""
@@ -776,11 +835,15 @@ class _StreamContext:
             }
 
     def cleanup_agent_context(self) -> None:
-        """Clean up agent and sports context."""
+        """Clean up agent, sports, and language context."""
         if self.conv.is_sports:
             from src.agent.tools import set_sports_context
 
             set_sports_context(None)
+        if self.conv.is_language:
+            from src.agent.tools import set_language_context
+
+            set_language_context(None)
         if self.is_autonomous:
             clear_agent_context()
 
@@ -795,6 +858,8 @@ class _StreamContext:
             agent_context=self.agent_context,
             is_sports=self.conv.is_sports,
             sports_context=self.sports_context,
+            is_language=self.conv.is_language,
+            language_context=self.language_context,
         )
 
         self.stream_thread = threading.Thread(
@@ -817,6 +882,8 @@ class _StreamContext:
                 self.conv_id,  # conversation_id for checkpointing
                 self.conv.is_sports,
                 self.sports_context,
+                self.conv.is_language,
+                self.language_context,
             ),
             daemon=False,
         )

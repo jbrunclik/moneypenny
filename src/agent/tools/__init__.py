@@ -12,10 +12,12 @@ from src.agent.tools.context import (
     get_agent_name,
     get_conversation_context,
     get_current_message_files,
+    get_language_context,
     get_sports_context,
     set_agent_name,
     set_conversation_context,
     set_current_message_files,
+    set_language_context,
     set_sports_context,
 )
 from src.agent.tools.file_retrieval import retrieve_file
@@ -119,6 +121,7 @@ def get_tools_for_request(
     anonymous_mode: bool = False,
     is_planning: bool = False,
     is_sports: bool = False,
+    is_language: bool = False,
     agent_tool_permissions: list[str] | None = None,
 ) -> list[Any]:
     """Get tools for a specific request, optionally excluding integration tools.
@@ -126,6 +129,8 @@ def get_tools_for_request(
     Args:
         anonymous_mode: If True, excludes Todoist and Google Calendar tools.
         is_planning: If True, includes the refresh_planner_dashboard tool.
+        is_sports: If True, includes the kv_store tool.
+        is_language: If True, includes the kv_store tool.
         agent_tool_permissions: If provided, only include these tools plus basic safe tools.
             This is used for autonomous agents to restrict their capabilities.
 
@@ -169,6 +174,10 @@ def get_tools_for_request(
 
     # Add kv_store tool in sports mode (for storing goals, progress, etc.)
     if is_sports and kv_store not in tools:
+        tools.append(kv_store)
+
+    # Add kv_store tool in language mode (for storing vocabulary, assessment, etc.)
+    if is_language and kv_store not in tools:
         tools.append(kv_store)
 
     return tools
@@ -296,6 +305,8 @@ __all__ = [
     "get_agent_name",
     "set_sports_context",
     "get_sports_context",
+    "set_language_context",
+    "get_language_context",
     # Availability checks
     "is_code_sandbox_available",
     "is_todoist_available",

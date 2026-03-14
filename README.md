@@ -73,6 +73,12 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Garmin integration**: Optional Garmin Connect data provides fitness context for personalized coaching advice
 - **Full control**: Reset a program's conversation at any time to start fresh; delete programs you no longer need
 
+### Language Learning
+- **Language programs**: Create programs for any language (Spanish, French, German, etc.) with a dedicated AI tutor conversation per program
+- **AI-driven assessment**: AI conducts initial assessment and tailors lessons to your level
+- **Interactive quizzes**: Multiple-choice, fill-in-the-blank, translation, and batch quiz blocks rendered inline in chat
+- **Progress tracking**: AI remembers your vocabulary, grammar, weak points, and session history across sessions
+
 ### Autonomous Agents
 - **Scheduled execution**: Create agents that run automatically on cron schedules
 - **Command Center**: Dashboard showing all agents, pending approvals, and recent activity

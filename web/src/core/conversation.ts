@@ -728,8 +728,8 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean): void {
-  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports });
+export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean): void {
+  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports, isLanguage });
   const store = useStore.getState();
 
   // Handle planner navigation - import dynamically to avoid circular dependency
@@ -773,6 +773,23 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
     return;
   }
 
+  // Handle language navigation - import dynamically to avoid circular dependency
+  if (isLanguage) {
+    import('../router/deeplink').then(({ getLanguageProgramFromHash }) => {
+      const languageProgramId = getLanguageProgramFromHash();
+      if (languageProgramId) {
+        import('./language').then(({ navigateToLanguageProgram }) => {
+          navigateToLanguageProgram(languageProgramId);
+        });
+      } else {
+        import('./language').then(({ navigateToLanguage }) => {
+          navigateToLanguage();
+        });
+      }
+    });
+    return;
+  }
+
   // If we were in planner view and navigating away, leave planner
   if (store.isPlannerView) {
     leavePlannerView();
@@ -796,6 +813,13 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
   if (store.isSportsView) {
     import('./sports').then(({ leaveSportsView }) => {
       leaveSportsView();
+    });
+  }
+
+  // If we were in language view and navigating away, leave language
+  if (store.isLanguageView) {
+    import('./language').then(({ leaveLanguageView }) => {
+      leaveLanguageView();
     });
   }
 

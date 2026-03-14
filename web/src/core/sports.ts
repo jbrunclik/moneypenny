@@ -18,6 +18,7 @@ import {
   hasActiveStreamingContext,
   cleanupStreamingContext,
   cleanupNewerMessagesScrollListener,
+  lockOlderQuizBlocks,
 } from '../components/messages';
 import { renderModelDropdown } from '../components/ModelSelector';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
@@ -223,6 +224,7 @@ export async function navigateToSportsProgram(programId: string): Promise<void> 
       convResponse.messages.forEach((msg) => {
         addMessageToUI(msg, messagesContainer);
       });
+      lockOlderQuizBlocks(messagesContainer);
       // Scroll to bottom to show latest messages
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }

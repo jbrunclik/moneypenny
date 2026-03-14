@@ -171,7 +171,13 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
     emojiGrid.appendChild(btn);
   }
 
+  // Close on Escape
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') close();
+  };
+
   const close = () => {
+    document.removeEventListener('keydown', handleKeydown);
     overlay.classList.add('sports-modal-exit');
     setTimeout(() => overlay.remove(), 150);
   };
@@ -185,13 +191,6 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
     if (e.target === overlay) close();
   });
 
-  // Close on Escape
-  const handleKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      close();
-      document.removeEventListener('keydown', handleKeydown);
-    }
-  };
   document.addEventListener('keydown', handleKeydown);
 
   // Emoji trigger
@@ -231,7 +230,6 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
     }
     onAdd({ name, emoji: selectedEmoji });
     close();
-    document.removeEventListener('keydown', handleKeydown);
   });
 
   document.body.appendChild(overlay);

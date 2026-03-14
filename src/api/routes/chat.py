@@ -30,6 +30,7 @@ from src.api.errors import (
     raise_server_error,
     raise_validation_error,
 )
+from src.api.helpers.chat_streaming import load_language_context as _load_language_context
 from src.api.helpers.chat_streaming import load_sports_context as _load_sports_context
 from src.api.rate_limiting import rate_limit_chat
 from src.api.routes.calendar import _get_valid_calendar_access_token
@@ -250,6 +251,14 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             sports_context = _load_sports_context(user.id, conv.sports_program)
             set_sports_context(conv.sports_program)
 
+        # Check if this is a language conversation - set up language context
+        language_context = None
+        if conv.is_language and conv.language_program:
+            from src.agent.tools import set_language_context
+
+            language_context = _load_language_context(user.id, conv.language_program)
+            set_language_context(conv.language_program)
+
         agent = ChatAgent(
             model_name=conv.model,
             anonymous_mode=anonymous_mode,
@@ -258,6 +267,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             agent_context=agent_context,
             is_sports=conv.is_sports,
             sports_context=sports_context,
+            is_language=conv.is_language,
+            language_context=language_context,
         )
         raw_response, tool_results, usage_info, result_messages = agent.chat_batch(
             message_text,
@@ -272,6 +283,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             conversation_id=conv.id,
             is_sports=conv.is_sports,
             sports_context=sports_context,
+            is_language=conv.is_language,
+            language_context=language_context,
         )
 
         # Get the FULL tool results (with _full_result) captured before stripping
@@ -285,6 +298,10 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             from src.agent.tools import set_sports_context
 
             set_sports_context(None)  # Clean up
+        if conv.is_language:
+            from src.agent.tools import set_language_context
+
+            set_language_context(None)  # Clean up
         if is_autonomous:
             clear_agent_context()  # Clean up agent context
 

@@ -18,6 +18,7 @@ import {
   hasActiveStreamingContext,
   cleanupStreamingContext,
   cleanupNewerMessagesScrollListener,
+  lockOlderQuizBlocks,
 } from '../components/messages';
 import { renderModelDropdown } from '../components/ModelSelector';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
@@ -172,6 +173,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
       convResponse.messages.forEach((msg) => {
         addMessageToUI(msg, messagesContainer);
       });
+      lockOlderQuizBlocks(messagesContainer);
     }
 
     // For planner, scroll to top to show dashboard (different from normal chat)

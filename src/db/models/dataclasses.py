@@ -52,6 +52,8 @@ class Conversation:
     archived: bool = False  # Whether conversation is archived (hidden from main list)
     is_sports: bool = False  # Whether this is a sports training conversation
     sports_program: str | None = None  # Program ID (e.g., "pushups")
+    is_language: bool = False  # Whether this is a language learning conversation
+    language_program: str | None = None  # Program ID (e.g., "spanish")
 
 
 @dataclass

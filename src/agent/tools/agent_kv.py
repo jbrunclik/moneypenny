@@ -50,22 +50,25 @@ def kv_store(
     import json
 
     from src.agent.executor import get_agent_context
-    from src.agent.tools.context import get_sports_context
+    from src.agent.tools.context import get_language_context, get_sports_context
 
     # Get user context
     _, user_id = get_conversation_context()
     if not user_id:
         return "Error: No user context available. Cannot access K/V store."
 
-    # Available during autonomous agent execution or sports conversations
+    # Available during autonomous agent execution, sports, or language conversations
     agent_context = get_agent_context()
     sports_program = get_sports_context()
-    if not agent_context and not sports_program:
-        return "Error: kv_store is only available during autonomous agent or sports conversations."
+    language_program = get_language_context()
+    if not agent_context and not sports_program and not language_program:
+        return "Error: kv_store is only available during autonomous agent, sports, or language conversations."
 
     # Auto-default namespace
     if not namespace:
-        if sports_program:
+        if language_program:
+            namespace = "language"
+        elif sports_program:
             namespace = "sports"
         elif agent_context:
             namespace = f"agent:{agent_context.agent.id}"

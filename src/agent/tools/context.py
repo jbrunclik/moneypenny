@@ -80,3 +80,19 @@ def set_sports_context(program: str | None) -> None:
 def get_sports_context() -> str | None:
     """Get the current sports program (for KV store namespace defaulting)."""
     return _sports_program.get()
+
+
+# Contextvar to hold the current language program context
+_language_program: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_language_program", default=None
+)
+
+
+def set_language_context(program: str | None) -> None:
+    """Set the current language program context for tool access."""
+    _language_program.set(program)
+
+
+def get_language_context() -> str | None:
+    """Get the current language program (for KV store namespace defaulting)."""
+    return _language_program.get()

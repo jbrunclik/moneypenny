@@ -18,8 +18,9 @@ Route Organization:
 - system.py: System routes (5 routes)
 - kv_store.py: K/V store management (6 routes)
 - sports.py: Sports tracking (5 routes)
+- language.py: Language learning (5 routes)
 
-Total: 69 endpoints across 15 modules
+Total: 74 endpoints across 16 modules
 """
 
 from apiflask import APIFlask
@@ -35,6 +36,7 @@ from src.api.routes import (
     files,
     garmin,
     kv_store,
+    language,
     memory,
     planner,
     settings,
@@ -77,6 +79,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(costs.api)
     app.register_blueprint(kv_store.api)
     app.register_blueprint(sports.api)
+    app.register_blueprint(language.api)
 
 
 __all__ = [

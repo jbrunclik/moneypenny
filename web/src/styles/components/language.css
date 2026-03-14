@@ -1,0 +1,660 @@
+/* ============================================
+   Language Components
+   ============================================
+
+   Language learning programs and program chat styling.
+*/
+
+/* ----------------------------------------
+   Language Sidebar Entry
+   ---------------------------------------- */
+
+.language-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+    background-color: var(--bg-secondary);
+}
+
+.language-entry:hover {
+    background-color: var(--bg-hover);
+}
+
+.language-entry.active {
+    background-color: var(--accent-muted);
+}
+
+.language-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.language-icon svg {
+    width: 20px;
+    height: 20px;
+    color: var(--accent);
+}
+
+.language-label {
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Nav row: hide label when multiple entries shown */
+.sidebar-nav-row:not(.single) .language-label {
+    display: none;
+}
+
+.sidebar-nav-row:not(.single) .language-entry {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+}
+
+.sidebar-nav-row.single .language-entry {
+    flex: 1;
+    justify-content: flex-start;
+}
+
+.sidebar-nav-row.single .language-label {
+    display: block;
+}
+
+/* ----------------------------------------
+   Language Programs Container
+   ---------------------------------------- */
+
+.language-programs-container {
+    padding: var(--space-4);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* ----------------------------------------
+   Programs Header
+   ---------------------------------------- */
+
+.language-programs-header {
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.language-programs-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+}
+
+.language-programs-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.language-programs-title-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+}
+
+.language-programs-title-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.language-programs-title h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.language-programs-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.language-add-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    color: white;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.language-add-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.language-add-btn:hover {
+    background: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+}
+
+/* ----------------------------------------
+   New Program Modal
+   ---------------------------------------- */
+
+.language-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    animation: language-overlay-in 0.15s ease-out;
+}
+
+.language-modal-overlay.language-modal-exit {
+    animation: language-overlay-out 0.15s ease-in forwards;
+}
+
+.language-modal {
+    width: 90%;
+    max-width: 440px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+    animation: language-modal-in 0.15s ease-out;
+}
+
+.language-modal-exit .language-modal {
+    animation: language-modal-out 0.15s ease-in forwards;
+}
+
+@keyframes language-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes language-overlay-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes language-modal-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes language-modal-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+}
+
+.language-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.language-modal-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.language-modal-icon {
+    display: flex;
+    color: var(--accent);
+}
+
+.language-modal-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.language-modal-title-row h2 {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.language-modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.language-modal-close svg {
+    width: 18px;
+    height: 18px;
+}
+
+.language-modal-close:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+.language-modal-body {
+    padding: var(--space-4);
+}
+
+.language-modal-body .language-add-name {
+    padding: var(--space-3);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    font-family: inherit;
+    transition: border-color var(--transition-fast);
+    flex: 1;
+    min-width: 0;
+}
+
+.language-modal-body .language-add-name:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.language-modal-body .language-add-name::placeholder {
+    color: var(--text-muted);
+}
+
+.language-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border);
+}
+
+.language-modal-cancel {
+    padding: var(--space-2) var(--space-3);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.language-modal-cancel:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.language-select {
+    width: 100%;
+    padding: var(--space-3);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    padding-right: var(--space-8, 2rem);
+}
+
+.language-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.language-select option {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: var(--space-2);
+}
+
+.language-add-submit {
+    padding: var(--space-2) var(--space-4);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.language-add-submit:hover:not(:disabled) {
+    background: var(--color-brand-600);
+    border-color: var(--color-brand-600);
+}
+
+.language-add-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ----------------------------------------
+   Programs Grid
+   ---------------------------------------- */
+
+.language-programs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+}
+
+/* ----------------------------------------
+   Program Card
+   ---------------------------------------- */
+
+.language-program-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.language-program-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.language-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.language-card-emoji {
+    font-size: var(--font-size-2xl);
+    flex-shrink: 0;
+}
+
+.language-card-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.language-card-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.language-card-action-label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+.language-card-continue {
+    gap: var(--space-1);
+}
+
+.language-card-delete:hover {
+    border-color: var(--color-error-500);
+    color: var(--color-error-500);
+}
+
+/* ----------------------------------------
+   Empty State
+   ---------------------------------------- */
+
+.language-empty-state {
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--text-secondary);
+}
+
+.language-empty-state p {
+    margin: 0;
+}
+
+.language-empty-state p:first-child {
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.language-empty-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------
+   Program Chat Header
+   ---------------------------------------- */
+
+.language-program-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    margin-left: calc(-1 * var(--space-6));
+    margin-right: calc(-1 * var(--space-6));
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.language-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.language-back-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.language-program-header-emoji {
+    font-size: var(--font-size-xl);
+    flex-shrink: 0;
+}
+
+.language-program-header-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.language-reset-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.language-reset-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.language-reset-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--color-error-500);
+    color: var(--color-error-500);
+}
+
+/* ----------------------------------------
+   Loading State
+   ---------------------------------------- */
+
+.language-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-12);
+    min-height: 300px;
+}
+
+.language-loading p {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.language-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: language-spin 0.8s linear infinite;
+}
+
+@keyframes language-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ----------------------------------------
+   Accessibility
+   ---------------------------------------- */
+
+.language-entry:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    background-color: var(--bg-hover);
+}
+
+.language-program-card:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.language-back-btn:focus-visible,
+.language-reset-btn:focus-visible,
+.language-add-btn:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ----------------------------------------
+   Mobile Responsive
+   ---------------------------------------- */
+
+@media (max-width: 768px) {
+    .language-programs-container {
+        padding: var(--space-3);
+    }
+
+    .language-programs-title-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-3);
+    }
+
+    .language-programs-title {
+        font-size: var(--font-size-xl);
+    }
+
+    .language-programs-actions {
+        display: flex;
+        gap: var(--space-2);
+    }
+
+    .language-add-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .language-programs-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .language-program-card {
+        padding: var(--space-3);
+    }
+
+    .language-program-header {
+        display: none; /* Layout already provides header with title on mobile */
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .language-program-card:hover {
+        transform: none;
+    }
+
+    .language-loading-spinner {
+        animation: none;
+    }
+}

@@ -123,6 +123,9 @@ async function injectToast(
     },
     { type, message, icon, actionLabel, CLOSE_ICON }
   );
+
+  // Wait for the toast to be visible and stable before screenshotting
+  await page.locator(`.toast-${type}`).waitFor({ state: 'visible' });
 }
 
 // ============================================================================

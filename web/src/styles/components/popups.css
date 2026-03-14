@@ -1970,3 +1970,35 @@
     font-size: var(--font-size-md);
     margin: 0 0 var(--space-6);
 }
+
+/* ----------------------------------------
+   Reduced Motion
+   ---------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    .toast {
+        animation: none;
+    }
+
+    .toast-exit {
+        animation: none;
+        opacity: 0;
+    }
+
+    .modal-overlay {
+        animation: none;
+    }
+
+    .modal-overlay.exit {
+        animation: none;
+        opacity: 0;
+    }
+
+    .modal-dialog {
+        animation: none;
+    }
+
+    .modal-dialog.exit {
+        animation: none;
+    }
+}

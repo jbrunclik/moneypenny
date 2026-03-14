@@ -329,6 +329,8 @@ def create_mock_stream_chat() -> Any:
         agent_context: dict[str, Any] | None = None,
         is_sports: bool = False,
         sports_context: dict[str, Any] | None = None,
+        is_language: bool = False,
+        language_context: dict[str, Any] | None = None,
     ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
         """Mock streaming that yields tokens word-by-word."""
         # Use custom response if set, otherwise use prefix + message
@@ -385,6 +387,8 @@ def create_mock_stream_chat_events() -> Any:
         agent_context: dict[str, Any] | None = None,
         is_sports: bool = False,
         sports_context: dict[str, Any] | None = None,
+        is_language: bool = False,
+        language_context: dict[str, Any] | None = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
         # Use custom response if set, otherwise use prefix + message
@@ -578,6 +582,7 @@ def main() -> None:
             "planner",
             "settings",
             "sports",
+            "language",
             "todoist",
         ]
         for module in route_modules:
@@ -1020,6 +1025,24 @@ def main() -> None:
                 return {"error": "Test user not found"}, 404
 
             proxy_db.kv_set(user.id, "sports", "programs", json.dumps(programs))
+            return {"status": "set", "count": len(programs)}, 200
+
+        @test_bp.route("/test/set-language-programs", methods=["POST"])
+        def set_language_programs() -> tuple[dict[str, Any], int]:
+            """Seed language programs into KV store for the test user."""
+            import json
+
+            from flask import request as flask_request
+
+            data = flask_request.get_json() or {}
+            programs = data.get("programs", [])
+
+            # Get test user
+            user = proxy_db.get_user_by_email("test@example.com")
+            if not user:
+                return {"error": "Test user not found"}, 404
+
+            proxy_db.kv_set(user.id, "language", "programs", json.dumps(programs))
             return {"status": "set", "count": len(programs)}, 200
 
         app.register_blueprint(test_bp)

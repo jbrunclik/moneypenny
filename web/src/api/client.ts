@@ -38,6 +38,10 @@ import {
   type SportsProgram,
   type SportsProgramsResponse,
   type SportsResetResponse,
+  type LanguageConversation,
+  type LanguageProgram,
+  type LanguageProgramsResponse,
+  type LanguageResetResponse,
   type SearchResponse,
   type StreamEvent,
   type SyncResponse,
@@ -1354,6 +1358,38 @@ export const sports = {
 
   async reset(program: string): Promise<SportsResetResponse> {
     return request<SportsResetResponse>(`/api/sports/${encodeURIComponent(program)}/reset`, {
+      method: 'POST',
+    });
+  },
+};
+
+// Language Learning endpoints
+export const language = {
+  async getPrograms(): Promise<LanguageProgram[]> {
+    const data = await requestWithRetry<LanguageProgramsResponse>('/api/language/programs');
+    return data.programs;
+  },
+
+  async createProgram(data: { name: string; emoji: string }): Promise<LanguageProgram> {
+    const response = await request<LanguageProgramsResponse>('/api/language/programs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.programs[0];
+  },
+
+  async deleteProgram(id: string): Promise<void> {
+    await request<{ status: string }>(`/api/language/programs/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async getConversation(program: string): Promise<LanguageConversation> {
+    return requestWithRetry<LanguageConversation>(`/api/language/${encodeURIComponent(program)}/conversation`);
+  },
+
+  async reset(program: string): Promise<LanguageResetResponse> {
+    return request<LanguageResetResponse>(`/api/language/${encodeURIComponent(program)}/reset`, {
       method: 'POST',
     });
   },

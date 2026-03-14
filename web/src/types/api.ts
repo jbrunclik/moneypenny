@@ -761,6 +761,37 @@ export interface SportsResetResponse {
 }
 
 // =============================================================================
+// Language Learning types
+// =============================================================================
+
+export interface LanguageProgram {
+  id: string;
+  name: string;
+  emoji: string;
+  created_at: string;
+  has_conversation: boolean;
+}
+
+export interface LanguageProgramsResponse {
+  programs: LanguageProgram[];
+}
+
+export interface LanguageConversation {
+  id: string;
+  title: string;
+  model: string;
+  program: string;
+  created_at: string;
+  updated_at: string;
+  messages: Message[];
+}
+
+export interface LanguageResetResponse {
+  success: boolean;
+  message: string;
+}
+
+// =============================================================================
 // AI Assist types
 // =============================================================================
 

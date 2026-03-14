@@ -39,6 +39,7 @@ vi.mock('@/components/messages', () => ({
   getStreamingMessageElement: vi.fn(),
   cleanupStreamingContext: vi.fn(),
   addMessageToUI: vi.fn(),
+  lockOlderQuizBlocks: vi.fn(),
 }));
 
 // Mock DOM utilities

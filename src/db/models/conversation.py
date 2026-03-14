@@ -65,6 +65,12 @@ class ConversationMixin:
             is_sports = bool(row["is_sports"]) if row["is_sports"] else False
             sports_program = row["sports_program"]
 
+        is_language = False
+        language_program = None
+        if "is_language" in row.keys():
+            is_language = bool(row["is_language"]) if row["is_language"] else False
+            language_program = row["language_program"]
+
         return Conversation(
             id=row["id"],
             user_id=row["user_id"],
@@ -79,6 +85,8 @@ class ConversationMixin:
             archived=archived,
             is_sports=is_sports,
             sports_program=sports_program,
+            is_language=is_language,
+            language_program=language_program,
         )
 
     def create_conversation(
@@ -155,6 +163,7 @@ class ConversationMixin:
                        AND (is_agent = 0 OR is_agent IS NULL)
                        AND (archived = 0 OR archived IS NULL)
                        AND (is_sports = 0 OR is_sports IS NULL)
+                       AND (is_language = 0 OR is_language IS NULL)
                        ORDER BY updated_at DESC""",
                     (user_id,),
                 ).fetchall()
@@ -295,6 +304,7 @@ class ConversationMixin:
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
+                         AND (c.is_language = 0 OR c.is_language IS NULL)
                          AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
@@ -313,6 +323,7 @@ class ConversationMixin:
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
+                         AND (c.is_language = 0 OR c.is_language IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
                        LIMIT ?""",
@@ -378,6 +389,7 @@ class ConversationMixin:
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
+                         AND (c.is_language = 0 OR c.is_language IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC""",
                     (user_id,),
@@ -428,6 +440,7 @@ class ConversationMixin:
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
+                         AND (c.is_language = 0 OR c.is_language IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC""",
                     (user_id, since.isoformat()),

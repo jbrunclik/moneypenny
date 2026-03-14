@@ -44,6 +44,7 @@ from src.db.models.helpers import (
     should_reset_planner,
 )
 from src.db.models.kv_store import KVStoreMixin
+from src.db.models.language import LanguageLearningMixin
 from src.db.models.memory import MemoryMixin
 from src.db.models.message import MessageMixin
 from src.db.models.planner import PlannerMixin
@@ -67,6 +68,7 @@ class Database(
     AgentMixin,
     KVStoreMixin,
     SportsTrackingMixin,
+    LanguageLearningMixin,
 ):
     """Main database class combining all mixins.
 
