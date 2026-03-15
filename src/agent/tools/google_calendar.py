@@ -96,8 +96,9 @@ def _google_calendar_api_request(
     token: str,
     params: dict[str, Any] | None = None,
     data: dict[str, Any] | None = None,
+    _retry_on_401: bool = True,
 ) -> dict[str, Any] | list[dict[str, Any]] | None:
-    """Call the Google Calendar REST API."""
+    """Call the Google Calendar REST API. Retries once on 401 after refreshing the token."""
     url = f"{Config.GOOGLE_CALENDAR_API_BASE_URL}{endpoint}"
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -140,6 +141,19 @@ def _google_calendar_api_request(
 
     if response.status_code == 204:
         return None
+
+    # Retry once on 401 by forcing a token refresh
+    if response.status_code == 401 and _retry_on_401:
+        logger.info(
+            "Google Calendar API returned 401, attempting token refresh and retry",
+            extra={"endpoint": endpoint},
+        )
+        refreshed_token_info = _get_google_calendar_access_token()
+        if refreshed_token_info:
+            new_token = refreshed_token_info[0]
+            return _google_calendar_api_request(
+                method, endpoint, new_token, params=params, data=data, _retry_on_401=False
+            )
 
     if response.status_code >= 400:
         logger.warning(

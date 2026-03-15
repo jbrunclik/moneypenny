@@ -319,6 +319,7 @@ To enable authentication (required for production):
    - Select **External** (or Internal for Google Workspace)
    - Fill in required fields (app name, support email)
    - Add your email(s) as test users (required while in "Testing" status)
+   - To move from "Testing" to "Production", add your app's `/privacy` URL as the privacy policy link — the app serves this page at `https://yourdomain.com/privacy`
 4. Create **OAuth credentials**:
    - Click **Create Credentials** → **OAuth client ID**
    - Select **Web application** as the application type
@@ -834,10 +835,11 @@ watch -n 60 'journalctl --user --disk-usage'
 ```
 ai-chatbot/
 ├── src/                          # Flask backend
-│   ├── app.py                    # Flask entry point, Vite manifest loading
+│   ├── app.py                    # Flask entry point, Vite manifest loading, /privacy route
 │   ├── config.py                 # Environment config
 │   ├── templates/
-│   │   └── index.html            # Jinja2 shell (meta tags, asset injection)
+│   │   ├── index.html            # Jinja2 shell (meta tags, asset injection)
+│   │   └── privacy.html          # Privacy policy page (required for Google OAuth Production)
 │   ├── auth/                     # Google Sign In + JWT authentication
 │   ├── api/                      # REST API routes
 │   ├── agent/                    # LangGraph agent and tools

@@ -189,6 +189,10 @@ def create_app() -> APIFlask:
             app_version=app_version,
         )
 
+    @app.route("/privacy")
+    def privacy_policy() -> str:
+        return render_template("privacy.html")
+
     # Serve static files
     @app.route("/<path:path>")
     def static_files(path: str) -> Response:

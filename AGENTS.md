@@ -67,7 +67,7 @@ Project memory is at `memory/MEMORY.md` with topic files (`testing.md`, `streami
 ```
 ai-chatbot/
 ├── src/                          # Flask backend
-│   ├── app.py                    # Flask entry point
+│   ├── app.py                    # Flask entry point (+ /privacy route for Google OAuth verification)
 │   ├── config.py                 # Environment config
 │   ├── auth/                     # Authentication (JWT, Google, Todoist, Calendar OAuth)
 │   ├── api/                      # REST endpoints, validation, errors
@@ -76,6 +76,7 @@ ai-chatbot/
 │   │   └── tools/                # web_search, generate_image, execute_code, todoist, etc.
 │   ├── db/                       # SQLite: User, Conversation, Message, sports columns
 │   │   └── models/               # Split by entity
+│   ├── templates/                # Jinja2 templates (index.html, privacy.html)
 │   └── utils/                    # Images, costs, logging, files
 ├── web/                          # Vite + TypeScript frontend
 │   └── src/

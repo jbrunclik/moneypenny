@@ -903,10 +903,11 @@ class TestRefreshPlannerDashboardTool:
         assert "API error" in result
 
     def test_tool_with_calendar_token_refresh(self, mocker: Any) -> None:
-        """Regression test: Verify calendar token refresh import works correctly.
+        """Regression test: Verify centralized calendar token helper is used.
 
-        This test ensures the refresh_access_token import from src.auth.google_calendar
-        works correctly when a user has calendar tokens that need refreshing.
+        This test ensures planner uses _get_valid_calendar_access_token from
+        src.api.routes.calendar (the centralized helper) rather than calling
+        refresh_access_token directly.
         """
         from src.agent.tools.planner import refresh_planner_dashboard
         from src.db.models import User
@@ -930,11 +931,10 @@ class TestRefreshPlannerDashboardTool:
         )
         mocker.patch("src.agent.tools.planner.db.get_user_by_id", return_value=mock_user)
 
-        # Mock refresh_access_token to return token data
-        # This will fail if the import path is incorrect
-        mock_refresh = mocker.patch(
-            "src.auth.google_calendar.refresh_access_token",
-            return_value={"access_token": "new-calendar-token", "refresh_token": "refresh-token"},
+        # Mock the centralized helper - planner now delegates token refresh to this
+        mock_get_token = mocker.patch(
+            "src.api.routes.calendar._get_valid_calendar_access_token",
+            return_value="new-calendar-token",
         )
 
         # Mock build_planner_dashboard to return empty dashboard
@@ -952,8 +952,8 @@ class TestRefreshPlannerDashboardTool:
         # Call the tool
         result = refresh_planner_dashboard.invoke({})
 
-        # Verify refresh_access_token was called
-        mock_refresh.assert_called_once_with("refresh-token")
+        # Verify centralized helper was called with the user object
+        mock_get_token.assert_called_once_with(mock_user)
 
         # Verify build_planner_dashboard was called with the new token
         mock_build.assert_called_once()

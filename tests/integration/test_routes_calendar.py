@@ -5,7 +5,9 @@ from unittest.mock import patch
 
 from flask.testing import FlaskClient
 
-from src.auth.google_calendar import GoogleCalendarAuthError
+from src.auth.google_calendar import (
+    GoogleCalendarAuthError,
+)
 from src.db.models import Database, User
 
 
@@ -167,7 +169,7 @@ class TestGetCalendarStatus:
         test_user: User,
         test_database: Database,
     ) -> None:
-        """Should return connected status with email."""
+        """Should return connected status with stored email (no API call)."""
         # Connect calendar
         test_database.update_user_google_calendar_tokens(
             test_user.id,
@@ -178,14 +180,13 @@ class TestGetCalendarStatus:
         )
 
         with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.calendar.get_google_calendar_user_info") as mock_user:
-                mock_user.return_value = {"email": "user@example.com"}
-                response = client.get("/auth/calendar/status", headers=auth_headers)
+            response = client.get("/auth/calendar/status", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.get_json()
         assert data["connected"] is True
         assert data["calendar_email"] == "user@example.com"
+        assert data["needs_reconnect"] is False
 
     def test_status_needs_reconnect_when_refresh_fails(
         self,
@@ -222,7 +223,7 @@ class TestGetCalendarStatus:
         test_user: User,
         test_database: Database,
     ) -> None:
-        """Should proactively refresh token expiring within 5 minutes."""
+        """Should proactively refresh token expiring within 10 minutes."""
         # Connect calendar with token expiring in 3 minutes
         test_database.update_user_google_calendar_tokens(
             test_user.id,
@@ -239,10 +240,8 @@ class TestGetCalendarStatus:
                     "refresh_token": "new-refresh-token",
                     "expires_in": 3600,
                 }
-                with patch("src.api.routes.calendar.get_google_calendar_user_info") as mock_user:
-                    mock_user.return_value = {"email": "user@example.com"}
 
-                    response = client.get("/auth/calendar/status", headers=auth_headers)
+                response = client.get("/auth/calendar/status", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.get_json()
@@ -251,6 +250,88 @@ class TestGetCalendarStatus:
 
         # Verify token was refreshed
         mock_refresh.assert_called_once()
+
+    def test_status_transient_error_does_not_set_needs_reconnect(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        """Should NOT set needs_reconnect on transient refresh failure."""
+        from src.auth.google_calendar import GoogleCalendarTransientError
+
+        test_database.update_user_google_calendar_tokens(
+            test_user.id,
+            access_token="expired-token",
+            refresh_token="refresh-token",
+            expires_at=datetime.now() - timedelta(hours=1),
+            email="user@example.com",
+        )
+
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
+                mock_refresh.side_effect = GoogleCalendarTransientError("Server error")
+
+                response = client.get("/auth/calendar/status", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["connected"] is True
+        assert data["needs_reconnect"] is False
+
+    def test_status_token_revoked_sets_needs_reconnect(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        """Should set needs_reconnect when refresh token is permanently revoked."""
+        from src.auth.google_calendar import GoogleCalendarTokenRevoked
+
+        test_database.update_user_google_calendar_tokens(
+            test_user.id,
+            access_token="expired-token",
+            refresh_token="refresh-token",
+            expires_at=datetime.now() - timedelta(hours=1),
+            email="user@example.com",
+        )
+
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
+                mock_refresh.side_effect = GoogleCalendarTokenRevoked("Token revoked")
+
+                response = client.get("/auth/calendar/status", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["connected"] is True
+        assert data["needs_reconnect"] is True
+
+    def test_status_no_refresh_token_sets_needs_reconnect(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        """Should set needs_reconnect when no refresh token is available."""
+        test_database.update_user_google_calendar_tokens(
+            test_user.id,
+            access_token="test-token",
+            refresh_token=None,
+            expires_at=datetime.now() + timedelta(hours=1),
+            email="user@example.com",
+        )
+
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            response = client.get("/auth/calendar/status", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["connected"] is True
+        assert data["needs_reconnect"] is True
 
     def test_status_not_configured(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should return not connected when not configured."""

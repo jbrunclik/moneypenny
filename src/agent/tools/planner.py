@@ -31,15 +31,16 @@ def _get_user_tokens() -> tuple[str | None, str | None, str | None, str | None]:
     if not user:
         return None, None, None, None
 
-    # Get calendar token (may need refresh)
-    calendar_token = user.google_calendar_access_token
-    if calendar_token and user.google_calendar_refresh_token:
-        from src.auth.google_calendar import refresh_access_token
+    # Get calendar token via centralized helper (handles expiry check, refresh, DB persistence)
+    from src.api.routes.calendar import _get_valid_calendar_access_token
 
-        # Try to refresh if token might be expired
-        refreshed_data = refresh_access_token(user.google_calendar_refresh_token)
-        if refreshed_data and "access_token" in refreshed_data:
-            calendar_token = refreshed_data["access_token"]
+    try:
+        calendar_token = (
+            _get_valid_calendar_access_token(user) if user.google_calendar_access_token else None
+        )
+    except Exception:
+        logger.warning("Failed to get valid calendar token for planner", extra={"user_id": user.id})
+        calendar_token = None
 
     return user.id, user.todoist_access_token, calendar_token, user.garmin_token
 

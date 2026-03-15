@@ -69,18 +69,22 @@ def _compute_calendar_expiry(expires_in: Any) -> datetime:
 def _get_valid_calendar_access_token(user: User) -> str | None:
     """Get a valid calendar access token, refreshing if needed.
 
-    Returns None if calendar not connected or refresh fails.
+    Returns None if calendar not connected or refresh fails permanently.
+    Raises GoogleCalendarTokenRevoked if the refresh token is permanently invalid.
+    Raises GoogleCalendarTransientError on transient failures (after 1 retry).
 
     IMPORTANT: This function is exported for use by planner and chat routes.
     """
+    from src.auth.google_calendar import GoogleCalendarTokenRevoked, GoogleCalendarTransientError
+
     current_user = db.get_user_by_id(user.id)
     if not current_user or not current_user.google_calendar_access_token:
         return None
 
-    # Check if token expires soon (within 5 minutes)
+    # Check if token expires soon (within 10 minutes)
     if current_user.google_calendar_token_expires_at:
         expires_at = current_user.google_calendar_token_expires_at
-        refresh_threshold = datetime.now() + timedelta(minutes=5)
+        refresh_threshold = datetime.now() + timedelta(minutes=10)
         if expires_at > refresh_threshold:
             return current_user.google_calendar_access_token
 
@@ -88,28 +92,55 @@ def _get_valid_calendar_access_token(user: User) -> str | None:
     if not current_user.google_calendar_refresh_token:
         return None
 
-    try:
-        refreshed = refresh_google_calendar_token(current_user.google_calendar_refresh_token)
-        new_access_token: str = refreshed["access_token"]
-        new_refresh_token = refreshed.get(
-            "refresh_token", current_user.google_calendar_refresh_token
-        )
-        new_expires_at = _compute_calendar_expiry(refreshed.get("expires_in"))
+    # Try refresh with 1 retry on transient errors
+    for attempt in range(2):
+        try:
+            refreshed = refresh_google_calendar_token(current_user.google_calendar_refresh_token)
+            new_access_token: str = refreshed["access_token"]
+            new_refresh_token = refreshed.get(
+                "refresh_token", current_user.google_calendar_refresh_token
+            )
+            new_expires_at = _compute_calendar_expiry(refreshed.get("expires_in"))
 
-        db.update_user_google_calendar_tokens(
-            user.id,
-            access_token=new_access_token,
-            refresh_token=new_refresh_token,
-            expires_at=new_expires_at,
-            email=current_user.google_calendar_email,
-            connected_at=current_user.google_calendar_connected_at,
-        )
-        return new_access_token
-    except GoogleCalendarAuthError as e:
-        logger.error(
-            "Failed to refresh calendar token", extra={"user_id": user.id, "error": str(e)}
-        )
-        return None
+            db.update_user_google_calendar_tokens(
+                user.id,
+                access_token=new_access_token,
+                refresh_token=new_refresh_token,
+                expires_at=new_expires_at,
+                email=current_user.google_calendar_email,
+                connected_at=current_user.google_calendar_connected_at,
+            )
+            return new_access_token
+        except GoogleCalendarTokenRevoked:
+            logger.warning(
+                "Google Calendar refresh token permanently revoked",
+                extra={
+                    "user_id": user.id,
+                    "connected_at": str(current_user.google_calendar_connected_at),
+                },
+            )
+            raise
+        except GoogleCalendarTransientError as e:
+            if attempt == 0:
+                logger.info(
+                    "Transient error refreshing calendar token, retrying",
+                    extra={"user_id": user.id, "error": str(e)},
+                )
+                continue
+            logger.warning(
+                "Transient error refreshing calendar token after retry",
+                extra={"user_id": user.id, "error": str(e)},
+            )
+            raise
+        except GoogleCalendarAuthError as e:
+            logger.error(
+                "Failed to refresh calendar token",
+                extra={"user_id": user.id, "error": str(e)},
+            )
+            return None
+
+    # Should not reach here, but just in case
+    return None
 
 
 # ============================================================================
@@ -229,39 +260,54 @@ def get_google_calendar_status(user: User) -> dict[str, Any]:
     needs_reconnect = False
 
     if connected and current_user.google_calendar_access_token:
-        access_token = current_user.google_calendar_access_token
-        expires_at = current_user.google_calendar_token_expires_at
+        from src.auth.google_calendar import (
+            GoogleCalendarTokenRevoked,
+            GoogleCalendarTransientError,
+        )
+
         refresh_token = current_user.google_calendar_refresh_token
 
-        # Proactively refresh if token expires within 5 minutes
-        refresh_threshold = datetime.now() + timedelta(minutes=5)
-        if expires_at and expires_at <= refresh_threshold:
-            if refresh_token:
+        if not refresh_token:
+            needs_reconnect = True
+        else:
+            # Proactively refresh if token expires within 10 minutes
+            expires_at = current_user.google_calendar_token_expires_at
+            refresh_threshold = datetime.now() + timedelta(minutes=10)
+            if expires_at and expires_at <= refresh_threshold:
                 try:
                     refreshed = refresh_google_calendar_token(refresh_token)
-                    access_token = refreshed["access_token"]
+                    new_access = refreshed["access_token"]
                     new_refresh = refreshed.get("refresh_token", refresh_token)
-                    expires_at = _compute_calendar_expiry(refreshed.get("expires_in"))
+                    new_expires = _compute_calendar_expiry(refreshed.get("expires_in"))
                     db.update_user_google_calendar_tokens(
                         user.id,
-                        access_token=access_token,
+                        access_token=new_access,
                         refresh_token=new_refresh,
-                        expires_at=expires_at,
+                        expires_at=new_expires,
                         email=calendar_email,
                         connected_at=current_user.google_calendar_connected_at,
                     )
+                except GoogleCalendarTokenRevoked:
+                    needs_reconnect = True
+                    logger.warning(
+                        "Google Calendar token permanently revoked",
+                        extra={
+                            "user_id": user.id,
+                            "connected_at": str(current_user.google_calendar_connected_at),
+                        },
+                    )
+                except GoogleCalendarTransientError:
+                    # Transient failure — connection is fine, just temporarily unavailable
+                    logger.info(
+                        "Google Calendar refresh transient error (connection still valid)",
+                        extra={"user_id": user.id},
+                    )
                 except GoogleCalendarAuthError:
                     needs_reconnect = True
-                    logger.warning("Google Calendar refresh failed", extra={"user_id": user.id})
-            else:
-                needs_reconnect = True
-
-        if not needs_reconnect:
-            try:
-                profile = get_google_calendar_user_info(access_token)
-                calendar_email = profile.get("email") or calendar_email
-            except GoogleCalendarAuthError:
-                needs_reconnect = True
+                    logger.warning(
+                        "Google Calendar refresh failed",
+                        extra={"user_id": user.id},
+                    )
 
     return {
         "connected": connected,

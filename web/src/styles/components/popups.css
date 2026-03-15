@@ -1971,6 +1971,19 @@
     margin: 0 0 var(--space-6);
 }
 
+.login-privacy-link {
+    display: inline-block;
+    margin-top: var(--space-4);
+    color: var(--text-tertiary);
+    font-size: var(--font-size-xs);
+    text-decoration: none;
+}
+
+.login-privacy-link:hover {
+    color: var(--text-secondary);
+    text-decoration: underline;
+}
+
 /* ----------------------------------------
    Reduced Motion
    ---------------------------------------- */

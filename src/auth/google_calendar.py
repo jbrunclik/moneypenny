@@ -23,6 +23,14 @@ class GoogleCalendarAuthError(Exception):
     """Raised when Google Calendar OAuth fails."""
 
 
+class GoogleCalendarTokenRevoked(GoogleCalendarAuthError):
+    """Refresh token permanently revoked (invalid_grant)."""
+
+
+class GoogleCalendarTransientError(GoogleCalendarAuthError):
+    """Transient failure (network, rate limit, 5xx)."""
+
+
 def get_authorization_url(state: str) -> str:
     """Build the Google OAuth URL for Calendar access."""
     params = {
@@ -90,13 +98,36 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
         )
     except requests.RequestException as exc:  # pragma: no cover - network failure
         logger.error("Google token refresh failed", extra={"error": str(exc)}, exc_info=True)
-        raise GoogleCalendarAuthError("Failed to refresh Google access token") from exc
+        raise GoogleCalendarTransientError("Failed to connect to Google for token refresh") from exc
 
     if response.status_code != 200:
+        # Parse Google's error response to distinguish permanent vs transient failures
+        error_code = ""
+        try:
+            error_body = response.json()
+            error_code = error_body.get("error", "")
+        except Exception:
+            error_body = response.text
+
         logger.warning(
             "Google token refresh returned error",
-            extra={"status_code": response.status_code, "body": response.text},
+            extra={
+                "status_code": response.status_code,
+                "error_code": error_code,
+                "body": response.text,
+            },
         )
+
+        if error_code == "invalid_grant":
+            raise GoogleCalendarTokenRevoked(
+                "Google refresh token has been revoked or expired. User must reconnect."
+            )
+
+        if response.status_code >= 500:
+            raise GoogleCalendarTransientError(
+                f"Google server error ({response.status_code}) during token refresh"
+            )
+
         raise GoogleCalendarAuthError("Failed to refresh Google access token")
 
     token_data: dict[str, Any] = response.json()

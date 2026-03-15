@@ -154,6 +154,30 @@ The assistant orchestrates the user's calendars with strategic time-blocking. To
 4. Backend exchanges the code for tokens, fetches the user's Google email, and stores everything
 5. Tokens are refreshed automatically in the tool/status endpoint when close to expiry
 
+### Token Refresh and Error Classification
+
+Token refresh logic is centralized in `_get_valid_calendar_access_token()` in `routes/calendar.py`, which is imported by both the planner tool and the `google_calendar` tool.
+
+**Error classes** (`src/auth/google_calendar.py`):
+
+| Exception | When raised | Reconnect required? |
+|-----------|-------------|---------------------|
+| `GoogleCalendarTokenRevoked` | `invalid_grant` from Google (token permanently revoked) | Yes |
+| `GoogleCalendarTransientError` | Network error or Google 5xx | No — retried once |
+| `GoogleCalendarAuthError` (base) | Other non-200 responses | Yes |
+
+**Refresh window**: Token is refreshed proactively if it expires within **10 minutes** (5 minutes in the tool's own `_get_google_calendar_access_token` helper).
+
+**Retry policy**: `_get_valid_calendar_access_token()` retries once on `GoogleCalendarTransientError`. A second transient error is re-raised (not treated as reconnect-required).
+
+**`/auth/calendar/status` behavior**: `needs_reconnect` is set to `True` only when:
+- The refresh token is missing, or
+- Refresh fails with `GoogleCalendarTokenRevoked` or `GoogleCalendarAuthError`
+
+Transient errors do **not** set `needs_reconnect` — the connection remains valid and will succeed when Google recovers.
+
+**401 retry in API calls**: `_google_calendar_api_request()` in `tools/google_calendar.py` automatically retries once on HTTP 401 by calling `_get_google_calendar_access_token()` to force a fresh token. The `_retry_on_401=False` parameter prevents infinite recursion.
+
 ### API Endpoints
 
 | Endpoint | Method | Description |
@@ -250,9 +274,10 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 
 **Backend:**
 - [config.py](../../src/config.py) - Configuration constants
-- [google_calendar.py](../../src/auth/google_calendar.py) - OAuth helpers (authorize, exchange, refresh, userinfo)
-- [routes/calendar.py](../../src/api/routes/calendar.py) - OAuth endpoints and status helpers
-- [tools/google_calendar.py](../../src/agent/tools/google_calendar.py) - `google_calendar` LangGraph tool
+- [google_calendar.py](../../src/auth/google_calendar.py) - OAuth helpers: authorize, exchange, refresh (`GoogleCalendarTokenRevoked`, `GoogleCalendarTransientError` error classes)
+- [routes/calendar.py](../../src/api/routes/calendar.py) - OAuth endpoints, status endpoint, and exported `_get_valid_calendar_access_token` helper
+- [tools/google_calendar.py](../../src/agent/tools/google_calendar.py) - `google_calendar` LangGraph tool (401 retry via `_retry_on_401`)
+- [tools/planner.py](../../src/agent/tools/planner.py) - Uses `_get_valid_calendar_access_token` for token retrieval
 - [prompts.py](../../src/agent/prompts.py) - Prompt instructions for calendar + strategic productivity heuristics
 - [migrations/0019_add_google_calendar_fields.py](../../migrations/0019_add_google_calendar_fields.py) - Database schema
 
@@ -260,13 +285,26 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 - [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - UI and OAuth callback handling
 - [client.ts](../../web/src/api/client.ts) - API methods
 - [api.ts](../../web/src/types/api.ts) - Type definitions
-- [popups.css](../../web/src/styles/components/popups.css) - Styles
+- [popups.css](../../web/src/styles/components/popups.css) - Styles (includes `.login-privacy-link`)
+- [init.ts](../../web/src/core/init.ts) - Login overlay (includes Privacy Policy link)
+
+**Templates:**
+- [templates/privacy.html](../../src/templates/privacy.html) - Privacy policy page (required for Google OAuth consent screen verification)
+
+### Privacy Policy Page
+
+A `/privacy` route is registered in `src/app.py` and serves `src/templates/privacy.html`. This page is required when moving a Google Cloud OAuth app from **Testing** to **Production** status (Google verifies that a privacy policy URL is publicly accessible). The login overlay also links to this page via the `.login-privacy-link` element in `init.ts`.
 
 ### UX Notes
 
 - Settings popup mirrors Todoist with dedicated Google Calendar card (loading, connected, reconnect, disconnected states)
 - OAuth callbacks share the same pattern: store `state` in sessionStorage, validate on return, show toasts
 - Thinking indicator metadata includes a `calendar` icon so users can see when the LLM is scheduling/rescheduling
+
+### Testing
+
+- Integration tests: [test_routes_calendar.py](../../tests/integration/test_routes_calendar.py) — OAuth flow, status endpoint (transient/revoked/no-refresh-token scenarios)
+- Unit tests: [test_planner.py](../../tests/unit/test_planner.py) — planner tool mocks `_get_valid_calendar_access_token`
 
 ---
 

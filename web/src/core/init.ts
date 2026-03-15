@@ -211,6 +211,7 @@ export function renderAppShell(): string {
         <h2>AI Chatbot</h2>
         <p>Sign in to continue</p>
         <div id="google-login-btn" class="google-btn-container"></div>
+        <a href="/privacy" class="login-privacy-link" target="_blank">Privacy Policy</a>
       </div>
     </div>
   `;
