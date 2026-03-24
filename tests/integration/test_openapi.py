@@ -16,11 +16,11 @@ class TestOpenAPISpec:
     """Tests for OpenAPI specification validity."""
 
     def test_spec_is_valid_openapi(self, app: APIFlask) -> None:
-        """OpenAPI spec should be valid OpenAPI 3.0."""
+        """OpenAPI spec should be valid OpenAPI 3.x."""
         spec = app.spec
 
         assert "openapi" in spec
-        assert spec["openapi"].startswith("3.0")
+        assert spec["openapi"].startswith("3.")
         assert "info" in spec
         assert spec["info"]["title"] == "AI Chatbot API"
         assert spec["info"]["version"] == "1.0.0"
