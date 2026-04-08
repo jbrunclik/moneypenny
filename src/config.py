@@ -241,6 +241,12 @@ class Config:
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
 
+    # Browser automation settings (Playwright)
+    BROWSER_ENABLED: bool = os.getenv("BROWSER_ENABLED", "true").lower() == "true"
+    BROWSER_SESSION_TTL_SECONDS: int = int(os.getenv("BROWSER_SESSION_TTL_SECONDS", "300"))
+    BROWSER_MAX_CONCURRENT_SESSIONS: int = int(os.getenv("BROWSER_MAX_CONCURRENT_SESSIONS", "3"))
+    BROWSER_PAGE_TIMEOUT_MS: int = int(os.getenv("BROWSER_PAGE_TIMEOUT_MS", "30000"))
+
     # Code execution sandbox settings
     CODE_SANDBOX_ENABLED: bool = os.getenv("CODE_SANDBOX_ENABLED", "true").lower() == "true"
     CODE_SANDBOX_TIMEOUT: int = int(os.getenv("CODE_SANDBOX_TIMEOUT", "30"))  # seconds
@@ -274,6 +280,10 @@ class Config:
     AGENT_COMPACTION_THRESHOLD: int = int(os.getenv("AGENT_COMPACTION_THRESHOLD", "50"))
     # Number of recent messages to keep uncompacted (for immediate context)
     AGENT_COMPACTION_KEEP_RECENT: int = int(os.getenv("AGENT_COMPACTION_KEEP_RECENT", "10"))
+
+    # Graph recursion limit: max graph steps per request (navigate+screenshot+click = multiple steps)
+    # Browser automation needs more headroom than simple tool calls
+    AGENT_RECURSION_LIMIT: int = int(os.getenv("AGENT_RECURSION_LIMIT", "50"))
 
     # Graph self-correction: max consecutive tool error retries before giving up
     AGENT_MAX_TOOL_RETRIES: int = int(os.getenv("AGENT_MAX_TOOL_RETRIES", "2"))

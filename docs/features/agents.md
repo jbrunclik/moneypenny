@@ -122,6 +122,7 @@ Agents are configured with specific tool permissions. Some tools are always avai
 |------|-------------|--------------|
 | `web_search` | Web search queries | Always available |
 | `fetch_url` | Fetch content from URLs | Always available |
+| `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |
 | `request_approval` | Request user approval | Always available |
 | `trigger_agent` | Trigger another agent | Always available |
@@ -480,6 +481,82 @@ Users can view and manage all K/V entries via the **Storage** page at `#/storage
 
 - [src/agent/tools/agent_kv.py](../../src/agent/tools/agent_kv.py) - Tool implementation
 - [src/api/routes/kv_store.py](../../src/api/routes/kv_store.py) - REST API endpoints (6 routes)
+
+## Browser Tool
+
+The `browser` tool gives the LangGraph agent full browser automation capabilities using Playwright (headless Chromium). Unlike `fetch_url` which does simple HTTP requests, the browser renders JavaScript, maintains session state, and can interact with dynamic web pages.
+
+### How it works
+
+All Playwright operations run on a dedicated daemon thread (`_BrowserWorker`) because Playwright's sync API is greenlet-based and cannot be used from arbitrary threads (including Flask/Gunicorn worker threads). The tool function dispatches commands to the worker via a `queue.Queue` and blocks until the result is returned.
+
+1. On first use per process, `_get_worker()` lazily creates the `_BrowserWorker`, which starts a daemon thread, initialises `sync_playwright`, and launches a headless Chromium instance
+2. Subsequent tool calls dispatch `_WorkerCommand` objects to the worker's queue; the calling thread blocks on `result_event` until the worker signals completion
+3. Each conversation gets its own `BrowserContext` (isolated cookies, JS state, history)
+4. A separate `browser-session-cleanup` daemon thread runs every 60 s, evicting sessions idle beyond `BROWSER_SESSION_TTL_SECONDS`
+5. If `BROWSER_MAX_CONCURRENT_SESSIONS` is reached, the oldest session is evicted before creating a new one
+6. All URLs are validated against an SSRF blocklist before any navigation
+7. `atexit` registers `_shutdown_worker()` to gracefully close the browser on process exit
+
+### Actions
+
+| Action | Required params | Description |
+|--------|----------------|-------------|
+| `navigate` | `url` | Go to a URL; returns page title and URL |
+| `click` | `selector` | Click an element by CSS selector |
+| `type` | `selector`, `text` | Fill a form field |
+| `screenshot` | — | Take a JPEG screenshot (returns multimodal image content) |
+| `extract` | — | Extract all visible text from the current page |
+| `scroll` | — | Scroll down the page; optional `selector` to scroll to an element |
+| `back` | — | Go back in browser history |
+| `close` | — | Close the session for the current conversation and free resources |
+
+Any action accepts `screenshot=True` to append a screenshot to the result.
+
+### Screenshot sharing
+
+Screenshots have two independent modes controlled by separate parameters:
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `screenshot=True` | `False` | Takes a JPEG screenshot **for the LLM only** (multimodal content injected into the model context). The user does not see it. Useful for navigation — finding selectors, understanding page layout. |
+| `share_screenshot=True` | `False` | In addition to the LLM view, saves the screenshot as a **file attachment** visible to the user in the chat, via `store_tool_result()`. Use only when the visual result is relevant to the user (e.g., final page, answer to a visual question). |
+
+Both parameters can be combined: `screenshot=True, share_screenshot=True` gives the LLM the image and also shares it with the user.
+
+When screenshots are included in the response, the tool returns a `list[dict]` (multimodal content); otherwise it returns a JSON string. This matches the return-type pattern used by `generate_image` and `fetch_url`.
+
+### SSRF Protection
+
+All URLs are validated before navigation. Blocked ranges include loopback (`127.0.0.0/8`), all RFC-1918 private ranges, link-local addresses (`169.254.0.0/16`), and their IPv6 equivalents. `localhost` and `localhost.localdomain` are also blocked.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BROWSER_ENABLED` | `true` | Enable or disable the browser tool globally |
+| `BROWSER_SESSION_TTL_SECONDS` | `600` | Seconds of inactivity before a session is closed |
+| `BROWSER_MAX_CONCURRENT_SESSIONS` | `5` | Maximum simultaneous browser sessions |
+| `BROWSER_PAGE_TIMEOUT_MS` | `30000` | Default Playwright timeout per action (ms) |
+
+### Setup
+
+```bash
+make browser-setup  # installs playwright Python package + Chromium browser
+```
+
+If Playwright or Chromium is not installed, the tool returns a graceful error message with the install hint — it does not crash the server.
+
+### Key files
+
+- [src/agent/tools/browser.py](../../src/agent/tools/browser.py) - Full implementation: `_BrowserWorker` daemon thread, `BrowserSession` dataclass, queue-based dispatch, SSRF validation, screenshot modes, action handlers
+- [src/config.py](../../src/config.py) - `BROWSER_ENABLED`, `BROWSER_SESSION_TTL_SECONDS`, `BROWSER_MAX_CONCURRENT_SESSIONS`, `BROWSER_PAGE_TIMEOUT_MS`
+- [src/agent/tools/__init__.py](../../src/agent/tools/__init__.py) - `is_browser_available()` registration
+- [src/agent/tool_display.py](../../src/agent/tool_display.py) - UI metadata (icon, label)
+
+### Testing
+
+- Unit tests: [tests/unit/test_browser.py](../../tests/unit/test_browser.py)
 
 ## Future Enhancements
 

@@ -7,6 +7,7 @@ from typing import Any
 
 # Import tools from submodules
 from src.agent.tools.agent_kv import kv_store
+from src.agent.tools.browser import browser, is_browser_available
 from src.agent.tools.code_execution import execute_code, is_code_sandbox_available
 from src.agent.tools.context import (
     get_agent_name,
@@ -58,6 +59,11 @@ def get_available_tools() -> list[Any]:
         cite_sources,
         manage_memory,
     ]
+
+    # Only add browser if enabled and Playwright is installed
+    if Config.BROWSER_ENABLED and is_browser_available():
+        tools.append(browser)
+        logger.debug("browser tool added to available tools")
 
     # Only add execute_code if sandbox is enabled and Docker is available
     if Config.CODE_SANDBOX_ENABLED:
@@ -154,6 +160,10 @@ def get_tools_for_request(
                         continue
                     if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
                         continue
+                    if tool_name == "browser" and (
+                        not Config.BROWSER_ENABLED or not is_browser_available()
+                    ):
+                        continue
                     if tool_name == "garmin_connect" and not is_garmin_available():
                         continue
                     if tool_name == "whatsapp" and not is_whatsapp_available():
@@ -187,6 +197,7 @@ def get_tools_for_request(
 _TOOL_MAP: dict[str, Any] = {
     "web_search": web_search,
     "fetch_url": fetch_url,
+    "browser": browser,
     "generate_image": generate_image,
     "retrieve_file": retrieve_file,
     "execute_code": execute_code,
@@ -243,6 +254,10 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
                         continue
                     if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
                         continue
+                    if tool_name == "browser" and (
+                        not Config.BROWSER_ENABLED or not is_browser_available()
+                    ):
+                        continue
                     # WhatsApp requires both app config AND user phone number
                     if tool_name == "whatsapp" and not _is_whatsapp_available_for_user(
                         agent.user_id
@@ -262,6 +277,8 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
             tools.append(whatsapp)
         if Config.CODE_SANDBOX_ENABLED:
             tools.append(execute_code)
+        if Config.BROWSER_ENABLED and is_browser_available():
+            tools.append(browser)
         tools.append(generate_image)
 
     logger.debug(
@@ -279,6 +296,7 @@ __all__ = [
     # Tools
     "fetch_url",
     "web_search",
+    "browser",
     "generate_image",
     "execute_code",
     "retrieve_file",
@@ -308,6 +326,7 @@ __all__ = [
     "set_language_context",
     "get_language_context",
     # Availability checks
+    "is_browser_available",
     "is_code_sandbox_available",
     "is_todoist_available",
     "is_google_calendar_available",

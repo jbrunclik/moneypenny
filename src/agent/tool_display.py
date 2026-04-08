@@ -28,6 +28,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Fetched",
         "icon": "link",
     },
+    "browser": {
+        "label": "Browsing the web",
+        "label_past": "Browsed",
+        "icon": "globe",
+    },
     "generate_image": {
         "label": "Generating image",
         "label_past": "Generated image",
@@ -79,6 +84,7 @@ if _GOOGLE_CALENDAR_CONFIGURED:
 _detail_tools = {
     "web_search",
     "fetch_url",
+    "browser",
     "generate_image",
     "execute_code",
     "todoist",
@@ -101,7 +107,7 @@ def validate_tool_names() -> None:
     # Add conditional tools that are only available in specific contexts
     # refresh_planner_dashboard is only added in planner mode via get_tools_for_request()
     # kv_store is only added for autonomous agents via get_tools_for_agent()
-    conditional_tools = {"refresh_planner_dashboard", "kv_store"}
+    conditional_tools = {"refresh_planner_dashboard", "kv_store", "browser"}
     valid_tool_names = actual_tool_names | conditional_tools
 
     # Check TOOL_METADATA
@@ -226,6 +232,13 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
     """
     if tool_name == "web_search" and "query" in tool_args:
         return str(tool_args["query"])
+    elif tool_name == "browser" and "action" in tool_args:
+        action = str(tool_args["action"])
+        if action == "navigate" and "url" in tool_args:
+            return f"navigate: {tool_args['url']}"
+        if action in ("click", "type") and "selector" in tool_args:
+            return f"{action}: {str(tool_args['selector'])[:50]}"
+        return action
     elif tool_name == "fetch_url" and "url" in tool_args:
         return str(tool_args["url"])
     elif tool_name == "generate_image" and "prompt" in tool_args:

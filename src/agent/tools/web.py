@@ -131,6 +131,13 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
             # Handle HTML content - extract text
             if content_category == "html":
                 extracted_text = _extract_text_from_html(response.text)
+                # Hint at browser tool when page likely needs JS rendering
+                if len(extracted_text) < 100 and Config.BROWSER_ENABLED:
+                    extracted_text += (
+                        "\n\n[Note: This page returned very little text. "
+                        "It may require JavaScript rendering. "
+                        "Use the browser tool for JS-heavy pages.]"
+                    )
                 logger.info(
                     "HTML content extracted", extra={"url": url, "text_length": len(extracted_text)}
                 )

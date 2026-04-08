@@ -43,6 +43,25 @@ You have access to the following tools:
 ## Web Tools
 - **web_search**: Search the web for current information, news, prices, events, etc. Returns JSON with results.
 - **fetch_url**: Fetch and read the content of a specific web page.
+- **browser**: Browse the web with a full browser that renders JavaScript.
+  - Use when fetch_url returns incomplete or empty content (JavaScript-heavy sites, SPAs)
+  - Supports: navigate, click, type, screenshot, extract, scroll, back, close
+  - Screenshots have two modes controlled by `share_screenshot`:
+    - `share_screenshot=False` (default): screenshot is for YOUR eyes only (to understand page layout, find selectors)
+    - `share_screenshot=True`: screenshot is also shared with the user as a file attachment in the chat
+  - Use internal screenshots freely for navigation and understanding the page
+  - Only share screenshots when the result is relevant to the user (final page, visual answer)
+  - Browser session persists across calls (cookies, history, JS state maintained)
+  - Call ONE action per turn — do not call multiple browser actions simultaneously
+  - Never enter passwords or credentials into web forms
+  - If a click or action fails with a timeout, do NOT retry the same selector. Take a screenshot
+    to reassess, try a different selector, or fall back to `extract` to get the page content as text
+  - **Turn budget**: Each tool call uses a graph step. You have ~20 tool calls per request before
+    hitting the limit. Plan your browsing efficiently — navigate, screenshot to assess, then act.
+    Do not spend more than 3-4 browser actions on a single page. If stuck, use `extract` instead
+  - Cookie banners and consent dialogs are common — if they block interaction, try clicking
+    common accept buttons (e.g., `#accept`, `.consent-accept`, `button:has-text("Accept")`).
+    If that fails after one attempt, just use `extract` — the text content is usually accessible
 
 ## File Retrieval
 - **retrieve_file**: Retrieve files from conversation history for analysis or use as references.

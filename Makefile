@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -20,6 +20,7 @@ help:
 	@echo ""
 	@echo "  setup                 Create venv and install dependencies"
 	@echo "  sandbox-image         Build custom Docker image for code sandbox"
+	@echo "  browser-setup         Install Playwright and Chromium for browser tool"
 	@echo "  dev                   Run Flask + Vite dev servers concurrently"
 	@echo "  run                   Run Flask server only"
 	@echo "  build                 Production build (Vite)"
@@ -89,6 +90,17 @@ sandbox-image:
 	@echo ""
 	@echo "Update your .env file with:"
 	@echo "  CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local"
+
+# Install Playwright and Chromium browser for the browser automation tool
+browser-setup:
+	@echo "Installing Playwright and Chromium..."
+	$(PIP) install playwright
+	$(PYTHON) -m playwright install chromium --with-deps
+	@echo ""
+	@echo "✓ Playwright and Chromium installed"
+	@echo ""
+	@echo "Enable the browser tool in .env:"
+	@echo "  BROWSER_ENABLED=true"
 
 # Development: run Flask and Vite dev server concurrently
 # Uses npx concurrently to manage both processes (Ctrl+C kills both)

@@ -17,6 +17,7 @@ import {
   CODE_ICON,
   CHECKLIST_ICON,
   CALENDAR_ICON,
+  GLOBE_ICON,
 } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { renderMarkdown } from '../utils/markdown';
@@ -26,6 +27,7 @@ import type { ThinkingState, ThinkingTraceItem } from '../types/api';
 const ICON_MAP: Record<string, string> = {
   search: SEARCH_ICON,
   link: LINK_ICON,
+  globe: GLOBE_ICON,
   sparkles: SPARKLES_ICON,
   code: CODE_ICON,
   checklist: CHECKLIST_ICON,

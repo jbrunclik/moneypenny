@@ -51,7 +51,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 - **Clipboard paste**: Paste screenshots directly from clipboard (Cmd+V / Ctrl+V)
 - **Image generation**: Generate images from text descriptions, or edit uploaded images
 - **Image lightbox**: Click thumbnails to view full-size images, with loading indicator and on-demand thumbnail loading
-- **Web tools**: Real-time web search (DuckDuckGo) and URL fetching with source citations
+- **Web tools**: Real-time web search (DuckDuckGo), URL fetching with source citations, and full browser automation (JavaScript rendering, clicks, form filling, screenshots via Playwright)
 - **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
 - **Todoist integration**: Manage tasks via AI - list, add, complete, prioritize, and organize tasks across projects
 - **Google Calendar integration**: Schedule meetings/focus blocks, update events, and RSVP directly from the chat
@@ -175,6 +175,12 @@ CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
 CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
 CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2
 
+# Browser automation (optional, requires: make browser-setup)
+BROWSER_ENABLED=true                 # Enable/disable browser tool (default: true)
+BROWSER_SESSION_TTL_SECONDS=600      # Seconds of inactivity before session cleanup
+BROWSER_MAX_CONCURRENT_SESSIONS=5    # Maximum simultaneous browser sessions
+BROWSER_PAGE_TIMEOUT_MS=30000        # Default per-action timeout in milliseconds
+
 # Gunicorn settings (optional)
 GUNICORN_WORKERS=2                  # Number of worker processes
 GUNICORN_TIMEOUT=300                # 5 minutes default
@@ -267,6 +273,37 @@ The AI will gracefully handle this and won't offer code execution capabilities.
 - Containers have memory and CPU limits
 - Files are only accessible within the sandbox (`/output/` directory)
 - Each execution creates a fresh container that is destroyed after use
+
+### Setting up Browser Automation
+
+The browser tool gives the AI a full headless Chromium browser. Unlike simple URL fetching, it renders JavaScript, maintains session state (cookies, history) across turns, and can click buttons, fill forms, and take screenshots. Useful for SPAs, paywalled previews, and any page that requires interaction.
+
+**Prerequisites:**
+- Python `playwright` package and Chromium browser binary
+
+**Install:**
+
+```bash
+make browser-setup
+```
+
+This runs `pip install playwright` and `playwright install chromium --with-deps` inside the virtual environment.
+
+**Configuration (`.env`):**
+```bash
+BROWSER_ENABLED=true                 # Enable/disable (default: true)
+BROWSER_SESSION_TTL_SECONDS=600      # Idle session cleanup (default: 600 s)
+BROWSER_MAX_CONCURRENT_SESSIONS=5    # Max simultaneous sessions (default: 5)
+BROWSER_PAGE_TIMEOUT_MS=30000        # Per-action timeout (default: 30 000 ms)
+```
+
+**Disabling:**
+
+Set `BROWSER_ENABLED=false` to disable the tool. The AI will fall back to `fetch_url` for web content. If Playwright is not installed, the tool returns a graceful error rather than crashing.
+
+**Security:**
+- All URLs are validated against an SSRF blocklist (private IP ranges, loopback, link-local) before navigation
+- The browser never stores or enters passwords
 
 ### Setting up Todoist Integration
 
@@ -577,6 +614,8 @@ make setup      # Create venv and install dependencies (Python + Node.js)
 make dev        # Run Flask + Vite dev servers concurrently (with HMR)
 make build      # Build frontend for production
 make run        # Run Flask server (production mode)
+make sandbox-image    # Build custom Docker image for code execution
+make browser-setup    # Install Playwright + Chromium for browser tool
 make lint       # Run ruff, mypy, and ESLint
 make lint-fix   # Auto-fix linting issues
 make test       # Run all tests

@@ -15,6 +15,7 @@ This file contains context for Claude Code to work effectively on this project.
 - **Pre-commit**: `make pre-commit` (lint + test-all + security scan)
 - **Setup**: `make setup` (venv + deps)
 - **Sandbox**: `make sandbox-image` (build custom Docker image for code execution)
+- **Browser**: `make browser-setup` (install Playwright + Chromium for browser tool)
 - **OpenAPI**: `make openapi` (export OpenAPI spec)
 - **Types**: `make types` (generate TypeScript types from OpenAPI)
 - **Audit**: `make audit` (dependency vulnerability scan)
@@ -73,7 +74,7 @@ ai-chatbot/
 │   ├── api/                      # REST endpoints, validation, errors
 │   │   └── routes/               # 12 modules, 48 endpoints (organized by feature)
 │   ├── agent/                    # LangGraph agent with Gemini + tools
-│   │   └── tools/                # web_search, generate_image, execute_code, todoist, etc.
+│   │   └── tools/                # web_search, fetch_url, browser, generate_image, execute_code, todoist, etc.
 │   ├── db/                       # SQLite: User, Conversation, Message, sports columns
 │   │   └── models/               # Split by entity
 │   ├── templates/                # Jinja2 templates (index.html, privacy.html)
@@ -101,7 +102,7 @@ ai-chatbot/
 - [routes/](src/api/routes/) - API endpoints by feature (see [api-design.md](docs/architecture/api-design.md))
 - [schemas.py](src/api/schemas.py) - Pydantic request/response schemas
 - [agent/](src/agent/) - LangGraph agent: [agent.py](src/agent/agent.py), [graph.py](src/agent/graph.py) (planning, self-correction, checkpointing), [prompts.py](src/agent/prompts.py), [content.py](src/agent/content.py), [history.py](src/agent/history.py)
-- [tools/](src/agent/tools/) - Agent tools
+- [tools/](src/agent/tools/) - Agent tools (including [browser.py](src/agent/tools/browser.py) for Playwright-based browsing)
 - [models/](src/db/models/) - Database models and operations
 - [core/](web/src/core/) - Frontend core modules
 - [messages/](web/src/components/messages/) - Message display components
@@ -182,6 +183,9 @@ Create file in [tools/](src/agent/tools/), add `@tool` decorator, register in [t
 
 ### Add a database migration
 Use the `migration-creator` agent, or create file in [migrations/](migrations/) following `NNNN_description.py` pattern.
+
+### Enable the browser tool
+Run `make browser-setup` to install Playwright and Chromium. The tool is enabled by default (`BROWSER_ENABLED=true`). Set `BROWSER_ENABLED=false` in `.env` to disable. See [docs/features/agents.md](docs/features/agents.md) for configuration options.
 
 ### Change available models
 Edit [config.py](src/config.py) `MODELS` dict.

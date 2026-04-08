@@ -634,5 +634,8 @@ def get_graph_config(conversation_id: str | None = None) -> dict[str, Any]:
         Config dict with thread_id for checkpointing
     """
     if Config.AGENT_CHECKPOINTING_ENABLED and conversation_id:
-        return {"configurable": {"thread_id": conversation_id}, "recursion_limit": 25}
-    return {"recursion_limit": 25}
+        return {
+            "configurable": {"thread_id": conversation_id},
+            "recursion_limit": Config.AGENT_RECURSION_LIMIT,
+        }
+    return {"recursion_limit": Config.AGENT_RECURSION_LIMIT}

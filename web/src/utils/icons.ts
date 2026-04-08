@@ -257,6 +257,11 @@ export const SOURCES_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curren
 </svg>`;
 
 /**
+ * Globe icon (for browser tool - reuses sources globe design)
+ */
+export const GLOBE_ICON = SOURCES_ICON;
+
+/**
  * Sparkles icon (for image generation)
  */
 export const SPARKLES_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
