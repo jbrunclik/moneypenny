@@ -1,0 +1,16 @@
+# Systemd timer for AI Chatbot checkpoint cleanup
+# Install to: ~/.config/systemd/user/ai-chatbot-checkpoint-cleanup.timer
+# Enable with: systemctl --user enable ai-chatbot-checkpoint-cleanup.timer
+# Check status: systemctl --user list-timers
+
+[Unit]
+Description=Periodic cleanup of AI Chatbot LangGraph checkpoints
+
+[Timer]
+# Run every 30 minutes
+OnCalendar=*:00/30:00
+# No jitter needed — cheap operation, fine to run on the dot
+Persistent=true
+
+[Install]
+WantedBy=timers.target

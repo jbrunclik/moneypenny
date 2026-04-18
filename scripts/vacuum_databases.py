@@ -97,6 +97,7 @@ def main() -> int:
     databases = [
         (Config.DATABASE_PATH, "Main database (chatbot.db)"),
         (Config.BLOB_STORAGE_PATH, "Blob storage (files.db)"),
+        (Config.CHECKPOINT_DB_PATH, "Checkpoints (checkpoints.db)"),
     ]
 
     all_success = True

@@ -54,6 +54,7 @@ def _get_checkpointer() -> SqliteSaver:
 
     Each gunicorn worker (separate process) gets its own SQLite connection.
     WAL mode (set by SqliteSaver.setup()) enables concurrent reads.
+    Also ensures the created_at column exists for TTL-based cleanup.
     """
     global _checkpointer  # noqa: PLW0603
     if _checkpointer is None:
@@ -65,8 +66,32 @@ def _get_checkpointer() -> SqliteSaver:
         )
         _checkpointer = SqliteSaver(conn)
         _checkpointer.setup()
+        _ensure_created_at_column(conn)
         logger.info("SqliteSaver checkpointer initialized", extra={"path": str(db_path)})
     return _checkpointer
+
+
+def _ensure_created_at_column(conn: sqlite3.Connection) -> None:
+    """Add created_at column to checkpoint tables if missing (idempotent).
+
+    SQLite ALTER TABLE doesn't allow CURRENT_TIMESTAMP as a default, so we
+    use an INSERT trigger to set it automatically on new rows.
+    """
+    for table in ("checkpoints", "writes"):
+        columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        if "created_at" not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN created_at TIMESTAMP")
+            conn.execute(
+                f"""CREATE TRIGGER IF NOT EXISTS {table}_set_created_at
+                    AFTER INSERT ON {table}
+                    FOR EACH ROW
+                    WHEN NEW.created_at IS NULL
+                    BEGIN
+                        UPDATE {table} SET created_at = CURRENT_TIMESTAMP
+                        WHERE rowid = NEW.rowid;
+                    END"""
+            )
+            logger.info(f"Added created_at column and trigger to {table} table")
 
 
 # ============ Agent State ============

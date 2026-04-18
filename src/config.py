@@ -299,6 +299,7 @@ class Config:
     CHECKPOINT_DB_PATH: Path = Path(
         os.getenv("CHECKPOINT_DB_PATH", str(BASE_DIR / "data" / "checkpoints.db"))
     )
+    CHECKPOINT_TTL_MINUTES: int = int(os.getenv("CHECKPOINT_TTL_MINUTES", "30"))
 
     # Gunicorn worker recycling: restart workers after N requests to prevent memory leaks
     GUNICORN_MAX_REQUESTS: int = int(os.getenv("GUNICORN_MAX_REQUESTS", "1000"))
