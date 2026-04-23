@@ -33,7 +33,7 @@ langdetect>=1.0
 garminconnect>=0.2
 
 # Schedule parsing
-croniter>=5.0
+croniter>=6.2.2
 
 # Database migrations
 yoyo-migrations>=9.0
