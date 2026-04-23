@@ -18,7 +18,7 @@ requests>=2.31
 
 # Web tools
 httpx>=0.28.1
-beautifulsoup4>=4.12
+beautifulsoup4>=4.14.3
 html2text>=2024.2
 ddgs>=9.14.1
 playwright>=1.58.0
