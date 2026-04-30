@@ -112,10 +112,6 @@ class Config:
             "input": 2.00,  # $2.00 per million input tokens (text prompts)
             "output": 12.00,  # $12.00 per million output tokens (images + thinking)
         },
-        "gemini-2.0-flash": {
-            "input": 0.075,  # Used for title generation
-            "output": 0.30,
-        },
     }
 
     # Currency conversion rates (USD to other currencies)
@@ -210,7 +206,7 @@ class Config:
     }
 
     # Title generation settings
-    TITLE_GENERATION_MODEL = "gemini-2.0-flash"
+    TITLE_GENERATION_MODEL = "gemini-3-flash-preview"
     TITLE_GENERATION_TEMPERATURE = 0.7
     TITLE_MAX_LENGTH = 62  # Extra 2 chars for emoji + space prefix
     TITLE_TRUNCATE_LENGTH = 59  # Leaves room for "..."

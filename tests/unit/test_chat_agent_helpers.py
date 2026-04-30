@@ -2064,7 +2064,7 @@ class TestGenerateTitle:
 
             def invoke(self, *args, **kwargs):
                 raise ChatGoogleGenerativeAIError(
-                    "Error calling model 'gemini-2.0-flash' (RESOURCE_EXHAUSTED): 429"
+                    "Error calling model 'gemini-3-flash-preview' (RESOURCE_EXHAUSTED): 429"
                 )
 
         monkeypatch.setattr(agent_mod, "ChatGoogleGenerativeAI", _RaisingModel)
