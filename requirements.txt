@@ -27,7 +27,7 @@ playwright>=1.59.0
 llm-sandbox[docker]>=0.3.39
 
 # Language detection
-langdetect>=1.0
+langdetect>=1.0.9
 
 # Garmin Connect integration
 garminconnect>=0.2
