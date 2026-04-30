@@ -310,24 +310,35 @@ def save_message_to_db(
             mode="stream",
         )
 
-        # Auto-generate title from first message if still default
+        # Auto-generate title from first message if still default. Wrapped in
+        # its own try/except so a title-generation failure can never abort the
+        # message save (which already succeeded above). On failure we leave
+        # the default title in place; the next user message will retry.
         conv = db.get_conversation(conv_id, user_id)
         generated_title: str | None = None
-        if conv and conv.title == "New Conversation":
+        if conv and conv.title == Config.DEFAULT_CONVERSATION_TITLE:
             logger.debug(
                 "Auto-generating conversation title from stream",
                 extra={"user_id": user_id, "conversation_id": conv_id},
             )
-            generated_title = generate_title(message_text, content)
-            db.update_conversation(conv_id, user_id, title=generated_title)
-            logger.debug(
-                "Conversation title generated from stream",
-                extra={
-                    "user_id": user_id,
-                    "conversation_id": conv_id,
-                    "title": generated_title,
-                },
-            )
+            try:
+                generated_title = generate_title(message_text, content)
+                if generated_title is not None:
+                    db.update_conversation(conv_id, user_id, title=generated_title)
+                    logger.debug(
+                        "Conversation title generated from stream",
+                        extra={
+                            "user_id": user_id,
+                            "conversation_id": conv_id,
+                            "title": generated_title,
+                        },
+                    )
+            except Exception:
+                logger.exception(
+                    "Title generation/update failed (continuing without title)",
+                    extra={"user_id": user_id, "conversation_id": conv_id},
+                )
+                generated_title = None
 
         logger.info(
             "Stream chat completed and saved",

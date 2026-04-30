@@ -448,19 +448,34 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # Generic server error (don't expose internal details)
         raise_server_error("Failed to generate response. Please try again.")
 
-    # Auto-generate title from first message if still default
+    # Auto-generate title from first message if still default. Wrapped in its
+    # own try/except so a title-generation failure can never turn a successful
+    # chat into a 500. On failure we leave the default title in place; the
+    # next user message will retry.
     generated_title: str | None = None
-    if conv.title == "New Conversation":
+    if conv.title == Config.DEFAULT_CONVERSATION_TITLE:
         logger.debug(
             "Auto-generating conversation title",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
-        generated_title = generate_title(message_text, clean_response)
-        db.update_conversation(conv_id, user.id, title=generated_title)
-        logger.debug(
-            "Conversation title generated",
-            extra={"user_id": user.id, "conversation_id": conv_id, "title": generated_title},
-        )
+        try:
+            generated_title = generate_title(message_text, clean_response)
+            if generated_title is not None:
+                db.update_conversation(conv_id, user.id, title=generated_title)
+                logger.debug(
+                    "Conversation title generated",
+                    extra={
+                        "user_id": user.id,
+                        "conversation_id": conv_id,
+                        "title": generated_title,
+                    },
+                )
+        except Exception:
+            logger.exception(
+                "Title generation/update failed (continuing without title)",
+                extra={"user_id": user.id, "conversation_id": conv_id},
+            )
+            generated_title = None
 
     # Build response (include title if it was just generated, and user message ID for UI update)
     response_data = build_chat_response(

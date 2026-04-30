@@ -2041,3 +2041,64 @@ class TestMetadataToolEdgeCases:
         result = detect_response_language("!@#$%^&*()_+!@#$%^&*()")
         # Should either detect something or return None, not crash
         assert result is None or (isinstance(result, str) and len(result) == 2)
+
+
+class TestGenerateTitle:
+    """Tests for the conversation title generation contract.
+
+    The contract: generate_title must NEVER raise. Any exception from the
+    underlying LLM must be swallowed and surfaced as a None return so the
+    caller leaves the default title in place for opportunistic retry on the
+    next user message.
+    """
+
+    def test_returns_none_when_llm_raises_provider_error(self, monkeypatch) -> None:
+        """ChatGoogleGenerativeAIError on rate-limit must not escape."""
+        from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
+
+        from src.agent import agent as agent_mod
+
+        class _RaisingModel:
+            def __init__(self, *args, **kwargs) -> None:
+                pass
+
+            def invoke(self, *args, **kwargs):
+                raise ChatGoogleGenerativeAIError(
+                    "Error calling model 'gemini-2.0-flash' (RESOURCE_EXHAUSTED): 429"
+                )
+
+        monkeypatch.setattr(agent_mod, "ChatGoogleGenerativeAI", _RaisingModel)
+        assert agent_mod.generate_title("hello", "world") is None
+
+    def test_returns_none_on_unexpected_exception(self, monkeypatch) -> None:
+        """Any Exception subclass must be caught — not just GoogleAPIError."""
+        from src.agent import agent as agent_mod
+
+        class _RaisingModel:
+            def __init__(self, *args, **kwargs) -> None:
+                pass
+
+            def invoke(self, *args, **kwargs):
+                raise RuntimeError("network blew up")
+
+        monkeypatch.setattr(agent_mod, "ChatGoogleGenerativeAI", _RaisingModel)
+        assert agent_mod.generate_title("hi", "there") is None
+
+    def test_returns_title_on_success(self, monkeypatch) -> None:
+        """Happy path: cleaned-up title returned to caller."""
+        from src.agent import agent as agent_mod
+
+        class _Resp:
+            content = '"🐍 Python List Sorting"'
+
+        class _StubModel:
+            def __init__(self, *args, **kwargs) -> None:
+                pass
+
+            def invoke(self, *args, **kwargs):
+                return _Resp()
+
+        monkeypatch.setattr(agent_mod, "ChatGoogleGenerativeAI", _StubModel)
+        assert agent_mod.generate_title("how do I sort?", "use sorted()") == (
+            "🐍 Python List Sorting"
+        )

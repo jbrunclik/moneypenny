@@ -90,7 +90,10 @@ class ConversationMixin:
         )
 
     def create_conversation(
-        self, user_id: str, title: str = "New Conversation", model: str | None = None
+        self,
+        user_id: str,
+        title: str = Config.DEFAULT_CONVERSATION_TITLE,
+        model: str | None = None,
     ) -> Conversation:
         """Create a new conversation for a user."""
         conv_id = str(uuid.uuid4())

@@ -8,7 +8,6 @@ import contextvars
 from collections.abc import Generator
 from typing import Any, cast
 
-from google.api_core.exceptions import GoogleAPIError
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
@@ -952,7 +951,7 @@ class ChatAgent:
         }
 
 
-def generate_title(user_message: str, assistant_response: str) -> str:
+def generate_title(user_message: str, assistant_response: str) -> str | None:
     """
     Generate a concise title for a conversation using Gemini.
 
@@ -961,7 +960,9 @@ def generate_title(user_message: str, assistant_response: str) -> str:
         assistant_response: The assistant's response
 
     Returns:
-        A short, descriptive title (max ~50 chars)
+        A short, descriptive title (max ~50 chars), or None if generation
+        failed. Callers should leave the existing title untouched on None so
+        it can be retried opportunistically on the next user message.
     """
     logger.debug("Generating conversation title")
     # Use Flash model for fast, cheap title generation
@@ -1000,10 +1001,14 @@ Title:"""
         final_title = title or f"💬 {user_message[: Config.TITLE_FALLBACK_LENGTH]}"
         logger.debug("Title generated", extra={"title": final_title})
         return final_title
-    except (GoogleAPIError, ValueError, TimeoutError) as e:
-        # Fallback to truncated message on API or parsing errors
-        logger.warning("Title generation failed, using fallback", extra={"error": str(e)})
-        fallback_len = Config.TITLE_FALLBACK_LENGTH
-        return (
-            f"💬 {user_message[:fallback_len]}{'...' if len(user_message) > fallback_len else ''}"
+    except Exception as e:
+        # Catch broadly: provider SDKs wrap errors in their own exception types
+        # (e.g. ChatGoogleGenerativeAIError on 429), and title generation must
+        # never break the surrounding message-save flow. Returning None tells
+        # the caller to leave the default title in place so the next user
+        # message will retry opportunistically.
+        logger.warning(
+            "Title generation failed",
+            extra={"error": str(e), "error_type": type(e).__name__},
         )
+        return None
