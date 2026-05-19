@@ -17,10 +17,10 @@ class Config:
 
     # Available models - each model has a full name and short name for compact display
     MODELS = {
-        "gemini-3-flash-preview": {"name": "Gemini 3 Flash", "short_name": "Fast"},
+        "gemini-3.5-flash": {"name": "Gemini 3.5 Flash", "short_name": "Fast"},
         "gemini-3.1-pro-preview": {"name": "Gemini 3.1 Pro", "short_name": "Advanced"},
     }
-    DEFAULT_MODEL = "gemini-3-flash-preview"
+    DEFAULT_MODEL = "gemini-3.5-flash"
 
     # Image generation model
     IMAGE_GENERATION_MODEL = "gemini-3-pro-image-preview"
@@ -93,12 +93,16 @@ class Config:
         os.getenv("COST_HISTORY_MAX_MONTHS", "120")
     )  # Max 10 years of history (120 months)
 
-    # Gemini pricing (per million tokens) - as of Feb 2026
+    # Gemini pricing (per million tokens) - as of May 2026
     # These should be updated when Google changes pricing
     MODEL_PRICING = {
+        "gemini-3.5-flash": {
+            "input": 1.50,  # $1.50 per million input tokens
+            "output": 9.00,  # $9.00 per million output tokens
+        },
         "gemini-3-flash-preview": {
-            "input": 0.075,  # $0.075 per million input tokens
-            "output": 0.30,  # $0.30 per million output tokens
+            "input": 0.50,  # $0.50 per million input tokens (historical)
+            "output": 3.00,  # $3.00 per million output tokens (historical)
         },
         "gemini-3.1-pro-preview": {
             "input": 2.00,  # $2.00 per million input tokens
@@ -206,7 +210,7 @@ class Config:
     }
 
     # Title generation settings
-    TITLE_GENERATION_MODEL = "gemini-3-flash-preview"
+    TITLE_GENERATION_MODEL = "gemini-3.5-flash"
     TITLE_GENERATION_TEMPERATURE = 0.7
     TITLE_MAX_LENGTH = 62  # Extra 2 chars for emoji + space prefix
     TITLE_TRUNCATE_LENGTH = 59  # Leaves room for "..."
@@ -214,7 +218,7 @@ class Config:
     TITLE_FALLBACK_LENGTH = 50  # Length for fallback title from user message
 
     # AI assist settings (cron parsing, prompt enhancement)
-    AI_ASSIST_MODEL = "gemini-3-flash-preview"
+    AI_ASSIST_MODEL = "gemini-3.5-flash"
     AI_ASSIST_TIMEOUT_SECONDS = 15  # Minimum allowed by Gemini API is 10s
 
     # LLM settings

@@ -328,7 +328,7 @@ export const useStore = create<AppState>()(
       messages: new Map(),
       messagesPagination: new Map(),
       models: [],
-      defaultModel: 'gemini-3-flash-preview',
+      defaultModel: 'gemini-3.5-flash',
       pendingModel: null,
       isLoading: false,
       isSidebarOpen: false,

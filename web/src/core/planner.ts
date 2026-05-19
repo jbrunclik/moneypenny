@@ -92,7 +92,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   const placeholderConv: Conversation = {
     id: 'planner-loading',
     title: 'Planner',
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3.5-flash',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     messages: [],

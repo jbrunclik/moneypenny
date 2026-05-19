@@ -80,7 +80,7 @@ export async function navigateToSports(forceRefresh: boolean = false): Promise<v
   const placeholderConv: Conversation = {
     id: 'sports-loading',
     title: 'Sports Training',
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3.5-flash',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     messages: [],
