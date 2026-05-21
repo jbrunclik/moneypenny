@@ -21,7 +21,7 @@ httpx>=0.28.1
 beautifulsoup4>=4.14.3
 html2text>=2025.4.15
 ddgs>=9.14.4
-playwright>=1.59.0
+playwright>=1.60.0
 
 # Code execution sandbox
 llm-sandbox[docker]>=0.3.39
