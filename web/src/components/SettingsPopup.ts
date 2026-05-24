@@ -14,7 +14,7 @@ import {
   PHONE_ICON,
   ACTIVITY_ICON,
 } from '../utils/icons';
-import { settings, todoist, calendar, garmin } from '../api/client';
+import { settings, todoist, calendar, garmin, ApiError } from '../api/client';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import {
@@ -73,6 +73,15 @@ let garminStatus: GarminStatus | null = null;
 /** Garmin MFA state: awaiting MFA code input */
 
 let garminMfaRequired = false;
+
+/**
+ * Credentials retained in memory while we await the MFA code so we can
+ * re-submit them together with the code. The MFA flow on the backend runs
+ * a single full login per request (no cross-request state), which means we
+ * have to resend email+password with the MFA code. Cleared after MFA
+ * success, cancel, or any settled outcome.
+ */
+let garminPendingCredentials: { email: string; password: string } | null = null;
 
 /**
  * Render color scheme option
@@ -695,11 +704,16 @@ async function handleGarminConnect(): Promise<void> {
     passwordInput.value = '';
 
     if (result.mfa_required) {
+      // Retain credentials so the MFA submit can resend them together with
+      // the code — the backend completes login in a single request and has
+      // no cross-request session state.
+      garminPendingCredentials = { email, password };
       garminMfaRequired = true;
       updateGarminSection();
       return;
     }
 
+    garminPendingCredentials = null;
     garminStatus = { connected: true, connected_at: new Date().toISOString(), needs_reconnect: false };
     garminMfaRequired = false;
     updateGarminSection();
@@ -708,7 +722,11 @@ async function handleGarminConnect(): Promise<void> {
   } catch (error) {
     log.error('Failed to connect Garmin', { error });
     passwordInput.value = '';
-    toast.error('Failed to connect to Garmin. Check your credentials.');
+    garminPendingCredentials = null;
+    const message = error instanceof ApiError && error.message
+      ? error.message
+      : 'Failed to connect to Garmin. Check your credentials.';
+    toast.error(message);
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = originalText;
@@ -729,6 +747,13 @@ async function handleGarminMfaSubmit(): Promise<void> {
     return;
   }
 
+  if (!garminPendingCredentials) {
+    toast.error('Session expired. Please start the connection again.');
+    garminMfaRequired = false;
+    updateGarminSection();
+    return;
+  }
+
   const submitBtn = document.querySelector<HTMLButtonElement>('.settings-garmin-mfa-submit');
   if (submitBtn?.disabled) return;
   const originalText = submitBtn?.textContent ?? '';
@@ -739,8 +764,13 @@ async function handleGarminMfaSubmit(): Promise<void> {
 
   try {
     log.debug('Submitting Garmin MFA code');
-    await garmin.submitMfa(mfaCode);
+    await garmin.submitMfa(
+      garminPendingCredentials.email,
+      garminPendingCredentials.password,
+      mfaCode,
+    );
 
+    garminPendingCredentials = null;
     garminStatus = { connected: true, connected_at: new Date().toISOString(), needs_reconnect: false };
     garminMfaRequired = false;
     updateGarminSection();
@@ -748,7 +778,10 @@ async function handleGarminMfaSubmit(): Promise<void> {
     log.info('Garmin connected via MFA');
   } catch (error) {
     log.error('Failed to submit Garmin MFA', { error });
-    toast.error('Invalid MFA code, please try again');
+    const message = error instanceof ApiError && error.message
+      ? error.message
+      : 'Invalid MFA code, please try again';
+    toast.error(message);
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = originalText;
@@ -1089,6 +1122,7 @@ export async function openSettingsPopup(): Promise<void> {
     calendarStatus = calendarData;
     garminStatus = garminData;
     garminMfaRequired = false;
+    garminPendingCredentials = null;
     log.info('Settings loaded', {
       instructionsLength: currentInstructions.length,
       hasWhatsappPhone: !!currentWhatsappPhone,
@@ -1251,6 +1285,7 @@ export function initSettingsPopup(): void {
     if (target.classList.contains('settings-garmin-show-login')) {
       garminStatus = { connected: false, connected_at: null, needs_reconnect: false };
       garminMfaRequired = false;
+      garminPendingCredentials = null;
       updateGarminSection();
     }
 
@@ -1266,6 +1301,7 @@ export function initSettingsPopup(): void {
 
     // Garmin MFA cancel
     if (target.classList.contains('settings-garmin-mfa-cancel')) {
+      garminPendingCredentials = null;
       garminMfaRequired = false;
       garminStatus = { connected: false, connected_at: null, needs_reconnect: false };
       updateGarminSection();

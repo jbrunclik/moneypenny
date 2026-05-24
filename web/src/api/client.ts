@@ -1063,10 +1063,14 @@ export const garmin = {
     });
   },
 
-  async submitMfa(mfaCode: string): Promise<GarminConnectResponse> {
+  async submitMfa(
+    email: string,
+    password: string,
+    mfaCode: string,
+  ): Promise<GarminConnectResponse> {
     return request<GarminConnectResponse>('/auth/garmin/mfa', {
       method: 'POST',
-      body: JSON.stringify({ mfa_code: mfaCode }),
+      body: JSON.stringify({ email, password, mfa_code: mfaCode }),
     });
   },
 

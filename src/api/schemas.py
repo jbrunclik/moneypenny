@@ -100,8 +100,16 @@ class GarminConnectRequest(BaseModel):
 
 
 class GarminMfaRequest(BaseModel):
-    """Schema for POST /auth/garmin/mfa - Complete MFA login."""
+    """Schema for POST /auth/garmin/mfa - Complete MFA login.
 
+    The full login flow runs in a single backend request so no MFA session
+    state needs to persist between requests (which would not survive gunicorn's
+    multi-worker dispatch, since the garminconnect Client mid-MFA holds
+    non-picklable curl_cffi sessions and thread locks).
+    """
+
+    email: str = Field(..., min_length=1, description="Garmin Connect email address")
+    password: str = Field(..., min_length=1, description="Garmin Connect password (never stored)")
     mfa_code: str = Field(..., min_length=1, description="MFA verification code")
 
 

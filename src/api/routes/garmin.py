@@ -1,10 +1,16 @@
 """Garmin Connect integration routes: connection, MFA, status, disconnection.
 
 Unlike Todoist/Calendar (OAuth redirect flow), Garmin uses email/password
-login via garth. The password is never stored — only session tokens.
+login. The password is never stored — only session tokens.
+
+The MFA flow is fully stateless on the backend: the frontend keeps the
+credentials in memory between the connect attempt and the MFA submit, then
+POSTs {email, password, mfa_code} together. The backend then runs a single
+full login with garminconnect's ``prompt_mfa`` callback. This avoids needing
+to share partially-authenticated client state across gunicorn workers — that
+state contains curl_cffi sessions and thread locks that cannot be pickled.
 """
 
-import time
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -22,7 +28,7 @@ from src.auth.garmin_auth import (
     GarminAuthError,
     GarminMfaRequired,
     authenticate,
-    complete_mfa_login,
+    authenticate_with_mfa,
     create_client_from_tokens,
 )
 from src.auth.jwt_auth import require_auth
@@ -33,21 +39,6 @@ logger = get_logger(__name__)
 
 auth = APIBlueprint("garmin", __name__, url_prefix="/auth", tag="Garmin")
 
-# In-memory MFA pending state (keyed by user_id, 5-min TTL)
-# Fine for single-instance architecture
-_mfa_pending: dict[str, dict[str, Any]] = {}
-MFA_TTL_SECONDS = 300  # 5 minutes
-
-
-def _cleanup_expired_mfa() -> None:
-    """Remove expired MFA entries."""
-    now = time.time()
-    expired = [
-        uid for uid, data in _mfa_pending.items() if now - data["created_at"] > MFA_TTL_SECONDS
-    ]
-    for uid in expired:
-        del _mfa_pending[uid]
-
 
 @auth.route("/garmin/connect", methods=["POST"])
 @auth.output(GarminConnectResponse)
@@ -57,19 +48,18 @@ def _cleanup_expired_mfa() -> None:
 def connect_garmin(user: User, data: GarminConnectRequest) -> dict[str, Any]:
     """Connect Garmin account with email and password.
 
-    The password is used only for garth login and is never stored.
+    The password is used only for the live login attempt and is never stored.
     Only serialized session tokens are persisted in the database.
 
-    May return mfa_required=True if the account has MFA enabled.
-    In that case, call POST /auth/garmin/mfa with the verification code.
+    Returns ``mfa_required=True`` if the account has MFA enabled. In that
+    case, the frontend should prompt for the verification code and call
+    POST /auth/garmin/mfa with email, password, and the code together.
     """
     logger.info("Garmin connection attempt", extra={"user_id": user.id})
-    _cleanup_expired_mfa()
 
     try:
         tokens, display_name = authenticate(data.email, data.password)
 
-        # Store tokens
         db.update_user_garmin_token(user.id, tokens)
 
         logger.info(
@@ -78,13 +68,7 @@ def connect_garmin(user: User, data: GarminConnectRequest) -> dict[str, Any]:
         )
         return {"connected": True, "mfa_required": False, "display_name": display_name}
 
-    except GarminMfaRequired as e:
-        # Store pending MFA state (garmin client + context for resume_login)
-        _mfa_pending[user.id] = {
-            "garmin": e.garmin,
-            "mfa_context": e.mfa_context,
-            "created_at": time.time(),
-        }
+    except GarminMfaRequired:
         logger.info("Garmin MFA required", extra={"user_id": user.id})
         return {"connected": False, "mfa_required": True, "display_name": None}
 
@@ -102,31 +86,21 @@ def connect_garmin(user: User, data: GarminConnectRequest) -> dict[str, Any]:
 @require_auth
 @validate_request(GarminMfaRequest)
 def garmin_mfa(user: User, data: GarminMfaRequest) -> dict[str, Any]:
-    """Complete Garmin MFA login with verification code.
-
-    Must be called after POST /auth/garmin/connect returns mfa_required=True.
-    The MFA session expires after 5 minutes.
+    """Complete Garmin login by re-submitting credentials together with the
+    MFA verification code. Runs the full login in a single request so no
+    cross-worker state is needed.
     """
     logger.info("Garmin MFA attempt", extra={"user_id": user.id})
-    _cleanup_expired_mfa()
-
-    pending = _mfa_pending.pop(user.id, None)
-    if not pending:
-        raise_validation_error("No pending MFA session. Please start the connection again.")
 
     try:
-        tokens, display_name = complete_mfa_login(
-            pending["garmin"], pending["mfa_context"], data.mfa_code
-        )
+        tokens, display_name = authenticate_with_mfa(data.email, data.password, data.mfa_code)
 
-        # Store tokens
         db.update_user_garmin_token(user.id, tokens)
 
         logger.info("Garmin MFA completed", extra={"user_id": user.id})
         return {"connected": True, "mfa_required": False, "display_name": display_name}
 
     except GarminAuthError as e:
-        _mfa_pending[user.id] = pending  # Re-store so user can retry
         logger.warning(
             "Garmin MFA failed",
             extra={"user_id": user.id, "error": str(e)},
@@ -167,7 +141,6 @@ def get_garmin_status(user: User) -> dict[str, Any]:
     needs_reconnect = False
 
     if connected and current_user.garmin_token:
-        # Try to create client from tokens to verify they work
         try:
             create_client_from_tokens(current_user.garmin_token)
         except GarminAuthError:

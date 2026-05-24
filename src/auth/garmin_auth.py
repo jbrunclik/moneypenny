@@ -5,6 +5,12 @@ only serialized garth session tokens (OAuth1 + OAuth2, valid ~1 year).
 
 Token serialization uses garth's built-in Client.dumps()/loads() which
 base64-encodes both OAuth1 and OAuth2 tokens together.
+
+MFA handling does not carry partially-authenticated client state across HTTP
+requests. The partially-authenticated client mid-MFA holds curl_cffi sessions
+and thread locks that cannot be pickled (and therefore cannot cross gunicorn
+workers). Instead, ``authenticate_with_mfa`` re-runs the full login in a
+single request with ``prompt_mfa`` providing the code synchronously.
 """
 
 from typing import Any, NoReturn
@@ -21,17 +27,12 @@ class GarminAuthError(Exception):
 
 
 class GarminMfaRequired(Exception):
-    """Exception raised when MFA verification is needed.
+    """Marker exception: caller should prompt the user for an MFA code and
+    then call ``authenticate_with_mfa(email, password, mfa_code)``.
 
-    Attributes:
-        garmin: The partially-authenticated Garmin client (needs MFA completion)
-        mfa_context: The MFA context dict returned by garminconnect for resume_login()
+    Carries no client state — by design, so the MFA flow works across
+    multiple gunicorn workers without needing cross-process state.
     """
-
-    def __init__(self, garmin: Any, mfa_context: dict[str, Any]):
-        super().__init__("MFA verification required")
-        self.garmin = garmin
-        self.mfa_context = mfa_context
 
 
 def authenticate(email: str, password: str) -> tuple[str, str]:
@@ -45,7 +46,8 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
         Tuple of (serialized_tokens_b64, display_name)
 
     Raises:
-        GarminMfaRequired: If MFA is needed (caller should prompt for code)
+        GarminMfaRequired: If MFA is needed (caller should prompt for code,
+            then call ``authenticate_with_mfa`` with the same credentials)
         GarminAuthError: If authentication fails
     """
     try:
@@ -54,12 +56,12 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
         garmin = Garmin(email=email, password=password, return_on_mfa=True)
         result = garmin.login()
 
-        # With return_on_mfa=True, login returns a tuple:
-        #   - Normal: (OAuth1Token, OAuth2Token)
-        #   - MFA needed: ("needs_mfa", {signin_params..., client...})
+        # With return_on_mfa=True, login returns:
+        #   - Normal:    (OAuth1Token, OAuth2Token)
+        #   - MFA needed: ("needs_mfa", None)
         if isinstance(result, tuple) and len(result) == 2 and result[0] == "needs_mfa":
             logger.info("Garmin MFA required", extra={"email": email})
-            raise GarminMfaRequired(garmin, result[1])
+            raise GarminMfaRequired()
 
         tokens = serialize_tokens(garmin)
         display_name = _get_display_name(garmin, email)
@@ -73,34 +75,50 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
         _raise_typed_error(e)
 
 
-def complete_mfa_login(garmin: Any, mfa_context: dict[str, Any], mfa_code: str) -> tuple[str, str]:
-    """Complete MFA login with the verification code.
+def authenticate_with_mfa(email: str, password: str, mfa_code: str) -> tuple[str, str]:
+    """Authenticate by running the full login + MFA verification in one request.
+
+    Re-initiates the Garmin login flow and supplies the MFA code via
+    garminconnect's ``prompt_mfa`` callback. This avoids needing to retain a
+    partially-authenticated Garmin client between HTTP requests (which would
+    fail across gunicorn workers because the client is not picklable).
 
     Args:
-        garmin: The Garmin client from the initial login attempt
-        mfa_context: The MFA context dict from GarminMfaRequired
-        mfa_code: The MFA verification code (OTP from email or authenticator)
+        email: Garmin Connect email
+        password: Garmin Connect password
+        mfa_code: MFA verification code (OTP from email or authenticator app)
 
     Returns:
         Tuple of (serialized_tokens_b64, display_name)
 
     Raises:
-        GarminAuthError: If MFA verification fails
+        GarminAuthError: If the MFA code is wrong or the login otherwise fails
     """
     try:
-        garmin.resume_login(mfa_context, mfa_code)
+        from garminconnect import Garmin
+
+        # prompt_mfa is invoked synchronously by garminconnect when the MFA
+        # step is reached; returning our code completes the flow inline.
+        garmin = Garmin(email=email, password=password, prompt_mfa=lambda: mfa_code)
+        garmin.login()
 
         tokens = serialize_tokens(garmin)
-        display_name = _get_display_name(garmin, "")
+        display_name = _get_display_name(garmin, email)
 
-        logger.info("Garmin MFA verification successful")
+        logger.info("Garmin MFA verification successful", extra={"display_name": display_name})
         return tokens, display_name
 
     except Exception as e:
         error_str = str(e).lower()
-        if "invalid" in error_str or "code" in error_str:
+        if "mfa" in error_str or "verification" in error_str or "code" in error_str:
             raise GarminAuthError("Invalid MFA code. Please try again.") from e
-        logger.error("Garmin MFA verification failed", extra={"error": str(e)}, exc_info=True)
+        if "invalid" in error_str or "credentials" in error_str or "unauthorized" in error_str:
+            raise GarminAuthError("Invalid email or password") from e
+        if "rate" in error_str or "limit" in error_str or "too many" in error_str:
+            raise GarminAuthError(
+                "Rate limited by Garmin. Please try again in a few minutes."
+            ) from e
+        logger.error("Garmin MFA login failed", extra={"error": str(e)}, exc_info=True)
         raise GarminAuthError(f"MFA verification failed: {e}") from e
 
 
@@ -114,7 +132,7 @@ def serialize_tokens(garmin: Any) -> str:
         Base64-encoded string containing both OAuth1 and OAuth2 tokens
     """
     try:
-        return str(garmin.garth.dumps())
+        return str(garmin.client.dumps())
     except Exception as e:
         logger.error("Failed to serialize Garmin tokens", extra={"error": str(e)})
         raise GarminAuthError("Failed to save session tokens") from e
