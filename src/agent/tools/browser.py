@@ -21,7 +21,7 @@ from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.agent.tools.url_safety import validate_public_url
-from src.agent.tools.web import _extract_text_from_html
+from src.agent.tools.web import _extract_text_from_html, wrap_untrusted_content
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -556,6 +556,11 @@ def browser(
             kwargs.update(selector=selector)
 
         result = worker.execute(action, **kwargs)
+
+        # Frame page-derived text as untrusted external data (prompt-injection
+        # mitigation) before it goes back to the LLM.
+        if isinstance(result, dict) and isinstance(result.get("content"), str):
+            result["content"] = wrap_untrusted_content(result["content"], result.get("url"))
 
         # Handle screenshot action — always returns multimodal for the LLM
         if action == "screenshot":

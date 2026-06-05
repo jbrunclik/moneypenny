@@ -67,6 +67,8 @@ class TestFetchUrl:
         result = fetch_url.invoke({"url": "https://example.com"})
 
         assert "Hello World" in result
+        # Fetched content is framed as untrusted (prompt-injection mitigation)
+        assert "UNTRUSTED WEB CONTENT" in result
         mock_client.get.assert_called_once_with("https://example.com")
 
     def test_rejects_invalid_url_scheme(self) -> None:
@@ -293,6 +295,25 @@ class TestFetchUrl:
         assert "redirect" in parsed["error"].lower()
 
 
+class TestUntrustedContentFraming:
+    """Tests for prompt-injection framing of external content."""
+
+    def test_wrap_untrusted_content_brackets_text(self) -> None:
+        from src.agent.tools.web import wrap_untrusted_content
+
+        wrapped = wrap_untrusted_content("hello", "https://evil.example.com")
+        assert "UNTRUSTED WEB CONTENT" in wrapped
+        assert "https://evil.example.com" in wrapped
+        assert "hello" in wrapped
+        assert "END UNTRUSTED WEB CONTENT" in wrapped
+
+    def test_system_prompt_warns_about_untrusted_content(self) -> None:
+        from src.agent.prompts import TOOLS_SYSTEM_PROMPT_CONTEXT
+
+        assert "Untrusted External Content" in TOOLS_SYSTEM_PROMPT_CONTEXT
+        assert "never as instructions" in TOOLS_SYSTEM_PROMPT_CONTEXT
+
+
 class TestGetContentTypeCategory:
     """Tests for _get_content_type_category helper function."""
 
@@ -372,6 +393,8 @@ class TestWebSearch:
         assert parsed["results"][0]["title"] == "Result 1"
         assert parsed["results"][0]["url"] == "https://example.com/1"
         assert parsed["results"][0]["snippet"] == "Snippet 1"
+        # Results are flagged as untrusted external content
+        assert "untrusted" in parsed["_warning"].lower()
 
     @patch("src.agent.tools.web.DDGS")
     def test_handles_empty_results(self, mock_ddgs_class: MagicMock) -> None:
