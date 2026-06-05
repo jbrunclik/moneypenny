@@ -10,6 +10,7 @@ Key format:
 """
 
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -238,19 +239,25 @@ class BlobStore:
             return row["size"] if row else None
 
 
-# Global blob store instance (lazy initialization)
+# Global blob store instance (lazy initialization).
+# Lock guards against concurrent first-access under threaded (gthread) workers,
+# which would otherwise construct duplicate BlobStores / connection pools.
 _blob_store: BlobStore | None = None
+_blob_store_lock = threading.Lock()
 
 
 def get_blob_store() -> BlobStore:
-    """Get the global blob store instance."""
+    """Get the global blob store instance (thread-safe lazy init)."""
     global _blob_store
     if _blob_store is None:
-        _blob_store = BlobStore()
+        with _blob_store_lock:
+            if _blob_store is None:  # double-checked: another thread may have won
+                _blob_store = BlobStore()
     return _blob_store
 
 
 def reset_blob_store() -> None:
     """Reset the global blob store instance (for testing)."""
     global _blob_store
-    _blob_store = None
+    with _blob_store_lock:
+        _blob_store = None

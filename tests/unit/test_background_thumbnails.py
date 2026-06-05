@@ -203,6 +203,57 @@ class TestGetExecutor:
         assert executor1 is executor2
 
 
+class TestGetExecutorThreadSafety:
+    """Concurrency tests for the lazy executor singleton (gthread safety)."""
+
+    def teardown_method(self) -> None:
+        import src.utils.background_thumbnails as mod
+
+        if mod._executor is not None:
+            mod._executor.shutdown(wait=False)
+        mod._executor = None
+
+    def test_concurrent_init_creates_single_executor(self) -> None:
+        """Many threads hitting a cold executor must build exactly one pool
+        (no lazy-init race leaking ThreadPoolExecutors)."""
+        import threading
+        import time
+
+        import src.utils.background_thumbnails as mod
+
+        mod._executor = None
+        build_count = 0
+        count_lock = threading.Lock()
+        real_ctor = ThreadPoolExecutor
+
+        def counting_ctor(*args: object, **kwargs: object) -> ThreadPoolExecutor:
+            nonlocal build_count
+            with count_lock:
+                build_count += 1
+            time.sleep(0.02)  # widen the race window
+            return real_ctor(*args, **kwargs)
+
+        results: list[ThreadPoolExecutor] = []
+        barrier = threading.Barrier(20)
+
+        def worker() -> None:
+            barrier.wait()
+            results.append(get_executor())
+
+        with patch(
+            "src.utils.background_thumbnails.ThreadPoolExecutor",
+            side_effect=counting_ctor,
+        ):
+            threads = [threading.Thread(target=worker) for _ in range(20)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        assert build_count == 1, f"expected 1 executor, built {build_count}"
+        assert all(r is results[0] for r in results)
+
+
 class TestGenerateAndSaveThumbnail:
     """Tests for generate_and_save_thumbnail function."""
 

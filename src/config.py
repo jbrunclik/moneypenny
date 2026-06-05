@@ -43,6 +43,10 @@ class Config:
     PORT: int = int(os.getenv("PORT", "8000"))
     FLASK_ENV: str = os.getenv("FLASK_ENV", "development")
     GUNICORN_WORKERS: int = int(os.getenv("GUNICORN_WORKERS", "2"))
+    # Threads per worker. The gthread worker class keeps the master heartbeat
+    # alive during long streaming responses, so SSE chat requests aren't killed
+    # by the worker timeout (sync workers suspend the heartbeat per-request).
+    GUNICORN_THREADS: int = int(os.getenv("GUNICORN_THREADS", "8"))
     GUNICORN_TIMEOUT: int = int(os.getenv("GUNICORN_TIMEOUT", "300"))  # 5 minutes default
     SSE_KEEPALIVE_INTERVAL: int = int(os.getenv("SSE_KEEPALIVE_INTERVAL", "15"))  # seconds
 

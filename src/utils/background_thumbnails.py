@@ -6,6 +6,7 @@ when complete.
 """
 
 import base64
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -15,25 +16,30 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Module-level executor (created on first use, lazy initialization)
+# Module-level executor (created on first use, lazy initialization).
+# Lock guards against concurrent first-access under threaded (gthread) workers,
+# which would otherwise leak duplicate ThreadPoolExecutors.
 _executor: ThreadPoolExecutor | None = None
+_executor_lock = threading.Lock()
 
 
 def get_executor() -> ThreadPoolExecutor:
-    """Get or create the thumbnail generation executor.
+    """Get or create the thumbnail generation executor (thread-safe lazy init).
 
     Uses lazy initialization to avoid creating threads until needed.
     """
     global _executor
     if _executor is None:
-        _executor = ThreadPoolExecutor(
-            max_workers=Config.THUMBNAIL_WORKER_THREADS,
-            thread_name_prefix="thumbnail-",
-        )
-        logger.debug(
-            "Created thumbnail executor",
-            extra={"max_workers": Config.THUMBNAIL_WORKER_THREADS},
-        )
+        with _executor_lock:
+            if _executor is None:  # double-checked: another thread may have won
+                _executor = ThreadPoolExecutor(
+                    max_workers=Config.THUMBNAIL_WORKER_THREADS,
+                    thread_name_prefix="thumbnail-",
+                )
+                logger.debug(
+                    "Created thumbnail executor",
+                    extra={"max_workers": Config.THUMBNAIL_WORKER_THREADS},
+                )
     return _executor
 
 
