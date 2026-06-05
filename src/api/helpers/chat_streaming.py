@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import queue
 import threading
+import time
 import uuid
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
@@ -429,7 +430,9 @@ def stream_events(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
         )
         event_count = 0
-        for event in agent.stream_chat_events(
+        deadline = time.monotonic() + Config.CHAT_TIMEOUT
+        timed_out = False
+        gen = agent.stream_chat_events(
             message_text,
             files,
             history,
@@ -444,16 +447,38 @@ def stream_events(
             sports_context=sports_context,
             is_language=is_language,
             language_context=language_context,
-        ):
-            event_count += 1
-            if event.get("type") == "final":
-                # Store final results for cleanup thread
-                final_results["clean_content"] = event.get("content", "")
-                final_results["result_messages"] = event.get("result_messages", [])
-                final_results["tool_results"] = event.get("tool_results", [])
-                final_results["usage_info"] = event.get("usage_info", {})
-                final_results["ready"] = True
-            event_queue.put(event)
+        )
+        try:
+            for event in gen:
+                event_count += 1
+                if event.get("type") == "final":
+                    # Store final results for cleanup thread
+                    final_results["clean_content"] = event.get("content", "")
+                    final_results["result_messages"] = event.get("result_messages", [])
+                    final_results["tool_results"] = event.get("tool_results", [])
+                    final_results["usage_info"] = event.get("usage_info", {})
+                    final_results["ready"] = True
+                event_queue.put(event)
+                if not final_results["ready"] and time.monotonic() > deadline:
+                    timed_out = True
+                    logger.warning(
+                        "Chat stream exceeded CHAT_TIMEOUT; stopping agent",
+                        extra={
+                            "user_id": user_id,
+                            "conversation_id": conv_id,
+                            "timeout_seconds": Config.CHAT_TIMEOUT,
+                            "event_count": event_count,
+                        },
+                    )
+                    break
+        finally:
+            # Cooperatively stop the agent generator (raises GeneratorExit at its
+            # current yield point). Idempotent / safe after normal exhaustion.
+            gen.close()
+
+        if timed_out:
+            event_queue.put({"type": "timeout"})
+
         logger.debug(
             "Stream thread completed",
             extra={
