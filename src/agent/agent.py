@@ -109,6 +109,12 @@ class ChatAgent:
         )
         from src.agent.graph import compile_graph
 
+        # Only autonomous agents keep cross-request checkpointing. Regular chat
+        # passes the full history each request and never resumes a thread, so a
+        # persistent checkpointer keyed by conversation_id would make the
+        # add_messages reducer duplicate history every turn (see compile_graph).
+        self._use_checkpointer = is_autonomous
+
         self.graph = compile_graph(
             create_chat_graph(
                 model_name,
@@ -117,7 +123,8 @@ class ChatAgent:
                 tools=active_tools,
                 is_autonomous=is_autonomous,
                 cached_content=self._cached_content_name,
-            )
+            ),
+            use_checkpointer=self._use_checkpointer,
         )
 
     def _get_cache_profile(self) -> CacheProfile | None:
@@ -227,11 +234,10 @@ class ChatAgent:
         if metadata.get("session_gap"):
             meta_dict["session_gap"] = metadata["session_gap"]
 
-        # Timestamps
+        # Timestamps (absolute only — a recomputed relative time would change
+        # the serialized bytes every turn and defeat history prefix caching)
         if metadata.get("timestamp"):
             meta_dict["timestamp"] = metadata["timestamp"]
-        if metadata.get("relative_time"):
-            meta_dict["relative_time"] = metadata["relative_time"]
 
         # Files (for user messages) - compact format for direct tool access
         if metadata.get("files"):
@@ -281,9 +287,15 @@ class ChatAgent:
         # Check for updated dashboard context from refresh_planner_dashboard tool
         refreshed_dashboard = _planner_dashboard_context.get()
 
+        # In cached mode the static system prompt + tools live in the Gemini
+        # cache, so the per-request dynamic context goes as a HumanMessage. We
+        # defer it to the TAIL (just before the current user message) instead of
+        # the head: a volatile message at position 0 would change the request
+        # prefix every turn and prevent Gemini's implicit caching from reusing
+        # the (stable) conversation history that follows. In uncached mode the
+        # SystemMessage carries everything and stays at position 0.
+        dynamic_context_msg: HumanMessage | None = None
         if self._cached_content_name:
-            # Cached mode: no SystemMessage (it's in the cache)
-            # Dynamic content goes as a HumanMessage with [CONTEXT] markers
             dynamic = get_dynamic_prompt_parts(
                 force_tools=force_tools,
                 user_name=user_name,
@@ -298,9 +310,9 @@ class ChatAgent:
                 is_language=is_language,
                 language_context=language_context,
             )
-            messages.append(HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]"))
+            dynamic_context_msg = HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]")
         else:
-            # Uncached mode: full SystemMessage with everything
+            # Uncached mode: full SystemMessage with everything, at the head
             messages.append(
                 SystemMessage(
                     content=get_system_prompt(
@@ -335,6 +347,11 @@ class ChatAgent:
                 elif msg["role"] == "assistant":
                     # Assistant messages are always text
                     messages.append(AIMessage(content=formatted_content))
+
+        # Append the deferred dynamic context (cached mode) right before the
+        # current user message, keeping the volatile content at the tail.
+        if dynamic_context_msg is not None:
+            messages.append(dynamic_context_msg)
 
         # Add the current user message
         content = self._build_message_content(text, files)
@@ -408,7 +425,7 @@ class ChatAgent:
         # Run the graph
         from src.agent.graph import get_graph_config
 
-        config = get_graph_config(conversation_id)
+        config = get_graph_config(conversation_id, use_checkpointer=self._use_checkpointer)
         result = self.graph.invoke(cast(Any, {"messages": messages}), config=config)
         result_messages: list[BaseMessage] = result["messages"]
 
@@ -537,7 +554,7 @@ class ChatAgent:
         # Stream the graph execution with messages mode for token-level streaming
         from src.agent.graph import get_graph_config
 
-        config = get_graph_config(conversation_id)
+        config = get_graph_config(conversation_id, use_checkpointer=self._use_checkpointer)
         for event in self.graph.stream(
             cast(Any, {"messages": messages}),
             config=config,
@@ -698,7 +715,7 @@ class ChatAgent:
         # Wrapped in try-except to handle executor shutdown gracefully
         from src.agent.graph import get_graph_config
 
-        config = get_graph_config(conversation_id)
+        config = get_graph_config(conversation_id, use_checkpointer=self._use_checkpointer)
         try:
             for event in self.graph.stream(
                 cast(Any, {"messages": messages}),

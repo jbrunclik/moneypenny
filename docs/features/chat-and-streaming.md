@@ -393,17 +393,18 @@ Conversation history is enriched with contextual metadata before being sent to t
 Each historical message includes a JSON context block using `<!-- MSG_CONTEXT: -->` format (distinct from response `<!-- METADATA: -->`):
 
 ```
-<!-- MSG_CONTEXT: {"timestamp":"2024-06-15 14:30 CET","relative_time":"3 hours ago","files":[{"name":"report.pdf","type":"PDF","id":"msg-abc123:0"}]} -->
+<!-- MSG_CONTEXT: {"timestamp":"2024-06-15 14:30 CET","files":[{"name":"report.pdf","type":"PDF","id":"msg-abc123:0"}]} -->
 Can you analyze this data?
 ```
 
 Note: The distinct marker prevents the LLM from echoing history context in its responses.
 
+Only **stable, message-derived** fields are embedded inline. A recomputed relative time ("3 hours ago") is deliberately omitted because it would change every historical message's serialized bytes on each turn, defeating Gemini's implicit prefix caching of the history. The model derives elapsed time from the absolute `timestamp` plus the current time provided in the dynamic context block. For the same reason, in cached mode the per-request dynamic context (`[CONTEXT]`) is appended at the **tail** (just before the current user message) rather than the head, so the stable history forms a reusable prefix.
+
 ### Enrichment Fields
 
 **For all messages:**
 - `timestamp` - Absolute timestamp with timezone (e.g., "2024-06-15 14:30 CET")
-- `relative_time` - Human-readable relative time (e.g., "3 hours ago")
 - `session_gap` - Present when resuming after a gap (e.g., "2 days")
 
 **For user messages:**
@@ -441,6 +442,25 @@ HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
 
 - Unit tests: `TestFormatMessageWithMetadata` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
 - Unit tests: [test_history.py](../../tests/unit/test_history.py) - comprehensive tests for enrichment functions
+
+## Conversation Compaction (cost control)
+
+Long chats re-send their entire history to the LLM on every turn, so cost grows ~O(n²) over a conversation. [conversation_compaction.py](../../src/agent/conversation_compaction.py) bounds the history *sent to the model* on regular (non-agent) conversations by replacing older turns with a running summary while keeping recent turns verbatim.
+
+**Key properties:**
+- **Non-destructive** — unlike the autonomous-agent path in [compaction.py](../../src/agent/compaction.py), the full message history stays in the database for display. Only the enriched history handed to the agent is compacted.
+- **Lazy & cheap** — the running summary is persisted in `kv_store` (namespace `conv_compaction`, key = `conversation_id`; DB-backed, safe across the 4 gunicorn workers) and regenerated only when the un-summarized middle grows by `CONVERSATION_COMPACTION_RESUMMARIZE_BATCH` messages. So a summarization call (via the cheap `AI_ASSIST_MODEL`) fires roughly every N turns, not every turn.
+- **Failure-safe** — if summarization fails it never drops context: it falls back to the prior summary plus the un-summarized middle, or to the full history when there is no usable summary yet.
+
+`build_compacted_history(user_id, conversation_id, history)` returns `[summary_message] + uncovered_middle + recent` once the history exceeds the threshold, otherwise the input unchanged. It is wired into both the batch route ([routes/chat.py](../../src/api/routes/chat.py)) and the stream path (`_StreamContext.setup_context()` in [chat_streaming.py](../../src/api/helpers/chat_streaming.py)), gated on `not is_autonomous`. Reuses `summarize_messages()` from `compaction.py`.
+
+**Configuration:**
+- `CONVERSATION_COMPACTION_ENABLED` (default: `true`)
+- `CONVERSATION_COMPACTION_THRESHOLD` (default: `30`) — message count above which compaction kicks in
+- `CONVERSATION_COMPACTION_KEEP_RECENT` (default: `12`) — recent messages always kept verbatim
+- `CONVERSATION_COMPACTION_RESUMMARIZE_BATCH` (default: `10`) — re-summarize cadence
+
+**Testing:** [test_conversation_compaction.py](../../tests/unit/test_conversation_compaction.py)
 
 ## LangGraph Agent Graph
 
@@ -502,13 +522,13 @@ A lazy `SqliteSaver` factory (`_get_checkpointer()`) persists graph state to dis
 **How it works:**
 
 1. `_get_checkpointer()` lazily creates a `SqliteSaver` backed by `CHECKPOINT_DB_PATH` on first use
-2. `compile_graph()` compiles a `StateGraph` with the checkpointer attached (if enabled)
-3. `get_graph_config()` returns a config dict with `thread_id` set to the `conversation_id`
-4. The `conversation_id` is threaded from the API routes down through `chat_batch()` / `stream_chat_events()` into the graph invocation
-5. LangGraph uses `thread_id` to restore and persist state between requests in the same conversation
+2. `compile_graph(..., use_checkpointer=...)` compiles a `StateGraph` with the checkpointer attached only when requested
+3. `get_graph_config(..., use_checkpointer=...)` returns a config dict with `thread_id` set to the `conversation_id`
+
+**Important — only autonomous agents use cross-request checkpointing.** Regular chat passes the *full history* as the graph input on every request and never resumes a thread. Because `AgentState.messages` uses the `add_messages` reducer (which appends, deduping only by message `id`, and freshly built history messages have no `id`), reusing a persistent `thread_id` across turns would make the state **accumulate and duplicate** the entire history each turn. `ChatAgent` therefore sets `use_checkpointer=is_autonomous`: chat graphs compile **without** a checkpointer (each invoke is isolated; within-request multi-step state is held in memory), while autonomous agents keep checkpointing. Autonomous agent conversations are additionally bounded by destructive compaction (see `compaction.py`).
 
 **Configuration:**
-- `AGENT_CHECKPOINTING_ENABLED`: Toggle checkpointing on/off (default: `true`)
+- `AGENT_CHECKPOINTING_ENABLED`: Toggle checkpointing on/off for the paths that use it (default: `true`)
 - `CHECKPOINT_DB_PATH`: Path to the SQLite checkpoint database (default: `data/checkpoints.db`)
 
 ### AgentState Fields

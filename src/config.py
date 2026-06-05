@@ -281,6 +281,27 @@ class Config:
     # Number of recent messages to keep uncompacted (for immediate context)
     AGENT_COMPACTION_KEEP_RECENT: int = int(os.getenv("AGENT_COMPACTION_KEEP_RECENT", "10"))
 
+    # Regular (non-agent) conversation compaction: bounds the history sent to the
+    # LLM on long chats by replacing older turns with a running summary, keeping
+    # recent turns verbatim. Non-destructive — the full history stays in the DB
+    # for display; only what is sent to the model is compacted.
+    CONVERSATION_COMPACTION_ENABLED: bool = (
+        os.getenv("CONVERSATION_COMPACTION_ENABLED", "true").lower() == "true"
+    )
+    # Message count above which compaction kicks in
+    CONVERSATION_COMPACTION_THRESHOLD: int = int(
+        os.getenv("CONVERSATION_COMPACTION_THRESHOLD", "30")
+    )
+    # Number of recent messages always kept verbatim (never summarized)
+    CONVERSATION_COMPACTION_KEEP_RECENT: int = int(
+        os.getenv("CONVERSATION_COMPACTION_KEEP_RECENT", "12")
+    )
+    # Re-summarize only after the un-summarized middle grows by this many messages,
+    # so a summarization LLM call fires roughly every N turns rather than every turn
+    CONVERSATION_COMPACTION_RESUMMARIZE_BATCH: int = int(
+        os.getenv("CONVERSATION_COMPACTION_RESUMMARIZE_BATCH", "10")
+    )
+
     # Graph recursion limit: max graph steps per request (navigate+screenshot+click = multiple steps)
     # Browser automation needs more headroom than simple tool calls
     AGENT_RECURSION_LIMIT: int = int(os.getenv("AGENT_RECURSION_LIMIT", "50"))

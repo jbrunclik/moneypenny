@@ -11,7 +11,6 @@ from src.agent.history import (
     detect_session_gap,
     enrich_history,
     format_file_metadata,
-    format_relative_time,
     format_session_gap,
     format_timestamp,
     format_tool_summary,
@@ -51,76 +50,6 @@ class TestFormatTimestamp:
 
         assert "2024-01-01" in result
         assert "09:00" in result
-
-
-class TestFormatRelativeTime:
-    """Tests for format_relative_time function."""
-
-    def test_just_now_for_recent(self) -> None:
-        """Very recent times should show 'just now'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 15, 14, 29, 45)
-        assert format_relative_time(dt, now) == "just now"
-
-    def test_one_minute_ago(self) -> None:
-        """1-2 minutes ago should show '1 minute ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 15, 14, 28, 30)
-        assert format_relative_time(dt, now) == "1 minute ago"
-
-    def test_multiple_minutes_ago(self) -> None:
-        """Multiple minutes should show 'X minutes ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 15, 14, 15, 0)
-        assert format_relative_time(dt, now) == "15 minutes ago"
-
-    def test_one_hour_ago(self) -> None:
-        """1-2 hours ago should show '1 hour ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 15, 13, 0, 0)
-        assert format_relative_time(dt, now) == "1 hour ago"
-
-    def test_multiple_hours_ago(self) -> None:
-        """Multiple hours should show 'X hours ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 15, 10, 0, 0)
-        assert format_relative_time(dt, now) == "4 hours ago"
-
-    def test_one_day_ago(self) -> None:
-        """1-2 days ago should show '1 day ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 14, 14, 30, 0)
-        assert format_relative_time(dt, now) == "1 day ago"
-
-    def test_multiple_days_ago(self) -> None:
-        """Multiple days should show 'X days ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 12, 14, 30, 0)
-        assert format_relative_time(dt, now) == "3 days ago"
-
-    def test_one_week_ago(self) -> None:
-        """7-14 days ago should show '1 week ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 8, 14, 30, 0)
-        assert format_relative_time(dt, now) == "1 week ago"
-
-    def test_multiple_weeks_ago(self) -> None:
-        """Multiple weeks should show 'X weeks ago'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 5, 25, 14, 30, 0)
-        assert format_relative_time(dt, now) == "3 weeks ago"
-
-    def test_future_time_returns_just_now(self) -> None:
-        """Future times should return 'just now'."""
-        now = datetime(2024, 6, 15, 14, 30, 0)
-        dt = datetime(2024, 6, 15, 15, 30, 0)
-        assert format_relative_time(dt, now) == "just now"
-
-    def test_handles_timezone_aware_datetime(self) -> None:
-        """Should handle timezone-aware datetimes."""
-        now = datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC)
-        dt = datetime(2024, 6, 15, 12, 30, 0, tzinfo=UTC)
-        assert format_relative_time(dt, now) == "2 hours ago"
 
 
 class TestDetectSessionGap:
@@ -426,7 +355,9 @@ class TestEnrichHistory:
         assert result[0]["content"] == "Hello"
         assert "metadata" in result[0]
         assert "timestamp" in result[0]["metadata"]
-        assert "relative_time" in result[0]["metadata"]
+        # relative_time is intentionally omitted to keep the history prefix
+        # byte-stable across turns (preserves Gemini implicit prefix caching)
+        assert "relative_time" not in result[0]["metadata"]
 
     def test_session_gap_detection(self) -> None:
         """Should detect session gaps between messages."""

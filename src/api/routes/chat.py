@@ -259,6 +259,14 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             language_context = _load_language_context(user.id, conv.language_program)
             set_language_context(conv.language_program)
 
+        # Compact long histories for regular (non-agent) conversations to bound
+        # per-turn input cost. Agent conversations use their own destructive
+        # compaction, so they are left untouched.
+        if not is_autonomous:
+            from src.agent.conversation_compaction import build_compacted_history
+
+            history = build_compacted_history(user.id, conv_id, history)
+
         agent = ChatAgent(
             model_name=conv.model,
             anonymous_mode=anonymous_mode,

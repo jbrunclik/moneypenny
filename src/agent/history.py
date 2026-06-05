@@ -24,7 +24,6 @@ class MessageMetadata(TypedDict, total=False):
     """Structured metadata for enriched history messages."""
 
     timestamp: str  # Absolute with timezone: "2024-06-15 14:30 CET"
-    relative_time: str  # Relative: "5 minutes ago", "2 days ago"
     session_gap: str | None  # "6 hours", "2 days" or None
     files: list[FileMetadata] | None  # With message_id for direct access
     tools_used: list[str] | None  # ["web_search", "generate_image"]
@@ -60,57 +59,6 @@ def format_timestamp(dt: datetime) -> str:
     # Format: "2024-06-15 14:30 CET"
     tz_name = dt.strftime("%Z") or "UTC"
     return dt.strftime(f"%Y-%m-%d %H:%M {tz_name}")
-
-
-def format_relative_time(dt: datetime, now: datetime | None = None) -> str:
-    """Format a datetime as a relative time string.
-
-    Args:
-        dt: The datetime to format
-        now: The current time (defaults to now)
-
-    Returns:
-        Relative time like "5 minutes ago", "2 days ago"
-    """
-    if now is None:
-        now = datetime.now()
-
-    # Handle timezone-aware datetimes
-    if dt.tzinfo is not None and now.tzinfo is None:
-        now = now.astimezone()
-    elif dt.tzinfo is None and now.tzinfo is not None:
-        dt = dt.replace(tzinfo=now.tzinfo)
-
-    delta = now - dt
-
-    seconds = delta.total_seconds()
-    if seconds < 0:
-        return "just now"
-
-    minutes = seconds / 60
-    if minutes < 1:
-        return "just now"
-    if minutes < 2:
-        return "1 minute ago"
-    if minutes < 60:
-        return f"{int(minutes)} minutes ago"
-
-    hours = minutes / 60
-    if hours < 2:
-        return "1 hour ago"
-    if hours < 24:
-        return f"{int(hours)} hours ago"
-
-    days = hours / 24
-    if days < 2:
-        return "1 day ago"
-    if days < 7:
-        return f"{int(days)} days ago"
-
-    weeks = days / 7
-    if weeks < 2:
-        return "1 week ago"
-    return f"{int(weeks)} weeks ago"
 
 
 def detect_session_gap(prev_msg: Message, curr_msg: Message) -> timedelta | None:
@@ -272,14 +220,18 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
         return []
 
     enriched: list[dict[str, Any]] = []
-    now = datetime.now()
     prev_msg: Message | None = None
 
     for msg in messages:
-        # Build base metadata
+        # Build base metadata.
+        # NOTE: Only stable, message-derived fields go here. A relative time
+        # ("5 minutes ago") would be recomputed against `now` every turn,
+        # changing each historical message's serialized bytes and defeating
+        # Gemini's implicit prefix caching of the history. The model can derive
+        # elapsed time from the absolute `timestamp` plus the current time
+        # provided in the dynamic context block.
         metadata: MessageMetadata = {
             "timestamp": format_timestamp(msg.created_at),
-            "relative_time": format_relative_time(msg.created_at, now),
         }
 
         # Check for session gap

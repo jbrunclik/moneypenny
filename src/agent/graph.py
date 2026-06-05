@@ -634,31 +634,43 @@ def create_chat_graph(
 def compile_graph(
     graph: StateGraph[AgentState],
     conversation_id: str | None = None,
+    use_checkpointer: bool = True,
 ) -> Any:
     """Compile a StateGraph with optional checkpointing.
 
     Args:
         graph: The StateGraph to compile
         conversation_id: Optional conversation ID for checkpointing thread
+        use_checkpointer: If False, compile without a checkpointer. The chat
+            graph passes the full history on every request and never resumes a
+            thread across requests, so attaching the persistent checkpointer
+            (keyed by conversation_id) would make the ``add_messages`` reducer
+            *accumulate and duplicate* history every turn. Stateless invokes
+            avoid that; within-request multi-step state is held in memory.
 
     Returns:
         Compiled graph ready for invoke/stream
     """
-    if Config.AGENT_CHECKPOINTING_ENABLED:
+    if use_checkpointer and Config.AGENT_CHECKPOINTING_ENABLED:
         return graph.compile(checkpointer=_get_checkpointer())
     return graph.compile()
 
 
-def get_graph_config(conversation_id: str | None = None) -> dict[str, Any]:
+def get_graph_config(
+    conversation_id: str | None = None,
+    use_checkpointer: bool = True,
+) -> dict[str, Any]:
     """Build config dict for graph invoke/stream calls.
 
     Args:
         conversation_id: Optional conversation ID for checkpointing thread
+        use_checkpointer: Must match the value passed to ``compile_graph``. When
+            False, no ``thread_id`` is set so each invoke runs as isolated state.
 
     Returns:
         Config dict with thread_id for checkpointing
     """
-    if Config.AGENT_CHECKPOINTING_ENABLED and conversation_id:
+    if use_checkpointer and Config.AGENT_CHECKPOINTING_ENABLED and conversation_id:
         return {
             "configurable": {"thread_id": conversation_id},
             "recursion_limit": Config.AGENT_RECURSION_LIMIT,

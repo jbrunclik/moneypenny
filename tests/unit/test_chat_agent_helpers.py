@@ -1001,8 +1001,6 @@ class TestFormatMessageWithMetadata:
             meta_dict["session_gap"] = metadata["session_gap"]
         if metadata.get("timestamp"):
             meta_dict["timestamp"] = metadata["timestamp"]
-        if metadata.get("relative_time"):
-            meta_dict["relative_time"] = metadata["relative_time"]
         if metadata.get("files"):
             meta_dict["files"] = [
                 {
@@ -1029,20 +1027,20 @@ class TestFormatMessageWithMetadata:
         assert result == "Hello"
 
     def test_message_with_timestamps(self) -> None:
-        """Should include timestamp and relative_time in JSON."""
+        """Should include absolute timestamp in JSON (no volatile relative time)."""
         msg = {
             "role": "user",
             "content": "Hello",
             "metadata": {
                 "timestamp": "2024-06-15 14:30 CET",
-                "relative_time": "3 hours ago",
             },
         }
         result = self._format_message(msg)
 
         assert result.startswith("<!-- MSG_CONTEXT:")
         assert '"timestamp":"2024-06-15 14:30 CET"' in result
-        assert '"relative_time":"3 hours ago"' in result
+        # Relative time is intentionally omitted to keep the history prefix stable
+        assert "relative_time" not in result
         assert result.endswith("-->\nHello")
 
     def test_message_with_session_gap(self) -> None:
@@ -1110,7 +1108,7 @@ class TestFormatMessageWithMetadata:
         msg = {
             "role": "user",
             "content": "Test",
-            "metadata": {"timestamp": "2024-06-15 14:30 CET", "relative_time": "now"},
+            "metadata": {"timestamp": "2024-06-15 14:30 CET", "session_gap": "2 days"},
         }
         result = self._format_message(msg)
 
@@ -1127,14 +1125,14 @@ class TestFormatMessageWithMetadata:
         assert "\n" not in json_str
         # Keys should be directly followed by colon then value
         assert '"timestamp":"' in json_str
-        assert '"relative_time":"' in json_str
+        assert '"session_gap":"' in json_str
 
     def test_context_format_distinct_from_response_metadata(self) -> None:
         """Should use <!-- MSG_CONTEXT: --> format (different from response METADATA)."""
         msg = {
             "role": "user",
             "content": "Hello",
-            "metadata": {"relative_time": "just now"},
+            "metadata": {"timestamp": "2024-06-15 14:30 CET"},
         }
         result = self._format_message(msg)
 

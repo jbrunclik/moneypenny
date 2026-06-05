@@ -774,6 +774,14 @@ class _StreamContext:
         if self.conv.is_agent and self.conv.agent_id:
             self._setup_agent_context()
 
+        # Compact long histories for regular (non-agent) conversations to bound
+        # per-turn input cost. Agent conversations use their own destructive
+        # compaction, so they are left untouched.
+        if not self.is_autonomous:
+            from src.agent.conversation_compaction import build_compacted_history
+
+            self.history = build_compacted_history(self.user_id, self.conv_id, self.history)
+
     def _setup_planner_context(self) -> None:
         """Set up planner dashboard context if this is a planning conversation."""
         from dataclasses import asdict

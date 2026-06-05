@@ -34,8 +34,95 @@ def needs_compaction(agent: Agent) -> bool:
     return message_count > Config.AGENT_COMPACTION_THRESHOLD
 
 
+def _run_summary_model(prompt: str) -> str | None:
+    """Run the fast summarization model on a prompt.
+
+    Returns the stripped summary text, or None if the model returned nothing
+    or raised. Callers supply their own fallback text.
+    """
+    # Import here to avoid circular imports
+    from google import genai
+    from google.genai.types import GenerateContentConfig
+
+    try:
+        client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model=Config.AI_ASSIST_MODEL,
+            contents=prompt,
+            config=GenerateContentConfig(
+                temperature=0.3,  # More deterministic for summaries
+            ),
+        )
+        if response.text:
+            return response.text.strip()
+        return None
+    except Exception as e:
+        logger.error("Failed to generate conversation summary", extra={"error": str(e)})
+        return None
+
+
+def summarize_messages(
+    messages: list[dict[str, str]],
+    prior_summary: str | None = None,
+    *,
+    role_labels: tuple[str, str] = ("User", "Assistant"),
+    focus: str = (
+        "1. Key topics, questions, and decisions\n"
+        "2. Important facts, preferences, or context the user shared\n"
+        "3. Conclusions reached or actions the assistant took\n"
+        "4. Any ongoing tasks or open threads"
+    ),
+    intro: str = "Summarize this conversation history concisely.",
+    max_words: int = 500,
+) -> str | None:
+    """Summarize conversation messages into a concise running summary.
+
+    When ``prior_summary`` is provided it is folded in so context accumulates
+    across successive compactions rather than being lost.
+
+    Args:
+        messages: Messages to summarize, as ``{"role", "content"}`` dicts
+        prior_summary: Existing summary covering earlier messages, if any
+        role_labels: (user_label, assistant_label) used to render the transcript
+        focus: Bulleted guidance on what the summary should capture
+        intro: Opening instruction line
+        max_words: Soft length cap for the summary
+
+    Returns:
+        Summary text, or None if the model produced nothing (caller decides
+        the fallback).
+    """
+    user_label, assistant_label = role_labels
+    conversation_text = ""
+    for msg in messages:
+        label = assistant_label if msg["role"] == "assistant" else user_label
+        conversation_text += f"{label}: {msg['content'][:500]}...\n\n"
+
+    prior_block = ""
+    if prior_summary:
+        prior_block = (
+            "An earlier part of this conversation was already summarized as:\n"
+            f"{prior_summary}\n\n"
+            "Extend that summary to also cover the new messages below, keeping it "
+            "a single coherent summary (do not drop earlier details).\n\n"
+        )
+
+    prompt = (
+        f"{intro}\n"
+        "Focus on:\n"
+        f"{focus}\n\n"
+        f"Keep the summary under {max_words} words. Write in past tense.\n\n"
+        f"{prior_block}"
+        "Conversation:\n"
+        f"{conversation_text}\n"
+        "Summary:"
+    )
+
+    return _run_summary_model(prompt)
+
+
 def generate_summary(agent: Agent, messages: list[dict[str, str]]) -> str:
-    """Generate a summary of conversation messages using the LLM.
+    """Generate a summary of an autonomous agent's conversation using the LLM.
 
     Args:
         agent: The agent whose conversation is being summarized
@@ -44,55 +131,24 @@ def generate_summary(agent: Agent, messages: list[dict[str, str]]) -> str:
     Returns:
         Summary text
     """
-    # Import here to avoid circular imports
-    from google import genai
-    from google.genai.types import GenerateContentConfig
-
-    # Build the conversation text for summarization
-    conversation_text = ""
-    for msg in messages:
-        role = "Agent" if msg["role"] == "assistant" else "Trigger"
-        conversation_text += f"{role}: {msg['content'][:500]}...\n\n"
-
-    # Use a fast model for summarization
-    client = genai.Client(api_key=Config.GEMINI_API_KEY)
-
-    prompt = f"""Summarize this autonomous agent conversation history concisely.
-Focus on:
-1. Key actions taken by the agent
-2. Important information discovered
-3. Ongoing tasks or goals
-4. Any errors or issues encountered
-
-Keep the summary under 500 words. Write in past tense.
-
-Agent: {agent.name}
-Description: {agent.description or "N/A"}
-
-Conversation:
-{conversation_text}
-
-Summary:"""
-
-    try:
-        response = client.models.generate_content(
-            model=Config.AI_ASSIST_MODEL,
-            contents=prompt,
-            config=GenerateContentConfig(
-                temperature=0.3,  # More deterministic for summaries
-            ),
-        )
-
-        if response.text:
-            return response.text.strip()
-        return "Previous conversation history has been compacted."
-
-    except Exception as e:
-        logger.error(
-            "Failed to generate conversation summary",
-            extra={"agent_id": agent.id, "error": str(e)},
-        )
-        return "Previous conversation history has been compacted due to length."
+    summary = summarize_messages(
+        messages,
+        role_labels=("Trigger", "Agent"),
+        focus=(
+            "1. Key actions taken by the agent\n"
+            "2. Important information discovered\n"
+            "3. Ongoing tasks or goals\n"
+            "4. Any errors or issues encountered"
+        ),
+        intro=(
+            "Summarize this autonomous agent conversation history concisely.\n"
+            f"Agent: {agent.name}\n"
+            f"Description: {agent.description or 'N/A'}"
+        ),
+    )
+    if summary:
+        return summary
+    return "Previous conversation history has been compacted due to length."
 
 
 def compact_conversation(agent: Agent) -> bool:
