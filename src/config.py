@@ -56,7 +56,11 @@ class Config:
 
     # Request timeouts (generous defaults to accommodate image generation and complex tool chains)
     # Image generation alone can take 30-60s, complex queries with multiple tools need more time
-    CHAT_TIMEOUT: int = int(os.getenv("CHAT_TIMEOUT", "300"))  # 5 minutes for full chat request
+    # Hard deadline for a single interactive chat turn (chat/stream), enforced in
+    # src/api/helpers/chat_streaming.py. Under the gthread worker class this is the
+    # effective bound on a chat turn (GUNICORN_TIMEOUT no longer reaps active
+    # streams); on timeout the partial response is saved and the agent is stopped.
+    CHAT_TIMEOUT: int = int(os.getenv("CHAT_TIMEOUT", "600"))  # 10 minutes
     TOOL_TIMEOUT: int = int(os.getenv("TOOL_TIMEOUT", "90"))  # 90 seconds per tool execution
     FETCH_URL_MAX_FILE_SIZE: int = int(
         os.getenv("FETCH_URL_MAX_FILE_SIZE", str(10 * BYTES_PER_MB))
