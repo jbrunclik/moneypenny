@@ -50,6 +50,9 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Appended to partial content when an interactive chat turn hits CHAT_TIMEOUT.
+STREAM_TIMEOUT_MARKER = "\n\n_…(response timed out)_"
+
 
 def load_sports_context(user_id: str, program_id: str) -> dict[str, Any] | None:
     """Load sports program context from K/V store for the system prompt.
@@ -737,6 +740,8 @@ class _StreamContext:
 
         # State
         self.clean_content = ""
+        # Streamed token text accumulated for partial-save on timeout.
+        self.partial_content = ""
         self.result_messages: list[Any] = []
         self.tool_results: list[dict[str, Any]] = []
         self.usage_info: dict[str, Any] = {}
@@ -1014,9 +1019,48 @@ def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
         pass
 
 
+def _handle_stream_timeout(context: _StreamContext) -> Generator[str]:
+    """Persist partial streamed content and emit a timeout event to the client.
+
+    Populates both the generator-side (context.*) and cleanup-thread-side
+    (final_results[*]) save inputs so whichever path saves keeps the partial
+    text. If no content streamed yet, saves nothing (placeholder is deleted by
+    generate()'s finally).
+    """
+    logger.warning(
+        "Chat stream timed out",
+        extra={
+            "user_id": context.user_id,
+            "conversation_id": context.conv_id,
+            "timeout_seconds": Config.CHAT_TIMEOUT,
+            "partial_chars": len(context.partial_content),
+        },
+    )
+    if context.partial_content:
+        context.clean_content = context.partial_content + STREAM_TIMEOUT_MARKER
+        context.final_results["clean_content"] = context.clean_content
+        context.final_results["ready"] = True
+
+    event_data = {"type": "timeout", "message": "Response timed out before completing."}
+    try:
+        yield f"data: {json.dumps(event_data)}\n\n"
+    except (BrokenPipeError, ConnectionError, OSError) as e:
+        context.mark_disconnected(e, "streaming (timeout)")
+
+
 def _process_event_queue(context: _StreamContext) -> Generator[str]:
-    """Process events from the queue and yield SSE data."""
+    """Process events from the queue and yield SSE data.
+
+    Enforces a backstop deadline (CHAT_TIMEOUT + one keepalive interval of grace
+    so the producer's own deadline normally fires first). The grace ensures the
+    worker thread is freed and partial content saved even if the producer is
+    wedged inside a single non-yielding call.
+    """
+    deadline = time.monotonic() + Config.CHAT_TIMEOUT + Config.SSE_KEEPALIVE_INTERVAL
     while True:
+        if time.monotonic() > deadline:
+            yield from _handle_stream_timeout(context)
+            break
         try:
             item = context.event_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL)
 
@@ -1026,6 +1070,9 @@ def _process_event_queue(context: _StreamContext) -> Generator[str]:
                 yield from _handle_queue_error(context, item)
                 return
             elif isinstance(item, dict):
+                if item.get("type") == "timeout":
+                    yield from _handle_stream_timeout(context)
+                    break
                 yield from _handle_queue_event(context, item)
 
         except queue.Empty:
@@ -1089,6 +1136,8 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
         except (BrokenPipeError, ConnectionError, OSError) as e:
             context.mark_disconnected(e, "streaming (approval_required)")
     elif event_type in ("thinking", "tool_start", "tool_end", "token"):
+        if event_type == "token":
+            context.partial_content += item.get("text", "")
         try:
             yield f"data: {json.dumps(item)}\n\n"
         except (BrokenPipeError, ConnectionError, OSError) as e:
