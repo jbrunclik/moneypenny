@@ -3,6 +3,7 @@
 import base64
 import json
 from typing import Any
+from urllib.parse import urljoin
 
 import html2text
 import httpx
@@ -11,10 +12,14 @@ from ddgs import DDGS
 from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 from langchain_core.tools import tool
 
+from src.agent.tools.url_safety import validate_public_url
 from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Max redirects to follow manually in fetch_url (each hop is SSRF-validated)
+_MAX_REDIRECTS = 5
 
 
 def _extract_text_from_html(html: str, max_length: int | None = None) -> str:
@@ -95,22 +100,42 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
         For errors: JSON with error field
     """
     logger.info("fetch_url called", extra={"url": url})
-    if not url.startswith(("http://", "https://")):
-        logger.warning("Invalid URL format", extra={"url": url})
-        return json.dumps(
-            {"error": f"Invalid URL '{url}'. URL must start with http:// or https://"}
-        )
+    # SSRF protection: validate scheme + that the host doesn't resolve to a
+    # private/reserved/metadata address. Redirects are followed manually below
+    # so each hop is validated too (a public URL could 30x into a blocked range).
+    url_error = validate_public_url(url)
+    if url_error:
+        logger.warning("Blocked or invalid URL", extra={"url": url, "reason": url_error})
+        return json.dumps({"error": url_error})
 
     try:
         logger.debug("Fetching URL", extra={"url": url})
         with httpx.Client(
             timeout=float(Config.TOOL_TIMEOUT),
-            follow_redirects=True,
+            follow_redirects=False,
             headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
             },
         ) as client:
-            response = client.get(url)
+            current_url = url
+            for _ in range(_MAX_REDIRECTS + 1):
+                response = client.get(current_url)
+                if not response.is_redirect:
+                    break
+                location = response.headers.get("location")
+                if not location:
+                    break
+                next_url = urljoin(current_url, location)
+                redirect_error = validate_public_url(next_url)
+                if redirect_error:
+                    logger.warning(
+                        "Blocked redirect target",
+                        extra={"from": current_url, "to": next_url, "reason": redirect_error},
+                    )
+                    return json.dumps({"error": f"Blocked redirect: {redirect_error}"})
+                current_url = next_url
+            else:
+                return json.dumps({"error": f"Too many redirects fetching {url}"})
             response.raise_for_status()
 
             content_type = response.headers.get("content-type", "")

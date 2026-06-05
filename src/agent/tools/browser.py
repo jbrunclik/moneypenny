@@ -8,20 +8,19 @@ until the result is ready.
 
 import atexit
 import base64
-import ipaddress
 import json
 import queue
 import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
 
 from langchain_core.tools import tool
 
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.url_safety import validate_public_url
 from src.agent.tools.web import _extract_text_from_html
 from src.config import Config
 from src.utils.logging import get_logger
@@ -352,50 +351,6 @@ def _start_cleanup_thread() -> None:
 
 # ============ URL Validation ============
 
-# Private/reserved IP ranges to block (SSRF protection)
-_BLOCKED_NETWORKS = [
-    ipaddress.ip_network("127.0.0.0/8"),  # Loopback
-    ipaddress.ip_network("10.0.0.0/8"),  # Private
-    ipaddress.ip_network("172.16.0.0/12"),  # Private
-    ipaddress.ip_network("192.168.0.0/16"),  # Private
-    ipaddress.ip_network("169.254.0.0/16"),  # Link-local / cloud metadata
-    ipaddress.ip_network("::1/128"),  # IPv6 loopback
-    ipaddress.ip_network("fc00::/7"),  # IPv6 private
-    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
-]
-
-
-def _validate_url(url: str) -> str | None:
-    """Validate a URL for safe browsing. Returns error message or None if valid."""
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return f"Invalid URL: {url}"
-
-    if parsed.scheme not in ("http", "https"):
-        return f"Only http:// and https:// URLs are allowed, got {parsed.scheme}://"
-
-    hostname = parsed.hostname
-    if not hostname:
-        return "URL has no hostname."
-
-    # Block IP addresses in private ranges
-    try:
-        addr = ipaddress.ip_address(hostname)
-        for network in _BLOCKED_NETWORKS:
-            if addr in network:
-                return f"Access to {hostname} is blocked (private/reserved address)."
-    except ValueError:
-        # Not an IP address — it's a hostname, which is fine
-        pass
-
-    # Block common localhost aliases
-    if hostname in ("localhost", "localhost.localdomain"):
-        return f"Access to {hostname} is blocked."
-
-    return None
-
-
 # ============ Availability Check ============
 
 _browser_available: bool | None = None
@@ -567,7 +522,7 @@ def browser(
     if action == "navigate":
         if not url:
             return json.dumps({"error": "url is required for navigate action."})
-        error = _validate_url(url)
+        error = validate_public_url(url)
         if error:
             return json.dumps({"error": error})
     if action == "click" and not selector:

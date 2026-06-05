@@ -2,9 +2,11 @@
 
 import base64
 import json
+import socket
 from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
 from ddgs.exceptions import DDGSException
 from google.genai import errors as genai_errors
 
@@ -37,11 +39,21 @@ from src.agent.tools.web import _get_content_type_category
 class TestFetchUrl:
     """Tests for fetch_url tool."""
 
+    @pytest.fixture(autouse=True)
+    def _public_dns(self):
+        """Resolve any hostname to a public IP so SSRF validation passes in tests."""
+        addrinfo = [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0))
+        ]
+        with patch("src.agent.tools.url_safety.socket.getaddrinfo", return_value=addrinfo):
+            yield
+
     @patch("src.agent.tools.web.httpx.Client")
     def test_fetches_html_content(self, mock_client_class: MagicMock) -> None:
         """Should fetch and extract text from HTML pages."""
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.is_redirect = False
         mock_response.text = "<html><body><p>Hello World</p></body></html>"
         mock_response.headers = {"content-type": "text/html"}
         mock_response.raise_for_status = MagicMock()
@@ -62,7 +74,7 @@ class TestFetchUrl:
         result = fetch_url.invoke({"url": "not-a-url"})
         parsed = json.loads(result)
         assert "error" in parsed
-        assert "Invalid URL" in parsed["error"]
+        assert "http" in parsed["error"].lower()
 
     def test_rejects_ftp_url(self) -> None:
         """Should reject non-HTTP URLs."""
@@ -110,6 +122,7 @@ class TestFetchUrl:
         """Should return error for unsupported content types."""
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.is_redirect = False
         mock_response.headers = {"content-type": "application/octet-stream"}
         mock_response.content = b"binary data"
         mock_response.raise_for_status = MagicMock()
@@ -132,6 +145,7 @@ class TestFetchUrl:
         pdf_content = b"%PDF-1.4 fake pdf content"
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.is_redirect = False
         mock_response.headers = {"content-type": "application/pdf"}
         mock_response.content = pdf_content
         mock_response.raise_for_status = MagicMock()
@@ -167,6 +181,7 @@ class TestFetchUrl:
         png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.is_redirect = False
         mock_response.headers = {"content-type": "image/png"}
         mock_response.content = png_content
         mock_response.raise_for_status = MagicMock()
@@ -196,6 +211,7 @@ class TestFetchUrl:
         jpg_content = b"\xff\xd8\xff" + b"\x00" * 100
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.is_redirect = False
         mock_response.headers = {"content-type": "image/jpg"}
         mock_response.content = jpg_content
         mock_response.raise_for_status = MagicMock()
@@ -218,6 +234,7 @@ class TestFetchUrl:
         large_content = b"\x00" * 2000  # 2KB, over the 1KB limit
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.is_redirect = False
         mock_response.headers = {"content-type": "application/pdf"}
         mock_response.content = large_content
         mock_response.raise_for_status = MagicMock()
@@ -239,6 +256,7 @@ class TestFetchUrl:
         """Should handle plain text content type."""
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.is_redirect = False
         mock_response.text = "This is plain text content"
         mock_response.content = b"This is plain text content"
         mock_response.headers = {"content-type": "text/plain; charset=utf-8"}
@@ -254,6 +272,25 @@ class TestFetchUrl:
 
         assert isinstance(result, str)
         assert "This is plain text content" in result
+
+    @patch("src.agent.tools.web.httpx.Client")
+    def test_blocks_redirect_to_private_address(self, mock_client_class: MagicMock) -> None:
+        """A redirect into a blocked IP range must be rejected, not followed."""
+        redirect = MagicMock()
+        redirect.is_redirect = True
+        redirect.headers = {"location": "http://169.254.169.254/latest/meta-data"}
+
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.get.return_value = redirect
+        mock_client_class.return_value = mock_client
+
+        result = fetch_url.invoke({"url": "https://example.com/redirect"})
+        parsed = json.loads(result)
+
+        assert "error" in parsed
+        assert "redirect" in parsed["error"].lower()
 
 
 class TestGetContentTypeCategory:

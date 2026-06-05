@@ -2,79 +2,20 @@
 
 import importlib
 import json
+import socket
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.agent.tools.browser import (
-    _BLOCKED_NETWORKS,
-    _validate_url,
     is_browser_available,
 )
 
 # Get the actual module (not the StructuredTool shadowed by __init__.py)
 _browser_mod = importlib.import_module("src.agent.tools.browser")
 
-
-class TestUrlValidation:
-    """Tests for URL validation / SSRF protection."""
-
-    def test_allows_https_urls(self) -> None:
-        assert _validate_url("https://example.com") is None
-
-    def test_allows_http_urls(self) -> None:
-        assert _validate_url("http://example.com") is None
-
-    def test_blocks_file_scheme(self) -> None:
-        error = _validate_url("file:///etc/passwd")
-        assert error is not None
-        assert "Only http://" in error
-
-    def test_blocks_ftp_scheme(self) -> None:
-        error = _validate_url("ftp://example.com")
-        assert error is not None
-
-    def test_blocks_javascript_scheme(self) -> None:
-        error = _validate_url("javascript:alert(1)")
-        assert error is not None
-
-    def test_blocks_localhost(self) -> None:
-        error = _validate_url("http://localhost:8080")
-        assert error is not None
-        assert "blocked" in error.lower()
-
-    def test_blocks_127_0_0_1(self) -> None:
-        error = _validate_url("http://127.0.0.1")
-        assert error is not None
-        assert "blocked" in error.lower()
-
-    def test_blocks_private_10_network(self) -> None:
-        error = _validate_url("http://10.0.0.1")
-        assert error is not None
-
-    def test_blocks_private_172_network(self) -> None:
-        error = _validate_url("http://172.16.0.1")
-        assert error is not None
-
-    def test_blocks_private_192_168_network(self) -> None:
-        error = _validate_url("http://192.168.1.1")
-        assert error is not None
-
-    def test_blocks_metadata_ip(self) -> None:
-        error = _validate_url("http://169.254.169.254/latest/meta-data")
-        assert error is not None
-
-    def test_allows_public_ips(self) -> None:
-        assert _validate_url("http://8.8.8.8") is None
-
-    def test_allows_domain_names(self) -> None:
-        assert _validate_url("https://www.google.com/search?q=test") is None
-
-    def test_blocks_empty_hostname(self) -> None:
-        error = _validate_url("http://")
-        assert error is not None
-
-    def test_blocked_networks_list_is_populated(self) -> None:
-        """Ensure SSRF blocklist covers essential ranges."""
-        assert len(_BLOCKED_NETWORKS) >= 5
+# URL/SSRF validation now lives in src/agent/tools/url_safety.py;
+# see tests/unit/test_url_safety.py for its coverage.
 
 
 class TestBrowserAvailability:
@@ -98,6 +39,15 @@ class TestBrowserAvailability:
 
 class TestBrowserTool:
     """Tests for the browser tool function."""
+
+    @pytest.fixture(autouse=True)
+    def _public_dns(self):
+        """Resolve hostnames to a public IP so SSRF validation passes offline."""
+        addrinfo = [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0))
+        ]
+        with patch("src.agent.tools.url_safety.socket.getaddrinfo", return_value=addrinfo):
+            yield
 
     @patch("src.agent.tools.browser.Config")
     def test_disabled_returns_error(self, mock_config: MagicMock) -> None:
