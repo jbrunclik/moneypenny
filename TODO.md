@@ -24,6 +24,7 @@ This file tracks planned features, improvements, and technical debt.
 - [ ] **Logout: clear all sensitive state** - `store.logout()` only clears token/user/currentConversation, leaving messages, pagination, activeRequests in memory. Add `resetStore()` that wipes all maps/sets on `auth:logout`. Files: `store.ts`, `init.ts`
 
 ## Reliability
+- [ ] **Align `langchain-google-genai` version across environments** - Local (Python 3.14) and production (`/home/woody`, Python 3.13) run different `langchain-google-genai` versions, which changed `convert_to_genai_function_declarations`'s return shape (single `Tool` → `list[Tool]`). This caused a context-cache `ValidationError` in prod that the local venv never reproduced (worked around in `context_cache.py:_create_cache`). Pin the dependency (and Python version) consistently across dev/prod so version skew can't silently diverge behavior again. Files: `pyproject.toml`, deployment env.
 - [ ] **SyncManager.start() error handling** - Unhandled rejection silently disables background sync if `start()` throws. Await inside try/catch, log failures, allow retry. Files: `init.ts`, `SyncManager.ts`
 
 ## Code Quality
