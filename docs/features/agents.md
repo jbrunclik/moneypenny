@@ -138,6 +138,22 @@ Agents are configured with specific tool permissions. Some tools are always avai
 - `tool_permissions=[]`: Only "always available" tools enabled
 - `tool_permissions=["todoist", ...]`: Only specified tools + "always available" tools
 
+### Tool Security
+
+- **SSRF protection**: `fetch_url` and `browser` validate every URL through
+  [`url_safety.validate_public_url`](../../src/agent/tools/url_safety.py) —
+  rejecting non-http(s) schemes, localhost, and literal *or DNS-resolved*
+  private/reserved/cloud-metadata addresses. `fetch_url` disables auto-redirect
+  and re-validates each hop, plus re-checks the host at connect time via an
+  SSRF-safe transport. Residual DNS-rebinding risk is narrowed but not
+  eliminated; network-level egress filtering is the complete control.
+- **Untrusted content**: text from `fetch_url`/`browser` is wrapped in
+  `[UNTRUSTED WEB CONTENT ...]` markers and `web_search` carries a `_warning`
+  field; the system prompt instructs the model to treat all such content
+  (including page titles/URLs) as data, never instructions, and to be cautious
+  about high-impact actions driven solely by fetched content. This is a
+  mitigation, not a guarantee.
+
 ### Adding a New Tool
 
 When adding a new tool for autonomous agents, update these locations:
