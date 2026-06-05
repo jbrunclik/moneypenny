@@ -533,6 +533,13 @@ def main() -> None:
         stack.enter_context(
             patch("src.agent.tools.image_generation.genai.Client", create_mock_genai())
         )
+        # Conversation compaction summarizes long histories via a separate
+        # google-genai client (not the langchain mock above). Stub it so the
+        # real compaction path runs without a network call when a seeded
+        # conversation exceeds CONVERSATION_COMPACTION_THRESHOLD.
+        stack.enter_context(
+            patch("src.agent.compaction._run_summary_model", return_value="[mock summary]")
+        )
         stack.enter_context(
             patch("src.auth.google_auth.requests.get", create_mock_google_tokeninfo())
         )
