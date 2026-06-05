@@ -11,6 +11,7 @@ Graph flow (without tools or planning disabled):
   START -> chat -> END
 """
 
+import time
 from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -198,22 +199,30 @@ def should_plan(state: AgentState) -> Literal["plan", "chat"]:
             temperature=0.0,
         )
 
+        start = time.monotonic()
         response = classifier.invoke(
             [
                 SystemMessage(content=PLANNING_DECISION_PROMPT),
                 HumanMessage(content=content[:500]),  # Truncate to save tokens
             ]
         )
+        latency_ms = int((time.monotonic() - start) * 1000)
         decision = extract_text_content(response.content).strip().upper()
+        should = "PLAN" in decision and "CHAT" not in decision
 
-        if "PLAN" in decision and "CHAT" not in decision:
-            logger.info(
-                "Planning triggered by LLM classifier",
-                extra={"content_length": len(content), "decision": decision},
-            )
-            return "plan"
-
-        return "chat"
+        # Telemetry: fires on EVERY classifier call so plan-fire rate and the
+        # added latency are observable (grep "planning_classifier"). This is the
+        # data needed to decide whether the planning step earns its per-turn cost.
+        logger.info(
+            "planning_classifier decision",
+            extra={
+                "result": "plan" if should else "chat",
+                "raw_decision": decision,
+                "content_length": len(content),
+                "latency_ms": latency_ms,
+            },
+        )
+        return "plan" if should else "chat"
     except Exception:
         logger.debug("Planning classifier failed, falling back to chat", exc_info=True)
         return "chat"

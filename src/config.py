@@ -309,9 +309,12 @@ class Config:
     # Graph self-correction: max consecutive tool error retries before giving up
     AGENT_MAX_TOOL_RETRIES: int = int(os.getenv("AGENT_MAX_TOOL_RETRIES", "2"))
 
-    # Planning node: optional planning step for complex multi-step requests
+    # Planning node: optional planning step for complex multi-step requests.
+    # Below MIN_LENGTH chars the planning classifier is skipped entirely (no LLM
+    # call). Default raised to 400 to cut classifier calls on shorter messages;
+    # see the "planning_classifier" telemetry log to tune fire-rate vs benefit.
     AGENT_PLANNING_ENABLED: bool = os.getenv("AGENT_PLANNING_ENABLED", "true").lower() == "true"
-    AGENT_PLANNING_MIN_LENGTH: int = int(os.getenv("AGENT_PLANNING_MIN_LENGTH", "200"))
+    AGENT_PLANNING_MIN_LENGTH: int = int(os.getenv("AGENT_PLANNING_MIN_LENGTH", "400"))
 
     # Gunicorn worker recycling: restart workers after N requests to prevent memory leaks
     GUNICORN_MAX_REQUESTS: int = int(os.getenv("GUNICORN_MAX_REQUESTS", "1000"))

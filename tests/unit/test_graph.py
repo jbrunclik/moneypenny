@@ -264,7 +264,7 @@ class TestShouldPlan:
         mock_instance.invoke.return_value = mock_response
         mock_llm_class.return_value = mock_instance
 
-        complex_msg = "x" * 250  # Over min length threshold
+        complex_msg = "x" * 500  # Over min length threshold
         state: AgentState = {
             "messages": [HumanMessage(content=complex_msg)],
             "tool_retries": 0,
@@ -281,7 +281,7 @@ class TestShouldPlan:
         mock_instance.invoke.return_value = mock_response
         mock_llm_class.return_value = mock_instance
 
-        long_msg = "x" * 250  # Over min length threshold
+        long_msg = "x" * 500  # Over min length threshold
         state: AgentState = {
             "messages": [HumanMessage(content=long_msg)],
             "tool_retries": 0,
@@ -296,7 +296,7 @@ class TestShouldPlan:
         mock_instance.invoke.side_effect = RuntimeError("API error")
         mock_llm_class.return_value = mock_instance
 
-        long_msg = "x" * 250
+        long_msg = "x" * 500
         state: AgentState = {
             "messages": [HumanMessage(content=long_msg)],
             "tool_retries": 0,
@@ -308,6 +308,48 @@ class TestShouldPlan:
         """No HumanMessage in state should skip planning."""
         state: AgentState = {
             "messages": [SystemMessage(content="System prompt")],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        assert should_plan(state) == "chat"
+
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    @patch("src.agent.graph.logger")
+    def test_emits_classifier_telemetry(
+        self, mock_logger: MagicMock, mock_llm_class: MagicMock
+    ) -> None:
+        """Every classifier invocation logs decision + latency for observability."""
+        mock_response = MagicMock()
+        mock_response.content = "CHAT"
+        mock_instance = MagicMock()
+        mock_instance.invoke.return_value = mock_response
+        mock_llm_class.return_value = mock_instance
+
+        state: AgentState = {
+            "messages": [HumanMessage(content="x" * 500)],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        assert should_plan(state) == "chat"
+
+        telemetry = [
+            call
+            for call in mock_logger.info.call_args_list
+            if call.args and "planning_classifier" in call.args[0]
+        ]
+        assert telemetry, "expected a planning_classifier telemetry log"
+        extra = telemetry[0].kwargs["extra"]
+        assert extra["result"] == "chat"
+        assert extra["content_length"] == 500
+        assert "latency_ms" in extra
+
+    @patch("src.agent.graph.Config")
+    def test_message_below_threshold_skips_classifier(self, mock_config: MagicMock) -> None:
+        """A message under MIN_LENGTH skips the classifier entirely (no LLM call)."""
+        mock_config.AGENT_PLANNING_ENABLED = True
+        mock_config.AGENT_PLANNING_MIN_LENGTH = 400
+        state: AgentState = {
+            "messages": [HumanMessage(content="x" * 300)],
             "tool_retries": 0,
             "plan": "",
         }
