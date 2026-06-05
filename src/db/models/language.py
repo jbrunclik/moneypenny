@@ -2,7 +2,7 @@
 
 Contains all methods for language learning program conversation management including:
 - Get/create language conversation per program
-- Reset language conversation (clear messages + checkpoint)
+- Reset language conversation (clear messages)
 - List language conversations
 - Delete language conversation
 """
@@ -177,9 +177,6 @@ class LanguageLearningMixin:
 
             conn.commit()
 
-            # Clear LangGraph checkpoint
-            self._clear_language_checkpoint(conv_id)
-
             logger.info(
                 "Language conversation reset",
                 extra={
@@ -195,22 +192,6 @@ class LanguageLearningMixin:
                 conn, "SELECT * FROM conversations WHERE id = ?", (conv_id,)
             ).fetchone()
             return self._row_to_conversation(updated_row) if updated_row else None
-
-    @staticmethod
-    def _clear_language_checkpoint(conversation_id: str) -> None:
-        """Clear LangGraph checkpoint state for a language conversation."""
-        if not Config.AGENT_CHECKPOINTING_ENABLED:
-            return
-        try:
-            from src.agent.graph import _get_checkpointer
-
-            checkpointer = _get_checkpointer()
-            checkpointer.delete_thread(conversation_id)
-        except Exception as e:
-            logger.warning(
-                "Failed to clear language checkpoint",
-                extra={"conversation_id": conversation_id, "error": str(e)},
-            )
 
     def list_language_conversations(self, user_id: str) -> list[Conversation]:
         """List all language conversations for a user.
@@ -268,9 +249,6 @@ class LanguageLearningMixin:
                 (conv_id, user_id),
             )
             conn.commit()
-
-            # Clear checkpoint
-            self._clear_language_checkpoint(conv_id)
 
             logger.info(
                 "Language conversation deleted",

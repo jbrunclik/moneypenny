@@ -9,7 +9,6 @@ Tests cover:
 """
 
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
@@ -97,7 +96,6 @@ class TestResetLanguageConversation:
         result = test_database.reset_language_conversation(test_user.id, "nonexistent")
         assert result is None
 
-    @patch("src.db.models.language.Config.AGENT_CHECKPOINTING_ENABLED", False)
     def test_deletes_messages(self, test_database: "Database", test_user: "User") -> None:
         """Should delete all messages but keep the conversation."""
         conv = test_database.get_or_create_language_conversation(test_user.id, "spanish")
@@ -168,7 +166,6 @@ class TestDeleteLanguageConversation:
         result = test_database.delete_language_conversation(test_user.id, "nonexistent")
         assert result is False
 
-    @patch("src.db.models.language.Config.AGENT_CHECKPOINTING_ENABLED", False)
     def test_deletes_conversation_and_messages(
         self, test_database: "Database", test_user: "User"
     ) -> None:
@@ -191,7 +188,6 @@ class TestDeleteLanguageConversation:
         messages = test_database.get_messages(conv.id)
         assert len(messages) == 0
 
-    @patch("src.db.models.language.Config.AGENT_CHECKPOINTING_ENABLED", False)
     def test_does_not_affect_other_programs(
         self, test_database: "Database", test_user: "User"
     ) -> None:

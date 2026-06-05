@@ -109,12 +109,6 @@ class ChatAgent:
         )
         from src.agent.graph import compile_graph
 
-        # Only autonomous agents keep cross-request checkpointing. Regular chat
-        # passes the full history each request and never resumes a thread, so a
-        # persistent checkpointer keyed by conversation_id would make the
-        # add_messages reducer duplicate history every turn (see compile_graph).
-        self._use_checkpointer = is_autonomous
-
         self.graph = compile_graph(
             create_chat_graph(
                 model_name,
@@ -123,8 +117,7 @@ class ChatAgent:
                 tools=active_tools,
                 is_autonomous=is_autonomous,
                 cached_content=self._cached_content_name,
-            ),
-            use_checkpointer=self._use_checkpointer,
+            )
         )
 
     def _get_cache_profile(self) -> CacheProfile | None:
@@ -425,7 +418,7 @@ class ChatAgent:
         # Run the graph
         from src.agent.graph import get_graph_config
 
-        config = get_graph_config(conversation_id, use_checkpointer=self._use_checkpointer)
+        config = get_graph_config()
         result = self.graph.invoke(cast(Any, {"messages": messages}), config=config)
         result_messages: list[BaseMessage] = result["messages"]
 
@@ -554,7 +547,7 @@ class ChatAgent:
         # Stream the graph execution with messages mode for token-level streaming
         from src.agent.graph import get_graph_config
 
-        config = get_graph_config(conversation_id, use_checkpointer=self._use_checkpointer)
+        config = get_graph_config()
         for event in self.graph.stream(
             cast(Any, {"messages": messages}),
             config=config,
@@ -715,7 +708,7 @@ class ChatAgent:
         # Wrapped in try-except to handle executor shutdown gracefully
         from src.agent.graph import get_graph_config
 
-        config = get_graph_config(conversation_id, use_checkpointer=self._use_checkpointer)
+        config = get_graph_config()
         try:
             for event in self.graph.stream(
                 cast(Any, {"messages": messages}),

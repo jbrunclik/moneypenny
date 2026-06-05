@@ -2,7 +2,7 @@
 
 Contains all methods for sports program conversation management including:
 - Get/create sports conversation per program
-- Reset sports conversation (clear messages + checkpoint)
+- Reset sports conversation (clear messages)
 - List sports conversations
 - Delete sports conversation
 """
@@ -177,9 +177,6 @@ class SportsTrackingMixin:
 
             conn.commit()
 
-            # Clear LangGraph checkpoint
-            self._clear_sports_checkpoint(conv_id)
-
             logger.info(
                 "Sports conversation reset",
                 extra={
@@ -195,22 +192,6 @@ class SportsTrackingMixin:
                 conn, "SELECT * FROM conversations WHERE id = ?", (conv_id,)
             ).fetchone()
             return self._row_to_conversation(updated_row) if updated_row else None
-
-    @staticmethod
-    def _clear_sports_checkpoint(conversation_id: str) -> None:
-        """Clear LangGraph checkpoint state for a sports conversation."""
-        if not Config.AGENT_CHECKPOINTING_ENABLED:
-            return
-        try:
-            from src.agent.graph import _get_checkpointer
-
-            checkpointer = _get_checkpointer()
-            checkpointer.delete_thread(conversation_id)
-        except Exception as e:
-            logger.warning(
-                "Failed to clear sports checkpoint",
-                extra={"conversation_id": conversation_id, "error": str(e)},
-            )
 
     def list_sports_conversations(self, user_id: str) -> list[Conversation]:
         """List all sports conversations for a user.
@@ -268,9 +249,6 @@ class SportsTrackingMixin:
                 (conv_id, user_id),
             )
             conn.commit()
-
-            # Clear checkpoint
-            self._clear_sports_checkpoint(conv_id)
 
             logger.info(
                 "Sports conversation deleted",

@@ -11,12 +11,10 @@ Graph flow (without tools or planning disabled):
   START -> chat -> END
 """
 
-import sqlite3
 from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
@@ -44,54 +42,6 @@ def _get_permission_modules() -> dict[str, Any]:
         "check_tool_permission": check_tool_permission,
         "PermissionResult": PermissionResult,
     }
-
-
-_checkpointer: SqliteSaver | None = None
-
-
-def _get_checkpointer() -> SqliteSaver:
-    """Lazily create a SqliteSaver backed by a file on disk.
-
-    Each gunicorn worker (separate process) gets its own SQLite connection.
-    WAL mode (set by SqliteSaver.setup()) enables concurrent reads.
-    Also ensures the created_at column exists for TTL-based cleanup.
-    """
-    global _checkpointer  # noqa: PLW0603
-    if _checkpointer is None:
-        db_path = Config.CHECKPOINT_DB_PATH
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(
-            str(db_path),
-            check_same_thread=False,
-        )
-        _checkpointer = SqliteSaver(conn)
-        _checkpointer.setup()
-        _ensure_created_at_column(conn)
-        logger.info("SqliteSaver checkpointer initialized", extra={"path": str(db_path)})
-    return _checkpointer
-
-
-def _ensure_created_at_column(conn: sqlite3.Connection) -> None:
-    """Add created_at column to checkpoint tables if missing (idempotent).
-
-    SQLite ALTER TABLE doesn't allow CURRENT_TIMESTAMP as a default, so we
-    use an INSERT trigger to set it automatically on new rows.
-    """
-    for table in ("checkpoints", "writes"):
-        columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
-        if "created_at" not in columns:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN created_at TIMESTAMP")
-            conn.execute(
-                f"""CREATE TRIGGER IF NOT EXISTS {table}_set_created_at
-                    AFTER INSERT ON {table}
-                    FOR EACH ROW
-                    WHEN NEW.created_at IS NULL
-                    BEGIN
-                        UPDATE {table} SET created_at = CURRENT_TIMESTAMP
-                        WHERE rowid = NEW.rowid;
-                    END"""
-            )
-            logger.info(f"Added created_at column and trigger to {table} table")
 
 
 # ============ Agent State ============
@@ -631,48 +581,22 @@ def create_chat_graph(
     return graph
 
 
-def compile_graph(
-    graph: StateGraph[AgentState],
-    conversation_id: str | None = None,
-    use_checkpointer: bool = True,
-) -> Any:
-    """Compile a StateGraph with optional checkpointing.
+def compile_graph(graph: StateGraph[AgentState]) -> Any:
+    """Compile a StateGraph for execution.
+
+    The graph is stateless across requests: every invoke receives the full
+    message list to send, so no checkpointer is attached. Within-request
+    multi-step state (the tool loop) is held in memory during the invoke.
 
     Args:
         graph: The StateGraph to compile
-        conversation_id: Optional conversation ID for checkpointing thread
-        use_checkpointer: If False, compile without a checkpointer. The chat
-            graph passes the full history on every request and never resumes a
-            thread across requests, so attaching the persistent checkpointer
-            (keyed by conversation_id) would make the ``add_messages`` reducer
-            *accumulate and duplicate* history every turn. Stateless invokes
-            avoid that; within-request multi-step state is held in memory.
 
     Returns:
         Compiled graph ready for invoke/stream
     """
-    if use_checkpointer and Config.AGENT_CHECKPOINTING_ENABLED:
-        return graph.compile(checkpointer=_get_checkpointer())
     return graph.compile()
 
 
-def get_graph_config(
-    conversation_id: str | None = None,
-    use_checkpointer: bool = True,
-) -> dict[str, Any]:
-    """Build config dict for graph invoke/stream calls.
-
-    Args:
-        conversation_id: Optional conversation ID for checkpointing thread
-        use_checkpointer: Must match the value passed to ``compile_graph``. When
-            False, no ``thread_id`` is set so each invoke runs as isolated state.
-
-    Returns:
-        Config dict with thread_id for checkpointing
-    """
-    if use_checkpointer and Config.AGENT_CHECKPOINTING_ENABLED and conversation_id:
-        return {
-            "configurable": {"thread_id": conversation_id},
-            "recursion_limit": Config.AGENT_RECURSION_LIMIT,
-        }
+def get_graph_config() -> dict[str, Any]:
+    """Build the config dict for graph invoke/stream calls."""
     return {"recursion_limit": Config.AGENT_RECURSION_LIMIT}

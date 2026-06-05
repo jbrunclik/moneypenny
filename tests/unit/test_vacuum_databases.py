@@ -62,15 +62,13 @@ class TestMain:
         """Test main returns 0 when all databases vacuum successfully."""
         db1 = tmp_path / "chatbot.db"
         db2 = tmp_path / "files.db"
-        db3 = tmp_path / "checkpoints.db"
-        for p in (db1, db2, db3):
+        for p in (db1, db2):
             conn = sqlite3.connect(str(p))
             conn.close()
 
         with (
             patch("scripts.vacuum_databases.Config.DATABASE_PATH", db1),
             patch("scripts.vacuum_databases.Config.BLOB_STORAGE_PATH", db2),
-            patch("scripts.vacuum_databases.Config.CHECKPOINT_DB_PATH", db3),
         ):
             result = main()
 
@@ -78,7 +76,7 @@ class TestMain:
 
     def test_main_partial_failure(self):
         """Test main returns 1 when one database fails to vacuum."""
-        with patch("scripts.vacuum_databases.vacuum_database", side_effect=[True, True, False]):
+        with patch("scripts.vacuum_databases.vacuum_database", side_effect=[True, False]):
             result = main()
 
         assert result == 1
@@ -88,7 +86,6 @@ class TestMain:
         with (
             patch("scripts.vacuum_databases.Config.DATABASE_PATH", tmp_path / "missing1.db"),
             patch("scripts.vacuum_databases.Config.BLOB_STORAGE_PATH", tmp_path / "missing2.db"),
-            patch("scripts.vacuum_databases.Config.CHECKPOINT_DB_PATH", tmp_path / "missing3.db"),
         ):
             result = main()
 

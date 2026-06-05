@@ -313,15 +313,6 @@ class Config:
     AGENT_PLANNING_ENABLED: bool = os.getenv("AGENT_PLANNING_ENABLED", "true").lower() == "true"
     AGENT_PLANNING_MIN_LENGTH: int = int(os.getenv("AGENT_PLANNING_MIN_LENGTH", "200"))
 
-    # LangGraph checkpointing: SqliteSaver for state persistence across requests
-    AGENT_CHECKPOINTING_ENABLED: bool = (
-        os.getenv("AGENT_CHECKPOINTING_ENABLED", "true").lower() == "true"
-    )
-    CHECKPOINT_DB_PATH: Path = Path(
-        os.getenv("CHECKPOINT_DB_PATH", str(BASE_DIR / "data" / "checkpoints.db"))
-    )
-    CHECKPOINT_TTL_MINUTES: int = int(os.getenv("CHECKPOINT_TTL_MINUTES", "30"))
-
     # Gunicorn worker recycling: restart workers after N requests to prevent memory leaks
     GUNICORN_MAX_REQUESTS: int = int(os.getenv("GUNICORN_MAX_REQUESTS", "1000"))
     GUNICORN_MAX_REQUESTS_JITTER: int = int(os.getenv("GUNICORN_MAX_REQUESTS_JITTER", "50"))

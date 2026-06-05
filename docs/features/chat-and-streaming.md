@@ -515,27 +515,17 @@ The plan is never shown to the user - it is internal guidance only.
 - `AGENT_PLANNING_ENABLED`: Toggle the planning node on/off (default: `true`)
 - `AGENT_PLANNING_MIN_LENGTH`: Minimum message length in characters to trigger LLM classifier (default: `200`)
 
-### LangGraph Checkpointing
+### Graph State (no checkpointer)
 
-A lazy `SqliteSaver` factory (`_get_checkpointer()`) persists graph state to disk (`data/checkpoints.db`) instead of keeping it in process memory. Each gunicorn worker opens its own SQLite connection; WAL mode enables concurrent reads.
+The chat graph is **stateless across requests**. Every invoke receives the full message list to send (built from the DB history, then compacted — see [Conversation Compaction](#conversation-compaction-cost-control)), so no LangGraph checkpointer is attached.
 
-**How it works:**
-
-1. `_get_checkpointer()` lazily creates a `SqliteSaver` backed by `CHECKPOINT_DB_PATH` on first use
-2. `compile_graph(..., use_checkpointer=...)` compiles a `StateGraph` with the checkpointer attached only when requested
-3. `get_graph_config(..., use_checkpointer=...)` returns a config dict with `thread_id` set to the `conversation_id`
-
-**Important — only autonomous agents use cross-request checkpointing.** Regular chat passes the *full history* as the graph input on every request and never resumes a thread. Because `AgentState.messages` uses the `add_messages` reducer (which appends, deduping only by message `id`, and freshly built history messages have no `id`), reusing a persistent `thread_id` across turns would make the state **accumulate and duplicate** the entire history each turn. `ChatAgent` therefore sets `use_checkpointer=is_autonomous`: chat graphs compile **without** a checkpointer (each invoke is isolated; within-request multi-step state is held in memory), while autonomous agents keep checkpointing. Autonomous agent conversations are additionally bounded by destructive compaction (see `compaction.py`).
-
-**Configuration:**
-- `AGENT_CHECKPOINTING_ENABLED`: Toggle checkpointing on/off for the paths that use it (default: `true`)
-- `CHECKPOINT_DB_PATH`: Path to the SQLite checkpoint database (default: `data/checkpoints.db`)
+This is deliberate: `AgentState.messages` uses the `add_messages` reducer, which *appends* input messages to any existing thread state and dedups only by message `id`. Since freshly built history messages have no `id`, attaching a persistent checkpointer keyed by `conversation_id` made every follow-up turn **accumulate and duplicate** the entire history — for regular chat *and* autonomous agents (nothing in the code ever resumed a thread; agent approvals re-run `execute_agent` fresh from the DB). `compile_graph()` therefore just calls `graph.compile()`, and within-request multi-step state (the tool loop) is held in memory during the invoke.
 
 ### AgentState Fields
 
 ```python
 class AgentState(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]  # Full message history
+    messages: Annotated[list[BaseMessage], add_messages]  # Messages for this invoke
     tool_retries: int   # Consecutive tool failure count (reset to 0 on success)
     plan: str           # Current execution plan (cleared after first chat_node use)
 ```
@@ -544,11 +534,11 @@ class AgentState(TypedDict):
 
 - [graph.py](../../src/agent/graph.py) - Graph construction, all nodes and routers
 - [agent.py](../../src/agent/agent.py) - `ChatAgent`, `stream_chat_events()`, `chat_batch()`
-- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_PLANNING_*`, `AGENT_CHECKPOINTING_ENABLED`, `CHECKPOINT_DB_PATH`
+- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_PLANNING_*`
 
 ### Testing
 
-- Unit tests: [test_graph.py](../../tests/unit/test_graph.py) - 35 tests covering self-correction, planning, checkpointing, and graph structure
+- Unit tests: [test_graph.py](../../tests/unit/test_graph.py) - self-correction, planning, and graph structure
 
 ## See Also
 
