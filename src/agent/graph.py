@@ -206,7 +206,7 @@ def should_plan(state: AgentState) -> Literal["plan", "chat"]:
                 HumanMessage(content=content[:500]),  # Truncate to save tokens
             ]
         )
-        latency_ms = int((time.monotonic() - start) * 1000)
+        latency_ms = round((time.monotonic() - start) * 1000)
         decision = extract_text_content(response.content).strip().upper()
         should = "PLAN" in decision and "CHAT" not in decision
 

@@ -3,6 +3,9 @@
 import socket
 from unittest.mock import patch
 
+import httpx
+import pytest
+
 from src.agent.tools.url_safety import BLOCKED_NETWORKS, validate_public_url
 
 
@@ -85,6 +88,27 @@ class TestHostnameResolution:
         assert error is not None
         assert "resolve" in error.lower()
 
+    def test_empty_resolution_fails_closed(self) -> None:
+        """getaddrinfo returning no usable addresses must be rejected, not allowed."""
+        with patch("src.agent.tools.url_safety.socket.getaddrinfo", return_value=[]):
+            error = validate_public_url("https://weird.example.com")
+        assert error is not None
+
+    def test_blocks_cgnat_range(self) -> None:
+        assert validate_public_url("http://100.64.0.1") is not None
+
 
 def test_blocked_networks_populated() -> None:
     assert len(BLOCKED_NETWORKS) >= 5
+
+
+class TestSSRFSafeTransport:
+    """The connect-time transport re-checks the host before the request goes out."""
+
+    def test_blocks_request_to_private_host(self) -> None:
+        from src.agent.tools.web import _SSRFSafeTransport
+
+        transport = _SSRFSafeTransport()
+        request = httpx.Request("GET", "http://127.0.0.1/")
+        with pytest.raises(httpx.ConnectError, match="SSRF blocked"):
+            transport.handle_request(request)

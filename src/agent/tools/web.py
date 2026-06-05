@@ -12,7 +12,7 @@ from ddgs import DDGS
 from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 from langchain_core.tools import tool
 
-from src.agent.tools.url_safety import validate_public_url
+from src.agent.tools.url_safety import check_host, validate_public_url
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -20,6 +20,22 @@ logger = get_logger(__name__)
 
 # Max redirects to follow manually in fetch_url (each hop is SSRF-validated)
 _MAX_REDIRECTS = 5
+
+
+class _SSRFSafeTransport(httpx.HTTPTransport):
+    """httpx transport that re-validates the destination host at connect time.
+
+    The up-front validate_public_url() check and httpx's own DNS resolution
+    happen at slightly different times (a DNS-rebinding TOCTOU window). Checking
+    again here, right before the request goes out, narrows that window. Complete
+    protection still requires network-level egress filtering.
+    """
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        error = check_host(request.url.host, request.url.port)
+        if error:
+            raise httpx.ConnectError(f"SSRF blocked: {error}")
+        return super().handle_request(request)
 
 
 def wrap_untrusted_content(text: str, source: str | None = None) -> str:
@@ -130,6 +146,7 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
         with httpx.Client(
             timeout=float(Config.TOOL_TIMEOUT),
             follow_redirects=False,
+            transport=_SSRFSafeTransport(),
             headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
             },
