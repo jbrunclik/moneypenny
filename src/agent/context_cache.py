@@ -150,8 +150,13 @@ class ContextCacheManager:
 
             client = self._get_client()
 
-            # Convert LangChain tools to google.genai Tool format
+            # Convert LangChain tools to google.genai Tool format.
+            # Older langchain-google-genai returns a single Tool; newer versions
+            # return list[Tool]. CreateCachedContentConfig.tools requires a list,
+            # so normalize to a list regardless of the installed version.
             genai_tools = convert_to_genai_function_declarations(tools)
+            if not isinstance(genai_tools, list):
+                genai_tools = [genai_tools]
 
             ttl_seconds = Config.CONTEXT_CACHE_TTL_SECONDS
 

@@ -348,6 +348,82 @@ class TestContextCacheManager:
         assert all(r == "cachedContents/thread-safe" for r in results)
 
 
+# ============ _create_cache Tests ============
+
+
+class TestCreateCache:
+    """Tests for the actual cache creation / tool conversion."""
+
+    def _make_mock_tool(self, name: str = "test_tool") -> MagicMock:
+        tool = MagicMock()
+        tool.name = name
+        return tool
+
+    @patch("src.agent.context_cache.Config")
+    def test_single_tool_return_normalized_to_list(self, mock_config: MagicMock) -> None:
+        """Older langchain-google-genai returns a single Tool, not a list.
+
+        Regression test: CreateCachedContentConfig.tools requires a list, so a
+        single Tool must be wrapped before being passed through.
+        """
+        mock_config.GEMINI_API_KEY = "test-key"
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+
+        manager = ContextCacheManager()
+        single_tool = MagicMock(name="single_tool")
+        mock_client = MagicMock()
+        mock_client.caches.create.return_value.name = "cachedContents/xyz"
+
+        with (
+            patch.object(manager, "_get_client", return_value=mock_client),
+            patch(
+                "langchain_google_genai._function_utils.convert_to_genai_function_declarations",
+                return_value=single_tool,
+            ),
+            patch("google.genai.types.CreateCachedContentConfig") as mock_config_cls,
+        ):
+            result = manager._create_cache(
+                CacheProfile.STANDARD,
+                "gemini-3-flash-preview",
+                "static prompt",
+                [self._make_mock_tool()],
+            )
+
+        assert result == "cachedContents/xyz"
+        passed_tools = mock_config_cls.call_args.kwargs["tools"]
+        assert passed_tools == [single_tool]
+
+    @patch("src.agent.context_cache.Config")
+    def test_list_tool_return_passed_through(self, mock_config: MagicMock) -> None:
+        """Newer langchain-google-genai returns list[Tool]; it must pass through as-is."""
+        mock_config.GEMINI_API_KEY = "test-key"
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+
+        manager = ContextCacheManager()
+        tool_list = [MagicMock(name="tool_a"), MagicMock(name="tool_b")]
+        mock_client = MagicMock()
+        mock_client.caches.create.return_value.name = "cachedContents/xyz"
+
+        with (
+            patch.object(manager, "_get_client", return_value=mock_client),
+            patch(
+                "langchain_google_genai._function_utils.convert_to_genai_function_declarations",
+                return_value=tool_list,
+            ),
+            patch("google.genai.types.CreateCachedContentConfig") as mock_config_cls,
+        ):
+            result = manager._create_cache(
+                CacheProfile.STANDARD,
+                "gemini-3-flash-preview",
+                "static prompt",
+                [self._make_mock_tool()],
+            )
+
+        assert result == "cachedContents/xyz"
+        passed_tools = mock_config_cls.call_args.kwargs["tools"]
+        assert passed_tools == tool_list
+
+
 # ============ get_cached_content_name Tests ============
 
 
