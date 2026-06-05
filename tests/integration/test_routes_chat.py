@@ -331,6 +331,54 @@ class TestChatStream:
         assert messages[-1].role == "assistant"
         assert messages[-1].content == "Token1Token2"
 
+    def test_stream_saves_partial_content_on_timeout(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        monkeypatch: Any,
+    ) -> None:
+        """When CHAT_TIMEOUT trips mid-stream, the partial text is persisted
+        with the timeout marker and a 'timeout' event is sent."""
+        import time
+
+        from src.api.helpers.chat_streaming import STREAM_TIMEOUT_MARKER
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0)  # trip after first event
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "partial reply"}
+                # Would continue, but the producer deadline (0s) stops it here.
+                while True:
+                    yield {"type": "token", "text": " more"}
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "hi"},
+            )
+            body = response.data.decode("utf-8")
+
+        assert response.status_code == 200
+        assert '"type": "timeout"' in body
+
+        # Wait for the save (generator/cleanup thread) to complete.
+        time.sleep(1.5)
+
+        messages = test_database.get_messages(test_conversation.id)
+        assistant = [m for m in messages if m.role == "assistant"]
+        assert assistant, "expected a persisted assistant message"
+        assert assistant[-1].content.startswith("partial reply")
+        assert assistant[-1].content.endswith(STREAM_TIMEOUT_MARKER)
+
     def test_requires_auth(self, client: FlaskClient, test_conversation: Conversation) -> None:
         """Should return 401 without authentication."""
         response = client.post(
