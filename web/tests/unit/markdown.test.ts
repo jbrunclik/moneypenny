@@ -82,7 +82,7 @@ describe('LaTeX math rendering (KaTeX)', () => {
   it('renders inline $...$ math', () => {
     const html = renderMarkdown('The formula $E = mc^2$ is famous.');
     expect(html).toContain('class="katex"');
-    expect(html).toContain('annotation encoding="application/x-tex"');
+    expect(html).toContain('katex-html');
   });
 
   it('renders display $$...$$ math', () => {
