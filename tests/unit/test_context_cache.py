@@ -1,8 +1,17 @@
 """Unit tests for Gemini context caching."""
 
+from __future__ import annotations
+
 import threading
 import time
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
+
+import pytest
+
+if TYPE_CHECKING:
+    from src.db.models import Database
 
 from src.agent.context_cache import (
     CacheEntry,
@@ -11,6 +20,17 @@ from src.agent.context_cache import (
     _compute_content_hash,
     get_cached_content_name,
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_shared_registry() -> Generator[MagicMock]:
+    """Isolate tests from the real DB-backed shared cache registry."""
+    with patch("src.agent.context_cache._get_db") as mock_get_db:
+        mock_db = MagicMock()
+        mock_db.get_context_cache_entry.return_value = None
+        mock_get_db.return_value = mock_db
+        yield mock_db
+
 
 # ============ CacheProfile Tests ============
 
@@ -346,6 +366,173 @@ class TestContextCacheManager:
 
         assert not errors
         assert all(r == "cachedContents/thread-safe" for r in results)
+
+
+# ============ Cross-Worker Shared Registry Tests ============
+
+
+class TestSharedCacheRegistry:
+    """The DB-backed registry shares one Gemini cache across gunicorn workers."""
+
+    def _make_mock_tool(self, name: str = "test_tool") -> MagicMock:
+        tool = MagicMock()
+        tool.name = name
+        return tool
+
+    @patch("src.agent.context_cache.Config")
+    def test_adopts_cache_created_by_another_worker(
+        self, mock_config: MagicMock, mock_shared_registry: MagicMock
+    ) -> None:
+        """A valid DB entry from another worker is reused without creating."""
+        mock_config.GEMINI_API_KEY = "test-key"
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+
+        content_hash = _compute_content_hash("static prompt", ["test_tool"])
+        mock_shared_registry.get_context_cache_entry.return_value = {
+            "cache_name": "cachedContents/other-worker",
+            "content_hash": content_hash,
+            "created_at": time.time(),
+            "expires_at": time.time() + 3600,
+        }
+
+        manager = ContextCacheManager()
+        with (
+            patch.object(manager, "_create_cache") as mock_create,
+            patch(
+                "src.agent.context_cache.get_static_prompt_for_profile",
+                return_value="static prompt",
+            ),
+        ):
+            result = manager.get_or_create(
+                CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
+            )
+
+        assert result == "cachedContents/other-worker"
+        mock_create.assert_not_called()
+
+    @patch("src.agent.context_cache.Config")
+    def test_stale_hash_in_registry_triggers_creation(
+        self, mock_config: MagicMock, mock_shared_registry: MagicMock
+    ) -> None:
+        """A DB entry for an older prompt/tool set must not be adopted."""
+        mock_config.GEMINI_API_KEY = "test-key"
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+
+        mock_shared_registry.get_context_cache_entry.return_value = {
+            "cache_name": "cachedContents/stale",
+            "content_hash": "different-hash",
+            "created_at": time.time(),
+            "expires_at": time.time() + 3600,
+        }
+
+        manager = ContextCacheManager()
+        with (
+            patch.object(manager, "_create_cache", return_value="cachedContents/fresh"),
+            patch(
+                "src.agent.context_cache.get_static_prompt_for_profile",
+                return_value="static prompt",
+            ),
+        ):
+            result = manager.get_or_create(
+                CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
+            )
+
+        assert result == "cachedContents/fresh"
+
+    @patch("src.agent.context_cache.Config")
+    def test_created_cache_is_published_to_registry(
+        self, mock_config: MagicMock, mock_shared_registry: MagicMock
+    ) -> None:
+        """A newly created cache is stored in the DB for other workers."""
+        mock_config.GEMINI_API_KEY = "test-key"
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+
+        manager = ContextCacheManager()
+        with (
+            patch.object(manager, "_create_cache", return_value="cachedContents/new"),
+            patch(
+                "src.agent.context_cache.get_static_prompt_for_profile",
+                return_value="static prompt",
+            ),
+        ):
+            result = manager.get_or_create(
+                CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
+            )
+
+        assert result == "cachedContents/new"
+        mock_shared_registry.store_context_cache_entry.assert_called_once()
+        args = mock_shared_registry.store_context_cache_entry.call_args.args
+        assert args[0] == "standard:gemini-3-flash-preview"
+        assert args[1] == "cachedContents/new"
+
+    @patch("src.agent.context_cache.Config")
+    def test_registry_failure_degrades_to_local_creation(
+        self, mock_config: MagicMock, mock_shared_registry: MagicMock
+    ) -> None:
+        """DB errors must not break caching - the worker creates its own."""
+        mock_config.GEMINI_API_KEY = "test-key"
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+
+        mock_shared_registry.get_context_cache_entry.side_effect = RuntimeError("db down")
+        mock_shared_registry.store_context_cache_entry.side_effect = RuntimeError("db down")
+
+        manager = ContextCacheManager()
+        with (
+            patch.object(manager, "_create_cache", return_value="cachedContents/local"),
+            patch(
+                "src.agent.context_cache.get_static_prompt_for_profile",
+                return_value="static prompt",
+            ),
+        ):
+            result = manager.get_or_create(
+                CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
+            )
+
+        assert result == "cachedContents/local"
+
+
+# ============ Context Cache DB Mixin Tests ============
+
+
+class TestContextCacheDbMixin:
+    """Tests for the context_cache table operations (real SQLite)."""
+
+    def test_store_and_get(self, test_database: Database) -> None:  # noqa: F821
+        now = time.time()
+        test_database.store_context_cache_entry(
+            "standard:gemini-x", "cachedContents/abc", "hash1", now, now + 3600
+        )
+        entry = test_database.get_context_cache_entry("standard:gemini-x")
+        assert entry is not None
+        assert entry["cache_name"] == "cachedContents/abc"
+        assert entry["content_hash"] == "hash1"
+
+    def test_get_missing_returns_none(self, test_database: Database) -> None:  # noqa: F821
+        assert test_database.get_context_cache_entry("nope:gemini-x") is None
+
+    def test_expired_entry_returns_none(self, test_database: Database) -> None:  # noqa: F821
+        now = time.time()
+        test_database.store_context_cache_entry(
+            "standard:gemini-x", "cachedContents/old", "hash1", now - 7200, now - 3600
+        )
+        assert test_database.get_context_cache_entry("standard:gemini-x") is None
+
+    def test_store_replaces_existing(self, test_database: Database) -> None:  # noqa: F821
+        now = time.time()
+        test_database.store_context_cache_entry(
+            "standard:gemini-x", "cachedContents/v1", "hash1", now, now + 3600
+        )
+        test_database.store_context_cache_entry(
+            "standard:gemini-x", "cachedContents/v2", "hash2", now, now + 3600
+        )
+        entry = test_database.get_context_cache_entry("standard:gemini-x")
+        assert entry is not None
+        assert entry["cache_name"] == "cachedContents/v2"
+        assert entry["content_hash"] == "hash2"
 
 
 # ============ _create_cache Tests ============

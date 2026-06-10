@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -226,6 +227,70 @@ class CacheMixin:
             conn.commit()
 
         logger.debug("Calendar cache cleared", extra={"user_id": user_id})
+
+    # ============================================================================
+    # Context Cache Operations (Gemini cached-content names, shared across workers)
+    # ============================================================================
+
+    def get_context_cache_entry(self, cache_key: str) -> dict[str, Any] | None:
+        """Get the shared Gemini context-cache entry for a key, if not expired.
+
+        Args:
+            cache_key: The cache key ("profile:model")
+
+        Returns:
+            Dict with cache_name, content_hash, created_at, expires_at
+            (epoch floats), or None if absent or expired
+        """
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """
+                SELECT cache_name, content_hash, created_at, expires_at
+                FROM context_cache
+                WHERE cache_key = ?
+                """,
+                (cache_key,),
+            ).fetchone()
+
+            if not row or row["expires_at"] <= time.time():
+                return None
+
+            return {
+                "cache_name": row["cache_name"],
+                "content_hash": row["content_hash"],
+                "created_at": row["created_at"],
+                "expires_at": row["expires_at"],
+            }
+
+    def store_context_cache_entry(
+        self,
+        cache_key: str,
+        cache_name: str,
+        content_hash: str,
+        created_at: float,
+        expires_at: float,
+    ) -> None:
+        """Store/replace the shared Gemini context-cache entry for a key.
+
+        Args:
+            cache_key: The cache key ("profile:model")
+            cache_name: The Gemini cached-content resource name
+            content_hash: Hash of the cached prompt + tool set
+            created_at: Creation time (epoch seconds)
+            expires_at: Expiry time (epoch seconds)
+        """
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """
+                INSERT OR REPLACE INTO context_cache
+                (cache_key, cache_name, content_hash, created_at, expires_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (cache_key, cache_name, content_hash, created_at, expires_at),
+            )
+            conn.commit()
 
     # ============================================================================
     # Weather Cache Operations

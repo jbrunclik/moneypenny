@@ -53,12 +53,26 @@ def _compute_content_hash(prompt: str, tool_names: list[str]) -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
+def _get_db() -> Any:
+    """Indirection for the DB singleton (lazy import, patchable in tests)."""
+    from src.db.models import db
+
+    return db
+
+
 class ContextCacheManager:
     """Manages Gemini context caches for different profiles.
 
     Thread-safe singleton that lazily creates caches on first request.
     Content-addressed via hash: prompt/tool changes trigger new cache creation.
     Old caches expire naturally via TTL.
+
+    Created cache names are also persisted in the context_cache DB table so
+    the gunicorn workers share one Gemini cache per (profile, model) instead
+    of each creating (and paying storage for) its own copy. The in-process
+    dict stays as a fast layer in front of the DB lookup. Two workers racing
+    on a cold start may still both create a cache - the loser's copy is never
+    reused and expires via TTL.
     """
 
     def __init__(self) -> None:
@@ -100,36 +114,81 @@ class ContextCacheManager:
             with self._lock:
                 entry = self._caches.get(cache_key)
                 now = time.time()
+                buffer = Config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS
 
                 # Check if existing cache is valid and not expiring soon
-                if entry and entry.content_hash == content_hash:
-                    buffer = Config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS
-                    if entry.expires_at > now + buffer:
-                        logger.debug(
-                            "Context cache hit",
-                            extra={
-                                "cache_key": cache_key,
-                                "expires_in": int(entry.expires_at - now),
-                            },
-                        )
-                        return entry.cache_name
+                if entry and entry.content_hash == content_hash and entry.expires_at > now + buffer:
+                    logger.debug(
+                        "Context cache hit",
+                        extra={
+                            "cache_key": cache_key,
+                            "expires_in": int(entry.expires_at - now),
+                        },
+                    )
+                    return entry.cache_name
+
+                # Another worker may already have created this cache
+                shared = self._load_shared_entry(cache_key, content_hash, now + buffer)
+                if shared:
+                    self._caches[cache_key] = shared
+                    logger.info(
+                        "Context cache adopted from another worker",
+                        extra={"cache_key": cache_key, "cache_name": shared.cache_name},
+                    )
+                    return shared.cache_name
 
                 # Need to create a new cache
                 cache_name = self._create_cache(profile, model_name, prompt, tools)
                 if cache_name:
                     ttl = Config.CONTEXT_CACHE_TTL_SECONDS
-                    self._caches[cache_key] = CacheEntry(
+                    new_entry = CacheEntry(
                         cache_name=cache_name,
                         content_hash=content_hash,
                         created_at=now,
                         expires_at=now + ttl,
                     )
+                    self._caches[cache_key] = new_entry
+                    self._store_shared_entry(cache_key, new_entry)
                     return cache_name
 
                 return None
         except Exception:
             logger.warning("Context cache get_or_create failed", exc_info=True)
             return None
+
+    def _load_shared_entry(
+        self, cache_key: str, content_hash: str, min_expires_at: float
+    ) -> CacheEntry | None:
+        """Look up a cache created by another worker in the shared DB registry.
+
+        DB failures degrade to None (this worker creates its own cache).
+        """
+        try:
+            data = _get_db().get_context_cache_entry(cache_key)
+        except Exception:
+            logger.debug("Shared context-cache lookup failed", exc_info=True)
+            return None
+        if not data or data["content_hash"] != content_hash or data["expires_at"] <= min_expires_at:
+            return None
+        return CacheEntry(
+            cache_name=data["cache_name"],
+            content_hash=data["content_hash"],
+            created_at=data["created_at"],
+            expires_at=data["expires_at"],
+        )
+
+    def _store_shared_entry(self, cache_key: str, entry: CacheEntry) -> None:
+        """Publish a created cache to the shared DB registry (best effort)."""
+        try:
+            _get_db().store_context_cache_entry(
+                cache_key,
+                entry.cache_name,
+                entry.content_hash,
+                entry.created_at,
+                entry.expires_at,
+            )
+        except Exception:
+            logger.debug("Shared context-cache store failed", exc_info=True)
 
     def _create_cache(
         self,
