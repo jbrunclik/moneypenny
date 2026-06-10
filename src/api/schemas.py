@@ -11,6 +11,7 @@ validates the structure.
 
 from __future__ import annotations
 
+import re
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -172,6 +173,20 @@ class ChatRequest(BaseModel):
     files: list[FileAttachment] = Field(default_factory=list)
     force_tools: list[str] = Field(default_factory=list)
     anonymous_mode: bool = Field(default=False)
+
+    @field_validator("force_tools")
+    @classmethod
+    def validate_force_tools(cls, v: list[str]) -> list[str]:
+        """Restrict to plain tool identifiers.
+
+        Items are interpolated verbatim into the LLM system prompt
+        (get_force_tools_prompt), so anything beyond an identifier is a
+        prompt-injection vector.
+        """
+        for name in v:
+            if not re.fullmatch(r"[a-z0-9_]{1,64}", name):
+                raise ValueError(f"Invalid tool name: {name!r}")
+        return v
 
     @field_validator("files")
     @classmethod
