@@ -7,7 +7,7 @@ batch (complete response) and streaming (SSE) modes.
 import uuid
 
 from apiflask import APIBlueprint
-from flask import Response
+from flask import Response, request
 
 from src.agent.agent import ChatAgent, generate_title
 from src.agent.content import (
@@ -650,6 +650,54 @@ def chat_stream(
 
     return Response(
         generator,
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
+
+
+@api.route("/conversations/<conv_id>/chat/stream/<message_id>/resume", methods=["GET"])
+@api.doc(
+    summary="Resume an interrupted chat stream",
+    description="""Resume a chat stream from the event journal after a connection loss.
+
+Pass `after_seq` (the `seq` of the last SSE event the client rendered; 0 for
+none). The server replays journaled events with a higher seq, continues live
+while generation is still running, and finishes with a `done` event built
+from the saved message. Emits `{"type": "error", "code": "RESUME_FAILED"}`
+when the turn failed and nothing was saved.
+""",
+    responses=[404],
+)
+@rate_limit_chat
+@require_auth
+def chat_stream_resume(user: User, conv_id: str, message_id: str) -> Response:
+    """Resume streaming for an in-flight or recently finished assistant message."""
+    from src.api.helpers.chat_streaming import stream_resume_events
+
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        raise_not_found_error("Conversation")
+
+    msg = db.get_message_by_id(message_id)
+    if not msg or msg.conversation_id != conv_id:
+        raise_not_found_error("Message")
+
+    after_seq = request.args.get("after_seq", default=0, type=int)
+    logger.info(
+        "Resuming chat stream",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "message_id": message_id,
+            "after_seq": after_seq,
+        },
+    )
+
+    return Response(
+        stream_resume_events(message_id, after_seq),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

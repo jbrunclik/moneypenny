@@ -721,6 +721,44 @@ export const chat = {
       throw new ApiError(errorMsg, response.status);
     }
 
+    yield* readSseEvents(response, conversationId);
+  },
+
+  /**
+   * Resume an interrupted chat stream from the server-side event journal.
+   * Replays events with seq > afterSeq, continues live, ends with done.
+   */
+  async *resumeStream(
+    conversationId: string,
+    messageId: string,
+    afterSeq: number,
+    abortController?: AbortController
+  ): AsyncGenerator<StreamEvent> {
+    log.info('Resuming stream', { conversationId, messageId, afterSeq });
+    const token = getToken();
+    const controller = abortController || new AbortController();
+
+    const response = await fetch(
+      `/api/conversations/${conversationId}/chat/stream/${messageId}/resume?after_seq=${afterSeq}`,
+      {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: controller.signal,
+      }
+    );
+
+    if (!response.ok) {
+      throw new ApiError(`Resume failed (${response.status})`, response.status);
+    }
+
+    yield* readSseEvents(response, conversationId);
+  },
+};
+
+async function* readSseEvents(
+  response: Response,
+  conversationId: string
+): AsyncGenerator<StreamEvent> {
     const maybeReader = response.body?.getReader();
     if (!maybeReader) {
       throw new Error('No response body');
@@ -815,8 +853,7 @@ export const chat = {
       }
       throw error;
     }
-  },
-};
+}
 
 // Models endpoint
 export const models = {

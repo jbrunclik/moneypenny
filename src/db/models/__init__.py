@@ -51,6 +51,7 @@ from src.db.models.planner import PlannerMixin
 from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
 from src.db.models.sports import SportsTrackingMixin
+from src.db.models.stream_journal import StreamJournalMixin
 from src.db.models.user import UserMixin
 
 
@@ -69,6 +70,7 @@ class Database(
     KVStoreMixin,
     SportsTrackingMixin,
     LanguageLearningMixin,
+    StreamJournalMixin,
 ):
     """Main database class combining all mixins.
 

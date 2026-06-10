@@ -135,13 +135,13 @@ def _close_thread_db_connections() -> None:
     try:
         db._pool.close_thread_connection()
     except Exception:
-        pass
+        logger.debug("Closing thread-local db connection failed", exc_info=True)
     try:
         from src.db.blob_store import get_blob_store
 
         get_blob_store()._pool.close_thread_connection()
     except Exception:
-        pass
+        logger.debug("Closing thread-local blob connection failed", exc_info=True)
 
 
 class SaveResult:
@@ -377,6 +377,67 @@ def save_message_to_db(
         return None
 
 
+_JOURNALED_EVENT_TYPES = {
+    "token",
+    "thinking",
+    "tool_start",
+    "tool_end",
+    "approval_required",
+    "timeout",
+}
+
+
+class _StreamJournal:
+    """Batched journal of stream events, keyed by assistant message id.
+
+    Enables resume-after-disconnect: the producer journals every client-facing
+    event with a monotonic seq; the resume endpoint replays rows after the
+    client's last seen seq and continues live. Persistence is best-effort -
+    journal failures never break the live stream.
+    """
+
+    def __init__(self, message_id: str) -> None:
+        self.message_id = message_id
+        self._seq = 0
+        self._buffer: list[tuple[int, str]] = []
+        self._last_flush = time.monotonic()
+        try:
+            db.journal_cleanup(Config.STREAM_JOURNAL_TTL_SECONDS)
+        except Exception:
+            logger.debug("Stream journal cleanup failed", exc_info=True)
+
+    def record(self, event: dict[str, Any]) -> None:
+        """Assign a seq to the event, buffer it, flush opportunistically."""
+        self._seq += 1
+        event["seq"] = self._seq
+        try:
+            serialized = json.dumps(event)
+        except (TypeError, ValueError):
+            serialized = json.dumps({"type": event.get("type", "unknown"), "seq": self._seq})
+        self._buffer.append((self._seq, serialized))
+        if (
+            len(self._buffer) >= Config.STREAM_JOURNAL_FLUSH_EVENTS
+            or time.monotonic() - self._last_flush >= Config.STREAM_JOURNAL_FLUSH_INTERVAL_SECONDS
+        ):
+            self.flush()
+
+    def flush(self) -> None:
+        buffer, self._buffer = self._buffer, []
+        self._last_flush = time.monotonic()
+        if not buffer:
+            return
+        try:
+            db.journal_append_events(self.message_id, buffer)
+        except Exception:
+            logger.debug("Stream journal flush failed", exc_info=True)
+
+    def finish(self) -> None:
+        """Mark the stream as over (resume endpoint stops tailing on this)."""
+        self._seq += 1
+        self._buffer.append((self._seq, json.dumps({"type": "stream_end", "seq": self._seq})))
+        self.flush()
+
+
 def stream_events(
     agent: ChatAgent,
     event_queue: queue.Queue[dict[str, Any] | None | Exception],
@@ -397,6 +458,7 @@ def stream_events(
     sports_context: dict[str, Any] | None = None,
     is_language: bool = False,
     language_context: dict[str, Any] | None = None,
+    journal_message_id: str | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -415,7 +477,12 @@ def stream_events(
         dashboard_data: Optional planner dashboard data
         conv_id: Conversation ID (for logging)
         stream_request_id: Stream request ID (for context)
+        journal_message_id: Assistant message id for the resumable-stream
+            journal (None disables journaling)
     """
+    journal: _StreamJournal | None = None
+    if journal_message_id and Config.STREAM_JOURNAL_ENABLED:
+        journal = _StreamJournal(journal_message_id)
     # Copy context from parent thread so contextvars are accessible
     set_current_request_id(stream_request_id)
     set_current_message_files(files if files else None)
@@ -461,6 +528,8 @@ def stream_events(
                     final_results["tool_results"] = event.get("tool_results", [])
                     final_results["usage_info"] = event.get("usage_info", {})
                     final_results["ready"] = True
+                if journal and event.get("type") in _JOURNALED_EVENT_TYPES:
+                    journal.record(event)
                 event_queue.put(event)
                 if not final_results["ready"] and time.monotonic() > deadline:
                     timed_out = True
@@ -480,7 +549,10 @@ def stream_events(
             gen.close()
 
         if timed_out:
-            event_queue.put({"type": "timeout"})
+            timeout_event: dict[str, Any] = {"type": "timeout"}
+            if journal:
+                journal.record(timeout_event)
+            event_queue.put(timeout_event)
 
         logger.debug(
             "Stream thread completed",
@@ -503,14 +575,15 @@ def stream_events(
                 "description": e.description,
             },
         )
-        event_queue.put(
-            {
-                "type": "approval_required",
-                "approval_id": e.approval_id,
-                "description": e.description,
-                "tool_name": e.tool_name,
-            }
-        )
+        approval_event: dict[str, Any] = {
+            "type": "approval_required",
+            "approval_id": e.approval_id,
+            "description": e.description,
+            "tool_name": e.tool_name,
+        }
+        if journal:
+            journal.record(approval_event)
+        event_queue.put(approval_event)
         # Approval is terminal for this stream: signal completion so the
         # consumer finalizes promptly instead of sending keepalives until the
         # backstop deadline (~CHAT_TIMEOUT later) and emitting a bogus timeout.
@@ -523,6 +596,8 @@ def stream_events(
         )
         event_queue.put(e)  # Signal error
     finally:
+        if journal:
+            journal.finish()
         # Close thread-local DB connections so the pool doesn't leak them
         _close_thread_db_connections()
 
@@ -618,6 +693,82 @@ def cleanup_and_save(
         _close_thread_db_connections()
 
 
+def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
+    """Resume an interrupted chat stream from the event journal.
+
+    Replays journaled events with seq > after_seq, then tails the journal
+    until the producer's stream_end marker. After stream_end, waits for the
+    saved message (the save happens in the consumer/cleanup thread shortly
+    after the producer finishes) and emits a done event built from it.
+
+    Works cross-worker: the journal is DB-backed, so the resume request may
+    land on a different gunicorn worker than the one still generating.
+    """
+    deadline = time.monotonic() + Config.CHAT_TIMEOUT
+    last_keepalive = time.monotonic()
+    stream_ended = False
+    save_grace_deadline: float | None = None
+
+    def _done_event_from_message(msg: Any) -> dict[str, Any]:
+        done: dict[str, Any] = {
+            "type": "done",
+            "id": msg.id,
+            "created_at": msg.created_at.isoformat(),
+            "content": msg.content or "",
+        }
+        if msg.files:
+            done["files"] = msg.files
+        if msg.sources:
+            done["sources"] = msg.sources
+        if msg.generated_images:
+            done["generated_images"] = msg.generated_images
+        if msg.language:
+            done["language"] = msg.language
+        return done
+
+    while time.monotonic() < deadline:
+        events = db.journal_get_events(message_id, after_seq)
+        for seq, event_json in events:
+            after_seq = seq
+            try:
+                parsed = json.loads(event_json)
+            except ValueError:
+                continue
+            if parsed.get("type") == "stream_end":
+                stream_ended = True
+                continue
+            yield f"data: {event_json}\n\n"
+
+        # A saved message (non-empty placeholder) means the turn is complete -
+        # this also covers resume-after-completion when the journal was swept
+        msg = db.get_message_by_id(message_id)
+        if msg and (msg.content or msg.files):
+            yield f"data: {json.dumps(_done_event_from_message(msg))}\n\n"
+            return
+
+        if stream_ended:
+            if save_grace_deadline is None:
+                save_grace_deadline = time.monotonic() + Config.STREAM_RESUME_SAVE_GRACE_SECONDS
+            if msg is None or time.monotonic() > save_grace_deadline:
+                # Placeholder deleted (failed turn) or the save never landed
+                error_data = {
+                    "type": "error",
+                    "code": "RESUME_FAILED",
+                    "message": "The response could not be recovered.",
+                    "retryable": False,
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                return
+
+        if not events:
+            time.sleep(0.4)
+            if time.monotonic() - last_keepalive >= Config.SSE_KEEPALIVE_INTERVAL:
+                yield ": keepalive\n\n"
+                last_keepalive = time.monotonic()
+
+    yield f"data: {json.dumps({'type': 'timeout'})}\n\n"
+
+
 # ============================================================================
 # Stream Generator Creation
 # ============================================================================
@@ -708,7 +859,11 @@ def create_stream_generator(
                 try:
                     db.delete_message_by_id(context.expected_assistant_msg_id)
                 except Exception:
-                    pass
+                    logger.warning(
+                        "Failed to delete unused placeholder message",
+                        extra={"message_id": context.expected_assistant_msg_id},
+                        exc_info=True,
+                    )
             # Signal that generator is done with its save attempt
             # This allows cleanup thread to proceed (or skip if we already saved)
             context.generator_done_event.set()
@@ -942,6 +1097,7 @@ class _StreamContext:
                 self.conv.is_language,
                 self.language_context,
             ),
+            kwargs={"journal_message_id": self.expected_assistant_msg_id},
             daemon=False,
         )
         self.stream_thread.start()

@@ -450,6 +450,8 @@ interface StreamingState {
   uploadProgressHidden: boolean;
   /** Pre-generated assistant message ID from server, used for stream recovery */
   expectedAssistantMessageId: string | null;
+  /** Highest journal seq rendered so far (resume offset for resumable streams) */
+  lastSeq: number;
   /** Count of token events received (for debugging) */
   tokenCount?: number;
 }
@@ -508,6 +510,7 @@ function initStreamingRequest(
     messageSuccessful: false,
     uploadProgressHidden: false,
     expectedAssistantMessageId: null,
+    lastSeq: 0,
   };
 
   return { state, requestId, abortController };
@@ -752,10 +755,72 @@ function handleStreamError(
  * This can happen if the connection drops mid-stream but the server still saves the message.
  * Uses the stream recovery module which handles retries for race conditions.
  */
+async function tryResumeStream(
+  state: StreamingState,
+  convId: string,
+  tempUserMessageId: string
+): Promise<boolean> {
+  if (!state.expectedAssistantMessageId) return false;
+  const messageId = state.expectedAssistantMessageId;
+  const MAX_RESUME_ATTEMPTS = 3;
+
+  for (let attempt = 0; attempt < MAX_RESUME_ATTEMPTS; attempt++) {
+    try {
+      log.info('Attempting stream resume', {
+        conversationId: convId,
+        messageId,
+        afterSeq: state.lastSeq,
+        attempt,
+      });
+      for await (const event of chat.resumeStream(convId, messageId, state.lastSeq)) {
+        if (typeof event.seq === 'number') {
+          state.lastSeq = event.seq;
+        }
+        if (event.type === 'done') {
+          await handleStreamDone(
+            event as Parameters<typeof handleStreamDone>[0],
+            state,
+            convId,
+            tempUserMessageId
+          );
+          return true;
+        }
+        if (event.type === 'error') {
+          if (event.code === 'RESUME_FAILED') {
+            // Turn failed server-side and nothing was saved - not retryable
+            return false;
+          }
+          throw new Error(event.message);
+        }
+        if (event.type === 'timeout') {
+          continue;
+        }
+        const result = processStreamEvent(event, state, convId, tempUserMessageId);
+        if (result.error) {
+          throw result.error;
+        }
+      }
+      // Stream ended without done - retry (the save may still be in flight)
+    } catch (error) {
+      // 404 = no journal for this message (expired, or server without the
+      // endpoint) - fall back to poll-based recovery immediately
+      if (error instanceof ApiError && error.status === 404) {
+        log.info('Resume endpoint has no journal, falling back', { conversationId: convId });
+        return false;
+      }
+      log.warn('Stream resume attempt failed', { error, conversationId: convId, attempt });
+    }
+    if (attempt < MAX_RESUME_ATTEMPTS - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  return false;
+}
+
 async function handleMissingDoneEvent(
   state: StreamingState,
   convId: string,
-  _tempUserMessageId: string
+  tempUserMessageId: string
 ): Promise<void> {
   const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
   if (!isCurrentConversation) {
@@ -777,7 +842,14 @@ async function handleMissingDoneEvent(
     return;
   }
 
-  // Use the recovery module which handles retries for race conditions
+  // Resume from the journal first: replays missed events and continues live
+  const resumed = await tryResumeStream(state, convId, tempUserMessageId);
+  if (resumed) {
+    state.messageSuccessful = true;
+    return;
+  }
+
+  // Fall back to the poll-based recovery module (handles journal-expired cases)
   markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'network');
   const recovered = await attemptRecovery(convId);
 
@@ -967,9 +1039,22 @@ async function sendStreamingMessage(
         state.uploadProgressHidden = true;
       }
 
+      // Track the journal seq so an interrupted stream can resume from offset
+      if (typeof event.seq === 'number') {
+        state.lastSeq = event.seq;
+      }
+
       // Handle done event specially (async)
       if (event.type === 'done') {
         await handleStreamDone(event as Parameters<typeof handleStreamDone>[0], state, convId, tempUserMessageId);
+        continue;
+      }
+
+      // Server-side CHAT_TIMEOUT: partial content was saved; let the loop
+      // drain and the missing-done path recover the saved message
+      if (event.type === 'timeout') {
+        log.warn('Stream timed out server-side', { conversationId: convId });
+        toast.warning('Response timed out. Recovering saved content...');
         continue;
       }
 
@@ -1001,15 +1086,24 @@ async function sendStreamingMessage(
 
     log.error('Streaming failed', { error, conversationId: convId });
 
-    // Attempt recovery for network/timeout errors if we have an expected message ID
+    // Attempt resume/recovery for network/timeout errors if we have an expected message ID
     if (state.expectedAssistantMessageId) {
+      // Resume from the journal first: replays missed events and continues live
+      const resumed = await tryResumeStream(state, convId, tempUserMessageId);
+      if (resumed) {
+        state.messageSuccessful = true;
+        return;
+      }
+
       const reason = (error instanceof ApiError && error.isTimeout) ? 'timeout' : 'network';
       markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, reason);
 
       // Attempt recovery immediately for non-visibility errors
       const recovered = await attemptRecovery(convId);
       if (recovered) {
-        // Recovery succeeded - don't show error or throw
+        // Recovery succeeded - don't show error or throw (messageSuccessful
+        // keeps the local message count in sync - R11)
+        state.messageSuccessful = true;
         return;
       }
     }

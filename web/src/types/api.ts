@@ -139,17 +139,19 @@ export interface ToolMetadata {
   icon: string; // Icon key (search, link, sparkles, code, checklist)
 }
 
-export type StreamEvent =
+export type StreamEvent = (
   | { type: 'token'; text: string }
   | { type: 'thinking'; text: string }
   | { type: 'tool_start'; tool: string; detail?: string; metadata?: ToolMetadata }
   | { type: 'tool_detail'; tool: string; detail: string }
   | { type: 'tool_end'; tool: string }
   | { type: 'user_message_saved'; user_message_id: string } // Sent early so lightbox works during streaming
+  | { type: 'timeout'; message?: string } // Server-side CHAT_TIMEOUT hit; partial content saved
   | {
       type: 'done';
       id: string;
       created_at: string;
+      content?: string; // Full content (resume path / recovery if token events were lost)
       sources?: Source[];
       generated_images?: GeneratedImage[];
       files?: FileMetadata[];
@@ -157,7 +159,11 @@ export type StreamEvent =
       title?: string;
       user_message_id?: string; // Real ID of the user message (kept for backwards compatibility)
     }
-  | { type: 'error'; message: string; code?: string; retryable?: boolean };
+  | { type: 'error'; message: string; code?: string; retryable?: boolean }
+) & {
+  /** Journal sequence number for resumable streams (resume with after_seq) */
+  seq?: number;
+};
 
 // =============================================================================
 // UI State types (frontend-only)

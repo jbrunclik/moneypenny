@@ -69,6 +69,18 @@ class Config:
         os.getenv("GOOGLE_AUTH_TIMEOUT", "10")
     )  # 10 seconds for Google token verification
 
+    # Stream journal (resumable streams): producer journals SSE events per
+    # assistant-message-id so disconnected clients resume from an offset
+    STREAM_JOURNAL_ENABLED: bool = os.getenv("STREAM_JOURNAL_ENABLED", "true").lower() == "true"
+    STREAM_JOURNAL_TTL_SECONDS: int = int(os.getenv("STREAM_JOURNAL_TTL_SECONDS", "3600"))
+    STREAM_JOURNAL_FLUSH_EVENTS: int = int(os.getenv("STREAM_JOURNAL_FLUSH_EVENTS", "20"))
+    STREAM_JOURNAL_FLUSH_INTERVAL_SECONDS: float = float(
+        os.getenv("STREAM_JOURNAL_FLUSH_INTERVAL_SECONDS", "0.3")
+    )
+    # How long the resume endpoint waits for the saved message after the
+    # producer finishes (save happens in the consumer/cleanup thread)
+    STREAM_RESUME_SAVE_GRACE_SECONDS: int = int(os.getenv("STREAM_RESUME_SAVE_GRACE_SECONDS", "30"))
+
     # Streaming cleanup thread timeouts
     STREAM_CLEANUP_THREAD_TIMEOUT: int = int(
         os.getenv("STREAM_CLEANUP_THREAD_TIMEOUT", "600")
