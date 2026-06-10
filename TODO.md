@@ -5,6 +5,10 @@ Audit-tagged items (S/A/C/X/F/Q/T) come from the June 2026 read-only codebase au
 
 ## Features
 
+- [ ] **Gmail integration** - Read-only inbox triage via OAuth (reuse the Calendar OAuth plumbing pattern): summarize what needs a reply, surface invoices/receipts, feed inbox highlights into briefings/agents. Biggest missing data source for a personal assistant.
+- [ ] **Web Push notifications** - PWA already exists; add Web Push as the primary notification rail for agent results, approval-request nudges, briefing-ready alerts, and unread messages. Replaces most WhatsApp Cloud API friction (templates, 24h window, billing, 4096-char limit); keep WhatsApp as fallback channel.
+- [ ] **Daily Briefing (first-class)** - Built-in morning briefing combining planner data (schedule + overdue tasks), Garmin readiness/sleep, and AI recommendations, delivered via push on a schedule. Evening variant for review/plan-tomorrow. All ingredients exist (planner, Garmin, cron agents, proactive analysis) — productize the assembly. Depends on: Web Push.
+- [ ] **Personal knowledge base** - Persistent user documents (contracts, manuals, notes) searchable by the AI across all conversations — file uploads are currently per-message only. SQLite FTS5 over extracted text is enough at personal scale; no vector DB needed initially.
 - [ ] **Thinking mode toggle** - Allow enabling Gemini thinking mode with configurable level (minimal/low/medium/high) using long-press UI similar to voice input language selector
 - [ ] **Conversation sharing** - Public links for sharing conversations
 - [ ] **Keyboard shortcuts** - Add keyboard shortcuts for common actions
@@ -16,12 +20,19 @@ Audit-tagged items (S/A/C/X/F/Q/T) come from the June 2026 read-only codebase au
 ## Autonomous Agents
 
 - [ ] **Multi-step workflows** - Allow agents to run multi-step workflows
+- [ ] **User-facing agent observability** - "What did my agents do this week and what did it cost" view in the Command Center. Cost tracking exists per conversation; agents are where spend can silently grow.
 - [ ] **Bound agent-trigger depth (S5)** - Low. Cycles ARE blocked (`trigger_agent.py:55` checks the whole chain), but chain depth for distinct agents is unbounded (self-inflicted cost only). Add a `MAX_TRIGGER_DEPTH` guard for defense-in-depth.
 
 ## Planner Dashboard
 
 - [ ] **Two-column layout** - Desktop two-column layout (events left, tasks right), task completion via Todoist API, open-in-Calendar links
 - [ ] **Summary + timeline** - AI-generated daily summary strip, timeline view with hour markers, quick-add task from dashboard
+- [ ] **AI time-blocking** - One-click "schedule my P1/P2 tasks into today's free calendar slots" action composing the existing Todoist + Calendar tools. Turns the planner from a viewer into the place you run your day.
+
+## Programs (Sports / Language / future)
+
+- [ ] **Spaced repetition for language learning** - SRS review queue over vocabulary the AI logged as weak (kv_store), resurfaced on a decay schedule, reusing the existing quiz block infra; daily "5-minute review" nudge via agent. Converts the tutor from session-based to retention-based.
+- [ ] **Health/recovery coach program** - Third program type (recovery, sleep, general wellness; optionally nutrition logging via photo + multimodal) built on Garmin data. **Prerequisite: the Q2 sports/language program dedup refactor must land first** to avoid a third copy of the same CRUD.
 
 ## Security
 
