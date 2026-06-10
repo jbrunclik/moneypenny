@@ -170,12 +170,11 @@ class PlannerMixin:
                 conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
             ).fetchall()
 
-            # Delete all blobs for these messages
             message_ids = [r["id"] for r in message_rows]
-            if message_ids:
-                delete_messages_blobs(message_ids)
 
-            # Delete messages (costs are preserved for accuracy)
+            # Delete messages (costs are preserved for accuracy); blob
+            # cleanup happens after the commit so a crash leaves only
+            # harmless orphaned blobs, not rows pointing at deleted data
             self._execute_with_timing(
                 conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
             )
@@ -196,6 +195,9 @@ class PlannerMixin:
             )
 
             conn.commit()
+
+            if message_ids:
+                delete_messages_blobs(message_ids)
 
             logger.info(
                 "Planner conversation reset",

@@ -575,26 +575,36 @@ class ConversationMixin:
             # Note: We intentionally keep message_costs even after conversation deletion
             # to preserve accurate cost reporting (the money was already spent)
 
-            # Get message IDs to delete associated blobs
+            # Verify ownership BEFORE touching messages (routes also check, but
+            # this method must not delete another user's messages on its own)
+            owned = self._execute_with_timing(
+                conn,
+                "SELECT 1 FROM conversations WHERE id = ? AND user_id = ?",
+                (conv_id, user_id),
+            ).fetchone()
+            if not owned:
+                return False
+
+            # Get message IDs for blob cleanup after the commit
             message_rows = self._execute_with_timing(
                 conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
             ).fetchall()
-
-            # Delete all blobs for these messages in a single query
             message_ids = [row["id"] for row in message_rows]
-            delete_messages_blobs(message_ids)
 
-            # Delete messages
+            # Delete rows FIRST and commit: a crash before blob cleanup then
+            # leaves only harmless orphaned blobs, not live rows pointing at
+            # deleted file data
             self._execute_with_timing(
                 conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
             )
-            # Delete conversation
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM conversations WHERE id = ? AND user_id = ?",
                 (conv_id, user_id),
             )
             conn.commit()
+
+            delete_messages_blobs(message_ids)
             return cursor.rowcount > 0
 
     def count_messages(self, conversation_id: str) -> int:

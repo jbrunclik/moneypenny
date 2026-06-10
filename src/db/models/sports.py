@@ -161,9 +161,9 @@ class SportsTrackingMixin:
             ).fetchall()
 
             message_ids = [r["id"] for r in message_rows]
-            if message_ids:
-                delete_messages_blobs(message_ids)
 
+            # Row deletes first; blob cleanup after commit (crash leaves only
+            # harmless orphaned blobs, not rows pointing at deleted data)
             self._execute_with_timing(
                 conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
             )
@@ -176,6 +176,9 @@ class SportsTrackingMixin:
             )
 
             conn.commit()
+
+            if message_ids:
+                delete_messages_blobs(message_ids)
 
             logger.info(
                 "Sports conversation reset",
@@ -237,9 +240,8 @@ class SportsTrackingMixin:
                 conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
             ).fetchall()
             message_ids = [r["id"] for r in message_rows]
-            if message_ids:
-                delete_messages_blobs(message_ids)
 
+            # Row deletes first; blob cleanup after commit
             self._execute_with_timing(
                 conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
             )
@@ -249,6 +251,9 @@ class SportsTrackingMixin:
                 (conv_id, user_id),
             )
             conn.commit()
+
+            if message_ids:
+                delete_messages_blobs(message_ids)
 
             logger.info(
                 "Sports conversation deleted",

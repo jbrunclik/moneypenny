@@ -498,13 +498,14 @@ class AgentMixin:
 
             conv_id = row["conversation_id"]
 
-            # Delete message blobs
+            # Collect message ids for blob cleanup AFTER the commit (a crash
+            # before blob cleanup leaves only harmless orphaned blobs)
+            message_ids: list[str] = []
             if conv_id:
                 message_rows = self._execute_with_timing(
                     conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
                 ).fetchall()
                 message_ids = [r["id"] for r in message_rows]
-                delete_messages_blobs(message_ids)
 
                 # Delete messages
                 self._execute_with_timing(
@@ -544,6 +545,9 @@ class AgentMixin:
                 )
 
             conn.commit()
+
+        if message_ids:
+            delete_messages_blobs(message_ids)
 
         logger.info("Agent deleted", extra={"agent_id": agent_id, "user_id": user_id})
         return True
@@ -1236,10 +1240,7 @@ class AgentMixin:
             if not delete_ids:
                 return 0
 
-            # Delete old message blobs
-            delete_messages_blobs(delete_ids)
-
-            # Delete old messages
+            # Delete old messages (blob cleanup happens after the commit)
             placeholders = ",".join("?" * len(delete_ids))
             self._execute_with_timing(
                 conn,
@@ -1255,7 +1256,8 @@ class AgentMixin:
                 earliest_kept = min(datetime.fromisoformat(row["created_at"]) for row in keep_rows)
                 summary_ts = earliest_kept - timedelta(microseconds=1)
             else:
-                summary_ts = utcnow_naive()
+                # LOCAL-naive: messages.created_at uses the local convention
+                summary_ts = datetime.now()
             summary_id = str(uuid.uuid4())
             self._execute_with_timing(
                 conn,
@@ -1270,6 +1272,10 @@ class AgentMixin:
             )
 
             conn.commit()
+
+            # Blob cleanup after the commit: a crash here leaves only
+            # harmless orphaned blobs, not live rows pointing at deleted data
+            delete_messages_blobs(delete_ids)
 
             logger.info(
                 "Agent conversation compacted",

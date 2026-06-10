@@ -77,16 +77,18 @@ class MessageMixin:
             if not row:
                 return False
 
-            # Delete associated blobs (files, thumbnails)
-            delete_message_blobs(message_id)
-
-            # Delete the message
+            # Delete the message row FIRST: a crash between the two deletes
+            # then leaves only a harmless orphaned blob, not a live row
+            # pointing at deleted file data (404 on file serve)
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM messages WHERE id = ?",
                 (message_id,),
             )
             conn.commit()
+
+            # Delete associated blobs (files, thumbnails)
+            delete_message_blobs(message_id)
             return cursor.rowcount > 0
 
     def add_message(
