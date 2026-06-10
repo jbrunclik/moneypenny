@@ -158,7 +158,7 @@ class _BrowserWorker:
         try:
             session.context.close()
         except Exception:
-            pass
+            logger.debug("Browser context close failed", exc_info=True)
 
     def _cleanup_all(self) -> None:
         for cid in list(self._sessions.keys()):
@@ -167,12 +167,12 @@ class _BrowserWorker:
             try:
                 self._browser.close()
             except Exception:
-                pass
+                logger.debug("Browser close failed", exc_info=True)
         if self._pw:
             try:
                 self._pw.stop()
             except Exception:
-                pass
+                logger.debug("Playwright stop failed", exc_info=True)
 
     def _take_screenshot(self, page: Any) -> dict[str, Any]:
         """Take screenshot and return raw base64 data + metadata."""
@@ -336,7 +336,7 @@ def _cleanup_loop() -> None:
                         extra={"count": result["cleaned"]},
                     )
             except Exception:
-                pass
+                logger.debug("Browser session cleanup pass failed", exc_info=True)
 
 
 def _start_cleanup_thread() -> None:

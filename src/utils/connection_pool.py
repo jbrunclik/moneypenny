@@ -190,7 +190,7 @@ class ConnectionPool:
             try:
                 conn.rollback()
             except sqlite3.Error:
-                pass
+                logger.debug("Rollback after error failed", exc_info=True)
             raise
 
     def close_thread_connection(self) -> None:
