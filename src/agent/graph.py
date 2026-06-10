@@ -433,6 +433,52 @@ def _handle_tool_errors(e: Exception) -> str:
     return f"Error: {e!r}\n Please fix your mistakes."
 
 
+def _split_blocked_tool_calls(
+    state: AgentState,
+    modules: dict[str, Any],
+    agent: Any,
+) -> tuple[list[ToolMessage], AgentState | None]:
+    """Split pending tool calls into blocked error responses and an executable state.
+
+    Returns (blocked_tool_messages, state_with_only_allowed_calls). The state
+    is None when every call was blocked (nothing left to execute), and the
+    original state when nothing was blocked.
+    """
+    last_message = state["messages"][-1]
+    if not (isinstance(last_message, AIMessage) and last_message.tool_calls):
+        return [], state
+
+    blocked: list[ToolMessage] = []
+    allowed: list[Any] = []
+    for tool_call in last_message.tool_calls:
+        tool_name = tool_call.get("name")
+        permission = (
+            modules["check_tool_permission"](agent, tool_name, tool_call.get("args", {}))
+            if tool_name
+            else modules["PermissionResult"].ALLOWED
+        )
+        if permission == modules["PermissionResult"].BLOCKED:
+            blocked.append(
+                ToolMessage(
+                    content=f"Tool '{tool_name}' is not permitted for this agent",
+                    tool_call_id=tool_call.get("id", ""),
+                    status="error",
+                )
+            )
+        else:
+            allowed.append(tool_call)
+
+    if not blocked:
+        return [], state
+    if not allowed:
+        return blocked, None
+
+    # Re-issue the AIMessage with only the allowed calls for the base ToolNode
+    pruned = AIMessage(content=last_message.content, tool_calls=allowed)
+    exec_state: AgentState = {**state, "messages": list(state["messages"][:-1]) + [pruned]}
+    return blocked, exec_state
+
+
 def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
     """Create a tool node that strips large data from results before sending to LLM.
 
@@ -458,42 +504,26 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
         # Get the current request ID from contextvar
         request_id = get_current_request_id()
 
-        # For autonomous agents, check if tools are blocked
+        # For autonomous agents, split blocked calls out of the batch. Every
+        # tool_call_id must get a ToolMessage (Gemini rejects the next turn on
+        # a call/response mismatch) and allowed siblings must still execute.
+        blocked_messages: list[ToolMessage] = []
+        exec_state: AgentState | None = state
         if is_autonomous:
             modules = _get_permission_modules()
             agent_context = modules["get_agent_context"]()
-
             if agent_context:
-                # Get the last message which contains tool calls
-                last_message = state["messages"][-1]
-                if isinstance(last_message, AIMessage) and last_message.tool_calls:
-                    for tool_call in last_message.tool_calls:
-                        tool_name = tool_call.get("name")
-                        tool_args = tool_call.get("args", {})
+                blocked_messages, exec_state = _split_blocked_tool_calls(
+                    state, modules, agent_context.agent
+                )
 
-                        if not tool_name:
-                            continue
-
-                        # Check permission
-                        permission = modules["check_tool_permission"](
-                            agent_context.agent,
-                            tool_name,
-                            tool_args,
-                        )
-
-                        if permission == modules["PermissionResult"].BLOCKED:
-                            # Return blocked message instead of executing
-                            return {
-                                "messages": [
-                                    ToolMessage(
-                                        content=f"Tool '{tool_name}' is not permitted for this agent",
-                                        tool_call_id=tool_call.get("id", ""),
-                                    )
-                                ]
-                            }
-
-        # Call the base ToolNode
-        result: dict[str, Any] = base_tool_node.invoke(state)
+        if exec_state is None:
+            # Every call was blocked - nothing to execute
+            result: dict[str, Any] = {"messages": blocked_messages}
+        else:
+            result = base_tool_node.invoke(exec_state)
+            if blocked_messages:
+                result["messages"] = blocked_messages + list(result.get("messages", []))
 
         # Capture full tool results BEFORE stripping, then strip for LLM
         if "messages" in result:

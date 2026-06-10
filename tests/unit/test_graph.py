@@ -677,3 +677,87 @@ class TestToolNodeApprovalPropagation:
         assert isinstance(last, ToolMessage)
         assert last.status == "error"
         assert "boom" in last.content
+
+
+# ============ Autonomous Permission Filtering Tests ============
+
+
+@tool
+def echo(text: str) -> str:
+    """Echo the input back."""
+    return f"echo: {text}"
+
+
+@tool
+def forbidden_tool(text: str) -> str:
+    """A tool the agent is not permitted to use."""
+    return "should never run"
+
+
+class TestToolNodePermissionFiltering:
+    """Blocked tool calls must not drop sibling calls in the same batch.
+
+    Every tool_call_id needs a ToolMessage response (Gemini rejects the next
+    turn on a call/response mismatch), and allowed calls in the same batch
+    must still execute.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _agent_context(self) -> Any:
+        """Install an autonomous-agent context permitting only `echo`."""
+        from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
+
+        agent = MagicMock()
+        agent.id = "agent-1"
+        agent.tool_permissions = ["echo"]
+        set_agent_context(AgentContext(agent=agent, user=MagicMock(), trigger_chain=[]))
+        yield
+        clear_agent_context()
+
+    def test_blocked_call_does_not_drop_allowed_sibling(self) -> None:
+        """One blocked + one allowed call → two ToolMessages, allowed executed."""
+        compiled = _compile_tool_graph([echo, forbidden_tool], is_autonomous=True)
+        state = _tool_call_state(
+            [
+                {"name": "forbidden_tool", "args": {"text": "x"}, "id": "c1"},
+                {"name": "echo", "args": {"text": "hello"}, "id": "c2"},
+            ]
+        )
+
+        result = compiled.invoke(state)
+        tool_messages = {
+            m.tool_call_id: m for m in result["messages"] if isinstance(m, ToolMessage)
+        }
+
+        assert set(tool_messages) == {"c1", "c2"}
+        assert "not permitted" in tool_messages["c1"].content
+        assert tool_messages["c1"].status == "error"
+        assert tool_messages["c2"].content == "echo: hello"
+
+    def test_all_calls_blocked_returns_response_per_call(self) -> None:
+        """Two blocked calls → two error ToolMessages, nothing executed."""
+        compiled = _compile_tool_graph([echo, forbidden_tool], is_autonomous=True)
+        state = _tool_call_state(
+            [
+                {"name": "forbidden_tool", "args": {"text": "x"}, "id": "c1"},
+                {"name": "forbidden_tool", "args": {"text": "y"}, "id": "c2"},
+            ]
+        )
+
+        result = compiled.invoke(state)
+        tool_messages = {
+            m.tool_call_id: m for m in result["messages"] if isinstance(m, ToolMessage)
+        }
+
+        assert set(tool_messages) == {"c1", "c2"}
+        assert all("not permitted" in m.content for m in tool_messages.values())
+
+    def test_all_allowed_executes_normally(self) -> None:
+        """No blocked calls → normal execution path."""
+        compiled = _compile_tool_graph([echo], is_autonomous=True)
+        state = _tool_call_state([{"name": "echo", "args": {"text": "hi"}, "id": "c1"}])
+
+        result = compiled.invoke(state)
+        last = result["messages"][-1]
+        assert isinstance(last, ToolMessage)
+        assert last.content == "echo: hi"
