@@ -519,13 +519,59 @@ class TestChatNodePlanInjection:
 
         # Plan should be cleared
         assert result.get("plan") == ""
-        # The injected plan message should be a HumanMessage with SYSTEM GUIDANCE markers
+        # The injected plan message should be a HumanMessage with SYSTEM GUIDANCE
+        # markers, appended at the TAIL: inserting mid-history would change the
+        # request prefix and bust Gemini's implicit caching of the history.
         assert len(invoked_messages) == 1
         msgs = invoked_messages[0]
-        plan_msg = msgs[1]  # Inserted at index 1
+        plan_msg = msgs[-1]
         assert isinstance(plan_msg, HumanMessage)
         assert "[SYSTEM GUIDANCE]" in plan_msg.content
         assert "[EXECUTION PLAN]" in plan_msg.content
+        # The original history order is untouched
+        assert msgs[0].content == "[CONTEXT]\ndate info\n[/CONTEXT]"
+        assert msgs[1].content == "Do complex task"
+
+
+# ============ plan_node Tool Awareness Tests ============
+
+
+class TestPlanNodeToolAwareness:
+    """plan_node must know the tool inventory.
+
+    In cached mode the system prompt (which lists tools) lives in the Gemini
+    cache, not in state, so without an explicit tool list the planner is asked
+    to plan tool usage while blind to which tools exist.
+    """
+
+    @patch("src.agent.graph.with_retry")
+    @patch("src.agent.graph.create_chat_model")
+    def test_planning_prompt_includes_tool_names(
+        self, mock_create_model: MagicMock, mock_retry: MagicMock
+    ) -> None:
+        from src.agent.graph import plan_node
+
+        mock_create_model.return_value = MagicMock()
+        captured: list[list] = []
+
+        def capture_invoke(msgs: list) -> AIMessage:
+            captured.append(msgs)
+            return AIMessage(content="1. Search\n2. Summarize")
+
+        mock_retry.return_value = capture_invoke
+
+        state: AgentState = {
+            "messages": [HumanMessage(content="Research X and summarize")],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        result = plan_node(state, "test-model", tool_names=["web_search", "fetch_url"])
+
+        assert result["plan"] == "1. Search\n2. Summarize"
+        system_msg = captured[0][0]
+        assert isinstance(system_msg, SystemMessage)
+        assert "web_search" in system_msg.content
+        assert "fetch_url" in system_msg.content
 
 
 # ============ Cached Model Creation Tests ============

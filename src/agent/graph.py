@@ -228,17 +228,27 @@ def should_plan(state: AgentState) -> Literal["plan", "chat"]:
         return "chat"
 
 
-def plan_node(state: AgentState, model_name: str) -> dict[str, str]:
+def plan_node(
+    state: AgentState, model_name: str, tool_names: list[str] | None = None
+) -> dict[str, str]:
     """Generate an execution plan for complex requests.
 
     Creates a separate model instance (no tools) to analyze the request
     and produce a concise plan. The plan is stored in state but not
     added to messages (invisible to the user).
+
+    The tool inventory is passed explicitly: in cached mode the system prompt
+    (which lists tools) lives in the Gemini cache, not in state, so without
+    this the planner would invent tool names.
     """
     planner = create_chat_model(model_name, with_tools=False, temperature=0.3)
 
+    planning_prompt = PLANNING_PROMPT
+    if tool_names:
+        planning_prompt += "\n\nTools available for the steps: " + ", ".join(tool_names)
+
     # Build minimal messages for planning: system prompt + user messages
-    plan_messages: list[BaseMessage] = [SystemMessage(content=PLANNING_PROMPT)]
+    plan_messages: list[BaseMessage] = [SystemMessage(content=planning_prompt)]
     for msg in state["messages"]:
         if isinstance(msg, (HumanMessage, SystemMessage)):
             plan_messages.append(msg)
@@ -267,21 +277,24 @@ def chat_node(
     # Inject plan if present
     plan = state.get("plan", "")
     if plan:
-        plan_message: HumanMessage | SystemMessage
         if use_cache:
-            plan_message = HumanMessage(
-                content=f"[SYSTEM GUIDANCE]\n[EXECUTION PLAN]\n{plan}\n[END PLAN]\n[/SYSTEM GUIDANCE]"
+            # Append at the TAIL: an insertion mid-history would change the
+            # request prefix and bust Gemini's implicit caching of the stable
+            # history, and the plan belongs next to the current request anyway.
+            messages.append(
+                HumanMessage(
+                    content=f"[SYSTEM GUIDANCE]\n[EXECUTION PLAN]\n{plan}\n[END PLAN]\n[/SYSTEM GUIDANCE]"
+                )
             )
         else:
+            # Insert right after the system prompt at position 0
             plan_message = SystemMessage(content=f"[EXECUTION PLAN]\n{plan}\n[END PLAN]")
-        # Insert after the first SystemMessage (system prompt) or at start if cached
-        insert_idx = 1
-        if not use_cache:
+            insert_idx = 1
             for i, msg in enumerate(messages):
                 if isinstance(msg, SystemMessage):
                     insert_idx = i + 1
                     break
-        messages.insert(insert_idx, plan_message)
+            messages.insert(insert_idx, plan_message)
         logger.debug("Injected plan into chat messages", extra={"plan_length": len(plan)})
 
     message_count = len(messages)
@@ -609,8 +622,9 @@ def create_chat_graph(
             lambda state: check_tool_results(state, use_cache=use_cache),
         )
 
-        # Add planning node
-        graph.add_node("plan", lambda state: plan_node(state, model_name))
+        # Add planning node (with the tool inventory, see plan_node docstring)
+        tool_names = [t.name for t in active_tools]
+        graph.add_node("plan", lambda state: plan_node(state, model_name, tool_names=tool_names))
 
         # Entry point: conditional routing to plan or chat
         graph.add_conditional_edges(
