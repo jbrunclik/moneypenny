@@ -175,11 +175,11 @@ def _extract_file_from_sandbox(
         full_file_data contains the base64 encoded data for server storage.
         file_metadata contains only name, type, size for the LLM.
     """
-    try:
-        # Create a temp file to receive the data
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
+    # Create a temp file to receive the data
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_path = tmp.name
 
+    try:
         # Copy file from sandbox
         session.copy_from_runtime(f"/output/{filename}", tmp_path)
 
@@ -205,9 +205,6 @@ def _extract_file_from_sandbox(
             "size": file_size,
         }
 
-        # Clean up temp file
-        local_os.unlink(tmp_path)
-
         return full_file_data, file_metadata
 
     except Exception as e:
@@ -216,6 +213,12 @@ def _extract_file_from_sandbox(
             extra={"filename": filename, "error": str(e)},
         )
         return None, None
+    finally:
+        # Always remove the host temp file - error paths leaked it before
+        try:
+            local_os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 def _extract_output_files(
