@@ -1,126 +1,104 @@
 # AI Chatbot - TODO
 
-This file tracks planned features, improvements, and technical debt.
-Audit-tagged items (S/A/C/X/F/Q/T) come from the June 2026 read-only codebase audits (two rounds); R-tagged items from the June 2026 round-3 audit (4 parallel reviewers: API/streaming, DB/utils, tools, frontend). Tags kept for traceability.
+Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = round 3) kept for traceability. Completed work lives in git history.
 
 ## Features
 
-- [ ] **Gmail integration** - Read-only inbox triage via OAuth (reuse the Calendar OAuth plumbing pattern): summarize what needs a reply, surface invoices/receipts, feed inbox highlights into briefings/agents. Biggest missing data source for a personal assistant.
-- [ ] **Web Push notifications** - PWA already exists; add Web Push as the primary notification rail for agent results, approval-request nudges, briefing-ready alerts, and unread messages. Replaces most WhatsApp Cloud API friction (templates, 24h window, billing, 4096-char limit); keep WhatsApp as fallback channel.
-- [ ] **Daily Briefing (first-class)** - Built-in morning briefing combining planner data (schedule + overdue tasks), Garmin readiness/sleep, and AI recommendations, delivered via push on a schedule. Evening variant for review/plan-tomorrow. All ingredients exist (planner, Garmin, cron agents, proactive analysis) — productize the assembly. Depends on: Web Push.
-- [ ] **Personal knowledge base** - Persistent user documents (contracts, manuals, notes) searchable by the AI across all conversations — file uploads are currently per-message only. SQLite FTS5 over extracted text is enough at personal scale; no vector DB needed initially.
-- [ ] **Thinking mode toggle** - Allow enabling Gemini thinking mode with configurable level (minimal/low/medium/high) using long-press UI similar to voice input language selector
-- [ ] **Conversation sharing** - Public links for sharing conversations
-- [ ] **Keyboard shortcuts** - Add keyboard shortcuts for common actions
-- [ ] **Voice conversation mode** - Full voice-based conversation with speech-to-text input and text-to-speech output
-- [ ] **Oura integration** - Allow planner to have access to health data
-- [ ] **Parallel tool execution** - Verify/ensure multi-tool calls execute in parallel through `create_tool_node()`, not sequentially
-- [ ] **Tool result caching** - In-memory TTL cache for repeated tool calls (e.g., same web search query within a conversation)
+- [ ] **Gmail integration** - Read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): summarize what needs a reply, surface invoices, feed briefings/agents.
+- [ ] **Web Push notifications** - Primary notification rail for agent results, approval nudges, briefings, unread messages. Replaces WhatsApp friction; keep WhatsApp as fallback.
+- [ ] **Daily Briefing (first-class)** - Morning briefing: planner data + Garmin readiness + AI recommendations, via push on a schedule. Evening review variant. Depends on: Web Push.
+- [ ] **Personal knowledge base** - Persistent user documents searchable across conversations. SQLite FTS5 over extracted text is enough.
+- [ ] **Thinking mode toggle** - Gemini thinking mode with configurable level, long-press UI like the voice-language selector.
+- [ ] **Conversation sharing** - Public links for sharing conversations.
+- [ ] **Keyboard shortcuts** for common actions.
+- [ ] **Voice conversation mode** - Speech-to-text in, text-to-speech out.
+- [ ] **Oura integration** for planner health data.
+- [ ] **Tool result caching** - In-memory TTL cache for repeated tool calls within a conversation.
 
 ## Autonomous Agents
 
-- [ ] **Multi-step workflows** - Allow agents to run multi-step workflows
-- [ ] **User-facing agent observability** - "What did my agents do this week and what did it cost" view in the Command Center. Cost tracking exists per conversation; agents are where spend can silently grow.
-- [ ] **Bound agent-trigger depth (S5)** - Low. Cycles ARE blocked (`trigger_agent.py:55` checks the whole chain), but chain depth for distinct agents is unbounded (self-inflicted cost only). Add a `MAX_TRIGGER_DEPTH` guard for defense-in-depth.
+- [ ] **Multi-step workflows** for agents.
+- [ ] **User-facing agent observability** - "What did my agents do this week and what did it cost" view in Command Center.
+- [ ] **Bound agent-trigger depth (S5)** - Low. Cycles are blocked; add `MAX_TRIGGER_DEPTH` for distinct-agent chains.
 
 ## Planner Dashboard
 
-- [ ] **Two-column layout** - Desktop two-column layout (events left, tasks right), task completion via Todoist API, open-in-Calendar links
-- [ ] **Summary + timeline** - AI-generated daily summary strip, timeline view with hour markers, quick-add task from dashboard
-- [ ] **AI time-blocking** - One-click "schedule my P1/P2 tasks into today's free calendar slots" action composing the existing Todoist + Calendar tools. Turns the planner from a viewer into the place you run your day.
+- [ ] **Two-column layout** - Events left, tasks right; task completion via Todoist API; open-in-Calendar links.
+- [ ] **Summary + timeline** - AI daily summary strip, hour-marker timeline, quick-add task.
+- [ ] **AI time-blocking** - One-click "schedule my P1/P2 tasks into today's free slots" composing Todoist + Calendar tools.
 
 ## Programs (Sports / Language / future)
 
-- [ ] **Spaced repetition for language learning** - SRS review queue over vocabulary the AI logged as weak (kv_store), resurfaced on a decay schedule, reusing the existing quiz block infra; daily "5-minute review" nudge via agent. Converts the tutor from session-based to retention-based.
-- [ ] **Health/recovery coach program** - Third program type (recovery, sleep, general wellness; optionally nutrition logging via photo + multimodal) built on Garmin data. **Prerequisite: the Q2 sports/language program dedup refactor must land first** to avoid a third copy of the same CRUD.
+- [ ] **Spaced repetition for language learning** - SRS review queue over weak vocabulary (kv_store) reusing quiz blocks; daily review nudge via agent.
+- [ ] **Health/recovery coach program** - Third program type on Garmin data. Prerequisite: Q2 dedup below.
 
 ## Security
 
-- [ ] **Server-side OAuth state validation (S7)** - High / Medium effort. `routes/todoist.py:50-56` and `routes/calendar.py` generate the OAuth `state` and hand it to the client to validate ("we return it and let the client store/validate it") — server never checks it on callback, defeating CSRF protection. Store state server-side (kv_store with TTL, keyed to user), validate + invalidate on callback.
-- [ ] **Remove `--no-sandbox` from agent browser (S8)** - High / Low effort. `src/agent/tools/browser.py:83` launches Chromium with OS sandboxing disabled while browsing untrusted pages. Drop the flag, or containerize the browser if the host env requires it.
-- [ ] **Drop Todoist `data:delete` scope (S9)** - High / Low effort. `src/auth/todoist_auth.py:39` requests delete permission; combined with the LLM consuming fetched web content, a prompt-injected page could delete tasks. Reduce to read/write; gate deletes behind the existing `request_approval` tool if needed.
-- [ ] **Encrypt OAuth/Garmin tokens at rest (S3)** - High (hosted) / Medium effort. Todoist, Google Calendar (access + refresh), and Garmin tokens are stored plaintext in SQLite (`src/db/models/user.py`). Encrypt with Fernet keyed from env/secrets; encrypt-on-write / decrypt-on-read; migrate existing rows. Severity depends on deployment model.
-- [ ] **Security headers + CORS policy (S10)** - Medium / Low effort. `src/app.py` sets no `X-Frame-Options`, `X-Content-Type-Options`, CSP, or HSTS, and no explicit CORS policy. Add an `@app.after_request` hook.
-- [ ] **Magic-byte file upload validation (S11)** - Medium / Low effort. `src/api/schemas.py:67-74` validates the declared MIME type only; content is never sniffed. Verify magic bytes (`python-magic`) match the declared type, reject mismatches.
-- [ ] **Verify code-sandbox network isolation (S4)** - Medium. `execute_code` relies on llm-sandbox's default `--network none` (`code_execution.py:425`) but never sets it explicitly and has no test. Pass network-disabled explicitly if the API allows; add a regression test that `socket.socket().connect(...)` fails inside the sandbox.
-- [ ] **Rate limiting: proxy-aware client IP** - Limiter uses `request.remote_addr` which collapses to the load-balancer IP behind a reverse proxy. Add `ProxyFix` middleware and switch limiter key to honor `X-Forwarded-For`. Files: `app.py`, `rate_limiting.py`
-- [ ] **Logout: clear all sensitive state** - `store.logout()` only clears token/user/currentConversation, leaving messages, pagination, activeRequests in memory. Add `resetStore()` that wipes all maps/sets on `auth:logout`. Files: `store.ts`, `init.ts`
-- [ ] **Harden `blob_store.delete_by_prefixes` SQL (S6)** - Low. `db/blob_store.py:~189` builds the WHERE via f-string (params still bound, not injectable today, but fragile). Use a loop of parameterized deletes. Also consider raising `SLOW_QUERY_THRESHOLD_MS` / log level in prod to avoid schema leakage in logs.
+- [ ] **Server-side OAuth state validation (S7)** - High. `routes/todoist.py:50`, `routes/calendar.py`: server never validates `state` on callback. Store server-side (kv_store + TTL), validate + invalidate.
+- [ ] **Remove `--no-sandbox` from agent browser (S8)** - High. `browser.py:83` disables Chromium OS sandboxing while browsing untrusted pages.
+- [ ] **Drop Todoist `data:delete` scope (S9)** - High. `todoist_auth.py:39`; prompt-injected page could delete tasks. Reduce to read/write.
+- [ ] **Encrypt OAuth/Garmin tokens at rest (S3)** - Tokens are plaintext in SQLite (`models/user.py`). Fernet keyed from env.
+- [ ] **Security headers + CORS (S10)** - `app.py` sets no X-Frame-Options/CSP/HSTS. Add `@app.after_request`.
+- [ ] **Magic-byte upload validation (S11)** - `schemas.py` trusts declared MIME; sniff with `python-magic`.
+- [ ] **Verify code-sandbox network isolation (S4)** - Pass network-disabled explicitly; regression-test that sockets fail inside the sandbox.
+- [ ] **Rate limiting: proxy-aware client IP** - `ProxyFix` + X-Forwarded-For limiter key. `app.py`, `rate_limiting.py`.
+- [ ] **Logout: clear all sensitive state** - `store.logout()` leaves messages/pagination/activeRequests in memory. Add `resetStore()`.
+- [ ] **Harden `blob_store.delete_by_prefixes` SQL (S6)** - Low. f-string WHERE (bound params, fragile). Parameterized deletes.
 
 ## AI-Agent Best Practices
 
-- [ ] **Structured tool errors (A1) — detection side DONE (Jun 2026)** - `check_tool_results` now detects errors structurally (ToolMessage `status=="error"` or the `{"error": ...}` JSON envelope) instead of substring matching. Remaining: add a `retriable` flag to the envelope so self-correction can skip pointless retries (e.g. "integration not configured").
-- [ ] **Bound long-term memory (A2)** - Medium. `validate_memory_operations` (`src/api/utils.py`) checks presence but not size; memory is injected every request → unbounded context growth + an injection-persistence vector. Cap per-entry and total memory size; add dedup/age-out; reject oversized writes.
-- [ ] **Agent-behavior evals + observability (A3)** - Medium/Large. No regression evals for agent behavior; no metrics for tool success rate, token spend, latency, retries. Add a small eval harness (golden tasks) + structured per-turn metrics. This is what would catch regressions like the checkpointer/compaction bugs early. (The C1 `planning_classifier` log is a first step.)
+- [ ] **Tool error `retriable` flag (A1 remainder)** - Add `retriable` to the `{"error": ...}` envelope so self-correction skips pointless retries (e.g. "integration not configured").
+- [ ] **Bound long-term memory (A2)** - `validate_memory_operations` (`api/utils.py`) checks presence not size; cap per-entry + total, reject oversized writes.
+- [ ] **Agent-behavior evals + observability (A3)** - Eval harness (golden tasks) + per-turn metrics for tool success/tokens/latency/retries.
 
 ## Performance / Cost
 
-- [ ] **Right-size the planning classifier (follow-up to C1)** - After observing the new `planning_classifier` telemetry (fire-rate + latency), decide whether to gate tighter, fold the decision into the main call, or disable by default. `graph.py::should_plan`, `AGENT_PLANNING_*`.
-- [ ] **Compaction summarization is on the request path** - Medium. `build_compacted_history` calls the summarizer synchronously when the threshold trips, so a slow/hung Gemini call adds latency to that user turn (correctness is safe — it falls back to full history). Bound it with a timeout and/or move summarization off the request path (background/precompute). `src/agent/conversation_compaction.py`, `src/agent/compaction.py`.
-- [ ] **Context-cache hit-rate telemetry (C2)** - Low/Medium. `context_cache.py` has no logging of cache hit/create/rebuild rates; silent cache misses or tool-list drift could quietly cost input tokens. Add per-profile cache instrumentation; assert cached tool set matches the active set.
-- [ ] **N+1 queries in agent listing (Q1)** - Medium. `routes/agents.py:139-145` runs `has_pending_approval` + `get_agent_unread_count` + `get_last_execution_status` per agent in a loop. Batch into a single query keyed by agent_id.
+- [ ] **Right-size the planning classifier (C1 follow-up)** - From `planning_classifier` telemetry, decide: gate tighter, fold into main call, or disable by default. `graph.py::should_plan`.
+- [ ] **Compaction summarization off the request path** - `build_compacted_history` calls the summarizer synchronously; bound with timeout and/or precompute in background.
+- [ ] **Context-cache hit-rate telemetry (C2)** - Log hit/create/adopt rates per profile in `context_cache.py`; assert cached tool set matches active set.
+- [ ] **N+1 queries in agent listing (Q1)** - `routes/agents.py:139-145` runs 3 queries per agent; batch by agent_id.
 
 ## Reliability
 
-- [ ] **Browser worker has no recovery after a stuck Playwright op (R1)** - Medium. `browser.py:110-119`: when `execute()` times out, the single worker thread stays blocked inside the Playwright call and `_get_worker()` keeps dispatching to it forever — the browser tool is dead until process restart. Also clamp `timeout_ms=0` (`browser.py:202`), which Playwright treats as *infinite* wait. Add an unhealthy flag + worker restart, and `if timeout_ms and timeout_ms > 0` clamping.
-- [ ] **OAuth token refresh race loses rotated refresh tokens (R2)** - Medium. `google_calendar.py:29-80` and `routes/calendar.py:69-135` (and the Todoist equivalent) do unlocked read-refresh-write; two concurrent requests can both refresh, and the second write-back can persist a stale refresh token after Google rotates it. Per-user lock or compare-and-swap (`UPDATE ... WHERE token = ?`) around the cycle.
-- [ ] **Approval + sibling tools in one batch orphans tool calls (R3)** - Low/Medium. If the model emits `request_approval` alongside another tool in the same batch, the exception aborts `executor.map` and sibling ToolMessages are never collected → Gemini rejects the next turn (call/response mismatch). Pre-split `request_approval` calls like the blocked-call split in `graph.py::_split_blocked_tool_calls`.
-- [ ] **Blob deletion ordering can break message file references (R4)** - Medium. `delete_message`/`delete_conversation`/`reset_planner_conversation`/`compact_agent_conversation`/`delete_agent` delete blobs BEFORE committing the row deletion; a crash in between leaves rows pointing at deleted blobs (404 on file serve). Swap the order: commit row deletion first, then delete blobs (crash then leaves only a harmless orphaned blob).
-- [ ] **Thumbnail status TOCTOU on messages.files JSON (R5)** - Medium. `message.py:636-694` read-modify-writes the whole `files` JSON; two concurrent thumbnail workers (multi-image message) can lose one update. Use `BEGIN IMMEDIATE` or SQLite `json_set` in a single UPDATE.
-- [ ] **Agent compaction summary sorts to the wrong end (R6)** - Medium. `agent.py:1206-1253` inserts the summary message with `created_at=now()`, which is NEWER than the kept messages — history loads put the summary at the END of context instead of the beginning. Set its created_at to just before the oldest kept message.
-- [ ] **Temp file leak in code sandbox extraction (R7)** - Low. `code_execution.py:178-218`: `NamedTemporaryFile(delete=False)` + unlink only on the happy path; any exception leaks the host temp file. Move unlink to a `finally`.
-- [ ] **WhatsApp agent_name not template-sanitized (R8)** - Low. `whatsapp.py:319-354` sanitizes the message body but passes `agent_name` (user-controlled) raw into template param 1; newlines/multi-spaces in an agent name make Meta reject the send. Apply `_sanitize_for_template` to it.
-- [ ] **Timezone normalization sweep (R9)** - Medium / Low effort each. Mixed `utcnow()` vs local `now()` across persisted timestamps: calendar cache writes local while dashboard/weather write UTC and the UTC-based cleanup sweeps mis-expire them (`cache.py:194` vs `:90/:346`); `get_agent_daily_spending` (`agent.py:1125`) uses local midnight while docstring says UTC (budget resets drift on non-UTC hosts); `update_agent_last_run` (`agent.py:611`) stores local next to UTC `next_run_at`; `kv_store.py:63` / `settings.py:62` use UTC while the rest of the codebase stores local. Pick ONE convention (UTC-naive) and sweep.
-- [ ] **Migration hygiene (R10)** - Low. 0025/0026/0027/0028/0033 declare no `__depends__` (lexicographic-order fragility), and 0025's "rollback" is a SQL comment that silently no-ops while claiming reversibility — use an irreversible step instead.
-
-- [ ] **Harden streaming save on crash/timeout (X1)** - Medium, needs verification first. In `src/api/helpers/chat_streaming.py`: (a) a placeholder `update_message_content()` returning `None` is treated as "user deleted it" — a real UPDATE error is indistinguishable and can orphan the expected message id; (b) if `stream_chat_events` raises before the "final" event, `final_results["ready"]` stays False and the save is skipped → generated content lost on crash/timeout. **Observed in prod (Jun 2026): gunicorn worker timeout on a long stream raised `SystemExit`, the `finally` deleted the placeholder, and the streamed content was lost.** The CHAT_TIMEOUT deadline path now persists partial content on timeout (see Done), but the broader case (arbitrary crash/`BaseException`, not just the deadline) is still open. Distinguish deleted-vs-failed; persist whatever content was produced in the `finally` path.
-- [ ] **Remaining lazy-init races under gthread (low)** - Low. Non-critical singletons still race on first concurrent access (idempotent → at most redundant work / a stray daemon thread, no data corruption): browser `_worker` shutdown + `_browser_available` flag (`browser.py`), `_docker_available` (`code_execution.py`), and the `_start_cleanup_thread()` guards in `browser.py` / `tool_results.py`. Add double-checked locking when convenient.
-- [ ] **Align prod Python version with `requires-python`** - `pyproject.toml` declares `requires-python>=3.14` but prod runs 3.13. Either bump prod to 3.14 or relax the constraint to match reality.
-- [ ] **SyncManager.start() error handling** - Unhandled rejection silently disables background sync if `start()` throws. Await inside try/catch, log failures, allow retry. Files: `init.ts`, `SyncManager.ts`
+- [ ] **Browser worker recovery after stuck Playwright op (R1)** - `browser.py:110`: timed-out worker stays blocked forever; add unhealthy flag + restart. Clamp `timeout_ms=0` (= infinite in Playwright).
+- [ ] **OAuth refresh race loses rotated refresh tokens (R2)** - `google_calendar.py:29`, `routes/calendar.py:69` (+ Todoist): unlocked read-refresh-write. Per-user lock or compare-and-swap.
+- [ ] **Approval + sibling tools orphans tool calls (R3)** - `request_approval` mid-batch aborts `executor.map`; siblings get no ToolMessage → Gemini rejects next turn. Pre-split like `_split_blocked_tool_calls`.
+- [ ] **Blob deletion ordering (R4)** - 5 delete paths remove blobs BEFORE committing row deletion; crash leaves rows pointing at deleted blobs. Commit rows first.
+- [ ] **Thumbnail TOCTOU on messages.files (R5)** - `message.py:636` read-modify-writes whole JSON; concurrent workers lose updates. `BEGIN IMMEDIATE` or `json_set`.
+- [ ] **Temp file leak in sandbox extraction (R7)** - `code_execution.py:178`: unlink only on happy path; move to `finally`.
+- [ ] **WhatsApp agent_name not template-sanitized (R8)** - `whatsapp.py:319`: raw agent name in template param; Meta rejects newlines/multi-spaces.
+- [ ] **Migration hygiene (R10)** - 0025-0028, 0033 lack `__depends__`; 0025's rollback is a silently-succeeding comment.
+- [ ] **Harden streaming save on crash (X1)** - Distinguish placeholder deleted-vs-failed; persist partial content on arbitrary crash/`BaseException` (deadline path already saves). Observed in prod Jun 2026.
+- [ ] **Remaining lazy-init races under gthread** - Low. browser `_worker`/`_browser_available`, `_docker_available`, cleanup-thread guards. Double-checked locking when convenient.
+- [ ] **Align prod Python with `requires-python`** - pyproject says >=3.14, prod runs 3.13.
+- [ ] **SyncManager.start() error handling** - Unhandled rejection silently disables sync. `init.ts`, `SyncManager.ts`.
 
 ## Code Quality
 
-- [ ] **Deduplicate sports/language program modules (Q2)** - Medium / High effort. `routes/sports.py` vs `routes/language.py` (and their model mixins) are near-identical CRUD differing only in namespace — CLAUDE.md already documents them as "the same architecture". Extract a shared program-routes factory before a third program feature lands.
-- [ ] **File-size convention violations (Q3)** - Low / High effort. 9+ files are 2-3× over the repo's 500-line max: `prompts.py` (1469), `schemas.py` (1415), `chat_streaming.py` (1357), `db/models/agent.py` (1266), `routes/agents.py` (1119); frontend `api/client.ts` (1402), `SettingsPopup.ts` (1343), `utils/thumbnails.ts` (1000), `state/store.ts` (872). Split `chat_streaming.py` and `client.ts` first — highest churn.
-- [ ] **Refactor `save_message_to_db` (X2)** - Low. ~214 lines (exceeds the repo's 100-line guideline), mixes save + title-gen + metadata + cost, and swallows title-gen errors. Extract sub-steps. `chat_streaming.py`. (Overlaps with the `chat_streaming.py` split in Q3.)
-- [ ] **Tidy exception swallowing (X3)** - Low. Silent `except Exception: pass` sites: `connection_pool.py:~188` (rollback — can hide non-sqlite errors), `browser.py` (4× in the worker thread — can leak Playwright contexts), `chat_streaming.py:137-144`, `planner_data.py:25-29`; plus a couple of redundant context-clears in the stream path. Log at least at DEBUG.
-- [ ] **Four independent scroll listeners on same container** - `#messages` has listeners from: (1) `thumbnails.ts` - image load scroll, (2) `Messages.ts` - streaming auto-scroll, (3) `ScrollToBottom.ts` - button visibility, (4) `Messages.ts` - pagination. Each has independent debouncing. Consider consolidating into a single scroll manager that dispatches to subsystems.
+- [ ] **Deduplicate sports/language program modules (Q2)** - Near-identical CRUD; extract shared program-routes factory before a third program lands.
+- [ ] **File-size convention violations (Q3)** - 9+ files 2-3× over the 500-line max; split `chat_streaming.py` and `client.ts` first (highest churn).
+- [ ] **Refactor `save_message_to_db` (X2)** - ~214 lines mixing save/title/metadata/cost. Extract sub-steps. (Overlaps Q3.)
+- [ ] **Tidy exception swallowing (X3)** - Silent `except: pass` in `connection_pool.py`, `browser.py` (4×), `chat_streaming.py:137`, `planner_data.py:25`. Log at DEBUG.
+- [ ] **Consolidate four scroll listeners on `#messages`** into one scroll manager.
 
 ## Frontend
 
-- [ ] **Catch-path recovery never sets messageSuccessful (R11)** - High / one-liner. `messaging.ts:1010-1013`: when recovery succeeds from the catch path, `state.messageSuccessful` stays false → `incrementLocalMessageCount` is skipped → next sync shows the "New messages available" banner for messages the user is already looking at. This fires on EVERY mobile background-drop recovery. Add `state.messageSuccessful = true` before the early return.
-- [ ] **`timeout` SSE event unhandled by the client (R12)** - Medium. Backend emits `{"type":"timeout"}` with a message; `processStreamEvent` has no case for it, so it falls through to the generic recovery path and the server's explanation is lost. Add a `case 'timeout'`.
-- [ ] **Recovery races a resuming stream reader (R13)** - Medium; a key "lost progress on mobile" cause. iOS resume can run `attemptRecovery` while the original fetch reader resumes delivering buffered bytes; recovery finalizes the message, then late tokens overwrite it via the stale `state.messageEl` (`stream-recovery.ts:448` clears context but `messaging.ts:685` keeps writing). Recovery should abort the original AbortController before finalizing.
-- [ ] **No pagehide/pageshow handlers for iOS bfcache (R14)** - Medium. Only `visibilitychange` is handled; full bfcache suspension can skip it, leaving streams unmarked for recovery. Register `pagehide(persisted)` → mark, `pageshow(persisted)` → attempt.
-- [ ] **Recovered message keeps error styling / detached element (R15)** - Low/Medium. `handleStreamError` adds `message-incomplete` and may `.remove()` the element before recovery runs; `updateUIWithRecoveredMessage` then operates on a detached node or leaves the error class on recovered content. Guard on `isConnected` and remove `message-incomplete` on successful recovery.
-- [ ] **Stream death before `user_message_saved` is unrecoverable (R16)** - Medium. If the connection drops before the first SSE event, the client has no `expectedAssistantMessageId` and recovery is impossible (and the draft was already cleared). Send the placeholder id in an HTTP response header so the client always has it. (Superseded by the resumable-stream redesign if that lands.)
-
-- [ ] **Sanitize rendered LLM output — XSS (F1)** - High / Low effort. LLM/API-sourced strings reach `innerHTML`: `components/messages/streaming.ts:274` (rendered markdown + cursor span), `utils/markdown.ts:167` (highlight.js output assigned raw), plus API-sourced renders in `core/agents.ts`, `core/language.ts:348`, `core/sports.ts:346`, `core/kv-store.ts:250`, `core/planner.ts:290`. Since the model re-renders untrusted web content, run all rendered markdown through DOMPurify — closes the whole class.
-- [ ] **VoiceInput listener leak (F2)** - Medium. `components/VoiceInput.ts:413-425` adds mouse/touch listeners with no cleanup on re-mount. Export a cleanup fn or use the existing `addEventListenerWithCleanup` from `dom.ts`.
-- [ ] **Sidebar full re-render (F3)** - Medium. `components/Sidebar.ts:610-674` rebuilds the whole list via `innerHTML` on every update — flicker + lost scroll/focus. Move to incremental DOM updates.
+- [ ] **Catch-path recovery never sets messageSuccessful (R11)** - High, one-liner. `messaging.ts:1010`: spurious "New messages" banner after every mobile recovery.
+- [ ] **`timeout` SSE event unhandled by client (R12)** - Add `case 'timeout'` in `processStreamEvent`.
+- [ ] **Recovery races a resuming stream reader (R13)** - Recovery should abort the original AbortController before finalizing; late tokens currently overwrite recovered content.
+- [ ] **No pagehide/pageshow handlers for iOS bfcache (R14)** - Register `pagehide(persisted)` → mark, `pageshow(persisted)` → attempt recovery.
+- [ ] **Recovered message keeps error styling / detached element (R15)** - Guard `isConnected`; remove `message-incomplete` on success.
+- [ ] **Stream death before `user_message_saved` unrecoverable (R16)** - Send placeholder id in a response header. (Superseded by resumable streams if that lands.)
+- [ ] **Sanitize rendered LLM output — XSS (F1)** - High. LLM/API strings reach `innerHTML` in 7+ places; run rendered markdown through DOMPurify.
+- [ ] **VoiceInput listener leak (F2)** - `VoiceInput.ts:413` adds listeners with no cleanup on re-mount.
+- [ ] **Sidebar full re-render (F3)** - `Sidebar.ts:610` rebuilds list via innerHTML on every update; go incremental.
 
 ## Tests & Tooling
 
-- [ ] **Replace `waitForTimeout` in E2E suite (T1)** - High. 60+ `page.waitForTimeout()` calls across `conversation`, `sync`, `stream-recovery`, `search`, `agents`, `pagination` specs — directly contradicts the repo's zero-tolerance flaky-test policy. Replace with `expect(...).toBeVisible()` / `waitForFunction`.
-- [ ] **Unit tests for agent tools (T2)** - High / Medium effort. 13 tool modules in `src/agent/tools/` have zero unit tests (`code_execution`, `todoist`, `google_calendar`, `web`, `trigger_agent`, `garmin`, `image_generation`, …) — the highest-risk code paths in the app. Also missing integration tests for `routes/{files,kv_store,memory,system,todoist}.py`.
-- [ ] **Tighten lint/coverage gates (T3)** - Low effort, one-liners. Add coverage `fail_under` to pyproject; enable ruff `S` (bandit) rules; bump `npm audit --audit-level` from `critical` to `high` in `.github/workflows/audit.yml`; replace the blanket mypy `ignore_missing_imports = true` with per-module overrides.
-
-## Audit Notes
-
-Verified non-issues (recorded so future audits don't re-flag them):
-- `.env` is NOT committed — not tracked, not in git history, gitignored.
-- Zustand persist `partialize` (`store.ts:863`) only persists token/streamingEnabled/draft — no Map-serialization/data-loss problem.
-
-Shipped from audit round 1 (see git history): SSRF fix on `fetch_url` (S1), untrusted-content guardrails (S2), planning-classifier telemetry (C1).
+- [ ] **Replace `waitForTimeout` in E2E suite (T1)** - 60+ calls contradict the zero-flake policy; use `expect(...).toBeVisible()` / `waitForFunction`.
+- [ ] **Unit tests for agent tools (T2)** - 13 tool modules have zero unit tests; also missing integration tests for `routes/{files,kv_store,memory,system,todoist}.py`.
+- [ ] **Tighten lint/coverage gates (T3)** - coverage `fail_under`; ruff `S` rules; `npm audit` level high; per-module mypy overrides.
 
 ## Architecture
 
-- [ ] **Resumable streams (mobile resilience)** - Large. Replace the post-hoc poll-based stream recovery with a production-grade resumable stream: decouple generation from the HTTP connection (generation runs to completion server-side regardless of the client socket), journal stream events (thinking/tool/token) per assistant-message-id with monotonic sequence numbers, and add a resume endpoint (`GET /chat/stream/<message_id>?after_seq=N`) that replays the journal then continues live. Client treats the connection as replaceable: on `online`/`pageshow`/error, reconnect with the last seen seq instead of waiting + polling the final message. SQLite-backed journal is enough at this scale (kv_store or a small table; in-memory buffer + periodic flush). Quick wins first: R11-R16 above. See the June 2026 resilience analysis in the session notes.
-
-## Done
-
-- [x] **Agent framework / LangGraph integration fixes** - DONE (Jun 2026), 14 commits. Highlights: `ApprovalRequestedException` now propagates through the ToolNode (was silently swallowed by `handle_tool_errors=True` on langgraph 1.0 — approval flow was broken end-to-end) + the streaming approval path it unmasked completed (queue sentinel, placeholder guards); permission-blocked tool batches respond to every tool_call_id and still execute allowed siblings; removed the executor-level retry that replayed non-idempotent tools; planner gets the tool inventory in cached mode + plan injected at tail; structural tool-error detection (A1 detection side); Gemini context caches shared across workers via a `context_cache` table (0034); stream event guard + tool events keyed by call id; per-request tool list; executor try/finally; native Gemini system instructions (dropped deprecated `convert_system_message_to_human`); `force_tools` validated as identifiers (prompt-injection fix).
-- [x] **Conversation compaction for regular chats** - DONE (Jun 2026). Non-destructive `build_compacted_history()` (running summary in `kv_store` + recent window) in `src/agent/conversation_compaction.py`, wired into batch + stream paths. Also removed the unused LangGraph checkpointer subsystem (it was duplicating history into every request) and stabilized the history prefix for Gemini implicit caching. See follow-up: *compaction summarization is on the request path*.
-- [x] **Pin `langchain-google-genai` to fix prod context cache** - DONE (Jun 2026). The loose `>=2.0` floor (no lockfile) had let prod drift to an old 2.x returning proto/gapic `Tool` objects from `convert_to_genai_function_declarations`, breaking `CreateCachedContentConfig` validation and silently disabling context caching. Pinned floor to `>=4.1.2`; prod redeployed on 4.2.4, cache errors gone.
-- [x] **Streaming requests killed by gunicorn worker timeout** - DONE (Jun 2026). Sync workers suspend the master heartbeat for the whole request, so long SSE `chat/stream` responses exceeding `--timeout` were killed mid-stream (`WORKER TIMEOUT` → `SystemExit`, reproduced locally). Switched to `--worker-class gthread --threads ${GUNICORN_THREADS:-8}` in `systemd/ai-chatbot.service`; gthread heartbeats from its main loop while requests run in a thread pool, so long streams complete (verified). Added `GUNICORN_THREADS` to `config.py` + `.env.example`. Thread-safety prerequisite for the migration also fixed: double-checked locking on the `_blob_store` and thumbnail `_executor` lazy singletons (`blob_store.py`, `background_thumbnails.py`) with concurrency stress tests.
-- [x] **App-level request deadline now load-bearing under gthread** - DONE (Jun 2026). gthread does not reap a quietly-working/streaming request thread, so the gunicorn timeout no longer bounds chat duration. Wired the previously-dead `CHAT_TIMEOUT` (default 300→600s) into the `chat/stream` path as a defense-in-depth deadline: the producer (`stream_events`) breaks the agent loop + `gen.close()` when the deadline passes (stops the agent), and the consumer (`_process_event_queue`) enforces a backstop deadline (`CHAT_TIMEOUT + SSE_KEEPALIVE_INTERVAL`) that frees the worker thread even if the producer is wedged. On timeout the partial streamed content is saved (with a `…(response timed out)` marker) via the existing save path and the client gets a `{"type":"timeout"}` SSE event. See `docs/superpowers/plans/2026-06-05-chat-stream-deadline.md`. Note: the broader X1 (persist partial content on arbitrary crash/`BaseException`, not just the deadline) is still open.
+- [ ] **Resumable streams (mobile resilience)** - Decouple generation from the HTTP connection, journal stream events per assistant-message-id with seq numbers, resume endpoint replays then continues live; client reconnects with offset on `online`/`pageshow`/error. SQLite-backed journal is enough. Obsoletes parts of R13/R16.
