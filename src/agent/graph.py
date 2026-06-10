@@ -101,13 +101,18 @@ def create_chat_model(
         cached_content: Gemini cached content name. When provided, tools are NOT bound
             (they're already in the cache) and system_instruction is omitted.
     """
+    # No convert_system_message_to_human: deprecated, and on langchain-google-genai
+    # 4.x it folded the system prompt into the first HumanMessage instead of using
+    # Gemini's native systemInstruction field (plus a DeprecationWarning per request).
+    # Native handling: SystemMessage at position 0 becomes systemInstruction, and
+    # mid-conversation SystemMessages are merged into it (dropped only when there is
+    # no position-0 SystemMessage - hence the HumanMessage guidance in cached mode).
     kwargs: dict[str, Any] = {
         "model": model_name,
         "google_api_key": Config.GEMINI_API_KEY,
         "temperature": temperature
         if temperature is not None
         else Config.GEMINI_DEFAULT_TEMPERATURE,
-        "convert_system_message_to_human": True,
         "include_thoughts": include_thoughts,
     }
 
