@@ -57,6 +57,7 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 - [ ] **Compaction summarization off the request path** - `build_compacted_history` calls the summarizer synchronously; bound with timeout and/or precompute in background.
 - [ ] **Context-cache hit-rate telemetry (C2)** - Log hit/create/adopt rates per profile in `context_cache.py`; assert cached tool set matches active set.
 - [ ] **N+1 queries in agent listing (Q1)** - `routes/agents.py:139-145` runs 3 queries per agent; batch by agent_id.
+- [ ] **Cache program prompts (sports/language)** - These profiles are fully uncached: ~6K tokens of static prompt re-billed every turn. Split static program instructions (cacheable) from the per-turn KV data (dynamic tail), like the standard profile.
 
 ## Reliability
 

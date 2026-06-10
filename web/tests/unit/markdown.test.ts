@@ -77,3 +77,48 @@ describe('renderMarkdown preserves legitimate features', () => {
     expect(html).not.toContain('<script>');
   });
 });
+
+describe('LaTeX math rendering (KaTeX)', () => {
+  it('renders inline $...$ math', () => {
+    const html = renderMarkdown('The formula $E = mc^2$ is famous.');
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('annotation encoding="application/x-tex"');
+  });
+
+  it('renders display $$...$$ math', () => {
+    const html = renderMarkdown('$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$');
+    expect(html).toContain('katex-display');
+  });
+
+  it('renders multi-line display math', () => {
+    const html = renderMarkdown('Result:\n\n$$\nE = mc^2\n$$\n\nDone.');
+    expect(html).toContain('katex-display');
+  });
+
+  it('renders math inside bold (model emits **$b^2 - 4ac$**)', () => {
+    const html = renderMarkdown('The discriminant is **$b^2 - 4ac$**.');
+    expect(html).toContain('<strong>');
+    expect(html).toContain('class="katex"');
+  });
+
+  it('renders math inside parentheses (model emits ($E$))', () => {
+    const html = renderMarkdown('energy ($E$) equals mass');
+    expect(html).toContain('class="katex"');
+  });
+
+  it('leaves currency amounts as plain text', () => {
+    const html = renderMarkdown('It costs $5 and $10 total.');
+    expect(html).not.toContain('katex');
+    expect(html).toContain('$5 and $10');
+  });
+
+  it('leaves currency ranges as plain text', () => {
+    const html = renderMarkdown('between $5-$10 range');
+    expect(html).not.toContain('katex');
+  });
+
+  it('does not throw on invalid TeX', () => {
+    const html = renderMarkdown('Broken $\\frac{$ math');
+    expect(typeof html).toBe('string');
+  });
+});
