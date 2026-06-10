@@ -37,6 +37,7 @@ from src.api.schemas import (
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Agent, AgentExecution, ApprovalRequest, User, db
+from src.utils.datetime_utils import to_utc_iso
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -73,10 +74,10 @@ def _agent_to_response(
         "tool_permissions": agent.tool_permissions,
         "model": agent.model,
         "conversation_id": agent.conversation_id,
-        "last_run_at": agent.last_run_at.isoformat() if agent.last_run_at else None,
-        "next_run_at": agent.next_run_at.isoformat() if agent.next_run_at else None,
-        "created_at": agent.created_at.isoformat(),
-        "updated_at": agent.updated_at.isoformat(),
+        "last_run_at": to_utc_iso(agent.last_run_at) if agent.last_run_at else None,
+        "next_run_at": to_utc_iso(agent.next_run_at) if agent.next_run_at else None,
+        "created_at": to_utc_iso(agent.created_at),
+        "updated_at": to_utc_iso(agent.updated_at),
         "budget_limit": agent.budget_limit,
         "daily_spending": daily_spending,
         "has_pending_approval": has_pending_approval,
@@ -94,8 +95,8 @@ def _execution_to_response(execution: AgentExecution) -> dict[str, Any]:
         "status": execution.status,
         "trigger_type": execution.trigger_type,
         "triggered_by_agent_id": execution.triggered_by_agent_id,
-        "started_at": execution.started_at.isoformat(),
-        "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+        "started_at": to_utc_iso(execution.started_at),
+        "completed_at": to_utc_iso(execution.completed_at) if execution.completed_at else None,
         "error_message": execution.error_message,
     }
 
@@ -110,8 +111,8 @@ def _approval_to_response(approval: ApprovalRequest, agent_name: str) -> dict[st
         "tool_args": approval.tool_args,
         "description": approval.description,
         "status": approval.status,
-        "created_at": approval.created_at.isoformat(),
-        "resolved_at": approval.resolved_at.isoformat() if approval.resolved_at else None,
+        "created_at": to_utc_iso(approval.created_at),
+        "resolved_at": to_utc_iso(approval.resolved_at) if approval.resolved_at else None,
     }
 
 

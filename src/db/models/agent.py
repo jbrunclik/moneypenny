@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 from src.config import Config
 from src.db.models.dataclasses import Agent, AgentExecution, ApprovalRequest, Conversation
 from src.db.models.helpers import delete_messages_blobs
+from src.utils.datetime_utils import utcnow_naive
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -149,7 +150,7 @@ class AgentMixin:
         agent_model = model or Config.DEFAULT_MODEL
         agent_id = str(uuid.uuid4())
         conv_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = utcnow_naive()
 
         logger.debug(
             "Creating agent",
@@ -301,6 +302,8 @@ class AgentMixin:
             True if updated, False if agent not found
         """
         with self._pool.get_connection() as conn:
+            # LOCAL-naive on purpose: compared against messages.created_at
+            # (local-naive) in the unread-count subqueries
             now = datetime.now().isoformat()
             cursor = self._execute_with_timing(
                 conn,
@@ -380,7 +383,7 @@ class AgentMixin:
             return None
 
         updates: list[str] = ["updated_at = ?"]
-        params: list[Any] = [datetime.now().isoformat()]
+        params: list[Any] = [utcnow_naive().isoformat()]
 
         if not isinstance(name, EllipsisType):
             updates.append("name = ?")
@@ -586,9 +589,8 @@ class AgentMixin:
         """
         if now is None:
             # Use UTC to match how next_run_at is stored
-            from datetime import UTC
 
-            now = datetime.now(UTC).replace(tzinfo=None)
+            now = utcnow_naive()
 
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
@@ -608,7 +610,7 @@ class AgentMixin:
 
         Only schedules the next run if the agent is still enabled.
         """
-        now = datetime.now()
+        now = utcnow_naive()
 
         with self._pool.get_connection() as conn:
             # Get the agent's schedule, timezone, and enabled status
@@ -645,7 +647,7 @@ class AgentMixin:
 
         Used by the scheduler when manually setting the next run time.
         """
-        now = datetime.now()
+        now = utcnow_naive()
 
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
@@ -676,7 +678,7 @@ class AgentMixin:
         The request will expire after AGENT_APPROVAL_TTL_HOURS (default: 24 hours).
         """
         request_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = utcnow_naive()
         expires_at = now + timedelta(hours=Config.AGENT_APPROVAL_TTL_HOURS)
 
         with self._pool.get_connection() as conn:
@@ -737,7 +739,7 @@ class AgentMixin:
 
     def get_pending_approvals(self, user_id: str) -> list[ApprovalRequest]:
         """Get all pending (non-expired) approval requests for a user."""
-        now = datetime.now()
+        now = utcnow_naive()
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
@@ -752,7 +754,7 @@ class AgentMixin:
 
     def get_pending_approval_for_agent(self, agent_id: str) -> ApprovalRequest | None:
         """Get the pending (non-expired) approval request for an agent (if any)."""
-        now = datetime.now()
+        now = utcnow_naive()
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
@@ -770,7 +772,7 @@ class AgentMixin:
 
     def has_pending_approval(self, agent_id: str) -> bool:
         """Check if an agent has a pending (non-expired) approval request."""
-        now = datetime.now()
+        now = utcnow_naive()
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
@@ -796,7 +798,7 @@ class AgentMixin:
         Returns:
             Updated ApprovalRequest or None if not found
         """
-        now = datetime.now()
+        now = utcnow_naive()
         status = "approved" if approved else "rejected"
 
         with self._pool.get_connection() as conn:
@@ -830,7 +832,7 @@ class AgentMixin:
     ) -> AgentExecution:
         """Create a new execution record."""
         execution_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = utcnow_naive()
 
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
@@ -860,7 +862,7 @@ class AgentMixin:
         error_message: str | None = None,
     ) -> None:
         """Update an execution's status."""
-        now = datetime.now()
+        now = utcnow_naive()
 
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
@@ -894,7 +896,7 @@ class AgentMixin:
         permanently locked agents due to stuck executions.
         """
         # Calculate the cutoff time (executions older than this are considered stuck)
-        cutoff = datetime.now() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
+        cutoff = utcnow_naive() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
 
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
@@ -915,16 +917,20 @@ class AgentMixin:
         completed an execution within AGENT_EXECUTION_COOLDOWN_SECONDS.
         """
         # Calculate the cooldown cutoff time
-        cutoff = datetime.now() - timedelta(seconds=Config.AGENT_EXECUTION_COOLDOWN_SECONDS)
+        now = utcnow_naive()
+        cutoff = now - timedelta(seconds=Config.AGENT_EXECUTION_COOLDOWN_SECONDS)
 
         with self._pool.get_connection() as conn:
+            # completed_at <= now clamps bogus future timestamps (e.g. rows
+            # written under the pre-UTC local-naive convention on a UTC+N
+            # host) so they can't pin the agent in cooldown
             row = self._execute_with_timing(
                 conn,
                 """SELECT 1 FROM agent_executions
                    WHERE agent_id = ? AND completed_at IS NOT NULL
-                   AND completed_at > ?
+                   AND completed_at > ? AND completed_at <= ?
                    LIMIT 1""",
-                (agent_id, cutoff.isoformat()),
+                (agent_id, cutoff.isoformat(), now.isoformat()),
             ).fetchone()
 
             return row is not None
@@ -954,7 +960,7 @@ class AgentMixin:
         Returns:
             Number of zombie executions cleaned up.
         """
-        cutoff = datetime.now() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
+        cutoff = utcnow_naive() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
@@ -965,7 +971,7 @@ class AgentMixin:
                        error_message = 'Execution timed out (zombie cleanup)'
                    WHERE status IN ('running', 'waiting_approval')
                    AND started_at < ?""",
-                (datetime.now().isoformat(), cutoff.isoformat()),
+                (utcnow_naive().isoformat(), cutoff.isoformat()),
             )
             conn.commit()
 
@@ -987,7 +993,7 @@ class AgentMixin:
         with self._pool.get_connection() as conn:
             # Get agents with unread counts (assistant messages since last_viewed_at)
             # Also check for pending (non-expired) approvals and recent failed executions
-            now = datetime.now()
+            now = utcnow_naive()
             agent_rows = self._execute_with_timing(
                 conn,
                 """SELECT a.*,
@@ -1117,11 +1123,15 @@ class AgentMixin:
         """Get the total spending for an agent today (in USD).
 
         Calculates the sum of all costs for messages in the agent's conversation
-        created on the current day (UTC).
+        created on the current day (server-local time - the budget window
+        resets at local midnight, matching how message_costs.created_at is
+        stored).
 
         Returns:
             Total spending in USD for today.
         """
+        # LOCAL-naive on purpose: message_costs.created_at is stored local-naive,
+        # so the daily window must use the same clock (resets at local midnight)
         today = datetime.now().date()
         today_start = datetime(today.year, today.month, today.day, 0, 0, 0)
 
@@ -1245,7 +1255,7 @@ class AgentMixin:
                 earliest_kept = min(datetime.fromisoformat(row["created_at"]) for row in keep_rows)
                 summary_ts = earliest_kept - timedelta(microseconds=1)
             else:
-                summary_ts = datetime.now()
+                summary_ts = utcnow_naive()
             summary_id = str(uuid.uuid4())
             self._execute_with_timing(
                 conn,

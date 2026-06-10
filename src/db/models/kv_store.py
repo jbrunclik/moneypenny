@@ -7,9 +7,9 @@ Used by autonomous agents and features that need persistent storage.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from src.utils.datetime_utils import utcnow_naive
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -60,7 +60,7 @@ class KVStoreMixin:
             key: The key
             value: The value (string, use JSON for complex data)
         """
-        now = datetime.utcnow().isoformat()
+        now = utcnow_naive().isoformat()
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,

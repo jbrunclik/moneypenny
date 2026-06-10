@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from src.utils.datetime_utils import utcnow_naive
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -65,7 +66,7 @@ class CacheMixin:
 
             # Check if expired
             expires_at = datetime.fromisoformat(row[1])
-            if datetime.utcnow() >= expires_at:
+            if utcnow_naive() >= expires_at:
                 # Expired - delete and return None
                 self.delete_cached_dashboard(user_id)
                 return None
@@ -87,7 +88,7 @@ class CacheMixin:
             dashboard_data: Dashboard data dict to cache
             ttl_seconds: Time-to-live in seconds (default: 300 = 5 minutes)
         """
-        now = datetime.utcnow()
+        now = utcnow_naive()
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         # Serialize dashboard
@@ -129,7 +130,7 @@ class CacheMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM dashboard_cache WHERE expires_at < ?",
-                (datetime.utcnow().isoformat(),),
+                (utcnow_naive().isoformat(),),
             )
             conn.commit()
             return cursor.rowcount
@@ -169,7 +170,7 @@ class CacheMixin:
                 SELECT calendars_data FROM calendar_cache
                 WHERE user_id = ? AND expires_at > ?
                 """,
-                (user_id, datetime.now().isoformat()),
+                (user_id, utcnow_naive().isoformat()),
             )
             row = cursor.fetchone()
 
@@ -191,7 +192,7 @@ class CacheMixin:
             calendars_data: Calendar list data dict to cache
             ttl_seconds: Time-to-live in seconds (default: 3600 = 1 hour)
         """
-        cached_at = datetime.now()
+        cached_at = utcnow_naive()
         expires_at = cached_at + timedelta(seconds=ttl_seconds)
         calendars_json = json.dumps(calendars_data)
 
@@ -321,7 +322,7 @@ class CacheMixin:
 
             # Check if expired
             expires_at = datetime.fromisoformat(row[1])
-            if datetime.utcnow() >= expires_at:
+            if utcnow_naive() >= expires_at:
                 # Expired - delete and return None
                 self.delete_cached_weather(location)
                 return None
@@ -343,7 +344,7 @@ class CacheMixin:
             forecast_data: Weather forecast data dict to cache
             ttl_seconds: Time-to-live in seconds (default: 21600 = 6 hours)
         """
-        now = datetime.utcnow()
+        now = utcnow_naive()
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         # Serialize forecast
@@ -385,7 +386,7 @@ class CacheMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM weather_cache WHERE expires_at < ?",
-                (datetime.utcnow().isoformat(),),
+                (utcnow_naive().isoformat(),),
             )
             conn.commit()
             return cursor.rowcount
