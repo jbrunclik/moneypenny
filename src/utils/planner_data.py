@@ -439,7 +439,7 @@ def fetch_calendar_dashboard_data(
         "timeMax": time_max,
         "singleEvents": True,
         "orderBy": "startTime",
-        "maxResults": 100,
+        "maxResults": 30,  # whole dashboard JSON lands in the LLM prompt each turn
     }
 
     all_events: list[PlannerEvent] = []

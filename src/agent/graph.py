@@ -253,11 +253,12 @@ def plan_node(
     if tool_names:
         planning_prompt += "\n\nTools available for the steps: " + ", ".join(tool_names)
 
-    # Build minimal messages for planning: system prompt + user messages
+    # Build minimal messages for planning: system prompt + recent user messages.
+    # Only the last few HumanMessages matter for planning the CURRENT request -
+    # sending the whole history just re-bills it on an uncached auxiliary call.
+    human_messages = [msg for msg in state["messages"] if isinstance(msg, HumanMessage)]
     plan_messages: list[BaseMessage] = [SystemMessage(content=planning_prompt)]
-    for msg in state["messages"]:
-        if isinstance(msg, (HumanMessage, SystemMessage)):
-            plan_messages.append(msg)
+    plan_messages.extend(human_messages[-3:])
 
     response = with_retry(planner.invoke)(plan_messages)
     plan_text = extract_text_content(response.content)

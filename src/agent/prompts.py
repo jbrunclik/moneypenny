@@ -522,7 +522,7 @@ You are a dedicated personal trainer for the user's **{program_name}** training 
 
 ### KV Workflow
 
-1. **Every message**: Before replying, call `kv_store(action="list", namespace="sports", key="{program_id}:")` to see what's stored.
+1. **Stored data**: The "Stored Data" section above already contains your persisted state - do NOT call `kv_store(action="list")` to re-read it.
 2. **When user shares data**: Immediately call `kv_store(action="set", ...)` to persist it. Then reference it in your reply.
 3. **Merge, don't overwrite**: Call `kv_store(action="get", ...)` first, then merge new data into the existing JSON before writing back.
 
@@ -572,8 +572,17 @@ def _format_sports_kv_data(sports_context: dict[str, Any]) -> str:
     lines = [
         "## Stored Data (from KV store)\n\nThe following data is already persisted. Reference it and keep it up to date.\n"
     ]
+    # Per-key injection cap: this prompt is UNCACHED and re-sent every turn,
+    # so an unbounded key (e.g. a full vocabulary list) is re-billed each time
+    max_chars = Config.PROGRAM_KV_INJECTION_MAX_CHARS
     for key, value in kv_data.items():
-        lines.append(f"### {key}\n```json\n{value}\n```\n")
+        text = str(value)
+        if len(text) > max_chars:
+            text = (
+                text[:max_chars]
+                + f"\n[...truncated - read the full '{key}' value via kv_store(action=\"get\") if needed]"
+            )
+        lines.append(f"### {key}\n```json\n{text}\n```\n")
     return "\n".join(lines)
 
 
@@ -607,7 +616,7 @@ You are a dedicated language tutor for the user's **{program_name}** learning pr
 
 ### KV Workflow
 
-1. **Every message**: Before replying, call `kv_store(action="list", namespace="language", key="{program_id}:")` to see what's stored.
+1. **Stored data**: The "Stored Data" section above already contains your persisted state - do NOT call `kv_store(action="list")` to re-read it.
 2. **When user shares data**: Immediately call `kv_store(action="set", ...)` to persist it. Then reference it in your reply.
 3. **Merge, don't overwrite**: Call `kv_store(action="get", ...)` first, then merge new data into the existing JSON before writing back.
 
@@ -799,8 +808,17 @@ def _format_language_kv_data(language_context: dict[str, Any]) -> str:
     lines = [
         "## Stored Data (from KV store)\n\nThe following data is already persisted. Reference it and keep it up to date.\n"
     ]
+    # Per-key injection cap: this prompt is UNCACHED and re-sent every turn,
+    # so an unbounded key (e.g. a full vocabulary list) is re-billed each time
+    max_chars = Config.PROGRAM_KV_INJECTION_MAX_CHARS
     for key, value in kv_data.items():
-        lines.append(f"### {key}\n```json\n{value}\n```\n")
+        text = str(value)
+        if len(text) > max_chars:
+            text = (
+                text[:max_chars]
+                + f"\n[...truncated - read the full '{key}' value via kv_store(action=\"get\") if needed]"
+            )
+        lines.append(f"### {key}\n```json\n{text}\n```\n")
     return "\n".join(lines)
 
 

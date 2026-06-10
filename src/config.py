@@ -63,8 +63,8 @@ class Config:
     CHAT_TIMEOUT: int = int(os.getenv("CHAT_TIMEOUT", "600"))  # 10 minutes
     TOOL_TIMEOUT: int = int(os.getenv("TOOL_TIMEOUT", "90"))  # 90 seconds per tool execution
     FETCH_URL_MAX_FILE_SIZE: int = int(
-        os.getenv("FETCH_URL_MAX_FILE_SIZE", str(10 * BYTES_PER_MB))
-    )  # 10MB default for fetched files (PDFs, images)
+        os.getenv("FETCH_URL_MAX_FILE_SIZE", str(2 * BYTES_PER_MB))
+    )  # fetched binaries (PDFs/images) land in LLM context - keep small
     GOOGLE_AUTH_TIMEOUT: int = int(
         os.getenv("GOOGLE_AUTH_TIMEOUT", "10")
     )  # 10 seconds for Google token verification
@@ -243,11 +243,19 @@ class Config:
     FILE_CACHE_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY  # 1 year
 
     # Web search settings
-    WEB_SEARCH_DEFAULT_RESULTS = 5
+    WEB_SEARCH_DEFAULT_RESULTS = 3
     WEB_SEARCH_MAX_RESULTS = 10
 
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
+    # Tool result size caps (chars) - results land in LLM context
+    CODE_EXECUTION_MAX_STDOUT_CHARS: int = int(
+        os.getenv("CODE_EXECUTION_MAX_STDOUT_CHARS", "10000")
+    )
+    TODOIST_MAX_TASK_RESULTS: int = int(os.getenv("TODOIST_MAX_TASK_RESULTS", "100"))
+    # Per-key cap for sports/language KV data injected into the (uncached)
+    # program system prompt every turn
+    PROGRAM_KV_INJECTION_MAX_CHARS: int = int(os.getenv("PROGRAM_KV_INJECTION_MAX_CHARS", "8000"))
 
     # Browser automation settings (Playwright)
     BROWSER_ENABLED: bool = os.getenv("BROWSER_ENABLED", "true").lower() == "true"

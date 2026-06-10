@@ -244,6 +244,10 @@ def _todoist_list_tasks(
     if not isinstance(tasks, list):
         tasks = []
 
+    # Cap the result count - every task is serialized into LLM context
+    truncated_count = max(0, len(tasks) - Config.TODOIST_MAX_TASK_RESULTS)
+    tasks = tasks[: Config.TODOIST_MAX_TASK_RESULTS]
+
     # Build section and project maps for enrichment
     section_map: dict[str, str] = {}
     project_map: dict[str, str] = {}
@@ -276,12 +280,15 @@ def _todoist_list_tasks(
 
     formatted_tasks = [_format_task(task, section_map, project_map) for task in tasks]
 
-    return {
+    result: dict[str, Any] = {
         "action": "list_tasks",
         "filter": filter_string,
         "count": len(formatted_tasks),
         "tasks": formatted_tasks,
     }
+    if truncated_count:
+        result["truncated"] = f"{truncated_count} more tasks matched; narrow the filter to see them"
+    return result
 
 
 def _todoist_list_projects(token: str) -> dict[str, Any]:

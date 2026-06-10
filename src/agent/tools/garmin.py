@@ -78,6 +78,22 @@ def _safe_api_call(garmin: Any, method_name: str, *args: Any, **kwargs: Any) -> 
         raise
 
 
+def _strip_bulky_fields(obj: Any, max_list_items: int = 20) -> Any:
+    """Recursively drop bulky arrays from Garmin API responses.
+
+    Activity details include waypoints, raw split/metric arrays etc. - easily
+    50-200 KB of JSON that lands verbatim in LLM context. Long lists are
+    replaced with a count note; summary scalars pass through untouched.
+    """
+    if isinstance(obj, dict):
+        return {k: _strip_bulky_fields(v, max_list_items) for k, v in obj.items()}
+    if isinstance(obj, list):
+        if len(obj) > max_list_items:
+            return f"[{len(obj)} items omitted - ask for specific metrics if needed]"
+        return [_strip_bulky_fields(v, max_list_items) for v in obj]
+    return obj
+
+
 _GARMIN_ACTIONS = {
     "get_stats",
     "get_heart_rates",
@@ -209,7 +225,7 @@ def garmin_connect(
                 {
                     "action": "get_activities",
                     "count": len(result) if isinstance(result, list) else 0,
-                    "activities": result,
+                    "activities": _strip_bulky_fields(result, max_list_items=50),
                 }
             )
 
@@ -221,7 +237,7 @@ def garmin_connect(
                 {
                     "action": "get_activity_details",
                     "activity_id": activity_id,
-                    "activity": result,
+                    "activity": _strip_bulky_fields(result),
                 }
             )
 

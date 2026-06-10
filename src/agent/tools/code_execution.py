@@ -305,6 +305,14 @@ def _build_execution_response(
     """
     stderr = result.stderr or ""
 
+    # Cap output sizes - both land verbatim in LLM context (a print(df) on a
+    # large DataFrame would otherwise be unbounded)
+    max_chars = Config.CODE_EXECUTION_MAX_STDOUT_CHARS
+    if len(clean_stdout) > max_chars:
+        clean_stdout = clean_stdout[:max_chars] + "\n[...stdout truncated]"
+    if len(stderr) > max_chars:
+        stderr = stderr[:max_chars] + "\n[...stderr truncated]"
+
     response: dict[str, Any] = {
         "success": result.exit_code == 0,
         "exit_code": result.exit_code,
