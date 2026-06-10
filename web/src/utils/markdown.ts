@@ -1,6 +1,5 @@
 import { marked } from 'marked';
 import katex from 'katex';
-import 'katex/dist/katex.min.css';
 import hljs from 'highlight.js/lib/core';
 import { COPY_ICON } from './icons';
 import { escapeHtml } from './dom';
@@ -65,16 +64,18 @@ hljs.registerLanguage('kt', kotlin);
 const copyButtonHtml = `<button class="inline-copy-btn" title="Copy">${COPY_ICON}</button>`;
 
 // ============ LaTeX math rendering (KaTeX) ============
-// The model emits math as $inline$ and $$display$$. Boundary rules are
-// hand-rolled because off-the-shelf options each fail a real case:
-// - opening $ may follow any char (the model writes "($E$)"), but the
-//   content must not start/end with whitespace
-// - a closing $ followed by a digit does NOT end math, so currency like
-//   "costs $5 and $10" stays plain text
-
-// content: escaped chars or anything except newline/$, lazy; closing $ not followed by a digit
-const INLINE_MATH_RULE = /^\$(?!\s)((?:\\[\s\S]|[^\\\n$])+?)\$(?!\d)/;
-const DISPLAY_MATH_RULE = /^\$\$([\s\S]+?)\$\$/;
+// The model emits math as $inline$, $$display$$, \(inline\) and
+// \[display\]. Math is extracted BEFORE markdown parsing (preprocess
+// hook) and rendered KaTeX is substituted back into the final HTML
+// (postprocess hook). Tokenizer-level extensions are not enough: markdown
+// eats underscores (subscripts) and backslashes inside TeX whenever a
+// tokenizer boundary case misses, and display math nested in list items
+// re-tokenizes. Isolation makes the markdown parser never see TeX at all.
+//
+// Inline $...$ boundary rules (currency safety):
+// - content must not start with whitespace or end with whitespace
+// - a closing $ followed by a digit does NOT end math, so "costs $5 and
+//   $10" stays plain text
 
 function renderKatex(tex: string, displayMode: boolean): string {
   try {
@@ -89,59 +90,50 @@ function renderKatex(tex: string, displayMode: boolean): string {
   }
 }
 
-interface MathToken {
-  type: 'inlineMath' | 'displayMath';
-  raw: string;
-  text: string;
-  display: boolean;
+// Private-use-area sentinels: pass through markdown untouched and cannot
+// collide with markdown syntax
+const MATH_TOKEN = /\uE000katex(\d+)\uE001/g;
+
+// Per-parse stash of rendered math segments (renderMarkdown is synchronous)
+let mathSegments: string[] = [];
+
+function stashMath(tex: string, display: boolean): string {
+  const index = mathSegments.length;
+  mathSegments.push(renderKatex(tex, display));
+  return `\uE000katex${index}\uE001`;
+}
+
+function extractMathFromText(text: string): string {
+  return (
+    text
+      // display math first so $$ is not consumed as two inline delimiters
+      .replace(/\$\$([\s\S]+?)\$\$/g, (_m, tex: string) => stashMath(tex.trim(), true))
+      .replace(/\\\[([\s\S]+?)\\\]/g, (_m, tex: string) => stashMath(tex.trim(), true))
+      .replace(/\\\(([\s\S]+?)\\\)/g, (_m, tex: string) => stashMath(tex.trim(), false))
+      .replace(/\$(?!\s)((?:\\[\s\S]|[^\\\n$])+?)\$(?!\d)/g, (match, tex: string) =>
+        tex.endsWith(' ') ? match : stashMath(tex, false)
+      )
+  );
+}
+
+function extractMath(markdown: string): string {
+  mathSegments = [];
+  // Skip fenced code blocks and inline code spans - dollar signs inside
+  // code must stay verbatim. Odd-indexed parts are the captured code.
+  const parts = markdown.split(/(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/);
+  return parts.map((part, i) => (i % 2 === 1 ? part : extractMathFromText(part))).join('');
+}
+
+function restoreMath(html: string): string {
+  if (mathSegments.length === 0) return html;
+  return html.replace(MATH_TOKEN, (_m, index: string) => mathSegments[Number(index)] ?? '');
 }
 
 marked.use({
-  extensions: [
-    {
-      name: 'displayMath',
-      level: 'block',
-      start(src: string): number {
-        return src.indexOf('$$');
-      },
-      tokenizer(src: string): MathToken | undefined {
-        const match = DISPLAY_MATH_RULE.exec(src);
-        if (match) {
-          return { type: 'displayMath', raw: match[0], text: match[1].trim(), display: true };
-        }
-        return undefined;
-      },
-      renderer(token: unknown): string {
-        const t = token as MathToken;
-        return renderKatex(t.text, true);
-      },
-    },
-    {
-      name: 'inlineMath',
-      level: 'inline',
-      start(src: string): number {
-        return src.indexOf('$');
-      },
-      tokenizer(src: string): MathToken | undefined {
-        if (src.startsWith('$$')) {
-          const m = DISPLAY_MATH_RULE.exec(src);
-          if (m) {
-            return { type: 'inlineMath', raw: m[0], text: m[1].trim(), display: true };
-          }
-          return undefined;
-        }
-        const match = INLINE_MATH_RULE.exec(src);
-        if (match && !match[1].endsWith(' ')) {
-          return { type: 'inlineMath', raw: match[0], text: match[1], display: false };
-        }
-        return undefined;
-      },
-      renderer(token: unknown): string {
-        const t = token as MathToken;
-        return renderKatex(t.text, t.display);
-      },
-    },
-  ],
+  hooks: {
+    preprocess: extractMath,
+    postprocess: restoreMath,
+  },
 });
 
 // Configure marked with custom renderer for tables, code blocks, and links

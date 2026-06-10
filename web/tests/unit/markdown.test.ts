@@ -130,3 +130,44 @@ describe('KaTeX output mode', () => {
     expect(html).not.toContain('katex-mathml');
   });
 });
+
+describe('math isolation from markdown parsing', () => {
+  it('preserves subscripts and backslash commands (no markdown mangling)', () => {
+    // Markdown would otherwise eat the underscores as emphasis and the
+    // backslashes as escapes: \frac{S_t}{K} came out as "KSt"
+    const html = renderMarkdown('Then $d_1 = \\ln \\frac{S_t}{K}$ holds.');
+    expect(html).toContain('class="katex"');
+    expect(html).not.toContain('<em>');
+  });
+
+  it('renders \\(...\\) inline delimiters', () => {
+    const html = renderMarkdown('energy \\(E = mc^2\\) equals');
+    expect(html).toContain('class="katex"');
+  });
+
+  it('renders \\[...\\] display delimiters', () => {
+    const html = renderMarkdown('\\[x^2 + y^2 = z^2\\]');
+    expect(html).toContain('katex-display');
+  });
+
+  it('renders display math inside a list item', () => {
+    const html = renderMarkdown('1. First\n2. Formula:\n\n   $$a^2 + b^2 = c^2$$\n\n3. Third');
+    expect(html).toContain('katex-display');
+  });
+
+  it('leaves dollar signs in fenced code blocks alone', () => {
+    const html = renderMarkdown('```bash\necho $HOME and $5\n```');
+    expect(html).not.toContain('katex');
+  });
+
+  it('leaves dollar signs in inline code alone', () => {
+    const html = renderMarkdown('Use `$variable$` syntax');
+    expect(html).not.toContain('katex');
+  });
+
+  it('two inline maths on one line stay separate', () => {
+    const html = renderMarkdown('Both $S_t$ and $K_t$ matter.');
+    const count = (html.match(/class="katex"/g) ?? []).length;
+    expect(count).toBe(2);
+  });
+});

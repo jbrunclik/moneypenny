@@ -21,6 +21,10 @@
 
 import './styles/main.css';
 import 'highlight.js/styles/github-dark.css';
+// KaTeX CSS must load at the ENTRY point: imported from markdown.ts it lands
+// in a code-split chunk's CSS, which the Flask template never injects
+// (app.py injects only the main entry's css file from the Vite manifest)
+import 'katex/dist/katex.min.css';
 
 import { init } from './core/init';
 
