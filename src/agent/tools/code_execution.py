@@ -409,7 +409,9 @@ def execute_code(code: str) -> str:
 
     # Check if sandbox is available
     if not Config.CODE_SANDBOX_ENABLED:
-        return json.dumps({"error": "Code execution is disabled on this server."})
+        return json.dumps(
+            {"error": "Code execution is disabled on this server.", "retriable": False}
+        )
 
     if not _check_docker_available():
         return json.dumps(

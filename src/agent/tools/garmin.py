@@ -169,6 +169,7 @@ def garmin_connect(
         return json.dumps(
             {
                 "error": "Garmin not connected",
+                "retriable": False,
                 "message": "Please ask the user to connect their Garmin account in settings first.",
             }
         )

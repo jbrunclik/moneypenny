@@ -430,6 +430,7 @@ def whatsapp(
         return json.dumps(
             {
                 "error": "WhatsApp not configured",
+                "retriable": False,
                 "message": "WhatsApp integration is not configured. "
                 "Please set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN.",
             }
@@ -439,6 +440,7 @@ def whatsapp(
         return json.dumps(
             {
                 "error": "WhatsApp template not configured",
+                "retriable": False,
                 "message": "WHATSAPP_TEMPLATE_NAME is required. "
                 "Create a message template in Meta Business Suite and configure it.",
             }

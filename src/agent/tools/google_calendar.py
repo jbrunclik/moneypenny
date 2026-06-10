@@ -569,13 +569,16 @@ def google_calendar(
     """
 
     if not _is_google_calendar_configured():
-        return json.dumps({"error": "Google Calendar integration not configured"})
+        return json.dumps(
+            {"error": "Google Calendar integration not configured", "retriable": False}
+        )
 
     token_info = _get_google_calendar_access_token()
     if not token_info:
         return json.dumps(
             {
                 "error": "Google Calendar not connected",
+                "retriable": False,
                 "message": "Ask the user to connect Google Calendar in Settings first.",
             }
         )

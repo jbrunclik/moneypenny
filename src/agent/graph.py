@@ -399,8 +399,8 @@ def chat_node(
     return result
 
 
-def _tool_message_error(msg: ToolMessage) -> str | None:
-    """Return the error text if the ToolMessage represents a failure, else None.
+def _tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
+    """Return (error_text, retriable) if the ToolMessage is a failure, else None.
 
     Detection is structural — never substring matching, which false-positived
     on legitimate content (e.g. a fetched page that *describes* a failure):
@@ -408,16 +408,20 @@ def _tool_message_error(msg: ToolMessage) -> str | None:
       permission-blocked path
     - a JSON object with a truthy "error" key: the envelope every tool in
       src/agent/tools returns on failure
+
+    Tools mark permanent failures (integration not configured, invalid
+    action, ...) with "retriable": false so self-correction skips pointless
+    retries; absent flag defaults to retriable.
     """
     if getattr(msg, "status", None) == "error":
-        return str(msg.content)[:200]
+        return str(msg.content)[:200], True
     if isinstance(msg.content, str):
         try:
             data = json.loads(msg.content)
         except (json.JSONDecodeError, TypeError):
             return None
         if isinstance(data, dict) and data.get("error"):
-            return str(data["error"])[:200]
+            return str(data["error"])[:200], bool(data.get("retriable", True))
     return None
 
 
@@ -442,13 +446,16 @@ def check_tool_results(
 
     # Scan latest ToolMessages for errors
     has_error = False
+    any_retriable = False
     error_details: list[str] = []
     for msg in reversed(messages):
         if isinstance(msg, ToolMessage):
-            error = _tool_message_error(msg)
-            if error is not None:
+            found = _tool_message_error(msg)
+            if found is not None:
+                error_text, retriable = found
                 has_error = True
-                error_details.append(error)
+                any_retriable = any_retriable or retriable
+                error_details.append(error_text)
         elif isinstance(msg, AIMessage):
             # Stop scanning once we hit the AIMessage that triggered the tools
             break
@@ -464,6 +471,15 @@ def check_tool_results(
 
     # Use HumanMessage in cached mode (LangChain drops mid-conversation SystemMessages)
     GuidanceMessage = HumanMessage if use_cache else SystemMessage
+
+    if not any_retriable:
+        # Every failure is marked permanent (e.g. integration not configured) -
+        # retrying with different arguments cannot help; go straight to give-up
+        logger.info(
+            "Tool error is non-retriable, skipping self-correction retries",
+            extra={"errors": error_summary},
+        )
+        new_retries = max_retries + 1
 
     if new_retries <= max_retries:
         logger.info(

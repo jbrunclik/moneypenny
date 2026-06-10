@@ -510,13 +510,17 @@ def browser(
 
     if not Config.BROWSER_ENABLED:
         return json.dumps(
-            {"error": "Browser tool is disabled. Set BROWSER_ENABLED=true to enable."}
+            {
+                "error": "Browser tool is disabled. Set BROWSER_ENABLED=true to enable.",
+                "retriable": False,
+            }
         )
 
     if not is_browser_available():
         return json.dumps(
             {
                 "error": "Playwright is not installed.",
+                "retriable": False,
                 "hint": "Run: pip install playwright && playwright install chromium --with-deps",
             }
         )

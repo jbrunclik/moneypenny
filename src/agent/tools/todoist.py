@@ -825,6 +825,7 @@ def todoist(
         return json.dumps(
             {
                 "error": "Todoist not connected",
+                "retriable": False,
                 "message": "Please ask the user to connect their Todoist account in settings first.",
             }
         )

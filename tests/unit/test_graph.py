@@ -944,3 +944,36 @@ class TestToolNodePermissionFiltering:
         last = result["messages"][-1]
         assert isinstance(last, ToolMessage)
         assert last.content == "echo: hi"
+
+
+class TestNonRetriableToolErrors:
+    """A1: 'retriable': false in the error envelope skips pointless retries."""
+
+    def test_non_retriable_error_goes_straight_to_give_up(self) -> None:
+        state: AgentState = {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "todoist", "args": {}, "id": "1"}]),
+                ToolMessage(
+                    content='{"error": "Todoist not connected", "retriable": false}',
+                    tool_call_id="1",
+                ),
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        result = check_tool_results(state)
+        guidance = result["messages"][0]
+        assert "failed after multiple retries" in guidance.content.lower()
+
+    def test_retriable_error_still_gets_retry_guidance(self) -> None:
+        state: AgentState = {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
+                ToolMessage(content='{"error": "Search timed out"}', tool_call_id="1"),
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        result = check_tool_results(state)
+        guidance = result["messages"][0]
+        assert "different approach" in guidance.content.lower()
