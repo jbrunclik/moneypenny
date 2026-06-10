@@ -1470,9 +1470,7 @@ class TestCompactAgentConversationOrdering:
         for i in range(6):
             test_database.add_message(conv_id, MessageRole.USER, f"msg {i}")
 
-        deleted = test_database.compact_agent_conversation(
-            agent.id, "the summary", keep_recent=3
-        )
+        deleted = test_database.compact_agent_conversation(agent.id, "the summary", keep_recent=3)
         assert deleted == 3
 
         messages = test_database.get_messages(conv_id)
