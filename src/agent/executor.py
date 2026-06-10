@@ -335,23 +335,20 @@ def execute_agent(
             tools=agent_tools,
         )
 
-        # Run the agent with retry logic for transient failures
-        from src.agent.retry import with_retry
-
-        def run_chat() -> tuple[str, list[Any], dict[str, Any], list[Any]]:
-            return chat_agent.chat_batch(
-                text=trigger_message,
-                files=None,
-                history=history,
-                force_tools=None,
-                user_name=user.name,
-                user_id=user.id,
-                custom_instructions=user.custom_instructions,
-                is_planning=False,
-                conversation_id=agent.conversation_id,
-            )
-
-        raw_response, tool_results, usage_info, result_messages = with_retry(run_chat)()
+        # No retry wrapper here: chat_node already retries each LLM call with
+        # backoff (graph.py), and replaying the whole turn would re-execute
+        # non-idempotent tools (Todoist/Calendar writes, WhatsApp sends).
+        raw_response, tool_results, usage_info, result_messages = chat_agent.chat_batch(
+            text=trigger_message,
+            files=None,
+            history=history,
+            force_tools=None,
+            user_name=user.name,
+            user_id=user.id,
+            custom_instructions=user.custom_instructions,
+            is_planning=False,
+            conversation_id=agent.conversation_id,
+        )
 
         # Get full tool results
         full_tool_results = get_full_tool_results(request_id)
