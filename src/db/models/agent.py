@@ -983,6 +983,77 @@ class AgentMixin:
 
     # ============ Command Center ============
 
+    def list_agents_with_status(self, user_id: str) -> list[dict[str, Any]]:
+        """List agents with unread/pending/last-execution status in one query.
+
+        Replaces the per-agent has_pending_approval + get_agent_unread_count +
+        get_last_execution_status loop (3 queries per agent) in the listing
+        route (Q1).
+        """
+        now = utcnow_naive()
+        with self._pool.get_connection() as conn:
+            agent_rows = self._execute_with_timing(
+                conn,
+                """SELECT a.*,
+                   (SELECT COUNT(*) FROM messages m
+                    JOIN conversations c ON m.conversation_id = c.id
+                    WHERE c.agent_id = a.id
+                    AND m.role = 'assistant'
+                    AND (a.last_viewed_at IS NULL OR m.created_at > a.last_viewed_at)
+                   ) as unread_count,
+                   (SELECT 1 FROM agent_approval_requests r
+                    WHERE r.agent_id = a.id AND r.status = 'pending'
+                    AND (r.expires_at IS NULL OR r.expires_at > ?)
+                    LIMIT 1
+                   ) as has_pending,
+                   (SELECT status FROM agent_executions e
+                    WHERE e.agent_id = a.id
+                    ORDER BY e.started_at DESC
+                    LIMIT 1
+                   ) as last_execution_status
+                   FROM autonomous_agents a
+                   WHERE a.user_id = ?
+                   ORDER BY a.created_at DESC""",
+                (now.isoformat(), user_id),
+            ).fetchall()
+
+            result: list[dict[str, Any]] = []
+            for row in agent_rows:
+                last_status = row["last_execution_status"]
+                result.append(
+                    {
+                        "agent": self._row_to_agent(row),
+                        "unread_count": int(row["unread_count"] or 0),
+                        "has_pending_approval": bool(row["has_pending"]),
+                        "has_error": last_status == "failed",
+                        "last_execution_status": last_status,
+                    }
+                )
+            return result
+
+    def get_agents_daily_spending(self, user_id: str) -> dict[str, float]:
+        """Get today's spending per agent in one query (agent_id -> USD).
+
+        Same local-midnight window as get_agent_daily_spending.
+        """
+        # LOCAL-naive on purpose: message_costs.created_at is stored local-naive
+        today = datetime.now().date()
+        today_start = datetime(today.year, today.month, today.day, 0, 0, 0)
+
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT c.agent_id, COALESCE(SUM(mc.cost_usd), 0) as total
+                   FROM message_costs mc
+                   JOIN messages m ON mc.message_id = m.id
+                   JOIN conversations c ON m.conversation_id = c.id
+                   WHERE c.user_id = ? AND c.agent_id IS NOT NULL
+                   AND mc.created_at >= ?
+                   GROUP BY c.agent_id""",
+                (user_id, today_start.isoformat()),
+            ).fetchall()
+            return {row["agent_id"]: float(row["total"]) for row in rows}
+
     def get_command_center_data(self, user_id: str) -> dict[str, Any]:
         """Get aggregated data for the command center dashboard.
 

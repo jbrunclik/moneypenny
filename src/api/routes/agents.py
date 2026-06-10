@@ -133,18 +133,21 @@ def list_agents(user: User) -> dict[str, Any]:
     """
     logger.debug("Listing agents", extra={"user_id": user.id})
 
-    agents = db.list_agents(user.id)
+    # Status and spending are batched (was 4 queries per agent - Q1)
+    agents_status = db.list_agents_with_status(user.id)
+    spending = db.get_agents_daily_spending(user.id)
 
-    # Get status info for each agent
-    agents_response = []
-    for agent in agents:
-        has_pending = db.has_pending_approval(agent.id)
-        unread_count = db.get_agent_unread_count(agent.id)
-        last_exec_status = db.get_last_execution_status(agent.id)
-        has_error = last_exec_status == "failed"
-        agents_response.append(
-            _agent_to_response(agent, unread_count, has_pending, has_error, last_exec_status)
+    agents_response = [
+        _agent_to_response(
+            item["agent"],
+            item["unread_count"],
+            item["has_pending_approval"],
+            item["has_error"],
+            item["last_execution_status"],
+            daily_spending=spending.get(item["agent"].id, 0.0),
         )
+        for item in agents_status
+    ]
 
     return {"agents": agents_response}
 
