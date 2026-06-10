@@ -511,6 +511,10 @@ def stream_events(
                 "tool_name": e.tool_name,
             }
         )
+        # Approval is terminal for this stream: signal completion so the
+        # consumer finalizes promptly instead of sending keepalives until the
+        # backstop deadline (~CHAT_TIMEOUT later) and emitting a bogus timeout.
+        event_queue.put(None)
     except Exception as e:
         logger.error(
             "Stream thread error",
@@ -691,11 +695,15 @@ def create_stream_generator(
             # Clean up agent context if this was an agent conversation
             context.cleanup_agent_context()
             # Delete placeholder if stream failed before producing results
-            # (cleanup thread won't save because final_results["ready"] is False)
+            # (cleanup thread won't save because final_results["ready"] is False).
+            # The approval path never sets "ready" - its save happens in
+            # _finalize_approval_stream, so a client disconnect before that ran
+            # must not delete the placeholder the approval message lands in.
             if (
                 context.placeholder_saved
                 and not context.final_results["ready"]
                 and not context.final_results["saved"]
+                and context.approval_info is None
             ):
                 try:
                     db.delete_message_by_id(context.expected_assistant_msg_id)
@@ -1323,8 +1331,14 @@ def _handle_generator_error(context: _StreamContext, error: Exception) -> Genera
         exc_info=True,
     )
 
-    # Delete placeholder if no useful content was generated
-    if context.placeholder_saved and not context.clean_content.strip():
+    # Delete placeholder if no useful content was generated AND nothing was
+    # saved - a post-save exception (e.g. in done-event construction) must not
+    # delete the message that was just successfully persisted
+    if (
+        context.placeholder_saved
+        and not context.clean_content.strip()
+        and not context.final_results["saved"]
+    ):
         try:
             db.delete_message_by_id(context.expected_assistant_msg_id)
         except Exception:
