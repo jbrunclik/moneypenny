@@ -100,9 +100,9 @@ def validate_tool_names() -> None:
 
     This runs at import time to catch mismatches early during development.
     """
-    from src.agent.tools import TOOLS
+    from src.agent.tools import get_available_tools
 
-    actual_tool_names = {tool.name for tool in TOOLS}
+    actual_tool_names = {tool.name for tool in get_available_tools()}
 
     # Add conditional tools that are only available in specific contexts
     # refresh_planner_dashboard is only added in planner mode via get_tools_for_request()

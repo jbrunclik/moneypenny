@@ -447,7 +447,7 @@ class TestGraphStructure:
 
     @patch("src.agent.graph.create_chat_model")
     @patch("src.agent.graph.create_tool_node")
-    @patch("src.agent.graph.TOOLS", [MagicMock(name="mock_tool")])
+    @patch("src.agent.graph.get_available_tools", lambda: [MagicMock(name="mock_tool")])
     def test_graph_has_check_tool_results_node(
         self, mock_create_tool_node: MagicMock, mock_model: MagicMock
     ) -> None:

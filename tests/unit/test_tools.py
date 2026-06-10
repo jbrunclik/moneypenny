@@ -13,10 +13,10 @@ from google.genai import errors as genai_errors
 # Import public API from the package
 from src.agent.tools import (
     FETCHABLE_BINARY_TYPES,
-    TOOLS,
     execute_code,
     fetch_url,
     generate_image,
+    get_available_tools,
     get_tools_for_request,
     is_code_sandbox_available,
     retrieve_file,
@@ -2029,7 +2029,7 @@ class TestGetToolsForRequest:
     def test_returns_all_tools_by_default(self) -> None:
         """Should return all tools when anonymous_mode is False."""
         tools = get_tools_for_request(anonymous_mode=False)
-        assert tools == TOOLS
+        assert tools == get_available_tools()
         # Core tools should always be present
         tool_names = {t.name for t in tools}
         assert "web_search" in tool_names
@@ -2077,4 +2077,4 @@ class TestGetToolsForRequest:
     def test_default_parameter_is_false(self) -> None:
         """Should default to anonymous_mode=False."""
         tools = get_tools_for_request()
-        assert tools == TOOLS
+        assert tools == get_available_tools()

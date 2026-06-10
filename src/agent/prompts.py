@@ -1392,7 +1392,7 @@ def get_system_prompt(
         is_language: If True, include language tutor system prompt
         language_context: Language context dict with keys: program_name, program_id
     """
-    from src.agent.tools import TOOLS
+    from src.agent.tools import get_available_tools
 
     # Include timezone info using astimezone() to get local timezone
     now = datetime.now().astimezone()
@@ -1403,7 +1403,7 @@ def get_system_prompt(
     # Add user context if configured
     prompt += get_user_context(user_name)
 
-    if with_tools and TOOLS:
+    if with_tools and get_available_tools():
         # Always include base tools documentation
         prompt += TOOLS_SYSTEM_PROMPT_BASE
         # Include productivity tools (Todoist, Calendar) docs only when NOT in anonymous mode

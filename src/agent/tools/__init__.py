@@ -118,11 +118,6 @@ def _is_whatsapp_available_for_user(user_id: str) -> bool:
     return True
 
 
-# List of all available tools for the agent
-# Note: Use get_available_tools() for dynamic tool list based on Docker availability
-TOOLS = get_available_tools()
-
-
 def get_tools_for_request(
     anonymous_mode: bool = False,
     is_planning: bool = False,
@@ -172,11 +167,14 @@ def get_tools_for_request(
 
         return tools
 
-    # Standard request handling
+    # Standard request handling. The tool list is computed per request (not a
+    # frozen import-time constant) so availability changes - e.g. Playwright
+    # installed, integration configured - apply without a process restart.
+    available = get_available_tools()
     if anonymous_mode:
-        tools = [t for t in TOOLS if t.name not in _INTEGRATION_TOOLS]
+        tools = [t for t in available if t.name not in _INTEGRATION_TOOLS]
     else:
-        tools = list(TOOLS)
+        tools = available
 
     # Add refresh_planner_dashboard tool only in planner mode
     if is_planning and is_refresh_planner_dashboard_available():
@@ -334,7 +332,6 @@ __all__ = [
     "is_refresh_planner_dashboard_available",
     "is_whatsapp_available",
     # Tool lists
-    "TOOLS",
     "get_available_tools",
     "get_tools_for_request",
     "get_tools_for_agent",

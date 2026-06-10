@@ -24,7 +24,7 @@ from langgraph.prebuilt import ToolNode as BaseToolNode
 from src.agent.content import extract_text_content, strip_full_result_from_tool_content
 from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
-from src.agent.tools import TOOLS
+from src.agent.tools import get_available_tools
 from src.agent.tools.metadata import METADATA_TOOL_NAMES
 from src.config import Config
 from src.utils.logging import get_logger
@@ -96,7 +96,7 @@ def create_chat_model(
         model_name: The Gemini model to use
         with_tools: Whether to bind tools to the model
         include_thoughts: Whether to include thinking/reasoning summaries in responses
-        tools: Custom list of tools to bind (defaults to TOOLS if not provided)
+        tools: Custom list of tools to bind (defaults to get_available_tools())
         temperature: Override for model temperature (defaults to Config.GEMINI_DEFAULT_TEMPERATURE)
         cached_content: Gemini cached content name. When provided, tools are NOT bound
             (they're already in the cache) and system_instruction is omitted.
@@ -122,7 +122,7 @@ def create_chat_model(
 
     model = ChatGoogleGenerativeAI(**kwargs)
 
-    active_tools = tools if tools is not None else TOOLS
+    active_tools = tools if tools is not None else get_available_tools()
     if with_tools and active_tools:
         return model.bind_tools(active_tools)  # type: ignore[return-value]
 
@@ -602,11 +602,11 @@ def create_chat_graph(
         model_name: The Gemini model to use
         with_tools: Whether to bind tools to the model
         include_thoughts: Whether to include thinking/reasoning summaries
-        tools: Custom list of tools to use (defaults to TOOLS if not provided)
+        tools: Custom list of tools to use (defaults to get_available_tools())
         is_autonomous: If True, check permissions and require approval for dangerous operations
         cached_content: Gemini cached content name (tools are in the cache, not bound)
     """
-    active_tools = tools if tools is not None else TOOLS
+    active_tools = tools if tools is not None else get_available_tools()
     model = create_chat_model(
         model_name,
         with_tools=with_tools,
