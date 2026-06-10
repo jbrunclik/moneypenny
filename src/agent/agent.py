@@ -715,10 +715,13 @@ class ChatAgent:
                 config=config,
                 stream_mode="messages",
             ):
-                if isinstance(event, tuple) and len(event) >= 1:
-                    message_chunk = event[0]
-                    event_meta = event[1] if len(event) >= 2 and isinstance(event[1], dict) else {}
-                    source_node = event_meta.get("langgraph_node", "")
+                # Guard clause: a non-tuple event must not fall through to the
+                # processing below with an unbound/stale message_chunk
+                if not (isinstance(event, tuple) and len(event) >= 1):
+                    continue
+                message_chunk = event[0]
+                event_meta = event[1] if len(event) >= 2 and isinstance(event[1], dict) else {}
+                source_node = event_meta.get("langgraph_node", "")
 
                 # Capture tool messages (results from tool execution)
                 if isinstance(message_chunk, ToolMessage):
