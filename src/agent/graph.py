@@ -11,6 +11,7 @@ Graph flow (without tools or planning disabled):
   START -> chat -> END
 """
 
+import json
 import time
 from typing import Annotated, Any, Literal, TypedDict
 
@@ -340,6 +341,28 @@ def chat_node(
     return result
 
 
+def _tool_message_error(msg: ToolMessage) -> str | None:
+    """Return the error text if the ToolMessage represents a failure, else None.
+
+    Detection is structural — never substring matching, which false-positived
+    on legitimate content (e.g. a fetched page that *describes* a failure):
+    - status == "error": set by the ToolNode exception handler and the
+      permission-blocked path
+    - a JSON object with a truthy "error" key: the envelope every tool in
+      src/agent/tools returns on failure
+    """
+    if getattr(msg, "status", None) == "error":
+        return str(msg.content)[:200]
+    if isinstance(msg.content, str):
+        try:
+            data = json.loads(msg.content)
+        except (json.JSONDecodeError, TypeError):
+            return None
+        if isinstance(data, dict) and data.get("error"):
+            return str(data["error"])[:200]
+    return None
+
+
 def check_tool_results(
     state: AgentState,
     use_cache: bool = False,
@@ -364,20 +387,10 @@ def check_tool_results(
     error_details: list[str] = []
     for msg in reversed(messages):
         if isinstance(msg, ToolMessage):
-            # Check for explicit error status
-            if getattr(msg, "status", None) == "error":
+            error = _tool_message_error(msg)
+            if error is not None:
                 has_error = True
-                error_details.append(str(msg.content)[:200])
-            # Check for error content patterns
-            elif isinstance(msg.content, str) and (
-                "Error:" in msg.content
-                or "error:" in msg.content
-                or "Exception:" in msg.content
-                or "Traceback" in msg.content
-                or "failed" in msg.content.lower()[:50]
-            ):
-                has_error = True
-                error_details.append(msg.content[:200])
+                error_details.append(error)
         elif isinstance(msg, AIMessage):
             # Stop scanning once we hit the AIMessage that triggered the tools
             break

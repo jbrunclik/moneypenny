@@ -181,12 +181,15 @@ class TestCheckToolResults:
         assert "failed" in guidance.content.lower()
         assert "different approach" in guidance.content.lower()
 
-    def test_detects_error_content_patterns(self) -> None:
-        """ToolMessage with error text patterns should trigger retry guidance."""
+    def test_detects_json_error_envelope(self) -> None:
+        """ToolMessage with a JSON {"error": ...} envelope should trigger retry guidance.
+
+        This is the envelope every tool in src/agent/tools returns on failure.
+        """
         state: AgentState = {
             "messages": [
                 AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
-                ToolMessage(content="Error: API returned 500", tool_call_id="1"),
+                ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 0,
             "plan": "",
@@ -194,6 +197,43 @@ class TestCheckToolResults:
         result = check_tool_results(state)
         assert result["tool_retries"] == 1
         assert "messages" in result
+        assert "API returned 500" in result["messages"][0].content
+
+    def test_ignores_error_words_in_legitimate_content(self) -> None:
+        """Plain content merely *mentioning* errors must not trigger guidance.
+
+        The old substring matching ("Error:", "failed" in the first 50 chars)
+        false-positived on legitimate tool output, e.g. a fetched page that
+        describes a failure.
+        """
+        state: AgentState = {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "1"}]),
+                ToolMessage(
+                    content="Login failed errors: how to fix Error: 500 pages (blog post)",
+                    tool_call_id="1",
+                ),
+            ],
+            "tool_retries": 1,
+            "plan": "",
+        }
+        result = check_tool_results(state)
+        assert result["tool_retries"] == 0
+        assert "messages" not in result
+
+    def test_ignores_json_without_error_key(self) -> None:
+        """A JSON tool result whose 'error' key is absent/falsy is a success."""
+        state: AgentState = {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
+                ToolMessage(content='{"results": [{"title": "ok"}]}', tool_call_id="1"),
+            ],
+            "tool_retries": 1,
+            "plan": "",
+        }
+        result = check_tool_results(state)
+        assert result["tool_retries"] == 0
+        assert "messages" not in result
 
     def test_resets_on_success(self) -> None:
         """Successful tool results should reset retry counter."""
@@ -214,7 +254,7 @@ class TestCheckToolResults:
         state: AgentState = {
             "messages": [
                 AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
-                ToolMessage(content="Error: API returned 500", tool_call_id="1"),
+                ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 2,  # Already at max (default is 2)
             "plan": "",
@@ -648,7 +688,7 @@ class TestCachedCheckToolResults:
         state: AgentState = {
             "messages": [
                 AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
-                ToolMessage(content="Error: API returned 500", tool_call_id="1"),
+                ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 0,
             "plan": "",
@@ -664,7 +704,7 @@ class TestCachedCheckToolResults:
         state: AgentState = {
             "messages": [
                 AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
-                ToolMessage(content="Error: API returned 500", tool_call_id="1"),
+                ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 0,
             "plan": "",
