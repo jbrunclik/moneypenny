@@ -415,6 +415,24 @@ def check_tool_results(
 # ============ Tool Node Factory ============
 
 
+def _handle_tool_errors(e: Exception) -> str:
+    """Convert tool exceptions into error ToolMessages, except control-flow exceptions.
+
+    ApprovalRequestedException is control flow, not an error: it must propagate
+    to the executor/streaming handler so the run pauses in waiting_approval.
+    handle_tool_errors=True would swallow it into an error ToolMessage
+    (verified on langgraph 1.0.5), silently completing the run instead.
+
+    The returned string mirrors langgraph's default TOOL_CALL_ERROR_TEMPLATE so
+    ordinary tool errors keep the exact same self-correction behavior.
+    """
+    from src.agent.tools.request_approval import ApprovalRequestedException
+
+    if isinstance(e, ApprovalRequestedException):
+        raise e
+    return f"Error: {e!r}\n Please fix your mistakes."
+
+
 def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
     """Create a tool node that strips large data from results before sending to LLM.
 
@@ -425,13 +443,13 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
     allowing per-request capture while using a single shared graph instance.
 
     For autonomous agents (is_autonomous=True), this also checks tool permissions
-    and may raise ApprovalRequiredException if a tool call requires user approval.
+    and may raise ApprovalRequestedException if a tool call requires user approval.
 
     Args:
         tools: List of tools to use
         is_autonomous: If True, check permissions and require approval for dangerous operations
     """
-    base_tool_node = BaseToolNode(tools, handle_tool_errors=True)
+    base_tool_node = BaseToolNode(tools, handle_tool_errors=_handle_tool_errors)
 
     def tool_node_with_stripping(state: AgentState) -> dict[str, Any]:
         """Execute tools and strip _full_result from results."""

@@ -1,18 +1,42 @@
 """Unit tests for graph improvements: self-correction, planning, and checkpointing."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import tool
+from langgraph.graph import END, StateGraph
 
 from src.agent.graph import (
     AgentState,
     check_tool_results,
     compile_graph,
     create_chat_graph,
+    create_tool_node,
     get_graph_config,
     should_continue,
     should_plan,
 )
+
+
+def _compile_tool_graph(tools: list[Any], is_autonomous: bool = False) -> Any:
+    """Compile a minimal graph around create_tool_node, as production does."""
+    graph: StateGraph[AgentState] = StateGraph(AgentState)
+    graph.add_node("tools", create_tool_node(tools, is_autonomous=is_autonomous))
+    graph.set_entry_point("tools")
+    graph.add_edge("tools", END)
+    return graph.compile()
+
+
+def _tool_call_state(tool_calls: list[dict[str, Any]]) -> AgentState:
+    """Build an AgentState whose last message requests the given tool calls."""
+    return {
+        "messages": [AIMessage(content="", tool_calls=tool_calls)],
+        "tool_retries": 0,
+        "plan": "",
+    }
+
 
 # ============ should_continue Tests ============
 
@@ -604,3 +628,52 @@ class TestCachedCheckToolResults:
         guidance = result["messages"][0]
         assert isinstance(guidance, SystemMessage)
         assert "[SYSTEM GUIDANCE]" not in guidance.content
+
+
+# ============ Tool Node Exception Handling Tests ============
+
+
+class TestToolNodeApprovalPropagation:
+    """ApprovalRequestedException must escape the ToolNode's error handling.
+
+    Regression test: with handle_tool_errors=True (langgraph >= 1.0), ALL
+    Exception subclasses raised by tools are converted into error ToolMessages,
+    which silently broke the autonomous-agent approval flow — the executor's
+    `except ApprovalRequestedException` never fired and executions completed
+    instead of pausing in waiting_approval.
+    """
+
+    def test_approval_exception_propagates_through_compiled_graph(self) -> None:
+        """request_approval's control-flow exception must reach the caller."""
+        from src.agent.tools.request_approval import ApprovalRequestedException
+
+        @tool
+        def sensitive_action(description: str) -> str:
+            """Perform a sensitive action."""
+            raise ApprovalRequestedException("approval-1", description, "todoist")
+
+        compiled = _compile_tool_graph([sensitive_action])
+        state = _tool_call_state(
+            [{"name": "sensitive_action", "args": {"description": "send email"}, "id": "c1"}]
+        )
+
+        with pytest.raises(ApprovalRequestedException) as exc_info:
+            compiled.invoke(state)
+        assert exc_info.value.approval_id == "approval-1"
+
+    def test_ordinary_tool_error_still_becomes_error_tool_message(self) -> None:
+        """Non-control-flow tool exceptions keep the self-healing behavior."""
+
+        @tool
+        def boom(query: str) -> str:
+            """Always fails."""
+            raise ValueError("boom")
+
+        compiled = _compile_tool_graph([boom])
+        state = _tool_call_state([{"name": "boom", "args": {"query": "x"}, "id": "c1"}])
+
+        result = compiled.invoke(state)
+        last = result["messages"][-1]
+        assert isinstance(last, ToolMessage)
+        assert last.status == "error"
+        assert "boom" in last.content
