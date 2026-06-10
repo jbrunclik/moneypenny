@@ -278,24 +278,30 @@ class TestExecutorContext:
         assert result is None
 
     def test_trigger_chain_management(self):
-        """Test trigger chain for circular dependency prevention."""
+        """Trigger chain for circular dependency prevention rides on AgentContext."""
+        from unittest.mock import MagicMock
+
         from src.agent.executor import (
-            add_to_trigger_chain,
+            AgentContext,
+            clear_agent_context,
             get_trigger_chain,
+            set_agent_context,
         )
 
         # Initially should be empty
-        chain = get_trigger_chain()
-        assert chain == []
+        assert get_trigger_chain() == []
 
-        # Note: add_to_trigger_chain returns a context token, not the chain itself
-        # The chain is stored in context vars and retrieved via get_trigger_chain
-        token = add_to_trigger_chain("agent-1")
-        assert token is not None  # Should return a token
+        # The chain is propagated via execute_agent(parent_trigger_chain=...)
+        # which installs an AgentContext carrying the extended chain
+        set_agent_context(
+            AgentContext(agent=MagicMock(), user=MagicMock(), trigger_chain=["agent-1"])
+        )
+        try:
+            assert get_trigger_chain() == ["agent-1"]
+        finally:
+            clear_agent_context()
 
-        # After adding, get_trigger_chain should return the updated chain
-        chain = get_trigger_chain()
-        assert "agent-1" in chain
+        assert get_trigger_chain() == []
 
 
 # =============================================================================

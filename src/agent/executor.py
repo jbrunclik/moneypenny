@@ -98,30 +98,6 @@ def get_trigger_chain() -> list[str]:
     return context.trigger_chain if context else []
 
 
-def add_to_trigger_chain(agent_id: str) -> contextvars.Token[AgentContext | None]:
-    """Add an agent ID to the trigger chain.
-
-    Returns a token that can be used to reset the context.
-    """
-    context = _agent_context.get()
-    if context:
-        # Create a new context with the extended chain
-        new_context = AgentContext(
-            agent=context.agent,
-            user=context.user,
-            trigger_chain=context.trigger_chain + [agent_id],
-        )
-    else:
-        # Create a minimal context with just the trigger chain
-        # This shouldn't normally happen, but handle it gracefully
-        new_context = AgentContext(
-            agent=None,  # type: ignore[arg-type]
-            user=None,  # type: ignore[arg-type]
-            trigger_chain=[agent_id],
-        )
-    return _agent_context.set(new_context)
-
-
 # ============ Stub Classes ============
 
 
