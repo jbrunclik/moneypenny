@@ -1865,6 +1865,107 @@ class TestStreamNodeFiltering:
         assert final["content"] == "Fallback content"
 
 
+class TestToolEventCallIdKeying:
+    """tool_start/tool_end events are keyed by tool_call_id, not tool name.
+
+    Keying by name collapsed two parallel calls to the same tool into one
+    tool_start, and the first result cleared the indicator while the second
+    call was still running.
+    """
+
+    def _run_stream(self, events: list) -> list[dict]:
+        """Drive the real stream_chat_events with a mocked graph."""
+        from unittest.mock import MagicMock
+
+        from src.agent.agent import ChatAgent
+
+        agent = ChatAgent.__new__(ChatAgent)
+        agent.graph = MagicMock()
+        agent.graph.stream.return_value = iter(events)
+        agent._build_messages = MagicMock(return_value=[])  # type: ignore[method-assign]
+        return list(agent.stream_chat_events(text="hi"))
+
+    def test_parallel_calls_to_same_tool_emit_separate_events(self) -> None:
+        """Two parallel web_search calls → two tool_start and two tool_end."""
+        from langchain_core.messages import AIMessageChunk, ToolMessage
+
+        chunk = AIMessageChunk(
+            content="",
+            tool_call_chunks=[
+                {
+                    "name": "web_search",
+                    "args": "",
+                    "id": "c1",
+                    "index": 0,
+                    "type": "tool_call_chunk",
+                },
+                {
+                    "name": "web_search",
+                    "args": "",
+                    "id": "c2",
+                    "index": 1,
+                    "type": "tool_call_chunk",
+                },
+            ],
+        )
+        events = [
+            (chunk, {"langgraph_node": "chat"}),
+            (
+                ToolMessage(content='{"r": 1}', tool_call_id="c1", name="web_search"),
+                {"langgraph_node": "tools"},
+            ),
+            (
+                ToolMessage(content='{"r": 2}', tool_call_id="c2", name="web_search"),
+                {"langgraph_node": "tools"},
+            ),
+            (AIMessageChunk(content="Done"), {"langgraph_node": "chat"}),
+        ]
+
+        emitted = self._run_stream(events)
+        starts = [e for e in emitted if e["type"] == "tool_start"]
+        ends = [e for e in emitted if e["type"] == "tool_end"]
+
+        assert len(starts) == 2
+        assert all(e["tool"] == "web_search" for e in starts)
+        assert len(ends) == 2
+        assert all(e["tool"] == "web_search" for e in ends)
+
+    def test_tool_end_only_after_matching_call_id(self) -> None:
+        """A result for one call must not clear the other pending call."""
+        from langchain_core.messages import AIMessageChunk, ToolMessage
+
+        chunk = AIMessageChunk(
+            content="",
+            tool_call_chunks=[
+                {
+                    "name": "web_search",
+                    "args": "",
+                    "id": "c1",
+                    "index": 0,
+                    "type": "tool_call_chunk",
+                },
+                {
+                    "name": "web_search",
+                    "args": "",
+                    "id": "c2",
+                    "index": 1,
+                    "type": "tool_call_chunk",
+                },
+            ],
+        )
+        events = [
+            (chunk, {"langgraph_node": "chat"}),
+            (
+                ToolMessage(content='{"r": 1}', tool_call_id="c1", name="web_search"),
+                {"langgraph_node": "tools"},
+            ),
+        ]
+
+        emitted = self._run_stream(events)
+        ends = [e for e in emitted if e["type"] == "tool_end"]
+        assert len(ends) == 1
+
+
 class TestMetadataToolEdgeCases:
     """Edge case tests for metadata extraction functions.
 

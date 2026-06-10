@@ -692,7 +692,8 @@ class ChatAgent:
         total_input_tokens = 0
         total_output_tokens = 0
         chunk_count = 0
-        # Track active tool calls to detect when a tool is being executed
+        # Track active tool calls by tool_call_id (NOT name: two parallel calls
+        # to the same tool must emit separate tool_start/tool_end events)
         pending_tool_calls: set[str] = set()
         # Accumulate thinking text across chunks
         accumulated_thinking = ""
@@ -732,11 +733,13 @@ class ChatAgent:
                         }
                     )
                     all_messages.append(message_chunk)
-                    # Signal tool execution ended
+                    # Signal tool execution ended (matched by call id)
+                    tool_call_id = getattr(message_chunk, "tool_call_id", None)
                     tool_name = getattr(message_chunk, "name", None)
-                    if tool_name and tool_name in pending_tool_calls:
-                        pending_tool_calls.discard(tool_name)
-                        yield {"type": "tool_end", "tool": tool_name}
+                    if tool_call_id and tool_call_id in pending_tool_calls:
+                        pending_tool_calls.discard(tool_call_id)
+                        if tool_name:
+                            yield {"type": "tool_end", "tool": tool_name}
                     continue
 
                 # Process AI message chunks
@@ -763,20 +766,23 @@ class ChatAgent:
                     if message_chunk.tool_calls or message_chunk.tool_call_chunks:
                         # Get tool names and args from tool_calls or tool_call_chunks
                         # tool_calls has complete args as dict, tool_call_chunks has partial args as string
-                        tool_infos: list[tuple[str, dict[str, Any]]] = []
+                        tool_infos: list[tuple[str, str, dict[str, Any]]] = []
                         if message_chunk.tool_calls:
                             for tool_call in message_chunk.tool_calls:
+                                tc_id = tool_call.get("id")
                                 tc_name = tool_call.get("name")
                                 tc_args = tool_call.get("args", {})
-                                if tc_name is not None and isinstance(tc_args, dict):
-                                    tool_infos.append((tc_name, tc_args))
+                                if tc_id and tc_name is not None and isinstance(tc_args, dict):
+                                    tool_infos.append((tc_id, tc_name, tc_args))
                         elif message_chunk.tool_call_chunks:
                             # tool_call_chunks have partial args - we just emit tool_start
-                            # when we see the tool name. Details will come from tool_calls later.
+                            # when we see the call id + name (continuation chunks
+                            # carry neither). Details come from tool_calls later.
                             for tc_chunk in message_chunk.tool_call_chunks:
+                                chunk_id: str | None = tc_chunk.get("id")
                                 chunk_name: str | None = tc_chunk.get("name")
-                                if chunk_name and chunk_name not in pending_tool_calls:
-                                    pending_tool_calls.add(chunk_name)
+                                if chunk_id and chunk_name and chunk_id not in pending_tool_calls:
+                                    pending_tool_calls.add(chunk_id)
                                     tool_start_event: dict[str, Any] = {
                                         "type": "tool_start",
                                         "tool": chunk_name,
@@ -786,9 +792,9 @@ class ChatAgent:
                                     yield tool_start_event
                             continue
 
-                        for tool_name, tool_args in tool_infos:
-                            if tool_name not in pending_tool_calls:
-                                pending_tool_calls.add(tool_name)
+                        for tc_id, tool_name, tool_args in tool_infos:
+                            if tc_id not in pending_tool_calls:
+                                pending_tool_calls.add(tc_id)
                                 # Include relevant detail based on tool type
                                 tool_event: dict[str, Any] = {
                                     "type": "tool_start",
