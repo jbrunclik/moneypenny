@@ -266,6 +266,54 @@ def plan_node(
     return {"plan": plan_text}
 
 
+AGED_MULTIMODAL_STUB = (
+    "[The binary content returned by this tool was shown to you in an earlier "
+    "step of this turn and has been removed to save tokens. Use what you "
+    "already extracted from it; call the tool again only if you truly need it.]"
+)
+
+AGED_TRUNCATION_MARKER = "\n[...result truncated after you already processed it]"
+
+
+def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
+    """Shrink tool results the model has already consumed once.
+
+    Within a turn, every ToolMessage is re-sent on each subsequent LLM call.
+    ToolMessages that answer the LATEST tool-calling AIMessage are fresh (the
+    model has not seen them yet) and must pass through untouched - especially
+    multimodal content (fetched PDFs/images, screenshots) which the model
+    needs to analyze exactly once. Anything older has already been consumed:
+    multimodal content becomes a stub and long text is truncated, in place,
+    so the savings persist for the rest of the turn.
+    """
+    max_chars = Config.AGENT_AGED_TOOL_RESULT_MAX_CHARS
+    if max_chars <= 0:
+        return
+
+    last_tool_call_idx = len(messages)
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, AIMessage) and msg.tool_calls:
+            last_tool_call_idx = i
+            break
+
+    for msg in messages[:last_tool_call_idx]:
+        if not isinstance(msg, ToolMessage):
+            continue
+        if isinstance(msg.content, list):
+            logger.info(
+                "Aged multimodal tool result",
+                extra={"tool": getattr(msg, "name", None)},
+            )
+            msg.content = AGED_MULTIMODAL_STUB
+        elif isinstance(msg.content, str) and len(msg.content) > max_chars:
+            logger.info(
+                "Aged oversized tool result",
+                extra={"tool": getattr(msg, "name", None), "chars_before": len(msg.content)},
+            )
+            msg.content = msg.content[:max_chars] + AGED_TRUNCATION_MARKER
+
+
 def chat_node(
     state: AgentState,
     model: ChatGoogleGenerativeAI,
@@ -279,6 +327,10 @@ def chat_node(
     SystemMessages when there's no SystemMessage at position 0).
     """
     messages = list(state["messages"])
+
+    # Shrink tool results the model already consumed in this turn (they are
+    # otherwise re-sent in full on every loop iteration)
+    _age_consumed_tool_messages(messages)
 
     # Inject plan if present
     plan = state.get("plan", "")

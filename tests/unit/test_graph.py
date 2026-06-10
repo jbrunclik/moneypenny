@@ -716,6 +716,103 @@ class TestCachedCheckToolResults:
         assert "[SYSTEM GUIDANCE]" not in guidance.content
 
 
+# ============ Tool Result Aging Tests ============
+
+
+class TestAgeConsumedToolMessages:
+    """Within-turn aging of already-consumed tool results (cost control).
+
+    Fresh results (answers to the latest tool-calling AIMessage) must pass
+    through untouched - the model has not seen them yet. Older results are
+    re-sent on every loop iteration after the model consumed them, so
+    multimodal content becomes a stub and long text is truncated.
+    """
+
+    def _messages_two_rounds(self) -> list:
+        pdf_content = [
+            {"type": "text", "text": "PDF from example.com:"},
+            {"type": "image", "base64": "x" * 100_000, "mime_type": "application/pdf"},
+        ]
+        return [
+            HumanMessage(content="summarize this pdf and search for reviews"),
+            AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c1"}]),
+            ToolMessage(content=pdf_content, tool_call_id="c1", name="fetch_url"),
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c2"}]),
+            ToolMessage(content='{"results": []}', tool_call_id="c2", name="web_search"),
+        ]
+
+    def test_consumed_multimodal_result_becomes_stub(self) -> None:
+        from src.agent.graph import AGED_MULTIMODAL_STUB, _age_consumed_tool_messages
+
+        messages = self._messages_two_rounds()
+        _age_consumed_tool_messages(messages)
+
+        assert messages[2].content == AGED_MULTIMODAL_STUB
+
+    def test_fresh_results_untouched(self) -> None:
+        from src.agent.graph import _age_consumed_tool_messages
+
+        messages = self._messages_two_rounds()
+        _age_consumed_tool_messages(messages)
+
+        # The web_search result answers the LATEST tool-calling AIMessage
+        assert messages[4].content == '{"results": []}'
+
+    def test_fresh_multimodal_untouched(self) -> None:
+        """A binary result the model has NOT yet seen must pass through."""
+        from src.agent.graph import _age_consumed_tool_messages
+
+        pdf_content = [{"type": "image", "base64": "x" * 1000, "mime_type": "application/pdf"}]
+        messages = [
+            HumanMessage(content="read this"),
+            AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c1"}]),
+            ToolMessage(content=pdf_content, tool_call_id="c1", name="fetch_url"),
+        ]
+        _age_consumed_tool_messages(messages)
+
+        assert messages[2].content == pdf_content
+
+    def test_consumed_long_text_truncated(self) -> None:
+        from src.agent.graph import AGED_TRUNCATION_MARKER, _age_consumed_tool_messages
+
+        long_text = "a" * 10_000
+        messages = [
+            AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c1"}]),
+            ToolMessage(content=long_text, tool_call_id="c1", name="fetch_url"),
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c2"}]),
+            ToolMessage(content="fresh", tool_call_id="c2", name="web_search"),
+        ]
+        _age_consumed_tool_messages(messages)
+
+        assert messages[1].content.endswith(AGED_TRUNCATION_MARKER)
+        assert len(messages[1].content) < 10_000
+        assert messages[3].content == "fresh"
+
+    def test_short_consumed_text_untouched(self) -> None:
+        from src.agent.graph import _age_consumed_tool_messages
+
+        messages = [
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c1"}]),
+            ToolMessage(content="short result", tool_call_id="c1", name="web_search"),
+            AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c2"}]),
+            ToolMessage(content="fresh", tool_call_id="c2", name="fetch_url"),
+        ]
+        _age_consumed_tool_messages(messages)
+
+        assert messages[1].content == "short result"
+
+    @patch("src.agent.graph.Config")
+    def test_disabled_when_zero(self, mock_config: MagicMock) -> None:
+        from src.agent.graph import _age_consumed_tool_messages
+
+        mock_config.AGENT_AGED_TOOL_RESULT_MAX_CHARS = 0
+        messages = self._messages_two_rounds()
+        original = messages[2].content
+        _age_consumed_tool_messages(messages)
+
+        assert messages[2].content == original
+
+
 # ============ Tool Node Exception Handling Tests ============
 
 

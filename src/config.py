@@ -317,6 +317,15 @@ class Config:
     # Graph self-correction: max consecutive tool error retries before giving up
     AGENT_MAX_TOOL_RETRIES: int = int(os.getenv("AGENT_MAX_TOOL_RETRIES", "2"))
 
+    # Within one turn, every ToolMessage is re-sent to the LLM on each loop
+    # iteration. Once the model has consumed a result (one chat call after the
+    # tool ran), older results are aged: multimodal content (fetched PDFs/
+    # images, screenshots - easily 30K+ tokens each) becomes a stub, and long
+    # text results are truncated to this many chars. 0 disables aging.
+    AGENT_AGED_TOOL_RESULT_MAX_CHARS: int = int(
+        os.getenv("AGENT_AGED_TOOL_RESULT_MAX_CHARS", "2000")
+    )
+
     # Planning node: optional planning step for complex multi-step requests.
     # Below MIN_LENGTH chars the planning classifier is skipped entirely (no LLM
     # call). Default raised to 400 to cut classifier calls on shorter messages;
