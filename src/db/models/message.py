@@ -684,14 +684,21 @@ class MessageMixin:
             else:
                 files[file_index]["has_thumbnail"] = False
 
-            # Update status in metadata (no longer storing thumbnail in JSON)
-            files[file_index]["thumbnail_status"] = status.value
-
-            # Save back to database
+            # Atomic single-statement update of ONLY this file's fields:
+            # writing back the whole files JSON lost concurrent updates when
+            # two thumbnail workers processed a multi-image message (R5)
+            has_thumbnail = bool(files[file_index].get("has_thumbnail"))
+            idx = int(file_index)
             self._execute_with_timing(
                 conn,
-                "UPDATE messages SET files = ? WHERE id = ?",
-                (json.dumps(files), message_id),
+                f"""UPDATE messages
+                   SET files = json_set(
+                       files,
+                       '$[{idx}].has_thumbnail', json(?),
+                       '$[{idx}].thumbnail_status', ?
+                   )
+                   WHERE id = ?""",
+                ("true" if has_thumbnail else "false", status.value, message_id),
             )
             conn.commit()
 
