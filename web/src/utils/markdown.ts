@@ -78,7 +78,10 @@ const DISPLAY_MATH_RULE = /^\$\$([\s\S]+?)\$\$/;
 
 function renderKatex(tex: string, displayMode: boolean): string {
   try {
-    return katex.renderToString(tex, { displayMode, throwOnError: false });
+    // output: 'html' renders the visual layer only - the default
+    // htmlAndMathml duplicates the expression as a (supposedly hidden)
+    // MathML block, which showed as plain text after the rendered math
+    return katex.renderToString(tex, { displayMode, throwOnError: false, output: 'html' });
   } catch {
     // Malformed TeX that even throwOnError can't salvage: show it verbatim
     const raw = displayMode ? `$$${tex}$$` : `$${tex}$`;

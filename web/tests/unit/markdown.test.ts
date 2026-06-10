@@ -122,3 +122,11 @@ describe('LaTeX math rendering (KaTeX)', () => {
     expect(typeof html).toBe('string');
   });
 });
+
+describe('KaTeX output mode', () => {
+  it('emits visual HTML only - no duplicate MathML block', () => {
+    const html = renderMarkdown('Euler: $e^{i\\pi} + 1 = 0$');
+    expect(html).toContain('katex-html');
+    expect(html).not.toContain('katex-mathml');
+  });
+});
