@@ -1450,3 +1450,32 @@ class TestBudgetLimits:
 
         # Spending exceeds limit
         assert mock_db.is_agent_over_budget("agent-123", 10.0)
+
+
+class TestCompactAgentConversationOrdering:
+    """compact_agent_conversation summary must sort BEFORE the kept messages.
+
+    Regression test (R6): the summary was inserted with created_at=now(),
+    newer than every kept message, so history loads (ORDER BY created_at)
+    placed the summary at the END of the context window instead of the
+    beginning.
+    """
+
+    def test_summary_sorts_before_kept_messages(self, test_database, test_user):
+        from src.api.schemas import MessageRole
+
+        agent = test_database.create_agent(user_id=test_user.id, name="compact-order-test")
+        conv_id = agent.conversation_id
+
+        for i in range(6):
+            test_database.add_message(conv_id, MessageRole.USER, f"msg {i}")
+
+        deleted = test_database.compact_agent_conversation(
+            agent.id, "the summary", keep_recent=3
+        )
+        assert deleted == 3
+
+        messages = test_database.get_messages(conv_id)
+        assert len(messages) == 4
+        assert messages[0].content.startswith("[Previous conversation summary]")
+        assert [m.content for m in messages[1:]] == ["msg 3", "msg 4", "msg 5"]

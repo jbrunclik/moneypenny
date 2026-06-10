@@ -1205,7 +1205,7 @@ class AgentMixin:
             # Get the IDs of messages to keep (most recent)
             keep_rows = self._execute_with_timing(
                 conn,
-                """SELECT id FROM messages
+                """SELECT id, created_at FROM messages
                    WHERE conversation_id = ?
                    ORDER BY created_at DESC
                    LIMIT ?""",
@@ -1237,8 +1237,15 @@ class AgentMixin:
                 tuple(delete_ids),
             )
 
-            # Insert summary message at the beginning (as system context)
-            now = datetime.now()
+            # Insert the summary message BEFORE the kept messages: history is
+            # loaded with ORDER BY created_at, so it must be backdated to just
+            # before the oldest kept message or it would land at the END of the
+            # context window (after the most recent real messages)
+            if keep_rows:
+                earliest_kept = min(datetime.fromisoformat(row["created_at"]) for row in keep_rows)
+                summary_ts = earliest_kept - timedelta(microseconds=1)
+            else:
+                summary_ts = datetime.now()
             summary_id = str(uuid.uuid4())
             self._execute_with_timing(
                 conn,
@@ -1248,7 +1255,7 @@ class AgentMixin:
                     summary_id,
                     conv_id,
                     f"[Previous conversation summary]\n\n{summary}",
-                    now.isoformat(),
+                    summary_ts.isoformat(),
                 ),
             )
 
