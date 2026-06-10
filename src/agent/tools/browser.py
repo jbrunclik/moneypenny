@@ -61,6 +61,9 @@ class _BrowserWorker:
     """
 
     def __init__(self) -> None:
+        # Set when a command times out (worker stuck in Playwright) - the
+        # worker is then replaced on next use instead of dispatched to forever
+        self.unhealthy = False
         self._cmd_queue: queue.Queue[_WorkerCommand | None] = queue.Queue()
         self._thread = threading.Thread(target=self._run, daemon=True, name="browser-worker")
         self._pw: Any = None
@@ -113,6 +116,11 @@ class _BrowserWorker:
         self._cmd_queue.put(cmd)
         cmd.result_event.wait(timeout=Config.TOOL_TIMEOUT)
         if not cmd.result_event.is_set():
+            # The worker thread is stuck inside a Playwright call and will
+            # process queued commands only if/when it ever returns. Mark the
+            # worker unhealthy so _get_worker() replaces it (R1); the stuck
+            # daemon thread is abandoned and dies with the process.
+            self.unhealthy = True
             raise TimeoutError("Browser worker timed out")
         if cmd.error is not None:
             raise cmd.error
@@ -199,7 +207,7 @@ class _BrowserWorker:
         page = session.page
 
         kwargs: dict[str, Any] = {}
-        if timeout_ms is not None:
+        if timeout_ms is not None and timeout_ms > 0:
             kwargs["timeout"] = timeout_ms
 
         logger.info("Browser navigating", extra={"url": url})
@@ -297,14 +305,17 @@ _worker_lock = threading.Lock()
 
 
 def _get_worker() -> _BrowserWorker:
-    """Get or create the browser worker (lazy init)."""
+    """Get or create the browser worker (lazy init, replaces unhealthy ones)."""
     global _worker
-    if _worker is not None:
+    if _worker is not None and not _worker.unhealthy:
         return _worker
 
     with _worker_lock:
-        if _worker is not None:
+        if _worker is not None and not _worker.unhealthy:
             return _worker
+        if _worker is not None:
+            logger.warning("Replacing unhealthy browser worker")
+            _worker.stop()  # best effort; the stuck thread may never see it
         _worker = _BrowserWorker()
     return _worker
 
