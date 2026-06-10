@@ -352,10 +352,6 @@ def execute_agent(
 
         # Get full tool results
         full_tool_results = get_full_tool_results(request_id)
-        set_current_request_id(None)
-        set_current_message_files(None)
-        set_conversation_context(None, None)
-        set_agent_name(None)  # Clear agent name context
 
         logger.debug(
             "Agent execution completed",
@@ -426,13 +422,6 @@ def execute_agent(
         # Update agent's last_run_at
         db.update_agent_last_run(agent.id)
 
-        # Clean up context after successful execution
-        set_current_request_id(None)
-        set_current_message_files(None)
-        set_conversation_context(None, None)
-        set_agent_name(None)
-        clear_agent_context()
-
         logger.info(
             "Agent execution successful",
             extra={
@@ -465,13 +454,6 @@ def execute_agent(
         approval_message = build_approval_message(e.approval_id, e.description, e.tool_name)
         db.add_message(conv.id, MessageRole.ASSISTANT, approval_message)
 
-        # Clean up context
-        set_current_request_id(None)
-        set_current_message_files(None)
-        set_conversation_context(None, None)
-        set_agent_name(None)
-        clear_agent_context()
-
         # Return special status to indicate approval is required
         # The calling code should NOT override the execution status
         return "waiting_approval", e.description
@@ -486,11 +468,12 @@ def execute_agent(
             },
             exc_info=True,
         )
-        # Clean up context
+        return False, str(e)
+
+    finally:
+        # Clear execution context on every path (success, approval, failure)
         set_current_request_id(None)
         set_current_message_files(None)
         set_conversation_context(None, None)
         set_agent_name(None)
         clear_agent_context()
-
-        return False, str(e)
