@@ -118,8 +118,10 @@ class ContextCacheManager:
 
                 # Check if existing cache is valid and not expiring soon
                 if entry and entry.content_hash == content_hash and entry.expires_at > now + buffer:
-                    logger.debug(
-                        "Context cache hit",
+                    # Telemetry: grep "context_cache" for hit/adopt/create/drift
+                    # rates per profile (C2) - silent misses cost input tokens
+                    logger.info(
+                        "context_cache hit",
                         extra={
                             "cache_key": cache_key,
                             "expires_in": int(entry.expires_at - now),
@@ -127,12 +129,18 @@ class ContextCacheManager:
                     )
                     return entry.cache_name
 
+                if entry and entry.content_hash != content_hash:
+                    logger.info(
+                        "context_cache content drift - prompt/tool set changed, recreating",
+                        extra={"cache_key": cache_key},
+                    )
+
                 # Another worker may already have created this cache
                 shared = self._load_shared_entry(cache_key, content_hash, now + buffer)
                 if shared:
                     self._caches[cache_key] = shared
                     logger.info(
-                        "Context cache adopted from another worker",
+                        "context_cache adopted from another worker",
                         extra={"cache_key": cache_key, "cache_name": shared.cache_name},
                     )
                     return shared.cache_name
@@ -149,6 +157,10 @@ class ContextCacheManager:
                     )
                     self._caches[cache_key] = new_entry
                     self._store_shared_entry(cache_key, new_entry)
+                    logger.info(
+                        "context_cache created",
+                        extra={"cache_key": cache_key, "cache_name": cache_name},
+                    )
                     return cache_name
 
                 return None
