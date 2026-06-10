@@ -5,6 +5,7 @@ from typing import Any
 
 from flask import Request
 
+from src.config import Config
 from src.db.models import db
 from src.utils.costs import calculate_total_cost
 from src.utils.logging import get_logger
@@ -109,7 +110,22 @@ def validate_memory_operations(
             if not op.get("content"):
                 logger.warning("Memory add operation missing content", extra={"operation": op})
                 continue
+            if len(str(op["content"])) > Config.MEMORY_MAX_ENTRY_CHARS:
+                # Memories are injected into EVERY request - oversized writes
+                # are unbounded context growth and an injection-persistence
+                # vector (A2). Reject rather than truncate.
+                logger.warning(
+                    "Memory add rejected - content too large",
+                    extra={"content_chars": len(str(op["content"]))},
+                )
+                continue
         elif action == "update":
+            if op.get("content") and len(str(op["content"])) > Config.MEMORY_MAX_ENTRY_CHARS:
+                logger.warning(
+                    "Memory update rejected - content too large",
+                    extra={"content_chars": len(str(op["content"]))},
+                )
+                continue
             if not op.get("id") or not op.get("content"):
                 logger.warning(
                     "Memory update operation missing id or content", extra={"operation": op}
@@ -145,6 +161,12 @@ def process_memory_operations(user_id: str, operations: list[dict[str, Any]]) ->
 
         try:
             if action == "add":
+                if db.get_memory_count(user_id) >= Config.MEMORY_MAX_ENTRIES:
+                    logger.warning(
+                        "Memory add rejected - user at MEMORY_MAX_ENTRIES",
+                        extra={"user_id": user_id, "limit": Config.MEMORY_MAX_ENTRIES},
+                    )
+                    continue
                 content = op["content"]
                 category = op.get("category")
                 memory = db.add_memory(user_id, content, category)

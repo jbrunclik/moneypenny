@@ -268,6 +268,11 @@ class Config:
     # Per-key cap for sports/language KV data injected into the (uncached)
     # program system prompt every turn
     PROGRAM_KV_INJECTION_MAX_CHARS: int = int(os.getenv("PROGRAM_KV_INJECTION_MAX_CHARS", "8000"))
+    # Long-term memory bounds: memories are injected into every request, so
+    # unbounded writes mean unbounded context growth (and an
+    # injection-persistence vector via fetched web content) - A2
+    MEMORY_MAX_ENTRY_CHARS: int = int(os.getenv("MEMORY_MAX_ENTRY_CHARS", "500"))
+    MEMORY_MAX_ENTRIES: int = int(os.getenv("MEMORY_MAX_ENTRIES", "200"))
 
     # Browser automation settings (Playwright)
     BROWSER_ENABLED: bool = os.getenv("BROWSER_ENABLED", "true").lower() == "true"
