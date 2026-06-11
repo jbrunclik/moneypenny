@@ -15,6 +15,8 @@ recomputed only every few turns instead of on every request.
 from __future__ import annotations
 
 import json
+import threading
+from collections.abc import Callable
 from typing import Any
 
 from src.agent.compaction import summarize_messages
@@ -23,6 +25,12 @@ from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Conversations with a background summary refresh in flight (process-local;
+# two workers refreshing the same conversation is wasteful once, not wrong -
+# the persisted state is last-write-wins in kv_store)
+_inflight_lock = threading.Lock()
+_inflight_refreshes: set[str] = set()
 
 # kv_store namespace for persisted per-conversation running summaries
 KV_NAMESPACE = "conv_compaction"
@@ -66,6 +74,68 @@ def _summary_message(summary: str) -> dict[str, Any]:
     }
 
 
+def _spawn_refresh(work: Callable[[], None]) -> None:
+    """Run the refresh work on a daemon thread (patchable for tests)."""
+    threading.Thread(target=work, daemon=True, name="compaction-summary").start()
+
+
+def _schedule_summary_refresh(
+    user_id: str,
+    conversation_id: str,
+    uncovered: list[dict[str, Any]],
+    prior_summary: str | None,
+    covered_target: int,
+) -> None:
+    """Refresh the running summary in the background.
+
+    The summarizer is an LLM call - running it synchronously added seconds to
+    the user's turn whenever the un-summarized middle crossed the batch size.
+    The current turn proceeds with whatever summary state exists; the fresh
+    summary lands in kv_store for subsequent turns.
+    """
+    # Project eagerly: the worker must not share the caller's history dicts
+    projected = [{"role": m["role"], "content": m["content"]} for m in uncovered]
+
+    with _inflight_lock:
+        if conversation_id in _inflight_refreshes:
+            return
+        _inflight_refreshes.add(conversation_id)
+
+    def _work() -> None:
+        try:
+            summary = summarize_messages(projected, prior_summary=prior_summary)
+            if summary:
+                _save_state(user_id, conversation_id, summary, covered_target)
+                logger.info(
+                    "Compaction summary refreshed in background",
+                    extra={
+                        "conversation_id": conversation_id,
+                        "summarized_messages": covered_target,
+                    },
+                )
+            else:
+                logger.warning(
+                    "Background summarization returned nothing",
+                    extra={"conversation_id": conversation_id},
+                )
+        except Exception:
+            logger.warning(
+                "Background compaction refresh failed",
+                extra={"conversation_id": conversation_id},
+                exc_info=True,
+            )
+        finally:
+            with _inflight_lock:
+                _inflight_refreshes.discard(conversation_id)
+            # Close thread-local DB connections so the pool doesn't leak them
+            try:
+                db._pool.close_thread_connection()
+            except Exception:
+                logger.debug("Closing thread-local db connection failed", exc_info=True)
+
+    _spawn_refresh(_work)
+
+
 def build_compacted_history(
     user_id: str | None,
     conversation_id: str | None,
@@ -107,27 +177,13 @@ def build_compacted_history(
     )
 
     if needs_resummarize:
-        summary = summarize_messages(
-            [{"role": m["role"], "content": m["content"]} for m in uncovered],
-            prior_summary=prior_summary,
-        )
-        if summary:
-            _save_state(user_id, conversation_id, summary, len(older))
-            logger.info(
-                "Compacted conversation history",
-                extra={
-                    "conversation_id": conversation_id,
-                    "summarized_messages": len(older),
-                    "kept_recent": len(recent),
-                },
-            )
-            return [_summary_message(summary)] + recent
-        # Summarization failed: don't lose context. Fall back to prior summary
-        # (if any) plus the uncovered middle verbatim, leaving state untouched.
-        logger.warning(
-            "Summarization failed; sending un-compacted middle this turn",
-            extra={"conversation_id": conversation_id},
-        )
+        # OFF the request path: the LLM summarizer used to run synchronously
+        # here, adding seconds to the user's turn every time the middle
+        # crossed the batch size. The refreshed summary serves LATER turns;
+        # this turn uses whatever state already exists. Deferring also keeps
+        # this turn's history prefix byte-identical to the previous one,
+        # which Gemini's implicit caching rewards.
+        _schedule_summary_refresh(user_id, conversation_id, uncovered, prior_summary, len(older))
 
     if prior_summary is None:
         # No usable summary yet — safest to send the full history unchanged.

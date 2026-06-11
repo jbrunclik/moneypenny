@@ -50,6 +50,12 @@ def mock_db(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     return db
 
 
+@pytest.fixture(autouse=True)
+def synchronous_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run the (normally background) summary refresh inline for determinism."""
+    monkeypatch.setattr(cc, "_spawn_refresh", lambda work: work())
+
+
 class TestGating:
     def test_disabled_returns_unchanged(
         self, monkeypatch: pytest.MonkeyPatch, mock_db: MagicMock
@@ -75,17 +81,26 @@ class TestGating:
 
 
 class TestFirstCompaction:
-    def test_summarizes_and_keeps_recent(self, compaction_config: None, mock_db: MagicMock) -> None:
+    def test_first_compaction_refreshes_in_background(
+        self, compaction_config: None, mock_db: MagicMock
+    ) -> None:
+        """The summarizer runs OFF the request path: this turn returns the
+        full history; the persisted summary serves the NEXT turn."""
         history = _history(20)  # older=16, recent=4
         with patch.object(cc, "summarize_messages", return_value="SUMMARY") as mock_sum:
             result = build_compacted_history("u1", "c1", history)
 
         mock_sum.assert_called_once()
-        # Returned: [summary] + last 4 verbatim
-        assert len(result) == 5
-        assert result[0]["content"] == f"{SUMMARY_PREFIX}\n\nSUMMARY"
-        assert result[0]["metadata"] == {}
-        assert result[1:] == history[-4:]
+        assert result is history  # current turn unchanged
+
+        # Next turn picks up the freshly persisted summary
+        mock_db.kv_get.return_value = json.dumps({"summary": "SUMMARY", "covered_count": 16})
+        with patch.object(cc, "summarize_messages") as mock_sum2:
+            result2 = build_compacted_history("u1", "c1", history)
+        mock_sum2.assert_not_called()
+        assert result2[0]["content"] == f"{SUMMARY_PREFIX}\n\nSUMMARY"
+        assert result2[0]["metadata"] == {}
+        assert result2[1:] == history[-4:]
 
     def test_persists_state_with_full_older_coverage(
         self, compaction_config: None, mock_db: MagicMock
@@ -147,10 +162,9 @@ class TestRunningSummary:
         # New state covers the full older portion
         _u, _ns, _k, value = mock_db.kv_set.call_args.args
         assert json.loads(value) == {"summary": "NEW", "covered_count": 16}
-        assert result == [
-            {"role": "user", "content": f"{SUMMARY_PREFIX}\n\nNEW", "metadata": {}},
-            *history[-4:],
-        ]
+        # Current turn still serves the PRIOR summary + middle (refresh is async)
+        assert result[0]["content"] == f"{SUMMARY_PREFIX}\n\nOLD"
+        assert len(result) == 1 + 11 + 4
 
     def test_resummarize_failure_keeps_prior_summary_and_middle(
         self, compaction_config: None, mock_db: MagicMock
@@ -173,10 +187,11 @@ class TestRunningSummary:
         with patch.object(cc, "summarize_messages", return_value="FRESH") as mock_sum:
             result = build_compacted_history("u1", "c1", history)
 
-        # Treated as no prior summary -> full re-summarize over all older messages
+        # Treated as no prior summary -> full re-summarize (in background)
         mock_sum.assert_called_once()
         assert mock_sum.call_args.kwargs["prior_summary"] is None
-        assert result[0]["content"] == f"{SUMMARY_PREFIX}\n\nFRESH"
+        # Current turn sends full history; FRESH serves the next turn
+        assert result is history
 
     def test_coverage_clamped_when_history_shrinks(
         self, compaction_config: None, mock_db: MagicMock
@@ -191,3 +206,25 @@ class TestRunningSummary:
         mock_sum.assert_not_called()
         assert result[0]["content"] == f"{SUMMARY_PREFIX}\n\nOLD"
         assert len(result) == 1 + 0 + 4
+
+
+class TestBackgroundRefresh:
+    def test_inflight_refresh_is_not_duplicated(
+        self, compaction_config: None, mock_db: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """While a refresh is pending, further turns must not spawn another."""
+        captured: list[Any] = []
+        monkeypatch.setattr(cc, "_spawn_refresh", lambda work: captured.append(work))
+
+        history = _history(20)
+        with patch.object(cc, "summarize_messages", return_value="S"):
+            build_compacted_history("u1", "c1", history)
+            build_compacted_history("u1", "c1", history)
+
+            assert len(captured) == 1  # second call saw the in-flight flag
+
+            # Completing the work clears the flag and persists state
+            captured[0]()
+
+        mock_db.kv_set.assert_called_once()
+        assert "c1" not in cc._inflight_refreshes
