@@ -30,18 +30,13 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 ## Programs (Sports / Language / future)
 
 - [ ] **Spaced repetition for language learning** - SRS review queue over weak vocabulary (kv_store) reusing quiz blocks; daily review nudge via agent.
-- [ ] **Health/recovery coach program** - Third program type on Garmin data. Prerequisite: Q2 dedup below.
+- [ ] **Health/recovery coach program** - Third program type on Garmin data. Q2 dedup done - shared program factory is in place.
 
 ## Security
 
 - [ ] **Server-side OAuth state validation (S7)** - High. `routes/todoist.py:50`, `routes/calendar.py`: server never validates `state` on callback. Store server-side (kv_store + TTL), validate + invalidate.
 - [ ] **Drop Todoist `data:delete` scope (S9)** - High. `todoist_auth.py:39`; prompt-injected page could delete tasks. Reduce to read/write.
 - [ ] **Encrypt OAuth/Garmin tokens at rest (S3)** - Tokens are plaintext in SQLite (`models/user.py`). Fernet keyed from env.
-- [ ] **Security headers + CORS (S10)** - `app.py` sets no X-Frame-Options/CSP/HSTS. Add `@app.after_request`.
-- [ ] **Verify code-sandbox network isolation (S4)** - Pass network-disabled explicitly; regression-test that sockets fail inside the sandbox.
-- [ ] **Rate limiting: proxy-aware client IP** - `ProxyFix` + X-Forwarded-For limiter key. `app.py`, `rate_limiting.py`.
-- [ ] **Logout: clear all sensitive state** - `store.logout()` leaves messages/pagination/activeRequests in memory. Add `resetStore()`.
-- [ ] **Harden `blob_store.delete_by_prefixes` SQL (S6)** - Low. f-string WHERE (bound params, fragile). Parameterized deletes.
 
 ## AI-Agent Best Practices
 
@@ -50,38 +45,18 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 ## Performance / Cost
 
 - [ ] **Compaction summarization off the request path** - `build_compacted_history` calls the summarizer synchronously; bound with timeout and/or precompute in background.
-- [ ] **Cache program prompts (sports/language)** - These profiles are fully uncached: ~6K tokens of static prompt re-billed every turn. Split static program instructions (cacheable) from the per-turn KV data (dynamic tail), like the standard profile.
 
 ## Reliability
 
-- [ ] **OAuth refresh race loses rotated refresh tokens (R2)** - `google_calendar.py:29`, `routes/calendar.py:69` (+ Todoist): unlocked read-refresh-write. Per-user lock or compare-and-swap.
-- [ ] **Approval + sibling tools orphans tool calls (R3)** - `request_approval` mid-batch aborts `executor.map`; siblings get no ToolMessage → Gemini rejects next turn. Pre-split like `_split_blocked_tool_calls`.
-- [ ] **WhatsApp agent_name not template-sanitized (R8)** - `whatsapp.py:319`: raw agent name in template param; Meta rejects newlines/multi-spaces.
-- [ ] **Migration hygiene (R10)** - 0025-0028, 0033 lack `__depends__`; 0025's rollback is a silently-succeeding comment.
-- [ ] **Harden streaming save on crash (X1)** - Distinguish placeholder deleted-vs-failed; persist partial content on arbitrary crash/`BaseException` (deadline path already saves). Observed in prod Jun 2026.
-- [ ] **Remaining lazy-init races under gthread** - Low. browser `_worker`/`_browser_available`, `_docker_available`, cleanup-thread guards. Double-checked locking when convenient.
 - [ ] **Align prod Python with `requires-python`** - pyproject says >=3.14, prod runs 3.13.
-- [ ] **SyncManager.start() error handling** - Unhandled rejection silently disables sync. `init.ts`, `SyncManager.ts`.
 
 ## Code Quality
 
-- [ ] **Deduplicate sports/language program modules (Q2)** - Near-identical CRUD; extract shared program-routes factory before a third program lands.
 - [ ] **File-size convention violations (Q3)** - 9+ files 2-3× over the 500-line max; split `chat_streaming.py` and `client.ts` first (highest churn).
-- [ ] **Refactor `save_message_to_db` (X2)** - ~214 lines mixing save/title/metadata/cost. Extract sub-steps. (Overlaps Q3.)
-- [ ] **Consolidate four scroll listeners on `#messages`** into one scroll manager.
-
-## Frontend
-
-- [ ] **Recovery races a resuming stream reader (R13)** - Narrowed by resumable streams (resume reuses the same state/element), but the poll-recovery fallback can still race a resuming reader; abort the original AbortController before finalizing in stream-recovery.ts.
-- [ ] **No pagehide/pageshow handlers for iOS bfcache (R14)** - Register `pagehide(persisted)` → mark, `pageshow(persisted)` → attempt recovery.
-- [ ] **Recovered message keeps error styling / detached element (R15)** - Guard `isConnected`; remove `message-incomplete` on success.
-- [ ] **Sanitize rendered LLM output — XSS (F1)** - High. LLM/API strings reach `innerHTML` in 7+ places; run rendered markdown through DOMPurify.
-- [ ] **VoiceInput listener leak (F2)** - `VoiceInput.ts:413` adds listeners with no cleanup on re-mount.
-- [ ] **Sidebar full re-render (F3)** - `Sidebar.ts:610` rebuilds list via innerHTML on every update; go incremental.
 
 ## Tests & Tooling
 
-- [ ] **Replace `waitForTimeout` in E2E suite (T1)** - 60+ calls contradict the zero-flake policy; use `expect(...).toBeVisible()` / `waitForFunction`.
+- [ ] **Replace `waitForTimeout` in E2E suite (T1)** - 60+ calls contradict the zero-flake policy; use `expect(...).toBeVisible()` / `waitForFunction`. Known victim: `planner.visual.ts` "mobile dashboard layout" flakes under full-suite load (passes in isolation).
 - [ ] **Unit tests for agent tools (T2)** - 13 tool modules have zero unit tests; also missing integration tests for `routes/{files,kv_store,memory,system,todoist}.py`.
 - [ ] **Tighten lint/coverage gates (T3)** - coverage `fail_under`; ruff `S` rules; `npm audit` level high; per-module mypy overrides.
 
