@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from apiflask import APIBlueprint
-from apiflask.schemas import Schema
 
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
@@ -35,10 +34,12 @@ class ProgramRoutesConfig:
     namespace: str  # K/V namespace + url segment ("sports")
     display_name: str  # For log/docstrings ("Sports")
     kv_suffixes: tuple[str, ...]  # Per-program K/V keys cleaned on delete
-    programs_response: type[Schema]
-    conversation_response: type[Schema]
-    reset_response: type[Schema]
-    status_response: type[Schema]
+    # Schema classes are passed to apiflask's @api.output / validate_request;
+    # typed loosely because the generated response schemas share no base class
+    programs_response: type[Any]
+    conversation_response: type[Any]
+    reset_response: type[Any]
+    status_response: type[Any]
     create_request: type[Any]  # Pydantic request model
 
 

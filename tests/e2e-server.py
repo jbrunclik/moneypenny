@@ -588,8 +588,7 @@ def main() -> None:
             "memory",
             "planner",
             "settings",
-            "sports",
-            "language",
+            "programs",
             "todoist",
         ]
         for module in route_modules:
