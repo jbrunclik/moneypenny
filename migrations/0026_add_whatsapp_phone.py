@@ -7,6 +7,8 @@ for receiving notifications from autonomous agents.
 
 from yoyo import step
 
+__depends__ = {"0025_add_agent_budget_limit"}
+
 steps = [
     step(
         "ALTER TABLE users ADD COLUMN whatsapp_phone TEXT",

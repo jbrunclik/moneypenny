@@ -8,6 +8,8 @@ display a model name for existing conversations without this migration.
 
 from yoyo import step
 
+__depends__ = {"0026_add_whatsapp_phone"}
+
 steps = [
     step(
         "UPDATE conversations SET model = 'gemini-3.1-pro-preview' WHERE model = 'gemini-3-pro-preview'",

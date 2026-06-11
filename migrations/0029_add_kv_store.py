@@ -7,6 +7,8 @@ for agents and features that need persistent storage across conversations.
 
 from yoyo import step
 
+__depends__ = {"0028_add_garmin_fields"}
+
 steps = [
     step(
         """

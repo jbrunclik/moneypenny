@@ -7,6 +7,8 @@ tokens and connection timestamp for the Garmin Connect integration.
 
 from yoyo import step
 
+__depends__ = {"0027_upgrade_pro_model"}
+
 steps = [
     step(
         "ALTER TABLE users ADD COLUMN garmin_token TEXT",

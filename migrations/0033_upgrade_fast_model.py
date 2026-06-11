@@ -12,6 +12,8 @@ historical per-model spend records.
 
 from yoyo import step
 
+__depends__ = {"0032_add_language_learning"}
+
 steps = [
     step(
         "UPDATE conversations SET model = 'gemini-3.5-flash' WHERE model = 'gemini-3-flash-preview'",
