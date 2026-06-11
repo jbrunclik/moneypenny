@@ -5,7 +5,10 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 ## Features
 
 - [ ] **Gmail integration** - Read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): summarize what needs a reply, surface invoices, feed briefings/agents.
-- [ ] **Web Push notifications** - Primary notification rail for agent results, approval nudges, briefings, unread messages. Replaces WhatsApp friction; keep WhatsApp as fallback.
+- [ ] **Web Push notifications** - Primary notification rail; replaces WhatsApp friction (keep WhatsApp as fallback). Spec (Jun 2026):
+  - **Backend**: `pywebpush` + VAPID keys in config (`VAPID_PRIVATE_KEY`/`VAPID_PUBLIC_KEY`/`VAPID_CLAIMS_EMAIL`, `PUSH_ENABLED`); `push_subscriptions` table (user_id, endpoint unique, p256dh, auth, user_agent, timestamps); `routes/push.py` (vapid-public-key, subscribe, unsubscribe, test-send); `src/utils/push.py` `send_push(user_id, title, body, url, tag)` on a daemon thread, delete subscription on 404/410. Multi-worker safe (stateless sends).
+  - **Frontend**: dumb `sw.js` at root scope (push + notificationclick only, no caching); `core/push.ts` (register, `enablePush()` from a user gesture - iOS requirement); Settings toggle + "Send test"; iOS hint "Add to Home Screen" when not standalone. Manifest + iOS meta already in place; no SW exists yet.
+  - **Use cases by phase**: P1 scheduled-agent results + approval requests (most time-sensitive, hooks exist); P2 turn-finished-while-backgrounded (stream journal consumed flag) + Daily Briefing; P3 planner reminders, program nudges, budget alerts. `tag` per conversation/agent for coalescing; suppress when a focused client is on the target conversation.
 - [ ] **Daily Briefing (first-class)** - Morning briefing: planner data + Garmin readiness + AI recommendations, via push on a schedule. Evening review variant. Depends on: Web Push.
 - [ ] **Personal knowledge base** - Persistent user documents searchable across conversations. SQLite FTS5 over extracted text is enough.
 - [ ] **Thinking mode toggle** - Gemini thinking mode with configurable level, long-press UI like the voice-language selector.
