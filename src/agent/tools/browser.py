@@ -31,6 +31,25 @@ logger = get_logger(__name__)
 # ============ Browser Worker Thread ============
 
 
+def _browser_launch_args() -> list[str]:
+    """Chromium launch flags for the agent browser.
+
+    The OS sandbox is kept ON by default - this browser visits untrusted
+    pages, so it is exactly the process that needs sandboxing (S8).
+    BROWSER_NO_SANDBOX is an explicit opt-out for environments where the
+    sandbox cannot run (root in a container without user namespaces).
+    """
+    args = [
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--disable-extensions",
+    ]
+    if Config.BROWSER_NO_SANDBOX:
+        logger.warning("Chromium OS sandbox disabled via BROWSER_NO_SANDBOX")
+        args.append("--no-sandbox")
+    return args
+
+
 @dataclass
 class BrowserSession:
     """A browser session tied to a conversation."""
@@ -81,12 +100,7 @@ class _BrowserWorker:
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(
             headless=True,
-            args=[
-                "--disable-gpu",
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-extensions",
-            ],
+            args=_browser_launch_args(),
         )
         logger.info("Browser worker started")
         self._started.set()

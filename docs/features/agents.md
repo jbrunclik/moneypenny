@@ -549,6 +549,7 @@ All URLs are validated before navigation. Blocked ranges include loopback (`127.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BROWSER_ENABLED` | `true` | Enable or disable the browser tool globally |
+| `BROWSER_NO_SANDBOX` | `false` | Opt out of Chromium's OS sandbox (only for environments that cannot run it, e.g. root in a container without user namespaces) |
 | `BROWSER_SESSION_TTL_SECONDS` | `600` | Seconds of inactivity before a session is closed |
 | `BROWSER_MAX_CONCURRENT_SESSIONS` | `5` | Maximum simultaneous browser sessions |
 | `BROWSER_PAGE_TIMEOUT_MS` | `30000` | Default Playwright timeout per action (ms) |

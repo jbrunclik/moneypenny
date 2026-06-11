@@ -18,6 +18,18 @@ _browser_mod = importlib.import_module("src.agent.tools.browser")
 # see tests/unit/test_url_safety.py for its coverage.
 
 
+class TestBrowserLaunchArgs:
+    """Chromium OS sandbox stays on unless explicitly opted out (S8)."""
+
+    def test_sandbox_on_by_default(self) -> None:
+        with patch.object(_browser_mod.Config, "BROWSER_NO_SANDBOX", False):
+            assert "--no-sandbox" not in _browser_mod._browser_launch_args()
+
+    def test_no_sandbox_opt_out(self) -> None:
+        with patch.object(_browser_mod.Config, "BROWSER_NO_SANDBOX", True):
+            assert "--no-sandbox" in _browser_mod._browser_launch_args()
+
+
 class TestBrowserAvailability:
     """Tests for is_browser_available check."""
 

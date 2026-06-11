@@ -282,6 +282,10 @@ class Config:
 
     # Browser automation settings (Playwright)
     BROWSER_ENABLED: bool = os.getenv("BROWSER_ENABLED", "true").lower() == "true"
+    # Chromium's OS sandbox stays ON by default (the browser visits untrusted
+    # pages). Opt out only in environments that cannot run it (root in a
+    # container without user namespaces).
+    BROWSER_NO_SANDBOX: bool = os.getenv("BROWSER_NO_SANDBOX", "false").lower() == "true"
     BROWSER_SESSION_TTL_SECONDS: int = int(os.getenv("BROWSER_SESSION_TTL_SECONDS", "300"))
     BROWSER_MAX_CONCURRENT_SESSIONS: int = int(os.getenv("BROWSER_MAX_CONCURRENT_SESSIONS", "3"))
     BROWSER_PAGE_TIMEOUT_MS: int = int(os.getenv("BROWSER_PAGE_TIMEOUT_MS", "30000"))
