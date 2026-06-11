@@ -33,6 +33,7 @@ class User:
     whatsapp_phone: str | None = None
     garmin_token: str | None = None
     garmin_connected_at: datetime | None = None
+    daily_briefing_agent_id: str | None = None
 
 
 @dataclass

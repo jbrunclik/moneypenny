@@ -167,3 +167,145 @@ class TestUpdateUserSettings:
         )
 
         assert response.status_code == 200
+
+
+class TestDailyBriefingSettings:
+    """Daily Briefing opt-in via settings (backed by a system agent)."""
+
+    BRIEFING = {"enabled": True, "time": "07:30", "timezone": "Europe/Prague"}
+
+    def test_defaults_disabled(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        response = client.get("/api/users/me/settings", headers=auth_headers)
+        assert response.status_code == 200
+        briefing = response.get_json()["daily_briefing"]
+        assert briefing == {"enabled": False, "time": "08:00", "timezone": "UTC"}
+
+    def test_enable_creates_agent(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        response = client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"daily_briefing": self.BRIEFING},
+        )
+        assert response.status_code == 200
+
+        user = test_database.get_user_by_id(test_user.id)
+        assert user.daily_briefing_agent_id is not None
+        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        assert agent is not None
+        assert agent.name == "Daily Briefing"
+        assert agent.schedule == "30 7 * * *"
+        assert agent.timezone == "Europe/Prague"
+        assert agent.enabled is True
+        assert agent.next_run_at is not None
+
+        # GET reflects the stored state
+        get_response = client.get("/api/users/me/settings", headers=auth_headers)
+        assert get_response.get_json()["daily_briefing"] == self.BRIEFING
+
+    def test_time_change_updates_schedule(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"daily_briefing": {**self.BRIEFING, "time": "21:15"}},
+        )
+
+        user = test_database.get_user_by_id(test_user.id)
+        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        assert agent.schedule == "15 21 * * *"
+        # Same agent reused, not a duplicate
+        assert (
+            len([a for a in test_database.list_agents(user.id) if a.name == "Daily Briefing"]) == 1
+        )
+
+    def test_disable_keeps_agent_disabled(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"daily_briefing": {**self.BRIEFING, "enabled": False}},
+        )
+
+        user = test_database.get_user_by_id(test_user.id)
+        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        assert agent.enabled is False
+
+        briefing = client.get("/api/users/me/settings", headers=auth_headers).get_json()[
+            "daily_briefing"
+        ]
+        assert briefing["enabled"] is False
+        assert briefing["time"] == "07:30"
+
+    def test_disable_without_agent_is_noop(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        response = client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"daily_briefing": {"enabled": False, "time": "08:00", "timezone": "UTC"}},
+        )
+        assert response.status_code == 200
+        user = test_database.get_user_by_id(test_user.id)
+        assert user.daily_briefing_agent_id is None
+
+    def test_dangling_agent_id_reports_disabled_and_recreates(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        user = test_database.get_user_by_id(test_user.id)
+        first_agent_id = user.daily_briefing_agent_id
+        # User deletes the agent from Command Center
+        test_database.delete_agent(first_agent_id, user.id)
+
+        briefing = client.get("/api/users/me/settings", headers=auth_headers).get_json()[
+            "daily_briefing"
+        ]
+        assert briefing["enabled"] is False
+
+        # Re-enabling creates a fresh agent
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        user = test_database.get_user_by_id(test_user.id)
+        assert user.daily_briefing_agent_id is not None
+        assert user.daily_briefing_agent_id != first_agent_id
+
+    def test_invalid_time_rejected(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        response = client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"daily_briefing": {"enabled": True, "time": "25:00", "timezone": "UTC"}},
+        )
+        assert response.status_code == 400

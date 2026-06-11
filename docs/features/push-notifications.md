@@ -98,6 +98,23 @@ the conversation when the push arrives, no banner. This also absorbs the
 race where the user foregrounds (triggering resume) just as the
 turn-finished push lands.
 
+## Daily Briefing
+
+Opt-in morning summary, configured from **Settings → Daily Briefing**
+(toggle + delivery time; timezone is taken from the browser). It is
+implemented as an ordinary autonomous agent (`src/agent/daily_briefing.py`
+owns the Settings-facing lifecycle):
+
+- Enabling creates a "Daily Briefing" agent (default prompt covers
+  calendar, tasks, Garmin readiness, and a recommendation; all tools
+  allowed) and stores its id on `users.daily_briefing_agent_id`.
+- The delivery time maps to a daily cron (`M H * * *`) in the user's
+  timezone; the existing agent scheduler runs it and the agent-finished
+  push delivers it, deep-linking to the briefing conversation.
+- The agent is visible in Command Center (manual runs, prompt tweaks,
+  history all work). Deleting it there just disables the Settings
+  toggle; re-enabling creates a fresh agent.
+
 ## Planned (see TODO.md)
 
-- Daily Briefing, planner reminders, program nudges, budget alerts
+- Planner reminders, program nudges, budget alerts

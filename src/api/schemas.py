@@ -210,10 +210,19 @@ class ChatRequest(BaseModel):
 # -----------------------------------------------------------------------------
 
 
+class UpdateDailyBriefingRequest(BaseModel):
+    """Daily Briefing opt-in update (nested in UpdateSettingsRequest)."""
+
+    enabled: bool
+    time: str = Field(..., pattern=r"^([01]\d|2[0-3]):([0-5]\d)$")
+    timezone: str = Field(default="UTC", max_length=64)
+
+
 class UpdateSettingsRequest(BaseModel):
     """Schema for PATCH /api/users/me/settings."""
 
     custom_instructions: str | None = Field(None, max_length=2000)
+    daily_briefing: UpdateDailyBriefingRequest | None = None
     whatsapp_phone: str | None = Field(
         None,
         max_length=20,
@@ -693,6 +702,14 @@ class CostHistoryResponse(BaseModel):
 # -----------------------------------------------------------------------------
 
 
+class DailyBriefingSettings(BaseModel):
+    """Daily Briefing opt-in state (backed by a system-managed agent)."""
+
+    enabled: bool = False
+    time: str = Field(default="08:00", pattern=r"^([01]\d|2[0-3]):([0-5]\d)$")
+    timezone: str = Field(default="UTC", max_length=64)
+
+
 class UserSettingsResponse(BaseModel):
     """User settings."""
 
@@ -703,6 +720,7 @@ class UserSettingsResponse(BaseModel):
     whatsapp_available: bool = Field(
         default=False, description="Whether WhatsApp is configured at the app level"
     )
+    daily_briefing: DailyBriefingSettings = Field(default_factory=DailyBriefingSettings)
 
 
 # -----------------------------------------------------------------------------

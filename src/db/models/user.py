@@ -94,6 +94,9 @@ class UserMixin:
                 if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]
                 else None
             ),
+            daily_briefing_agent_id=(
+                row["daily_briefing_agent_id"] if "daily_briefing_agent_id" in row.keys() else None
+            ),
         )
 
     def get_or_create_user(self, email: str, name: str, picture: str | None = None) -> User:
@@ -444,6 +447,32 @@ class UserMixin:
             logger.warning(
                 "User not found for WhatsApp phone update",
                 extra={"user_id": user_id},
+            )
+        return updated
+
+    def update_user_daily_briefing_agent(self, user_id: str, agent_id: str | None) -> bool:
+        """Set or clear the user's Daily Briefing agent pointer.
+
+        Args:
+            user_id: The user ID
+            agent_id: The briefing agent's id, or None to clear
+
+        Returns:
+            True if user was updated, False if not found
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET daily_briefing_agent_id = ? WHERE id = ?",
+                (agent_id, user_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            logger.info(
+                "User daily briefing agent pointer updated",
+                extra={"user_id": user_id, "has_agent": bool(agent_id)},
             )
         return updated
 

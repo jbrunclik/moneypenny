@@ -14,6 +14,7 @@ import {
   PHONE_ICON,
   ACTIVITY_ICON,
   BELL_ICON,
+  SUNRISE_ICON,
 } from '../utils/icons';
 import { settings, todoist, calendar, garmin } from '../api/client';
 import { ApiError } from '../api/http';
@@ -34,7 +35,7 @@ import {
   setupSystemPreferenceListener,
 } from '../utils/theme';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
-import type { TodoistStatus, CalendarStatus, GarminStatus, Calendar } from '../types/api';
+import type { TodoistStatus, CalendarStatus, GarminStatus, Calendar, DailyBriefingSettings } from '../types/api';
 import { useStore } from '../state/store';
 import { renderConversationsList } from './Sidebar';
 
@@ -59,6 +60,13 @@ let currentColorScheme: ColorScheme = 'system';
 
 /** Current push notification state on this device */
 let pushState: PushState = 'unsupported';
+
+/** Current Daily Briefing settings */
+let briefingSettings: DailyBriefingSettings = {
+  enabled: false,
+  time: '08:00',
+  timezone: 'UTC',
+};
 
 /** Current Todoist status */
 let todoistStatus: TodoistStatus | null = null;
@@ -477,6 +485,36 @@ async function handlePushToggle(btn: HTMLButtonElement): Promise<void> {
 }
 
 /**
+ * Apply a Daily Briefing toggle/time change immediately.
+ * Timezone comes from the browser so "08:00" means local morning.
+ */
+async function handleBriefingChange(): Promise<void> {
+  const enabledEl = document.getElementById('briefing-enabled') as HTMLInputElement | null;
+  const timeEl = document.getElementById('briefing-time') as HTMLInputElement | null;
+  if (!enabledEl || !timeEl) return;
+
+  const update: DailyBriefingSettings = {
+    enabled: enabledEl.checked,
+    time: timeEl.value || '08:00',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+  };
+
+  try {
+    await settings.update({ daily_briefing: update });
+    briefingSettings = update;
+    toast.success(
+      update.enabled ? `Daily briefing scheduled for ${update.time}` : 'Daily briefing disabled'
+    );
+  } catch (error) {
+    log.error('Failed to update daily briefing', { error });
+    toast.error('Failed to update daily briefing.');
+    // Restore the controls to the last known good state
+    enabledEl.checked = briefingSettings.enabled;
+    timeEl.value = briefingSettings.time;
+  }
+}
+
+/**
  * Send a test notification and surface the outcome.
  */
 async function handlePushTest(btn: HTMLButtonElement): Promise<void> {
@@ -559,6 +597,27 @@ function renderContent(
           Notifications
         </label>
         <div class="settings-push-body">${renderPushSection(pushState)}</div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field" data-section="briefing">
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${SUNRISE_ICON}</span>
+          Daily Briefing
+        </label>
+        <p class="settings-helper">A morning summary of your schedule, tasks and readiness, delivered as a notification. Runs as an agent you can also find in the Command Center.</p>
+        <div class="settings-briefing-controls">
+          <label class="toggle-label">
+            <input type="checkbox" id="briefing-enabled" ${briefingSettings.enabled ? 'checked' : ''}>
+            <span class="toggle-switch"></span>
+            <span class="toggle-text">Enabled</span>
+          </label>
+          <label class="settings-briefing-time-label" for="briefing-time">
+            Deliver at
+            <input type="time" id="briefing-time" class="settings-input settings-briefing-time" value="${escapeHtml(briefingSettings.time)}">
+          </label>
+        </div>
       </div>
 
       ${whatsappAvailable ? `
@@ -1229,6 +1288,7 @@ export async function openSettingsPopup(): Promise<void> {
     currentInstructions = settingsData.custom_instructions || '';
     currentWhatsappPhone = settingsData.whatsapp_phone || '';
     whatsappAvailable = settingsData.whatsapp_available ?? false;
+    briefingSettings = settingsData.daily_briefing ?? briefingSettings;
     todoistStatus = todoistData;
     calendarStatus = calendarData;
     garminStatus = garminData;
@@ -1356,6 +1416,14 @@ export function initSettingsPopup(): void {
 
   // Register with centralized Escape key handler
   registerPopupEscapeHandler(POPUP_ID, closeSettingsPopup);
+
+  // Daily Briefing controls apply immediately on change
+  popup.addEventListener('change', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.id === 'briefing-enabled' || target.id === 'briefing-time') {
+      void handleBriefingChange();
+    }
+  });
 
   // Event delegation for buttons
   popup.addEventListener('click', (e) => {

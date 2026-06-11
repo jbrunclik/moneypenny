@@ -7,6 +7,7 @@ from typing import Any
 
 from apiflask import APIBlueprint
 
+from src.agent.daily_briefing import get_briefing_status, set_briefing
 from src.agent.tools.whatsapp import is_whatsapp_available
 from src.api.schemas import StatusResponse, UpdateSettingsRequest, UserSettingsResponse
 from src.api.validation import validate_request
@@ -34,6 +35,7 @@ def get_user_settings(user: User) -> dict[str, Any]:
         "custom_instructions": user.custom_instructions or "",
         "whatsapp_phone": user.whatsapp_phone,
         "whatsapp_available": is_whatsapp_available(),
+        "daily_briefing": get_briefing_status(user),
     }
 
 
@@ -81,6 +83,15 @@ def update_user_settings(user: User, data: UpdateSettingsRequest) -> tuple[dict[
         logger.info(
             "User WhatsApp phone updated",
             extra={"user_id": user.id, "has_phone": bool(phone)},
+        )
+
+    # Daily Briefing: upsert the system-managed agent
+    if "daily_briefing" in fields_set and data.daily_briefing is not None:
+        set_briefing(
+            user,
+            enabled=data.daily_briefing.enabled,
+            time_str=data.daily_briefing.time,
+            timezone=data.daily_briefing.timezone,
         )
 
     return {"status": "updated"}, 200
