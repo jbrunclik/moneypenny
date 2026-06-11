@@ -314,6 +314,7 @@ export async function sendMessage(): Promise<void> {
       await loadAllRemainingNewerMessages(conv.id);
       // Clean up the newer messages scroll listener since we've loaded everything
       cleanupNewerMessagesScrollListener();
+      setInputLoading(false);
     } catch (error) {
       log.error('Failed to load remaining messages before send', { error, conversationId: conv.id });
       setInputLoading(false);
@@ -353,10 +354,16 @@ export async function sendMessage(): Promise<void> {
     });
   }
 
+  // Block double-sends in THIS conversation only - other conversations stay
+  // fully usable while this one streams
+  if (useStore.getState().getActiveRequest(conv.id)) {
+    toast.info('Please wait for the current response in this conversation to finish.');
+    return;
+  }
+
   // Clear input and reset force tools (one-shot)
   clearMessageInput();
   clearPendingFiles();
-  setInputLoading(true);
   const forceTools = [...store.forceTools];
   // Use fresh store reference to get anonymous mode (not the stale `store` from the beginning)
   // This is critical because the conversation ID may have changed from temp-xxx to a real ID
@@ -404,7 +411,6 @@ export async function sendMessage(): Promise<void> {
       toast.error('An unexpected error occurred. Please try again.');
     }
   } finally {
-    setInputLoading(false);
     if (shouldAutoFocusInput()) {
       focusMessageInput();
     }
@@ -582,7 +588,11 @@ function cleanupStreamingRequest(
   }
 
   getSyncManager()?.setConversationStreaming(convId, false);
-  useStore.getState().setStreamingConversation(null);
+  // Only clear the global flag if it is OURS - another conversation may have
+  // started streaming meanwhile (concurrent conversations)
+  if (useStore.getState().streamingConversationId === convId) {
+    useStore.getState().setStreamingConversation(null);
+  }
 }
 
 /**
@@ -1031,7 +1041,18 @@ async function handleStreamDone(
   }
 
   const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
-  if (!isCurrentConversation) return;
+  if (!isCurrentConversation) {
+    // The user switched away mid-stream: the turn still completed - do the
+    // bookkeeping without touching the (re-rendered) DOM. Bailing before
+    // messageSuccessful left every backgrounded stream looking interrupted,
+    // triggering a pointless recovery round and a wrong local message count.
+    state.messageSuccessful = true;
+    clearPendingRecovery(convId);
+    if (event.title) {
+      updateConversationTitle(convId, event.title);
+    }
+    return;
+  }
 
   // If the done event has no visible content (e.g. metadata-only tool calls),
   // remove the empty message element instead of leaving an empty bubble

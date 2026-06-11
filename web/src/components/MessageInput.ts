@@ -104,17 +104,20 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
   // Subscribe to streaming state changes to update button appearance
   // fireImmediately ensures we get the current state on subscription
   useStore.subscribe(
-    (state) => ({
-      streamingConvId: state.streamingConversationId,
-      currentConvId: state.currentConversation?.id,
-    }),
-    ({ streamingConvId, currentConvId }) => {
-      // Show stop button only when streaming the current conversation
-      const shouldShowStop = streamingConvId !== null && streamingConvId === currentConvId;
-      updateSendButtonMode(shouldShowStop);
+    (state) => {
+      // Per-conversation: stop mode only when THIS conversation has an active
+      // stream (streamingConversationId alone clobbers with concurrent streams)
+      const currentConvId = state.currentConversation?.id;
+      const activeStream =
+        currentConvId !== undefined &&
+        state.activeRequests.get(currentConvId)?.type === 'stream';
+      return { activeStream, currentConvId };
+    },
+    ({ activeStream }) => {
+      updateSendButtonMode(activeStream);
     },
     {
-      equalityFn: (a, b) => a.streamingConvId === b.streamingConvId && a.currentConvId === b.currentConvId,
+      equalityFn: (a, b) => a.activeStream === b.activeStream && a.currentConvId === b.currentConvId,
       fireImmediately: true,
     }
   );
