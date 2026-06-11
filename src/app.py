@@ -23,6 +23,8 @@ _CSP_POLICY = "; ".join(
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
         "connect-src 'self' https://accounts.google.com",
+        # Push service worker registered from /sw.js
+        "worker-src 'self'",
         "frame-src https://accounts.google.com",
         "frame-ancestors 'none'",
         "base-uri 'self'",
@@ -249,6 +251,22 @@ def create_app() -> APIFlask:
             dev_mode=dev_mode,
             app_version=app_version,
         )
+
+    @app.route("/sw.js")
+    def service_worker() -> Response:
+        """Serve the push service worker from the site root.
+
+        A service worker's max scope is its URL's directory - served from
+        /static/assets/ it could never control "/", so it gets its own
+        root-level route. The file is copied verbatim from web/public/ by
+        the Vite build.
+        """
+        response = send_from_directory(app.static_folder or "static", "assets/sw.js")
+        response.headers["Content-Type"] = "text/javascript"
+        # The worker is tiny; let browsers re-check it on each load so
+        # updates roll out immediately
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.route("/privacy")
     def privacy_policy() -> str:

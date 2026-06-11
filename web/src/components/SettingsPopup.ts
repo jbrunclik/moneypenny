@@ -13,9 +13,17 @@ import {
   STAR_ICON,
   PHONE_ICON,
   ACTIVITY_ICON,
+  BELL_ICON,
 } from '../utils/icons';
 import { settings, todoist, calendar, garmin } from '../api/client';
 import { ApiError } from '../api/http';
+import {
+  type PushState,
+  getPushState,
+  enablePush,
+  disablePush,
+  sendTestNotification,
+} from '../core/push';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import {
@@ -48,6 +56,9 @@ let whatsappAvailable = false;
 
 /** Current color scheme value */
 let currentColorScheme: ColorScheme = 'system';
+
+/** Current push notification state on this device */
+let pushState: PushState = 'unsupported';
 
 /** Current Todoist status */
 let todoistStatus: TodoistStatus | null = null;
@@ -400,6 +411,91 @@ function renderGarminSection(status: GarminStatus | null, mfaRequired: boolean):
 /**
  * Render the popup content
  */
+/**
+ * Render the Notifications (Web Push) section for the current state.
+ */
+function renderPushSection(state: PushState): string {
+  switch (state) {
+    case 'subscribed':
+      return `
+        <p class="settings-helper">Notifications are enabled on this device.</p>
+        <div class="settings-push-actions">
+          <button class="btn btn-secondary push-toggle-btn" data-action="disable">Disable</button>
+          <button class="btn btn-secondary push-test-btn">Send test</button>
+        </div>
+      `;
+    case 'not-subscribed':
+      return `
+        <p class="settings-helper">Get notified when agents finish work or wait for your approval.</p>
+        <div class="settings-push-actions">
+          <button class="btn btn-primary push-toggle-btn" data-action="enable">Enable notifications</button>
+        </div>
+      `;
+    case 'denied':
+      return `<p class="settings-helper">Notifications are blocked for this site. Allow them in your browser settings, then try again.</p>`;
+    case 'ios-needs-install':
+      return `<p class="settings-helper">On iPhone/iPad, add this app to your Home Screen (Share &rarr; Add to Home Screen) to enable notifications.</p>`;
+    case 'server-disabled':
+      return `<p class="settings-helper settings-helper-muted">Not configured on the server (VAPID keys missing).</p>`;
+    case 'unsupported':
+      return `<p class="settings-helper settings-helper-muted">Not supported in this browser.</p>`;
+  }
+}
+
+/**
+ * Re-render only the push section (after enable/disable).
+ */
+function updatePushSection(): void {
+  const section = document.querySelector('[data-section="push"] .settings-push-body');
+  if (section) {
+    section.innerHTML = renderPushSection(pushState);
+  }
+}
+
+/**
+ * Enable/disable push for this device (runs in the click's user
+ * gesture, which the permission prompt requires).
+ */
+async function handlePushToggle(btn: HTMLButtonElement): Promise<void> {
+  const enable = btn.dataset.action === 'enable';
+  btn.disabled = true;
+  try {
+    pushState = enable ? await enablePush() : await disablePush();
+    if (enable && pushState === 'subscribed') {
+      toast.success('Notifications enabled');
+    } else if (!enable && pushState === 'not-subscribed') {
+      toast.success('Notifications disabled');
+    } else if (pushState === 'denied') {
+      toast.warning('Notifications are blocked in your browser settings.');
+    }
+  } catch (error) {
+    log.error('Push toggle failed', { error, enable });
+    toast.error(enable ? 'Failed to enable notifications.' : 'Failed to disable notifications.');
+  } finally {
+    updatePushSection();
+  }
+}
+
+/**
+ * Send a test notification and surface the outcome.
+ */
+async function handlePushTest(btn: HTMLButtonElement): Promise<void> {
+  btn.disabled = true;
+  try {
+    const status = await sendTestNotification();
+    if (status === 'no_subscriptions') {
+      toast.warning('No subscribed devices found.');
+    } else {
+      toast.success('Test notification sent');
+    }
+  } catch (error) {
+    log.error('Push test failed', { error });
+    toast.error('Failed to send test notification.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function renderContent(
   instructions: string,
   colorScheme: ColorScheme,
@@ -453,6 +549,16 @@ function renderContent(
           Garmin Connect
         </label>
         ${renderGarminSection(garminSt, garminMfa)}
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field" data-section="push">
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${BELL_ICON}</span>
+          Notifications
+        </label>
+        <div class="settings-push-body">${renderPushSection(pushState)}</div>
       </div>
 
       ${whatsappAvailable ? `
@@ -1100,7 +1206,7 @@ export async function openSettingsPopup(): Promise<void> {
   try {
     log.debug('Fetching settings and Todoist status');
 
-    const [settingsData, todoistData, calendarData, garminData] = await Promise.all([
+    const [settingsData, todoistData, calendarData, garminData, pushStateData] = await Promise.all([
       settings.get(),
       todoist.getStatus().catch((err) => {
         log.warn('Failed to fetch Todoist status', { error: err });
@@ -1114,6 +1220,10 @@ export async function openSettingsPopup(): Promise<void> {
         log.warn('Failed to fetch Garmin status', { error: err });
         return null;
       }),
+      getPushState().catch((err) => {
+        log.warn('Failed to determine push state', { error: err });
+        return 'unsupported' as PushState;
+      }),
     ]);
 
     currentInstructions = settingsData.custom_instructions || '';
@@ -1122,6 +1232,7 @@ export async function openSettingsPopup(): Promise<void> {
     todoistStatus = todoistData;
     calendarStatus = calendarData;
     garminStatus = garminData;
+    pushState = pushStateData;
     garminMfaRequired = false;
     garminPendingCredentials = null;
     log.info('Settings loaded', {
@@ -1275,6 +1386,16 @@ export function initSettingsPopup(): void {
 
     if (target.classList.contains('settings-calendar-save-btn')) {
       handleCalendarSaveSelection();
+    }
+
+    // Push notifications enable/disable toggle
+    if (target.classList.contains('push-toggle-btn')) {
+      handlePushToggle(target as HTMLButtonElement);
+    }
+
+    // Push test notification
+    if (target.classList.contains('push-test-btn')) {
+      handlePushTest(target as HTMLButtonElement);
     }
 
     // Garmin connect button

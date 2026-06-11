@@ -490,6 +490,19 @@ class Config:
     # Garmin Connect Integration (no API keys needed — uses garth session tokens)
     GARMIN_API_TIMEOUT: int = int(os.getenv("GARMIN_API_TIMEOUT", "15"))
 
+    # Web Push notifications (VAPID). Generate keys with: make push-keys
+    # Push is enabled only when both keys are set.
+    VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")
+    VAPID_PUBLIC_KEY: str = os.getenv("VAPID_PUBLIC_KEY", "")
+    # Contact for the push service (VAPID sub claim), mailto: added automatically
+    VAPID_CLAIMS_EMAIL: str = os.getenv("VAPID_CLAIMS_EMAIL", "")
+    PUSH_SEND_TIMEOUT: int = int(os.getenv("PUSH_SEND_TIMEOUT", "10"))  # seconds
+
+    @classmethod
+    def push_enabled(cls) -> bool:
+        """Web push is available when a VAPID key pair is configured."""
+        return bool(cls.VAPID_PRIVATE_KEY and cls.VAPID_PUBLIC_KEY)
+
     # Number of reverse proxies in front of the app whose X-Forwarded-*
     # headers can be trusted (ProxyFix). With 0, forwarded headers are
     # ignored - required when the app is exposed directly, otherwise

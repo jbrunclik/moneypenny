@@ -43,6 +43,7 @@ from src.utils.images import (
     extract_generated_images_from_tool_results,
 )
 from src.utils.logging import get_logger
+from src.utils.push import send_push_to_user
 
 if TYPE_CHECKING:
     from src.db.models import Agent, User
@@ -408,6 +409,16 @@ def execute_agent(
             },
         )
 
+        # Notify the user's devices; tag per agent so re-runs replace the
+        # previous notification instead of stacking
+        send_push_to_user(
+            user.id,
+            f"{agent.name} finished",
+            clean_response.strip().split("\n", 1)[0][:160],
+            url=f"/#/conversations/{conv.id}",
+            tag=f"agent-{agent.id}",
+        )
+
         return True, None
 
     except ApprovalRequestedException as e:
@@ -431,6 +442,16 @@ def execute_agent(
             e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
         )
         db.add_message(conv.id, MessageRole.ASSISTANT, approval_message)
+
+        # The agent is blocked until the user reacts - the most
+        # time-sensitive notification in the system
+        send_push_to_user(
+            user.id,
+            f"{agent.name} needs your approval",
+            e.description[:160],
+            url="/#/agents",
+            tag=f"approval-{e.approval_id}",
+        )
 
         # Return special status to indicate approval is required
         # The calling code should NOT override the execution status

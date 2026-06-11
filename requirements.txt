@@ -34,6 +34,9 @@ garminconnect>=0.3.5
 # Schedule parsing
 croniter>=6.2.2
 
+# Web Push notifications (VAPID)
+pywebpush>=2.0.0
+
 # Database migrations
 yoyo-migrations>=9.0
 

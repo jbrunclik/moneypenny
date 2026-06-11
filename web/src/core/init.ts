@@ -24,6 +24,7 @@ import {
 } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
+import { registerServiceWorker } from './push';
 import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
 import { initFileUpload } from '../components/FileUpload';
 import { initLightbox } from '../components/Lightbox';
@@ -424,6 +425,9 @@ export async function init(): Promise<void> {
   });
   initOrientationChangeHandler();
   initVersionBanner();
+  // Keep an existing push subscription working after reloads; actual
+  // permission requests only happen from the Settings toggle
+  void registerServiceWorker();
   initSearchInput();
   subscribeToSearchChanges(handleSearchResultClick);
   initTTSVoices();

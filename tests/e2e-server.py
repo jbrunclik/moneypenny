@@ -593,6 +593,7 @@ def main() -> None:
             "garmin",
             "memory",
             "planner",
+            "push",
             "settings",
             "programs",
             "todoist",

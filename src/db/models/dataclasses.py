@@ -180,3 +180,17 @@ class AgentExecution:
     started_at: datetime
     completed_at: datetime | None
     error_message: str | None
+
+
+@dataclass
+class PushSubscription:
+    """A Web Push subscription for one of a user's devices/browsers."""
+
+    id: str
+    user_id: str
+    endpoint: str
+    p256dh: str
+    auth: str
+    user_agent: str | None
+    created_at: datetime
+    last_used_at: datetime | None

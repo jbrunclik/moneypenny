@@ -28,6 +28,7 @@ from src.db.models.dataclasses import (
     Memory,
     Message,
     MessagePagination,
+    PushSubscription,
     SearchResult,
     User,
 )
@@ -48,6 +49,7 @@ from src.db.models.memory import MemoryMixin
 from src.db.models.message import MessageMixin
 from src.db.models.planner import PlannerMixin
 from src.db.models.programs import ProgramConversationMixin
+from src.db.models.push import PushSubscriptionMixin
 from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
 from src.db.models.stream_journal import StreamJournalMixin
@@ -68,6 +70,7 @@ class Database(
     AgentMixin,
     KVStoreMixin,
     ProgramConversationMixin,
+    PushSubscriptionMixin,
     StreamJournalMixin,
 ):
     """Main database class combining all mixins.
@@ -104,6 +107,7 @@ __all__ = [
     "Agent",
     "ApprovalRequest",
     "AgentExecution",
+    "PushSubscription",
     # Helper functions
     "make_blob_key",
     "make_thumbnail_key",

@@ -1302,6 +1302,12 @@
     line-height: 1.4;
 }
 
+.settings-push-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
 .settings-textarea {
     width: 100%;
     min-height: 150px;

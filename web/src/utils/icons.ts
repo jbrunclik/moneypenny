@@ -650,3 +650,11 @@ export const STEPS_ICON = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="
   <ellipse cx="16" cy="12" rx="2.5" ry="4" transform="rotate(-10 16 12)"/>
   <ellipse cx="16" cy="19" rx="1.8" ry="1.2" transform="rotate(-10 16 19)"/>
 </svg>`;
+
+/**
+ * Bell icon (notifications)
+ */
+export const BELL_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+</svg>`;

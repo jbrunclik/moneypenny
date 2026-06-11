@@ -39,6 +39,7 @@ from src.api.routes import (
     language,
     memory,
     planner,
+    push,
     settings,
     sports,
     system,
@@ -80,6 +81,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(kv_store.api)
     app.register_blueprint(sports.api)
     app.register_blueprint(language.api)
+    app.register_blueprint(push.api)
 
 
 __all__ = [
