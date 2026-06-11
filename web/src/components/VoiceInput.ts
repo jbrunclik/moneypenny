@@ -260,8 +260,13 @@ function selectLanguage(lang: string): void {
   }
 }
 
+// Aborts all button listeners from a previous init (F2): re-initializing
+// used to stack duplicate listeners and leave a zombie SpeechRecognition
+// whose handlers kept writing into the input
+let initAbort: AbortController | null = null;
+
 /**
- * Initialize voice input component
+ * Initialize voice input component (idempotent - safe to call on re-mount).
  */
 export function initVoiceInput(): void {
   const voiceBtn = getElementById<HTMLButtonElement>('voice-btn');
@@ -274,6 +279,11 @@ export function initVoiceInput(): void {
     voiceBtn.classList.add('hidden');
     return;
   }
+
+  // Drop listeners and recognition from any previous init (F2)
+  initAbort?.abort();
+  initAbort = new AbortController();
+  recognition?.abort();
 
   // Initialize SpeechRecognition
   const SpeechRecognition = getSpeechRecognition();
@@ -409,23 +419,31 @@ export function initVoiceInput(): void {
     }
   };
 
+  // All button listeners are tied to this init's AbortController so a
+  // re-init cleans them up instead of stacking duplicates (F2)
+  const { signal } = initAbort;
+
   // Mouse events for desktop
-  voiceBtn.addEventListener('mousedown', startLongPress);
-  voiceBtn.addEventListener('mouseup', cancelLongPress);
-  voiceBtn.addEventListener('mouseleave', cancelLongPress);
+  voiceBtn.addEventListener('mousedown', startLongPress, { signal });
+  voiceBtn.addEventListener('mouseup', cancelLongPress, { signal });
+  voiceBtn.addEventListener('mouseleave', cancelLongPress, { signal });
 
   // Prevent context menu on long press (desktop)
-  voiceBtn.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-  });
+  voiceBtn.addEventListener(
+    'contextmenu',
+    (e) => {
+      e.preventDefault();
+    },
+    { signal }
+  );
 
   // Touch events for mobile
-  voiceBtn.addEventListener('touchstart', startLongPress, { passive: true });
-  voiceBtn.addEventListener('touchend', cancelLongPress);
-  voiceBtn.addEventListener('touchcancel', cancelLongPress);
+  voiceBtn.addEventListener('touchstart', startLongPress, { passive: true, signal });
+  voiceBtn.addEventListener('touchend', cancelLongPress, { signal });
+  voiceBtn.addEventListener('touchcancel', cancelLongPress, { signal });
 
   // Click event for toggling recording
-  voiceBtn.addEventListener('click', handleClick);
+  voiceBtn.addEventListener('click', handleClick, { signal });
 }
 
 /**
