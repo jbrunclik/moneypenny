@@ -53,6 +53,10 @@ logger = get_logger(__name__)
 # Appended to partial content when an interactive chat turn hits CHAT_TIMEOUT.
 STREAM_TIMEOUT_MARKER = "\n\n_…(response timed out)_"
 
+# Appended to partial content when the producer crashes mid-stream (X1):
+# losing the whole answer to a late crash threw away everything streamed
+STREAM_ERROR_MARKER = "\n\n_…(response interrupted by an error)_"
+
 
 def load_sports_context(user_id: str, program_id: str) -> dict[str, Any] | None:
     """Load sports program context from K/V store for the system prompt.
@@ -612,6 +616,16 @@ def stream_events(
             exc_info=True,
         )
         event_queue.put(e)  # Signal error
+    except BaseException as e:
+        # SystemExit & co. (e.g. interpreter/worker shutdown) must still
+        # signal the consumer - otherwise it idles until the backstop
+        # deadline and any partial content is lost with it (X1)
+        logger.error(
+            "Stream thread killed",
+            extra={"user_id": user_id, "conversation_id": conv_id, "error": repr(e)},
+        )
+        event_queue.put(RuntimeError(f"stream producer killed: {e!r}"))
+        raise
     finally:
         if journal:
             journal.finish()
@@ -1283,7 +1297,26 @@ def _process_event_queue(context: _StreamContext) -> Generator[str]:
 
 
 def _handle_queue_error(context: _StreamContext, error: Exception) -> Generator[str]:
-    """Handle an error from the event queue."""
+    """Handle an error from the event queue.
+
+    Persists any partial streamed content first (X1): a crash after most of
+    the answer streamed previously deleted the placeholder and lost
+    everything - the timeout path already kept partials, the crash path
+    did not.
+    """
+    if context.partial_content:
+        context.clean_content = context.partial_content + STREAM_ERROR_MARKER
+        context.final_results["clean_content"] = context.clean_content
+        context.final_results["ready"] = True
+        logger.info(
+            "Stream crashed mid-answer - keeping partial content",
+            extra={
+                "user_id": context.user_id,
+                "conversation_id": context.conv_id,
+                "partial_chars": len(context.partial_content),
+            },
+        )
+
     error_data = _build_error_data(error)
     try:
         yield f"data: {json.dumps(error_data)}\n\n"

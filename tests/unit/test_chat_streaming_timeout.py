@@ -118,6 +118,37 @@ def test_consumer_handles_producer_timeout_marker() -> None:
     assert ctx.final_results["clean_content"] == ctx.clean_content
 
 
+def test_consumer_keeps_partial_content_on_producer_crash() -> None:
+    """Tokens then a producer exception -> partial content saved + error event (X1).
+
+    Previously only the timeout path kept partials; a crash after most of
+    the answer streamed deleted the placeholder and lost everything.
+    """
+    from src.api.helpers.chat_streaming import STREAM_ERROR_MARKER
+
+    ctx = _make_ctx(
+        [
+            {"type": "token", "text": "partial "},
+            {"type": "token", "text": "answer"},
+            RuntimeError("model exploded"),
+        ]
+    )
+    out = "".join(_process_event_queue(ctx))
+    assert '"type": "error"' in out
+    assert ctx.clean_content == "partial answer" + STREAM_ERROR_MARKER
+    assert ctx.final_results["ready"] is True
+    assert ctx.final_results["clean_content"] == ctx.clean_content
+
+
+def test_consumer_crash_without_content_saves_nothing() -> None:
+    """A crash before any token must not mark results ready (placeholder
+    cleanup proceeds normally)."""
+    ctx = _make_ctx([RuntimeError("early crash")])
+    out = "".join(_process_event_queue(ctx))
+    assert '"type": "error"' in out
+    assert ctx.final_results["ready"] is False
+
+
 def test_consumer_backstop_fires_with_no_events(monkeypatch) -> None:
     """Empty queue + passed deadline -> emits timeout and returns (no hang)."""
     monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0)
