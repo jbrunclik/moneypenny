@@ -126,9 +126,13 @@ class ChatAgent:
         Returns None for modes incompatible with caching (autonomous agents,
         no-tools mode).
         """
-        # No caching for autonomous agents (variable tools), sports, language, or no-tools mode
-        if self.is_autonomous or self.is_sports or self.is_language or not self.with_tools:
+        # No caching for autonomous agents (variable tools) or no-tools mode
+        if self.is_autonomous or not self.with_tools:
             return None
+        if self.is_sports:
+            return CacheProfile.SPORTS
+        if self.is_language:
+            return CacheProfile.LANGUAGE
         if self.is_planning:
             return CacheProfile.PLANNING
         if self.anonymous_mode:

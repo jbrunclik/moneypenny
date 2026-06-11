@@ -35,6 +35,11 @@ class CacheProfile(StrEnum):
     STANDARD = "standard"
     ANONYMOUS = "anonymous"
     PLANNING = "planning"
+    # Program profiles: one cache entry per FEATURE, not per program - the
+    # static prompt is program-agnostic and the program identity + KV data
+    # ride in the per-request dynamic context
+    SPORTS = "sports"
+    LANGUAGE = "language"
 
 
 @dataclass

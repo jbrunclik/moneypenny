@@ -47,6 +47,10 @@ class TestCacheProfile:
     def test_planning_profile(self) -> None:
         assert CacheProfile.PLANNING.value == "planning"
 
+    def test_program_profiles(self) -> None:
+        assert CacheProfile.SPORTS.value == "sports"
+        assert CacheProfile.LANGUAGE.value == "language"
+
 
 # ============ get_static_prompt_for_profile Tests ============
 
@@ -83,6 +87,35 @@ class TestGetStaticPromptForProfile:
 
         prompt = get_static_prompt_for_profile("standard")
         assert "Planner Mode" not in prompt
+
+    def test_sports_is_program_agnostic(self) -> None:
+        """The sports static prompt carries the full trainer instructions but
+        no per-program values - those would fragment the cache per program."""
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        prompt = get_static_prompt_for_profile("sports")
+        assert "Personal Sports Trainer" in prompt
+        assert "<program_name>" in prompt
+        assert "<program_id>" in prompt
+        assert "{program_id}" not in prompt  # all placeholders resolved
+
+    def test_language_is_program_agnostic(self) -> None:
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        prompt = get_static_prompt_for_profile("language")
+        assert "Language Tutor" in prompt
+        assert "Spaced Repetition System" in prompt
+        assert "<program_id>" in prompt
+        assert "{program_id}" not in prompt
+
+    def test_program_static_prompts_are_stable(self) -> None:
+        """Same profile must produce byte-identical prompts (cache key)."""
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        assert get_static_prompt_for_profile("sports") == get_static_prompt_for_profile("sports")
+        assert get_static_prompt_for_profile("language") == get_static_prompt_for_profile(
+            "language"
+        )
 
 
 # ============ get_dynamic_prompt_parts Tests ============
@@ -129,6 +162,39 @@ class TestGetDynamicPromptParts:
         result = get_dynamic_prompt_parts(force_tools=["web_search"])
         assert "Mandatory Tool Usage" in result
         assert "web_search" in result
+
+    def test_includes_program_identity_and_kv_for_sports(self) -> None:
+        """In cached mode the program identity + KV data must ride in the
+        dynamic context - the static prompt is program-agnostic."""
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        result = get_dynamic_prompt_parts(
+            is_sports=True,
+            sports_context={
+                "program_name": "Marathon Prep",
+                "program_id": "marathon-prep",
+                "kv_data": {"marathon-prep:goals": '{"goal": "sub-4h"}'},
+            },
+        )
+        assert "Active Program" in result
+        assert "Marathon Prep" in result
+        assert "marathon-prep" in result
+        assert "sub-4h" in result
+
+    def test_includes_program_identity_and_kv_for_language(self) -> None:
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        result = get_dynamic_prompt_parts(
+            is_language=True,
+            language_context={
+                "program_name": "Spanish",
+                "program_id": "spanish",
+                "kv_data": {},
+            },
+        )
+        assert "Active Program" in result
+        assert "Spanish" in result
+        assert "No data stored yet" in result
 
 
 # ============ _compute_content_hash Tests ============

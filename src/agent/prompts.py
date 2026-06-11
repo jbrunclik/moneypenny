@@ -522,7 +522,7 @@ You are a dedicated personal trainer for the user's **{program_name}** training 
 
 ### KV Workflow
 
-1. **Stored data**: The "Stored Data" section above already contains your persisted state - do NOT call `kv_store(action="list")` to re-read it.
+1. **Stored data**: The "Stored Data" section (in this prompt or in the per-request context) already contains your persisted state - do NOT call `kv_store(action="list")` to re-read it.
 2. **When user shares data**: Immediately call `kv_store(action="set", ...)` to persist it. Then reference it in your reply.
 3. **Merge, don't overwrite**: Call `kv_store(action="get", ...)` first, then merge new data into the existing JSON before writing back.
 
@@ -572,8 +572,9 @@ def _format_sports_kv_data(sports_context: dict[str, Any]) -> str:
     lines = [
         "## Stored Data (from KV store)\n\nThe following data is already persisted. Reference it and keep it up to date.\n"
     ]
-    # Per-key injection cap: this prompt is UNCACHED and re-sent every turn,
-    # so an unbounded key (e.g. a full vocabulary list) is re-billed each time
+    # Per-key injection cap: this section is dynamic (never in the context
+    # cache) and re-sent every turn, so an unbounded key (e.g. a full
+    # vocabulary list) is re-billed each time
     max_chars = Config.PROGRAM_KV_INJECTION_MAX_CHARS
     for key, value in kv_data.items():
         text = str(value)
@@ -616,7 +617,7 @@ You are a dedicated language tutor for the user's **{program_name}** learning pr
 
 ### KV Workflow
 
-1. **Stored data**: The "Stored Data" section above already contains your persisted state - do NOT call `kv_store(action="list")` to re-read it.
+1. **Stored data**: The "Stored Data" section (in this prompt or in the per-request context) already contains your persisted state - do NOT call `kv_store(action="list")` to re-read it.
 2. **When user shares data**: Immediately call `kv_store(action="set", ...)` to persist it. Then reference it in your reply.
 3. **Merge, don't overwrite**: Call `kv_store(action="get", ...)` first, then merge new data into the existing JSON before writing back.
 
@@ -808,8 +809,9 @@ def _format_language_kv_data(language_context: dict[str, Any]) -> str:
     lines = [
         "## Stored Data (from KV store)\n\nThe following data is already persisted. Reference it and keep it up to date.\n"
     ]
-    # Per-key injection cap: this prompt is UNCACHED and re-sent every turn,
-    # so an unbounded key (e.g. a full vocabulary list) is re-billed each time
+    # Per-key injection cap: this section is dynamic (never in the context
+    # cache) and re-sent every turn, so an unbounded key (e.g. a full
+    # vocabulary list) is re-billed each time
     max_chars = Config.PROGRAM_KV_INJECTION_MAX_CHARS
     for key, value in kv_data.items():
         text = str(value)
@@ -1274,14 +1276,30 @@ def get_autonomous_agent_prompt(
     )
 
 
+# Cached (static) variants of the program prompts: the per-program values are
+# replaced by indirection tokens resolved from the per-request dynamic context.
+# This keeps one cache entry per feature instead of one per program.
+_PROGRAM_STATIC_PREAMBLE = (
+    "\n\nNote: the placeholders <program_name> and <program_id> below refer to the "
+    "active program - its actual name and id are given in the Active Program "
+    "section of the per-request context.\n"
+)
+_PROGRAM_STATIC_KV_NOTE = (
+    "## Stored Data\n\n"
+    "The stored program data is provided in the Active Program section of the "
+    "per-request context."
+)
+
+
 def get_static_prompt_for_profile(profile: str) -> str:
     """Return only the static (cacheable) portion of the system prompt for a given profile.
 
     This is used by the context cache to create a cached prompt that doesn't change
-    across requests. Dynamic content (date, user context, memories) is added separately.
+    across requests. Dynamic content (date, user context, memories, program KV data)
+    is added separately.
 
     Args:
-        profile: One of "standard", "anonymous", "planning", "sports"
+        profile: One of "standard", "anonymous", "planning", "sports", "language"
 
     Returns:
         Static prompt string suitable for caching
@@ -1289,19 +1307,44 @@ def get_static_prompt_for_profile(profile: str) -> str:
     prompt = BASE_SYSTEM_PROMPT
     # All profiles get base tools
     prompt += TOOLS_SYSTEM_PROMPT_BASE
-    # Standard, planning, and sports profiles get productivity tools
-    if profile in ("standard", "planning", "sports"):
+    # All non-anonymous profiles get productivity tools (mirrors get_system_prompt)
+    if profile in ("standard", "planning", "sports", "language"):
         prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
     # All profiles get context/citation section
     prompt += TOOLS_SYSTEM_PROMPT_CONTEXT
     # Planning profile gets the planner prompt
     if profile == "planning":
         prompt += PLANNER_SYSTEM_PROMPT
-    # Sports profile: the trainer prompt is added dynamically (has format placeholders)
-    # so we only include a marker here for cache key differentiation
+    # Program profiles get the full (program-agnostic) instructions; the
+    # program identity and KV data arrive via the dynamic context
     if profile == "sports":
-        prompt += "\n# Sports Trainer Mode (program-specific prompt injected dynamically)"
+        prompt += _PROGRAM_STATIC_PREAMBLE + SPORTS_TRAINER_SYSTEM_PROMPT.format(
+            program_name="<program_name>",
+            program_id="<program_id>",
+            kv_data_section=_PROGRAM_STATIC_KV_NOTE,
+        )
+    if profile == "language":
+        prompt += _PROGRAM_STATIC_PREAMBLE + LANGUAGE_TUTOR_SYSTEM_PROMPT.format(
+            program_name="<program_name>",
+            program_id="<program_id>",
+            kv_data_section=_PROGRAM_STATIC_KV_NOTE,
+        )
     return prompt
+
+
+def _format_program_dynamic_context(kind: str, context: dict[str, Any]) -> str:
+    """Active-program identity + stored KV data for the dynamic context tail."""
+    name = context.get("program_name", "Program")
+    program_id = context.get("program_id", "program")
+    header = (
+        "## Active Program\n"
+        f"- <program_name>: {name}\n"
+        f"- <program_id>: {program_id} (KV keys are prefixed `{program_id}:`)\n"
+    )
+    kv_section = (
+        _format_sports_kv_data(context) if kind == "sports" else _format_language_kv_data(context)
+    )
+    return header + "\n" + kv_section
 
 
 def get_dynamic_prompt_parts(
@@ -1363,10 +1406,10 @@ def get_dynamic_prompt_parts(
             parts.append(get_dashboard_context_prompt(active_dashboard))
 
     if is_sports and sports_context:
-        parts.append(_format_sports_kv_data(sports_context))
+        parts.append(_format_program_dynamic_context("sports", sports_context))
 
     if is_language and language_context:
-        parts.append(_format_language_kv_data(language_context))
+        parts.append(_format_program_dynamic_context("language", language_context))
 
     if force_tools:
         parts.append(get_force_tools_prompt(force_tools))
