@@ -24,7 +24,7 @@ import {
 } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
-import { registerServiceWorker } from './push';
+import { registerServiceWorker, resyncPushSubscription } from './push';
 import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
 import { initFileUpload } from '../components/FileUpload';
 import { initLightbox } from '../components/Lightbox';
@@ -239,6 +239,10 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
   log.debug('Loading initial data', { initialRoute });
   const store = useStore.getState();
   store.setLoading(true);
+
+  // Heal silently-rotated push endpoints (idempotent upsert; needs auth,
+  // which this post-login path guarantees)
+  void resyncPushSubscription();
 
   try {
     // Load data in parallel (including integration status for planner visibility)

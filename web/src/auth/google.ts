@@ -3,6 +3,7 @@ import { ApiError } from '../api/http';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
+import { disablePush } from '../core/push';
 
 const log = createLogger('auth');
 
@@ -132,6 +133,12 @@ export async function checkAuth(): Promise<boolean> {
 export function logout(): void {
   log.info('User logging out');
   const store = useStore.getState();
+
+  // Best-effort: stop this device from receiving the user's push
+  // notifications (matters on shared devices). Fired before the token
+  // is cleared because the unsubscribe API call needs auth; failures
+  // are fine - the dead subscription gets pruned on its next send.
+  void disablePush().catch(() => undefined);
 
   // Cancel any scheduled token refresh
   cancelTokenRefresh();

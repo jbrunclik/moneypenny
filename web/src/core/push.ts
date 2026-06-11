@@ -67,6 +67,37 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 }
 
 /**
+ * Re-upload this device's current subscription if one exists.
+ *
+ * Called once per app load (after auth). The subscribe endpoint upserts
+ * by endpoint, so this is an idempotent no-op in the steady state - its
+ * job is healing silent endpoint rotation by the push service: the
+ * rotated endpoint gets stored on the next app open and the dead row is
+ * pruned on its next failed send. (A SW pushsubscriptionchange handler
+ * can't do this - it has no access to the auth token.)
+ */
+export async function resyncPushSubscription(): Promise<void> {
+  if (!isSupported()) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return;
+
+    const json = subscription.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return;
+
+    await pushApi.subscribe({
+      endpoint: json.endpoint,
+      keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+    });
+    log.debug('Push subscription re-synced');
+  } catch (error) {
+    // Best-effort: the next app open retries
+    log.warn('Push subscription re-sync failed', { error });
+  }
+}
+
+/**
  * Current push state for the settings UI.
  */
 export async function getPushState(): Promise<PushState> {
