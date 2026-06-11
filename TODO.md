@@ -19,7 +19,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 - [ ] **Multi-step workflows** for agents.
 - [ ] **User-facing agent observability** - "What did my agents do this week and what did it cost" view in Command Center.
-- [ ] **Bound agent-trigger depth (S5)** - Low. Cycles are blocked; add `MAX_TRIGGER_DEPTH` for distinct-agent chains.
 
 ## Planner Dashboard
 
@@ -43,7 +42,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Performance / Cost
 
-- [ ] **Compaction summarization off the request path** - `build_compacted_history` calls the summarizer synchronously; bound with timeout and/or precompute in background.
 
 ## Reliability
 
@@ -51,9 +49,8 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Code Quality
 
-- [ ] **File-size convention violations (Q3)** - 9+ files 2-3× over the 500-line max; split `chat_streaming.py` and `client.ts` first (highest churn).
+- [ ] **File-size convention violations (Q3, remainder)** - First pass done (chat_streaming.py -> 4 modules; client.ts -> http/sse/client). Remaining over-cap: chat_streaming.py (1147, producer/consumer engine split next), client.ts (1017, domain-module split touches every importer), messaging.ts (1639), prompts.py/schemas.py (declarative), agent.py, models/agent.py, SettingsPopup.ts, routes/agents.py, planner_data.py, todoist.py, thumbnails.ts.
 
 ## Tests & Tooling
 
-- [ ] **Remaining test gaps (T2 leftovers)** - `garmin.py` tool unit tests; `routes/files.py` integration tests (needs blob fixtures). Low priority - the guard-logic modules are covered.
 
