@@ -910,6 +910,11 @@ async function tryResumeStream(
  * from - and continues live.
  */
 export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
+  // The stream is still live in THIS tab (conversation switch, not a reload):
+  // the activeRequest restore path re-creates the streaming UI and the live
+  // reader keeps feeding it. Resuming here would spawn a second, competing
+  // reader and a duplicate bubble - and consume the entry a real reload needs.
+  if (useStore.getState().getActiveRequest(convId)) return;
   const entry = readInflightStream(convId);
   if (!entry) return;
   // One-shot: whatever happens below, don't re-attempt on every conv switch
