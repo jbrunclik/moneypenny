@@ -31,14 +31,15 @@ test.describe('Settings', () => {
     await expect(popup.locator('.settings-label').nth(1)).toHaveText('Todoist Integration');
     await expect(popup.locator('.settings-label').nth(2)).toHaveText('Google Calendar Integration');
     await expect(popup.locator('.settings-label').nth(3)).toHaveText('Garmin Connect');
+    await expect(popup.locator('.settings-label').nth(4)).toHaveText('Notifications');
 
+    // WhatsApp section only renders when the server has it configured,
+    // which differs between local .env and CI - branch instead of indexing
     const whatsappLabel = popup.locator('.settings-label', { hasText: 'WhatsApp Notifications' });
     if (await whatsappLabel.count()) {
       await expect(whatsappLabel.first()).toBeVisible();
-      await expect(popup.locator('.settings-label').last()).toHaveText('Custom Instructions');
-    } else {
-      await expect(popup.locator('.settings-label').nth(4)).toHaveText('Custom Instructions');
     }
+    await expect(popup.locator('.settings-label').last()).toHaveText('Custom Instructions');
     await expect(popup.locator('#custom-instructions')).toBeVisible();
     await expect(popup.locator('.settings-save-btn')).toBeVisible();
   });
