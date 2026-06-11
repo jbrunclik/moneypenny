@@ -10,6 +10,7 @@ Usage:
 
 import atexit
 import base64
+import faulthandler
 import os
 import signal
 import sys
@@ -18,6 +19,11 @@ import time
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
+
+# A CI run died with a bare 'Segmentation fault (core dumped)' (Jun 2026,
+# one-off). If a native crash recurs, dump Python-level tracebacks of all
+# threads so the crashing call site is identifiable from the run log.
+faulthandler.enable()
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
