@@ -86,6 +86,22 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         return False
 
 
+def cleanup_stream_journal() -> None:
+    """Sweep expired stream-journal rows before vacuuming.
+
+    The journal is normally swept opportunistically when a new stream starts;
+    this is the backstop for idle instances where the last turn's rows would
+    otherwise linger until the next chat (and lets VACUUM reclaim the space).
+    """
+    try:
+        from src.db.models import db
+
+        deleted = db.journal_cleanup(Config.STREAM_JOURNAL_TTL_SECONDS)
+        logger.info("Stream journal swept", extra={"rows_deleted": deleted})
+    except Exception:
+        logger.warning("Stream journal sweep failed", exc_info=True)
+
+
 def main() -> int:
     """Run VACUUM on all databases.
 
@@ -93,6 +109,8 @@ def main() -> int:
         0 if all databases vacuumed successfully, 1 if any failed
     """
     logger.info("Starting database vacuum")
+
+    cleanup_stream_journal()
 
     databases = [
         (Config.DATABASE_PATH, "Main database (chatbot.db)"),
