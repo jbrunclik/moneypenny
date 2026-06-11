@@ -59,7 +59,7 @@ class TestListPrograms:
         """Should return programs and indicate which have conversations."""
         _setup_program(test_database, test_user.id)
         # Create a conversation for the program
-        test_database.get_or_create_language_conversation(test_user.id, "spanish")
+        test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
 
         response = client.get("/api/language/programs", headers=auth_headers)
         assert response.status_code == 200
@@ -171,7 +171,7 @@ class TestDeleteProgram:
     ) -> None:
         """Should delete program, conversation, and KV data."""
         _setup_program(test_database, test_user.id)
-        test_database.get_or_create_language_conversation(test_user.id, "spanish")
+        test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
         test_database.kv_set(test_user.id, "language", "spanish:vocabulary", '{"words": []}')
 
         response = client.delete("/api/language/programs/spanish", headers=auth_headers)
@@ -183,7 +183,7 @@ class TestDeleteProgram:
         assert len(programs) == 0
 
         # Verify conversation deleted
-        conv = test_database.get_language_conversation(test_user.id, "spanish")
+        conv = test_database.get_program_conversation("language", test_user.id, "spanish")
         assert conv is None
 
         # Verify KV data cleaned up
@@ -242,7 +242,7 @@ class TestGetLanguageConversation:
     ) -> None:
         """Should return existing conversation with messages."""
         _setup_program(test_database, test_user.id)
-        conv = test_database.get_or_create_language_conversation(test_user.id, "spanish")
+        conv = test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
         test_database.add_message(
             conversation_id=conv.id,
             role="user",
@@ -282,7 +282,7 @@ class TestResetLanguageConversation:
     ) -> None:
         """Should clear messages and return success."""
         _setup_program(test_database, test_user.id)
-        conv = test_database.get_or_create_language_conversation(test_user.id, "spanish")
+        conv = test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
         test_database.add_message(
             conversation_id=conv.id,
             role="user",

@@ -1,16 +1,17 @@
-"""Sports tracking database operations mixin.
+"""Program-conversation database operations mixin (sports, language, ...).
 
-Contains all methods for sports program conversation management including:
-- Get/create sports conversation per program
-- Reset sports conversation (clear messages)
-- List sports conversations
-- Delete sports conversation
+Each "program feature" is a set of dedicated conversations flagged on the
+conversations table (one conversation per user per program), with program
+definitions and progress stored in the K/V store under the feature's
+namespace. Sports and language shared two near-identical mixins; this is
+the single parameterized replacement (Q2).
 """
 
 from __future__ import annotations
 
 import sqlite3
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -25,8 +26,33 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class SportsTrackingMixin:
-    """Mixin providing sports tracking database operations."""
+@dataclass(frozen=True)
+class ProgramFeature:
+    """Column/name mapping for one program feature."""
+
+    namespace: str  # K/V namespace + API url segment
+    flag_column: str  # conversations boolean column (is_sports, ...)
+    program_column: str  # conversations program-id column (sports_program, ...)
+    title_prefix: str  # conversation title prefix ("Sports: <program>")
+
+
+# The ONLY source of column names interpolated into the SQL below - never
+# user input. Adding a feature = one entry here + columns migration.
+PROGRAM_FEATURES: dict[str, ProgramFeature] = {
+    "sports": ProgramFeature("sports", "is_sports", "sports_program", "Sports"),
+    "language": ProgramFeature("language", "is_language", "language_program", "Language"),
+}
+
+
+def _feature(namespace: str) -> ProgramFeature:
+    try:
+        return PROGRAM_FEATURES[namespace]
+    except KeyError:
+        raise ValueError(f"Unknown program feature: {namespace!r}") from None
+
+
+class ProgramConversationMixin:
+    """Mixin providing program-conversation database operations."""
 
     _pool: ConnectionPool
 
@@ -43,44 +69,31 @@ class SportsTrackingMixin:
         """Convert row to Conversation (defined in ConversationMixin)."""
         raise NotImplementedError
 
-    def get_sports_conversation(self, user_id: str, program: str) -> Conversation | None:
-        """Get the sports conversation for a user and program.
-
-        Args:
-            user_id: The user ID
-            program: The program ID (e.g., "pushups")
-
-        Returns:
-            The sports Conversation or None if it doesn't exist
-        """
+    def get_program_conversation(
+        self, namespace: str, user_id: str, program: str
+    ) -> Conversation | None:
+        """Get the program conversation for a user and program, or None."""
+        f = _feature(namespace)
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT * FROM conversations WHERE user_id = ? AND is_sports = 1 AND sports_program = ?",
+                f"SELECT * FROM conversations WHERE user_id = ? AND {f.flag_column} = 1 "
+                f"AND {f.program_column} = ?",
                 (user_id, program),
             ).fetchone()
 
             return self._row_to_conversation(row) if row else None
 
-    def get_or_create_sports_conversation(
-        self, user_id: str, program: str, model: str | None = None
+    def get_or_create_program_conversation(
+        self, namespace: str, user_id: str, program: str, model: str | None = None
     ) -> Conversation:
-        """Get or create a sports conversation for a user and program.
-
-        Each user has one conversation per sports program.
-
-        Args:
-            user_id: The user ID
-            program: The program ID (e.g., "pushups")
-            model: Optional model to use when creating
-
-        Returns:
-            The sports Conversation
-        """
+        """Get or create the program conversation (one per user per program)."""
+        f = _feature(namespace)
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT * FROM conversations WHERE user_id = ? AND is_sports = 1 AND sports_program = ?",
+                f"SELECT * FROM conversations WHERE user_id = ? AND {f.flag_column} = 1 "
+                f"AND {f.program_column} = ?",
                 (user_id, program),
             ).fetchone()
 
@@ -90,64 +103,59 @@ class SportsTrackingMixin:
             conv_id = str(uuid.uuid4())
             model = model or Config.DEFAULT_MODEL
             now = datetime.now()
+            title = f"{f.title_prefix}: {program}"
 
             self._execute_with_timing(
                 conn,
-                """INSERT INTO conversations
-                   (id, user_id, title, model, is_sports, sports_program, created_at, updated_at)
+                f"""INSERT INTO conversations
+                   (id, user_id, title, model, {f.flag_column}, {f.program_column},
+                    created_at, updated_at)
                    VALUES (?, ?, ?, ?, 1, ?, ?, ?)""",
-                (
-                    conv_id,
-                    user_id,
-                    f"Sports: {program}",
-                    model,
-                    program,
-                    now.isoformat(),
-                    now.isoformat(),
-                ),
+                (conv_id, user_id, title, model, program, now.isoformat(), now.isoformat()),
             )
             conn.commit()
 
             logger.info(
-                "Sports conversation created",
+                "Program conversation created",
                 extra={
+                    "namespace": namespace,
                     "conversation_id": conv_id,
                     "user_id": user_id,
                     "program": program,
                 },
             )
+            extra_fields: dict[str, Any] = {
+                f.flag_column: True,
+                f.program_column: program,
+            }
             return Conversation(
                 id=conv_id,
                 user_id=user_id,
-                title=f"Sports: {program}",
+                title=title,
                 model=model,
                 created_at=now,
                 updated_at=now,
-                is_sports=True,
-                sports_program=program,
+                **extra_fields,
             )
 
-    def reset_sports_conversation(self, user_id: str, program: str) -> Conversation | None:
-        """Reset a sports conversation by deleting all messages.
+    def reset_program_conversation(
+        self, namespace: str, user_id: str, program: str
+    ) -> Conversation | None:
+        """Reset a program conversation by deleting all messages.
 
         Preserves the conversation itself and cost data.
-
-        Args:
-            user_id: The user ID
-            program: The program ID
-
-        Returns:
-            The sports Conversation (empty), or None if not found
         """
+        f = _feature(namespace)
         logger.info(
-            "Resetting sports conversation",
-            extra={"user_id": user_id, "program": program},
+            "Resetting program conversation",
+            extra={"namespace": namespace, "user_id": user_id, "program": program},
         )
 
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT * FROM conversations WHERE user_id = ? AND is_sports = 1 AND sports_program = ?",
+                f"SELECT * FROM conversations WHERE user_id = ? AND {f.flag_column} = 1 "
+                f"AND {f.program_column} = ?",
                 (user_id, program),
             ).fetchone()
 
@@ -159,7 +167,6 @@ class SportsTrackingMixin:
             message_rows = self._execute_with_timing(
                 conn, "SELECT id FROM messages WHERE conversation_id = ?", (conv_id,)
             ).fetchall()
-
             message_ids = [r["id"] for r in message_rows]
 
             # Row deletes first; blob cleanup after commit (crash leaves only
@@ -181,8 +188,9 @@ class SportsTrackingMixin:
                 delete_messages_blobs(message_ids)
 
             logger.info(
-                "Sports conversation reset",
+                "Program conversation reset",
                 extra={
+                    "namespace": namespace,
                     "conversation_id": conv_id,
                     "user_id": user_id,
                     "program": program,
@@ -190,44 +198,32 @@ class SportsTrackingMixin:
                 },
             )
 
-            # Re-fetch to get updated timestamp
             updated_row = self._execute_with_timing(
                 conn, "SELECT * FROM conversations WHERE id = ?", (conv_id,)
             ).fetchone()
             return self._row_to_conversation(updated_row) if updated_row else None
 
-    def list_sports_conversations(self, user_id: str) -> list[Conversation]:
-        """List all sports conversations for a user.
-
-        Args:
-            user_id: The user ID
-
-        Returns:
-            List of sports Conversation objects
-        """
+    def list_program_conversations(self, namespace: str, user_id: str) -> list[Conversation]:
+        """List all of a user's conversations for this program feature."""
+        f = _feature(namespace)
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
-                "SELECT * FROM conversations WHERE user_id = ? AND is_sports = 1 ORDER BY updated_at DESC",
+                f"SELECT * FROM conversations WHERE user_id = ? AND {f.flag_column} = 1 "
+                "ORDER BY updated_at DESC",
                 (user_id,),
             ).fetchall()
 
             return [self._row_to_conversation(row) for row in rows]
 
-    def delete_sports_conversation(self, user_id: str, program: str) -> bool:
-        """Delete a sports conversation and all its messages.
-
-        Args:
-            user_id: The user ID
-            program: The program ID
-
-        Returns:
-            True if deleted, False if not found
-        """
+    def delete_program_conversation(self, namespace: str, user_id: str, program: str) -> bool:
+        """Delete a program conversation and all its messages."""
+        f = _feature(namespace)
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT id FROM conversations WHERE user_id = ? AND is_sports = 1 AND sports_program = ?",
+                f"SELECT id FROM conversations WHERE user_id = ? AND {f.flag_column} = 1 "
+                f"AND {f.program_column} = ?",
                 (user_id, program),
             ).fetchone()
 
@@ -256,8 +252,9 @@ class SportsTrackingMixin:
                 delete_messages_blobs(message_ids)
 
             logger.info(
-                "Sports conversation deleted",
+                "Program conversation deleted",
                 extra={
+                    "namespace": namespace,
                     "conversation_id": conv_id,
                     "user_id": user_id,
                     "program": program,

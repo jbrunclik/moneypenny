@@ -59,7 +59,7 @@ class TestListPrograms:
         """Should return programs and indicate which have conversations."""
         _setup_program(test_database, test_user.id)
         # Create a conversation for the program
-        test_database.get_or_create_sports_conversation(test_user.id, "pushups")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
 
         response = client.get("/api/sports/programs", headers=auth_headers)
         assert response.status_code == 200
@@ -171,7 +171,7 @@ class TestDeleteProgram:
     ) -> None:
         """Should delete program, conversation, and KV data."""
         _setup_program(test_database, test_user.id)
-        test_database.get_or_create_sports_conversation(test_user.id, "pushups")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
         test_database.kv_set(test_user.id, "sports", "pushups:goals", '{"goal": "100"}')
 
         response = client.delete("/api/sports/programs/pushups", headers=auth_headers)
@@ -183,7 +183,7 @@ class TestDeleteProgram:
         assert len(programs) == 0
 
         # Verify conversation deleted
-        conv = test_database.get_sports_conversation(test_user.id, "pushups")
+        conv = test_database.get_program_conversation("sports", test_user.id, "pushups")
         assert conv is None
 
         # Verify KV data cleaned up
@@ -242,7 +242,7 @@ class TestGetSportsConversation:
     ) -> None:
         """Should return existing conversation with messages."""
         _setup_program(test_database, test_user.id)
-        conv = test_database.get_or_create_sports_conversation(test_user.id, "pushups")
+        conv = test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
         test_database.add_message(
             conversation_id=conv.id,
             role="user",
@@ -282,7 +282,7 @@ class TestResetSportsConversation:
     ) -> None:
         """Should clear messages and return success."""
         _setup_program(test_database, test_user.id)
-        conv = test_database.get_or_create_sports_conversation(test_user.id, "pushups")
+        conv = test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
         test_database.add_message(
             conversation_id=conv.id,
             role="user",

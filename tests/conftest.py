@@ -138,11 +138,10 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
             "costs",
             "files",
             "garmin",
-            "language",
             "memory",
             "planner",
+            "programs",
             "settings",
-            "sports",
             "todoist",
         ]
         for module in route_modules:

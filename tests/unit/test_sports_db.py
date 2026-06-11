@@ -21,15 +21,15 @@ class TestGetSportsConversation:
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Should return None if no sports conversation exists."""
-        result = test_database.get_sports_conversation(test_user.id, "pushups")
+        result = test_database.get_program_conversation("sports", test_user.id, "pushups")
         assert result is None
 
     def test_returns_conversation_when_exists(
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Should return the conversation when it exists."""
-        test_database.get_or_create_sports_conversation(test_user.id, "pushups")
-        result = test_database.get_sports_conversation(test_user.id, "pushups")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
+        result = test_database.get_program_conversation("sports", test_user.id, "pushups")
         assert result is not None
         assert result.is_sports is True
         assert result.sports_program == "pushups"
@@ -38,8 +38,8 @@ class TestGetSportsConversation:
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Different programs should have separate conversations."""
-        test_database.get_or_create_sports_conversation(test_user.id, "pushups")
-        result = test_database.get_sports_conversation(test_user.id, "running")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
+        result = test_database.get_program_conversation("sports", test_user.id, "running")
         assert result is None
 
 
@@ -48,7 +48,7 @@ class TestGetOrCreateSportsConversation:
 
     def test_creates_new_conversation(self, test_database: "Database", test_user: "User") -> None:
         """Should create a new conversation for a program."""
-        conv = test_database.get_or_create_sports_conversation(test_user.id, "running")
+        conv = test_database.get_or_create_program_conversation("sports", test_user.id, "running")
         assert conv.is_sports is True
         assert conv.sports_program == "running"
         assert conv.user_id == test_user.id
@@ -58,21 +58,21 @@ class TestGetOrCreateSportsConversation:
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Should return existing conversation on second call."""
-        conv1 = test_database.get_or_create_sports_conversation(test_user.id, "cycling")
-        conv2 = test_database.get_or_create_sports_conversation(test_user.id, "cycling")
+        conv1 = test_database.get_or_create_program_conversation("sports", test_user.id, "cycling")
+        conv2 = test_database.get_or_create_program_conversation("sports", test_user.id, "cycling")
         assert conv1.id == conv2.id
 
     def test_uses_default_model(self, test_database: "Database", test_user: "User") -> None:
         """Should use default model when none specified."""
         from src.config import Config
 
-        conv = test_database.get_or_create_sports_conversation(test_user.id, "swim")
+        conv = test_database.get_or_create_program_conversation("sports", test_user.id, "swim")
         assert conv.model == Config.DEFAULT_MODEL
 
     def test_uses_specified_model(self, test_database: "Database", test_user: "User") -> None:
         """Should use specified model when provided."""
-        conv = test_database.get_or_create_sports_conversation(
-            test_user.id, "yoga", model="custom-model"
+        conv = test_database.get_or_create_program_conversation(
+            "sports", test_user.id, "yoga", model="custom-model"
         )
         assert conv.model == "custom-model"
 
@@ -81,8 +81,8 @@ class TestGetOrCreateSportsConversation:
         user2 = test_database.get_or_create_user(
             email="other@example.com", name="Other", picture=""
         )
-        conv1 = test_database.get_or_create_sports_conversation(test_user.id, "pushups")
-        conv2 = test_database.get_or_create_sports_conversation(user2.id, "pushups")
+        conv1 = test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
+        conv2 = test_database.get_or_create_program_conversation("sports", user2.id, "pushups")
         assert conv1.id != conv2.id
 
 
@@ -93,12 +93,12 @@ class TestResetSportsConversation:
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Should return None if conversation doesn't exist."""
-        result = test_database.reset_sports_conversation(test_user.id, "nonexistent")
+        result = test_database.reset_program_conversation("sports", test_user.id, "nonexistent")
         assert result is None
 
     def test_deletes_messages(self, test_database: "Database", test_user: "User") -> None:
         """Should delete all messages but keep the conversation."""
-        conv = test_database.get_or_create_sports_conversation(test_user.id, "pushups")
+        conv = test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
         test_database.add_message(
             conversation_id=conv.id,
             role="user",
@@ -113,14 +113,14 @@ class TestResetSportsConversation:
         messages_before = test_database.get_messages(conv.id)
         assert len(messages_before) == 2
 
-        result = test_database.reset_sports_conversation(test_user.id, "pushups")
+        result = test_database.reset_program_conversation("sports", test_user.id, "pushups")
         assert result is not None
 
         messages_after = test_database.get_messages(conv.id)
         assert len(messages_after) == 0
 
         # Conversation should still exist
-        conv_after = test_database.get_sports_conversation(test_user.id, "pushups")
+        conv_after = test_database.get_program_conversation("sports", test_user.id, "pushups")
         assert conv_after is not None
         assert conv_after.id == conv.id
 
@@ -130,15 +130,15 @@ class TestListSportsConversations:
 
     def test_empty_list(self, test_database: "Database", test_user: "User") -> None:
         """Should return empty list when no conversations exist."""
-        result = test_database.list_sports_conversations(test_user.id)
+        result = test_database.list_program_conversations("sports", test_user.id)
         assert result == []
 
     def test_lists_all_programs(self, test_database: "Database", test_user: "User") -> None:
         """Should list all sports conversations for the user."""
-        test_database.get_or_create_sports_conversation(test_user.id, "pushups")
-        test_database.get_or_create_sports_conversation(test_user.id, "running")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "running")
 
-        result = test_database.list_sports_conversations(test_user.id)
+        result = test_database.list_program_conversations("sports", test_user.id)
         assert len(result) == 2
         programs = {c.sports_program for c in result}
         assert programs == {"pushups", "running"}
@@ -148,10 +148,10 @@ class TestListSportsConversations:
         user2 = test_database.get_or_create_user(
             email="other@example.com", name="Other", picture=""
         )
-        test_database.get_or_create_sports_conversation(test_user.id, "pushups")
-        test_database.get_or_create_sports_conversation(user2.id, "running")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
+        test_database.get_or_create_program_conversation("sports", user2.id, "running")
 
-        result = test_database.list_sports_conversations(test_user.id)
+        result = test_database.list_program_conversations("sports", test_user.id)
         assert len(result) == 1
         assert result[0].sports_program == "pushups"
 
@@ -163,25 +163,25 @@ class TestDeleteSportsConversation:
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Should return False if conversation doesn't exist."""
-        result = test_database.delete_sports_conversation(test_user.id, "nonexistent")
+        result = test_database.delete_program_conversation("sports", test_user.id, "nonexistent")
         assert result is False
 
     def test_deletes_conversation_and_messages(
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Should delete the conversation and all its messages."""
-        conv = test_database.get_or_create_sports_conversation(test_user.id, "pushups")
+        conv = test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
         test_database.add_message(
             conversation_id=conv.id,
             role="user",
             content="Hello",
         )
 
-        result = test_database.delete_sports_conversation(test_user.id, "pushups")
+        result = test_database.delete_program_conversation("sports", test_user.id, "pushups")
         assert result is True
 
         # Conversation should be gone
-        conv_after = test_database.get_sports_conversation(test_user.id, "pushups")
+        conv_after = test_database.get_program_conversation("sports", test_user.id, "pushups")
         assert conv_after is None
 
         # Messages should be gone
@@ -192,11 +192,11 @@ class TestDeleteSportsConversation:
         self, test_database: "Database", test_user: "User"
     ) -> None:
         """Deleting one program should not affect others."""
-        test_database.get_or_create_sports_conversation(test_user.id, "pushups")
-        test_database.get_or_create_sports_conversation(test_user.id, "running")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
+        test_database.get_or_create_program_conversation("sports", test_user.id, "running")
 
-        test_database.delete_sports_conversation(test_user.id, "pushups")
+        test_database.delete_program_conversation("sports", test_user.id, "pushups")
 
-        remaining = test_database.list_sports_conversations(test_user.id)
+        remaining = test_database.list_program_conversations("sports", test_user.id)
         assert len(remaining) == 1
         assert remaining[0].sports_program == "running"
