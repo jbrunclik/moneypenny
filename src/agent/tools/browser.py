@@ -397,11 +397,15 @@ def is_browser_available() -> bool:
         logger.info("Playwright not installed — browser tool disabled")
         return False
 
-    # Verify Chromium is actually installed (not just the Python package)
+    # Verify Chromium is actually installed (not just the Python package).
+    # MUST probe with the same args the worker uses: a sandboxed probe on a
+    # host that cannot run the sandbox would disable the tool even when
+    # BROWSER_NO_SANDBOX is set (and vice versa would enable it and then
+    # have the worker fail).
     try:
         pw = sync_playwright().start()
         try:
-            br = pw.chromium.launch(headless=True)
+            br = pw.chromium.launch(headless=True, args=_browser_launch_args())
             br.close()
             _browser_available = True
             logger.info("Playwright + Chromium available — browser tool enabled")
@@ -411,7 +415,12 @@ def is_browser_available() -> bool:
                 "Chromium not installed or not launchable",
                 extra={
                     "error": str(e),
-                    "hint": "Run 'make browser-setup' to install Chromium",
+                    "hint": (
+                        "Run 'make browser-setup' to install Chromium. If the error "
+                        "mentions the sandbox (e.g. 'No usable sandbox'), either enable "
+                        "unprivileged user namespaces on the host or set "
+                        "BROWSER_NO_SANDBOX=true"
+                    ),
                 },
             )
         finally:
