@@ -206,7 +206,7 @@ class TestGetCalendarStatus:
         )
 
         with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
+            with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.side_effect = GoogleCalendarAuthError("Refresh failed")
 
                 response = client.get("/auth/calendar/status", headers=auth_headers)
@@ -234,7 +234,7 @@ class TestGetCalendarStatus:
         )
 
         with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
+            with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.return_value = {
                     "access_token": "new-access-token",
                     "refresh_token": "new-refresh-token",
@@ -270,7 +270,7 @@ class TestGetCalendarStatus:
         )
 
         with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
+            with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.side_effect = GoogleCalendarTransientError("Server error")
 
                 response = client.get("/auth/calendar/status", headers=auth_headers)
@@ -299,7 +299,7 @@ class TestGetCalendarStatus:
         )
 
         with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
-            with patch("src.api.routes.calendar.refresh_google_calendar_token") as mock_refresh:
+            with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.side_effect = GoogleCalendarTokenRevoked("Token revoked")
 
                 response = client.get("/auth/calendar/status", headers=auth_headers)

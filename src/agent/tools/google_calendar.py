@@ -13,9 +13,6 @@ from src.agent.tools.permission_check import check_autonomous_permission
 from src.auth.google_calendar import (
     GoogleCalendarAuthError,
 )
-from src.auth.google_calendar import (
-    refresh_access_token as refresh_google_calendar_access_token,
-)
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -27,7 +24,13 @@ def _is_google_calendar_configured() -> bool:
 
 
 def _get_google_calendar_access_token() -> tuple[str, str | None] | None:
-    """Fetch the user's Google Calendar access token, refreshing if needed."""
+    """Fetch the user's Google Calendar access token, refreshing if needed.
+
+    Uses the shared concurrency-safe refresh helper (previously a divergent
+    copy of the route logic with an unlocked read-refresh-write race).
+    """
+    from src.auth.google_calendar import get_valid_access_token
+
     _, user_id = get_conversation_context()
     if not user_id:
         return None
@@ -38,44 +41,16 @@ def _get_google_calendar_access_token() -> tuple[str, str | None] | None:
     if not user or not user.google_calendar_access_token:
         return None
 
-    access_token = user.google_calendar_access_token
-    refresh_token = user.google_calendar_refresh_token
-    expires_at = user.google_calendar_token_expires_at
-
-    # Proactively refresh if token expires within 5 minutes
-    refresh_threshold = datetime.now() + timedelta(minutes=5)
-    if expires_at and expires_at <= refresh_threshold:
-        if not refresh_token:
-            logger.warning(
-                "Google Calendar token expiring soon and no refresh token available",
-                extra={"user_id": user_id},
-            )
-            return None
-        try:
-            refreshed = refresh_google_calendar_access_token(refresh_token)
-            access_token = refreshed["access_token"]
-            new_refresh = refreshed.get("refresh_token", refresh_token)
-            expires_in = refreshed.get("expires_in", 3600)
-            try:
-                expires_in_int = int(expires_in)
-            except (TypeError, ValueError):
-                expires_in_int = 3600
-            expires_delta = max(60, expires_in_int - 60)
-            new_expires = datetime.now() + timedelta(seconds=expires_delta)
-            db.update_user_google_calendar_tokens(
-                user_id,
-                access_token=access_token,
-                refresh_token=new_refresh,
-                expires_at=new_expires,
-                email=user.google_calendar_email,
-                connected_at=user.google_calendar_connected_at,
-            )
-        except GoogleCalendarAuthError:
-            logger.warning(
-                "Refreshing Google Calendar token failed",
-                extra={"user_id": user_id},
-            )
-            return None
+    try:
+        access_token = get_valid_access_token(user_id)
+    except GoogleCalendarAuthError:
+        logger.warning(
+            "Refreshing Google Calendar token failed",
+            extra={"user_id": user_id},
+        )
+        return None
+    if not access_token:
+        return None
 
     return access_token, user.google_calendar_email
 

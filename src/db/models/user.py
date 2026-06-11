@@ -292,6 +292,49 @@ class UserMixin:
 
         return updated
 
+    def refresh_user_google_calendar_tokens(
+        self,
+        user_id: str,
+        used_refresh_token: str,
+        access_token: str,
+        refresh_token: str,
+        expires_at: datetime,
+    ) -> bool:
+        """Store refreshed calendar tokens with a compare-and-swap guard.
+
+        Only writes when the stored refresh token still equals the one this
+        refresh actually used. With multiple gunicorn workers two requests
+        can refresh concurrently; an unconditional write would let the loser
+        overwrite the winner's (possibly rotated) refresh token with a stale
+        one, permanently breaking future refreshes (R2).
+
+        Returns:
+            True if this writer won (tokens stored), False if another worker
+            refreshed first (caller's access token is still valid to USE,
+            just must not be stored).
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """
+                UPDATE users
+                SET
+                    google_calendar_access_token = ?,
+                    google_calendar_refresh_token = ?,
+                    google_calendar_token_expires_at = ?
+                WHERE id = ? AND google_calendar_refresh_token = ?
+                """,
+                (
+                    access_token,
+                    refresh_token,
+                    expires_at.isoformat(),
+                    user_id,
+                    used_refresh_token,
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def update_user_calendar_selected_ids(self, user_id: str, calendar_ids: list[str]) -> bool:
         """Update selected calendar IDs for a user.
 

@@ -1,5 +1,6 @@
 """Google Calendar OAuth helpers."""
 
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
@@ -162,3 +163,93 @@ def get_user_info(access_token: str) -> dict[str, Any]:
 
     data: dict[str, Any] = response.json()
     return data
+
+
+def compute_token_expiry(expires_in: Any) -> datetime:
+    """Convert Google's expires_in to an absolute expiry, refreshing early."""
+    try:
+        seconds = int(expires_in)
+    except (TypeError, ValueError):
+        seconds = 3600
+    # Subtract one minute to refresh proactively
+    seconds = max(60, seconds - 60)
+    return datetime.now() + timedelta(seconds=seconds)
+
+
+def get_valid_access_token(user_id: str) -> str | None:
+    """Return a valid calendar access token for the user, refreshing if needed.
+
+    Shared by the calendar routes and the agent tool (previously two divergent
+    copies of this logic).
+
+    Returns None when calendar is not connected or no refresh token exists.
+    Raises GoogleCalendarTokenRevoked when the refresh token is permanently
+    invalid and GoogleCalendarTransientError on transient failures (after one
+    retry).
+
+    Concurrency (R2): with multiple gunicorn workers two requests can refresh
+    simultaneously. Refreshed tokens are stored with a compare-and-swap on the
+    refresh token that was actually used - the loser's access token is still
+    valid to RETURN, but storing it would overwrite the winner's (possibly
+    rotated) refresh token with a stale one.
+    """
+    from src.db.models import db
+
+    user = db.get_user_by_id(user_id)
+    if not user or not user.google_calendar_access_token:
+        return None
+
+    # Token still comfortably valid (refresh within 10 minutes of expiry)
+    expires_at = user.google_calendar_token_expires_at
+    if expires_at and expires_at > datetime.now() + timedelta(minutes=10):
+        return str(user.google_calendar_access_token)
+
+    refresh_token = user.google_calendar_refresh_token
+    if not refresh_token:
+        logger.warning(
+            "Calendar token expiring and no refresh token available",
+            extra={"user_id": user_id},
+        )
+        return None
+
+    refreshed: dict[str, Any] | None = None
+    for attempt in range(2):
+        try:
+            refreshed = refresh_access_token(refresh_token)
+            break
+        except GoogleCalendarTransientError as e:
+            if attempt == 0:
+                logger.info(
+                    "Transient error refreshing calendar token, retrying",
+                    extra={"user_id": user_id, "error": str(e)},
+                )
+                continue
+            logger.warning(
+                "Transient error refreshing calendar token after retry",
+                extra={"user_id": user_id, "error": str(e)},
+            )
+            raise
+
+    if refreshed is None:  # pragma: no cover - loop always breaks or raises
+        return None
+
+    access_token: str = refreshed["access_token"]
+    new_refresh = refreshed.get("refresh_token", refresh_token)
+    new_expires = compute_token_expiry(refreshed.get("expires_in"))
+
+    stored = db.refresh_user_google_calendar_tokens(
+        user_id,
+        used_refresh_token=refresh_token,
+        access_token=access_token,
+        refresh_token=new_refresh,
+        expires_at=new_expires,
+    )
+    if not stored:
+        # Another worker refreshed concurrently and already stored newer
+        # tokens - ours are still valid to use for this request
+        logger.info(
+            "Concurrent calendar token refresh detected - keeping the other writer's tokens",
+            extra={"user_id": user_id},
+        )
+
+    return access_token
