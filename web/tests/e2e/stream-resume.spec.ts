@@ -129,7 +129,7 @@ test.describe('Resumable streams', () => {
     // Wait until the stream is live and the placeholder id is known
     // (persisted to localStorage at user_message_saved)
     await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
-    await page.waitForFunction(() => localStorage.getItem('inflight-stream') !== null);
+    await page.waitForFunction(() => localStorage.getItem('inflight-streams') !== null);
 
     // Simulate a client crash: full page reload mid-stream. The hash route
     // reopens the conversation; the in-flight entry triggers a resume.
@@ -146,7 +146,7 @@ test.describe('Resumable streams', () => {
     await expect(page.locator('.message.assistant.message-incomplete')).toHaveCount(0);
 
     // The entry is one-shot: consumed by the resume
-    const entry = await page.evaluate(() => localStorage.getItem('inflight-stream'));
+    const entry = await page.evaluate(() => localStorage.getItem('inflight-streams'));
     expect(entry).toBeNull();
   });
 
@@ -161,7 +161,7 @@ test.describe('Resumable streams', () => {
     await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
     // Wait until the placeholder id is known (user_message_saved processed) -
     // proactive resume needs it
-    await page.waitForFunction(() => localStorage.getItem('inflight-stream') !== null);
+    await page.waitForFunction(() => localStorage.getItem('inflight-streams') !== null);
 
     // Background the app (iOS lock / app switch)...
     await page.evaluate(() => {

@@ -529,46 +529,67 @@ function initStreamingRequest(
  */
 // ============ In-flight stream persistence (resume after crash/reload) ============
 
-const INFLIGHT_STREAM_KEY = 'inflight-stream';
+// Map keyed by conversation id: conversations can stream CONCURRENTLY, so a
+// single entry would be overwritten by the next stream and cleared by
+// whichever stream finishes first. Entries expire client-side well within
+// the server journal TTL and the map is pruned on every write/read.
+const INFLIGHT_STREAMS_KEY = 'inflight-streams';
+const LEGACY_INFLIGHT_STREAM_KEY = 'inflight-stream';
 const INFLIGHT_STREAM_MAX_AGE_MS = 30 * 60 * 1000; // journal TTL is 1h server-side
 
 interface InflightStream {
-  convId: string;
   messageId: string;
   ts: number;
 }
 
-function persistInflightStream(convId: string, messageId: string): void {
+function readInflightStreams(): Record<string, InflightStream> {
   try {
-    const entry: InflightStream = { convId, messageId, ts: Date.now() };
-    localStorage.setItem(INFLIGHT_STREAM_KEY, JSON.stringify(entry));
+    // Drop the pre-map single-entry format if still around
+    localStorage.removeItem(LEGACY_INFLIGHT_STREAM_KEY);
+    const raw = localStorage.getItem(INFLIGHT_STREAMS_KEY);
+    if (!raw) return {};
+    const map = JSON.parse(raw) as Record<string, InflightStream>;
+    const now = Date.now();
+    const fresh: Record<string, InflightStream> = {};
+    for (const [convId, entry] of Object.entries(map)) {
+      if (entry?.messageId && now - entry.ts <= INFLIGHT_STREAM_MAX_AGE_MS) {
+        fresh[convId] = entry;
+      }
+    }
+    return fresh;
+  } catch {
+    return {};
+  }
+}
+
+function writeInflightStreams(map: Record<string, InflightStream>): void {
+  try {
+    if (Object.keys(map).length === 0) {
+      localStorage.removeItem(INFLIGHT_STREAMS_KEY);
+    } else {
+      localStorage.setItem(INFLIGHT_STREAMS_KEY, JSON.stringify(map));
+    }
   } catch {
     // Quota/privacy-mode failures only cost the reload-resume nicety
   }
 }
 
-function clearInflightStream(): void {
-  try {
-    localStorage.removeItem(INFLIGHT_STREAM_KEY);
-  } catch {
-    // ignore
+function persistInflightStream(convId: string, messageId: string): void {
+  const map = readInflightStreams();
+  map[convId] = { messageId, ts: Date.now() };
+  writeInflightStreams(map);
+}
+
+function clearInflightStream(convId: string): void {
+  const map = readInflightStreams();
+  if (convId in map) {
+    delete map[convId];
+    writeInflightStreams(map);
   }
 }
 
-function readInflightStream(): InflightStream | null {
-  try {
-    const raw = localStorage.getItem(INFLIGHT_STREAM_KEY);
-    if (!raw) return null;
-    const entry = JSON.parse(raw) as InflightStream;
-    if (!entry.convId || !entry.messageId) return null;
-    if (Date.now() - entry.ts > INFLIGHT_STREAM_MAX_AGE_MS) {
-      clearInflightStream();
-      return null;
-    }
-    return entry;
-  } catch {
-    return null;
-  }
+function readInflightStream(convId: string): InflightStream | null {
+  return readInflightStreams()[convId] ?? null;
 }
 
 function cleanupStreamingRequest(
@@ -889,10 +910,10 @@ async function tryResumeStream(
  * from - and continues live.
  */
 export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
-  const entry = readInflightStream();
-  if (!entry || entry.convId !== convId) return;
+  const entry = readInflightStream(convId);
+  if (!entry) return;
   // One-shot: whatever happens below, don't re-attempt on every conv switch
-  clearInflightStream();
+  clearInflightStream(convId);
 
   const container = getElementById<HTMLDivElement>('messages');
   const existing = container?.querySelector(`[data-message-id="${entry.messageId}"]`);
@@ -1319,8 +1340,9 @@ async function sendStreamingMessage(
       window.removeEventListener('pageshow', handlePageShow);
     }
     // The turn finished (or its failure was surfaced) in this page - only a
-    // page that died mid-stream should resume after reload
-    clearInflightStream();
+    // page that died mid-stream should resume after reload. Per-conversation:
+    // other concurrent streams keep their entries.
+    clearInflightStream(convId);
     cleanupStreamingRequest(requestId, convId, state.messageSuccessful);
   }
 }
