@@ -322,6 +322,7 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 | `AGENT_APPROVAL_TTL_HOURS` | 24 | Hours until approval requests expire |
 | `AGENT_EXECUTION_TIMEOUT_MINUTES` | 10 | Max execution time before considered stale |
 | `AGENT_EXECUTION_COOLDOWN_SECONDS` | 5 | Minimum seconds between manual runs |
+| `AGENT_MAX_TRIGGER_DEPTH` | 3 | Maximum agent-to-agent trigger chain length (cycles are always blocked) |
 | `AGENT_COMPACTION_THRESHOLD` | 50 | Message count to trigger compaction |
 | `AGENT_COMPACTION_KEEP_RECENT` | 10 | Messages to keep after compaction |
 | `AGENT_MAX_RETRIES` | 3 | Max retry attempts for transient failures |

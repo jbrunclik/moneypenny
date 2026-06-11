@@ -6,6 +6,7 @@ enabling multi-agent workflows and coordination.
 
 from langchain_core.tools import tool
 
+from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
 
@@ -54,6 +55,14 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
     chain = get_trigger_chain()
     if target.id in chain:
         return f"Cannot trigger '{agent_name}' - would create circular dependency"
+
+    # Bound distinct-agent chain depth (S5): the chain already contains every
+    # agent above us (including this one), so its length IS the current depth
+    if len(chain) >= Config.AGENT_MAX_TRIGGER_DEPTH:
+        return (
+            f"Cannot trigger '{agent_name}' - maximum trigger depth "
+            f"({Config.AGENT_MAX_TRIGGER_DEPTH}) reached"
+        )
 
     logger.info(
         "Triggering agent",

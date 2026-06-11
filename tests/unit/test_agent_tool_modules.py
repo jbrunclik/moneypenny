@@ -90,6 +90,38 @@ class TestTriggerAgent:
         assert "circular" in result
         mock_executor.assert_not_called()
 
+    def test_trigger_depth_is_bounded(self) -> None:
+        """A distinct-agent chain at AGENT_MAX_TRIGGER_DEPTH must stop (S5)."""
+        from src.config import Config
+
+        target = _agent(agent_id="agent-4")
+        deep_chain = ["agent-1", "agent-2", "agent-3"][: Config.AGENT_MAX_TRIGGER_DEPTH]
+        with (
+            patch("src.agent.executor.get_agent_context", return_value=_context()),
+            patch("src.agent.executor.get_trigger_chain", return_value=deep_chain),
+            patch("src.agent.tools.trigger_agent.db") as mock_db,
+            patch("src.agent.executor.AgentExecutor") as mock_executor,
+        ):
+            mock_db.get_agent_by_name.return_value = target
+            result = trigger_agent.invoke({"agent_name": "helper"})
+        assert "maximum trigger depth" in result
+        mock_executor.assert_not_called()
+
+    def test_trigger_below_depth_limit_proceeds(self) -> None:
+        target = _agent(agent_id="agent-2")
+        run_result = MagicMock()
+        run_result.status = "completed"
+        with (
+            patch("src.agent.executor.get_agent_context", return_value=_context()),
+            patch("src.agent.executor.get_trigger_chain", return_value=["agent-1"]),
+            patch("src.agent.tools.trigger_agent.db") as mock_db,
+            patch("src.agent.executor.AgentExecutor") as mock_executor_cls,
+        ):
+            mock_db.get_agent_by_name.return_value = target
+            mock_executor_cls.return_value.run.return_value = run_result
+            result = trigger_agent.invoke({"agent_name": "helper"})
+        assert "completed successfully" in result
+
     def test_successful_trigger(self) -> None:
         target = _agent(agent_id="agent-2")
         run_result = MagicMock()
