@@ -304,7 +304,7 @@ def main() -> None:
             "log_level": Config.LOG_LEVEL,
         },
     )
-    app.run(host="0.0.0.0", port=Config.PORT, debug=Config.is_development())
+    app.run(host="0.0.0.0", port=Config.PORT, debug=Config.is_development())  # noqa: S104 - dev server; prod runs gunicorn behind a proxy
 
 
 if __name__ == "__main__":

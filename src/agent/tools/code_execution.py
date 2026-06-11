@@ -67,8 +67,8 @@ def _probe_docker_available() -> bool:
         import subprocess
 
         # Check if the custom sandbox image exists
-        result = subprocess.run(
-            ["docker", "images", "-q", Config.CODE_SANDBOX_IMAGE],
+        result = subprocess.run(  # noqa: S603 - fixed args, no untrusted input
+            ["docker", "images", "-q", Config.CODE_SANDBOX_IMAGE],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=5,

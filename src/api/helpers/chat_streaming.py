@@ -1097,7 +1097,7 @@ class _StreamContext:
         """Set up sports program context for sports conversations."""
         from src.agent.tools import set_sports_context
 
-        assert self.conv.sports_program is not None
+        assert self.conv.sports_program is not None  # noqa: S101 - narrowing; checked by caller
         self.sports_context = load_sports_context(self.user_id, self.conv.sports_program)
         set_sports_context(self.conv.sports_program)
 
@@ -1105,14 +1105,14 @@ class _StreamContext:
         """Set up language program context for language learning conversations."""
         from src.agent.tools import set_language_context
 
-        assert self.conv.language_program is not None
+        assert self.conv.language_program is not None  # noqa: S101 - narrowing; checked by caller
         self.language_context = load_language_context(self.user_id, self.conv.language_program)
         set_language_context(self.conv.language_program)
 
     def _setup_agent_context(self) -> None:
         """Set up agent context if this is an interactive agent conversation."""
         # Type narrowing: agent_id is checked in setup_context before calling this
-        assert self.conv.agent_id is not None
+        assert self.conv.agent_id is not None  # noqa: S101 - narrowing; checked by caller
         agent_record = db.get_agent(self.conv.agent_id, self.user_id)
         if agent_record:
             logger.debug(

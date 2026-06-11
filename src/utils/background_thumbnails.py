@@ -171,8 +171,8 @@ def _generate_thumbnail_task(
                 message_id, file_index, None, status=ThumbnailStatus.FAILED
             )
         except Exception:
-            # Message might have been deleted, ignore
-            pass
+            # Message might have been deleted
+            logger.debug("Recording thumbnail failure skipped", exc_info=True)
     finally:
         # Close thread-local DB connections so the pool doesn't leak them
         try:
@@ -180,7 +180,7 @@ def _generate_thumbnail_task(
 
             db._pool.close_thread_connection()
         except Exception:
-            pass
+            logger.debug("Thread-local db connection close failed", exc_info=True)
 
 
 def mark_files_for_thumbnail_generation(files: list[dict[str, Any]]) -> list[dict[str, Any]]:

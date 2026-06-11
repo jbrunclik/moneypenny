@@ -448,7 +448,7 @@ class Config:
     )
     GOOGLE_CALENDAR_API_TIMEOUT: int = int(os.getenv("GOOGLE_CALENDAR_API_TIMEOUT", "10"))
     GOOGLE_CALENDAR_API_BASE_URL: str = "https://www.googleapis.com/calendar/v3"
-    GOOGLE_OAUTH_TOKEN_URL: str = "https://oauth2.googleapis.com/token"
+    GOOGLE_OAUTH_TOKEN_URL: str = "https://oauth2.googleapis.com/token"  # noqa: S105 - URL, not a secret
     GOOGLE_USERINFO_URL: str = "https://www.googleapis.com/oauth2/v2/userinfo"
 
     # Planner Dashboard Caching
@@ -539,7 +539,7 @@ class Config:
                     "Set a comma-separated list of allowed email addresses "
                     "or set FLASK_ENV=development to skip authentication"
                 )
-            if cls.JWT_SECRET_KEY == "dev-secret-change-me":
+            if cls.JWT_SECRET_KEY == "dev-secret-change-me":  # noqa: S105 - detecting the placeholder
                 errors.append(
                     "JWT_SECRET_KEY must be set to a secure random value in production. "
                     'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'

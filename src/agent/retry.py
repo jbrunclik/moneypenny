@@ -86,7 +86,7 @@ def calculate_delay(attempt: int) -> float:
     delay = min(delay, Config.AGENT_RETRY_MAX_DELAY_SECONDS)
 
     # Add jitter (±20%)
-    jitter = delay * 0.2 * (random.random() * 2 - 1)
+    jitter = delay * 0.2 * (random.random() * 2 - 1)  # noqa: S311 - jitter, not crypto
     delay += jitter
 
     return float(max(0.1, delay))  # Ensure minimum delay

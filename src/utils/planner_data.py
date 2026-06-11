@@ -26,7 +26,7 @@ def _close_thread_pool_connections(db: Any = None) -> None:
         try:
             db._pool.close_thread_connection()
         except Exception:
-            pass
+            logger.debug("Thread-local db connection close failed", exc_info=True)
 
 
 @dataclass

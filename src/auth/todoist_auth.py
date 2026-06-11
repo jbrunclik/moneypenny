@@ -15,7 +15,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 TODOIST_AUTH_URL = "https://app.todoist.com/oauth/authorize"
-TODOIST_TOKEN_URL = "https://api.todoist.com/oauth/access_token"
+TODOIST_TOKEN_URL = "https://api.todoist.com/oauth/access_token"  # noqa: S105 - URL, not a secret
 TODOIST_USER_URL = "https://api.todoist.com/api/v1/user"
 
 

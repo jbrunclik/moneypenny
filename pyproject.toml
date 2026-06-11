@@ -37,13 +37,23 @@ select = [
     "B",      # flake8-bugbear
     "C4",     # flake8-comprehensions
     "UP",     # pyupgrade
+    "S",      # flake8-bandit (security)
 ]
+
 ignore = [
     "E501",   # line too long (handled by formatter)
 ]
 # W291 = trailing whitespace
 # W293 = blank line contains whitespace
 # These are included in "W" but explicitly listed for clarity
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert constantly and use fake tokens/credentials by design
+"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608"]
+"scripts/**" = ["S101", "S603", "S607"]
+# Column names in these queries come only from the PROGRAM_FEATURES registry
+# or fixed strings - never user input (documented at each site)
+"src/db/models/*" = ["S608"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
@@ -80,6 +90,8 @@ source = ["src"]
 omit = ["src/app.py"]
 
 [tool.coverage.report]
+# Ratchet: currently at 72% - raise the floor as coverage grows (T3)
+fail_under = 70
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",

@@ -139,7 +139,7 @@ def require_auth[F: Callable[..., Any]](f: F) -> F:
 
         # Token is valid, extract user info
         payload = result.payload
-        assert payload is not None  # Guaranteed by VALID status
+        assert payload is not None  # noqa: S101 - narrowing; guaranteed by VALID status
 
         user_id = payload.get("sub")
         if not user_id:
