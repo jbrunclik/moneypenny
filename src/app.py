@@ -32,6 +32,20 @@ _CSP_POLICY = "; ".join(
 )
 
 
+def apply_proxy_fix(app: APIFlask) -> None:
+    """Wrap the WSGI app with ProxyFix for TRUSTED_PROXY_COUNT proxies."""
+    if Config.TRUSTED_PROXY_COUNT <= 0:
+        return
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
+        app.wsgi_app,
+        x_for=Config.TRUSTED_PROXY_COUNT,
+        x_proto=Config.TRUSTED_PROXY_COUNT,
+        x_host=Config.TRUSTED_PROXY_COUNT,
+    )
+
+
 def create_app() -> APIFlask:
     """Create and configure the Flask application."""
     # Setup structured logging first
@@ -62,6 +76,12 @@ def create_app() -> APIFlask:
 
     # Set max request size to prevent DoS attacks
     app.config["MAX_CONTENT_LENGTH"] = Config.MAX_REQUEST_SIZE
+
+    # Honor X-Forwarded-* from the trusted reverse proxy so remote_addr is
+    # the real client IP (rate limiting keys on it) and is_secure reflects
+    # the TLS termination (HSTS). With TRUSTED_PROXY_COUNT=0 forwarded
+    # headers are ignored entirely - they would be client-spoofable.
+    apply_proxy_fix(app)
 
     # Request ID middleware - must be before blueprints
     @app.before_request

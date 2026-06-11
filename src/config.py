@@ -486,6 +486,13 @@ class Config:
     # Garmin Connect Integration (no API keys needed — uses garth session tokens)
     GARMIN_API_TIMEOUT: int = int(os.getenv("GARMIN_API_TIMEOUT", "15"))
 
+    # Number of reverse proxies in front of the app whose X-Forwarded-*
+    # headers can be trusted (ProxyFix). With 0, forwarded headers are
+    # ignored - required when the app is exposed directly, otherwise
+    # clients could spoof their IP for rate limiting. Prod runs behind
+    # one TLS-terminating proxy, hence the default of 1.
+    TRUSTED_PROXY_COUNT: int = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
+
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"
