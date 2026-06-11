@@ -357,7 +357,12 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
         }
       },
     });
-    getSyncManager()?.start();
+    // Unhandled rejection here would silently disable sync for the session
+    getSyncManager()
+      ?.start()
+      .catch((error) => {
+        log.error('SyncManager failed to start', { error });
+      });
   } catch (error) {
     log.error('Failed to load initial data', { error });
     toast.error('Failed to load data. Please refresh the page.', {

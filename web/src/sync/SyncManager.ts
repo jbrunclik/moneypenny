@@ -116,19 +116,26 @@ export class SyncManager {
   async start(): Promise<void> {
     log.info('Starting SyncManager');
 
-    // Initialize local message counts from existing conversations (loaded via pagination)
-    const store = useStore.getState();
-    for (const conv of store.conversations) {
-      if (conv.messageCount !== undefined) {
-        this.localMessageCounts.set(conv.id, conv.messageCount);
+    // The initial sync is best-effort: a failure here must NOT prevent the
+    // polling below from starting (it would silently disable sync for the
+    // whole session) - the poll loop self-heals once connectivity returns
+    try {
+      // Initialize local message counts from existing conversations (loaded via pagination)
+      const store = useStore.getState();
+      for (const conv of store.conversations) {
+        if (conv.messageCount !== undefined) {
+          this.localMessageCounts.set(conv.id, conv.messageCount);
+        }
       }
-    }
 
-    // Perform initial full sync
-    // Note: initialLoadTime is set during fullSync() before applying results
-    // applyFullSync() updates existing conversations, detects deletions, and adds
-    // genuinely new conversations (created after initialLoadTime on other devices)
-    await this.fullSync();
+      // Perform initial full sync
+      // Note: initialLoadTime is set during fullSync() before applying results
+      // applyFullSync() updates existing conversations, detects deletions, and adds
+      // genuinely new conversations (created after initialLoadTime on other devices)
+      await this.fullSync();
+    } catch (error) {
+      log.warn('SyncManager initial sync failed - continuing with polling', { error });
+    }
 
     // Start polling
     this.schedulePoll();
