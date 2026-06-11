@@ -99,6 +99,7 @@ export class SyncManager {
   constructor(callbacks: SyncManagerCallbacks) {
     this.callbacks = callbacks;
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+    this.handlePageShow = this.handlePageShow.bind(this);
   }
 
   /**
@@ -142,6 +143,8 @@ export class SyncManager {
 
     // Listen for visibility changes
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    // iOS bfcache restores can skip visibilitychange entirely (R14)
+    window.addEventListener('pageshow', this.handlePageShow);
 
     log.debug('SyncManager started', {
       lastSyncTime: this.lastSyncTime,
@@ -161,6 +164,7 @@ export class SyncManager {
     }
 
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    window.removeEventListener('pageshow', this.handlePageShow);
 
     this.lastSyncTime = null;
     this.lastHiddenTime = null;
@@ -603,14 +607,7 @@ export class SyncManager {
 
       // Check for pending stream recovery FIRST (before sync)
       // This ensures the user sees the recovered message immediately
-      const streamingConvId = useStore.getState().streamingConversationId;
-      if (streamingConvId && hasPendingRecovery(streamingConvId)) {
-        log.info('Attempting stream recovery on visibility change', {
-          conversationId: streamingConvId,
-          hiddenDuration,
-        });
-        await attemptRecovery(streamingConvId);
-      }
+      await this.attemptPendingStreamRecovery(hiddenDuration);
 
       // Full sync if hidden for >5 minutes (for delete detection)
       if (hiddenDuration > SYNC_FULL_SYNC_THRESHOLD_MS) {
@@ -621,6 +618,45 @@ export class SyncManager {
         this.incrementalSync();
       }
     }
+  }
+
+  /**
+   * Handle bfcache restores - iOS can restore a page from the back/forward
+   * cache without firing visibilitychange (R14), leaving a pending stream
+   * recovery unattempted until the next poll.
+   */
+  private async handlePageShow(event: PageTransitionEvent): Promise<void> {
+    if (!event.persisted) return;
+    log.info('Page restored from bfcache');
+    await this.attemptPendingStreamRecovery(0);
+    this.incrementalSync();
+  }
+
+  /**
+   * Attempt poll-based recovery for a pending interrupted stream.
+   *
+   * Skipped while the conversation still has a LIVE stream request (R13):
+   * its lifecycle listener owns foreground handling (abort + journal
+   * resume), and racing it with poll recovery here could finalize the
+   * message element while the resume reader is still replaying into it.
+   */
+  private async attemptPendingStreamRecovery(hiddenDuration: number): Promise<void> {
+    const store = useStore.getState();
+    const streamingConvId = store.streamingConversationId;
+    if (!streamingConvId || !hasPendingRecovery(streamingConvId)) return;
+
+    if (store.getActiveRequest(streamingConvId)) {
+      log.debug('Skipping poll recovery - live stream request owns foregrounding', {
+        conversationId: streamingConvId,
+      });
+      return;
+    }
+
+    log.info('Attempting stream recovery on foreground', {
+      conversationId: streamingConvId,
+      hiddenDuration,
+    });
+    await attemptRecovery(streamingConvId);
   }
 
   /**

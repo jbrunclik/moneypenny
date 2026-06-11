@@ -426,10 +426,16 @@ async function updateUIWithRecoveredMessage(
   convId: string,
   message: { id: string; content: string | null; created_at: string; sources?: unknown[]; generated_images?: unknown[]; files?: unknown[]; language?: string }
 ): Promise<void> {
-  // Get the streaming message element
-  const messageEl = getStreamingMessageElement(convId);
+  // Get the streaming message element. After a conversation-switch
+  // round-trip the context element can be DETACHED (renderMessages cleared
+  // the container) - finalizing it would leave the recovered message
+  // invisible (R15). Fall through to the DOM lookup branch instead.
+  const contextEl = getStreamingMessageElement(convId);
+  const messageEl = contextEl && contextEl.isConnected ? contextEl : null;
 
   if (messageEl && message.content) {
+    // A successful recovery supersedes any earlier error styling (R15)
+    messageEl.classList.remove('message-incomplete');
     // Update content
     updateStreamingMessage(messageEl, message.content);
 
@@ -485,6 +491,8 @@ async function updateUIWithRecoveredMessage(
         // Found existing element - update it in place
         log.info('Found orphaned streaming element, updating in place', { conversationId: convId });
 
+        // A successful recovery supersedes any earlier error styling (R15)
+        existingEl.classList.remove('message-incomplete');
         // Update the content
         updateStreamingMessage(existingEl, message.content);
 
