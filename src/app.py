@@ -11,6 +11,26 @@ from src.api.routes import register_blueprints
 from src.config import Config
 from src.utils.logging import get_logger, set_request_id, setup_logging
 
+# Production CSP (S10). Notes on the non-obvious sources:
+# - script-src/frame-src/connect-src accounts.google.com: Google Identity Services
+# - style-src 'unsafe-inline': KaTeX and the GSI client inject inline styles
+# - img-src data:/blob:/https:: thumbnails, generated images, markdown images
+_CSP_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "script-src 'self' https://accounts.google.com",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https:",
+        "font-src 'self' data:",
+        "connect-src 'self' https://accounts.google.com",
+        "frame-src https://accounts.google.com",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "object-src 'none'",
+    ]
+)
+
 
 def create_app() -> APIFlask:
     """Create and configure the Flask application."""
@@ -80,6 +100,27 @@ def create_app() -> APIFlask:
                 "content_length": response.content_length,
             },
         )
+        return response
+
+    # Security headers (S10). No CORS headers are set anywhere on purpose:
+    # the API is same-origin only, and the browser's default policy blocks
+    # cross-origin reads without Access-Control-Allow-Origin.
+    @app.after_request
+    def add_security_headers(response: Response) -> Response:
+        headers = response.headers
+        headers.setdefault("X-Content-Type-Options", "nosniff")
+        headers.setdefault("X-Frame-Options", "DENY")
+        headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        headers.setdefault("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)")
+        # same-origin-allow-popups keeps the Google sign-in popup flow working
+        headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+        # HSTS only over TLS (directly or behind the reverse proxy)
+        if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
+            headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        # CSP only outside dev mode - the Vite dev server needs localhost
+        # scripts and HMR websockets that the production policy forbids
+        if not Config.is_development():
+            headers.setdefault("Content-Security-Policy", _CSP_POLICY)
         return response
 
     # Initialize rate limiting before registering blueprints
