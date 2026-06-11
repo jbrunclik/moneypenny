@@ -56,4 +56,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Tests & Tooling
 
+- [ ] **Webkit search-spec flake under full-suite load** - 2 occurrences (Jun 2026): `search.spec.ts` "navigates to conversation" / "keeps search results visible" fail with search results never rendering ("Type to search conversations" prompt despite filled input) + the known stray version banner (see `error-ui.visual.ts:11` workaround). Not reproducible isolated: 0/240 webkit repeat-runs on both clean and modified trees; only fails with all projects running in parallel. Suspect load-dependent race between SearchInput debounce and sidebar/store updates. Next step: capture a trace with `--trace=on` during a full-suite run, or instrument store.searchQuery transitions.
+
 
