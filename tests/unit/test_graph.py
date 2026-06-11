@@ -866,6 +866,88 @@ class TestToolNodeApprovalPropagation:
         assert "boom" in last.content
 
 
+class TestApprovalSiblingResults:
+    """request_approval must not discard its batch siblings' results (R3).
+
+    The approval pauses the run by raising; previously siblings executed in
+    the same node and their ToolMessages vanished with the aborted node -
+    work already done server-side went unrecorded and was redone after
+    approval. The tool node now runs siblings first and attaches their
+    results to the exception.
+    """
+
+    def _states(self) -> AgentState:
+        return _tool_call_state(
+            [
+                {"name": "side_effect", "args": {"text": "create task 42"}, "id": "c1"},
+                {"name": "request_approval", "args": {"description": "send email"}, "id": "c2"},
+            ]
+        )
+
+    def _tools(self) -> tuple[Any, Any, list[str]]:
+        from src.agent.tools.request_approval import ApprovalRequestedException
+
+        executed: list[str] = []
+
+        @tool
+        def side_effect(text: str) -> str:
+            """Perform a side effect."""
+            executed.append(text)
+            return f"done: {text}"
+
+        @tool
+        def request_approval(description: str) -> str:
+            """Request approval."""
+            raise ApprovalRequestedException("approval-1", description, "email")
+
+        return side_effect, request_approval, executed
+
+    def test_siblings_execute_and_ride_on_the_exception(self) -> None:
+        from src.agent.tools.request_approval import ApprovalRequestedException
+
+        side_effect, request_approval, executed = self._tools()
+        compiled = _compile_tool_graph([side_effect, request_approval], is_autonomous=True)
+
+        with pytest.raises(ApprovalRequestedException) as exc_info:
+            compiled.invoke(self._states())
+
+        # The sibling ran exactly once and its result is attached
+        assert executed == ["create task 42"]
+        assert exc_info.value.sibling_results == [("side_effect", "done: create task 42")]
+
+    def test_sibling_results_land_in_the_approval_message(self) -> None:
+        from src.agent.tools.request_approval import build_approval_message
+
+        message = build_approval_message(
+            "approval-1",
+            "send email",
+            "email",
+            sibling_results=[("side_effect", "done: create task 42")],
+        )
+        assert "Completed before pausing" in message
+        assert "done: create task 42" in message
+
+    def test_approval_without_siblings_keeps_empty_results(self) -> None:
+        from src.agent.tools.request_approval import ApprovalRequestedException
+
+        _, request_approval, _ = self._tools()
+        compiled = _compile_tool_graph([request_approval], is_autonomous=True)
+
+        with pytest.raises(ApprovalRequestedException) as exc_info:
+            compiled.invoke(
+                _tool_call_state(
+                    [
+                        {
+                            "name": "request_approval",
+                            "args": {"description": "send email"},
+                            "id": "c1",
+                        }
+                    ]
+                )
+            )
+        assert exc_info.value.sibling_results == []
+
+
 # ============ Autonomous Permission Filtering Tests ============
 
 

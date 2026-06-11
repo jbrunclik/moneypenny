@@ -580,6 +580,9 @@ def stream_events(
             "approval_id": e.approval_id,
             "description": e.description,
             "tool_name": e.tool_name,
+            # (tool_name, result) pairs from batch siblings that executed
+            # before the pause - recorded in the approval message (R3)
+            "sibling_results": e.sibling_results,
         }
         # Persist the approval message HERE (producer thread): if the client
         # disconnects before the consumer processes this event, the consumer's
@@ -588,7 +591,9 @@ def stream_events(
         # _finalize_approval_stream re-writes the same content (idempotent).
         if journal_message_id:
             try:
-                approval_message = build_approval_message(e.approval_id, e.description, e.tool_name)
+                approval_message = build_approval_message(
+                    e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
+                )
                 if db.update_message_content(journal_message_id, approval_message):
                     final_results["saved"] = True
             except Exception:
@@ -1327,6 +1332,7 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
             "approval_id": item.get("approval_id"),
             "description": item.get("description"),
             "tool_name": item.get("tool_name", ""),
+            "sibling_results": item.get("sibling_results", []),
         }
         # Send the approval event to the client
         try:
@@ -1450,9 +1456,12 @@ def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
     approval_id: str = context.approval_info.get("approval_id", "")  # type: ignore[union-attr]
     description: str = context.approval_info.get("description", "")  # type: ignore[union-attr]
     tool_name: str = context.approval_info.get("tool_name", "")  # type: ignore[union-attr]
+    sibling_results = context.approval_info.get("sibling_results", [])  # type: ignore[union-attr]
 
     # Build and save the approval message
-    approval_message = build_approval_message(approval_id, description, tool_name)
+    approval_message = build_approval_message(
+        approval_id, description, tool_name, sibling_results=sibling_results
+    )
 
     logger.debug(
         "Saving approval message from stream",

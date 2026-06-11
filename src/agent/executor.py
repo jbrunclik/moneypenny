@@ -427,7 +427,9 @@ def execute_agent(
 
         # Add a message to the conversation indicating approval is needed
         # Include approval ID in a parseable format for interactive UI
-        approval_message = build_approval_message(e.approval_id, e.description, e.tool_name)
+        approval_message = build_approval_message(
+            e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
+        )
         db.add_message(conv.id, MessageRole.ASSISTANT, approval_message)
 
         # Return special status to indicate approval is required

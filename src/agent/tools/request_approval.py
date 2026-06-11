@@ -12,7 +12,12 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def build_approval_message(approval_id: str, description: str, tool_name: str = "") -> str:
+def build_approval_message(
+    approval_id: str,
+    description: str,
+    tool_name: str = "",
+    sibling_results: list[tuple[str, str]] | None = None,
+) -> str:
     """Build the approval request message for the conversation.
 
     This is used by both the executor (batch mode) and streaming handler
@@ -22,15 +27,22 @@ def build_approval_message(approval_id: str, description: str, tool_name: str = 
         approval_id: The approval request ID
         description: Description of the action requiring approval
         tool_name: Name of the tool/integration requiring approval
+        sibling_results: (tool_name, result) pairs for tool calls from the
+            same batch that already executed before the pause (R3) - recorded
+            so the post-approval run doesn't redo or forget that work
 
     Returns:
         Formatted approval message with parseable marker
     """
     tool_line = f"\n\nTool: `{tool_name}`" if tool_name else ""
+    siblings_section = ""
+    if sibling_results:
+        lines = "\n".join(f"- `{name}`: {result}" for name, result in sibling_results)
+        siblings_section = f"\n\nCompleted before pausing:\n{lines}"
     return (
         f"[approval-request:{approval_id}]\n"
         f"**Action requires approval**\n\n"
-        f"I need your permission to: **{description}**{tool_line}\n\n"
+        f"I need your permission to: **{description}**{tool_line}{siblings_section}\n\n"
         f"Please approve or reject this request."
     )
 
@@ -45,6 +57,9 @@ class ApprovalRequestedException(Exception):
         self.approval_id = approval_id
         self.description = description
         self.tool_name = tool_name
+        # Filled by the tool node when sibling tool calls from the same batch
+        # executed before the pause (R3)
+        self.sibling_results: list[tuple[str, str]] = []
         super().__init__(f"Approval requested: {description}")
 
 

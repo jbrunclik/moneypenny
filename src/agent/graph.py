@@ -579,6 +579,73 @@ def _split_blocked_tool_calls(
     return blocked, exec_state
 
 
+def _split_approval_tool_calls(
+    state: AgentState,
+) -> tuple[AgentState | None, AgentState | None]:
+    """Split request_approval calls from their batch siblings (R3).
+
+    request_approval pauses the whole run by raising; executed alongside
+    siblings, their ToolMessages were discarded with the aborted node - work
+    already done server-side went unrecorded and was redone after approval.
+
+    Returns (approval_only_state, siblings_state); either is None when empty.
+    When there are no approval calls, returns (None, state) unchanged.
+    """
+    last_message = state["messages"][-1]
+    if not (isinstance(last_message, AIMessage) and last_message.tool_calls):
+        return None, state
+
+    approval_calls = [tc for tc in last_message.tool_calls if tc.get("name") == "request_approval"]
+    if not approval_calls:
+        return None, state
+    sibling_calls = [tc for tc in last_message.tool_calls if tc.get("name") != "request_approval"]
+
+    def _with_calls(calls: list[Any]) -> AgentState:
+        pruned = AIMessage(content=last_message.content, tool_calls=calls)
+        return {**state, "messages": list(state["messages"][:-1]) + [pruned]}
+
+    approval_state = _with_calls(approval_calls)
+    siblings_state = _with_calls(sibling_calls) if sibling_calls else None
+    return approval_state, siblings_state
+
+
+def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None) -> None:
+    """Store original tool results for server-side extraction, then strip
+    _full_result payloads (e.g. generated images) before they reach the LLM."""
+    for msg in messages:
+        if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
+            if request_id is not None:
+                store_tool_result(request_id, msg.content)
+
+            content_len_before = len(msg.content)
+            msg.content = strip_full_result_from_tool_content(msg.content)
+            content_len_after = len(msg.content)
+            if content_len_before != content_len_after:
+                logger.info(
+                    "Stripped _full_result from tool message",
+                    extra={
+                        "content_len_before": content_len_before,
+                        "content_len_after": content_len_after,
+                        "bytes_saved": content_len_before - content_len_after,
+                    },
+                )
+
+
+_SIBLING_RESULT_MAX_CHARS = 500
+
+
+def _summarize_sibling_results(messages: list[Any]) -> list[tuple[str, str]]:
+    """Compact (tool_name, result) pairs for the approval pause message."""
+    summaries: list[tuple[str, str]] = []
+    for msg in messages:
+        if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
+            content = msg.content
+            if len(content) > _SIBLING_RESULT_MAX_CHARS:
+                content = content[:_SIBLING_RESULT_MAX_CHARS] + "…"
+            summaries.append((msg.name or "tool", content))
+    return summaries
+
+
 def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
     """Create a tool node that strips large data from results before sending to LLM.
 
@@ -617,35 +684,39 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
                     state, modules, agent_context.agent
                 )
 
+        # R3: run request_approval AFTER its batch siblings. It pauses the
+        # whole run by raising; executed alongside siblings, their results
+        # were discarded with the aborted node.
+        approval_state: AgentState | None = None
+        if is_autonomous and exec_state is not None:
+            approval_state, exec_state = _split_approval_tool_calls(exec_state)
+
         if exec_state is None:
-            # Every call was blocked - nothing to execute
+            # Every call was blocked (or was an approval request)
             result: dict[str, Any] = {"messages": blocked_messages}
         else:
             result = base_tool_node.invoke(exec_state)
             if blocked_messages:
                 result["messages"] = blocked_messages + list(result.get("messages", []))
 
-        # Capture full tool results BEFORE stripping, then strip for LLM
-        if "messages" in result:
-            for msg in result["messages"]:
-                if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
-                    # Store the ORIGINAL content for server-side extraction
-                    if request_id is not None:
-                        store_tool_result(request_id, msg.content)
+        _capture_and_strip_tool_messages(result.get("messages", []), request_id)
 
-                    # Now strip _full_result for the LLM
-                    content_len_before = len(msg.content)
-                    msg.content = strip_full_result_from_tool_content(msg.content)
-                    content_len_after = len(msg.content)
-                    if content_len_before != content_len_after:
-                        logger.info(
-                            "Stripped _full_result from tool message",
-                            extra={
-                                "content_len_before": content_len_before,
-                                "content_len_after": content_len_after,
-                                "bytes_saved": content_len_before - content_len_after,
-                            },
-                        )
+        if approval_state is not None:
+            from src.agent.tools.request_approval import ApprovalRequestedException
+
+            try:
+                approval_result = base_tool_node.invoke(approval_state)
+            except ApprovalRequestedException as e:
+                # Record what already ran so the post-approval run doesn't
+                # redo or forget it (the pause discards this node's output)
+                e.sibling_results = _summarize_sibling_results(result.get("messages", []))
+                raise
+            # request_approval returned without pausing (e.g. outside agent
+            # context) - merge its error message normally
+            _capture_and_strip_tool_messages(approval_result.get("messages", []), request_id)
+            result["messages"] = list(result.get("messages", [])) + list(
+                approval_result.get("messages", [])
+            )
 
         logger.debug("tool_node_with_stripping completed")
         return result
