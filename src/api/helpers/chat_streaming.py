@@ -404,7 +404,7 @@ class _StreamJournal:
         try:
             db.journal_cleanup(Config.STREAM_JOURNAL_TTL_SECONDS)
         except Exception:
-            logger.debug("Stream journal cleanup failed", exc_info=True)
+            logger.warning("Stream journal cleanup failed", exc_info=True)
 
     def record(self, event: dict[str, Any]) -> None:
         """Assign a seq to the event, buffer it, flush opportunistically."""
@@ -429,7 +429,7 @@ class _StreamJournal:
         try:
             db.journal_append_events(self.message_id, buffer)
         except Exception:
-            logger.debug("Stream journal flush failed", exc_info=True)
+            logger.warning("Stream journal flush failed", exc_info=True)
 
     def finish(self) -> None:
         """Mark the stream as over (resume endpoint stops tailing on this)."""
@@ -874,16 +874,21 @@ def create_stream_generator(
         finally:
             # Clean up agent context if this was an agent conversation
             context.cleanup_agent_context()
-            # Delete placeholder if stream failed before producing results
-            # (cleanup thread won't save because final_results["ready"] is False).
+            # Delete placeholder ONLY if the turn truly died: producer thread
+            # finished without results. While the producer is still generating
+            # (client disconnect mid-stream), the placeholder must survive so
+            # the cleanup thread saves into the SAME id - that id is what the
+            # resume endpoint and poll recovery look up. Deleting it here made
+            # the cleanup save fall back to an INSERT under a NEW id, which
+            # stranded every recovery keyed to the original one (X1).
             # The approval path never sets "ready" - its save happens in
-            # _finalize_approval_stream, so a client disconnect before that ran
-            # must not delete the placeholder the approval message lands in.
+            # _finalize_approval_stream / the producer, so it is excluded too.
             if (
                 context.placeholder_saved
                 and not context.final_results["ready"]
                 and not context.final_results["saved"]
                 and context.approval_info is None
+                and (context.stream_thread is None or not context.stream_thread.is_alive())
             ):
                 try:
                     db.delete_message_by_id(context.expected_assistant_msg_id)

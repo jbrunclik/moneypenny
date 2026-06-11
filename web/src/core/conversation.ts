@@ -8,6 +8,7 @@ import { createLogger } from '../utils/logger';
 import { agents, conversations, messages } from '../api/client';
 import { toast } from '../components/Toast';
 import { showConfirm, showPrompt } from '../components/Modal';
+import { resumeInflightStreamIfAny } from './messaging';
 import {
   renderConversationsList,
   setActiveConversation,
@@ -133,6 +134,9 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   renderMessages(conv.messages || [], {
     hasPendingApproval: conv.has_pending_approval,
   });
+
+  // If the page died mid-stream in this conversation, resume from the journal
+  void resumeInflightStreamIfAny(conv.id);
 
   // Add agent conversation header after renderMessages (which clears the container)
   if (conv.is_agent && conv.agent_id) {

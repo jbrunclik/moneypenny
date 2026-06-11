@@ -452,6 +452,8 @@ interface StreamingState {
   expectedAssistantMessageId: string | null;
   /** Highest journal seq rendered so far (resume offset for resumable streams) */
   lastSeq: number;
+  /** Set before aborting the reader to resume proactively (foreground/pageshow) */
+  resumeViaAbort?: boolean;
   /** Count of token events received (for debugging) */
   tokenCount?: number;
 }
@@ -519,6 +521,50 @@ function initStreamingRequest(
 /**
  * Clean up streaming request resources.
  */
+// ============ In-flight stream persistence (resume after crash/reload) ============
+
+const INFLIGHT_STREAM_KEY = 'inflight-stream';
+const INFLIGHT_STREAM_MAX_AGE_MS = 30 * 60 * 1000; // journal TTL is 1h server-side
+
+interface InflightStream {
+  convId: string;
+  messageId: string;
+  ts: number;
+}
+
+function persistInflightStream(convId: string, messageId: string): void {
+  try {
+    const entry: InflightStream = { convId, messageId, ts: Date.now() };
+    localStorage.setItem(INFLIGHT_STREAM_KEY, JSON.stringify(entry));
+  } catch {
+    // Quota/privacy-mode failures only cost the reload-resume nicety
+  }
+}
+
+function clearInflightStream(): void {
+  try {
+    localStorage.removeItem(INFLIGHT_STREAM_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function readInflightStream(): InflightStream | null {
+  try {
+    const raw = localStorage.getItem(INFLIGHT_STREAM_KEY);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as InflightStream;
+    if (!entry.convId || !entry.messageId) return null;
+    if (Date.now() - entry.ts > INFLIGHT_STREAM_MAX_AGE_MS) {
+      clearInflightStream();
+      return null;
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
 function cleanupStreamingRequest(
   requestId: string,
   convId: string,
@@ -619,6 +665,8 @@ function processStreamEvent(
       // Capture the expected assistant message ID for stream recovery
       if (event.expected_assistant_message_id) {
         state.expectedAssistantMessageId = event.expected_assistant_message_id as string;
+        // Persist so a crashed/reloaded page can resume this turn from the journal
+        persistInflightStream(convId, state.expectedAssistantMessageId);
         log.debug('Captured expected assistant message ID', {
           conversationId: convId,
           expectedMessageId: state.expectedAssistantMessageId,
@@ -772,6 +820,7 @@ async function tryResumeStream(
         afterSeq: state.lastSeq,
         attempt,
       });
+      clearPendingRecovery(convId);
       for await (const event of chat.resumeStream(convId, messageId, state.lastSeq)) {
         if (typeof event.seq === 'number') {
           state.lastSeq = event.seq;
@@ -818,6 +867,92 @@ async function tryResumeStream(
     }
   }
   return false;
+}
+
+/**
+ * Resume an in-flight stream after a page crash/reload.
+ *
+ * Called when a conversation's messages finish rendering. If localStorage
+ * holds a fresh in-flight entry for THIS conversation and the assistant
+ * message is still empty (the turn was mid-flight when the page died),
+ * replays the journal from seq 0 - there is no rendered prefix to offset
+ * from - and continues live.
+ */
+export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
+  const entry = readInflightStream();
+  if (!entry || entry.convId !== convId) return;
+  // One-shot: whatever happens below, don't re-attempt on every conv switch
+  clearInflightStream();
+
+  const container = getElementById<HTMLDivElement>('messages');
+  const existing = container?.querySelector(`[data-message-id="${entry.messageId}"]`);
+  // Check the CONTENT element, not the whole bubble - an empty placeholder
+  // still has timestamps/action buttons in its textContent
+  const existingContent = existing?.querySelector('.message-content')?.textContent ?? '';
+  if (existing && existingContent.trim() !== '') {
+    // The turn completed before the reload; the saved message is rendered
+    return;
+  }
+
+  log.info('Resuming in-flight stream after reload', {
+    conversationId: convId,
+    messageId: entry.messageId,
+  });
+
+  // Replace the empty placeholder bubble (if the loader rendered it) with a
+  // live streaming bubble
+  if (existing instanceof HTMLElement) {
+    existing.remove();
+  }
+  const messageEl = addStreamingMessage(convId);
+  messageEl.dataset.messageId = entry.messageId;
+
+  const state: StreamingState = {
+    messageEl,
+    fullContent: '',
+    thinkingState: {
+      isThinking: true,
+      thinkingText: '',
+      activeTool: null,
+      activeToolDetail: undefined,
+      completedTools: [],
+      trace: [],
+    },
+    messageSuccessful: false,
+    uploadProgressHidden: true,
+    expectedAssistantMessageId: entry.messageId,
+    lastSeq: 0,
+  };
+
+  const requestId = `resume-${convId}-${Date.now()}`;
+  activeRequests.set(requestId, {
+    conversationId: convId,
+    type: 'stream',
+    abortController: new AbortController(),
+  });
+  useStore.getState().setStreamingConversation(convId);
+  getSyncManager()?.setConversationStreaming(convId, true);
+
+  let delivered = false;
+  try {
+    delivered = await tryResumeStream(state, convId, '');
+    if (!delivered) {
+      // Journal gone or turn dead - poll recovery handles saved-but-swept
+      markStreamForRecovery(convId, entry.messageId, '', 'network');
+      delivered = await attemptRecovery(convId);
+      if (!delivered) {
+        messageEl.remove();
+      }
+    }
+  } finally {
+    // messageSuccessful=false on purpose: the reload refetched server counts,
+    // so the user message is already counted - only the newly delivered
+    // assistant message needs the local baseline bump
+    cleanupStreamingRequest(requestId, convId, false);
+    if (delivered) {
+      getSyncManager()?.incrementLocalMessageCount(convId, 1);
+    }
+  }
 }
 
 async function handleMissingDoneEvent(
@@ -1021,17 +1156,50 @@ async function sendStreamingMessage(
 
   // Track if we set up recovery marking (for cleanup)
   let visibilityListenerActive = false;
+  let hiddenAt: number | null = null;
 
-  // Visibility change handler - marks stream for recovery when app goes to background
+  // Background/foreground handling. On hidden: mark for poll recovery (legacy
+  // fallback) and remember when. On visible after a real background stint: the
+  // reader is often silently dead (iOS froze the page / dropped the socket) and
+  // would otherwise hang until the 60s read timeout - abort it and resume from
+  // the journal offset instead. Aborting BEFORE resuming also removes the
+  // recovery-vs-late-reader race (R13: buffered bytes overwriting recovery).
+  const proactiveResume = (): void => {
+    if (state.messageSuccessful || !state.expectedAssistantMessageId) return;
+    log.info('Foregrounded mid-stream - aborting reader and resuming from journal', {
+      conversationId: convId,
+      lastSeq: state.lastSeq,
+    });
+    state.resumeViaAbort = true;
+    abortController.abort();
+  };
+
   const handleVisibilityChange = (): void => {
-    if (document.visibilityState === 'hidden' && state.expectedAssistantMessageId) {
-      markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'visibility');
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      if (state.expectedAssistantMessageId) {
+        markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'visibility');
+      }
+    } else if (document.visibilityState === 'visible') {
+      const hiddenLongEnough = hiddenAt !== null && Date.now() - hiddenAt >= 500;
+      hiddenAt = null;
+      if (hiddenLongEnough) {
+        proactiveResume();
+      }
+    }
+  };
+
+  // iOS bfcache restore can skip visibilitychange entirely (R14)
+  const handlePageShow = (event: PageTransitionEvent): void => {
+    if (event.persisted) {
+      proactiveResume();
     }
   };
 
   try {
     // Add visibility listener to mark for recovery on mobile background/lock
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
     visibilityListenerActive = true;
 
     for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode)) {
@@ -1078,7 +1246,7 @@ async function sendStreamingMessage(
       await handleMissingDoneEvent(state, convId, tempUserMessageId);
     }
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError' && !state.resumeViaAbort) {
       log.info('Stream aborted by user', { conversationId: convId });
       state.messageEl.remove();
       toast.info('Response stopped.');
@@ -1086,6 +1254,7 @@ async function sendStreamingMessage(
       clearPendingRecovery(convId);
       return;
     }
+    state.resumeViaAbort = false;
 
     log.error('Streaming failed', { error, conversationId: convId });
 
@@ -1123,10 +1292,14 @@ async function sendStreamingMessage(
       throw error;
     }
   } finally {
-    // Clean up visibility listener
+    // Clean up visibility listeners
     if (visibilityListenerActive) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
     }
+    // The turn finished (or its failure was surfaced) in this page - only a
+    // page that died mid-stream should resume after reload
+    clearInflightStream();
     cleanupStreamingRequest(requestId, convId, state.messageSuccessful);
   }
 }

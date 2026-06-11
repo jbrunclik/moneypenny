@@ -721,6 +721,18 @@ def main() -> None:
 
             return {"status": "seeded", "conversation_ids": created_ids}, 200
 
+        @test_bp.route("/test/dump-threads", methods=["GET"])
+        def dump_threads() -> tuple[str, int]:
+            """Dump all thread stacks (debugging aid for stuck E2E streams)."""
+            import sys as _sys
+            import traceback as _tb
+
+            out = []
+            for tid, frame in _sys._current_frames().items():
+                out.append(f"--- thread {tid} ---")
+                out.extend(_tb.format_stack(frame))
+            return "\n".join(out), 200
+
         @test_bp.route("/test/simulate-error", methods=["POST"])
         def simulate_error() -> tuple[dict[str, Any], int]:
             """Simulate an error for testing error UI."""

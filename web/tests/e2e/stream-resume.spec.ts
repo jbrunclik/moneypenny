@@ -115,6 +115,89 @@ test.describe('Resumable streams', () => {
     await expect(page.locator('.message.assistant.message-incomplete')).toHaveCount(0);
   });
 
+  test('page reload mid-stream resumes the turn from the journal', async ({ page, request }) => {
+    // Slow the mock stream down so the turn is still running server-side when
+    // the page dies. The `request` fixture carries X-Test-Execution-Id, so the
+    // delay applies only to this test's isolated config (page.request would
+    // mutate the global default and leak into parallel tests).
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 400 } });
+
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Survive a reload please');
+    await page.click('#send-btn');
+
+    // Wait until the stream is live and the placeholder id is known
+    // (persisted to localStorage at user_message_saved)
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+    await page.waitForFunction(() => localStorage.getItem('inflight-stream') !== null);
+
+    // Simulate a client crash: full page reload mid-stream. The hash route
+    // reopens the conversation; the in-flight entry triggers a resume.
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+
+    await expect(page.locator('.message.assistant:not(.streaming)').last()).toBeVisible({
+      timeout: 30000,
+    });
+    const content = page.locator('.message.assistant').last().locator('.message-content');
+    await expect(content).toContainText('This is a mock response to: Survive a reload', {
+      timeout: 30000,
+    });
+    await expect(page.locator('.message.assistant.message-incomplete')).toHaveCount(0);
+
+    // The entry is one-shot: consumed by the resume
+    const entry = await page.evaluate(() => localStorage.getItem('inflight-stream'));
+    expect(entry).toBeNull();
+  });
+
+  test('background/foreground mid-stream aborts the reader and resumes', async ({ page, request }) => {
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 400 } });
+
+    const resumeRequest = page.waitForRequest((req) => req.url().includes('/resume?after_seq='));
+
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Background me mid-stream please');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+    // Wait until the placeholder id is known (user_message_saved processed) -
+    // proactive resume needs it
+    await page.waitForFunction(() => localStorage.getItem('inflight-stream') !== null);
+
+    // Background the app (iOS lock / app switch)...
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    // ...stay hidden past the quick-flicker guard (500ms)...
+    await page.waitForTimeout(700);
+    // ...and foreground: the client must abort the (possibly dead) reader and
+    // resume from its journal offset instead of waiting for a read timeout
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await resumeRequest;
+
+    await expect(page.locator('.message.assistant:not(.streaming)').last()).toBeVisible({
+      timeout: 30000,
+    });
+    const content = page.locator('.message.assistant').last().locator('.message-content');
+    await expect(content).toContainText('This is a mock response to: Background me mid-stream', {
+      timeout: 30000,
+    });
+    await expect(page.locator('.message.assistant.message-incomplete')).toHaveCount(0);
+    await expect(page.locator('.toast-info:has-text("Response stopped")')).toHaveCount(0);
+  });
+
   test('dead turn (RESUME_FAILED + message gone) shows incomplete state', async ({ page }) => {
     await truncateNextStream(page, 3);
 
