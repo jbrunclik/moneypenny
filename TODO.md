@@ -51,7 +51,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Performance / Cost
 
-- [ ] **Right-size the planning classifier (C1 follow-up)** - From `planning_classifier` telemetry, decide: gate tighter, fold into main call, or disable by default. `graph.py::should_plan`.
 - [ ] **Compaction summarization off the request path** - `build_compacted_history` calls the summarizer synchronously; bound with timeout and/or precompute in background.
 - [ ] **Cache program prompts (sports/language)** - These profiles are fully uncached: ~6K tokens of static prompt re-billed every turn. Split static program instructions (cacheable) from the per-turn KV data (dynamic tail), like the standard profile.
 

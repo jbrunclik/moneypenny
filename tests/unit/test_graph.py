@@ -18,6 +18,7 @@ from src.agent.graph import (
     should_continue,
     should_plan,
 )
+from src.config import Config
 
 
 def _compile_tool_graph(tools: list[Any], is_autonomous: bool = False) -> Any:
@@ -319,6 +320,7 @@ class TestShouldPlan:
         }
         assert should_plan(state) == "chat"
 
+    @patch.object(Config, "AGENT_PLANNING_ENABLED", True)
     @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_llm_returns_plan(self, mock_llm_class: MagicMock) -> None:
         """When LLM classifier returns PLAN, should route to plan."""
@@ -336,6 +338,7 @@ class TestShouldPlan:
         }
         assert should_plan(state) == "plan"
 
+    @patch.object(Config, "AGENT_PLANNING_ENABLED", True)
     @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_llm_returns_chat(self, mock_llm_class: MagicMock) -> None:
         """When LLM classifier returns CHAT, should route to chat."""
@@ -377,6 +380,7 @@ class TestShouldPlan:
         }
         assert should_plan(state) == "chat"
 
+    @patch.object(Config, "AGENT_PLANNING_ENABLED", True)
     @patch("src.agent.graph.ChatGoogleGenerativeAI")
     @patch("src.agent.graph.logger")
     def test_emits_classifier_telemetry(

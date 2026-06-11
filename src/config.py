@@ -358,10 +358,12 @@ class Config:
     )
 
     # Planning node: optional planning step for complex multi-step requests.
-    # Below MIN_LENGTH chars the planning classifier is skipped entirely (no LLM
-    # call). Default raised to 400 to cut classifier calls on shorter messages;
-    # see the "planning_classifier" telemetry log to tune fire-rate vs benefit.
-    AGENT_PLANNING_ENABLED: bool = os.getenv("AGENT_PLANNING_ENABLED", "true").lower() == "true"
+    # DISABLED by default since June 2026: 14 days of planning_classifier
+    # telemetry showed a 1.9% plan rate (2/108) at a median 1.6s / p90 2.4s of
+    # added first-token latency plus a Flash call per qualifying turn, while
+    # the self-correcting tool loop sequences multi-tool work fine on its own.
+    # Set AGENT_PLANNING_ENABLED=true to re-enable for experimentation.
+    AGENT_PLANNING_ENABLED: bool = os.getenv("AGENT_PLANNING_ENABLED", "false").lower() == "true"
     AGENT_PLANNING_MIN_LENGTH: int = int(os.getenv("AGENT_PLANNING_MIN_LENGTH", "400"))
 
     # Gunicorn worker recycling: restart workers after N requests to prevent memory leaks
