@@ -924,6 +924,39 @@ class TestExecuteCode:
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
+    def test_sandbox_network_disabled_and_limited(
+        self, mock_session_class: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """The sandbox container must be created with networking disabled and
+        resource limits applied (S4) - llm-sandbox does NOT do this by default."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
+        mock_result.plots = []
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.return_value = mock_result
+        mock_session_class.return_value = mock_session
+
+        execute_code.invoke({"code": "print('hi')"})
+
+        kwargs = mock_session_class.call_args.kwargs
+        assert kwargs["runtime_configs"]["network_disabled"] is True
+        assert kwargs["runtime_configs"]["mem_limit"]
+        assert kwargs["runtime_configs"]["nano_cpus"] > 0
+        # Setup is skipped: libraries are baked into the image, and the
+        # default setup's pip upgrade would need the disabled network
+        assert kwargs["skip_environment_setup"] is True
+        # No libraries arg: install() raises with skip_environment_setup=True
+        assert mock_session.run.call_args.kwargs.get("libraries") is None
+        assert len(mock_session.run.call_args.args) == 1
+
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
     def test_captures_stderr(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
         """Should capture stderr from execution."""
         mock_result = MagicMock()

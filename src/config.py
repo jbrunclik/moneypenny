@@ -295,17 +295,11 @@ class Config:
     CODE_SANDBOX_TIMEOUT: int = int(os.getenv("CODE_SANDBOX_TIMEOUT", "30"))  # seconds
     CODE_SANDBOX_MEMORY_LIMIT: str = os.getenv("CODE_SANDBOX_MEMORY_LIMIT", "512m")
     CODE_SANDBOX_CPU_LIMIT: float = float(os.getenv("CODE_SANDBOX_CPU_LIMIT", "1.0"))
-    # Docker image for sandbox (custom image with pre-installed fonts and libraries)
+    # Docker image for sandbox (custom image with pre-installed fonts and
+    # libraries - see docker/code-sandbox/Dockerfile). The sandbox runs with
+    # networking disabled, so every library must be baked into the image;
+    # runtime pip installs cannot work.
     CODE_SANDBOX_IMAGE: str = os.getenv("CODE_SANDBOX_IMAGE", "ai-chatbot-sandbox:local")
-    # Pre-installed libraries in the sandbox (cached in container image)
-    CODE_SANDBOX_LIBRARIES: list[str] = [
-        lib.strip()
-        for lib in os.getenv(
-            "CODE_SANDBOX_LIBRARIES",
-            "numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2",
-        ).split(",")
-        if lib.strip()
-    ]
 
     # Autonomous agent settings
     # Timeout for considering an execution "stuck" (used for locking)

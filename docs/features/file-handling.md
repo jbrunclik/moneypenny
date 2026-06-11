@@ -175,8 +175,13 @@ CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local  # Custom Docker image (required)
 CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
 CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
 CODE_SANDBOX_CPU_LIMIT=1.0                   # CPU limit (1.0 = 1 core)
-CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2
 ```
+
+The sandbox container runs with **networking disabled** and the memory/CPU
+limits above. Available Python libraries are baked into the Docker image
+([docker/code-sandbox/Dockerfile](../../docker/code-sandbox/Dockerfile)) -
+runtime installation is not possible without network. To add a library, add it
+to the Dockerfile and rebuild with `make sandbox-image`.
 
 ### Deployment
 

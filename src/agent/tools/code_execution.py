@@ -434,20 +434,29 @@ def execute_code(code: str) -> str:
 
         wrapped_code = _wrap_user_code(code)
 
-        # Create sandbox session with security constraints
-        # Note: llm-sandbox runs containers with --network none by default for security
+        # Create sandbox session with security constraints (S4).
+        # llm-sandbox does NOT disable networking by default (verified against
+        # 0.3.31: container_config has no network settings) - pass it
+        # explicitly, along with the resource limits from config.
+        # skip_environment_setup: every library in CODE_SANDBOX_LIBRARIES is
+        # pre-installed in the custom image (make sandbox-image); the default
+        # setup creates a venv and runs 'pip install --upgrade pip', which
+        # needs the network we just disabled.
         with SandboxSession(
             lang="python",
             image=Config.CODE_SANDBOX_IMAGE,
             verbose=False,
+            skip_environment_setup=True,
+            runtime_configs={
+                "network_disabled": True,
+                "mem_limit": Config.CODE_SANDBOX_MEMORY_LIMIT,
+                "nano_cpus": int(Config.CODE_SANDBOX_CPU_LIMIT * 1_000_000_000),
+            },
         ) as session:
             logger.debug("Sandbox session created, executing code")
 
-            # Execute code with pre-installed libraries
-            result = session.run(
-                wrapped_code,
-                libraries=Config.CODE_SANDBOX_LIBRARIES,
-            )
+            # Libraries are pre-installed in the image - run the code directly
+            result = session.run(wrapped_code)
 
             # Parse output and extract files
             stdout = result.stdout or ""
