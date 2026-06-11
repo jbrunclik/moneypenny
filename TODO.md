@@ -38,7 +38,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 - [ ] **Drop Todoist `data:delete` scope (S9)** - High. `todoist_auth.py:39`; prompt-injected page could delete tasks. Reduce to read/write.
 - [ ] **Encrypt OAuth/Garmin tokens at rest (S3)** - Tokens are plaintext in SQLite (`models/user.py`). Fernet keyed from env.
 - [ ] **Security headers + CORS (S10)** - `app.py` sets no X-Frame-Options/CSP/HSTS. Add `@app.after_request`.
-- [ ] **Magic-byte upload validation (S11)** - `schemas.py` trusts declared MIME; sniff with `python-magic`.
 - [ ] **Verify code-sandbox network isolation (S4)** - Pass network-disabled explicitly; regression-test that sockets fail inside the sandbox.
 - [ ] **Rate limiting: proxy-aware client IP** - `ProxyFix` + X-Forwarded-For limiter key. `app.py`, `rate_limiting.py`.
 - [ ] **Logout: clear all sensitive state** - `store.logout()` leaves messages/pagination/activeRequests in memory. Add `resetStore()`.
