@@ -917,8 +917,6 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
   if (useStore.getState().getActiveRequest(convId)) return;
   const entry = readInflightStream(convId);
   if (!entry) return;
-  // One-shot: whatever happens below, don't re-attempt on every conv switch
-  clearInflightStream(convId);
 
   const container = getElementById<HTMLDivElement>('messages');
   const existing = container?.querySelector(`[data-message-id="${entry.messageId}"]`);
@@ -927,6 +925,7 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
   const existingContent = existing?.querySelector('.message-content')?.textContent ?? '';
   if (existing && existingContent.trim() !== '') {
     // The turn completed before the reload; the saved message is rendered
+    clearInflightStream(convId);
     return;
   }
 
@@ -966,6 +965,15 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
     type: 'stream',
     abortController: new AbortController(),
   });
+  // Register in the store too: the getActiveRequest guard above blocks
+  // re-entry from further conversation switches, and the switch-back restore
+  // path can re-create this bubble with the accumulated content
+  useStore.getState().setActiveRequest(convId, {
+    conversationId: convId,
+    type: 'stream',
+    content: '',
+    thinkingState: undefined,
+  });
   useStore.getState().setStreamingConversation(convId);
   getSyncManager()?.setConversationStreaming(convId, true);
 
@@ -981,6 +989,10 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
       }
     }
   } finally {
+    // The localStorage entry survives until HERE (terminal outcome): clearing
+    // it up front meant a second reload mid-resume found nothing and silently
+    // abandoned the still-running turn
+    clearInflightStream(convId);
     // messageSuccessful=false on purpose: the reload refetched server counts,
     // so the user message is already counted - only the newly delivered
     // assistant message needs the local baseline bump

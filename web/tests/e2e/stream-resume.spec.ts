@@ -145,9 +145,44 @@ test.describe('Resumable streams', () => {
     });
     await expect(page.locator('.message.assistant.message-incomplete')).toHaveCount(0);
 
-    // The entry is one-shot: consumed by the resume
+    // The entry is cleared once the resume reaches a terminal outcome
     const entry = await page.evaluate(() => localStorage.getItem('inflight-streams'));
     expect(entry).toBeNull();
+  });
+
+  test('second reload mid-resume still resumes the turn', async ({ page, request }) => {
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 400 } });
+
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Survive two reloads please');
+    await page.click('#send-btn');
+
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+    await page.waitForFunction(() => localStorage.getItem('inflight-streams') !== null);
+
+    // First reload: the resume kicks in and shows a live streaming bubble
+    await page.reload();
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+
+    // The entry must survive while the resume is in flight - clearing it
+    // up front made a second reload silently abandon the running turn
+    expect(await page.evaluate(() => localStorage.getItem('inflight-streams'))).not.toBeNull();
+
+    // Second reload, mid-resume: the turn must still be picked up
+    await page.reload();
+    await page.waitForSelector('#new-chat-btn');
+
+    await expect(page.locator('.message.assistant:not(.streaming)').last()).toBeVisible({
+      timeout: 30000,
+    });
+    const content = page.locator('.message.assistant').last().locator('.message-content');
+    await expect(content).toContainText('This is a mock response to: Survive two reloads', {
+      timeout: 30000,
+    });
+    await expect(page.locator('.message.assistant.message-incomplete')).toHaveCount(0);
+
+    // Terminal outcome reached: entry cleared after delivery
+    await page.waitForFunction(() => localStorage.getItem('inflight-streams') === null);
   });
 
   test('background/foreground mid-stream aborts the reader and resumes', async ({ page, request }) => {
