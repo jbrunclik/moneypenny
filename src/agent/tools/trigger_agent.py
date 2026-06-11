@@ -60,7 +60,9 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
         extra={
             "source_agent": context.agent.name,
             "target_agent": agent_name,
-            "message": message[:100],
+            # NOT "message" - a reserved LogRecord key; logging raises
+            # KeyError on it, killing the tool call before the executor ran
+            "trigger_message": message[:100],
         },
     )
 
