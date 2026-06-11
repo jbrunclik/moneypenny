@@ -1,6 +1,7 @@
 """Integration tests for Google Calendar API endpoints."""
 
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import patch
 
 from flask.testing import FlaskClient
@@ -44,8 +45,13 @@ class TestGetCalendarAuthUrl:
 class TestConnectGoogleCalendar:
     """Tests for POST /auth/calendar/connect."""
 
-    def test_connect_success(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+    def test_connect_success(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
         """Should connect calendar with valid code."""
+        from src.auth.oauth_state import issue_state
+
+        state = issue_state(test_user.id, "calendar")
         with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
             with patch(
                 "src.api.routes.calendar.exchange_calendar_code_for_tokens"
@@ -61,7 +67,7 @@ class TestConnectGoogleCalendar:
                     response = client.post(
                         "/auth/calendar/connect",
                         headers=auth_headers,
-                        json={"code": "test-code", "state": "test-state"},
+                        json={"code": "test-code", "state": state},
                     )
 
         assert response.status_code == 200
@@ -83,9 +89,12 @@ class TestConnectGoogleCalendar:
         assert response.status_code == 400
 
     def test_connect_exchange_fails(
-        self, client: FlaskClient, auth_headers: dict[str, str]
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
     ) -> None:
         """Should return 400 when token exchange fails."""
+        from src.auth.oauth_state import issue_state
+
+        state = issue_state(test_user.id, "calendar")
         with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
             with patch(
                 "src.api.routes.calendar.exchange_calendar_code_for_tokens"
@@ -95,7 +104,7 @@ class TestConnectGoogleCalendar:
                 response = client.post(
                     "/auth/calendar/connect",
                     headers=auth_headers,
-                    json={"code": "invalid-code", "state": "test-state"},
+                    json={"code": "invalid-code", "state": state},
                 )
 
         assert response.status_code == 400
@@ -107,6 +116,98 @@ class TestConnectGoogleCalendar:
             json={"code": "test-code", "state": "test-state"},
         )
         assert response.status_code == 401
+
+    def test_connect_rejects_unknown_state(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        """A state the server never issued must be rejected (S7 CSRF defense)."""
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch(
+                "src.api.routes.calendar.exchange_calendar_code_for_tokens"
+            ) as mock_exchange:
+                response = client.post(
+                    "/auth/calendar/connect",
+                    headers=auth_headers,
+                    json={"code": "test-code", "state": "forged-state"},
+                )
+
+        assert response.status_code == 400
+        assert "state" in response.get_json()["error"]["message"].lower()
+        mock_exchange.assert_not_called()
+
+    def test_connect_state_is_single_use(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
+        """Replaying a consumed state must fail (S7)."""
+        from src.auth.oauth_state import issue_state
+
+        state = issue_state(test_user.id, "calendar")
+
+        def _post() -> Any:
+            return client.post(
+                "/auth/calendar/connect",
+                headers=auth_headers,
+                json={"code": "test-code", "state": state},
+            )
+
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            with patch(
+                "src.api.routes.calendar.exchange_calendar_code_for_tokens"
+            ) as mock_exchange:
+                mock_exchange.return_value = {
+                    "access_token": "test-access-token",
+                    "refresh_token": "test-refresh-token",
+                    "expires_in": 3600,
+                }
+                with patch("src.api.routes.calendar.get_google_calendar_user_info") as mock_user:
+                    mock_user.return_value = {"email": "user@example.com"}
+                    first = _post()
+                    replay = _post()
+
+        assert first.status_code == 200
+        assert replay.status_code == 400
+
+    def test_connect_rejects_expired_state(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
+        """A state older than the TTL must be rejected (S7)."""
+        import time as _time
+
+        from src.auth import oauth_state
+        from src.auth.oauth_state import issue_state
+
+        state = issue_state(test_user.id, "calendar")
+        with patch.object(
+            oauth_state.time,
+            "time",
+            return_value=_time.time() + oauth_state.OAUTH_STATE_TTL_SECONDS + 1,
+        ):
+            with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+                response = client.post(
+                    "/auth/calendar/connect",
+                    headers=auth_headers,
+                    json={"code": "test-code", "state": state},
+                )
+
+        assert response.status_code == 400
+
+    def test_connect_rejects_other_users_state(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_database: Database
+    ) -> None:
+        """A state issued to a DIFFERENT user must be rejected (S7)."""
+        from src.auth.oauth_state import issue_state
+
+        other = test_database.get_or_create_user(email="other@example.com", name="Other")
+        state = issue_state(other.id, "calendar")
+
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+            response = client.post(
+                "/auth/calendar/connect",
+                headers=auth_headers,
+                json={"code": "test-code", "state": state},
+            )
+
+        assert response.status_code == 400
 
 
 class TestDisconnectGoogleCalendar:

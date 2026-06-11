@@ -4,7 +4,6 @@ This module handles Google Calendar OAuth flow and calendar management.
 IMPORTANT: _get_valid_calendar_access_token is exported for use by planner and chat routes.
 """
 
-import uuid
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -99,7 +98,10 @@ def get_calendar_auth_url(user: User) -> dict[str, str]:
     if not _is_google_calendar_configured():
         raise_validation_error("Google Calendar integration is not configured")
 
-    state = str(uuid.uuid4())
+    from src.auth.oauth_state import issue_state
+
+    # State is stored server-side and validated on connect (S7)
+    state = issue_state(user.id, "calendar")
     auth_url = get_google_calendar_auth_url(state)
     logger.debug("Generated Google Calendar auth URL", extra={"user_id": user.id})
     return {"auth_url": auth_url, "state": state}
@@ -116,6 +118,13 @@ def connect_google_calendar(user: User, data: GoogleCalendarConnectRequest) -> d
         raise_validation_error("Google Calendar integration is not configured")
 
     logger.info("Google Calendar connection attempt", extra={"user_id": user.id})
+
+    from src.auth.oauth_state import consume_state
+
+    # CSRF defense (S7): the state must be one this server issued to THIS
+    # user, unexpired and never used before
+    if not consume_state(user.id, "calendar", data.state):
+        raise_validation_error("Invalid or expired OAuth state. Please restart the connection.")
 
     try:
         token_data = exchange_calendar_code_for_tokens(data.code)

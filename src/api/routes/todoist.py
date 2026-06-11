@@ -3,7 +3,6 @@
 This module handles Todoist OAuth flow and connection management.
 """
 
-import uuid
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -49,10 +48,11 @@ def get_todoist_auth_url(user: User) -> dict[str, str]:
     Returns a URL to redirect the user to for Todoist authorization.
     The state token should be stored and validated on callback.
     """
-    # Generate a unique state token for CSRF protection
-    state = str(uuid.uuid4())
-    # Store state in session or return to client for validation
-    # For simplicity, we return it and let the client store/validate it
+    from src.auth.oauth_state import issue_state
+
+    # State is stored server-side and validated on connect (S7) - the
+    # client still receives it to thread through the provider redirect
+    state = issue_state(user.id, "todoist")
     auth_url = get_authorization_url(state)
 
     logger.debug("Generated Todoist auth URL", extra={"user_id": user.id})
@@ -74,6 +74,13 @@ def connect_todoist(user: User, data: TodoistConnectRequest) -> dict[str, Any]:
     4. Frontend validates state matches, then calls this endpoint with code
     """
     logger.info("Todoist connection attempt", extra={"user_id": user.id})
+
+    from src.auth.oauth_state import consume_state
+
+    # CSRF defense (S7): the state must be one this server issued to THIS
+    # user, unexpired and never used before
+    if not consume_state(user.id, "todoist", data.state):
+        raise_validation_error("Invalid or expired OAuth state. Please restart the connection.")
 
     try:
         # Exchange code for access token
