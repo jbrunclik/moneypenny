@@ -135,9 +135,6 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
     hasPendingApproval: conv.has_pending_approval,
   });
 
-  // If the page died mid-stream in this conversation, resume from the journal
-  void resumeInflightStreamIfAny(conv.id);
-
   // Add agent conversation header after renderMessages (which clears the container)
   if (conv.is_agent && conv.agent_id) {
     const messagesContainer = getElementById<HTMLDivElement>('messages');
@@ -183,6 +180,13 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
       showLoadingIndicator();
     }
   }
+
+  // If the page died mid-stream in this conversation, resume from the journal.
+  // MUST run after the active-request restore above: the resume registers an
+  // active request of its own, and running first would make the restore path
+  // immediately re-create a competing bubble for it (the resume bails out when
+  // an active request already exists, so the two paths are mutually exclusive).
+  void resumeInflightStreamIfAny(conv.id);
 
   renderModelDropdown();
   closeSidebar();

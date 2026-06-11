@@ -185,6 +185,33 @@ test.describe('Resumable streams', () => {
     await page.waitForFunction(() => localStorage.getItem('inflight-streams') === null);
   });
 
+  test('stop button aborts a reload-resumed turn without recovery', async ({ page, request }) => {
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 400 } });
+
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Resume then stop me please');
+    await page.click('#send-btn');
+
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+    await page.waitForFunction(() => localStorage.getItem('inflight-streams') !== null);
+
+    // Reload mid-stream: the resume kicks in with a live streaming bubble
+    await page.reload();
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+
+    // The resumed turn is a first-class stream: the send button is in stop
+    // mode and clicking it aborts the resume reader (force: the stop button
+    // has an infinite pulse animation that never settles for Playwright)
+    await page.locator('#send-btn.btn-stop').click({ force: true });
+
+    await expect(page.locator('.message.assistant.streaming')).toHaveCount(0);
+    await expect(page.locator('.toast:has-text("Response stopped")')).toBeVisible();
+
+    // Terminal outcome: entry cleared, no recovery attempted
+    await page.waitForFunction(() => localStorage.getItem('inflight-streams') === null);
+    await expect(page.locator('.toast-info:has-text("Recovering")')).toHaveCount(0);
+  });
+
   test('background/foreground mid-stream aborts the reader and resumes', async ({ page, request }) => {
     await request.post('/test/set-stream-delay', { data: { delay_ms: 400 } });
 

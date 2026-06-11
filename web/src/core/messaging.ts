@@ -460,6 +460,9 @@ interface StreamingState {
   lastSeq: number;
   /** Set before aborting the reader to resume proactively (foreground/pageshow) */
   resumeViaAbort?: boolean;
+  /** The controller wired to the CURRENT reader (initial stream or a resume
+   * attempt) - the stop button and the proactive bg/fg abort target this */
+  activeAbortController?: AbortController;
   /** Count of token events received (for debugging) */
   tokenCount?: number;
 }
@@ -519,6 +522,7 @@ function initStreamingRequest(
     uploadProgressHidden: false,
     expectedAssistantMessageId: null,
     lastSeq: 0,
+    activeAbortController: abortController,
   };
 
   return { state, requestId, abortController };
@@ -830,9 +834,77 @@ function handleStreamError(
 }
 
 /**
+ * Point the conversation's tracked stream request at a new controller so the
+ * stop button (handleStopStreaming) aborts the reader that is actually live.
+ */
+function swapAbortController(convId: string, controller: AbortController): void {
+  for (const request of activeRequests.values()) {
+    if (request.conversationId === convId && request.type === 'stream') {
+      request.abortController = controller;
+    }
+  }
+}
+
+/**
+ * Background/foreground handling shared by the live stream and the
+ * reload-resume path. On hidden: mark for poll recovery (legacy fallback).
+ * On visible after a real background stint (or a bfcache restore): the reader
+ * is often silently dead (iOS froze the page / dropped the socket) and would
+ * otherwise hang until the read timeout - abort it and resume from the
+ * journal offset instead. Aborting BEFORE resuming also removes the
+ * recovery-vs-late-reader race (R13: buffered bytes overwriting recovery).
+ * Returns a cleanup function that removes the listeners.
+ */
+function setupStreamLifecycleListeners(state: StreamingState, convId: string): () => void {
+  let hiddenAt: number | null = null;
+
+  const proactiveResume = (): void => {
+    if (state.messageSuccessful || !state.expectedAssistantMessageId) return;
+    log.info('Foregrounded mid-stream - aborting reader and resuming from journal', {
+      conversationId: convId,
+      lastSeq: state.lastSeq,
+    });
+    state.resumeViaAbort = true;
+    state.activeAbortController?.abort();
+  };
+
+  const handleVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      if (state.expectedAssistantMessageId) {
+        markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'visibility');
+      }
+    } else if (document.visibilityState === 'visible') {
+      const hiddenLongEnough = hiddenAt !== null && Date.now() - hiddenAt >= 500;
+      hiddenAt = null;
+      if (hiddenLongEnough) {
+        proactiveResume();
+      }
+    }
+  };
+
+  // iOS bfcache restore can skip visibilitychange entirely (R14)
+  const handlePageShow = (event: PageTransitionEvent): void => {
+    if (event.persisted) {
+      proactiveResume();
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('pageshow', handlePageShow);
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('pageshow', handlePageShow);
+  };
+}
+
+/**
  * Handle stream ending without a done event.
  * This can happen if the connection drops mid-stream but the server still saves the message.
  * Uses the stream recovery module which handles retries for race conditions.
+ *
+ * Throws AbortError when the user stops the stream mid-resume; a proactive
+ * (foreground/pageshow) abort retries from the journal offset instead.
  */
 async function tryResumeStream(
   state: StreamingState,
@@ -844,6 +916,20 @@ async function tryResumeStream(
   const MAX_RESUME_ATTEMPTS = 3;
 
   for (let attempt = 0; attempt < MAX_RESUME_ATTEMPTS; attempt++) {
+    // An aborted controller at this point is either the user stopping the
+    // stream (during the backoff sleep, or the pre-resume reader) or the
+    // proactive bg/fg abort that brought us here - resumeViaAbort tells apart
+    if (state.activeAbortController?.signal.aborted && !state.resumeViaAbort) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+    state.resumeViaAbort = false;
+
+    // Fresh reader, fresh controller - swap it into the tracked request so
+    // the stop button and the bg/fg abort target the reader that is live
+    const controller = new AbortController();
+    state.activeAbortController = controller;
+    swapAbortController(convId, controller);
+
     try {
       log.info('Attempting stream resume', {
         conversationId: convId,
@@ -852,7 +938,7 @@ async function tryResumeStream(
         attempt,
       });
       clearPendingRecovery(convId);
-      for await (const event of chat.resumeStream(convId, messageId, state.lastSeq)) {
+      for await (const event of chat.resumeStream(convId, messageId, state.lastSeq, controller)) {
         if (typeof event.seq === 'number') {
           state.lastSeq = event.seq;
         }
@@ -885,6 +971,14 @@ async function tryResumeStream(
       }
       // Stream ended without done - retry (the save may still be in flight)
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        if (state.resumeViaAbort) {
+          // Foregrounded mid-resume: this reader is presumed dead - retry
+          // immediately from the journal offset (flag reset at loop top)
+          continue;
+        }
+        throw error; // User-initiated stop - propagate to the caller
+      }
       // 404 = no journal for this message (expired, or server without the
       // endpoint) - fall back to poll-based recovery immediately
       if (error instanceof ApiError && error.status === 404) {
@@ -958,12 +1052,16 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
     expectedAssistantMessageId: entry.messageId,
     lastSeq: 0,
   };
+  // One controller shared between the tracked request and the state so a
+  // stop click in the window before the first resume attempt is not lost
+  const abortController = new AbortController();
+  state.activeAbortController = abortController;
 
   const requestId = `resume-${convId}-${Date.now()}`;
   activeRequests.set(requestId, {
     conversationId: convId,
     type: 'stream',
-    abortController: new AbortController(),
+    abortController,
   });
   // Register in the store too: the getActiveRequest guard above blocks
   // re-entry from further conversation switches, and the switch-back restore
@@ -977,9 +1075,25 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
   useStore.getState().setStreamingConversation(convId);
   getSyncManager()?.setConversationStreaming(convId, true);
 
+  // Same bg/fg handling as a live stream: the resume reader can die in an
+  // iOS background stint too
+  const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
+
   let delivered = false;
   try {
-    delivered = await tryResumeStream(state, convId, '');
+    try {
+      delivered = await tryResumeStream(state, convId, '');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // User stopped the resumed turn - terminal, no recovery
+        log.info('Reload-resume aborted by user', { conversationId: convId });
+        (getStreamingMessageElement(convId) ?? messageEl).remove();
+        toast.info('Response stopped.');
+        clearPendingRecovery(convId);
+        return;
+      }
+      throw error;
+    }
     if (!delivered) {
       // Journal gone or turn dead - poll recovery handles saved-but-swept
       markStreamForRecovery(convId, entry.messageId, '', 'network');
@@ -989,6 +1103,7 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
       }
     }
   } finally {
+    cleanupLifecycleListeners();
     // The localStorage entry survives until HERE (terminal outcome): clearing
     // it up front meant a second reload mid-resume found nothing and silently
     // abandoned the still-running turn
@@ -1213,54 +1328,10 @@ async function sendStreamingMessage(
   const hasFiles = files && files.length > 0;
   const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
 
-  // Track if we set up recovery marking (for cleanup)
-  let visibilityListenerActive = false;
-  let hiddenAt: number | null = null;
-
-  // Background/foreground handling. On hidden: mark for poll recovery (legacy
-  // fallback) and remember when. On visible after a real background stint: the
-  // reader is often silently dead (iOS froze the page / dropped the socket) and
-  // would otherwise hang until the 60s read timeout - abort it and resume from
-  // the journal offset instead. Aborting BEFORE resuming also removes the
-  // recovery-vs-late-reader race (R13: buffered bytes overwriting recovery).
-  const proactiveResume = (): void => {
-    if (state.messageSuccessful || !state.expectedAssistantMessageId) return;
-    log.info('Foregrounded mid-stream - aborting reader and resuming from journal', {
-      conversationId: convId,
-      lastSeq: state.lastSeq,
-    });
-    state.resumeViaAbort = true;
-    abortController.abort();
-  };
-
-  const handleVisibilityChange = (): void => {
-    if (document.visibilityState === 'hidden') {
-      hiddenAt = Date.now();
-      if (state.expectedAssistantMessageId) {
-        markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'visibility');
-      }
-    } else if (document.visibilityState === 'visible') {
-      const hiddenLongEnough = hiddenAt !== null && Date.now() - hiddenAt >= 500;
-      hiddenAt = null;
-      if (hiddenLongEnough) {
-        proactiveResume();
-      }
-    }
-  };
-
-  // iOS bfcache restore can skip visibilitychange entirely (R14)
-  const handlePageShow = (event: PageTransitionEvent): void => {
-    if (event.persisted) {
-      proactiveResume();
-    }
-  };
+  // Mark for recovery on mobile background/lock; proactively resume on return
+  const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
 
   try {
-    // Add visibility listener to mark for recovery on mobile background/lock
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pageshow', handlePageShow);
-    visibilityListenerActive = true;
-
     for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode)) {
       // Hide upload progress on first event
       if (hasFiles && !state.uploadProgressHidden) {
@@ -1313,14 +1384,27 @@ async function sendStreamingMessage(
       clearPendingRecovery(convId);
       return;
     }
-    state.resumeViaAbort = false;
-
     log.error('Streaming failed', { error, conversationId: convId });
 
     // Attempt resume/recovery for network/timeout errors if we have an expected message ID
+    // (resumeViaAbort stays set on a proactive abort: tryResumeStream uses it
+    // to tell the aborted main reader apart from a user stop)
     if (state.expectedAssistantMessageId) {
       // Resume from the journal first: replays missed events and continues live
-      const resumed = await tryResumeStream(state, convId, tempUserMessageId);
+      let resumed: boolean;
+      try {
+        resumed = await tryResumeStream(state, convId, tempUserMessageId);
+      } catch (resumeError) {
+        if (resumeError instanceof Error && resumeError.name === 'AbortError') {
+          // User stopped the stream while a resume was in flight
+          log.info('Resume aborted by user', { conversationId: convId });
+          state.messageEl.remove();
+          toast.info('Response stopped.');
+          clearPendingRecovery(convId);
+          return;
+        }
+        throw resumeError;
+      }
       if (resumed) {
         state.messageSuccessful = true;
         return;
@@ -1351,11 +1435,7 @@ async function sendStreamingMessage(
       throw error;
     }
   } finally {
-    // Clean up visibility listeners
-    if (visibilityListenerActive) {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pageshow', handlePageShow);
-    }
+    cleanupLifecycleListeners();
     // The turn finished (or its failure was surfaced) in this page - only a
     // page that died mid-stream should resume after reload. Per-conversation:
     // other concurrent streams keep their entries.
