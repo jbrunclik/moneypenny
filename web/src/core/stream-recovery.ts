@@ -294,10 +294,13 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
 
       if (isCurrentConversation) {
         markStreamingMessageAsIncomplete(conversationId);
+      } else {
+        // No inline "Response incomplete" badge is visible from another
+        // conversation, so a toast is the only signal the user gets
+        toast.warning('Response may be incomplete');
       }
 
       loadingToast.dismiss();
-      toast.warning('Response may be incomplete');
       clearPendingRecovery(conversationId);
       return false;
     }

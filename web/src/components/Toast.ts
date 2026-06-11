@@ -27,6 +27,10 @@ export type { Notification } from '../state/store';
 // Default duration in milliseconds (0 = persistent)
 const DEFAULT_DURATION = 5000;
 
+// Cap the visible stack; older toasts collapse into a "+N more" indicator
+// and surface as newer ones dismiss
+const MAX_VISIBLE_TOASTS = 3;
+
 // Icons for each notification type
 const TYPE_ICONS: Record<string, string> = {
   success: CHECK_ICON,
@@ -182,8 +186,15 @@ function handleToastClick(e: MouseEvent): void {
 function renderToasts(notifications: Notification[]): void {
   if (!toastContainer) return;
 
-  // Build HTML for all toasts
-  const html = notifications
+  const visible = notifications.slice(-MAX_VISIBLE_TOASTS);
+  const hiddenCount = notifications.length - visible.length;
+  const overflowHtml =
+    hiddenCount > 0
+      ? `<div class="toast toast-overflow">+${hiddenCount} more notification${hiddenCount === 1 ? '' : 's'}</div>`
+      : '';
+
+  // Build HTML for the visible toasts
+  const html = visible
     .map((n) => {
       const icon = TYPE_ICONS[n.type] || INFO_ICON;
       const actionHtml = n.action
@@ -201,7 +212,7 @@ function renderToasts(notifications: Notification[]): void {
     })
     .join('');
 
-  toastContainer.innerHTML = html;
+  toastContainer.innerHTML = overflowHtml + html;
 }
 
 // Convenience functions for common toast types

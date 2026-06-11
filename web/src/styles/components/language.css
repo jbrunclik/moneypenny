@@ -53,17 +53,7 @@
     white-space: nowrap;
 }
 
-/* Nav row: hide label when multiple entries shown */
-.sidebar-nav-row:not(.single) .language-label {
-    display: none;
-}
-
-.sidebar-nav-row:not(.single) .language-entry {
-    flex: 1;
-    min-width: 0;
-    justify-content: center;
-}
-
+/* Nav row compact-tile layout lives in planner.css (shared by all entries) */
 .sidebar-nav-row.single .language-entry {
     flex: 1;
     justify-content: flex-start;
@@ -433,8 +423,18 @@
     font-weight: 500;
 }
 
+/* Continue is the card's primary action - full accent weight */
 .language-card-continue {
     gap: var(--space-1);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.language-card-continue:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: white;
 }
 
 .language-card-delete:hover {

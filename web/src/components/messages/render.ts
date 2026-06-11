@@ -14,6 +14,7 @@ import {
 } from '../../utils/thumbnails';
 import { createUserAvatarElement } from '../../utils/avatar';
 import { checkScrollButtonVisibility } from '../ScrollToBottom';
+import { renderWelcomeMessageHtml } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON } from '../../utils/icons';
 import { useStore } from '../../state/store';
 import { createLogger } from '../../utils/logger';
@@ -230,12 +231,10 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   container.classList.remove('has-sticky-header');
 
   if (messages.length === 0) {
-    container.innerHTML = `
-      <div class="welcome-message">
-        <h2>Welcome to AI Chatbot</h2>
-        <p>Start a conversation with Gemini AI</p>
-      </div>
-    `;
+    container.innerHTML = renderWelcomeMessageHtml();
+    // A button shown for a previous (scrollable) conversation would
+    // otherwise stay visible - no scroll event fires on content swap
+    checkScrollButtonVisibility();
     return;
   }
 

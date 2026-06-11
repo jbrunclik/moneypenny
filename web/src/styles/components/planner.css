@@ -57,11 +57,10 @@
 /* ----------------------------------------
    Sidebar Navigation Row
    ----------------------------------------
-   Displays planner and agents entries side by side.
-   When only one entry is shown (.single), it takes full width.
-
-   When both are shown, use compact layout (icons only).
-   When single, show full label.
+   Displays planner/agents/sports/language entries side by side.
+   When only one entry is shown (.single), it takes full width with
+   the label next to the icon. With multiple entries, each becomes a
+   compact tile: icon above a small label (icons alone are ambiguous).
 */
 
 .sidebar-nav-row {
@@ -76,10 +75,48 @@
     justify-content: center;
 }
 
-/* When both are shown (not single), hide labels for compact display */
+.sidebar-nav-row:not(.single) .planner-entry,
+.sidebar-nav-row:not(.single) .agents-entry,
+.sidebar-nav-row:not(.single) .sports-entry,
+.sidebar-nav-row:not(.single) .language-entry {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-2);
+}
+
 .sidebar-nav-row:not(.single) .planner-label,
-.sidebar-nav-row:not(.single) .agents-label {
-    display: none;
+.sidebar-nav-row:not(.single) .agents-label,
+.sidebar-nav-row:not(.single) .sports-label,
+.sidebar-nav-row:not(.single) .language-label {
+    display: block;
+    flex: none;
+    max-width: 100%;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* Badges sit in the tile corners so they don't push the column layout */
+.sidebar-nav-row:not(.single) .agents-entry .unread-badge {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+}
+
+.sidebar-nav-row:not(.single) .agents-entry .waiting-badge {
+    position: absolute;
+    top: var(--space-1);
+    left: var(--space-1);
+}
+
+.sidebar-nav-row:not(.single) .agents-entry .error-indicator {
+    position: absolute;
+    bottom: var(--space-1);
+    right: var(--space-1);
 }
 
 /* When only one entry is shown, show full label */

@@ -166,6 +166,16 @@
     border-color: var(--color-brand-600);
 }
 
+.quiz-continue:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.quiz-continue:disabled:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
 /* Hide button after quiz is answered */
 .quiz-block.answered .quiz-continue {
     display: none;

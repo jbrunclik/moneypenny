@@ -624,6 +624,15 @@
     animation: toast-exit 0.2s ease-in forwards;
 }
 
+/* Collapsed "+N more" indicator when the stack exceeds the visible cap */
+.toast-overflow {
+    justify-content: center;
+    padding: var(--space-1) var(--space-4);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    box-shadow: none;
+}
+
 @keyframes toast-enter {
     from {
         opacity: 0;
@@ -1956,6 +1965,18 @@
 .login-box {
     text-align: center;
     padding: var(--space-12);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    width: min(360px, calc(100vw - 2 * var(--space-4)));
+}
+
+.login-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
 }
 
 .login-box h2 {

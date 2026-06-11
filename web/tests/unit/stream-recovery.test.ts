@@ -390,7 +390,7 @@ describe('stream-recovery', () => {
       expect(hasPendingRecovery('conv-1')).toBe(false);
     }, 30000);
 
-    it('shows warning toast when message has no content, files, or images', async () => {
+    it('suppresses the warning toast when viewing the conversation (inline badge instead)', async () => {
       markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
       const conv = createConversation('conv-1');
       useStore.getState().addConversation(conv);
@@ -407,7 +407,9 @@ describe('stream-recovery', () => {
 
       await recoveryPromise;
 
-      expect(mockToastWarning).toHaveBeenCalledWith('Response may be incomplete');
+      // On the current conversation the "Response incomplete" badge is the
+      // signal; a toast would duplicate it
+      expect(mockToastWarning).not.toHaveBeenCalled();
     }, 30000);
 
     it('succeeds when message has files but no text content', async () => {
@@ -887,7 +889,10 @@ describe('stream-recovery', () => {
       markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
       const conv = createConversation('conv-1');
       useStore.getState().addConversation(conv);
-      useStore.getState().setCurrentConversation(conv);
+      // Viewing a different conversation: the toast is the only signal
+      const otherConv = createConversation('conv-2');
+      useStore.getState().addConversation(otherConv);
+      useStore.getState().setCurrentConversation(otherConv);
 
       // All calls return empty placeholder
       mockGetMessage.mockResolvedValue(createMessage('msg-123', ''));
@@ -907,7 +912,10 @@ describe('stream-recovery', () => {
       markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
       const conv = createConversation('conv-1');
       useStore.getState().addConversation(conv);
-      useStore.getState().setCurrentConversation(conv);
+      // Viewing a different conversation: the toast is the only signal
+      const otherConv = createConversation('conv-2');
+      useStore.getState().addConversation(otherConv);
+      useStore.getState().setCurrentConversation(otherConv);
 
       // First call returns empty, second returns 404 (user deleted message)
       mockGetMessage

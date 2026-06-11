@@ -23,6 +23,7 @@ import {
   initOrientationChangeHandler,
 } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
+import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
 import { initFileUpload } from '../components/FileUpload';
 import { initLightbox } from '../components/Lightbox';
@@ -101,10 +102,7 @@ export function renderAppShell(): string {
       </header>
 
       <div id="messages" class="messages">
-        <div class="welcome-message">
-          <h2>Welcome to AI Chatbot</h2>
-          <p>Start a conversation with Gemini AI</p>
-        </div>
+        ${renderWelcomeMessageHtml()}
       </div>
 
       <div class="input-area">
@@ -118,24 +116,24 @@ export function renderAppShell(): string {
                 </button>
                 <div id="model-dropdown" class="model-dropdown hidden"></div>
               </div>
-              <button id="stream-btn" class="btn-toolbar active" title="Toggle streaming" aria-pressed="true">
+              <button id="stream-btn" class="btn-toolbar active" title="Toggle streaming" aria-label="Toggle streaming" aria-pressed="true">
                 ${STREAM_ICON}
               </button>
-              <button id="search-btn" class="btn-toolbar" title="Force web search for next message">
+              <button id="search-btn" class="btn-toolbar" title="Force web search for next message" aria-label="Force web search for next message">
                 ${SEARCH_ICON}
               </button>
-              <button id="imagegen-btn" class="btn-toolbar" title="Force image generation for next message">
+              <button id="imagegen-btn" class="btn-toolbar" title="Force image generation for next message" aria-label="Force image generation for next message">
                 ${SPARKLES_ICON}
               </button>
-              <button id="anonymous-btn" class="btn-toolbar" title="Anonymous mode - disable memory and integrations">
+              <button id="anonymous-btn" class="btn-toolbar" title="Anonymous mode - disable memory and integrations" aria-label="Anonymous mode">
                 ${INCOGNITO_ICON}
               </button>
             </div>
             <div class="toolbar-right">
-              <button id="voice-btn" class="btn-toolbar btn-voice" title="Voice input" aria-pressed="false">
+              <button id="voice-btn" class="btn-toolbar btn-voice" title="Voice input" aria-label="Voice input" aria-pressed="false">
                 ${MICROPHONE_ICON}
               </button>
-              <button id="attach-btn" class="btn-toolbar" title="Attach files">
+              <button id="attach-btn" class="btn-toolbar" title="Attach files" aria-label="Attach files">
                 ${ATTACH_ICON}
               </button>
             </div>
@@ -148,7 +146,7 @@ export function renderAppShell(): string {
           </div>
           <div id="input-container" class="input-container">
             <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
-            <button id="send-btn" class="btn btn-send" disabled>
+            <button id="send-btn" class="btn btn-send" aria-label="Send message" disabled>
               ${SEND_ICON}
             </button>
           </div>
@@ -208,6 +206,7 @@ export function renderAppShell(): string {
     <!-- Login overlay -->
     <div id="login-overlay" class="login-overlay hidden">
       <div class="login-box">
+        <img class="login-logo" src="/static/icon-192.png" alt="" width="64" height="64">
         <h2>AI Chatbot</h2>
         <p>Sign in to continue</p>
         <div id="google-login-btn" class="google-btn-container"></div>

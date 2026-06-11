@@ -93,13 +93,17 @@ function renderQuiz(quiz: Quiz, insideBatch = false): string {
   }
 }
 
+// Continue buttons start disabled and are enabled once every question in
+// the block has an answer (see updateQuizContinueState)
+const CONTINUE_BUTTON_HTML = '<button class="quiz-continue" disabled>Send answer</button>';
+
 function renderMultipleChoice(quiz: MultipleChoiceQuiz, insideBatch = false): string {
   const optionsHtml = quiz.options
     .map((opt, i) => {
       return `<button class="quiz-option" data-index="${i}">${escapeHtml(opt)}</button>`;
     })
     .join('');
-  const buttonHtml = insideBatch ? '' : '<button class="quiz-continue">Send answer</button>';
+  const buttonHtml = insideBatch ? '' : CONTINUE_BUTTON_HTML;
 
   return `
     <div class="quiz-block quiz-multiple-choice">
@@ -112,7 +116,7 @@ function renderMultipleChoice(quiz: MultipleChoiceQuiz, insideBatch = false): st
 
 function renderFillBlank(quiz: FillBlankQuiz, insideBatch = false): string {
   const hintAttr = quiz.hint ? ` placeholder="${escapeHtml(quiz.hint)}"` : ' placeholder="Type your answer..."';
-  const buttonHtml = insideBatch ? '' : '<button class="quiz-continue">Send answer</button>';
+  const buttonHtml = insideBatch ? '' : CONTINUE_BUTTON_HTML;
 
   return `
     <div class="quiz-block quiz-fill-blank">
@@ -124,7 +128,7 @@ function renderFillBlank(quiz: FillBlankQuiz, insideBatch = false): string {
 }
 
 function renderTranslate(quiz: TranslateQuiz, insideBatch = false): string {
-  const buttonHtml = insideBatch ? '' : '<button class="quiz-continue">Send answer</button>';
+  const buttonHtml = insideBatch ? '' : CONTINUE_BUTTON_HTML;
 
   return `
     <div class="quiz-block quiz-translate">
@@ -145,7 +149,7 @@ function renderBatch(quiz: BatchQuiz): string {
     <div class="quiz-block quiz-batch">
       ${titleHtml}
       <div class="quiz-batch-questions">${questionsHtml}</div>
-      <button class="quiz-continue">Send answers</button>
+      <button class="quiz-continue" disabled>Send answers</button>
     </div>
   `;
 }
@@ -166,6 +170,41 @@ export function handleQuizOptionClick(optionBtn: HTMLButtonElement): void {
   const siblings = quizBlock.querySelectorAll('.quiz-option');
   for (const sib of siblings) sib.classList.remove('selected');
   optionBtn.classList.add('selected');
+
+  updateQuizContinueState(quizBlock);
+}
+
+/**
+ * Handle typing in a fill-blank/translate input — keeps the Send button
+ * gated on all questions having an answer.
+ */
+export function handleQuizInputChange(input: HTMLInputElement): void {
+  const quizBlock = input.closest('.quiz-block') as HTMLElement;
+  if (!quizBlock || quizBlock.classList.contains('answered')) return;
+  updateQuizContinueState(quizBlock);
+}
+
+function isBlockAnswered(el: HTMLElement): boolean {
+  if (el.classList.contains('quiz-multiple-choice')) {
+    return !!el.querySelector('.quiz-option.selected');
+  }
+  const input = el.querySelector('.quiz-text-input') as HTMLInputElement | null;
+  return !!input?.value?.trim();
+}
+
+/**
+ * Enable the block's Send button only when every question is answered.
+ * For batch quizzes the button lives on the outer block.
+ */
+function updateQuizContinueState(blockEl: HTMLElement): void {
+  const root = (blockEl.closest('.quiz-batch') as HTMLElement | null) ?? blockEl;
+  const continueBtn = root.querySelector('.quiz-continue') as HTMLButtonElement | null;
+  if (!continueBtn) return;
+
+  const isBatch = root.classList.contains('quiz-batch');
+  const blocks = isBatch ? root.querySelectorAll('.quiz-batch-item .quiz-block') : [root];
+  const allAnswered = Array.from(blocks).every((b) => isBlockAnswered(b as HTMLElement));
+  continueBtn.disabled = !allAnswered;
 }
 
 /**

@@ -477,9 +477,24 @@
     color: var(--accent);
 }
 
-.btn-run:hover {
-    border-color: var(--color-success-500);
-    color: var(--color-success-500);
+/* Run is the card's primary action - full accent weight, unlike the
+   quiet Edit icon button next to it */
+.btn-icon.btn-run {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.btn-icon.btn-run:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: white;
+}
+
+.agent-card--disabled .btn-icon.btn-run {
+    background: var(--bg-tertiary);
+    border-color: var(--border);
+    color: var(--text-muted);
 }
 
 .btn-run-labeled {
@@ -818,7 +833,8 @@
 }
 
 .section-toggle {
-    margin-left: auto;
+    /* Sits next to the badge - a lone chevron pushed to the far edge
+       reads as disconnected from the header it toggles */
     font-size: var(--font-size-xs);
     color: var(--text-muted);
     transition: transform var(--transition-fast);

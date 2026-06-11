@@ -47,6 +47,9 @@
     background: none;
     border: none;
     color: var(--text-primary);
+    /* Textareas don't inherit the body font; without this the input
+       (and placeholder) renders in the UA's monospace default */
+    font-family: inherit;
     font-size: var(--font-size-lg);
     line-height: var(--line-height);
     resize: none;

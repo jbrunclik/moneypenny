@@ -4,6 +4,7 @@ import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
 import { MOBILE_BREAKPOINT_PX } from '../config';
 import { addFilesToPending } from './FileUpload';
+import { checkScrollButtonVisibility } from './ScrollToBottom';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('message-input');
@@ -252,10 +253,9 @@ export function ensureInputAreaVisible(): void {
   if (inputArea) {
     inputArea.classList.remove('hidden');
   }
-  const scrollToBottomBtn = document.querySelector<HTMLButtonElement>('.scroll-to-bottom');
-  if (scrollToBottomBtn) {
-    scrollToBottomBtn.classList.remove('hidden');
-  }
+  // Recalculate instead of force-showing: unconditionally removing
+  // 'hidden' left the button floating over empty conversations
+  checkScrollButtonVisibility();
 }
 
 /**

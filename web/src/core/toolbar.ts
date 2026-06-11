@@ -28,6 +28,7 @@ export async function updateConversationCost(convId: string | null): Promise<voi
     // Only show cost if it's greater than 0
     if (costData.cost_usd > 0) {
       costEl.textContent = costData.formatted;
+      costEl.title = 'Total cost of this conversation';
     } else {
       costEl.textContent = '';
     }

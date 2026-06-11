@@ -19,7 +19,8 @@ import { navigateToSports } from './sports';
 import { navigateToLanguage } from './language';
 import { navigateToStorage } from './kv-store';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent } from './file-actions';
-import { handleQuizOptionClick, handleQuizContinue } from '../components/QuizBlock';
+import { sendSuggestedPrompt } from './messaging';
+import { handleQuizOptionClick, handleQuizContinue, handleQuizInputChange } from '../components/QuizBlock';
 
 const log = createLogger('events');
 
@@ -211,6 +212,16 @@ export function setupEventListeners(): void {
       return;
     }
 
+    // Welcome-screen suggested prompt chip
+    const suggestionChip = (e.target as HTMLElement).closest('.suggestion-chip');
+    if (suggestionChip) {
+      const prompt = (suggestionChip as HTMLElement).dataset.prompt;
+      if (prompt) {
+        sendSuggestedPrompt(prompt);
+      }
+      return;
+    }
+
     // Quiz option click (multiple-choice)
     const quizOption = (e.target as HTMLElement).closest('.quiz-option');
     if (quizOption) {
@@ -222,6 +233,14 @@ export function setupEventListeners(): void {
     const quizContinue = (e.target as HTMLElement).closest('.quiz-continue');
     if (quizContinue) {
       handleQuizContinue(quizContinue as HTMLButtonElement);
+    }
+  });
+
+  // Quiz text inputs gate the Send button on having an answer
+  getElementById('messages')?.addEventListener('input', (e) => {
+    const quizInput = (e.target as HTMLElement).closest('.quiz-text-input');
+    if (quizInput) {
+      handleQuizInputChange(quizInput as HTMLInputElement);
     }
   });
 }

@@ -438,7 +438,7 @@ test.describe('Visual: Settings Popup', () => {
                 <span class="settings-char-count">52/2000</span>
               </div>
               <div class="settings-field">
-                <label class="settings-label" for="whatsapp-phone">
+                <label class="settings-label settings-label-with-icon" for="whatsapp-phone">
                   <span class="settings-label-icon">${PHONE_ICON}</span>
                   WhatsApp Phone Number
                 </label>
@@ -499,7 +499,7 @@ test.describe('Visual: Settings Popup', () => {
                 <span class="settings-char-count">0/2000</span>
               </div>
               <div class="settings-field">
-                <label class="settings-label" for="whatsapp-phone">
+                <label class="settings-label settings-label-with-icon" for="whatsapp-phone">
                   <span class="settings-label-icon">${PHONE_ICON}</span>
                   WhatsApp Phone Number
                 </label>
@@ -561,7 +561,7 @@ test.describe('Visual: Settings Popup', () => {
                 <span class="settings-char-count warning">1850/2000</span>
               </div>
               <div class="settings-field">
-                <label class="settings-label" for="whatsapp-phone">
+                <label class="settings-label settings-label-with-icon" for="whatsapp-phone">
                   <span class="settings-label-icon">${PHONE_ICON}</span>
                   WhatsApp Phone Number
                 </label>
