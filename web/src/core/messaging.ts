@@ -217,16 +217,6 @@ function updateLocalThinkingState(
 // ============ Message Sending ============
 
 /**
- * Send one of the welcome-screen suggested prompts.
- */
-export function sendSuggestedPrompt(prompt: string): void {
-  const input = getElementById<HTMLTextAreaElement>('message-input');
-  if (!input) return;
-  input.value = prompt;
-  void sendMessage();
-}
-
-/**
  * Send a message.
  */
 export async function sendMessage(): Promise<void> {

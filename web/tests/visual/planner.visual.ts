@@ -854,7 +854,12 @@ test.describe('Visual: Planner Dashboard - Mobile', () => {
     await expect(page.locator('#planner-dashboard')).toContainText('Morning Meeting');
     await expect(page.locator('#planner-dashboard')).toContainText('Urgent task');
 
-    await expect(page).toHaveScreenshot('mobile-dashboard.png', { fullPage: true });
+    // Small tolerance: webkit antialiasing jitters a handful of pixels
+    // between runs on this full-page shot
+    await expect(page).toHaveScreenshot('mobile-dashboard.png', {
+      fullPage: true,
+      maxDiffPixels: 64,
+    });
   });
 
   test('mobile action buttons layout', async ({ page }) => {

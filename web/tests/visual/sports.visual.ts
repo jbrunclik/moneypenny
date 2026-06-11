@@ -97,7 +97,7 @@ test.describe('Visual: New Program Modal', () => {
     await page.goto('/#/sports');
     await page.waitForSelector('.sports-add-btn');
 
-    await page.locator('.sports-add-btn').click();
+    await page.locator('.sports-add-btn').first().click();
     await page.waitForSelector('.sports-modal-overlay');
     await page.waitForTimeout(200);
 
@@ -108,7 +108,7 @@ test.describe('Visual: New Program Modal', () => {
     await page.goto('/#/sports');
     await page.waitForSelector('.sports-add-btn');
 
-    await page.locator('.sports-add-btn').click();
+    await page.locator('.sports-add-btn').first().click();
     await page.waitForSelector('.sports-modal-overlay');
 
     // Open emoji popover and select a different emoji

@@ -19,7 +19,6 @@ import { navigateToSports } from './sports';
 import { navigateToLanguage } from './language';
 import { navigateToStorage } from './kv-store';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent } from './file-actions';
-import { sendSuggestedPrompt } from './messaging';
 import { handleQuizOptionClick, handleQuizContinue, handleQuizInputChange } from '../components/QuizBlock';
 
 const log = createLogger('events');
@@ -209,16 +208,6 @@ export function setupEventListeners(): void {
     const inlineCopyBtn = (e.target as HTMLElement).closest('.inline-copy-btn');
     if (inlineCopyBtn) {
       copyInlineContent(inlineCopyBtn as HTMLButtonElement);
-      return;
-    }
-
-    // Welcome-screen suggested prompt chip
-    const suggestionChip = (e.target as HTMLElement).closest('.suggestion-chip');
-    if (suggestionChip) {
-      const prompt = (suggestionChip as HTMLElement).dataset.prompt;
-      if (prompt) {
-        sendSuggestedPrompt(prompt);
-      }
       return;
     }
 
