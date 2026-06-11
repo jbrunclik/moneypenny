@@ -331,8 +331,12 @@ def _send_template_message(
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": agent_name},
-                        {"type": "text", "text": message},
+                        # Sanitize EVERY parameter at the boundary - Meta
+                        # rejects the whole send if any contains newlines,
+                        # tabs or 4+ consecutive spaces (the user-defined
+                        # agent name went in raw - R8)
+                        {"type": "text", "text": _sanitize_for_template(agent_name)},
+                        {"type": "text", "text": _sanitize_for_template(message)},
                     ],
                 }
             ],

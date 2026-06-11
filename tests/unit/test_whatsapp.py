@@ -171,6 +171,31 @@ class TestFormatAgentMessage:
         assert was_truncated is True
 
 
+class TestSendTemplateMessage:
+    """Template parameters must be Meta-safe (R8)."""
+
+    @patch("src.agent.tools.whatsapp._whatsapp_api_request")
+    def test_sanitizes_agent_name_parameter(self, mock_request: MagicMock) -> None:
+        """A user-defined agent name with newlines/tabs must not reach Meta
+        raw - the whole send is rejected otherwise."""
+        from src.agent.tools.whatsapp import _send_template_message
+
+        mock_request.return_value = {"messages": [{"id": "msg123"}]}
+
+        _send_template_message(
+            "+1234567890",
+            "agent_notification",
+            "Daily\nBriefing\t    Agent",
+            "hello",
+        )
+
+        params = mock_request.call_args.args[1]["template"]["components"][0]["parameters"]
+        agent_name_param = params[0]["text"]
+        assert "\n" not in agent_name_param
+        assert "\t" not in agent_name_param
+        assert "    " not in agent_name_param
+
+
 class TestWhatsAppApiRequest:
     """Tests for _whatsapp_api_request function."""
 
