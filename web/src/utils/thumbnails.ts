@@ -1,5 +1,6 @@
 import { files } from '../api/client';
 import { getElementById, scrollToBottom, scrollToElementTop, isScrolledToBottom, cancelSmoothScroll } from './dom';
+import { onMessagesScroll, offMessagesScroll } from './scroll-manager';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { createLogger } from './logger';
 import {
@@ -653,7 +654,7 @@ function setupUserScrollListener(): void {
         safelyDisableScrollOnImageLoad('user scrolled up');
     };
 
-    messagesContainer.addEventListener('scroll', userScrollListener, { passive: true });
+    onMessagesScroll('image-load-scroll-guard', userScrollListener);
 }
 
 /**
@@ -661,10 +662,7 @@ function setupUserScrollListener(): void {
  */
 function removeUserScrollListener(): void {
     if (userScrollListener) {
-        const messagesContainer = getElementById<HTMLDivElement>('messages');
-        if (messagesContainer) {
-            messagesContainer.removeEventListener('scroll', userScrollListener);
-        }
+        offMessagesScroll('image-load-scroll-guard');
         userScrollListener = null;
     }
 }

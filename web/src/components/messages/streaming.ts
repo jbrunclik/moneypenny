@@ -3,6 +3,7 @@
  */
 
 import { getElementById, scrollToBottom, isScrolledToBottom } from '../../utils/dom';
+import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { programmaticScrollToBottom } from '../../utils/thumbnails';
 import { checkScrollButtonVisibility, setStreamingPausedIndicator } from '../ScrollToBottom';
@@ -175,11 +176,12 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     }
   };
 
-  // Listen for user scroll interactions
+  // Listen for user scroll interactions (wheel/touchmove are interaction
+  // events, not scroll - they stay direct)
   container.addEventListener('wheel', handleUserScroll, { passive: true });
   container.addEventListener('touchmove', handleUserScroll, { passive: true });
   // Also listen for scroll events to detect when user scrolls back to bottom
-  container.addEventListener('scroll', scrollHandler, { passive: true });
+  onMessagesScroll('streaming-autoscroll-resume', scrollHandler);
 
   // Store cleanup function
   currentStreamingContext.scrollListenerCleanup = () => {
@@ -188,7 +190,7 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     }
     container.removeEventListener('wheel', handleUserScroll);
     container.removeEventListener('touchmove', handleUserScroll);
-    container.removeEventListener('scroll', scrollHandler);
+    offMessagesScroll('streaming-autoscroll-resume');
   };
 }
 

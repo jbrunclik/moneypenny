@@ -1,6 +1,7 @@
 import { getElementById, isScrolledToBottom, scrollToBottom } from '../utils/dom';
 import { CHEVRON_DOWN_ICON } from '../utils/icons';
 import { SCROLL_BUTTON_SHOW_THRESHOLD_PX } from '../config';
+import { onMessagesScroll } from '../utils/scroll-manager';
 
 let scrollButton: HTMLButtonElement | null = null;
 
@@ -54,7 +55,7 @@ export function initScrollToBottom(): void {
 
   // Scroll listener with debounce for performance
   let scrollTimeout: number | undefined;
-  messagesContainer.addEventListener('scroll', () => {
+  onMessagesScroll('scroll-button-visibility', () => {
     if (scrollTimeout) {
       cancelAnimationFrame(scrollTimeout);
     }

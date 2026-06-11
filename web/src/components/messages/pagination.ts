@@ -3,6 +3,7 @@
  */
 
 import { getElementById } from '../../utils/dom';
+import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { observeThumbnail } from '../../utils/thumbnails';
 import { conversations } from '../../api/client';
 import { useStore } from '../../state/store';
@@ -70,11 +71,11 @@ export function setupOlderMessagesScrollListener(conversationId: string): void {
     }, INFINITE_SCROLL_DEBOUNCE_MS);
   };
 
-  container.addEventListener('scroll', handleScroll, { passive: true });
+  onMessagesScroll('pagination-older', handleScroll);
 
   // Store cleanup function
   olderMessagesScrollCleanup = () => {
-    container.removeEventListener('scroll', handleScroll);
+    offMessagesScroll('pagination-older');
     if (debounceTimeout) {
       clearTimeout(debounceTimeout);
     }
@@ -372,11 +373,11 @@ export function setupNewerMessagesScrollListener(conversationId: string): void {
     }, INFINITE_SCROLL_DEBOUNCE_MS);
   };
 
-  container.addEventListener('scroll', handleScroll, { passive: true });
+  onMessagesScroll('pagination-newer', handleScroll);
 
   // Store cleanup function
   newerMessagesScrollCleanup = () => {
-    container.removeEventListener('scroll', handleScroll);
+    offMessagesScroll('pagination-newer');
     if (debounceTimeout) {
       clearTimeout(debounceTimeout);
     }
