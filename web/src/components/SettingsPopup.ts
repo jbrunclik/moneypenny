@@ -14,7 +14,8 @@ import {
   PHONE_ICON,
   ACTIVITY_ICON,
 } from '../utils/icons';
-import { settings, todoist, calendar, garmin, ApiError } from '../api/client';
+import { settings, todoist, calendar, garmin } from '../api/client';
+import { ApiError } from '../api/http';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import {

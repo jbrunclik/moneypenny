@@ -1,4 +1,5 @@
-import { auth, ApiError } from '../api/client';
+import { auth } from '../api/client';
+import { ApiError } from '../api/http';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';

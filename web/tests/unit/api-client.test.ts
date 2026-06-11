@@ -2,7 +2,8 @@
  * Unit tests for API client
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { auth, conversations, chat, models, config, files, costs, ApiError } from '@/api/client';
+import { auth, conversations, chat, models, config, files, costs } from '@/api/client';
+import { ApiError } from '@/api/http';
 
 // Create a mock localStorage
 const mockStorage: Record<string, string> = {};

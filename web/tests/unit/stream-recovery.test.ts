@@ -11,6 +11,11 @@ vi.mock('@/api/client', () => ({
     getMessage: vi.fn(),
     get: vi.fn(),
   },
+}));
+
+// ApiError moved to api/http (Q3 split) - the instanceof checks in
+// stream-recovery must see the same class the tests throw
+vi.mock('@/api/http', () => ({
   ApiError: class ApiError extends Error {
     status: number;
     constructor(message: string, status: number) {
@@ -81,7 +86,8 @@ import {
   getPendingRecovery,
   attemptRecovery,
 } from '@/core/stream-recovery';
-import { conversations as conversationsApi, ApiError } from '@/api/client';
+import { conversations as conversationsApi } from '@/api/client';
+import { ApiError } from '@/api/http';
 import { toast } from '@/components/Toast';
 import {
   updateStreamingMessage,

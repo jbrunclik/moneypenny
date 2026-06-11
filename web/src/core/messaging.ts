@@ -5,7 +5,8 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { conversations, chat, ApiError } from '../api/client';
+import { conversations, chat } from '../api/client';
+import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import {
   renderConversationsList,
