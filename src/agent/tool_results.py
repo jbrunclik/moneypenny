@@ -118,10 +118,21 @@ def _cleanup_stale_tool_results() -> None:
                 )
 
 
+_cleanup_thread_start_lock = threading.Lock()
+
+
 def _start_cleanup_thread() -> None:
-    """Start the background cleanup thread if not already running."""
+    """Start the background cleanup thread if not already running.
+
+    Double-checked: two gthread request threads racing past the unlocked
+    check would spawn duplicate cleanup loops.
+    """
     global _cleanup_thread
-    if _cleanup_thread is None or not _cleanup_thread.is_alive():
+    if _cleanup_thread is not None and _cleanup_thread.is_alive():
+        return
+    with _cleanup_thread_start_lock:
+        if _cleanup_thread is not None and _cleanup_thread.is_alive():
+            return
         _cleanup_thread_stop_event.clear()
         _cleanup_thread = threading.Thread(
             target=_cleanup_stale_tool_results,

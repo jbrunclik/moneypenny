@@ -364,9 +364,18 @@ def _cleanup_loop() -> None:
                 logger.debug("Browser session cleanup pass failed", exc_info=True)
 
 
+_cleanup_thread_lock = threading.Lock()
+
+
 def _start_cleanup_thread() -> None:
     global _cleanup_thread
-    if _cleanup_thread is None or not _cleanup_thread.is_alive():
+    # Double-checked: two gthread request threads racing past the unlocked
+    # check would spawn duplicate cleanup loops
+    if _cleanup_thread is not None and _cleanup_thread.is_alive():
+        return
+    with _cleanup_thread_lock:
+        if _cleanup_thread is not None and _cleanup_thread.is_alive():
+            return
         _cleanup_stop.clear()
         _cleanup_thread = threading.Thread(
             target=_cleanup_loop, daemon=True, name="browser-session-cleanup"
@@ -381,14 +390,28 @@ def _start_cleanup_thread() -> None:
 _browser_available: bool | None = None
 
 
+_browser_available_lock = threading.Lock()
+
+
 def is_browser_available() -> bool:
     """Check if Playwright is installed and Chromium browser is available.
 
-    Caches the result to avoid repeated checks.
+    Caches the result to avoid repeated checks. Double-checked locking: two
+    gthread request threads racing the first check would each launch a probe
+    Chromium concurrently.
     """
     global _browser_available
     if _browser_available is not None:
         return _browser_available
+    with _browser_available_lock:
+        if _browser_available is not None:
+            return _browser_available
+        return _probe_browser_available()
+
+
+def _probe_browser_available() -> bool:
+    """Run the actual Playwright/Chromium probe (callers hold the lock)."""
+    global _browser_available
 
     try:
         from playwright.sync_api import sync_playwright

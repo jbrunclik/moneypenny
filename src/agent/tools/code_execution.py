@@ -5,6 +5,7 @@ import json
 import mimetypes
 import os as local_os
 import tempfile
+import threading
 from typing import Any
 
 from langchain_core.tools import tool
@@ -17,17 +18,50 @@ logger = get_logger(__name__)
 
 # Flag to track if Docker is available for code execution
 _docker_available: bool | None = None
+_docker_available_lock = threading.Lock()
+
+# Session settings shared by the availability probe and execute_code (S4):
+# probing with different settings than real executions can pass while
+# executions fail (or vice versa).
+# - network_disabled: generated code must not have network access; llm-sandbox
+#   does NOT disable networking by default (verified on 0.3.31)
+# - skip_environment_setup: every library is pre-installed in the custom image
+#   (make sandbox-image); the default setup runs an in-container pip upgrade,
+#   which needs the network we just disabled
+_SANDBOX_SESSION_KWARGS: dict[str, Any] = {
+    "lang": "python",
+    "verbose": False,
+    "skip_environment_setup": True,
+}
+
+
+def _sandbox_runtime_configs() -> dict[str, Any]:
+    return {
+        "network_disabled": True,
+        "mem_limit": Config.CODE_SANDBOX_MEMORY_LIMIT,
+        "nano_cpus": int(Config.CODE_SANDBOX_CPU_LIMIT * 1_000_000_000),
+    }
 
 
 def _check_docker_available() -> bool:
     """Check if Docker is available for code execution.
 
-    Caches the result to avoid repeated checks.
-    Verifies that the custom sandbox image exists.
+    Caches the result to avoid repeated checks. Double-checked locking: two
+    gthread request threads racing the first check would each spin up a
+    probe sandbox container.
     """
     global _docker_available
     if _docker_available is not None:
         return _docker_available
+    with _docker_available_lock:
+        if _docker_available is not None:
+            return _docker_available
+        return _probe_docker_available()
+
+
+def _probe_docker_available() -> bool:
+    """Run the actual Docker/sandbox probe (callers hold the lock)."""
+    global _docker_available
 
     try:
         import subprocess
@@ -59,10 +93,15 @@ def _check_docker_available() -> bool:
             )
             return _docker_available
 
-        # Verify Docker connectivity with a quick test
+        # Verify Docker connectivity with a quick test, using the SAME
+        # session settings as execute_code
         from llm_sandbox import SandboxSession
 
-        with SandboxSession(lang="python", image=Config.CODE_SANDBOX_IMAGE) as session:
+        with SandboxSession(
+            image=Config.CODE_SANDBOX_IMAGE,
+            runtime_configs=_sandbox_runtime_configs(),
+            **_SANDBOX_SESSION_KWARGS,
+        ) as session:
             result = session.run("print('ok')")
             _docker_available = result.exit_code == 0
             if _docker_available:
@@ -434,24 +473,13 @@ def execute_code(code: str) -> str:
 
         wrapped_code = _wrap_user_code(code)
 
-        # Create sandbox session with security constraints (S4).
-        # llm-sandbox does NOT disable networking by default (verified against
-        # 0.3.31: container_config has no network settings) - pass it
-        # explicitly, along with the resource limits from config.
-        # skip_environment_setup: every library in CODE_SANDBOX_LIBRARIES is
-        # pre-installed in the custom image (make sandbox-image); the default
-        # setup creates a venv and runs 'pip install --upgrade pip', which
-        # needs the network we just disabled.
+        # Create sandbox session with security constraints (S4): networking
+        # disabled + resource limits, shared with the availability probe -
+        # see _SANDBOX_SESSION_KWARGS for the rationale.
         with SandboxSession(
-            lang="python",
             image=Config.CODE_SANDBOX_IMAGE,
-            verbose=False,
-            skip_environment_setup=True,
-            runtime_configs={
-                "network_disabled": True,
-                "mem_limit": Config.CODE_SANDBOX_MEMORY_LIMIT,
-                "nano_cpus": int(Config.CODE_SANDBOX_CPU_LIMIT * 1_000_000_000),
-            },
+            runtime_configs=_sandbox_runtime_configs(),
+            **_SANDBOX_SESSION_KWARGS,
         ) as session:
             logger.debug("Sandbox session created, executing code")
 
