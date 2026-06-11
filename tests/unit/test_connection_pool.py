@@ -119,3 +119,49 @@ class TestConnectionPoolReaping:
         done.set()
         t.join()
         pool.close_all()
+
+
+class TestIdentRecyclingSafety:
+    """The dead-thread finalizer must never close a recycled ident's live
+    connection.
+
+    Thread idents are recycled by the OS: a finalizer registered by a dead
+    thread can fire AFTER a new thread (with the same ident) stored its own
+    connection under that key. Closing the dict's current entry closed the
+    live connection mid-use and segfaulted sqlite3 (observed on CI).
+    """
+
+    def test_finalizer_closes_only_its_own_connection(self, tmp_path: Path) -> None:
+        pool = ConnectionPool(tmp_path / "test.db")
+        ident = 12345
+
+        old_conn = pool._create_connection()  # dead thread's connection
+        new_conn = pool._create_connection()  # live thread reusing the ident
+        pool._connections[ident] = new_conn
+
+        # Dead thread's finalizer fires with ITS connection, not the dict's
+        ConnectionPool._release_connection(pool._lock, pool._connections, ident, old_conn)
+
+        # The live thread's entry survives and its connection still works
+        assert pool._connections[ident] is new_conn
+        new_conn.execute("SELECT 1")
+
+        # The dead thread's connection was closed
+        try:
+            old_conn.execute("SELECT 1")
+            raise AssertionError("old connection should be closed")
+        except Exception:
+            pass
+
+        new_conn.close()
+
+    def test_finalizer_pops_matching_entry(self, tmp_path: Path) -> None:
+        pool = ConnectionPool(tmp_path / "test.db")
+        ident = 54321
+
+        conn = pool._create_connection()
+        pool._connections[ident] = conn
+
+        ConnectionPool._release_connection(pool._lock, pool._connections, ident, conn)
+
+        assert ident not in pool._connections

@@ -62,6 +62,7 @@ class ConnectionPool:
         lock: threading.Lock,
         connections: dict[int, sqlite3.Connection],
         thread_id: int,
+        conn: sqlite3.Connection,
     ) -> None:
         """Release a connection when its owning thread is garbage-collected.
 
@@ -69,14 +70,22 @@ class ConnectionPool:
         providing automatic cleanup for short-lived threads. Uses only the
         arguments passed at registration time (no reference to self, which
         would prevent GC of the pool itself).
+
+        CRITICAL: closes the exact connection registered for the dead thread,
+        never whatever currently sits under the ident key - thread idents are
+        RECYCLED by the OS, so by the time this finalizer fires the key may
+        map to a NEW thread's live connection. Popping and closing that one
+        segfaulted sqlite3 mid-execute on the new thread (observed on CI with
+        a faulthandler dump: request thread inside execute_with_timing while
+        a dead thread's weakref callback ran _release_connection).
         """
         with lock:
-            conn = connections.pop(thread_id, None)
-        if conn is not None:
-            try:
-                conn.close()
-            except sqlite3.Error:
-                pass
+            if connections.get(thread_id) is conn:
+                connections.pop(thread_id, None)
+        try:
+            conn.close()
+        except sqlite3.Error:
+            pass
 
     def _reap_dead_threads(self) -> None:
         """Close connections for threads that no longer exist.
@@ -159,6 +168,7 @@ class ConnectionPool:
             self._lock,
             self._connections,
             thread_id,
+            conn,
         )
 
         logger.debug(
@@ -209,7 +219,10 @@ class ConnectionPool:
             self._local.connection = None
 
             with self._lock:
-                self._connections.pop(thread_id, None)
+                # Identity-guarded for the same ident-recycling reason as
+                # _release_connection
+                if self._connections.get(thread_id) is conn:
+                    self._connections.pop(thread_id, None)
 
             logger.debug(
                 "Closed thread connection",
