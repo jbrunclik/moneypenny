@@ -185,18 +185,24 @@ class BlobStore:
             return 0
 
         logger.debug("Deleting blobs by prefixes", extra={"prefix_count": len(prefixes)})
+        # The WHERE clause is built only from '?' placeholders (one per
+        # prefix, always bound) - chunked so a large batch (e.g. deleting a
+        # long conversation) cannot exceed SQLite's bound-variable limit
+        chunk_size = 500
+        count = 0
         with self._pool.get_connection() as conn:
-            # Build OR conditions for each prefix
-            conditions = " OR ".join(["key LIKE ?" for _ in prefixes])
-            params = tuple(prefix + "%" for prefix in prefixes)
+            for i in range(0, len(prefixes), chunk_size):
+                chunk = prefixes[i : i + chunk_size]
+                conditions = " OR ".join(["key LIKE ?"] * len(chunk))
+                params = tuple(prefix + "%" for prefix in chunk)
 
-            cursor = self._execute_with_timing(
-                conn,
-                f"DELETE FROM blobs WHERE {conditions}",
-                params,
-            )
+                cursor = self._execute_with_timing(
+                    conn,
+                    f"DELETE FROM blobs WHERE {conditions}",  # noqa: S608 - placeholders only
+                    params,
+                )
+                count += cursor.rowcount
             conn.commit()
-            count = cursor.rowcount
 
         logger.debug(
             "Blobs deleted by prefixes",

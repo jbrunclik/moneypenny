@@ -110,6 +110,19 @@ class TestBlobStore:
         # Other message should still exist
         assert blob_store.exists("msg-444/0")
 
+    def test_delete_by_prefixes_chunks_large_batches(self, blob_store):
+        """More prefixes than one chunk (500) must not hit SQLite's
+        bound-variable limit and must delete across chunk boundaries."""
+        for i in (0, 499, 500, 1199):
+            blob_store.save(f"msg-{i:04d}/0", b"x", "text/plain")
+
+        prefixes = [f"msg-{i:04d}/" for i in range(1200)]
+        count = blob_store.delete_by_prefixes(prefixes)
+
+        assert count == 4
+        for i in (0, 499, 500, 1199):
+            assert not blob_store.exists(f"msg-{i:04d}/0")
+
     def test_delete_by_prefixes_empty_list(self, blob_store):
         """Test that empty prefix list returns 0 without error."""
         blob_store.save("msg-123/0", b"file0", "text/plain")
