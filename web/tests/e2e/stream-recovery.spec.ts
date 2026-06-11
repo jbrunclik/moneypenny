@@ -24,7 +24,10 @@ test.describe('Stream Recovery - Visibility Changes', () => {
     }
   });
 
-  test('recovers message after page hidden during stream', async ({ page }) => {
+  test('recovers message after page hidden during stream', async ({ page, request }) => {
+    // Slow the stream so the mid-stream state is reliably observable
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 100 } });
+
     // Create a conversation and start streaming
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Tell me a short story');
@@ -107,7 +110,11 @@ test.describe('Stream Recovery - Visibility Changes', () => {
     await expect(assistantMessage).not.toHaveClass(/streaming/);
   });
 
-  test('no recovery for user-initiated abort', async ({ page }) => {
+  test('no recovery for user-initiated abort', async ({ page, request }) => {
+    // Slow the mock stream so the abort genuinely lands mid-stream
+    // (at the default 10ms/token the stream finishes before the click)
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 200 } });
+
     // Create a conversation
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Write me a very long essay about the history of computing');
@@ -116,18 +123,16 @@ test.describe('Stream Recovery - Visibility Changes', () => {
     // Wait for streaming to start
     await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
 
-    // Click the stop button to abort
-    const stopBtn = page.locator('#stop-btn');
-    if (await stopBtn.isVisible()) {
-      await stopBtn.click();
-    } else {
-      // In some implementations the send button becomes stop during streaming
-      const sendBtn = page.locator('#send-btn');
-      await sendBtn.click();
-    }
+    // During streaming the send button switches to stop mode - click to abort.
+    // force: the stop button has an infinite pulse animation (transform: scale)
+    // so Playwright's stability check would never pass; the toast assertion
+    // below verifies the abort actually took effect.
+    const stopBtn = page.locator('#send-btn.btn-stop');
+    await stopBtn.click({ force: true });
 
-    // Wait a moment for abort to process
-    await page.waitForTimeout(500);
+    // Abort removes the streaming bubble and confirms via toast
+    await expect(page.locator('.message.assistant.streaming')).toHaveCount(0);
+    await expect(page.locator('.toast:has-text("Response stopped")')).toBeVisible();
 
     // Simulate visibility change
     await page.evaluate(() => {
@@ -159,7 +164,10 @@ test.describe('Stream Recovery - Visibility Changes', () => {
     // The key assertion is that no recovery is attempted after visibility change.
   });
 
-  test('works on mobile viewport', async ({ page }) => {
+  test('works on mobile viewport', async ({ page, request }) => {
+    // Slow the stream so the mid-stream state is reliably observable
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 100 } });
+
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 812 });
 
@@ -220,7 +228,10 @@ test.describe('Stream Recovery - Quick Return', () => {
     }
   });
 
-  test('no recovery triggered for very short hide duration', async ({ page }) => {
+  test('no recovery triggered for very short hide duration', async ({ page, request }) => {
+    // Slow the stream so the mid-stream state is reliably observable
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 100 } });
+
     // Create conversation and start streaming
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test quick hide');
@@ -273,7 +284,10 @@ test.describe('Stream Recovery - Edge Cases', () => {
     }
   });
 
-  test('handles multiple visibility changes during stream', async ({ page }) => {
+  test('handles multiple visibility changes during stream', async ({ page, request }) => {
+    // Slow the stream so it outlasts the three hide/show cycles below
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 100 } });
+
     // Create conversation
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Tell me about space exploration');
@@ -316,12 +330,15 @@ test.describe('Stream Recovery - Edge Cases', () => {
     expect(content?.trim()).not.toBe('');
   });
 
-  test('handles conversation switch during recovery', async ({ page }) => {
+  test('handles conversation switch during recovery', async ({ page, request }) => {
     // Create first conversation
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation message');
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
+
+    // Slow the stream so the second conversation is reliably mid-stream
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 100 } });
 
     // Create second conversation and start streaming
     await page.click('#new-chat-btn');
