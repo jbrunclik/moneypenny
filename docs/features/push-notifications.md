@@ -73,15 +73,31 @@ are already in place.
 `url` is an in-app hash route; the worker navigates an existing app
 window to it (or opens one).
 
-## Current senders (Phase 1)
+## Current senders
 
 - **Agent execution finished** — `src/agent/executor.py` success path;
   `tag: agent-<id>` so re-runs replace the previous notification;
   deep-links to the agent's conversation.
 - **Agent waiting for approval** — `ApprovalRequestedException` path;
   `tag: approval-<id>`; deep-links to `/#/agents`.
+- **Chat turn finished while backgrounded** — when an interactive turn
+  completes but no client is connected (mobile screen lock / app
+  backgrounded triggers the client's proactive abort), the
+  saved-but-undelivered paths in `src/api/helpers/chat_streaming.py`
+  send "Your answer is ready" (`tag: turn-<conv-id>`). Covered paths:
+  cleanup-thread save, done-event write failure, and the approval
+  finalize with a disconnected client ("Approval needed"). Pairs with
+  stream resume: tapping the notification opens the conversation, which
+  replays from the journal or loads the saved message.
+
+### Focused-client suppression
+
+The service worker skips `showNotification` when a focused window's URL
+hash already matches the payload's target route — if you're staring at
+the conversation when the push arrives, no banner. This also absorbs the
+race where the user foregrounds (triggering resume) just as the
+turn-finished push lands.
 
 ## Planned (see TODO.md)
 
-- Turn-finished-while-backgrounded (stream journal consumed flag)
 - Daily Briefing, planner reminders, program nudges, budget alerts

@@ -34,11 +34,31 @@ from src.api.utils import (
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
+from src.utils.push import send_push_to_user
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Message, User
 
 logger = get_logger(__name__)
+
+
+def _notify_response_ready(user_id: str, conv_id: str, content: str) -> None:
+    """Web-push "answer ready" for a finished turn no connected client saw.
+
+    Fire-and-forget (no-op without VAPID keys). The service worker
+    suppresses the notification when a focused window is already viewing
+    the conversation, so a quick foreground+resume doesn't also show a
+    stray banner.
+    """
+    body = content.strip().split("\n", 1)[0][:160] or "Open the app to view it."
+    send_push_to_user(
+        user_id,
+        "Your answer is ready",
+        body,
+        url=f"/#/conversations/{conv_id}",
+        tag=f"turn-{conv_id}",
+    )
+
 
 # Appended to partial content when an interactive chat turn hits CHAT_TIMEOUT.
 STREAM_TIMEOUT_MARKER = "\n\n_…(response timed out)_"
@@ -323,6 +343,11 @@ def cleanup_and_save(
                 # Save the message and mark as saved
                 save_func()
                 final_results["saved"] = True
+                # The turn finished but no client was connected to see it
+                # (typically mobile screen lock) - nudge the user's devices
+                _notify_response_ready(
+                    user_id, conv_id, str(final_results.get("clean_content") or "")
+                )
             elif generator_finished:
                 logger.debug(
                     "Generator completed, cleanup thread not needed",
@@ -1010,6 +1035,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                 "error": str(e),
             },
         )
+        _notify_response_ready(context.user_id, context.conv_id, assistant_msg.content or "")
 
 
 def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
@@ -1054,7 +1080,18 @@ def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
     set_current_message_files(None)
     set_conversation_context(None, None)
 
+    def notify_approval_needed() -> None:
+        # The turn is blocked on the user and nobody saw the request
+        send_push_to_user(
+            context.user_id,
+            "Approval needed",
+            description[:160],
+            url=f"/#/conversations/{context.conv_id}",
+            tag=f"approval-{approval_id}",
+        )
+
     if not context.client_connected:
+        notify_approval_needed()
         return
 
     # Build done event with the approval message
@@ -1080,6 +1117,7 @@ def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
                 "error": str(e),
             },
         )
+        notify_approval_needed()
 
 
 def _handle_generator_error(context: _StreamContext, error: Exception) -> Generator[str]:

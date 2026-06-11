@@ -27,15 +27,35 @@ self.addEventListener('push', (event) => {
   }
 
   const title = payload.title || 'AI Chatbot';
+  const url = payload.url || '/';
   const options = {
     body: payload.body || '',
     icon: '/static/icon-192.png',
     badge: '/static/icon-192.png',
     tag: payload.tag || undefined,
-    data: { url: payload.url || '/' },
+    data: { url },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      // Suppress when a focused window is already viewing the target
+      // route - the user is looking at the answer right now
+      const hashIndex = url.indexOf('#');
+      const targetHash = hashIndex >= 0 ? url.slice(hashIndex) : null;
+      if (targetHash) {
+        const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const viewingTarget = wins.some((client) => {
+          try {
+            return client.focused && new URL(client.url).hash === targetHash;
+          } catch {
+            return false;
+          }
+        });
+        if (viewingTarget) return;
+      }
+      await self.registration.showNotification(title, options);
+    })()
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
