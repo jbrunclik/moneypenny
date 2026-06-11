@@ -32,6 +32,12 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 - [ ] **Spaced repetition for language learning** - SRS review queue over weak vocabulary (kv_store) reusing quiz blocks; daily review nudge via agent.
 - [ ] **Health/recovery coach program** - Third program type on Garmin data. Prerequisite: Q2 dedup below.
 
+## In Progress (ordered, before S8)
+
+- [ ] **Fix CI: 3 failing E2E specs** - conversation-switch.spec.ts:369/418 (duplicate streaming bubble on switch-back) + stream-recovery.spec.ts:110 (abort spec timeout). Cause: `resumeInflightStreamIfAny` runs on every conversation switch, creating a competing bubble and consuming the localStorage entry while the stream is still live in-tab.
+- [ ] **Fix stream-resume 2nd-reload bug** - User-reported: entry is cleared one-shot at the start of `resumeInflightStreamIfAny`, so a second reload mid-stream shows nothing and never resumes. Clear only on terminal outcome; re-entrancy via in-memory Set; add double-reload E2E spec.
+- [ ] **Resume feature self-review** - Walk all entry points (live stream, reload resume, switch-back restore, visibility/pageshow, abort, recovery fallback, concurrent conversations, localStorage lifecycle) for more unthought-through interactions; fix what's found.
+
 ## Security
 
 - [ ] **Server-side OAuth state validation (S7)** - High. `routes/todoist.py:50`, `routes/calendar.py`: server never validates `state` on callback. Store server-side (kv_store + TTL), validate + invalidate.
