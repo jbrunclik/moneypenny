@@ -140,6 +140,14 @@ function isArchiveViewVisible(): boolean {
   return useStore.getState().isArchiveView;
 }
 
+// Last HTML written to the conversations list (F3): callers re-render on
+// every sync poll even when nothing changed - the string compare lets the
+// no-op case skip the DOM entirely. The first-child anchor detects when
+// ANY other renderer (search results, archive, tests rebuilding the DOM)
+// has since written to the shared container, forcing a real render.
+let lastRenderedListHtml = '';
+let lastRenderedFirstChild: Element | null = null;
+
 /**
  * Render the conversations list in the sidebar
  * If search is active, renders search results instead
@@ -151,12 +159,14 @@ export function renderConversationsList(): void {
 
   // If search is active, render search results instead
   if (isSearchResultsVisible()) {
+    lastRenderedListHtml = '';
     renderSearchResults();
     return;
   }
 
   // If archive view is active, render archive view instead
   if (isArchiveViewVisible()) {
+    lastRenderedListHtml = '';
     renderArchiveView(container);
     return;
   }
@@ -190,6 +200,7 @@ export function renderConversationsList(): void {
   }
 
   if (isLoading && conversations.length === 0) {
+    lastRenderedListHtml = '';
     container.innerHTML = navEntriesHtml + `
       <div class="conversations-loading">
         <div class="loading-spinner"></div>
@@ -199,6 +210,7 @@ export function renderConversationsList(): void {
   }
 
   if (conversations.length === 0) {
+    lastRenderedListHtml = '';
     container.innerHTML = navEntriesHtml + `
       <div class="conversations-empty">
         <p>No conversations yet</p>
@@ -224,7 +236,20 @@ export function renderConversationsList(): void {
       </div>`
     : '';
 
-  container.innerHTML = navEntriesHtml + conversationsHtml + loadMoreHtml;
+  const listHtml = navEntriesHtml + conversationsHtml + loadMoreHtml;
+  // F3: skip no-op renders entirely (preserves scroll position and hover
+  // state across sync polls); when content DID change, keep the offset
+  const unchanged =
+    listHtml === lastRenderedListHtml &&
+    lastRenderedFirstChild !== null &&
+    container.firstElementChild === lastRenderedFirstChild;
+  if (!unchanged) {
+    const scrollTop = container.scrollTop;
+    container.innerHTML = listHtml;
+    container.scrollTop = scrollTop;
+    lastRenderedListHtml = listHtml;
+    lastRenderedFirstChild = container.firstElementChild;
+  }
 
   // Render archive entry in its own pinned container (always visible, not scrolled)
   renderArchiveEntry();
