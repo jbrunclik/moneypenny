@@ -169,17 +169,19 @@ test.describe('Visual: Sports Mobile', () => {
     await expect(page.locator('.main')).toHaveScreenshot('programs-mobile.png');
   });
 
-  test('program header mobile', async ({ page }) => {
+  test('program view mobile', async ({ page }) => {
     await page.request.post('/test/set-sports-programs', {
       data: { programs: SAMPLE_PROGRAMS },
     });
 
     await page.goto('/#/sports/pushups');
-    await page.waitForSelector('.sports-program-header');
+    // The dedicated program header is display:none on mobile by design -
+    // the layout's top bar carries the program title instead, so capture
+    // the whole program view
+    await page.waitForSelector('.sports-program-header', { state: 'attached' });
+    await page.waitForSelector('.message.assistant');
     await page.waitForTimeout(300);
 
-    await expect(page.locator('.sports-program-header')).toHaveScreenshot(
-      'program-header-mobile.png',
-    );
+    await expect(page.locator('.main')).toHaveScreenshot('program-view-mobile.png');
   });
 });

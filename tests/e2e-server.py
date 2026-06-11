@@ -1037,10 +1037,10 @@ def main() -> None:
             data = flask_request.get_json() or {}
             programs = data.get("programs", [])
 
-            # Get test user
-            user = proxy_db.get_user_by_email("test@example.com")
-            if not user:
-                return {"error": "Test user not found"}, 404
+            # Get or create the same user that auth bypass uses
+            # (get_user_by_email never existed on Database - this endpoint
+            # 500'd from birth and the visual specs depending on it with it)
+            user = g.db.get_or_create_user(email="local@localhost", name="Local User")
 
             proxy_db.kv_set(user.id, "sports", "programs", json.dumps(programs))
             return {"status": "set", "count": len(programs)}, 200
@@ -1055,10 +1055,8 @@ def main() -> None:
             data = flask_request.get_json() or {}
             programs = data.get("programs", [])
 
-            # Get test user
-            user = proxy_db.get_user_by_email("test@example.com")
-            if not user:
-                return {"error": "Test user not found"}, 404
+            # Get or create the same user that auth bypass uses
+            user = g.db.get_or_create_user(email="local@localhost", name="Local User")
 
             proxy_db.kv_set(user.id, "language", "programs", json.dumps(programs))
             return {"status": "set", "count": len(programs)}, 200
