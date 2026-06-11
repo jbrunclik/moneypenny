@@ -588,9 +588,7 @@ def stream_events(
         # _finalize_approval_stream re-writes the same content (idempotent).
         if journal_message_id:
             try:
-                approval_message = build_approval_message(
-                    e.approval_id, e.description, e.tool_name
-                )
+                approval_message = build_approval_message(e.approval_id, e.description, e.tool_name)
                 if db.update_message_content(journal_message_id, approval_message):
                     final_results["saved"] = True
             except Exception:
