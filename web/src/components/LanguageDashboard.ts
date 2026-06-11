@@ -45,6 +45,7 @@ export function createLanguageProgramsElement(
     empty.innerHTML = `
       <p>No language programs yet.</p>
       <p class="language-empty-hint">Create a program to start learning with your AI tutor.</p>
+      <button class="language-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>
     `;
     container.appendChild(empty);
   } else {
@@ -56,9 +57,9 @@ export function createLanguageProgramsElement(
     container.appendChild(grid);
   }
 
-  // "New Program" button opens modal (pass existing names to filter dropdown)
+  // "New Program" buttons (header + empty-state CTA) open the modal
   const existingNames = new Set(programs.map((p) => p.name.toLowerCase()));
-  header.addEventListener('click', (e) => {
+  container.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('.language-add-btn')) {
       showNewProgramModal(onAddProgram, existingNames);
     }

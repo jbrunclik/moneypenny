@@ -65,7 +65,7 @@ export function shouldShowLanguage(user: User | null): boolean {
  */
 function renderPlannerEntry(isActive: boolean): string {
   return `
-    <div class="planner-entry ${isActive ? 'active' : ''}" data-route="planner">
+    <div class="planner-entry ${isActive ? 'active' : ''}" data-route="planner" title="Planner">
       <span class="planner-icon">${PLANNER_ICON}</span>
       <span class="planner-label">Planner</span>
     </div>
@@ -92,7 +92,7 @@ function renderAgentsEntryWithoutDivider(
   const errorTooltip = errorsCount === 1 ? '1 agent failed' : `${errorsCount} agents failed`;
   const errorIndicator = errorsCount > 0 ? `<span class="error-indicator" title="${errorTooltip}"></span>` : '';
   return `
-    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents">
+    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents" title="Agents">
       <span class="agents-icon">${ROBOT_ICON}</span>
       <span class="agents-label">Agents</span>
       ${errorIndicator}${waitingBadge}${badge}
@@ -105,7 +105,7 @@ function renderAgentsEntryWithoutDivider(
  */
 function renderSportsEntry(isActive: boolean): string {
   return `
-    <div class="sports-entry ${isActive ? 'active' : ''}" data-route="sports">
+    <div class="sports-entry ${isActive ? 'active' : ''}" data-route="sports" title="Sports">
       <span class="sports-icon">${SPORTS_ICON}</span>
       <span class="sports-label">Sports</span>
     </div>
@@ -117,7 +117,7 @@ function renderSportsEntry(isActive: boolean): string {
  */
 function renderLanguageEntry(isActive: boolean): string {
   return `
-    <div class="language-entry ${isActive ? 'active' : ''}" data-route="language">
+    <div class="language-entry ${isActive ? 'active' : ''}" data-route="language" title="Language">
       <span class="language-icon">${LANGUAGE_ICON}</span>
       <span class="language-label">Language</span>
     </div>

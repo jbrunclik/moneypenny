@@ -48,6 +48,7 @@ export function createSportsProgramsElement(
     empty.innerHTML = `
       <p>No training programs yet.</p>
       <p class="sports-empty-hint">Create a program to start training with your AI coach.</p>
+      <button class="sports-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>
     `;
     container.appendChild(empty);
   } else {
@@ -59,8 +60,8 @@ export function createSportsProgramsElement(
     container.appendChild(grid);
   }
 
-  // "New Program" button opens modal
-  header.addEventListener('click', (e) => {
+  // "New Program" buttons (header + empty-state CTA) open the modal
+  container.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('.sports-add-btn')) {
       showNewProgramModal(onAddProgram);
     }

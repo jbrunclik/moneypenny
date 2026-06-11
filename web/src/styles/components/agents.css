@@ -1402,7 +1402,9 @@
     height: 20px;
     flex-shrink: 0;
     border: 2px solid var(--border);
-    border-radius: var(--radius-sm);
+    /* 8px radius on a 20px box reads as a radio button; these are
+       multi-select checkboxes */
+    border-radius: 4px;
     transition: all var(--transition-fast);
 }
 

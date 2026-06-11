@@ -163,6 +163,18 @@
 }
 
 /* ----------------------------------------
+   Program Empty-State CTA
+   ----------------------------------------
+   Shared by sports/language dashboards; the button also carries the
+   feature's add-btn class (accent pill) - this centers it in the
+   empty state. */
+
+.program-empty-cta {
+    display: inline-flex;
+    margin: var(--space-4) auto 0;
+}
+
+/* ----------------------------------------
    Stop Button (for aborting streaming)
    ---------------------------------------- */
 
