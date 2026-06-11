@@ -122,12 +122,41 @@ describe('Store - Auth', () => {
       expect(useStore.getState().currentConversation).toBeNull();
     });
 
-    it('preserves conversations list', () => {
+    it('wipes all user data (shared-browser account switch)', () => {
       const conv = createConversation('1', 'Test');
-      useStore.getState().addConversation(conv);
+      const store = useStore.getState();
+      store.addConversation(conv);
+      store.setMessages('1', [], {
+        older_cursor: null,
+        newer_cursor: null,
+        has_older: false,
+        has_newer: false,
+        total_count: 0,
+      });
+      store.setActiveRequest('1', { conversationId: '1', type: 'stream' });
+      store.setDraft('secret draft', []);
+
       useStore.getState().logout();
 
-      expect(useStore.getState().conversations).toHaveLength(1);
+      const after = useStore.getState();
+      expect(after.conversations).toHaveLength(0);
+      expect(after.messages.size).toBe(0);
+      expect(after.messagesPagination.size).toBe(0);
+      expect(after.activeRequests.size).toBe(0);
+      expect(after.draftMessage).toBe('');
+      expect(after.archivedConversations).toHaveLength(0);
+    });
+
+    it('preserves server config and UI preferences', () => {
+      const store = useStore.getState();
+      store.setGoogleClientId('client-123');
+      store.setStreamingEnabled(false);
+
+      useStore.getState().logout();
+
+      const after = useStore.getState();
+      expect(after.googleClientId).toBe('client-123');
+      expect(after.streamingEnabled).toBe(false);
     });
   });
 });

@@ -86,6 +86,20 @@ export function abortStreamingRequest(convId: string): boolean {
 }
 
 /**
+ * Abort every in-flight request and drop the persisted resume entries.
+ * Called on logout: readers must not keep writing into a logged-out UI,
+ * and a different account on this browser must not try to resume the
+ * previous user's turns.
+ */
+export function abortAllStreamingRequests(): void {
+  for (const [requestId, request] of activeRequests.entries()) {
+    request.abortController?.abort();
+    activeRequests.delete(requestId);
+  }
+  writeInflightStreams({});
+}
+
+/**
  * Handle stop button click - abort current streaming request.
  * This is passed to MessageInput as the onStop callback.
  */

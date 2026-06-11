@@ -60,7 +60,7 @@ import {
   loadAllRemainingNewerMessages,
 } from '../components/messages';
 
-import { sendMessage, handleStopStreaming } from './messaging';
+import { sendMessage, handleStopStreaming, abortAllStreamingRequests } from './messaging';
 import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
 import { setupTouchGestures } from './gestures';
@@ -476,6 +476,11 @@ export async function init(): Promise<void> {
   });
 
   window.addEventListener('auth:logout', () => {
+    // Kill in-flight readers and persisted resume entries before anything
+    // else - they would keep writing into the logged-out UI, and another
+    // account on this browser must not resume the previous user's turns
+    abortAllStreamingRequests();
+
     // Stop sync manager and scroll listeners on logout
     stopSyncManager();
     cleanupInfiniteScroll();
@@ -487,14 +492,9 @@ export async function init(): Promise<void> {
     cleanupDeepLinking();
 
     showLoginOverlay();
-    const store = useStore.getState();
-    store.setConversations([], { next_cursor: null, has_more: false, total_count: 0 });
-    store.setCurrentConversation(null);
-    // Clear agents, storage, sports, and language data to prevent exposing previous user's data
-    store.clearAgentsState();
-    store.clearStorageState();
-    store.clearSportsState();
-    store.clearLanguageState();
+    // All user data in the store (messages, pagination, drafts, agents,
+    // storage, programs, ...) is wiped by the store.logout() the event
+    // dispatcher already ran - only re-render the now-empty UI here
     renderConversationsList();
     renderMessages([]);
 
