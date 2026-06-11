@@ -581,6 +581,20 @@ def stream_events(
             "description": e.description,
             "tool_name": e.tool_name,
         }
+        # Persist the approval message HERE (producer thread): if the client
+        # disconnects before the consumer processes this event, the consumer's
+        # finally would otherwise delete the unused placeholder and the
+        # approval message would never reach the conversation. The consumer's
+        # _finalize_approval_stream re-writes the same content (idempotent).
+        if journal_message_id:
+            try:
+                approval_message = build_approval_message(
+                    e.approval_id, e.description, e.tool_name
+                )
+                if db.update_message_content(journal_message_id, approval_message):
+                    final_results["saved"] = True
+            except Exception:
+                logger.warning("Producer-side approval save failed", exc_info=True)
         if journal:
             journal.record(approval_event)
         event_queue.put(approval_event)
@@ -708,6 +722,11 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
     last_keepalive = time.monotonic()
     stream_ended = False
     save_grace_deadline: float | None = None
+    # No new journal rows for this long (before stream_end) = the producer is
+    # dead (e.g. process killed mid-turn left no terminal marker). Without
+    # this bound a resume of a dead turn would hold a worker thread and send
+    # keepalives until CHAT_TIMEOUT.
+    stall_deadline = time.monotonic() + Config.STREAM_RESUME_STALL_SECONDS
 
     def _done_event_from_message(msg: Any) -> dict[str, Any]:
         done: dict[str, Any] = {
@@ -728,6 +747,8 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
 
     while time.monotonic() < deadline:
         events = db.journal_get_events(message_id, after_seq)
+        if events:
+            stall_deadline = time.monotonic() + Config.STREAM_RESUME_STALL_SECONDS
         for seq, event_json in events:
             after_seq = seq
             try:
@@ -759,6 +780,16 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
                 }
                 yield f"data: {json.dumps(error_data)}\n\n"
                 return
+
+        if not stream_ended and time.monotonic() > stall_deadline:
+            error_data = {
+                "type": "error",
+                "code": "RESUME_FAILED",
+                "message": "The stream made no progress and appears to be dead.",
+                "retryable": False,
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+            return
 
         if not events:
             time.sleep(0.4)

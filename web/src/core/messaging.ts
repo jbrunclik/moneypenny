@@ -793,7 +793,10 @@ async function tryResumeStream(
           throw new Error(event.message);
         }
         if (event.type === 'timeout') {
-          continue;
+          // The resume endpoint exhausted its own deadline - the turn is
+          // dead; retrying the resume cannot help. Fall back to poll recovery.
+          log.warn('Resume timed out server-side', { conversationId: convId });
+          return false;
         }
         const result = processStreamEvent(event, state, convId, tempUserMessageId);
         if (result.error) {

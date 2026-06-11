@@ -80,6 +80,12 @@ class Config:
     # How long the resume endpoint waits for the saved message after the
     # producer finishes (save happens in the consumer/cleanup thread)
     STREAM_RESUME_SAVE_GRACE_SECONDS: int = int(os.getenv("STREAM_RESUME_SAVE_GRACE_SECONDS", "30"))
+    # Resume gives up when the journal shows no NEW events for this long before
+    # stream_end: distinguishes a dead producer (process killed mid-turn -
+    # journal has no terminal marker) from a live but quiet one. Long LLM
+    # thinking still emits thinking events, and tools are bounded by
+    # TOOL_TIMEOUT (90s), so minutes of total silence means the turn is dead.
+    STREAM_RESUME_STALL_SECONDS: int = int(os.getenv("STREAM_RESUME_STALL_SECONDS", "180"))
 
     # Streaming cleanup thread timeouts
     STREAM_CLEANUP_THREAD_TIMEOUT: int = int(

@@ -172,3 +172,79 @@ class TestStreamResumeEvents:
         events = _drain_sse(stream_resume_events("gone-msg", after_seq=0))
         assert [e["type"] for e in events] == ["error"]
         assert events[0]["code"] == "RESUME_FAILED"
+
+
+class TestResumeStallBound:
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, test_database: Database, monkeypatch: pytest.MonkeyPatch):
+        from src.api.helpers import chat_streaming
+
+        monkeypatch.setattr(chat_streaming, "db", test_database)
+        yield
+
+    def test_dead_producer_ends_resume_promptly(
+        self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Journal with no stream_end and no progress -> RESUME_FAILED, not a
+        CHAT_TIMEOUT-long keepalive hold (process killed mid-turn)."""
+        from src.api.helpers.chat_streaming import stream_resume_events
+
+        monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
+        conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
+        msg = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
+        test_database.journal_append_events(
+            msg.id, [(1, json.dumps({"type": "token", "text": "partial", "seq": 1}))]
+        )
+
+        events = _drain_sse(stream_resume_events(msg.id, after_seq=0))
+        assert events[-1]["type"] == "error"
+        assert events[-1]["code"] == "RESUME_FAILED"
+
+
+class _ApprovalAgent:
+    """Fake agent that immediately requests approval."""
+
+    def stream_chat_events(self, *args: object, **kwargs: object):
+        from src.agent.tools.request_approval import ApprovalRequestedException
+
+        raise ApprovalRequestedException("ap-9", "send email", "todoist")
+        yield  # pragma: no cover
+
+
+class TestProducerSideApprovalSave:
+    def test_approval_message_saved_even_without_consumer(
+        self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """If the client disconnects before the consumer processes the approval
+        event, the approval message must already be in the placeholder - the
+        consumer's finally would otherwise delete it."""
+        from src.api.helpers import chat_streaming
+
+        monkeypatch.setattr(chat_streaming, "db", test_database)
+        conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
+        placeholder = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
+
+        q: queue.Queue = queue.Queue()
+        final_results: dict = {"ready": False, "saved": False}
+        chat_streaming.stream_events(
+            _ApprovalAgent(),
+            q,
+            final_results,
+            "hello",
+            None,
+            [],
+            None,
+            "Alice",
+            test_user.id,
+            None,
+            False,
+            None,
+            conv.id,
+            "req-1",
+            journal_message_id=placeholder.id,
+        )
+
+        saved = test_database.get_message_by_id(placeholder.id)
+        assert saved is not None
+        assert "approval-request:ap-9" in saved.content
+        assert final_results["saved"] is True
