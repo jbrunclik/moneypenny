@@ -88,6 +88,3 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 - [ ] **Unit tests for agent tools (T2)** - 13 tool modules have zero unit tests; also missing integration tests for `routes/{files,kv_store,memory,system,todoist}.py`.
 - [ ] **Tighten lint/coverage gates (T3)** - coverage `fail_under`; ruff `S` rules; `npm audit` level high; per-module mypy overrides.
 
-## Architecture
-
-- [ ] **E2E coverage for resumable streams** - Add the resume endpoint to tests/e2e-server.py and a spec that kills the connection mid-stream and asserts seamless resume (today's E2E only covers the 404 fallback path).
