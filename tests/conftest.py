@@ -149,6 +149,9 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
 
         # Patch database in helper modules and utilities
         stack.enter_context(patch("src.api.helpers.chat_streaming.db", test_database))
+        stack.enter_context(patch("src.api.helpers.chat_save.db", test_database))
+        stack.enter_context(patch("src.api.helpers.stream_resume.db", test_database))
+        stack.enter_context(patch("src.api.helpers.program_context.db", test_database))
         stack.enter_context(patch("src.api.helpers.validation.db", test_database))
         stack.enter_context(patch("src.api.utils.db", test_database))
 

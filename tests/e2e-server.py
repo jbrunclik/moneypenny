@@ -602,6 +602,9 @@ def main() -> None:
 
         # Patch database in helper modules and utilities
         stack.enter_context(patch("src.api.helpers.chat_streaming.db", proxy_db))
+        stack.enter_context(patch("src.api.helpers.chat_save.db", proxy_db))
+        stack.enter_context(patch("src.api.helpers.stream_resume.db", proxy_db))
+        stack.enter_context(patch("src.api.helpers.program_context.db", proxy_db))
         stack.enter_context(patch("src.api.helpers.validation.db", proxy_db))
         stack.enter_context(patch("src.api.utils.db", proxy_db))
 

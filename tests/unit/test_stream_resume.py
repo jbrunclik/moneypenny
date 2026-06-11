@@ -64,8 +64,9 @@ class TestProducerJournaling:
     def test_events_journaled_with_seq_and_stream_end(
         self, test_database: Database, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from src.api.helpers import chat_streaming
+        from src.api.helpers import chat_streaming, stream_resume
 
+        monkeypatch.setattr(stream_resume, "db", test_database)
         monkeypatch.setattr(chat_streaming, "db", test_database)
         q: queue.Queue = queue.Queue()
         final_results: dict = {"ready": False, "saved": False}
@@ -118,7 +119,7 @@ def _drain_sse(gen) -> list[dict]:
 class TestStreamResumeEvents:
     @pytest.fixture(autouse=True)
     def _patch_db(self, test_database: Database, monkeypatch: pytest.MonkeyPatch):
-        from src.api.helpers import chat_streaming
+        from src.api.helpers import stream_resume as chat_streaming
 
         monkeypatch.setattr(chat_streaming, "db", test_database)
         yield
@@ -131,7 +132,7 @@ class TestStreamResumeEvents:
     def test_replays_after_seq_and_emits_done(
         self, test_database: Database, test_user: User
     ) -> None:
-        from src.api.helpers.chat_streaming import stream_resume_events
+        from src.api.helpers.stream_resume import stream_resume_events
 
         msg_id = self._make_message(test_database, test_user, content="full answer")
         test_database.journal_append_events(
@@ -153,7 +154,7 @@ class TestStreamResumeEvents:
         self, test_database: Database, test_user: User
     ) -> None:
         """Journal swept but the message is saved -> immediate done."""
-        from src.api.helpers.chat_streaming import stream_resume_events
+        from src.api.helpers.stream_resume import stream_resume_events
 
         msg_id = self._make_message(test_database, test_user, content="late answer")
         events = _drain_sse(stream_resume_events(msg_id, after_seq=0))
@@ -164,7 +165,7 @@ class TestStreamResumeEvents:
         self, monkeypatch: pytest.MonkeyPatch, test_database: Database
     ) -> None:
         """stream_end + no message row -> RESUME_FAILED error event."""
-        from src.api.helpers.chat_streaming import stream_resume_events
+        from src.api.helpers.stream_resume import stream_resume_events
 
         test_database.journal_append_events(
             "gone-msg", [(1, json.dumps({"type": "stream_end", "seq": 1}))]
@@ -177,7 +178,7 @@ class TestStreamResumeEvents:
 class TestResumeStallBound:
     @pytest.fixture(autouse=True)
     def _patch_db(self, test_database: Database, monkeypatch: pytest.MonkeyPatch):
-        from src.api.helpers import chat_streaming
+        from src.api.helpers import stream_resume as chat_streaming
 
         monkeypatch.setattr(chat_streaming, "db", test_database)
         yield
@@ -187,7 +188,7 @@ class TestResumeStallBound:
     ) -> None:
         """Journal with no stream_end and no progress -> RESUME_FAILED, not a
         CHAT_TIMEOUT-long keepalive hold (process killed mid-turn)."""
-        from src.api.helpers.chat_streaming import stream_resume_events
+        from src.api.helpers.stream_resume import stream_resume_events
 
         monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
         conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
@@ -218,8 +219,9 @@ class TestProducerSideApprovalSave:
         """If the client disconnects before the consumer processes the approval
         event, the approval message must already be in the placeholder - the
         consumer's finally would otherwise delete it."""
-        from src.api.helpers import chat_streaming
+        from src.api.helpers import chat_streaming, stream_resume
 
+        monkeypatch.setattr(stream_resume, "db", test_database)
         monkeypatch.setattr(chat_streaming, "db", test_database)
         conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
         placeholder = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")

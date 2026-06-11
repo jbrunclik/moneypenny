@@ -30,8 +30,8 @@ from src.api.errors import (
     raise_server_error,
     raise_validation_error,
 )
-from src.api.helpers.chat_streaming import load_language_context as _load_language_context
-from src.api.helpers.chat_streaming import load_sports_context as _load_sports_context
+from src.api.helpers.program_context import load_language_context as _load_language_context
+from src.api.helpers.program_context import load_sports_context as _load_sports_context
 from src.api.rate_limiting import rate_limit_chat
 from src.api.routes.calendar import _get_valid_calendar_access_token
 from src.api.schemas import ChatBatchResponse, ChatRequest, MessageRole
@@ -675,7 +675,7 @@ when the turn failed and nothing was saved.
 @require_auth
 def chat_stream_resume(user: User, conv_id: str, message_id: str) -> Response:
     """Resume streaming for an in-flight or recently finished assistant message."""
-    from src.api.helpers.chat_streaming import stream_resume_events
+    from src.api.helpers.stream_resume import stream_resume_events
 
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
