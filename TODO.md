@@ -56,7 +56,7 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Tests & Tooling
 
-- [ ] **Replace `waitForTimeout` in E2E suite (T1)** - 60+ calls contradict the zero-flake policy; use `expect(...).toBeVisible()` / `waitForFunction`. Known victim: `planner.visual.ts` "mobile dashboard layout" flakes under full-suite load (passes in isolation).
+- [ ] **Replace `waitForTimeout` in E2E suite (T1)** - ~245 calls. Triage finding (Jun 11): many are SEMANTIC time waits (debounce windows, assert-nothing-changes-over-a-period, visibility-duration guards) and must stay; the flaky subset is "fixed wait for async data, then assert presence" - replace those with `toContainText`/`toBeVisible` waits (planner mobile dashboard done as the template). Do NOT mass-replace.
 - [ ] **Unit tests for agent tools (T2)** - 13 tool modules have zero unit tests; also missing integration tests for `routes/{files,kv_store,memory,system,todoist}.py`.
 - [ ] **Tighten lint/coverage gates (T3)** - coverage `fail_under`; ruff `S` rules; `npm audit` level high; per-module mypy overrides.
 

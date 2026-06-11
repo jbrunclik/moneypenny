@@ -849,7 +849,10 @@ test.describe('Visual: Planner Dashboard - Mobile', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await page.waitForTimeout(500);
+    // Deterministic data-render wait: the previous fixed 500ms flaked under
+    // full-suite load when the seeded events/tasks rendered late (T1)
+    await expect(page.locator('#planner-dashboard')).toContainText('Morning Meeting');
+    await expect(page.locator('#planner-dashboard')).toContainText('Urgent task');
 
     await expect(page).toHaveScreenshot('mobile-dashboard.png', { fullPage: true });
   });
