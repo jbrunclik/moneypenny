@@ -308,7 +308,9 @@ describe('stream-recovery', () => {
 
       const recoveredMessage = createMessage('msg-123', 'full recovered content');
       mockGetMessage.mockResolvedValue(recoveredMessage);
+      // Must be CONNECTED: detached elements fall through to the DOM lookup (R15)
       const mockElement = document.createElement('div');
+      document.body.appendChild(mockElement);
       mockGetStreamingElement.mockReturnValue(mockElement);
 
       const result = await attemptRecovery('conv-1');
@@ -480,7 +482,10 @@ describe('stream-recovery', () => {
       useStore.getState().setCurrentConversation(conv);
 
       mockGetMessage.mockResolvedValue(createMessage('msg-123', 'content'));
-      mockGetStreamingElement.mockReturnValue(document.createElement('div'));
+      // Must be CONNECTED: detached elements fall through to the DOM lookup (R15)
+      const attachedEl = document.createElement('div');
+      document.body.appendChild(attachedEl);
+      mockGetStreamingElement.mockReturnValue(attachedEl);
 
       await attemptRecovery('conv-1');
 

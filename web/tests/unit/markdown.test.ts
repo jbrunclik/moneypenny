@@ -34,6 +34,26 @@ describe('renderMarkdown XSS prevention', () => {
     expect(html).not.toContain('<a href="javascript:');
     expect(html).toContain('&lt;a');
   });
+
+  it('strips javascript: hrefs from markdown links (DOMPurify layer)', () => {
+    // marked's own escaping does not cover markdown-syntax links - the
+    // sanitizer must neutralize the scheme
+    const html = renderMarkdown('[click](javascript:alert(1))');
+    expect(html).not.toContain('javascript:');
+  });
+
+  it('never emits inline event handlers (DOMPurify layer)', () => {
+    const html = renderMarkdown(
+      'normal **text** and [link](https://example.com "ti\\" onmouseover=\\"alert(1)")'
+    );
+    expect(html).not.toMatch(/\son\w+=/);
+  });
+
+  it('keeps target="_blank" on links through sanitization', () => {
+    const html = renderMarkdown('[ok](https://example.com)');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
 });
 
 describe('renderMarkdown preserves legitimate features', () => {

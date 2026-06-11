@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import katex from 'katex';
 import hljs from 'highlight.js/lib/core';
 import { COPY_ICON } from './icons';
@@ -201,10 +202,17 @@ marked.use({
 });
 
 /**
- * Render markdown to HTML
+ * Render markdown to HTML.
+ *
+ * The result is sanitized with DOMPurify (F1): model output is untrusted -
+ * a prompt-injected page summarized by the agent could smuggle script-bearing
+ * HTML through the markdown. ADD_ATTR target keeps the link renderer's
+ * target="_blank" (DOMPurify strips it by default); KaTeX spans, quiz-block
+ * markup (buttons + data attributes) and hljs classes all pass the default
+ * allowlist.
  */
 export function renderMarkdown(text: string): string {
-  return marked.parse(text) as string;
+  return DOMPurify.sanitize(marked.parse(text) as string, { ADD_ATTR: ['target'] });
 }
 
 /**
