@@ -305,6 +305,13 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
         extra={"user_id": user.id, "agent_id": agent_id},
     )
 
+    # System-managed agents are defined by the app: prompt/tools/schedule
+    # live in code and Settings. Only Settings (which calls the db layer
+    # directly) may change them.
+    existing_agent = db.get_agent(agent_id, user.id)
+    if existing_agent and existing_agent.system_type:
+        raise_validation_error("This built-in agent is managed from Settings and cannot be edited.")
+
     # Validate cron expression if provided
     schedule = json_data.schedule
     if schedule is not None and schedule != "":
@@ -377,6 +384,13 @@ def delete_agent(user: User, agent_id: str) -> dict[str, Any]:
         "Deleting agent",
         extra={"user_id": user.id, "agent_id": agent_id},
     )
+
+    # System-managed agents live and die with their Settings toggle
+    existing_agent = db.get_agent(agent_id, user.id)
+    if existing_agent and existing_agent.system_type:
+        raise_validation_error(
+            "This built-in agent cannot be deleted - disable it from Settings instead."
+        )
 
     deleted = db.delete_agent(agent_id, user.id)
     if not deleted:

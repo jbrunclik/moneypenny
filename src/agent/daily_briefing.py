@@ -172,8 +172,12 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             schedule=schedule,
             timezone=timezone,
             enabled=enabled,
-            # Enforced for the settings-managed briefing
+            # Enforced for the settings-managed briefing: independent
+            # runs, and unrestricted tools (the briefing needs calendar/
+            # tasks/Garmin; this also self-heals agents that lost their
+            # tools to the old editor trap)
             fresh_context=True,
+            tool_permissions=None,
         )
         logger.info(
             "Daily briefing agent updated",

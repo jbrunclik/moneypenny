@@ -230,13 +230,13 @@ function renderAgentCard(
     nextRunText = formatRelativeTime(nextRun);
   }
 
-  // System-managed agents get a badge so it's clear Settings owns their
+  // System-managed agents get a badge so it's clear the app owns their
   // lifecycle; extend the map for future special agent types
   const systemTypeLabels: Record<string, string> = {
-    daily_briefing: 'Settings-managed',
+    daily_briefing: 'Built-in',
   };
   const systemBadge = agent.system_type
-    ? `<span class="agent-system-badge" title="Created and scheduled from Settings">${escapeHtml(systemTypeLabels[agent.system_type] ?? 'System')}</span>`
+    ? `<span class="agent-system-badge" title="Built-in agent - schedule and delivery are configured in Settings">${escapeHtml(systemTypeLabels[agent.system_type] ?? 'Built-in')}</span>`
     : '';
 
   card.innerHTML = `
@@ -248,9 +248,10 @@ function renderAgentCard(
         ${unreadBadge}
       </div>
       <div class="agent-card-actions">
+        ${agent.system_type ? '' : `
         <button class="btn-icon btn-edit" title="Edit agent" aria-label="Edit agent">
           ${EDIT_ICON}
-        </button>
+        </button>`}
         <button class="btn-icon btn-run btn-run-labeled" title="Run now" aria-label="Run agent now">
           ${PLAY_ICON}
           <span class="btn-run-label">Run</span>

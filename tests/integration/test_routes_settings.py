@@ -360,3 +360,60 @@ class TestDailyBriefingSettings:
         assert briefing["system_type"] == "daily_briefing"
         assert briefing["system_prompt"] is None
         assert briefing["effective_system_prompt"] == BRIEFING_SYSTEM_PROMPT
+
+    def test_settings_save_restores_unrestricted_tools(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        """The old editor trap stored '[]' (no integrations) on the
+        briefing agent; a settings save restores unrestricted tools."""
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        user = test_database.get_user_by_id(test_user.id)
+        test_database.update_agent(user.daily_briefing_agent_id, user.id, tool_permissions=[])
+        assert test_database.get_agent(user.daily_briefing_agent_id, user.id).tool_permissions == []
+
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        assert agent.tool_permissions is None
+
+    def test_system_agent_cannot_be_edited_or_deleted_via_api(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        """Built-in agents are purely system-managed: the agents API
+        rejects edits and deletion; lifecycle goes through Settings."""
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        user = test_database.get_user_by_id(test_user.id)
+        agent_id = user.daily_briefing_agent_id
+
+        update = client.patch(
+            f"/api/agents/{agent_id}",
+            headers=auth_headers,
+            json={"description": "hijack"},
+        )
+        assert update.status_code == 400
+        assert "Settings" in update.get_json()["error"]["message"]
+
+        delete = client.delete(f"/api/agents/{agent_id}", headers=auth_headers)
+        assert delete.status_code == 400
+        assert test_database.get_agent(agent_id, user.id) is not None
+
+        # Settings untoggle still works (disables, keeps history)
+        client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"daily_briefing": {**self.BRIEFING, "enabled": False}},
+        )
+        assert test_database.get_agent(agent_id, user.id).enabled is False
