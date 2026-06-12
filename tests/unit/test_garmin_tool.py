@@ -118,3 +118,57 @@ class TestStripBulkyFields:
         data = {"summary": {"laps": [{"metrics": list(range(100))}]}}
         stripped = _strip_bulky_fields(data, max_list_items=10)
         assert "100 items omitted" in stripped["summary"]["laps"][0]["metrics"]
+
+
+class TestBulkyFieldStripping:
+    """Garmin payloads carry per-minute series that blew a briefing run
+    to ~150k input tokens - stripping keeps summaries only."""
+
+    def test_time_series_keys_dropped_summaries_kept(self) -> None:
+        from src.agent.tools.garmin import _strip_bulky_fields
+
+        sleep_payload = {
+            "dailySleepDTO": {
+                "sleepTimeSeconds": 27360,
+                "deepSleepSeconds": 5460,
+                "remSleepSeconds": 6840,
+                "sleepScores": {"overall": {"value": 82}},
+            },
+            "sleepMovement": [{"startGMT": i, "activityLevel": 1.2} for i in range(480)],
+            "sleepHeartRate": [{"value": 52, "startGMT": i} for i in range(456)],
+            "hrvData": [{"value": 55}] * 3,
+            "avgOvernightHrv": 55,
+        }
+
+        slimmed = _strip_bulky_fields(sleep_payload)
+        assert slimmed["dailySleepDTO"]["sleepScores"]["overall"]["value"] == 82
+        assert slimmed["avgOvernightHrv"] == 55
+        assert "sleepMovement" not in slimmed
+        assert "sleepHeartRate" not in slimmed
+        # Short lists survive
+        assert slimmed["hrvData"] == [{"value": 55}] * 3
+
+    def test_unknown_long_lists_collapse_to_note(self) -> None:
+        from src.agent.tools.garmin import _strip_bulky_fields
+
+        payload = {"someNewSeries": [{"t": i} for i in range(300)], "avg": 7}
+        slimmed = _strip_bulky_fields(payload)
+        assert slimmed["avg"] == 7
+        assert isinstance(slimmed["someNewSeries"], str)
+        assert "300 items omitted" in slimmed["someNewSeries"]
+
+    def test_payload_size_reduction_is_drastic(self) -> None:
+        import json
+
+        from src.agent.tools.garmin import _strip_bulky_fields
+
+        payload = {
+            "dailySleepDTO": {"sleepTimeSeconds": 27360},
+            "sleepMovement": [
+                {"startGMT": f"2026-06-12T0{i % 10}:00", "level": 1.5} for i in range(500)
+            ],
+            "stressValuesArray": [[1718000000 + i, 25] for i in range(480)],
+        }
+        before = len(json.dumps(payload))
+        after = len(json.dumps(_strip_bulky_fields(payload)))
+        assert after < before / 10

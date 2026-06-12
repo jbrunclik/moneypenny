@@ -78,15 +78,43 @@ def _safe_api_call(garmin: Any, method_name: str, *args: Any, **kwargs: Any) -> 
         raise
 
 
+# Known per-minute/per-epoch time-series keys in Garmin payloads. Pure
+# bulk for an LLM: a single night's sleepMovement alone is hundreds of
+# entries (one un-stripped get_sleep_data blew a Daily Briefing run to
+# ~150k input tokens / ~$0.29). Summaries carry everything coaching needs.
+_BULKY_KEYS = frozenset(
+    {
+        "sleepMovement",
+        "sleepLevels",
+        "sleepRestlessMoments",
+        "sleepHeartRate",
+        "sleepStress",
+        "sleepBodyBattery",
+        "wellnessEpochSPO2DataDTOList",
+        "wellnessEpochRespirationDataDTOList",
+        "hrvReadings",
+        "stressValuesArray",
+        "bodyBatteryValuesArray",
+        "heartRateValues",
+        "respirationValuesArray",
+    }
+)
+
+
 def _strip_bulky_fields(obj: Any, max_list_items: int = 20) -> Any:
     """Recursively drop bulky arrays from Garmin API responses.
 
-    Activity details include waypoints, raw split/metric arrays etc. - easily
-    50-200 KB of JSON that lands verbatim in LLM context. Long lists are
-    replaced with a count note; summary scalars pass through untouched.
+    Two mechanisms: known time-series keys are removed outright, and any
+    remaining list longer than max_list_items is replaced with a count
+    note. Summary scalars pass through untouched. Applied to EVERY
+    action's payload before it reaches the LLM.
     """
     if isinstance(obj, dict):
-        return {k: _strip_bulky_fields(v, max_list_items) for k, v in obj.items()}
+        return {
+            k: _strip_bulky_fields(v, max_list_items)
+            for k, v in obj.items()
+            if k not in _BULKY_KEYS
+        }
     if isinstance(obj, list):
         if len(obj) > max_list_items:
             return f"[{len(obj)} items omitted - ask for specific metrics if needed]"
@@ -179,29 +207,29 @@ def garmin_connect(
     try:
         if action == "get_stats":
             result = _safe_api_call(garmin, "get_stats", target_date)
-            return json.dumps({"action": "get_stats", "date": target_date, "stats": result})
+            return json.dumps({"action": "get_stats", "date": target_date, "stats": _strip_bulky_fields(result)})
 
         elif action == "get_heart_rates":
             result = _safe_api_call(garmin, "get_heart_rates", target_date)
             return json.dumps(
-                {"action": "get_heart_rates", "date": target_date, "heart_rates": result}
+                {"action": "get_heart_rates", "date": target_date, "heart_rates": _strip_bulky_fields(result)}
             )
 
         elif action == "get_sleep_data":
             result = _safe_api_call(garmin, "get_sleep_data", target_date)
-            return json.dumps({"action": "get_sleep_data", "date": target_date, "sleep": result})
+            return json.dumps({"action": "get_sleep_data", "date": target_date, "sleep": _strip_bulky_fields(result)})
 
         elif action == "get_stress_data":
             result = _safe_api_call(garmin, "get_stress_data", target_date)
-            return json.dumps({"action": "get_stress_data", "date": target_date, "stress": result})
+            return json.dumps({"action": "get_stress_data", "date": target_date, "stress": _strip_bulky_fields(result)})
 
         elif action == "get_hrv_data":
             result = _safe_api_call(garmin, "get_hrv_data", target_date)
-            return json.dumps({"action": "get_hrv_data", "date": target_date, "hrv": result})
+            return json.dumps({"action": "get_hrv_data", "date": target_date, "hrv": _strip_bulky_fields(result)})
 
         elif action == "get_spo2_data":
             result = _safe_api_call(garmin, "get_spo2_data", target_date)
-            return json.dumps({"action": "get_spo2_data", "date": target_date, "spo2": result})
+            return json.dumps({"action": "get_spo2_data", "date": target_date, "spo2": _strip_bulky_fields(result)})
 
         elif action == "get_body_composition":
             result = _safe_api_call(garmin, "get_body_composition", target_date)
@@ -209,7 +237,7 @@ def garmin_connect(
                 {
                     "action": "get_body_composition",
                     "date": target_date,
-                    "body_composition": result,
+                    "body_composition": _strip_bulky_fields(result),
                 }
             )
 
@@ -248,7 +276,7 @@ def garmin_connect(
                 {
                     "action": "get_training_readiness",
                     "date": target_date,
-                    "training_readiness": result,
+                    "training_readiness": _strip_bulky_fields(result),
                 }
             )
 
@@ -258,13 +286,13 @@ def garmin_connect(
                 {
                     "action": "get_training_status",
                     "date": target_date,
-                    "training_status": result,
+                    "training_status": _strip_bulky_fields(result),
                 }
             )
 
         elif action == "get_steps":
             result = _safe_api_call(garmin, "get_steps_data", target_date)
-            return json.dumps({"action": "get_steps", "date": target_date, "steps": result})
+            return json.dumps({"action": "get_steps", "date": target_date, "steps": _strip_bulky_fields(result)})
 
         else:
             return json.dumps(
