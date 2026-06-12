@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import User
 from src.utils.logging import get_logger
+from src.utils.token_crypto import decrypt_token, encrypt_token
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
@@ -78,17 +79,21 @@ class UserMixin:
             picture=row["picture"],
             created_at=datetime.fromisoformat(row["created_at"]),
             custom_instructions=row["custom_instructions"],
-            todoist_access_token=row["todoist_access_token"],
+            # Tokens decrypt here so every reader of the User object gets
+            # plaintext; legacy plaintext rows pass through unchanged
+            todoist_access_token=decrypt_token(row["todoist_access_token"]),
             todoist_connected_at=todoist_connected_at,
-            google_calendar_access_token=row["google_calendar_access_token"],
-            google_calendar_refresh_token=row["google_calendar_refresh_token"],
+            google_calendar_access_token=decrypt_token(row["google_calendar_access_token"]),
+            google_calendar_refresh_token=decrypt_token(row["google_calendar_refresh_token"]),
             google_calendar_token_expires_at=calendar_expires_at,
             google_calendar_connected_at=calendar_connected_at,
             google_calendar_email=row["google_calendar_email"],
             google_calendar_selected_ids=calendar_selected_ids,
             planner_last_reset_at=planner_last_reset,
             whatsapp_phone=row["whatsapp_phone"] if "whatsapp_phone" in row.keys() else None,
-            garmin_token=row["garmin_token"] if "garmin_token" in row.keys() else None,
+            garmin_token=(
+                decrypt_token(row["garmin_token"]) if "garmin_token" in row.keys() else None
+            ),
             garmin_connected_at=(
                 datetime.fromisoformat(row["garmin_connected_at"])
                 if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]
@@ -211,7 +216,7 @@ class UserMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET todoist_access_token = ?, todoist_connected_at = ? WHERE id = ?",
-                (access_token, connected_at, user_id),
+                (encrypt_token(access_token), connected_at, user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0
@@ -273,8 +278,8 @@ class UserMixin:
                 WHERE id = ?
                 """,
                 (
-                    access_token,
-                    refresh_token,
+                    encrypt_token(access_token),
+                    encrypt_token(refresh_token),
                     expires_at_str,
                     connected_at_iso,
                     email,
@@ -320,6 +325,22 @@ class UserMixin:
             just must not be stored).
         """
         with self._pool.get_connection() as conn:
+            # Encryption is non-deterministic, so the guard cannot compare
+            # the plaintext refresh token in SQL. Instead: read the stored
+            # (possibly encrypted) value, compare plaintexts in Python, and
+            # CAS on the exact stored string - unique per encryption, so it
+            # is a perfect swap token. Works for legacy plaintext rows too.
+            row = self._execute_with_timing(
+                conn,
+                "SELECT google_calendar_refresh_token FROM users WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            stored_value = row["google_calendar_refresh_token"]
+            if decrypt_token(stored_value) != used_refresh_token:
+                return False
+
             cursor = self._execute_with_timing(
                 conn,
                 """
@@ -331,11 +352,11 @@ class UserMixin:
                 WHERE id = ? AND google_calendar_refresh_token = ?
                 """,
                 (
-                    access_token,
-                    refresh_token,
+                    encrypt_token(access_token),
+                    encrypt_token(refresh_token),
                     expires_at.isoformat(),
                     user_id,
-                    used_refresh_token,
+                    stored_value,
                 ),
             )
             conn.commit()
@@ -518,7 +539,7 @@ class UserMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET garmin_token = ?, garmin_connected_at = ? WHERE id = ?",
-                (token, connected_at, user_id),
+                (encrypt_token(token), connected_at, user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0

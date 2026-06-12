@@ -490,6 +490,11 @@ class Config:
     # Garmin Connect Integration (no API keys needed — uses garth session tokens)
     GARMIN_API_TIMEOUT: int = int(os.getenv("GARMIN_API_TIMEOUT", "15"))
 
+    # Encryption at rest for OAuth/Garmin tokens (Fernet). Generate with:
+    # make token-key. Unset = tokens stored in plaintext (see
+    # src/utils/token_crypto.py for the safe rollout order).
+    TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
+
     # Web Push notifications (VAPID). Generate keys with: make push-keys
     # Push is enabled only when both keys are set.
     VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")

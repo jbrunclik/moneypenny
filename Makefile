@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image browser-setup push-keys lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -105,6 +105,10 @@ browser-setup:
 # Generate a VAPID key pair for Web Push notifications
 push-keys:
 	$(PYTHON) scripts/generate_vapid_keys.py
+
+# Generate a Fernet key for token encryption at rest
+token-key:
+	@$(PYTHON) -c "from cryptography.fernet import Fernet; print('Add to your .env:'); print(); print('TOKEN_ENCRYPTION_KEY=' + Fernet.generate_key().decode())"
 
 # Development: run Flask and Vite dev server concurrently
 # Uses npx concurrently to manage both processes (Ctrl+C kills both)
