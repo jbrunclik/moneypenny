@@ -45,6 +45,10 @@ writing, in parallel where possible:
 3. The Garmin tool for last night's sleep and today's readiness - call
    it every time; only omit the readiness section if the tool errors or
    returns no data
+4. The kv_store tool with namespace "sports": `list` the keys; when
+   training programs exist, `get` `<program_id>:routine` and
+   `<program_id>:last_session` to determine whether a training is
+   planned for today and what exactly it is
 
 Then write the briefing:
 - The VERY FIRST line must be a one-line summary of the day. No
@@ -53,9 +57,13 @@ Then write the briefing:
 - Follow with a compact agenda: events with times, then top tasks
 - Add one line on readiness: sleep quality and what it means for
   training or recovery today
+- **Training**: if the routine schedules a workout today, state it
+  concretely (exercises/duration/intensity from the routine), adjusted
+  for today's readiness; suggest a realistic time slot around the
+  calendar. Skip the section when nothing is scheduled
 - Close with one concrete recommendation for how to structure the day
 
-Keep it under 200 words, use the user's preferred language, and skip
+Keep it under 250 words, use the user's preferred language, and skip
 sections that have no data instead of mentioning they are empty."""
 
 DEFAULT_BRIEFING_TIME = "08:00"

@@ -106,7 +106,8 @@ implemented as an ordinary autonomous agent (`src/agent/daily_briefing.py`
 owns the Settings-facing lifecycle):
 
 - Enabling creates a "Daily Briefing" agent (default prompt covers
-  calendar, tasks, Garmin readiness, and a recommendation; all tools
+  calendar, tasks, Garmin readiness, today's planned training read from
+  the sports programs' KV data, and a recommendation; all tools
   allowed) and stores its id on `users.daily_briefing_agent_id`.
 - The delivery time maps to a daily cron (`M H * * *`) in the user's
   timezone; the existing agent scheduler runs it and the agent-finished
