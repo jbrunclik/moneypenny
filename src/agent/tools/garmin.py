@@ -207,29 +207,55 @@ def garmin_connect(
     try:
         if action == "get_stats":
             result = _safe_api_call(garmin, "get_stats", target_date)
-            return json.dumps({"action": "get_stats", "date": target_date, "stats": _strip_bulky_fields(result)})
+            return json.dumps(
+                {"action": "get_stats", "date": target_date, "stats": _strip_bulky_fields(result)}
+            )
 
         elif action == "get_heart_rates":
             result = _safe_api_call(garmin, "get_heart_rates", target_date)
             return json.dumps(
-                {"action": "get_heart_rates", "date": target_date, "heart_rates": _strip_bulky_fields(result)}
+                {
+                    "action": "get_heart_rates",
+                    "date": target_date,
+                    "heart_rates": _strip_bulky_fields(result),
+                }
             )
 
         elif action == "get_sleep_data":
             result = _safe_api_call(garmin, "get_sleep_data", target_date)
-            return json.dumps({"action": "get_sleep_data", "date": target_date, "sleep": _strip_bulky_fields(result)})
+            return json.dumps(
+                {
+                    "action": "get_sleep_data",
+                    "date": target_date,
+                    "sleep": _strip_bulky_fields(result),
+                }
+            )
 
         elif action == "get_stress_data":
             result = _safe_api_call(garmin, "get_stress_data", target_date)
-            return json.dumps({"action": "get_stress_data", "date": target_date, "stress": _strip_bulky_fields(result)})
+            return json.dumps(
+                {
+                    "action": "get_stress_data",
+                    "date": target_date,
+                    "stress": _strip_bulky_fields(result),
+                }
+            )
 
         elif action == "get_hrv_data":
             result = _safe_api_call(garmin, "get_hrv_data", target_date)
-            return json.dumps({"action": "get_hrv_data", "date": target_date, "hrv": _strip_bulky_fields(result)})
+            return json.dumps(
+                {"action": "get_hrv_data", "date": target_date, "hrv": _strip_bulky_fields(result)}
+            )
 
         elif action == "get_spo2_data":
             result = _safe_api_call(garmin, "get_spo2_data", target_date)
-            return json.dumps({"action": "get_spo2_data", "date": target_date, "spo2": _strip_bulky_fields(result)})
+            return json.dumps(
+                {
+                    "action": "get_spo2_data",
+                    "date": target_date,
+                    "spo2": _strip_bulky_fields(result),
+                }
+            )
 
         elif action == "get_body_composition":
             result = _safe_api_call(garmin, "get_body_composition", target_date)
@@ -292,7 +318,9 @@ def garmin_connect(
 
         elif action == "get_steps":
             result = _safe_api_call(garmin, "get_steps_data", target_date)
-            return json.dumps({"action": "get_steps", "date": target_date, "steps": _strip_bulky_fields(result)})
+            return json.dumps(
+                {"action": "get_steps", "date": target_date, "steps": _strip_bulky_fields(result)}
+            )
 
         else:
             return json.dumps(
