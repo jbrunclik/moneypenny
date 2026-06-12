@@ -51,6 +51,8 @@ ignore = [
 # Tests assert constantly and use fake tokens/credentials by design
 "tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608"]
 "scripts/**" = ["S101", "S603", "S607"]
+# SQL built from the module-constant conversation-type CASE expression, not user input
+"scripts/analyze_costs.py" = ["S101", "S603", "S607", "S608"]
 # Column names in these queries come only from the PROGRAM_FEATURES registry
 # or fixed strings - never user input (documented at each site)
 "src/db/models/*" = ["S608"]
