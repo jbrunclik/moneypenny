@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from ddgs.exceptions import DDGSException
+from ddgs.exceptions import DDGSException, RatelimitException
 from google.genai import errors as genai_errors
 
 # Import public API from the package
@@ -34,6 +34,7 @@ from src.agent.tools.code_execution import (
 )
 from src.agent.tools.image_generation import VALID_ASPECT_RATIOS
 from src.agent.tools.web import _get_content_type_category
+from src.config import Config
 
 
 class TestFetchUrl:
@@ -451,6 +452,86 @@ class TestWebSearch:
 
         assert "error" in parsed
         assert parsed["results"] == []
+
+
+class TestWebSearchBatching:
+    """Tests for batched multi-query web_search calls."""
+
+    def _mock_ddgs(self, mock_ddgs_class: MagicMock) -> MagicMock:
+        mock_ddgs = MagicMock()
+        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
+        mock_ddgs.__exit__ = MagicMock(return_value=False)
+        mock_ddgs.text.return_value = [{"title": "T", "href": "https://example.com", "body": "S"}]
+        mock_ddgs_class.return_value = mock_ddgs
+        return mock_ddgs
+
+    @patch("src.agent.tools.web.DDGS")
+    def test_multiple_queries_in_one_call(self, mock_ddgs_class: MagicMock) -> None:
+        """Batched queries run together and return a searches array."""
+        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
+
+        result = web_search.invoke({"queries": ["alpha", "beta", "gamma"]})
+        parsed = json.loads(result)
+
+        assert [s["query"] for s in parsed["searches"]] == ["alpha", "beta", "gamma"]
+        assert all(s["results"] for s in parsed["searches"])
+        assert mock_ddgs.text.call_count == 3
+        assert "untrusted" in parsed["_warning"].lower()
+
+    @patch("src.agent.tools.web.DDGS")
+    def test_query_and_queries_merge_with_dedup(self, mock_ddgs_class: MagicMock) -> None:
+        """query + queries merge, blanks and duplicates dropped, order kept."""
+        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
+
+        result = web_search.invoke({"query": "alpha", "queries": ["alpha", " ", "beta"]})
+        parsed = json.loads(result)
+
+        assert [s["query"] for s in parsed["searches"]] == ["alpha", "beta"]
+        assert mock_ddgs.text.call_count == 2
+
+    @patch("src.agent.tools.web.DDGS")
+    def test_batch_capped_with_note(self, mock_ddgs_class: MagicMock) -> None:
+        """Batches above the cap are truncated and the response says so."""
+        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
+
+        queries = [f"q{i}" for i in range(Config.WEB_SEARCH_MAX_BATCH_QUERIES + 3)]
+        result = web_search.invoke({"queries": queries})
+        parsed = json.loads(result)
+
+        assert len(parsed["searches"]) == Config.WEB_SEARCH_MAX_BATCH_QUERIES
+        assert mock_ddgs.text.call_count == Config.WEB_SEARCH_MAX_BATCH_QUERIES
+        assert "3 queries were dropped" in parsed["note"]
+
+    @patch("src.agent.tools.web.DDGS")
+    def test_single_query_keeps_legacy_shape(self, mock_ddgs_class: MagicMock) -> None:
+        """A one-element queries list returns the flat single-query shape."""
+        self._mock_ddgs(mock_ddgs_class)
+
+        result = web_search.invoke({"queries": ["only one"]})
+        parsed = json.loads(result)
+
+        assert parsed["query"] == "only one"
+        assert "searches" not in parsed
+
+    @patch("src.agent.tools.web.DDGS")
+    def test_per_query_error_does_not_break_batch(self, mock_ddgs_class: MagicMock) -> None:
+        """A rate-limited query reports its error; the rest still succeed."""
+        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
+        mock_ddgs.text.side_effect = [
+            [{"title": "T", "href": "https://example.com", "body": "S"}],
+            RatelimitException("slow down"),
+        ]
+
+        result = web_search.invoke({"queries": ["good", "limited"]})
+        parsed = json.loads(result)
+
+        assert parsed["searches"][0]["results"]
+        assert "error" in parsed["searches"][1]
+
+    def test_no_query_at_all_returns_error(self) -> None:
+        """Calling with neither query nor queries is an error, not a crash."""
+        parsed = json.loads(web_search.invoke({"query": ""}))
+        assert "error" in parsed
 
 
 class TestGenerateImage:

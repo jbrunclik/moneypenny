@@ -41,10 +41,9 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Performance / Cost
 
-Cost analysis Jun 2026 (`scripts/analyze_costs.py`, 30d window = $234): broken explicit context cache until Jun 9 (554 silent `CreateCachedContentConfig` failures, zero hits) made every turn pay full price for static prompt + tools (~20-25k tok) AND broke implicit history caching (timestamped SystemMessage at position 0 in uncached mode). Probes show implicit caching gives `cache_read: 0` even on identical 12.6k-token prefixes — only the explicit cache saves money. `cache_read` is now recorded in `message_costs.cached_input_tokens` and billed at the cached rate (migration 0043). Remaining work:
+Cost analysis Jun 2026 (`scripts/analyze_costs.py`, 30d window = $234): broken explicit context cache until Jun 9 (554 silent `CreateCachedContentConfig` failures, zero hits) made every turn pay full price for static prompt + tools (~20-25k tok) AND broke implicit history caching (timestamped SystemMessage at position 0 in uncached mode). Probes show implicit caching gives `cache_read: 0` even on identical 12.6k-token prefixes — only the explicit cache saves money. Shipped since: `cache_read` recorded in `message_costs.cached_input_tokens` + billed at the cached rate (migration 0043), token-based compaction trigger (`CONVERSATION_COMPACTION_TOKEN_THRESHOLD`), batched `web_search` queries, and tool-schema-aware cache invalidation. Remaining:
 
-- [ ] **Token-based compaction trigger** - compaction fires on message count only (30 msgs / keep 12); conversations reached 440k input tokens per round before compacting (sports p50 is 211k!). Add a token-estimate threshold (~60k) OR message count, whichever first.
-- [ ] **Batch web searches into one round** - worst turn ran 11 sequential `web_search` rounds, each resending full ~400k context (one turn = $6.67; uncached at the time). Let `web_search` accept `queries: list[str]` and prompt the model to batch; optionally cap tool rounds per turn with a "answer with what you have" injection.
+- [ ] **Verify cost drop after a week of cached_input_tokens data** - rerun `scripts/analyze_costs.py` on the prod host (~Jun 19); cached share of input should be substantial and daily cost should trend down. If cache_read stays 0, debug the cached_content path.
 
 ## Reliability
 

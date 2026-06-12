@@ -230,8 +230,12 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
     Returns:
         Detail string to display in UI, or None if no detail available
     """
-    if tool_name == "web_search" and "query" in tool_args:
-        return str(tool_args["query"])
+    if tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):
+        parts = [str(tool_args["query"])] if tool_args.get("query") else []
+        batched = tool_args.get("queries")
+        if isinstance(batched, list):
+            parts.extend(str(q) for q in batched)
+        return " | ".join(parts)
     elif tool_name == "browser" and "action" in tool_args:
         action = str(tool_args["action"])
         if action == "navigate" and "url" in tool_args:

@@ -127,6 +127,83 @@ class TestFirstCompaction:
         mock_db.kv_set.assert_not_called()
 
 
+def _big_history(n: int, chars_each: int) -> list[dict[str, Any]]:
+    """Build n enriched messages with large content bodies."""
+    return [
+        {
+            "role": "user" if i % 2 == 0 else "assistant",
+            "content": f"message {i} " + "x" * chars_each,
+            "metadata": {"timestamp": "2024-06-15 14:30 CET"},
+        }
+        for i in range(n)
+    ]
+
+
+class TestTokenTrigger:
+    def test_token_trigger_fires_below_message_count(
+        self,
+        compaction_config: None,
+        mock_db: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A few huge messages compact long before the message-count threshold."""
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_TOKEN_THRESHOLD", 1000)
+        history = _big_history(8, 3000)  # 8 msgs <= count threshold 10, ~8k est tokens
+
+        with patch.object(cc, "summarize_messages", return_value="SUMMARY") as mock_sum:
+            result = build_compacted_history("u1", "c1", history)
+
+        mock_sum.assert_called_once()  # older 4 messages went to the summarizer
+        assert result is history  # first turn unchanged (summary not ready yet)
+
+        # Next turn uses the persisted summary: 4 older summarized, 4 recent kept
+        mock_db.kv_get.return_value = json.dumps({"summary": "SUMMARY", "covered_count": 4})
+        result2 = build_compacted_history("u1", "c1", history)
+        assert result2[0]["content"].startswith(SUMMARY_PREFIX)
+        assert result2[1:] == history[-4:]
+
+    def test_token_trigger_disabled_with_zero(
+        self,
+        compaction_config: None,
+        mock_db: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_TOKEN_THRESHOLD", 0)
+        history = _big_history(8, 30_000)
+        assert build_compacted_history("u1", "c1", history) is history
+        mock_db.kv_get.assert_not_called()
+
+    def test_tail_shrinks_for_huge_recent_messages(
+        self,
+        compaction_config: None,
+        mock_db: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """When the verbatim tail alone exceeds the token threshold, it shrinks
+        down to the floor so compaction actually bounds what is sent."""
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_KEEP_RECENT", 8)
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_TOKEN_THRESHOLD", 1000)
+        history = _big_history(12, 3000)  # over count threshold too (12 > 10)
+
+        mock_db.kv_get.return_value = json.dumps({"summary": "SUMMARY", "covered_count": 8})
+        result = build_compacted_history("u1", "c1", history)
+
+        # Tail shrank from 8 to the floor of 4; older = first 8 (all covered)
+        assert result[0]["content"].startswith(SUMMARY_PREFIX)
+        assert result[1:] == history[-4:]
+
+    def test_history_smaller_than_tail_floor_unchanged(
+        self,
+        compaction_config: None,
+        mock_db: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Nothing to summarize when everything fits in the minimum tail."""
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_TOKEN_THRESHOLD", 1000)
+        history = _big_history(4, 3000)  # over tokens, but only 4 messages
+        assert build_compacted_history("u1", "c1", history) is history
+
+
 class TestRunningSummary:
     def test_reuses_summary_without_resummarizing(
         self, compaction_config: None, mock_db: MagicMock

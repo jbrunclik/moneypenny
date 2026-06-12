@@ -272,6 +272,10 @@ class Config:
     # Web search settings
     WEB_SEARCH_DEFAULT_RESULTS = 3
     WEB_SEARCH_MAX_RESULTS = 10
+    # Max queries per batched web_search call (the tool encourages the model
+    # to bundle independent searches into one round instead of sequential
+    # rounds that each re-send the whole conversation)
+    WEB_SEARCH_MAX_BATCH_QUERIES = 5
 
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
@@ -350,6 +354,13 @@ class Config:
     # so a summarization LLM call fires roughly every N turns rather than every turn
     CONVERSATION_COMPACTION_RESUMMARIZE_BATCH: int = int(
         os.getenv("CONVERSATION_COMPACTION_RESUMMARIZE_BATCH", "10")
+    )
+    # Estimated history tokens above which compaction also triggers, regardless
+    # of message count - a few huge messages can blow the context long before
+    # 30 messages accumulate (June 2026 audit: sports conversations carried
+    # p50 211k input tokens per turn). 0 disables the token trigger.
+    CONVERSATION_COMPACTION_TOKEN_THRESHOLD: int = int(
+        os.getenv("CONVERSATION_COMPACTION_TOKEN_THRESHOLD", "60000")
     )
 
     # Graph recursion limit: max graph steps per request (navigate+screenshot+click = multiple steps)

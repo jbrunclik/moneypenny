@@ -46,6 +46,7 @@ You have access to the following tools:
 
 ## Web Tools
 - **web_search**: Search the web for current information, news, prices, events, etc. Returns JSON with results.
+  - Researching several independent angles (different places, products, phrasings)? Pass them ALL in the `queries` array in ONE call - sequential single searches are slow and expensive
 - **fetch_url**: Fetch and read the content of a specific web page.
 - **browser**: Browse the web with a full browser that renders JavaScript.
   - Use when fetch_url returns incomplete or empty content (JavaScript-heavy sites, SPAs)

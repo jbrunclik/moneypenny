@@ -16,6 +16,7 @@ falls back to the uncached path (SystemMessage + bind_tools).
 """
 
 import hashlib
+import json
 import threading
 import time
 from dataclasses import dataclass
@@ -52,10 +53,23 @@ class CacheEntry:
     expires_at: float
 
 
-def _compute_content_hash(prompt: str, tool_names: list[str]) -> str:
-    """Compute SHA-256 hash for cache invalidation on prompt/tool changes."""
-    content = prompt + "\n" + ",".join(sorted(tool_names))
-    return hashlib.sha256(content.encode()).hexdigest()[:16]
+def _compute_content_hash(prompt: str, tools: list[Any]) -> str:
+    """Compute SHA-256 hash for cache invalidation on prompt/tool changes.
+
+    Tool descriptions and schemas are part of the cached content, so they must
+    be part of the hash - hashing names alone would keep serving a stale cache
+    (with the old declarations invisible to the model) after a tool gains a
+    parameter or changes its docstring.
+    """
+    parts = [prompt]
+    for t in sorted(tools, key=lambda t: t.name):
+        schema = ""
+        try:
+            schema = json.dumps(t.args_schema.model_json_schema(), sort_keys=True, default=str)
+        except Exception:  # noqa: S110 - schema shape varies; absence just weakens the hash
+            pass
+        parts.append(f"{t.name}:{t.description or ''}:{schema}")
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 
 
 def _get_db() -> Any:
@@ -112,8 +126,7 @@ class ContextCacheManager:
         """
         try:
             prompt = get_static_prompt_for_profile(profile.value)
-            tool_names = [t.name for t in tools]
-            content_hash = _compute_content_hash(prompt, tool_names)
+            content_hash = _compute_content_hash(prompt, tools)
             cache_key = f"{profile.value}:{model_name}"
 
             with self._lock:

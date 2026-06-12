@@ -38,6 +38,22 @@ KV_NAMESPACE = "conv_compaction"
 # Prefix marking the synthetic summary message so the model treats it as context
 SUMMARY_PREFIX = "[Summary of earlier conversation]"
 
+# Rough chars-per-token for history size estimation. Deliberately conservative
+# (Gemini averages ~4 for English, ~3 for Czech) so the token trigger fires
+# early rather than late.
+_CHARS_PER_TOKEN_ESTIMATE = 3
+
+# The recent tail kept verbatim never shrinks below this many messages, even
+# when the tail alone exceeds the token threshold - the model needs some
+# verbatim context to continue the conversation coherently.
+_MIN_KEEP_RECENT = 4
+
+
+def _estimate_tokens(messages: list[dict[str, Any]]) -> int:
+    """Estimate LLM tokens for enriched history messages (content only)."""
+    chars = sum(len(m.get("content") or "") for m in messages)
+    return chars // _CHARS_PER_TOKEN_ESTIMATE
+
 
 def _load_state(user_id: str, conversation_id: str) -> tuple[str | None, int]:
     """Load the persisted running summary and how many leading messages it covers."""
@@ -144,9 +160,10 @@ def build_compacted_history(
     """Compact long conversation history for sending to the LLM.
 
     Returns ``[summary_message] + uncovered_middle + recent`` when the history
-    exceeds the configured threshold, otherwise returns it unchanged. The
-    running summary is regenerated only when the un-summarized middle has grown
-    by ``CONVERSATION_COMPACTION_RESUMMARIZE_BATCH`` messages.
+    exceeds the configured message-count OR estimated-token threshold,
+    otherwise returns it unchanged. The running summary is regenerated only
+    when the un-summarized middle has grown by
+    ``CONVERSATION_COMPACTION_RESUMMARIZE_BATCH`` messages.
 
     Args:
         user_id: Owner of the conversation (required for kv persistence)
@@ -160,10 +177,25 @@ def build_compacted_history(
         return history
     if not user_id or not conversation_id:
         return history
-    if len(history) <= Config.CONVERSATION_COMPACTION_THRESHOLD:
+    over_count = len(history) > Config.CONVERSATION_COMPACTION_THRESHOLD
+    token_threshold = Config.CONVERSATION_COMPACTION_TOKEN_THRESHOLD
+    over_tokens = token_threshold > 0 and _estimate_tokens(history) > token_threshold
+    if not (over_count or over_tokens):
         return history
 
     keep_recent = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    # A few huge recent messages can exceed the token threshold all by
+    # themselves - shrink the verbatim tail (down to a floor) so compaction
+    # actually bounds what is sent, not just how many messages frame it.
+    if token_threshold > 0:
+        while (
+            keep_recent > _MIN_KEEP_RECENT
+            and _estimate_tokens(history[-keep_recent:]) > token_threshold
+        ):
+            keep_recent -= 1
+    if len(history) <= keep_recent:
+        return history
+
     older = history[:-keep_recent]
     recent = history[-keep_recent:]
 

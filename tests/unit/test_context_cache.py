@@ -22,6 +22,19 @@ from src.agent.context_cache import (
 )
 
 
+def _make_tool(
+    name: str = "test_tool",
+    description: str = "A test tool.",
+    schema: dict | None = None,
+) -> MagicMock:
+    """Deterministic fake LangChain tool (name, description, args schema)."""
+    tool = MagicMock()
+    tool.name = name
+    tool.description = description
+    tool.args_schema.model_json_schema.return_value = schema or {"properties": {}}
+    return tool
+
+
 @pytest.fixture(autouse=True)
 def mock_shared_registry() -> Generator[MagicMock]:
     """Isolate tests from the real DB-backed shared cache registry."""
@@ -204,27 +217,51 @@ class TestComputeContentHash:
     """Tests for content hashing."""
 
     def test_same_input_same_hash(self) -> None:
-        h1 = _compute_content_hash("prompt text", ["tool_a", "tool_b"])
-        h2 = _compute_content_hash("prompt text", ["tool_a", "tool_b"])
+        h1 = _compute_content_hash("prompt text", [_make_tool("tool_a"), _make_tool("tool_b")])
+        h2 = _compute_content_hash("prompt text", [_make_tool("tool_a"), _make_tool("tool_b")])
         assert h1 == h2
 
     def test_different_prompt_different_hash(self) -> None:
-        h1 = _compute_content_hash("prompt v1", ["tool_a"])
-        h2 = _compute_content_hash("prompt v2", ["tool_a"])
+        h1 = _compute_content_hash("prompt v1", [_make_tool("tool_a")])
+        h2 = _compute_content_hash("prompt v2", [_make_tool("tool_a")])
         assert h1 != h2
 
     def test_different_tools_different_hash(self) -> None:
-        h1 = _compute_content_hash("prompt", ["tool_a"])
-        h2 = _compute_content_hash("prompt", ["tool_b"])
+        h1 = _compute_content_hash("prompt", [_make_tool("tool_a")])
+        h2 = _compute_content_hash("prompt", [_make_tool("tool_b")])
         assert h1 != h2
 
+    def test_different_description_different_hash(self) -> None:
+        """A docstring change must invalidate the cache - the cached function
+        declarations would otherwise keep the stale description until TTL."""
+        h1 = _compute_content_hash("prompt", [_make_tool("tool_a", description="old")])
+        h2 = _compute_content_hash("prompt", [_make_tool("tool_a", description="new")])
+        assert h1 != h2
+
+    def test_different_schema_different_hash(self) -> None:
+        """A new tool parameter must invalidate the cache."""
+        h1 = _compute_content_hash(
+            "prompt", [_make_tool("tool_a", schema={"properties": {"query": {}}})]
+        )
+        h2 = _compute_content_hash(
+            "prompt", [_make_tool("tool_a", schema={"properties": {"query": {}, "queries": {}}})]
+        )
+        assert h1 != h2
+
+    def test_unreadable_schema_still_hashes(self) -> None:
+        """Schema extraction failure degrades to a weaker hash, not a crash."""
+        broken = _make_tool("tool_a")
+        broken.args_schema.model_json_schema.side_effect = TypeError("no schema")
+        h = _compute_content_hash("prompt", [broken])
+        assert len(h) == 16
+
     def test_tool_order_irrelevant(self) -> None:
-        h1 = _compute_content_hash("prompt", ["tool_b", "tool_a"])
-        h2 = _compute_content_hash("prompt", ["tool_a", "tool_b"])
+        h1 = _compute_content_hash("prompt", [_make_tool("tool_b"), _make_tool("tool_a")])
+        h2 = _compute_content_hash("prompt", [_make_tool("tool_a"), _make_tool("tool_b")])
         assert h1 == h2
 
     def test_hash_length(self) -> None:
-        h = _compute_content_hash("prompt", ["tool"])
+        h = _compute_content_hash("prompt", [_make_tool("tool")])
         assert len(h) == 16  # SHA-256 truncated to 16 hex chars
 
 
@@ -235,9 +272,7 @@ class TestContextCacheManager:
     """Tests for ContextCacheManager."""
 
     def _make_mock_tool(self, name: str = "test_tool") -> MagicMock:
-        tool = MagicMock()
-        tool.name = name
-        return tool
+        return _make_tool(name)
 
     @patch("src.agent.context_cache.Config")
     def test_get_or_create_creates_cache(self, mock_config: MagicMock) -> None:
@@ -335,7 +370,7 @@ class TestContextCacheManager:
         now = time.time()
         manager._caches["standard:gemini-3-flash-preview"] = CacheEntry(
             cache_name="cachedContents/old",
-            content_hash=_compute_content_hash("static prompt", ["test_tool"]),
+            content_hash=_compute_content_hash("static prompt", [tool]),
             created_at=now - 3500,
             expires_at=now + 100,  # Expires in 100s, which is < 300s buffer
         )
@@ -441,9 +476,7 @@ class TestSharedCacheRegistry:
     """The DB-backed registry shares one Gemini cache across gunicorn workers."""
 
     def _make_mock_tool(self, name: str = "test_tool") -> MagicMock:
-        tool = MagicMock()
-        tool.name = name
-        return tool
+        return _make_tool(name)
 
     @patch("src.agent.context_cache.Config")
     def test_adopts_cache_created_by_another_worker(
@@ -454,7 +487,7 @@ class TestSharedCacheRegistry:
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
 
-        content_hash = _compute_content_hash("static prompt", ["test_tool"])
+        content_hash = _compute_content_hash("static prompt", [_make_tool()])
         mock_shared_registry.get_context_cache_entry.return_value = {
             "cache_name": "cachedContents/other-worker",
             "content_hash": content_hash,
@@ -608,9 +641,7 @@ class TestCreateCache:
     """Tests for the actual cache creation / tool conversion."""
 
     def _make_mock_tool(self, name: str = "test_tool") -> MagicMock:
-        tool = MagicMock()
-        tool.name = name
-        return tool
+        return _make_tool(name)
 
     @patch("src.agent.context_cache.Config")
     def test_single_tool_return_normalized_to_list(self, mock_config: MagicMock) -> None:
