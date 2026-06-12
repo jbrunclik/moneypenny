@@ -35,7 +35,7 @@ Namespace: `language`
 | `programs` | JSON array of all programs (id, name, emoji, created_at) |
 | `{program_id}:profile` | Learner's native language, goals, preferred learning style |
 | `{program_id}:assessment` | Current proficiency level (A1-C2), strengths, areas to improve |
-| `{program_id}:vocabulary` | Spaced repetition data per word (next_review, interval, streak) |
+| `{program_id}:vocabulary` | Spaced repetition data per word (next_review, interval, streak, lapses, mastered/leech flags) |
 | `{program_id}:grammar` | Grammar concepts covered and mastery level |
 | `{program_id}:weak_points` | Error patterns (spelling, grammar, conjugation, etc.) |
 | `{program_id}:session_history` | Summary of recent sessions and topics covered |
@@ -47,7 +47,9 @@ Namespace: `language`
 The language tutor system prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompts.py`) includes:
 - KV storage rules and key documentation
 - Quiz format specifications (multiple-choice, fill-blank, translate, batch)
-- Spaced repetition system, CEFR level guidance, error correction strategy
+- Spaced repetition system (interval doubling to 60d, mastery retirement, leech re-teaching at 3+ lapses, overdue-first ordering, 10-item session cap)
+- CEFR level guidance, error correction strategy
+- **Response-mode contract**: every tutor message is either a quiz message (single quiz block, last element, answered only via the quiz widget) or a conversation message (typed reply, at most one open question) — never both, because the quiz widget replaces the typing flow
 - First session (assessment) and returning session (new lesson) workflows
 - L1-aware teaching and comprehensible input (i+1) guidelines
 
