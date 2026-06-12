@@ -264,7 +264,7 @@ async function triggerSportsAnalysis(convResponse: { id: string; model: string }
 
   const textarea = getElementById<HTMLTextAreaElement>('message-input');
   if (textarea) {
-    textarea.value = 'Start my training session';
+    textarea.value = '[System: session-start]';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await sendMessage();
   }

@@ -373,6 +373,8 @@ export interface UserSettings {
   whatsapp_phone: string | null;
   /** Whether WhatsApp is configured at the app level */
   whatsapp_available: boolean;
+  /** Primary response language (English name, e.g. "Czech"); null/"" = auto */
+  preferred_language: string | null;
   daily_briefing: DailyBriefingSettings;
 }
 

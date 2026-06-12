@@ -28,11 +28,13 @@ test.describe('Settings', () => {
     await expect(popup).toBeVisible();
     await expect(popup.locator('h3')).toHaveText('Settings');
     await expect(popup.locator('.settings-label').first()).toHaveText('Appearance');
-    await expect(popup.locator('.settings-label').nth(1)).toHaveText('Todoist Integration');
-    await expect(popup.locator('.settings-label').nth(2)).toHaveText('Google Calendar Integration');
-    await expect(popup.locator('.settings-label').nth(3)).toHaveText('Garmin Connect');
-    await expect(popup.locator('.settings-label').nth(4)).toHaveText('Notifications');
-    await expect(popup.locator('.settings-label').nth(5)).toHaveText('Daily Briefing');
+    await expect(popup.locator('.settings-label').nth(1)).toHaveText('Primary Language');
+    await expect(popup.locator('#preferred-language')).toHaveValue('');
+    await expect(popup.locator('.settings-label').nth(2)).toHaveText('Todoist Integration');
+    await expect(popup.locator('.settings-label').nth(3)).toHaveText('Google Calendar Integration');
+    await expect(popup.locator('.settings-label').nth(4)).toHaveText('Garmin Connect');
+    await expect(popup.locator('.settings-label').nth(5)).toHaveText('Notifications');
+    await expect(popup.locator('.settings-label').nth(6)).toHaveText('Daily Briefing');
     await expect(popup.locator('#briefing-enabled')).not.toBeChecked();
     await expect(popup.locator('#briefing-time')).toHaveValue('08:00');
 

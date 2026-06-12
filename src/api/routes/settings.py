@@ -35,6 +35,7 @@ def get_user_settings(user: User) -> dict[str, Any]:
         "custom_instructions": user.custom_instructions or "",
         "whatsapp_phone": user.whatsapp_phone,
         "whatsapp_available": is_whatsapp_available(),
+        "preferred_language": user.preferred_language,
         "daily_briefing": get_briefing_status(user),
     }
 
@@ -84,6 +85,11 @@ def update_user_settings(user: User, data: UpdateSettingsRequest) -> tuple[dict[
             "User WhatsApp phone updated",
             extra={"user_id": user.id, "has_phone": bool(phone)},
         )
+
+    # Preferred language: empty string clears (= auto)
+    if "preferred_language" in fields_set and data.preferred_language is not None:
+        language = data.preferred_language.strip() or None
+        db.update_user_preferred_language(user.id, language)
 
     # Daily Briefing: upsert the system-managed agent
     if "daily_briefing" in fields_set and data.daily_briefing is not None:

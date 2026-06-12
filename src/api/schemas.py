@@ -223,6 +223,11 @@ class UpdateSettingsRequest(BaseModel):
 
     custom_instructions: str | None = Field(None, max_length=2000)
     daily_briefing: UpdateDailyBriefingRequest | None = None
+    preferred_language: str | None = Field(
+        None,
+        max_length=32,
+        description="Primary response language (English name); empty string = auto",
+    )
     whatsapp_phone: str | None = Field(
         None,
         max_length=20,
@@ -719,6 +724,10 @@ class UserSettingsResponse(BaseModel):
     )
     whatsapp_available: bool = Field(
         default=False, description="Whether WhatsApp is configured at the app level"
+    )
+    preferred_language: str | None = Field(
+        default=None,
+        description="Primary response language (English name, e.g. 'Czech'); null = auto",
     )
     daily_briefing: DailyBriefingSettings = Field(default_factory=DailyBriefingSettings)
 

@@ -33,6 +33,17 @@ const log = createLogger('messages');
 // Regex to detect agent trigger messages
 const TRIGGER_MESSAGE_PATTERN = /^\[(Scheduled run|Manual trigger|Triggered by another agent) at \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC\]$/;
 
+// Canonical marker for app-generated user-role messages (session starts,
+// future automation events). Rendered as a system chip, never a bubble;
+// the backend prompt documents the same convention for the model.
+const SYSTEM_MESSAGE_PATTERN = /^\[System: ([a-z0-9-]+)\]$/;
+
+// Display labels for known system actions; unknown actions fall back to
+// the humanized action text
+const SYSTEM_ACTION_LABELS: Record<string, string> = {
+  'session-start': 'Session started',
+};
+
 // Regex to detect approval request messages (with approval ID)
 // Pattern handles both Unix (\n) and Windows (\r\n) line endings
 const APPROVAL_REQUEST_PATTERN = /^\[approval-request:([a-f0-9-]+)\]\r?\n/;
@@ -44,7 +55,8 @@ const ACTION_APPROVED_PATTERN = /^\[Action approved: (.+)\]$/;
  * Check if a message is an agent trigger message.
  */
 function isTriggerMessage(content: string): boolean {
-  return TRIGGER_MESSAGE_PATTERN.test(content.trim());
+  const trimmed = content.trim();
+  return TRIGGER_MESSAGE_PATTERN.test(trimmed) || SYSTEM_MESSAGE_PATTERN.test(trimmed);
 }
 
 /**
@@ -387,9 +399,20 @@ function addTriggerMessageToUI(message: Message, container: HTMLElement): void {
     'Triggered by another agent': { icon: CHAIN_ICON, label: 'Agent chain', cssClass: 'trigger--chain' },
   };
 
-  const display = parsed
-    ? triggerDisplayMap[parsed.type] || { icon: PLAY_ICON, label: parsed.type, cssClass: '' }
-    : { icon: PLAY_ICON, label: 'Execution', cssClass: '' };
+  // [System: <action>] markers render as a plain system chip
+  const systemMatch = message.content.trim().match(SYSTEM_MESSAGE_PATTERN);
+  const systemDisplay = systemMatch
+    ? {
+        icon: PLAY_ICON,
+        label: SYSTEM_ACTION_LABELS[systemMatch[1]] ?? systemMatch[1].replace(/-/g, ' '),
+        cssClass: 'trigger--system',
+      }
+    : null;
+
+  const display = systemDisplay
+    ?? (parsed
+      ? triggerDisplayMap[parsed.type] || { icon: PLAY_ICON, label: parsed.type, cssClass: '' }
+      : { icon: PLAY_ICON, label: 'Execution', cssClass: '' });
 
   messageEl.className = `message trigger-message ${display.cssClass}`;
 

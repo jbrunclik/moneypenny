@@ -266,7 +266,7 @@ async function triggerLanguageStart(convResponse: { id: string; model: string })
 
   const textarea = getElementById<HTMLTextAreaElement>('message-input');
   if (textarea) {
-    textarea.value = "Let's start!";
+    textarea.value = "[System: session-start]";
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await sendMessage();
   }

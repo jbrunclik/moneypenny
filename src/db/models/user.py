@@ -97,6 +97,9 @@ class UserMixin:
             daily_briefing_agent_id=(
                 row["daily_briefing_agent_id"] if "daily_briefing_agent_id" in row.keys() else None
             ),
+            preferred_language=(
+                row["preferred_language"] if "preferred_language" in row.keys() else None
+            ),
         )
 
     def get_or_create_user(self, email: str, name: str, picture: str | None = None) -> User:
@@ -447,6 +450,24 @@ class UserMixin:
             logger.warning(
                 "User not found for WhatsApp phone update",
                 extra={"user_id": user_id},
+            )
+        return updated
+
+    def update_user_preferred_language(self, user_id: str, language: str | None) -> bool:
+        """Set or clear the user's primary response language (None = auto)."""
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET preferred_language = ? WHERE id = ?",
+                (language, user_id),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+
+        if updated:
+            logger.info(
+                "User preferred language updated",
+                extra={"user_id": user_id, "language": language or "auto"},
             )
         return updated
 

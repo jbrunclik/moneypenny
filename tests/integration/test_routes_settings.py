@@ -417,3 +417,64 @@ class TestDailyBriefingSettings:
             json={"daily_briefing": {**self.BRIEFING, "enabled": False}},
         )
         assert test_database.get_agent(agent_id, user.id).enabled is False
+
+
+class TestPreferredLanguage:
+    def test_round_trip_and_clear(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        # Default: auto
+        assert (
+            client.get("/api/users/me/settings", headers=auth_headers).get_json()[
+                "preferred_language"
+            ]
+            is None
+        )
+
+        response = client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"preferred_language": "Czech"},
+        )
+        assert response.status_code == 200
+        assert (
+            client.get("/api/users/me/settings", headers=auth_headers).get_json()[
+                "preferred_language"
+            ]
+            == "Czech"
+        )
+
+        # Empty string clears back to auto
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"preferred_language": ""}
+        )
+        assert (
+            client.get("/api/users/me/settings", headers=auth_headers).get_json()[
+                "preferred_language"
+            ]
+            is None
+        )
+
+    def test_language_section_in_user_context(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+        monkeypatch,
+    ) -> None:
+        from src.agent import prompts
+
+        client.patch(
+            "/api/users/me/settings",
+            headers=auth_headers,
+            json={"preferred_language": "Czech"},
+        )
+        monkeypatch.setattr(prompts, "db", test_database)
+        context = prompts.get_user_context(test_user.name, test_user.id)
+        assert "primary language is Czech" in context
+
+        # Auto -> no language section
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"preferred_language": ""}
+        )
+        context = prompts.get_user_context(test_user.name, test_user.id)
+        assert "primary language" not in context

@@ -15,6 +15,7 @@ import {
   ACTIVITY_ICON,
   BELL_ICON,
   SUNRISE_ICON,
+  LANGUAGE_ICON,
 } from '../utils/icons';
 import { settings, todoist, calendar, garmin } from '../api/client';
 import { ApiError } from '../api/http';
@@ -67,6 +68,22 @@ let briefingSettings: DailyBriefingSettings = {
   time: '08:00',
   timezone: 'UTC',
 };
+
+/** Current primary language ('' = auto: match the user's messages) */
+let currentPreferredLanguage = '';
+
+/** Primary-language options: stored value (English name) + display label */
+const LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'Auto (match my messages)' },
+  { value: 'Czech', label: 'Čeština' },
+  { value: 'English', label: 'English' },
+  { value: 'German', label: 'Deutsch' },
+  { value: 'Slovak', label: 'Slovenčina' },
+  { value: 'Polish', label: 'Polski' },
+  { value: 'Spanish', label: 'Español' },
+  { value: 'French', label: 'Français' },
+  { value: 'Italian', label: 'Italiano' },
+];
 
 /** Current Todoist status */
 let todoistStatus: TodoistStatus | null = null;
@@ -515,6 +532,23 @@ async function handleBriefingChange(): Promise<void> {
 }
 
 /**
+ * Apply a primary-language change immediately ('' = auto).
+ */
+async function handlePreferredLanguageChange(select: HTMLSelectElement): Promise<void> {
+  const value = select.value;
+  try {
+    await settings.update({ preferred_language: value });
+    currentPreferredLanguage = value;
+    const label = LANGUAGE_OPTIONS.find((o) => o.value === value)?.label ?? value;
+    toast.success(value ? `Primary language set to ${label}` : 'Language set to auto');
+  } catch (error) {
+    log.error('Failed to update preferred language', { error });
+    toast.error('Failed to update language.');
+    select.value = currentPreferredLanguage;
+  }
+}
+
+/**
  * Send a test notification and surface the outcome.
  */
 async function handlePushTest(btn: HTMLButtonElement): Promise<void> {
@@ -557,6 +591,22 @@ function renderContent(
           ${renderColorSchemeOption('dark', MOON_ICON, 'Dark', colorScheme === 'dark')}
           ${renderColorSchemeOption('system', MONITOR_ICON, 'System', colorScheme === 'system')}
         </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field" data-section="language-pref">
+        <label class="settings-label settings-label-with-icon" for="preferred-language">
+          <span class="settings-label-icon">${LANGUAGE_ICON}</span>
+          Primary Language
+        </label>
+        <p class="settings-helper">The assistant replies in this language, even to app-generated messages like session starts and agent runs.</p>
+        <select id="preferred-language" class="settings-input settings-language-select">
+          ${LANGUAGE_OPTIONS.map(
+            (opt) =>
+              `<option value="${escapeHtml(opt.value)}" ${opt.value === currentPreferredLanguage ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`
+          ).join('')}
+        </select>
       </div>
 
       <div class="settings-divider"></div>
@@ -1289,6 +1339,7 @@ export async function openSettingsPopup(): Promise<void> {
     currentWhatsappPhone = settingsData.whatsapp_phone || '';
     whatsappAvailable = settingsData.whatsapp_available ?? false;
     briefingSettings = settingsData.daily_briefing ?? briefingSettings;
+    currentPreferredLanguage = settingsData.preferred_language || '';
     todoistStatus = todoistData;
     calendarStatus = calendarData;
     garminStatus = garminData;
@@ -1422,6 +1473,9 @@ export function initSettingsPopup(): void {
     const target = e.target as HTMLElement;
     if (target.id === 'briefing-enabled' || target.id === 'briefing-time') {
       void handleBriefingChange();
+    }
+    if (target.id === 'preferred-language') {
+      void handlePreferredLanguageChange(target as HTMLSelectElement);
     }
   });
 

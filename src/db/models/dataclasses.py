@@ -34,6 +34,8 @@ class User:
     garmin_token: str | None = None
     garmin_connected_at: datetime | None = None
     daily_briefing_agent_id: str | None = None
+    # Primary response language (English name, e.g. "Czech"); None = auto
+    preferred_language: str | None = None
 
 
 @dataclass
