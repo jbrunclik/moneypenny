@@ -803,6 +803,38 @@ class AgentMixin:
 
             return row is not None
 
+    def consume_approved_request(self, agent_id: str, tool_name: str) -> bool:
+        """Atomically consume one approved, unexpired approval for a tool.
+
+        Used by the destructive-action gate (permission_check.py): each
+        approved request authorizes exactly ONE destructive tool call,
+        after which its status flips to 'consumed'. Returns True when an
+        approval was consumed, False when none was available - the tool
+        must then refuse and tell the model to call request_approval.
+        """
+        now = utcnow_naive()
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE agent_approval_requests
+                   SET status = 'consumed'
+                   WHERE id = (
+                       SELECT id FROM agent_approval_requests
+                       WHERE agent_id = ? AND tool_name = ?
+                         AND status = 'approved' AND expires_at > ?
+                       ORDER BY created_at DESC LIMIT 1
+                   )""",
+                (agent_id, tool_name, now.isoformat()),
+            )
+            conn.commit()
+            consumed = cursor.rowcount > 0
+
+        logger.info(
+            "Approval consumption attempt",
+            extra={"agent_id": agent_id, "tool_name": tool_name, "consumed": consumed},
+        )
+        return consumed
+
     def resolve_approval(
         self, request_id: str, user_id: str, approved: bool
     ) -> ApprovalRequest | None:

@@ -29,6 +29,45 @@ class ToolBlockedError(Exception):
         super().__init__(f"{tool_name}: {message}")
 
 
+class ApprovalRequiredError(Exception):
+    """Raised when a destructive action runs without a consumed approval.
+
+    The ToolNode converts this into a tool error the model can read; the
+    expected reaction is a request_approval call, after which the user's
+    approval authorizes exactly one destructive call (S9 hardening: the
+    confirmation rule is enforced in code, not just in the prompt, so a
+    prompt-injected agent cannot delete data without the user's click).
+    """
+
+
+# Destructive operations that require a consumed user approval when
+# running in an agent context. Extend per tool as needed.
+DESTRUCTIVE_OPERATIONS: dict[str, frozenset[str]] = {
+    "todoist": frozenset({"delete_task", "delete_project", "delete_section"}),
+    "google_calendar": frozenset({"delete_event"}),
+}
+
+
+def _check_destructive_approval(agent_id: str, tool_name: str, operation: str) -> None:
+    """Require + consume an approved request for a destructive operation."""
+    from src.db.models import db
+
+    if db.consume_approved_request(agent_id, tool_name):
+        logger.info(
+            "Destructive action authorized by consumed approval",
+            extra={"agent_id": agent_id, "tool_name": tool_name, "operation": operation},
+        )
+        return
+
+    raise ApprovalRequiredError(
+        f"'{operation}' is destructive and requires explicit user approval - this is "
+        f"enforced, the action cannot run without it. Call request_approval with a "
+        f'description of exactly what will be deleted and tool_name="{tool_name}", '
+        f"then wait for the user's decision. Each approval authorizes one deletion; "
+        f"for several deletions, request approval for each."
+    )
+
+
 def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> None:
     """Check if a tool is allowed for the current autonomous agent.
 
@@ -70,6 +109,11 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
             f"This agent is not permitted to use {tool_name}. "
             "Update the agent's tool permissions if this is needed.",
         )
+
+    # Destructive operations additionally require a consumed user approval
+    operation = tool_args.get("operation")
+    if operation in DESTRUCTIVE_OPERATIONS.get(tool_name, frozenset()):
+        _check_destructive_approval(agent.id, tool_name, str(operation))
 
 
 def requires_permission(tool_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
