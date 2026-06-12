@@ -55,6 +55,11 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Tests & Tooling
 
-- [ ] **Webkit search-spec flake under full-suite load** - 2 occurrences (Jun 2026): `search.spec.ts` "navigates to conversation" / "keeps search results visible" fail with search results never rendering ("Type to search conversations" prompt despite filled input) + the known stray version banner (see `error-ui.visual.ts:11` workaround). Not reproducible isolated: 0/240 webkit repeat-runs on both clean and modified trees; only fails with all projects running in parallel. Suspect load-dependent race between SearchInput debounce and sidebar/store updates. Next step: capture a trace with `--trace=on` during a full-suite run, or instrument store.searchQuery transitions.
+- [ ] **Webkit search-spec flake under full-suite load** - 2 occurrences (Jun 2026), still unexplained after a deep hunt (Jun 12):
+  - The "stray version banner" clue was a red herring: `.version-banner` hides via `transform: translateY(-100%)` so it is ALWAYS in the accessibility tree and appears in every failure snapshot.
+  - Real failure state: `isSearchActive=true` + `store.searchQuery=''` + empty input after `fill()`. Only in-app paths producing that are Escape-on-input or the clear button - neither happens in the specs.
+  - Not reproducible: ~430 additional executions (288 webkit repeats under a parallel heavy-spec load generator + 2 more full-suite runs with `--trace=retain-on-failure`) all passed.
+  - Forensics now in place: `SearchResults.ts` logs a warning when the hint renders while the DOM input has text (distinguishes lost-input-event vs cleared-input); CI retries record traces incl. console, so the next natural occurrence is diagnosable.
+  - Local-env hazard found en route (likely unrelated but nasty): a leaked/manual server on 8001 + `reuseExistingServer` + a rebuild = the old in-memory Vite manifest points at deleted hashed assets -> mass spec failures. If a weird local E2E failure wave appears, check `lsof -iTCP:8001` first.
 
 

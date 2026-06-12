@@ -109,7 +109,7 @@ class TestSendPushToUser:
             send_push_to_user("user-1", "T", "B")
         mock_thread.assert_not_called()
 
-    def test_spawns_daemon_thread_when_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_spawns_thread_when_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(Config, "VAPID_PRIVATE_KEY", "priv")
         monkeypatch.setattr(Config, "VAPID_PUBLIC_KEY", "pub")
         with patch("src.utils.push.threading.Thread") as mock_thread:
@@ -117,7 +117,9 @@ class TestSendPushToUser:
 
         mock_thread.assert_called_once()
         kwargs = mock_thread.call_args.kwargs
-        assert kwargs["daemon"] is True
+        # Must NOT be a daemon: the scheduler is a run-and-exit process
+        # and daemon threads die at interpreter exit, dropping the send
+        assert kwargs["daemon"] is False
         assert kwargs["args"] == ("user-1", "T", "B", "/x", "t")
         mock_thread.return_value.start.assert_called_once()
 

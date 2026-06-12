@@ -309,3 +309,35 @@ class TestDailyBriefingSettings:
             json={"daily_briefing": {"enabled": True, "time": "25:00", "timezone": "UTC"}},
         )
         assert response.status_code == 400
+
+    def test_stock_prompt_rolls_forward_but_custom_is_preserved(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user,
+        test_database,
+    ) -> None:
+        from src.agent.daily_briefing import _LEGACY_BRIEFING_PROMPTS, BRIEFING_SYSTEM_PROMPT
+
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        user = test_database.get_user_by_id(test_user.id)
+        agent_id = user.daily_briefing_agent_id
+
+        # Agent still on a legacy stock prompt gets the current default
+        legacy = next(iter(_LEGACY_BRIEFING_PROMPTS))
+        test_database.update_agent(agent_id, user.id, system_prompt=legacy)
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        agent = test_database.get_agent(agent_id, user.id)
+        assert agent.system_prompt == BRIEFING_SYSTEM_PROMPT
+
+        # A customized prompt is never overwritten
+        test_database.update_agent(agent_id, user.id, system_prompt="My custom briefing style")
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        agent = test_database.get_agent(agent_id, user.id)
+        assert agent.system_prompt == "My custom briefing style"

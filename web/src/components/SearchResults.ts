@@ -52,6 +52,17 @@ export function renderSearchResults(): void {
 
   // Empty query - show hint
   if (!searchQuery.trim()) {
+    // Forensics for a rare load-dependent E2E flake where this hint
+    // rendered after the test filled the input: if the DOM input still
+    // has text while the store query is empty, the input event was
+    // lost; if both are empty, something cleared the input. Shows up in
+    // Playwright traces (CI records them on retry).
+    const inputEl = document.getElementById('search-input') as HTMLInputElement | null;
+    if (inputEl?.value.trim()) {
+      log.warn('Search query empty in store but input has text', {
+        inputValue: inputEl.value,
+      });
+    }
     container.innerHTML = `
       <div class="search-empty">
         <p>Type to search conversations</p>

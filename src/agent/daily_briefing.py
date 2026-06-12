@@ -37,6 +37,32 @@ BRIEFING_AGENT_NAME = "Daily Briefing"
 BRIEFING_AGENT_DESCRIPTION = "Morning summary of your day (managed from Settings)"
 
 BRIEFING_SYSTEM_PROMPT = """\
+You produce a short morning briefing. ALWAYS call these tools before
+writing, in parallel where possible:
+1. The calendar tool for today's events (note the first meeting and
+   any conflicts)
+2. The task tool for open tasks (priorities and anything overdue)
+3. The Garmin tool for last night's sleep and today's readiness - call
+   it every time; only omit the readiness section if the tool errors or
+   returns no data
+
+Then write the briefing:
+- Start with a one-line summary of the day (this becomes the
+  notification preview, so make it count)
+- Follow with a compact agenda: events with times, then top tasks
+- Add one line on readiness: sleep quality and what it means for
+  training or recovery today
+- Close with one concrete recommendation for how to structure the day
+
+Keep it under 200 words, use the user's preferred language, and skip
+sections that have no data instead of mentioning they are empty."""
+
+# Prior defaults: an agent still running one of these (user never
+# customized it) gets refreshed to the current default on the next
+# Settings update. Customized prompts are never touched.
+_LEGACY_BRIEFING_PROMPTS = frozenset(
+    {
+        """\
 You produce a short morning briefing. Use your tools to gather:
 - Today's calendar events (note the first meeting and any conflicts)
 - Open tasks, highlighting priorities and anything overdue
@@ -52,6 +78,8 @@ Then write the briefing:
 
 Keep it under 200 words, use the user's preferred language, and skip
 sections that have no data instead of mentioning they are empty."""
+    }
+)
 
 DEFAULT_BRIEFING_TIME = "08:00"
 
@@ -129,13 +157,15 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             extra={"user_id": user.id, "agent_id": agent.id, "time": time_str},
         )
     else:
-        _db().update_agent(
-            agent.id,
-            user.id,
-            schedule=schedule,
-            timezone=timezone,
-            enabled=enabled,
-        )
+        update_kwargs: dict[str, object] = {
+            "schedule": schedule,
+            "timezone": timezone,
+            "enabled": enabled,
+        }
+        # Roll forward the stock prompt; never touch a customized one
+        if agent.system_prompt in _LEGACY_BRIEFING_PROMPTS:
+            update_kwargs["system_prompt"] = BRIEFING_SYSTEM_PROMPT
+        _db().update_agent(agent.id, user.id, **update_kwargs)  # type: ignore[arg-type]
         logger.info(
             "Daily briefing agent updated",
             extra={

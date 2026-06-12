@@ -129,10 +129,15 @@ def send_push_to_user(
     if not Config.push_enabled():
         return
 
+    # NOT a daemon thread: the agent scheduler is a run-and-exit systemd
+    # process, and daemon threads are killed at interpreter exit - the
+    # 07:20 briefing saved its message but its push died here. A
+    # non-daemon thread blocks exit for at most PUSH_SEND_TIMEOUT per
+    # subscription, which is fine for both the scheduler and gunicorn.
     thread = threading.Thread(
         target=send_push_to_user_sync,
         args=(user_id, title, body, url, tag),
         name=f"push-send-{user_id[:8]}",
-        daemon=True,
+        daemon=False,
     )
     thread.start()
