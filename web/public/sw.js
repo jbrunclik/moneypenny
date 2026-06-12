@@ -64,14 +64,15 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      // Focus an existing app window and navigate it instead of
-      // opening a duplicate
+      // Focus an existing app window and tell the app to handle the
+      // route. A hard client.navigate() is wrong here: navigating to an
+      // identical hash URL is a no-op (already-open conversation never
+      // refreshed), and a reload would drop app state. The app listens
+      // for this message (core/push.ts), routes, and syncs new messages.
       for (const client of clients) {
         if ('focus' in client) {
           client.focus();
-          if ('navigate' in client) {
-            return client.navigate(url);
-          }
+          client.postMessage({ type: 'push-navigate', url });
           return undefined;
         }
       }

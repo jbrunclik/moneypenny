@@ -146,6 +146,9 @@ class Agent:
     # Run every execution from a clean slate (prior runs stay readable in
     # the conversation but are not sent to the LLM)
     fresh_context: bool = False
+    # System-managed agent marker ('daily_briefing', ...). NULL prompt on
+    # such agents = stock prompt resolved from code at run time
+    system_type: str | None = None
 
 
 @dataclass

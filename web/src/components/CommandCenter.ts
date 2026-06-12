@@ -230,11 +230,21 @@ function renderAgentCard(
     nextRunText = formatRelativeTime(nextRun);
   }
 
+  // System-managed agents get a badge so it's clear Settings owns their
+  // lifecycle; extend the map for future special agent types
+  const systemTypeLabels: Record<string, string> = {
+    daily_briefing: 'Settings-managed',
+  };
+  const systemBadge = agent.system_type
+    ? `<span class="agent-system-badge" title="Created and scheduled from Settings">${escapeHtml(systemTypeLabels[agent.system_type] ?? 'System')}</span>`
+    : '';
+
   card.innerHTML = `
     <div class="agent-card-header">
       <div class="agent-card-title-row">
         ${statusIndicator}
         <span class="agent-name">${escapeHtml(agent.name)}</span>
+        ${systemBadge}
         ${unreadBadge}
       </div>
       <div class="agent-card-actions">

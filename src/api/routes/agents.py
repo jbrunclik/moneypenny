@@ -12,6 +12,7 @@ from typing import Any
 from apiflask import APIBlueprint
 
 from src.agent.content import extract_text_content
+from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.agent.tools.google_calendar import is_google_calendar_available
 from src.agent.tools.todoist import is_todoist_available
 from src.agent.tools.whatsapp import is_whatsapp_available
@@ -80,6 +81,10 @@ def _agent_to_response(
         "updated_at": to_utc_iso(agent.updated_at),
         "budget_limit": agent.budget_limit,
         "fresh_context": agent.fresh_context,
+        "system_type": agent.system_type,
+        # Resolved prompt for display: equals system_prompt unless the
+        # agent is system-managed and on the stock (NULL) prompt
+        "effective_system_prompt": resolve_agent_system_prompt(agent),
         "daily_spending": daily_spending,
         "has_pending_approval": has_pending_approval,
         "has_error": has_error,

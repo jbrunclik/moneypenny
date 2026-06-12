@@ -453,6 +453,18 @@
     gap: var(--space-2);
 }
 
+/* Badge marking system-managed agents (Daily Briefing, ...) */
+.agent-system-badge {
+    padding: 1px var(--space-2);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-full);
+    color: var(--accent);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .btn-icon {
     display: flex;
     align-items: center;
@@ -1486,6 +1498,8 @@
     font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--text-primary);
+    /* The text labels a switch - never wrap over it */
+    white-space: nowrap;
 }
 
 /* Footer */

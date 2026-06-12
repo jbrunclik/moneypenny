@@ -19,6 +19,7 @@ from src.agent.content import (
     extract_metadata_tool_args,
     extract_sources_fallback_from_tool_results,
 )
+from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     get_tools_for_agent,
@@ -280,13 +281,15 @@ def execute_agent(
     agent_tools = get_tools_for_agent(agent)
     agent_tool_names = [t.name for t in agent_tools]
 
-    # Build agent context for the system prompt
+    # Build agent context for the system prompt. Goals are resolved:
+    # system-managed agents on a NULL prompt get the current stock
+    # prompt from code (src/agent/daily_briefing.py)
     agent_context = {
         "name": agent.name,
         "description": agent.description,
         "schedule": agent.schedule,
         "timezone": agent.timezone,
-        "goals": agent.system_prompt,
+        "goals": resolve_agent_system_prompt(agent),
         "tools": agent_tool_names,  # Actual tools available, not just permissions
         "trigger_type": trigger_type,
     }

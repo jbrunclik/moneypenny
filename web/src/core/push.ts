@@ -59,11 +59,46 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   try {
     const registration = await navigator.serviceWorker.register('/sw.js');
     log.debug('Service worker registered', { scope: registration.scope });
+    setupWorkerMessageListener();
     return registration;
   } catch (error) {
     log.warn('Service worker registration failed', { error });
     return null;
   }
+}
+
+let workerMessageListenerInstalled = false;
+
+/**
+ * Handle notification taps relayed by the service worker. The SW can't
+ * hard-navigate: an identical-hash navigation is a no-op (an
+ * already-open conversation would never refresh) and a reload would
+ * drop app state. Instead the app routes via the hash and pulls new
+ * messages through the sync manager.
+ */
+function setupWorkerMessageListener(): void {
+  if (workerMessageListenerInstalled) return;
+  workerMessageListenerInstalled = true;
+
+  navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
+    const data = event.data as { type?: string; url?: string } | null;
+    if (data?.type !== 'push-navigate' || !data.url) return;
+
+    const hashIndex = data.url.indexOf('#');
+    const targetHash = hashIndex >= 0 ? data.url.slice(hashIndex) : '';
+    log.info('Notification tap navigation', { url: data.url });
+
+    if (targetHash && window.location.hash !== targetHash) {
+      // Different route: the hashchange router loads fresh data
+      window.location.hash = targetHash;
+    } else {
+      // Already on the target conversation - fetch what the
+      // notification was about
+      void import('../sync/SyncManager').then(({ getSyncManager }) => {
+        getSyncManager()?.incrementalSync();
+      });
+    }
+  });
 }
 
 /**

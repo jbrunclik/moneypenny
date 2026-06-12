@@ -177,7 +177,11 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
   // Get initial values
   const name = agent?.name || '';
   const description = agent?.description || '';
-  const systemPrompt = agent?.system_prompt || '';
+  // System-managed agents on the stock (null) prompt display the
+  // resolved default; saving it back unmodified must NOT store it (the
+  // stock prompt lives in code and updates with deploys)
+  const promptIsStock = !!agent?.system_type && !agent?.system_prompt;
+  const systemPrompt = agent?.system_prompt || agent?.effective_system_prompt || '';
   const schedule = agent?.schedule || '';
   const timezone = agent?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const enabled = agent?.enabled ?? true;
@@ -283,7 +287,8 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
 
           <div class="form-group">
             <label for="agent-system-prompt">System Prompt / Goals</label>
-            <textarea id="agent-system-prompt" class="form-input form-textarea form-textarea--large" rows="8" placeholder="Describe what this agent should do and how it should behave. Be specific about tasks, constraints, and expected outputs...">${escapeHtml(systemPrompt)}</textarea>
+            ${promptIsStock ? '<small class="form-help">Showing the built-in default, which improves automatically with app updates. Editing it switches this agent to your custom version permanently.</small>' : ''}
+            <textarea id="agent-system-prompt" class="form-input form-textarea form-textarea--large" rows="8" data-stock-prompt="${promptIsStock ? 'true' : 'false'}" placeholder="Describe what this agent should do and how it should behave. Be specific about tasks, constraints, and expected outputs...">${escapeHtml(systemPrompt)}</textarea>
             <div class="form-help-row">
               <small class="form-help">Define the agent's purpose, behavior, and any specific instructions.</small>
               <button type="button" id="enhance-prompt-btn" class="btn btn-secondary btn-sm btn-with-icon">
@@ -315,7 +320,7 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
               : 'Select which integrations the agent can use.'}</small>
           </div>
 
-          <div class="form-group form-group-inline">
+          <div class="form-group">
             <label class="toggle-label">
               <input type="checkbox" id="agent-fresh-context" ${freshContext ? 'checked' : ''}>
               <span class="toggle-switch"></span>
@@ -747,6 +752,16 @@ async function handleSave(): Promise<void> {
   // access to grid tools only
   if (originalPermissionsUnrestricted && !permissionsTouched) {
     delete data.tool_permissions;
+  }
+
+  // Same idea for a stock prompt: the textarea displays the resolved
+  // default, but storing it would freeze it - omit unless the user
+  // actually changed the text
+  if (
+    systemPromptInput?.dataset.stockPrompt === 'true' &&
+    systemPromptInput.value.trim() === systemPromptInput.defaultValue.trim()
+  ) {
+    delete data.system_prompt;
   }
 
   // Disable save button during request

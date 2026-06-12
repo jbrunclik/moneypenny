@@ -78,6 +78,7 @@ class AgentMixin:
             ),
             budget_limit=budget_limit,
             fresh_context=(bool(row["fresh_context"]) if "fresh_context" in row.keys() else False),
+            system_type=(row["system_type"] if "system_type" in row.keys() else None),
         )
 
     def _row_to_approval_request(self, row: sqlite3.Row) -> ApprovalRequest:
@@ -131,6 +132,7 @@ class AgentMixin:
         model: str | None = None,
         budget_limit: float | None = None,
         fresh_context: bool = True,
+        system_type: str | None = None,
     ) -> Agent:
         """Create a new autonomous agent with a dedicated conversation.
 
@@ -192,8 +194,8 @@ class AgentMixin:
                 """INSERT INTO autonomous_agents
                    (id, user_id, conversation_id, name, description, system_prompt,
                     schedule, timezone, enabled, tool_permissions, model, created_at, updated_at,
-                    next_run_at, budget_limit, fresh_context)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    next_run_at, budget_limit, fresh_context, system_type)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     agent_id,
                     user_id,
@@ -211,6 +213,7 @@ class AgentMixin:
                     next_run_at.isoformat() if next_run_at else None,
                     budget_limit,
                     1 if fresh_context else 0,
+                    system_type,
                 ),
             )
             conn.commit()
@@ -235,6 +238,7 @@ class AgentMixin:
             next_run_at=next_run_at,
             budget_limit=budget_limit,
             fresh_context=fresh_context,
+            system_type=system_type,
         )
 
     def get_agent(self, agent_id: str, user_id: str) -> Agent | None:

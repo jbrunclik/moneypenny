@@ -1136,6 +1136,14 @@ class AgentResponse(BaseModel):
         default=False,
         description="Run each execution without prior conversation history",
     )
+    system_type: str | None = Field(
+        default=None,
+        description="System-managed agent marker (e.g. 'daily_briefing'); null for regular agents",
+    )
+    effective_system_prompt: str | None = Field(
+        default=None,
+        description="Resolved prompt: the stock default for system-managed agents on a NULL prompt",
+    )
     daily_spending: float = Field(default=0, description="Today's spending in USD")
     has_pending_approval: bool = Field(
         default=False, description="Whether agent is blocked waiting for approval"

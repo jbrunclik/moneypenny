@@ -630,6 +630,10 @@ export interface Agent {
   budget_limit?: number | null; // Daily budget limit in USD (null = unlimited)
   /** Run each execution without prior conversation history */
   fresh_context: boolean;
+  /** System-managed agent marker ('daily_briefing', ...); null for regular agents */
+  system_type?: string | null;
+  /** Resolved prompt: stock default for system-managed agents on a NULL prompt */
+  effective_system_prompt?: string | null;
   daily_spending: number; // Today's spending in USD
   has_pending_approval: boolean;
   has_error: boolean;

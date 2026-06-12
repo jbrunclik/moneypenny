@@ -58,53 +58,16 @@ Then write the briefing:
 Keep it under 200 words, use the user's preferred language, and skip
 sections that have no data instead of mentioning they are empty."""
 
-# Prior defaults: an agent still running one of these (user never
-# customized it) gets refreshed to the current default on the next
-# Settings update. Customized prompts are never touched.
-_LEGACY_BRIEFING_PROMPTS = frozenset(
-    {
-        # v1 (Jun 11, 2026): Garmin optional, greeting not forbidden
-        """\
-You produce a short morning briefing. Use your tools to gather:
-- Today's calendar events (note the first meeting and any conflicts)
-- Open tasks, highlighting priorities and anything overdue
-- Garmin readiness/sleep data when available
-
-Then write the briefing:
-- Start with a one-line summary of the day (this becomes the
-  notification preview, so make it count)
-- Follow with a compact agenda: events with times, then top tasks
-- If readiness/sleep data is available, add one line of training or
-  recovery advice
-- Close with one concrete recommendation for how to structure the day
-
-Keep it under 200 words, use the user's preferred language, and skip
-sections that have no data instead of mentioning they are empty.""",
-        # v2 (Jun 12, 2026): Garmin imperative, greeting not forbidden
-        """\
-You produce a short morning briefing. ALWAYS call these tools before
-writing, in parallel where possible:
-1. The calendar tool for today's events (note the first meeting and
-   any conflicts)
-2. The task tool for open tasks (priorities and anything overdue)
-3. The Garmin tool for last night's sleep and today's readiness - call
-   it every time; only omit the readiness section if the tool errors or
-   returns no data
-
-Then write the briefing:
-- Start with a one-line summary of the day (this becomes the
-  notification preview, so make it count)
-- Follow with a compact agenda: events with times, then top tasks
-- Add one line on readiness: sleep quality and what it means for
-  training or recovery today
-- Close with one concrete recommendation for how to structure the day
-
-Keep it under 200 words, use the user's preferred language, and skip
-sections that have no data instead of mentioning they are empty.""",
-    }
-)
-
 DEFAULT_BRIEFING_TIME = "08:00"
+
+# System-managed agent types. Each entry maps a system_type marker to
+# the current stock prompt resolved at run time; future special agents
+# (evening review, ...) add a constant + registry entry here.
+SYSTEM_TYPE_DAILY_BRIEFING = "daily_briefing"
+
+SYSTEM_AGENT_PROMPTS: dict[str, str] = {
+    SYSTEM_TYPE_DAILY_BRIEFING: BRIEFING_SYSTEM_PROMPT,
+}
 
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
@@ -140,6 +103,22 @@ def _resolve_agent(user: User) -> Agent | None:
     return _db().get_agent(user.daily_briefing_agent_id, user.id)
 
 
+def resolve_agent_system_prompt(agent: Agent) -> str | None:
+    """Effective system prompt for an agent run.
+
+    System-managed agents (agent.system_type set) store NULL while on
+    the stock prompt; the current default is resolved from code here at
+    run time - prompt improvements ship with deploys, no migration or
+    user action needed. A non-null prompt is a user customization and
+    always wins.
+    """
+    if agent.system_prompt:
+        return agent.system_prompt
+    if agent.system_type:
+        return SYSTEM_AGENT_PROMPTS.get(agent.system_type)
+    return None
+
+
 def get_briefing_status(user: User) -> dict[str, object]:
     """Settings view of the briefing: {enabled, time, timezone}."""
     agent = _resolve_agent(user)
@@ -168,7 +147,10 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             user_id=user.id,
             name=BRIEFING_AGENT_NAME,
             description=BRIEFING_AGENT_DESCRIPTION,
-            system_prompt=BRIEFING_SYSTEM_PROMPT,
+            # NULL = stock prompt, resolved from code at run time (see
+            # resolve_agent_system_prompt) so improvements ship with
+            # deploys; the editor stores a value only on customization
+            system_prompt=None,
             schedule=schedule,
             timezone=timezone,
             tool_permissions=None,  # all tools (calendar, todoist, garmin, ...)
@@ -176,6 +158,7 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             # Briefings are independent reports - never feed yesterday's
             # run back into the LLM
             fresh_context=True,
+            system_type=SYSTEM_TYPE_DAILY_BRIEFING,
         )
         _db().update_user_daily_briefing_agent(user.id, agent.id)
         logger.info(
@@ -183,18 +166,15 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             extra={"user_id": user.id, "agent_id": agent.id, "time": time_str},
         )
     else:
-        update_kwargs: dict[str, object] = {
-            "schedule": schedule,
-            "timezone": timezone,
-            "enabled": enabled,
-            # Enforced for the settings-managed briefing (also rolls
-            # forward agents created before the column existed)
-            "fresh_context": True,
-        }
-        # Roll forward the stock prompt; never touch a customized one
-        if agent.system_prompt in _LEGACY_BRIEFING_PROMPTS:
-            update_kwargs["system_prompt"] = BRIEFING_SYSTEM_PROMPT
-        _db().update_agent(agent.id, user.id, **update_kwargs)  # type: ignore[arg-type]
+        _db().update_agent(
+            agent.id,
+            user.id,
+            schedule=schedule,
+            timezone=timezone,
+            enabled=enabled,
+            # Enforced for the settings-managed briefing
+            fresh_context=True,
+        )
         logger.info(
             "Daily briefing agent updated",
             extra={

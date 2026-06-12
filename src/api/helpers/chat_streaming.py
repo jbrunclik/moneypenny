@@ -645,12 +645,14 @@ class _StreamContext:
             self.is_autonomous = True
             # Build agent context for the ChatAgent (for tool filtering)
             # Note: tool_permissions=None means all tools, [] means no tools
+            from src.agent.daily_briefing import resolve_agent_system_prompt
+
             self.agent_context = {
                 "name": agent_record.name,
                 "description": agent_record.description,
                 "schedule": agent_record.schedule,
                 "timezone": agent_record.timezone,
-                "goals": agent_record.system_prompt,
+                "goals": resolve_agent_system_prompt(agent_record),
                 "tools": agent_record.tool_permissions,
                 "trigger_type": "interactive",
             }

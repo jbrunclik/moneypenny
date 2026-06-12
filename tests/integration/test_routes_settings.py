@@ -310,34 +310,53 @@ class TestDailyBriefingSettings:
         )
         assert response.status_code == 400
 
-    def test_stock_prompt_rolls_forward_but_custom_is_preserved(
+    def test_stock_prompt_lives_in_code_not_db(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_user,
         test_database,
     ) -> None:
-        from src.agent.daily_briefing import _LEGACY_BRIEFING_PROMPTS, BRIEFING_SYSTEM_PROMPT
+        """The briefing agent stores NULL while on the stock prompt; the
+        runtime resolver supplies the current default from code, so
+        prompt improvements need no migration or user action."""
+        from src.agent.daily_briefing import (
+            BRIEFING_SYSTEM_PROMPT,
+            SYSTEM_TYPE_DAILY_BRIEFING,
+            resolve_agent_system_prompt,
+        )
 
         client.patch(
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
         user = test_database.get_user_by_id(test_user.id)
-        agent_id = user.daily_briefing_agent_id
+        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
 
-        # Agent still on a legacy stock prompt gets the current default
-        legacy = next(iter(_LEGACY_BRIEFING_PROMPTS))
-        test_database.update_agent(agent_id, user.id, system_prompt=legacy)
+        assert agent.system_type == SYSTEM_TYPE_DAILY_BRIEFING
+        assert agent.system_prompt is None
+        assert resolve_agent_system_prompt(agent) == BRIEFING_SYSTEM_PROMPT
+
+        # A customized prompt wins and survives settings re-saves
+        test_database.update_agent(agent.id, user.id, system_prompt="My custom briefing style")
         client.patch(
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
-        agent = test_database.get_agent(agent_id, user.id)
-        assert agent.system_prompt == BRIEFING_SYSTEM_PROMPT
-
-        # A customized prompt is never overwritten
-        test_database.update_agent(agent_id, user.id, system_prompt="My custom briefing style")
-        client.patch(
-            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
-        )
-        agent = test_database.get_agent(agent_id, user.id)
+        agent = test_database.get_agent(agent.id, user.id)
         assert agent.system_prompt == "My custom briefing style"
+        assert resolve_agent_system_prompt(agent) == "My custom briefing style"
+
+    def test_agent_response_exposes_system_type_and_effective_prompt(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        from src.agent.daily_briefing import BRIEFING_SYSTEM_PROMPT
+
+        client.patch(
+            "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
+        )
+        agents = client.get("/api/agents", headers=auth_headers).get_json()["agents"]
+        briefing = next(a for a in agents if a["name"] == "Daily Briefing")
+        assert briefing["system_type"] == "daily_briefing"
+        assert briefing["system_prompt"] is None
+        assert briefing["effective_system_prompt"] == BRIEFING_SYSTEM_PROMPT
