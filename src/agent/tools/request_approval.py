@@ -64,7 +64,9 @@ class ApprovalRequestedException(Exception):
 
 
 @tool
-def request_approval(action_description: str, tool_name: str = "custom_action") -> str:
+def request_approval(
+    action_description: str, tool_name: str = "custom_action", target_id: str = ""
+) -> str:
     """Request user approval before performing a sensitive action.
 
     Use this tool when you are about to perform an action that:
@@ -81,7 +83,11 @@ def request_approval(action_description: str, tool_name: str = "custom_action") 
         action_description: Clear description of what you want to do and why.
             Be specific about what will happen if approved.
             Example: "Send email to team@company.com about the project deadline"
-        tool_name: The name of the tool/action category (e.g., "email", "todoist", "calendar")
+        tool_name: The name of the tool/action category (e.g., "email", "todoist", "calendar").
+            For tool-gated actions use the actual tool name ("todoist", "google_calendar").
+        target_id: For gated destructive actions, the id of the entity being changed
+            (task_id/project_id/section_id/event_id). The approval then authorizes
+            ONLY the call acting on that exact entity.
 
     Returns:
         A message indicating that approval has been requested and the agent should wait.
@@ -111,12 +117,16 @@ def request_approval(action_description: str, tool_name: str = "custom_action") 
         },
     )
 
-    # Create the approval request in the database
+    # Create the approval request in the database. target_id enables
+    # argument-level matching in the destructive-action gate.
+    tool_args: dict[str, str] = {"description": action_description}
+    if target_id:
+        tool_args["target_id"] = target_id
     approval = db.create_approval_request(
         agent_id=agent.id,
         user_id=user_id,
         tool_name=tool_name,
-        tool_args={"description": action_description},
+        tool_args=tool_args,
         description=action_description,
     )
 

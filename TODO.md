@@ -35,7 +35,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Security
 
-- [ ] **S9 follow-up: extend the destructive-action gate** - Core resolved (Jun 2026): kept the `data:delete` scope, but delete actions (todoist delete_task/project/section, calendar delete_event) are hard-gated in code for agent contexts - each requires consuming one user-approved request_approval (see `permission_check.py DESTRUCTIVE_OPERATIONS`). Remaining ideas: gate `archive_project` and bulk `update_event` reschedules; consider argument-level matching (approval names the exact entity id).
 - [ ] **Encrypt OAuth/Garmin tokens at rest (S3)** - Tokens are plaintext in SQLite (`models/user.py`). Fernet keyed from env.
 
 ## AI-Agent Best Practices

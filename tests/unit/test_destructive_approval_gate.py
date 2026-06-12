@@ -88,3 +88,84 @@ class TestDestructiveApprovalGate:
 
         with pytest.raises(ApprovalRequiredError):
             check_autonomous_permission("google_calendar", {"operation": "delete_event"})
+
+
+def _approve(test_database, agent, user, tool_name="todoist", target_id=None):
+    tool_args = {"description": "x"}
+    if target_id:
+        tool_args["target_id"] = target_id
+    approval = test_database.create_approval_request(
+        agent_id=agent.id,
+        user_id=user.id,
+        tool_name=tool_name,
+        tool_args=tool_args,
+        description="x",
+    )
+    test_database.resolve_approval(approval.id, user.id, approved=True)
+    return approval
+
+
+class TestArchiveAndRescheduleGates:
+    def test_archive_project_gated(self, agent_ctx) -> None:
+        with pytest.raises(ApprovalRequiredError):
+            check_autonomous_permission(
+                "todoist", {"operation": "archive_project", "project_id": "p1"}
+            )
+
+    def test_update_event_reschedule_gated(self, agent_ctx) -> None:
+        with pytest.raises(ApprovalRequiredError):
+            check_autonomous_permission(
+                "google_calendar",
+                {"operation": "update_event", "event_id": "e1", "start_time": "2026-06-13T09:00"},
+            )
+
+    def test_update_event_attendee_change_gated(self, agent_ctx) -> None:
+        with pytest.raises(ApprovalRequiredError):
+            check_autonomous_permission(
+                "google_calendar",
+                {"operation": "update_event", "event_id": "e1", "attendees": ["a@b.c"]},
+            )
+
+    def test_update_event_cosmetic_edit_allowed(self, agent_ctx) -> None:
+        # Renames/description tweaks are reversible and stay ungated
+        check_autonomous_permission(
+            "google_calendar", {"operation": "update_event", "event_id": "e1"}
+        )
+
+
+class TestTargetMatching:
+    def test_targeted_approval_authorizes_only_that_entity(
+        self, agent_ctx, test_database, test_user
+    ) -> None:
+        _approve(test_database, agent_ctx, test_user, target_id="task-X")
+
+        # Wrong entity: the approval for task-X must not be spent on task-Y
+        with pytest.raises(ApprovalRequiredError):
+            check_autonomous_permission(
+                "todoist", {"operation": "delete_task", "task_id": "task-Y"}
+            )
+
+        # Right entity passes and consumes
+        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-X"})
+        with pytest.raises(ApprovalRequiredError):
+            check_autonomous_permission(
+                "todoist", {"operation": "delete_task", "task_id": "task-X"}
+            )
+
+    def test_generic_approval_authorizes_any_single_call(
+        self, agent_ctx, test_database, test_user
+    ) -> None:
+        _approve(test_database, agent_ctx, test_user, target_id=None)
+        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-Y"})
+
+    def test_targeted_approval_preferred_over_generic(
+        self, agent_ctx, test_database, test_user
+    ) -> None:
+        generic = _approve(test_database, agent_ctx, test_user, target_id=None)
+        targeted = _approve(test_database, agent_ctx, test_user, target_id="task-X")
+
+        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-X"})
+
+        # The targeted approval was spent; the generic one remains usable
+        assert test_database.get_approval_request(targeted.id, test_user.id).status == "consumed"
+        assert test_database.get_approval_request(generic.id, test_user.id).status == "approved"

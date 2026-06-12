@@ -830,9 +830,17 @@ def todoist(
             }
         )
 
-    # Check permission for autonomous agents (write operations require approval)
-    # Map 'action' to 'operation' for permission check
-    check_autonomous_permission("todoist", {"operation": action})
+    # Check permission for autonomous agents; entity ids enable
+    # argument-level approval matching for destructive operations
+    check_autonomous_permission(
+        "todoist",
+        {
+            "operation": action,
+            "task_id": task_id,
+            "project_id": project_id,
+            "section_id": section_id,
+        },
+    )
 
     try:
         # Dispatch to the appropriate action handler

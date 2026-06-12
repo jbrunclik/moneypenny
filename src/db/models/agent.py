@@ -803,7 +803,9 @@ class AgentMixin:
 
             return row is not None
 
-    def consume_approved_request(self, agent_id: str, tool_name: str) -> bool:
+    def consume_approved_request(
+        self, agent_id: str, tool_name: str, target_id: str | None = None
+    ) -> bool:
         """Atomically consume one approved, unexpired approval for a tool.
 
         Used by the destructive-action gate (permission_check.py): each
@@ -811,27 +813,60 @@ class AgentMixin:
         after which its status flips to 'consumed'. Returns True when an
         approval was consumed, False when none was available - the tool
         must then refuse and tell the model to call request_approval.
+
+        Argument-level matching: an approval whose tool_args carry a
+        `target_id` only authorizes the call acting on that exact entity
+        (a hijacked agent cannot spend an approval for item X on item Y).
+        Approvals without a target_id authorize any one call (matching
+        approvals are preferred over generic ones).
         """
-        now = utcnow_naive()
+        now = utcnow_naive().isoformat()
         with self._pool.get_connection() as conn:
-            cursor = self._execute_with_timing(
+            rows = self._execute_with_timing(
                 conn,
-                """UPDATE agent_approval_requests
-                   SET status = 'consumed'
-                   WHERE id = (
-                       SELECT id FROM agent_approval_requests
-                       WHERE agent_id = ? AND tool_name = ?
-                         AND status = 'approved' AND expires_at > ?
-                       ORDER BY created_at DESC LIMIT 1
-                   )""",
-                (agent_id, tool_name, now.isoformat()),
-            )
-            conn.commit()
-            consumed = cursor.rowcount > 0
+                """SELECT id, tool_args FROM agent_approval_requests
+                   WHERE agent_id = ? AND tool_name = ?
+                     AND status = 'approved' AND expires_at > ?
+                   ORDER BY created_at DESC""",
+                (agent_id, tool_name, now),
+            ).fetchall()
+
+            chosen_id: str | None = None
+            generic_id: str | None = None
+            for row in rows:
+                approval_target = None
+                if row["tool_args"]:
+                    try:
+                        approval_target = json.loads(row["tool_args"]).get("target_id")
+                    except json.JSONDecodeError:
+                        approval_target = None
+                if approval_target:
+                    if target_id and approval_target == target_id:
+                        chosen_id = row["id"]
+                        break
+                elif generic_id is None:
+                    generic_id = row["id"]
+
+            chosen_id = chosen_id or generic_id
+            consumed = False
+            if chosen_id:
+                cursor = self._execute_with_timing(
+                    conn,
+                    """UPDATE agent_approval_requests SET status = 'consumed'
+                       WHERE id = ? AND status = 'approved'""",
+                    (chosen_id,),
+                )
+                conn.commit()
+                consumed = cursor.rowcount > 0
 
         logger.info(
             "Approval consumption attempt",
-            extra={"agent_id": agent_id, "tool_name": tool_name, "consumed": consumed},
+            extra={
+                "agent_id": agent_id,
+                "tool_name": tool_name,
+                "target_id": target_id,
+                "consumed": consumed,
+            },
         )
         return consumed
 

@@ -43,28 +43,67 @@ class ApprovalRequiredError(Exception):
 # Destructive operations that require a consumed user approval when
 # running in an agent context. Extend per tool as needed.
 DESTRUCTIVE_OPERATIONS: dict[str, frozenset[str]] = {
-    "todoist": frozenset({"delete_task", "delete_project", "delete_section"}),
+    "todoist": frozenset({"delete_task", "delete_project", "delete_section", "archive_project"}),
     "google_calendar": frozenset({"delete_event"}),
 }
 
+# Which tool argument identifies the entity a destructive operation acts
+# on. Used for argument-level approval matching: an approval created
+# with a target_id only authorizes the call whose entity matches it.
+_OPERATION_TARGET_PARAM: dict[str, str] = {
+    "delete_task": "task_id",
+    "delete_project": "project_id",
+    "delete_section": "section_id",
+    "archive_project": "project_id",
+    "delete_event": "event_id",
+    "update_event": "event_id",
+}
 
-def _check_destructive_approval(agent_id: str, tool_name: str, operation: str) -> None:
+# update_event is gated only when it actually reschedules or changes
+# attendees - routine edits (summary, description, reminders) stay free
+_UPDATE_EVENT_GATED_FIELDS = ("start_time", "end_time", "attendees")
+
+
+def _destructive_operation(tool_name: str, tool_args: dict[str, Any]) -> str | None:
+    """The operation name when this call needs an approval, else None."""
+    operation = tool_args.get("operation")
+    if operation in DESTRUCTIVE_OPERATIONS.get(tool_name, frozenset()):
+        return str(operation)
+    if (
+        tool_name == "google_calendar"
+        and operation == "update_event"
+        and any(tool_args.get(field) for field in _UPDATE_EVENT_GATED_FIELDS)
+    ):
+        return str(operation)
+    return None
+
+
+def _check_destructive_approval(
+    agent_id: str, tool_name: str, operation: str, target_id: str | None
+) -> None:
     """Require + consume an approved request for a destructive operation."""
     from src.db.models import db
 
-    if db.consume_approved_request(agent_id, tool_name):
+    if db.consume_approved_request(agent_id, tool_name, target_id=target_id):
         logger.info(
             "Destructive action authorized by consumed approval",
-            extra={"agent_id": agent_id, "tool_name": tool_name, "operation": operation},
+            extra={
+                "agent_id": agent_id,
+                "tool_name": tool_name,
+                "operation": operation,
+                "target_id": target_id,
+            },
         )
         return
 
     raise ApprovalRequiredError(
-        f"'{operation}' is destructive and requires explicit user approval - this is "
-        f"enforced, the action cannot run without it. Call request_approval with a "
-        f'description of exactly what will be deleted and tool_name="{tool_name}", '
-        f"then wait for the user's decision. Each approval authorizes one deletion; "
-        f"for several deletions, request approval for each."
+        f"'{operation}' is a destructive change and requires explicit user approval - "
+        f"this is enforced, the action cannot run without it. Call request_approval "
+        f"with a description of exactly what will change, "
+        f'tool_name="{tool_name}", and target_id="{target_id or "<entity id>"}" '
+        f"(the id of the item being changed), then wait for the user's decision. "
+        f"Each approval authorizes one matching call; for several changes, request "
+        f"approval for each."
     )
 
 
@@ -111,9 +150,13 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
         )
 
     # Destructive operations additionally require a consumed user approval
-    operation = tool_args.get("operation")
-    if operation in DESTRUCTIVE_OPERATIONS.get(tool_name, frozenset()):
-        _check_destructive_approval(agent.id, tool_name, str(operation))
+    destructive_op = _destructive_operation(tool_name, tool_args)
+    if destructive_op:
+        target_param = _OPERATION_TARGET_PARAM.get(destructive_op)
+        target_id = tool_args.get(target_param) if target_param else None
+        _check_destructive_approval(
+            agent.id, tool_name, destructive_op, str(target_id) if target_id else None
+        )
 
 
 def requires_permission(tool_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:

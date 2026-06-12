@@ -559,7 +559,18 @@ def google_calendar(
         )
 
     # Check permission for autonomous agents (write operations require approval)
-    check_autonomous_permission("google_calendar", {"operation": action})
+    # Entity ids + reschedule fields enable argument-level approval
+    # matching; update_event is gated only when times/attendees change
+    check_autonomous_permission(
+        "google_calendar",
+        {
+            "operation": action,
+            "event_id": event_id,
+            "start_time": start_time,
+            "end_time": end_time,
+            "attendees": attendees,
+        },
+    )
 
     token, calendar_email = token_info
     calendar_id = calendar_id or "primary"
