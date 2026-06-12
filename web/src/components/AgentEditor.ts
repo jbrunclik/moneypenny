@@ -8,6 +8,7 @@ import { useStore } from '../state/store';
 import { toast } from './Toast';
 import { escapeHtml } from '../utils/dom';
 import {
+  ACTIVITY_ICON,
   CALENDAR_ICON,
   CHECKLIST_ICON,
   CLOSE_ICON,
@@ -33,8 +34,15 @@ let editingAgentId: string | null = null;
 const BASE_TOOLS = [
   { id: 'todoist', name: 'Todoist', description: 'Create, update, and complete tasks', icon: CHECKLIST_ICON },
   { id: 'google_calendar', name: 'Google Calendar', description: 'Create and manage calendar events', icon: CALENDAR_ICON },
+  { id: 'garmin_connect', name: 'Garmin', description: 'Read sleep and readiness data', icon: ACTIVITY_ICON },
   { id: 'whatsapp', name: 'WhatsApp', description: 'Send notifications via WhatsApp', icon: PHONE_ICON },
 ];
+
+// Agents created with tool_permissions = null are unrestricted (every
+// available tool, including ones not in this grid). The editor must not
+// silently narrow that: see getToolPermissionsForSave().
+let originalPermissionsUnrestricted = false;
+let permissionsTouched = false;
 
 /**
  * Get available tools filtered based on user settings.
@@ -122,6 +130,8 @@ export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
 
   return new Promise((resolve) => {
     editingAgentId = agent?.id || null;
+    originalPermissionsUnrestricted = !!agent && agent.tool_permissions == null;
+    permissionsTouched = false;
     currentResolve = resolve;
     renderModal(agent, userSettings);
     showModalContainer();
@@ -171,7 +181,13 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
   const schedule = agent?.schedule || '';
   const timezone = agent?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const enabled = agent?.enabled ?? true;
+  // Default ON for new agents; most agents' runs are independent
+  const freshContext = agent?.fresh_context ?? true;
   const toolPermissions = agent?.tool_permissions || [];
+  // null permissions = unrestricted: render every box checked so the UI
+  // tells the truth (unchecked boxes would read as "no access")
+  const isToolChecked = (toolId: string): boolean =>
+    originalPermissionsUnrestricted || toolPermissions.includes(toolId);
   const { models, defaultModel } = useStore.getState();
   const model = agent?.model || defaultModel;
   const budgetLimit = agent?.budget_limit;
@@ -282,7 +298,7 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
             <div class="tool-permissions-grid">
               ${availableTools.map(tool => `
                 <label class="tool-permission-card">
-                  <input type="checkbox" name="tool-permission" value="${escapeHtml(tool.id)}" ${toolPermissions.includes(tool.id) ? 'checked' : ''}>
+                  <input type="checkbox" name="tool-permission" value="${escapeHtml(tool.id)}" ${isToolChecked(tool.id) ? 'checked' : ''}>
                   <span class="tool-permission-content">
                     <span class="tool-icon">${tool.icon}</span>
                     <span class="tool-details">
@@ -294,7 +310,18 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
                 </label>
               `).join('')}
             </div>
-            <small class="form-help">Select which integrations the agent can use.</small>
+            <small class="form-help">${originalPermissionsUnrestricted
+              ? 'This agent has unrestricted tool access (including tools not listed here). Changing the selection restricts it to the checked integrations.'
+              : 'Select which integrations the agent can use.'}</small>
+          </div>
+
+          <div class="form-group form-group-inline">
+            <label class="toggle-label">
+              <input type="checkbox" id="agent-fresh-context" ${freshContext ? 'checked' : ''}>
+              <span class="toggle-switch"></span>
+              <span class="toggle-text">Fresh context</span>
+            </label>
+            <small class="form-help">Each run starts from a clean slate - previous runs stay readable in the conversation but aren't sent to the model (cheaper; turn off only if runs should build on each other).</small>
           </div>
 
           <div class="form-group form-group-inline">
@@ -327,6 +354,12 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
 
   // Setup validation handlers
   setupValidationHandlers();
+
+  // Track whether the user changed the permission selection - an
+  // untouched unrestricted (null) selection must stay null on save
+  modalContainer.querySelector('.tool-permissions-grid')?.addEventListener('change', () => {
+    permissionsTouched = true;
+  });
 }
 
 /**
@@ -704,8 +737,17 @@ async function handleSave(): Promise<void> {
     model: modelSelect?.value || undefined,
     budget_limit: budgetLimit,
     enabled: enabledInput?.checked ?? true,
+    fresh_context: (modalContainer.querySelector('#agent-fresh-context') as HTMLInputElement | null)?.checked ?? true,
     tool_permissions: toolPermissions,
   };
+
+  // An agent with unrestricted (null) permissions whose selection was
+  // never touched must keep them: the PATCH treats a missing field as
+  // "unchanged", while sending the checked subset would silently narrow
+  // access to grid tools only
+  if (originalPermissionsUnrestricted && !permissionsTouched) {
+    delete data.tool_permissions;
+  }
 
   // Disable save button during request
   const saveBtn = modalContainer.querySelector('.agent-editor-save') as HTMLButtonElement;

@@ -262,12 +262,19 @@ def execute_agent(
     )
     db.add_message(conv.id, MessageRole.USER, trigger_message)
 
-    # Get conversation history (excluding the just-added message)
-    messages = db.get_messages(conv.id)
-    history = [
-        {"role": m.role.value, "content": m.content}
-        for m in messages[:-1]  # Exclude the trigger message
-    ]
+    # Get conversation history (excluding the just-added message).
+    # Fresh-context agents run every turn from a clean slate: prior runs
+    # stay readable in the conversation but aren't sent to the LLM
+    # (saves tokens; right default for report-style agents like the
+    # Daily Briefing whose runs are independent).
+    if agent.fresh_context:
+        history: list[dict[str, str]] = []
+    else:
+        messages = db.get_messages(conv.id)
+        history = [
+            {"role": m.role.value, "content": m.content}
+            for m in messages[:-1]  # Exclude the trigger message
+        ]
 
     # Get tools for the agent (includes request_approval, trigger_agent, etc.)
     agent_tools = get_tools_for_agent(agent)

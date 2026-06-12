@@ -143,6 +143,9 @@ class Agent:
     next_run_at: datetime | None = None  # Calculated next run time
     last_viewed_at: datetime | None = None  # When user last viewed agent conversation
     budget_limit: float | None = None  # Daily budget limit in USD (None = unlimited)
+    # Run every execution from a clean slate (prior runs stay readable in
+    # the conversation but are not sent to the LLM)
+    fresh_context: bool = False
 
 
 @dataclass

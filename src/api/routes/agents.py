@@ -79,6 +79,7 @@ def _agent_to_response(
         "created_at": to_utc_iso(agent.created_at),
         "updated_at": to_utc_iso(agent.updated_at),
         "budget_limit": agent.budget_limit,
+        "fresh_context": agent.fresh_context,
         "daily_spending": daily_spending,
         "has_pending_approval": has_pending_approval,
         "has_error": has_error,
@@ -206,6 +207,7 @@ def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
         enabled=json_data.enabled,
         model=json_data.model,
         budget_limit=json_data.budget_limit,
+        fresh_context=json_data.fresh_context,
     )
 
     logger.info("Agent created", extra={"agent_id": agent.id, "user_id": user.id})
@@ -337,6 +339,7 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
         enabled=get_arg("enabled"),
         model=get_arg("model"),
         budget_limit=get_arg("budget_limit"),
+        fresh_context=get_arg("fresh_context"),
     )
 
     if not agent:

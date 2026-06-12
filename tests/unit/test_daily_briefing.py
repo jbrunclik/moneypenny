@@ -51,3 +51,27 @@ class TestCronToTime:
 
     def test_round_trip(self) -> None:
         assert _cron_to_time(_time_to_cron("06:45")) == "06:45"
+
+
+class TestFreshContext:
+    """fresh_context column round-trips and briefing agents enforce it."""
+
+    def test_create_and_update_round_trip(self, test_database, test_user) -> None:
+        agent = test_database.create_agent(user_id=test_user.id, name="A1", fresh_context=False)
+        assert test_database.get_agent(agent.id, test_user.id).fresh_context is False
+
+        test_database.update_agent(agent.id, test_user.id, fresh_context=True)
+        assert test_database.get_agent(agent.id, test_user.id).fresh_context is True
+
+    def test_create_defaults_to_fresh(self, test_database, test_user) -> None:
+        agent = test_database.create_agent(user_id=test_user.id, name="A2")
+        assert agent.fresh_context is True
+
+    def test_briefing_agent_is_fresh_context(self, test_database, test_user, monkeypatch) -> None:
+        monkeypatch.setattr("src.db.models.db", test_database)
+        from src.agent.daily_briefing import set_briefing
+
+        set_briefing(test_user, enabled=True, time_str="07:00", timezone="Europe/Prague")
+        user = test_database.get_user_by_id(test_user.id)
+        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        assert agent.fresh_context is True

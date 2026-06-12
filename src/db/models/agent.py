@@ -77,6 +77,7 @@ class AgentMixin:
                 datetime.fromisoformat(row["last_viewed_at"]) if row["last_viewed_at"] else None
             ),
             budget_limit=budget_limit,
+            fresh_context=(bool(row["fresh_context"]) if "fresh_context" in row.keys() else False),
         )
 
     def _row_to_approval_request(self, row: sqlite3.Row) -> ApprovalRequest:
@@ -129,6 +130,7 @@ class AgentMixin:
         enabled: bool = True,
         model: str | None = None,
         budget_limit: float | None = None,
+        fresh_context: bool = True,
     ) -> Agent:
         """Create a new autonomous agent with a dedicated conversation.
 
@@ -143,6 +145,8 @@ class AgentMixin:
             enabled: Whether agent is active
             model: LLM model to use (defaults to Config.DEFAULT_MODEL)
             budget_limit: Monthly budget limit in USD (None = unlimited)
+            fresh_context: Run each execution without prior conversation
+                history (default True - most agents' runs are independent)
 
         Returns:
             The created Agent object
@@ -188,8 +192,8 @@ class AgentMixin:
                 """INSERT INTO autonomous_agents
                    (id, user_id, conversation_id, name, description, system_prompt,
                     schedule, timezone, enabled, tool_permissions, model, created_at, updated_at,
-                    next_run_at, budget_limit)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    next_run_at, budget_limit, fresh_context)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     agent_id,
                     user_id,
@@ -206,6 +210,7 @@ class AgentMixin:
                     now.isoformat(),
                     next_run_at.isoformat() if next_run_at else None,
                     budget_limit,
+                    1 if fresh_context else 0,
                 ),
             )
             conn.commit()
@@ -229,6 +234,7 @@ class AgentMixin:
             last_run_at=None,
             next_run_at=next_run_at,
             budget_limit=budget_limit,
+            fresh_context=fresh_context,
         )
 
     def get_agent(self, agent_id: str, user_id: str) -> Agent | None:
@@ -361,6 +367,7 @@ class AgentMixin:
         enabled: bool | None | EllipsisType = ...,
         model: str | None | EllipsisType = ...,
         budget_limit: float | None | EllipsisType = ...,
+        fresh_context: bool | None | EllipsisType = ...,
     ) -> Agent | None:
         """Update an agent's configuration.
 
@@ -406,6 +413,9 @@ class AgentMixin:
         if not isinstance(enabled, EllipsisType):
             updates.append("enabled = ?")
             params.append(1 if enabled else 0)
+        if not isinstance(fresh_context, EllipsisType):
+            updates.append("fresh_context = ?")
+            params.append(1 if fresh_context else 0)
         if not isinstance(model, EllipsisType):
             updates.append("model = ?")
             params.append(model)

@@ -1073,6 +1073,10 @@ class CreateAgentRequest(BaseModel):
     budget_limit: float | None = Field(
         None, ge=0, description="Daily budget limit in USD (null = unlimited)"
     )
+    fresh_context: bool = Field(
+        default=True,
+        description="Run each execution without prior conversation history",
+    )
 
     @field_validator("model")
     @classmethod
@@ -1096,6 +1100,7 @@ class UpdateAgentRequest(BaseModel):
     enabled: bool | None = None
     model: str | None = None
     budget_limit: float | None = None  # Use None as "not provided", explicit 0 = unlimited
+    fresh_context: bool | None = None
 
     @field_validator("model")
     @classmethod
@@ -1126,6 +1131,10 @@ class AgentResponse(BaseModel):
     updated_at: str
     budget_limit: float | None = Field(
         None, description="Daily budget limit in USD (null = unlimited)"
+    )
+    fresh_context: bool = Field(
+        default=False,
+        description="Run each execution without prior conversation history",
     )
     daily_spending: float = Field(default=0, description="Today's spending in USD")
     has_pending_approval: bool = Field(

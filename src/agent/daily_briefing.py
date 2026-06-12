@@ -47,8 +47,9 @@ writing, in parallel where possible:
    returns no data
 
 Then write the briefing:
-- Start with a one-line summary of the day (this becomes the
-  notification preview, so make it count)
+- The VERY FIRST line must be a one-line summary of the day. No
+  greeting, no salutation, no preamble - this line is the notification
+  preview on the user's lock screen, so it must carry information
 - Follow with a compact agenda: events with times, then top tasks
 - Add one line on readiness: sleep quality and what it means for
   training or recovery today
@@ -62,6 +63,7 @@ sections that have no data instead of mentioning they are empty."""
 # Settings update. Customized prompts are never touched.
 _LEGACY_BRIEFING_PROMPTS = frozenset(
     {
+        # v1 (Jun 11, 2026): Garmin optional, greeting not forbidden
         """\
 You produce a short morning briefing. Use your tools to gather:
 - Today's calendar events (note the first meeting and any conflicts)
@@ -77,7 +79,28 @@ Then write the briefing:
 - Close with one concrete recommendation for how to structure the day
 
 Keep it under 200 words, use the user's preferred language, and skip
-sections that have no data instead of mentioning they are empty."""
+sections that have no data instead of mentioning they are empty.""",
+        # v2 (Jun 12, 2026): Garmin imperative, greeting not forbidden
+        """\
+You produce a short morning briefing. ALWAYS call these tools before
+writing, in parallel where possible:
+1. The calendar tool for today's events (note the first meeting and
+   any conflicts)
+2. The task tool for open tasks (priorities and anything overdue)
+3. The Garmin tool for last night's sleep and today's readiness - call
+   it every time; only omit the readiness section if the tool errors or
+   returns no data
+
+Then write the briefing:
+- Start with a one-line summary of the day (this becomes the
+  notification preview, so make it count)
+- Follow with a compact agenda: events with times, then top tasks
+- Add one line on readiness: sleep quality and what it means for
+  training or recovery today
+- Close with one concrete recommendation for how to structure the day
+
+Keep it under 200 words, use the user's preferred language, and skip
+sections that have no data instead of mentioning they are empty.""",
     }
 )
 
@@ -150,6 +173,9 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             timezone=timezone,
             tool_permissions=None,  # all tools (calendar, todoist, garmin, ...)
             enabled=True,
+            # Briefings are independent reports - never feed yesterday's
+            # run back into the LLM
+            fresh_context=True,
         )
         _db().update_user_daily_briefing_agent(user.id, agent.id)
         logger.info(
@@ -161,6 +187,9 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             "schedule": schedule,
             "timezone": timezone,
             "enabled": enabled,
+            # Enforced for the settings-managed briefing (also rolls
+            # forward agents created before the column existed)
+            "fresh_context": True,
         }
         # Roll forward the stock prompt; never touch a customized one
         if agent.system_prompt in _LEGACY_BRIEFING_PROMPTS:

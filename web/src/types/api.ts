@@ -628,6 +628,8 @@ export interface Agent {
   created_at: string;
   updated_at: string;
   budget_limit?: number | null; // Daily budget limit in USD (null = unlimited)
+  /** Run each execution without prior conversation history */
+  fresh_context: boolean;
   daily_spending: number; // Today's spending in USD
   has_pending_approval: boolean;
   has_error: boolean;
@@ -645,6 +647,7 @@ export interface CreateAgentRequest {
   enabled?: boolean;
   model?: string;
   budget_limit?: number; // Daily budget limit in USD (null = unlimited)
+  fresh_context?: boolean;
 }
 
 export interface UpdateAgentRequest {
@@ -657,6 +660,7 @@ export interface UpdateAgentRequest {
   enabled?: boolean;
   model?: string;
   budget_limit?: number; // Daily budget limit in USD (null = unlimited)
+  fresh_context?: boolean;
 }
 
 export interface AgentExecution {
