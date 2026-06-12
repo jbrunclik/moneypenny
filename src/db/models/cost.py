@@ -46,6 +46,7 @@ class CostMixin:
         output_tokens: int,
         cost_usd: float,
         image_generation_cost_usd: float = 0.0,
+        cached_input_tokens: int = 0,
     ) -> None:
         """Save cost information for a message.
 
@@ -58,6 +59,7 @@ class CostMixin:
             output_tokens: Number of output tokens
             cost_usd: Total cost in USD
             image_generation_cost_usd: Cost for image generation in USD (default 0.0)
+            cached_input_tokens: Subset of input_tokens served from the context cache (default 0)
         """
         cost_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -71,6 +73,7 @@ class CostMixin:
                 "model": model,
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
+                "cached_input_tokens": cached_input_tokens,
                 "cost_usd": cost_usd,
             },
         )
@@ -80,8 +83,9 @@ class CostMixin:
                 conn,
                 """INSERT INTO message_costs (
                     id, message_id, conversation_id, user_id, model,
-                    input_tokens, output_tokens, cost_usd, image_generation_cost_usd, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    input_tokens, output_tokens, cached_input_tokens,
+                    cost_usd, image_generation_cost_usd, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     cost_id,
                     message_id,
@@ -90,6 +94,7 @@ class CostMixin:
                     model,
                     input_tokens,
                     output_tokens,
+                    cached_input_tokens,
                     cost_usd,
                     image_generation_cost_usd,
                     now,
@@ -106,12 +111,14 @@ class CostMixin:
             message_id: The message ID
 
         Returns:
-            Dict with 'cost_usd', 'input_tokens', 'output_tokens', 'model', 'image_generation_cost_usd', or None if not found
+            Dict with 'cost_usd', 'input_tokens', 'output_tokens', 'cached_input_tokens',
+            'model', 'image_generation_cost_usd', or None if not found
         """
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                """SELECT cost_usd, input_tokens, output_tokens, model, image_generation_cost_usd
+                """SELECT cost_usd, input_tokens, output_tokens, cached_input_tokens,
+                          model, image_generation_cost_usd
                    FROM message_costs
                    WHERE message_id = ?""",
                 (message_id,),
@@ -124,6 +131,7 @@ class CostMixin:
                 "cost_usd": float(row["cost_usd"] or 0.0),
                 "input_tokens": int(row["input_tokens"] or 0),
                 "output_tokens": int(row["output_tokens"] or 0),
+                "cached_input_tokens": int(row["cached_input_tokens"] or 0),
                 "model": row["model"],
                 "image_generation_cost_usd": float(
                     row["image_generation_cost_usd"]

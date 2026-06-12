@@ -121,25 +121,34 @@ class Config:
 
     # Gemini pricing (per million tokens) - as of May 2026
     # These should be updated when Google changes pricing
+    # cached_input = rate for tokens served from the context cache
+    # (usage_metadata.input_token_details.cache_read), billed at 25% of the
+    # input rate. Cache storage cost is not attributed per message - caches
+    # are shared across workers with short TTLs, so it is negligible.
     MODEL_PRICING = {
         "gemini-3.5-flash": {
             "input": 1.50,  # $1.50 per million input tokens
+            "cached_input": 0.375,
             "output": 9.00,  # $9.00 per million output tokens
         },
         "gemini-3-flash-preview": {
             "input": 0.50,  # $0.50 per million input tokens (historical)
+            "cached_input": 0.125,
             "output": 3.00,  # $3.00 per million output tokens (historical)
         },
         "gemini-3.1-pro-preview": {
             "input": 2.00,  # $2.00 per million input tokens
+            "cached_input": 0.50,
             "output": 12.00,  # $12.00 per million output tokens
         },
         "gemini-3-pro-preview": {
             "input": 1.25,  # $1.25 per million input tokens (historical)
+            "cached_input": 0.3125,
             "output": 5.00,  # $5.00 per million output tokens (historical)
         },
         "gemini-3-pro-image-preview": {
             "input": 2.00,  # $2.00 per million input tokens (text prompts)
+            "cached_input": 0.50,
             "output": 12.00,  # $12.00 per million output tokens (images + thinking)
         },
     }

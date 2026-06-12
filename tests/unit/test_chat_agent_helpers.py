@@ -24,6 +24,36 @@ from src.agent.tool_display import (
 )
 
 
+class TestUsageTokens:
+    """Tests for _usage_tokens (cache-aware usage_metadata extraction)."""
+
+    def test_full_metadata(self) -> None:
+        from src.agent.agent import _usage_tokens
+
+        usage = {
+            "input_tokens": 12_614,
+            "output_tokens": 130,
+            "input_token_details": {"cache_read": 9_000},
+        }
+        assert _usage_tokens(usage) == (12_614, 130, 9_000)
+
+    def test_missing_details_defaults_to_zero_cache(self) -> None:
+        from src.agent.agent import _usage_tokens
+
+        assert _usage_tokens({"input_tokens": 100, "output_tokens": 5}) == (100, 5, 0)
+
+    def test_non_dict_details_ignored(self) -> None:
+        from src.agent.agent import _usage_tokens
+
+        usage = {"input_tokens": 100, "output_tokens": 5, "input_token_details": None}
+        assert _usage_tokens(usage) == (100, 5, 0)
+
+    def test_empty_usage(self) -> None:
+        from src.agent.agent import _usage_tokens
+
+        assert _usage_tokens({}) == (0, 0, 0)
+
+
 class TestExtractTextContent:
     """Tests for extract_text_content function."""
 

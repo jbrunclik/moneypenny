@@ -38,21 +38,33 @@ def get_model_pricing(model_name: str) -> dict[str, float]:
     return Config.MODEL_PRICING.get(model_name, Config.MODEL_PRICING["gemini-3.5-flash"])
 
 
-def calculate_token_cost(model_name: str, input_tokens: int, output_tokens: int) -> float:
+def calculate_token_cost(
+    model_name: str,
+    input_tokens: int,
+    output_tokens: int,
+    cached_input_tokens: int = 0,
+) -> float:
     """Calculate cost for token usage.
 
     Args:
         model_name: The model identifier
-        input_tokens: Number of input tokens
+        input_tokens: Number of input tokens (INCLUDES any cached tokens,
+            matching usage_metadata semantics)
         output_tokens: Number of output tokens
+        cached_input_tokens: Subset of input_tokens served from the context
+            cache (usage_metadata.input_token_details.cache_read), billed at
+            the discounted cached_input rate
 
     Returns:
         Cost in USD
     """
     pricing = get_model_pricing(model_name)
-    input_cost = (input_tokens / 1_000_000) * pricing.get("input", 0.0)
+    cached = min(max(cached_input_tokens, 0), input_tokens)
+    uncached = input_tokens - cached
+    input_cost = (uncached / 1_000_000) * pricing.get("input", 0.0)
+    cached_cost = (cached / 1_000_000) * pricing.get("cached_input", pricing.get("input", 0.0))
     output_cost = (output_tokens / 1_000_000) * pricing.get("output", 0.0)
-    return input_cost + output_cost
+    return input_cost + cached_cost + output_cost
 
 
 def calculate_image_generation_cost(usage_metadata: dict[str, Any]) -> float:
@@ -95,6 +107,7 @@ def calculate_total_cost(
     input_tokens: int = 0,
     output_tokens: int = 0,
     image_generation_cost: float = 0.0,
+    cached_input_tokens: int = 0,
 ) -> float:
     """Calculate total cost for a message.
 
@@ -103,11 +116,14 @@ def calculate_total_cost(
         input_tokens: Number of input tokens (from API usage_metadata)
         output_tokens: Number of output tokens (from API usage_metadata)
         image_generation_cost: Cost for image generation (if any images were generated)
+        cached_input_tokens: Subset of input_tokens served from the context cache
 
     Returns:
         Total cost in USD
     """
-    token_cost = calculate_token_cost(model_name, input_tokens, output_tokens)
+    token_cost = calculate_token_cost(
+        model_name, input_tokens, output_tokens, cached_input_tokens=cached_input_tokens
+    )
     total = token_cost + image_generation_cost
     logger.debug(
         "Cost calculated",
@@ -115,6 +131,7 @@ def calculate_total_cost(
             "model": model_name,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
+            "cached_input_tokens": cached_input_tokens,
             "token_cost_usd": token_cost,
             "image_generation_cost_usd": image_generation_cost,
             "total_cost_usd": total,

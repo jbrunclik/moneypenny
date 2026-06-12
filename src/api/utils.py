@@ -358,6 +358,7 @@ def calculate_and_save_message_cost(
     """
     input_tokens = usage_info.get("input_tokens", 0)
     output_tokens = usage_info.get("output_tokens", 0)
+    cached_input_tokens = usage_info.get("cached_input_tokens", 0)
 
     # Calculate image generation cost from tool_results
     image_cost = calculate_image_generation_cost_from_tool_results(tool_results)
@@ -379,6 +380,7 @@ def calculate_and_save_message_cost(
         input_tokens,
         output_tokens,
         image_generation_cost=image_cost,
+        cached_input_tokens=cached_input_tokens,
     )
 
     db.save_message_cost(
@@ -390,6 +392,7 @@ def calculate_and_save_message_cost(
         output_tokens,
         cost_usd,
         image_generation_cost_usd=image_cost,
+        cached_input_tokens=cached_input_tokens,
     )
 
     logger.info(

@@ -5,7 +5,7 @@ with the LLM, as well as the generate_title function for conversation titles.
 """
 
 import contextvars
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from typing import Any, cast
 
 from langchain_core.messages import (
@@ -38,6 +38,19 @@ logger = get_logger(__name__)
 _planner_dashboard_context: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
     "_planner_dashboard_context", default=None
 )
+
+
+def _usage_tokens(usage: Mapping[str, Any]) -> tuple[int, int, int]:
+    """Extract (input, output, cache_read) from a usage_metadata dict.
+
+    cache_read is the subset of input_tokens served from Gemini's context
+    cache (billed at the discounted cached_input rate). Streaming chunks are
+    delta-encoded - input_tokens and cache_read arrive once per LLM call -
+    so summing across chunks/messages is correct.
+    """
+    details = usage.get("input_token_details")
+    cache_read = details.get("cache_read", 0) if isinstance(details, dict) else 0
+    return usage.get("input_tokens", 0), usage.get("output_tokens", 0), cache_read
 
 
 class ChatAgent:
@@ -450,27 +463,30 @@ class ChatAgent:
         # Aggregate usage metadata from all AIMessages
         total_input_tokens = 0
         total_output_tokens = 0
+        total_cached_tokens = 0
         for msg in result_messages:
             if isinstance(msg, AIMessage):
                 if hasattr(msg, "usage_metadata") and msg.usage_metadata:
                     usage = msg.usage_metadata
                     if isinstance(usage, dict):
-                        input_tokens = usage.get("input_tokens", 0)
-                        output_tokens = usage.get("output_tokens", 0)
+                        input_tokens, output_tokens, cache_read = _usage_tokens(usage)
                         if input_tokens > 0 or output_tokens > 0:
                             total_input_tokens += input_tokens
                             total_output_tokens += output_tokens
+                            total_cached_tokens += cache_read
                             logger.debug(
                                 "Found usage metadata in AIMessage",
                                 extra={
                                     "input_tokens": input_tokens,
                                     "output_tokens": output_tokens,
+                                    "cache_read": cache_read,
                                 },
                             )
 
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
+            "cached_input_tokens": total_cached_tokens,
         }
 
         if total_input_tokens > 0 or total_output_tokens > 0:
@@ -479,6 +495,7 @@ class ChatAgent:
                 extra={
                     "input_tokens": total_input_tokens,
                     "output_tokens": total_output_tokens,
+                    "cached_input_tokens": total_cached_tokens,
                 },
             )
 
@@ -546,6 +563,7 @@ class ChatAgent:
         # Track token counts as we stream (memory efficient - only store numbers, not message objects)
         total_input_tokens = 0
         total_output_tokens = 0
+        total_cached_tokens = 0
         chunk_count = 0
 
         # Stream the graph execution with messages mode for token-level streaming
@@ -581,11 +599,11 @@ class ChatAgent:
                     if hasattr(message_chunk, "usage_metadata") and message_chunk.usage_metadata:
                         usage = message_chunk.usage_metadata
                         if isinstance(usage, dict):
-                            input_tokens = usage.get("input_tokens", 0)
-                            output_tokens = usage.get("output_tokens", 0)
+                            input_tokens, output_tokens, cache_read = _usage_tokens(usage)
                             if input_tokens > 0 or output_tokens > 0:
                                 total_input_tokens += input_tokens
                                 total_output_tokens += output_tokens
+                                total_cached_tokens += cache_read
 
                     # Filter out non-chat node output (plan classifier, plan generation)
                     if source_node and source_node != CHAT_NODE_NAME:
@@ -616,6 +634,7 @@ class ChatAgent:
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
+            "cached_input_tokens": total_cached_tokens,
         }
 
         if total_input_tokens > 0 or total_output_tokens > 0:
@@ -624,6 +643,7 @@ class ChatAgent:
                 extra={
                     "input_tokens": total_input_tokens,
                     "output_tokens": total_output_tokens,
+                    "cached_input_tokens": total_cached_tokens,
                     "chunk_count": chunk_count,
                 },
             )
@@ -695,6 +715,7 @@ class ChatAgent:
         # Track token counts
         total_input_tokens = 0
         total_output_tokens = 0
+        total_cached_tokens = 0
         chunk_count = 0
         # Track active tool calls by tool_call_id (NOT name: two parallel calls
         # to the same tool must emit separate tool_start/tool_end events)
@@ -753,11 +774,11 @@ class ChatAgent:
                     if hasattr(message_chunk, "usage_metadata") and message_chunk.usage_metadata:
                         usage = message_chunk.usage_metadata
                         if isinstance(usage, dict):
-                            input_tokens = usage.get("input_tokens", 0)
-                            output_tokens = usage.get("output_tokens", 0)
+                            input_tokens, output_tokens, cache_read = _usage_tokens(usage)
                             if input_tokens > 0 or output_tokens > 0:
                                 total_input_tokens += input_tokens
                                 total_output_tokens += output_tokens
+                                total_cached_tokens += cache_read
 
                     # Filter out non-chat node output (plan classifier, plan generation)
                     if source_node and source_node != CHAT_NODE_NAME:
@@ -962,6 +983,7 @@ class ChatAgent:
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
+            "cached_input_tokens": total_cached_tokens,
         }
 
         # Final yield with all accumulated data

@@ -78,6 +78,33 @@ class TestCalculateTokenCost:
         expected = 10000 / 1_000_000 * 9.00
         assert cost == pytest.approx(expected)
 
+    def test_cached_tokens_billed_at_discount(self) -> None:
+        """Cached input tokens bill at the cached_input rate, the rest at full rate."""
+        # 1M input of which 400k cached: 600k * $1.50 + 400k * $0.375 = $1.05
+        cost = calculate_token_cost("gemini-3.5-flash", 1_000_000, 0, cached_input_tokens=400_000)
+        assert cost == pytest.approx(0.6 * 1.50 + 0.4 * 0.375)
+
+    def test_fully_cached_input(self) -> None:
+        """All input cached: entire input bills at the cached rate."""
+        cost = calculate_token_cost("gemini-3.5-flash", 1_000_000, 0, cached_input_tokens=1_000_000)
+        assert cost == pytest.approx(0.375)
+
+    def test_cached_tokens_clamped_to_input(self) -> None:
+        """cache_read larger than input_tokens must not produce negative uncached cost."""
+        cost = calculate_token_cost("gemini-3.5-flash", 1_000_000, 0, cached_input_tokens=2_000_000)
+        assert cost == pytest.approx(0.375)
+
+    def test_negative_cached_tokens_ignored(self) -> None:
+        """Negative cache_read (malformed metadata) is treated as zero."""
+        cost = calculate_token_cost("gemini-3.5-flash", 1_000_000, 0, cached_input_tokens=-5)
+        assert cost == pytest.approx(1.50)
+
+    def test_zero_cached_matches_legacy_behavior(self) -> None:
+        """Default cached_input_tokens=0 gives the same cost as before the feature."""
+        assert calculate_token_cost("gemini-3.5-flash", 5000, 1000) == pytest.approx(
+            calculate_token_cost("gemini-3.5-flash", 5000, 1000, cached_input_tokens=0)
+        )
+
 
 class TestCalculateImageGenerationCost:
     """Tests for calculate_image_generation_cost function."""
@@ -131,6 +158,15 @@ class TestCalculateTotalCost:
         image_cost = 0.10
         cost = calculate_total_cost("gemini-3.5-flash", 0, 0, image_generation_cost=image_cost)
         assert cost == pytest.approx(image_cost)
+
+    def test_cached_tokens_passed_through(self) -> None:
+        """calculate_total_cost forwards cached_input_tokens to the token pricing."""
+        cost = calculate_total_cost("gemini-3.5-flash", 100_000, 1000, cached_input_tokens=80_000)
+        expected = calculate_token_cost(
+            "gemini-3.5-flash", 100_000, 1000, cached_input_tokens=80_000
+        )
+        assert cost == pytest.approx(expected)
+        assert cost < calculate_total_cost("gemini-3.5-flash", 100_000, 1000)
 
 
 class TestConvertCurrency:

@@ -433,6 +433,45 @@ class TestCostOperations:
         assert cost is not None
         assert cost["image_generation_cost_usd"] == pytest.approx(0.08)
 
+    def test_save_message_cost_with_cached_tokens(
+        self,
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        """Should persist and return cached_input_tokens; default is 0."""
+        msg = test_database.add_message(test_conversation.id, "assistant", "Cached")
+
+        test_database.save_message_cost(
+            message_id=msg.id,
+            conversation_id=test_conversation.id,
+            user_id=test_user.id,
+            model="gemini-3.5-flash",
+            input_tokens=100_000,
+            output_tokens=2_000,
+            cost_usd=0.06,
+            cached_input_tokens=80_000,
+        )
+
+        cost = test_database.get_message_cost(msg.id)
+        assert cost is not None
+        assert cost["cached_input_tokens"] == 80_000
+
+        # Default path (callers that don't pass the kwarg) records 0
+        msg2 = test_database.add_message(test_conversation.id, "assistant", "Uncached")
+        test_database.save_message_cost(
+            message_id=msg2.id,
+            conversation_id=test_conversation.id,
+            user_id=test_user.id,
+            model="gemini-3.5-flash",
+            input_tokens=100,
+            output_tokens=50,
+            cost_usd=0.001,
+        )
+        cost2 = test_database.get_message_cost(msg2.id)
+        assert cost2 is not None
+        assert cost2["cached_input_tokens"] == 0
+
     def test_get_conversation_cost(
         self,
         test_database: Database,

@@ -55,6 +55,9 @@ def main() -> None:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     conv_type = _conv_type_case()
+    # Older DBs (pre-0043) lack the cache telemetry column
+    cost_columns = {r["name"] for r in conn.execute("PRAGMA table_info(message_costs)")}
+    has_cache_column = "cached_input_tokens" in cost_columns
 
     print(f"=== Cost analysis: last {days} days (since {since[:10]}) ===\n")
 
@@ -74,8 +77,16 @@ def main() -> None:
         f"  input tokens:  {total['tin']:>12,}  ({total['tin'] / total['n']:>9,.0f}/msg)\n"
         f"  output tokens: {total['tout']:>12,}  ({total['tout'] / total['n']:>9,.0f}/msg)\n"
         f"  input:output ratio: {total['tin'] / max(total['tout'], 1):.1f}:1\n"
-        f"  image generation:   {_fmt_usd(total['img'])}\n"
+        f"  image generation:   {_fmt_usd(total['img'])}"
     )
+    if has_cache_column:
+        cached = conn.execute(
+            "SELECT COALESCE(SUM(cached_input_tokens),0) c FROM message_costs"
+            " WHERE created_at >= ?",
+            (since,),
+        ).fetchone()["c"]
+        print(f"  cached input:  {cached:>12,}  ({_pct(cached, total['tin'])} of input tokens)")
+    print()
 
     # ---- By conversation type
     print("BY CONVERSATION TYPE:")
@@ -181,14 +192,17 @@ def main() -> None:
 
     # ---- Daily trend
     print("DAILY TREND (last 14 days):")
+    cached_expr = "SUM(cached_input_tokens)" if has_cache_column else "0"
     for r in conn.execute(
-        """SELECT substr(created_at, 1, 10) day, COUNT(*) n, SUM(cost_usd) usd
+        f"""SELECT substr(created_at, 1, 10) day, COUNT(*) n, SUM(cost_usd) usd,
+                   SUM(input_tokens) tin, {cached_expr} cached
            FROM message_costs WHERE created_at >= ?
            GROUP BY day ORDER BY day DESC LIMIT 14""",
         ((datetime.now() - timedelta(days=14)).isoformat(),),
     ):
         bar = "#" * min(int(r["usd"] * 20), 60)
-        print(f"  {r['day']}  {_fmt_usd(r['usd']):>8} | {r['n']:>4} msgs | {bar}")
+        cache_note = f" | cached {_pct(r['cached'], r['tin'])}" if has_cache_column else ""
+        print(f"  {r['day']}  {_fmt_usd(r['usd']):>8} | {r['n']:>4} msgs{cache_note} | {bar}")
 
     conn.close()
 
