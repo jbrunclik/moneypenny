@@ -50,13 +50,24 @@ def _notify_response_ready(user_id: str, conv_id: str, content: str) -> None:
     the conversation, so a quick foreground+resume doesn't also show a
     stray banner.
     """
+    # Agent conversations share the executor's tag so an agent-finished
+    # push and a turn-finished push about the same agent replace each
+    # other instead of stacking as two notifications
+    tag = f"turn-{conv_id}"
+    try:
+        conv = db.get_conversation(conv_id, user_id)
+        if conv and conv.agent_id:
+            tag = f"agent-{conv.agent_id}"
+    except Exception:  # noqa: BLE001 - tag fallback must never block the push
+        logger.debug("Conversation lookup for push tag failed", exc_info=True)
+
     body = content.strip().split("\n", 1)[0][:160] or "Open the app to view it."
     send_push_to_user(
         user_id,
         "Your answer is ready",
         body,
         url=f"/#/conversations/{conv_id}",
-        tag=f"turn-{conv_id}",
+        tag=tag,
     )
 
 

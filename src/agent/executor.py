@@ -420,14 +420,17 @@ def execute_agent(
         )
 
         # Notify the user's devices; tag per agent so re-runs replace the
-        # previous notification instead of stacking
-        send_push_to_user(
-            user.id,
-            f"{agent.name} finished",
-            clean_response.strip().split("\n", 1)[0][:160],
-            url=f"/#/conversations/{conv.id}",
-            tag=f"agent-{agent.id}",
-        )
+        # previous notification instead of stacking. Manual runs don't
+        # push - the user is in the app clicking Run and gets the
+        # completion toast there.
+        if trigger_type != "manual":
+            send_push_to_user(
+                user.id,
+                f"{agent.name} finished",
+                clean_response.strip().split("\n", 1)[0][:160],
+                url=f"/#/conversations/{conv.id}",
+                tag=f"agent-{agent.id}",
+            )
 
         return True, None
 
