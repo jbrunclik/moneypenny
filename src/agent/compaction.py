@@ -70,7 +70,9 @@ def summarize_messages(
         "1. Key topics, questions, and decisions\n"
         "2. Important facts, preferences, or context the user shared\n"
         "3. Conclusions reached or actions the assistant took\n"
-        "4. Any ongoing tasks or open threads"
+        "4. Any ongoing tasks or open threads\n"
+        "5. Exact identifiers needed to continue the work verbatim: names, "
+        "dates, numbers, amounts, URLs, and file or message references"
     ),
     intro: str = "Summarize this conversation history concisely.",
     max_words: int = 500,

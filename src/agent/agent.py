@@ -1000,6 +1000,7 @@ def generate_title(user_message: str, assistant_response: str) -> str | None:
     prompt = f"""Generate a very short, concise title (3-6 words max) for this conversation.
 The title MUST start with a single relevant emoji followed by a space.
 The title should capture the main topic or intent.
+Write the title in the same language the user writes in.
 Do NOT use quotes around the title.
 Do NOT include prefixes like "Title:" or "Topic:".
 Just output the emoji and title text directly.

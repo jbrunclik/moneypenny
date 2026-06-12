@@ -75,3 +75,39 @@ class TestFreshContext:
         user = test_database.get_user_by_id(test_user.id)
         agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
         assert agent.fresh_context is True
+
+
+class TestAutonomousPromptContext:
+    """The Conversation Context section must match how the executor
+    actually builds history for the agent."""
+
+    def test_fresh_context_variant(self) -> None:
+        from src.agent.prompts import get_autonomous_agent_prompt
+
+        prompt = get_autonomous_agent_prompt(
+            "Daily Briefing",
+            None,
+            "0 8 * * *",
+            "UTC",
+            "goals",
+            [],
+            "scheduled",
+            fresh_context=True,
+        )
+        assert "clean slate" in prompt
+        assert "persistent conversation" not in prompt
+
+    def test_persistent_variant_is_default(self) -> None:
+        from src.agent.prompts import get_autonomous_agent_prompt
+
+        prompt = get_autonomous_agent_prompt(
+            "Research",
+            None,
+            None,
+            "UTC",
+            "goals",
+            [],
+            "manual",
+        )
+        assert "persistent conversation" in prompt
+        assert "clean slate" not in prompt

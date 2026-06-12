@@ -292,6 +292,9 @@ def execute_agent(
         "goals": resolve_agent_system_prompt(agent),
         "tools": agent_tool_names,  # Actual tools available, not just permissions
         "trigger_type": trigger_type,
+        # Keeps the prompt's Conversation Context section truthful about
+        # whether past runs are in the model's context
+        "fresh_context": agent.fresh_context,
     }
 
     try:
