@@ -700,6 +700,29 @@ export interface AgentExecutionsListResponse {
   executions: AgentExecution[];
 }
 
+export interface AgentWindowStats {
+  agent_id: string;
+  runs: number;
+  completed: number;
+  failed: number;
+  waiting_approval: number;
+  cost_usd: number;
+  /** Cost formatted in the display currency (e.g. "12.40 Kč") */
+  cost_display: string;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface AgentStatsBlock {
+  days: number;
+  total_runs: number;
+  total_completed: number;
+  total_failed: number;
+  total_cost_usd: number;
+  total_cost_display: string;
+  per_agent: AgentWindowStats[];
+}
+
 export interface CommandCenterResponse {
   agents: Agent[];
   pending_approvals: ApprovalRequest[];
@@ -707,6 +730,7 @@ export interface CommandCenterResponse {
   total_unread: number;
   agents_waiting: number;
   agents_with_errors: number;
+  stats: AgentStatsBlock;
 }
 
 export interface TriggerAgentResponse {

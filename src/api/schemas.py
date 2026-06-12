@@ -1211,6 +1211,32 @@ class AgentExecutionsListResponse(BaseModel):
     executions: list[AgentExecutionResponse]
 
 
+class AgentWindowStats(BaseModel):
+    """One agent's runs and cost over the stats window."""
+
+    agent_id: str
+    runs: int = 0
+    completed: int = 0
+    failed: int = 0
+    waiting_approval: int = 0
+    cost_usd: float = 0.0
+    cost_display: str = Field(default="", description="Cost formatted in the display currency")
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+class AgentStatsBlock(BaseModel):
+    """Aggregated observability stats for the command center."""
+
+    days: int = 7
+    total_runs: int = 0
+    total_completed: int = 0
+    total_failed: int = 0
+    total_cost_usd: float = 0.0
+    total_cost_display: str = ""
+    per_agent: list[AgentWindowStats] = Field(default_factory=list)
+
+
 class CommandCenterResponse(BaseModel):
     """Complete command center dashboard data."""
 
@@ -1225,6 +1251,10 @@ class CommandCenterResponse(BaseModel):
     )
     total_unread: int = Field(default=0, description="Total unread messages across all agents")
     agents_waiting: int = Field(default=0, description="Number of agents blocked on approval")
+    stats: AgentStatsBlock = Field(
+        default_factory=AgentStatsBlock,
+        description="Run/cost aggregates over the trailing window",
+    )
     agents_with_errors: int = Field(
         default=0, description="Number of agents whose last execution failed"
     )

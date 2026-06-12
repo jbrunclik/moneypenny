@@ -38,6 +38,7 @@ from src.api.schemas import (
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Agent, AgentExecution, ApprovalRequest, User, db
+from src.utils.costs import convert_currency, format_cost
 from src.utils.datetime_utils import to_utc_iso
 from src.utils.logging import get_logger
 
@@ -558,6 +559,33 @@ def get_command_center(user: User) -> dict[str, Any]:
 
     executions_response = [_execution_to_response(e) for e in data["recent_executions"]]
 
+    # Observability: runs + cost over the trailing week, per agent and total
+    raw_stats = db.get_agent_observability_stats(user.id, days=7)
+    per_agent = []
+    total_runs = total_completed = total_failed = 0
+    total_cost_usd = 0.0
+    for agent_id, stats in raw_stats["per_agent"].items():
+        cost_display = format_cost(
+            convert_currency(stats["cost_usd"], Config.COST_CURRENCY), Config.COST_CURRENCY
+        )
+        per_agent.append({"agent_id": agent_id, "cost_display": cost_display, **stats})
+        total_runs += stats["runs"]
+        total_completed += stats["completed"]
+        total_failed += stats["failed"]
+        total_cost_usd += stats["cost_usd"]
+
+    stats_block = {
+        "days": raw_stats["days"],
+        "total_runs": total_runs,
+        "total_completed": total_completed,
+        "total_failed": total_failed,
+        "total_cost_usd": total_cost_usd,
+        "total_cost_display": format_cost(
+            convert_currency(total_cost_usd, Config.COST_CURRENCY), Config.COST_CURRENCY
+        ),
+        "per_agent": per_agent,
+    }
+
     return {
         "agents": agents_response,
         "pending_approvals": approvals_response,
@@ -565,6 +593,7 @@ def get_command_center(user: User) -> dict[str, Any]:
         "total_unread": data["total_unread"],
         "agents_waiting": data["agents_waiting"],
         "agents_with_errors": data["agents_with_errors"],
+        "stats": stats_block,
     }
 
 

@@ -20,7 +20,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 ## Autonomous Agents
 
 - [ ] **Multi-step workflows** for agents.
-- [ ] **User-facing agent observability** - "What did my agents do this week and what did it cost" view in Command Center.
 
 ## Planner Dashboard
 

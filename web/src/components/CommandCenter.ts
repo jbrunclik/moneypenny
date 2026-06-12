@@ -6,7 +6,7 @@
 
 import { escapeHtml } from '../utils/dom';
 import { CHECK_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON } from '../utils/icons';
-import type { Agent, AgentExecution, ApprovalRequest, CommandCenterResponse } from '../types/api';
+import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
 
 type RefreshCallback = () => Promise<void>;
 type ApprovalCallback = (approvalId: string, approved: boolean) => Promise<void>;
@@ -70,6 +70,24 @@ export function renderCommandCenter(
     onNewAgent();
   });
   el.appendChild(header);
+
+  // Observability strip: runs + cost over the trailing week
+  const stats = data.stats;
+  if (stats && stats.total_runs > 0) {
+    const successRate = Math.round((stats.total_completed / stats.total_runs) * 100);
+    const strip = document.createElement('div');
+    strip.className = 'command-center-stats';
+    strip.innerHTML = `
+      <span class="stats-window">Last ${stats.days} days</span>
+      <span class="stats-item">${stats.total_runs} run${stats.total_runs === 1 ? '' : 's'}</span>
+      <span class="stats-item">${successRate}% success</span>
+      ${stats.total_failed > 0 ? `<span class="stats-item stats-item--failed">${stats.total_failed} failed</span>` : ''}
+      <span class="stats-item stats-item--cost" title="Total agent cost over the window">${escapeHtml(stats.total_cost_display)}</span>
+    `;
+    el.appendChild(strip);
+  }
+
+  const statsByAgent = new Map((stats?.per_agent ?? []).map((s) => [s.agent_id, s]));
 
   // Pending Approvals section (always shown as a control panel)
   const approvalsSection = document.createElement('div');
@@ -136,7 +154,9 @@ export function renderCommandCenter(
     const agentsList = document.createElement('div');
     agentsList.className = 'agents-list';
     data.agents.forEach(agent => {
-      agentsList.appendChild(renderAgentCard(agent, onAgentSelect, onAgentRun, onAgentEdit));
+      agentsList.appendChild(
+        renderAgentCard(agent, onAgentSelect, onAgentRun, onAgentEdit, statsByAgent.get(agent.id))
+      );
     });
     agentsSection.appendChild(agentsList);
   }
@@ -188,6 +208,7 @@ function renderAgentCard(
   onSelect: AgentSelectCallback,
   onRun: AgentRunCallback,
   onEdit: AgentEditCallback,
+  windowStats?: AgentWindowStats,
 ): HTMLDivElement {
   const card = document.createElement('div');
   card.className = `agent-card ${agent.enabled ? '' : 'agent-card--disabled'}`;
@@ -263,6 +284,9 @@ function renderAgentCard(
       <span class="agent-schedule">${escapeHtml(scheduleText)}</span>
       ${lastRunText ? `<span class="agent-last-run">Last: ${escapeHtml(lastRunText)}</span>` : ''}
       ${nextRunText ? `<span class="agent-next-run">Next: ${escapeHtml(nextRunText)}</span>` : ''}
+      ${windowStats && windowStats.runs > 0
+        ? `<span class="agent-window-stats" title="Runs and cost over the last 7 days">7d: ${windowStats.runs} run${windowStats.runs === 1 ? '' : 's'}${windowStats.failed > 0 ? ` · <span class="agent-window-stats--failed">${windowStats.failed} failed</span>` : ''} · ${escapeHtml(windowStats.cost_display)}</span>`
+        : ''}
     </div>
   `;
 

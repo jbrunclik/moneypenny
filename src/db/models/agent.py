@@ -1112,6 +1112,75 @@ class AgentMixin:
                 )
             return result
 
+    def get_agent_observability_stats(self, user_id: str, days: int = 7) -> dict[str, Any]:
+        """Per-agent run and cost aggregates over a trailing window.
+
+        Returns {"days", "per_agent": {agent_id: {runs, completed, failed,
+        waiting_approval, cost_usd, input_tokens, output_tokens}}}.
+
+        Clock note: executions use UTC-naive timestamps while
+        message_costs are local-naive - each filter uses its table's
+        clock; the up-to-2h skew is irrelevant for day-scale windows.
+        """
+        exec_since = (utcnow_naive() - timedelta(days=days)).isoformat()
+        cost_since = (datetime.now() - timedelta(days=days)).isoformat()
+
+        per_agent: dict[str, dict[str, Any]] = {}
+
+        def bucket(agent_id: str) -> dict[str, Any]:
+            return per_agent.setdefault(
+                agent_id,
+                {
+                    "runs": 0,
+                    "completed": 0,
+                    "failed": 0,
+                    "waiting_approval": 0,
+                    "cost_usd": 0.0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                },
+            )
+
+        with self._pool.get_connection() as conn:
+            exec_rows = self._execute_with_timing(
+                conn,
+                """SELECT e.agent_id, e.status, COUNT(*) as cnt
+                   FROM agent_executions e
+                   JOIN autonomous_agents a ON e.agent_id = a.id
+                   WHERE a.user_id = ? AND e.started_at >= ?
+                   GROUP BY e.agent_id, e.status""",
+                (user_id, exec_since),
+            ).fetchall()
+            cost_rows = self._execute_with_timing(
+                conn,
+                """SELECT c.agent_id,
+                          COALESCE(SUM(mc.cost_usd), 0) as cost_usd,
+                          COALESCE(SUM(mc.input_tokens), 0) as input_tokens,
+                          COALESCE(SUM(mc.output_tokens), 0) as output_tokens
+                   FROM message_costs mc
+                   JOIN conversations c ON mc.conversation_id = c.id
+                   WHERE c.user_id = ? AND c.agent_id IS NOT NULL
+                     AND mc.created_at >= ?
+                   GROUP BY c.agent_id""",
+                (user_id, cost_since),
+            ).fetchall()
+
+        for row in exec_rows:
+            stats = bucket(row["agent_id"])
+            count = int(row["cnt"])
+            stats["runs"] += count
+            status = row["status"]
+            if status in ("completed", "failed", "waiting_approval"):
+                stats[status] += count
+
+        for row in cost_rows:
+            stats = bucket(row["agent_id"])
+            stats["cost_usd"] = float(row["cost_usd"])
+            stats["input_tokens"] = int(row["input_tokens"])
+            stats["output_tokens"] = int(row["output_tokens"])
+
+        return {"days": days, "per_agent": per_agent}
+
     def get_agents_daily_spending(self, user_id: str) -> dict[str, float]:
         """Get today's spending per agent in one query (agent_id -> USD).
 
