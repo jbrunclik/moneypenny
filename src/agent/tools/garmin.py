@@ -155,7 +155,10 @@ def garmin_connect(
     This is a READ-ONLY tool — no data is modified on Garmin.
 
     Actions available:
-    - "get_stats": Daily summary (steps, distance, calories, floors, active minutes).
+    - "get_stats": Daily summary (steps, distance, calories, floors, active minutes)
+      plus recovery metrics: Body Battery (use `bodyBatteryAtWakeTime` for the
+      stable morning value, not `bodyBatteryMostRecentValue`) and resting heart
+      rate (`restingHeartRate`, `lastSevenDaysAvgRestingHeartRate`).
       Optional: date_str (YYYY-MM-DD, defaults to today).
     - "get_heart_rates": Resting HR, HR zones, min/max for a day.
       Optional: date_str (YYYY-MM-DD, defaults to today).
