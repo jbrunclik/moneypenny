@@ -284,6 +284,69 @@ class TestCheckToolResults:
         assert result["tool_retries"] == 0  # Reset, because latest tools succeeded
 
 
+class TestToolRoundCap:
+    """Tests for the soft per-turn tool-round cap in check_tool_results."""
+
+    def _success_state(self, tool_rounds: int) -> AgentState:
+        return {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
+                ToolMessage(content='{"results": [{"title": "ok"}]}', tool_call_id="1"),
+            ],
+            "tool_retries": 0,
+            "tool_rounds": tool_rounds,
+            "plan": "",
+        }
+
+    def test_increments_rounds_on_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Each pass increments the round counter even on clean results."""
+        monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 6)
+        result = check_tool_results(self._success_state(2))
+        assert result["tool_rounds"] == 3
+        assert "messages" not in result  # no nudge below the cap
+
+    def test_nudges_at_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Reaching the cap injects an answer-now nudge and resets retries."""
+        monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 3)
+        result = check_tool_results(self._success_state(2))  # 2 + 1 == cap
+        assert result["tool_rounds"] == 3
+        assert result["tool_retries"] == 0
+        guidance = result["messages"][0]
+        assert isinstance(guidance, SystemMessage)
+        assert "stop calling tools" in guidance.content.lower()
+
+    def test_cap_overrides_error_guidance(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """At the cap, the answer-now nudge takes priority over error retry."""
+        monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 3)
+        state: AgentState = {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
+                ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
+            ],
+            "tool_retries": 0,
+            "tool_rounds": 2,  # +1 hits cap
+            "plan": "",
+        }
+        result = check_tool_results(state)
+        assert "stop calling tools" in result["messages"][0].content.lower()
+        assert "different approach" not in result["messages"][0].content.lower()
+
+    def test_disabled_with_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A cap of 0 never nudges, however many rounds elapse."""
+        monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 0)
+        result = check_tool_results(self._success_state(99))
+        assert "messages" not in result
+        assert result["tool_rounds"] == 100
+
+    def test_cached_mode_uses_human_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """In cached mode the nudge is a HumanMessage (SystemMessages get dropped)."""
+        monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 3)
+        result = check_tool_results(self._success_state(2), use_cache=True)
+        guidance = result["messages"][0]
+        assert isinstance(guidance, HumanMessage)
+        assert "[SYSTEM GUIDANCE]" in guidance.content
+
+
 # ============ should_plan Tests ============
 
 

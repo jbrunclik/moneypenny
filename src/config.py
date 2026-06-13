@@ -370,6 +370,14 @@ class Config:
     # Graph self-correction: max consecutive tool error retries before giving up
     AGENT_MAX_TOOL_RETRIES: int = int(os.getenv("AGENT_MAX_TOOL_RETRIES", "2"))
 
+    # Soft cap on tool rounds per turn. Each round re-invokes the model with the
+    # full accumulated context, so a turn that searches one query at a time
+    # multiplies input-token cost (June 2026 audit found a turn with 13
+    # sequential web_search rounds). At/above this many rounds the graph nudges
+    # the model to answer with what it has instead of calling more tools. The
+    # nudge is soft (the recursion limit is the hard backstop); 0 disables it.
+    AGENT_MAX_TOOL_ROUNDS: int = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "6"))
+
     # Within one turn, every ToolMessage is re-sent to the LLM on each loop
     # iteration. Once the model has consumed a result (one chat call after the
     # tool ran), older results are aged: multimodal content (fetched PDFs/

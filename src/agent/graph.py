@@ -54,6 +54,7 @@ class AgentState(TypedDict):
 
     messages: Annotated[list[BaseMessage], add_messages]
     tool_retries: int  # Consecutive tool failure count
+    tool_rounds: int  # Tool-execution rounds this turn (round-multiplication cap)
     plan: str  # Execution plan for complex requests
 
 
@@ -444,6 +445,37 @@ def check_tool_results(
     tool_retries = state.get("tool_retries", 0)
     max_retries = Config.AGENT_MAX_TOOL_RETRIES
 
+    # This node runs once per completed tool round, so it is the natural place
+    # to count them. Each round re-invokes the model with the full accumulated
+    # context, so unbounded rounds multiply input-token cost.
+    tool_rounds = state.get("tool_rounds", 0) + 1
+    max_rounds = Config.AGENT_MAX_TOOL_ROUNDS
+
+    # Soft round cap: once hit, stop gathering and answer with what we have.
+    # Fires on every subsequent round too (tool_rounds stays >= cap), so the
+    # pressure escalates naturally if the model ignores the first nudge. The
+    # recursion limit remains the hard backstop.
+    if max_rounds > 0 and tool_rounds >= max_rounds:
+        logger.info(
+            "Tool round cap reached, nudging model to answer",
+            extra={"tool_rounds": tool_rounds, "max_rounds": max_rounds},
+        )
+        GuidanceMessage = HumanMessage if use_cache else SystemMessage
+        cap_content = (
+            f"You have run {tool_rounds} rounds of tool calls for this request. "
+            "Stop calling tools now and answer the user with the information you "
+            "already have. If you searched for something you could not find, say so "
+            "and give your best answer with what is available. Do not issue more "
+            "tool calls unless absolutely essential."
+        )
+        if use_cache:
+            cap_content = f"[SYSTEM GUIDANCE]\n{cap_content}\n[/SYSTEM GUIDANCE]"
+        return {
+            "tool_rounds": tool_rounds,
+            "tool_retries": 0,
+            "messages": [GuidanceMessage(content=cap_content)],
+        }
+
     # Scan latest ToolMessages for errors
     has_error = False
     any_retriable = False
@@ -464,7 +496,7 @@ def check_tool_results(
         # No errors - reset retry counter
         if tool_retries > 0:
             logger.debug("Tool retries reset after successful execution")
-        return {"tool_retries": 0}
+        return {"tool_retries": 0, "tool_rounds": tool_rounds}
 
     new_retries = tool_retries + 1
     error_summary = "; ".join(error_details[:3])
@@ -495,7 +527,7 @@ def check_tool_results(
         if use_cache:
             guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
         guidance = GuidanceMessage(content=guidance_content)
-        return {"tool_retries": new_retries, "messages": [guidance]}
+        return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
     else:
         logger.warning(
             "Tool error after max retries, providing give-up guidance",
@@ -509,7 +541,7 @@ def check_tool_results(
         if use_cache:
             guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
         guidance = GuidanceMessage(content=guidance_content)
-        return {"tool_retries": new_retries, "messages": [guidance]}
+        return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
 
 
 # ============ Tool Node Factory ============
