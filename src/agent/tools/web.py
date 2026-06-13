@@ -7,6 +7,7 @@ from urllib.parse import urljoin
 
 import html2text
 import httpx
+import trafilatura
 from bs4 import BeautifulSoup
 from ddgs import DDGS
 from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
@@ -55,22 +56,61 @@ def wrap_untrusted_content(text: str, source: str | None = None) -> str:
     )
 
 
-def _extract_text_from_html(html: str, max_length: int | None = None) -> str:
-    """Extract readable text from HTML content."""
+# Below this many chars, trafilatura almost certainly found no article body
+# (link hubs, SPAs, very short pages) - fall back to the broad html2text pass,
+# which at least returns the page's headlines/links. Validated against real
+# pages: a Wikipedia article yields ~52k chars; the BBC News homepage ~192.
+_MIN_MAIN_CONTENT_CHARS = 200
+
+
+def _extract_main_content(html: str) -> str:
+    """Isolate the main article body via trafilatura.
+
+    Drops menus, related-article lists, cookie banners and comment sections
+    that a tag-based strip leaves behind, so the model gets denser signal
+    within the length cap. Returns "" when no article body is recognized (so
+    the caller falls back) or on any extraction error.
+    """
+    try:
+        extracted = trafilatura.extract(
+            html,
+            output_format="markdown",
+            include_links=False,
+            favor_precision=True,
+        )
+        return extracted or ""
+    except Exception:
+        logger.debug("trafilatura extraction failed, falling back", exc_info=True)
+        return ""
+
+
+def _html_to_markdown(html: str) -> str:
+    """Broad fallback: strip boilerplate tags and convert the rest to markdown."""
     soup = BeautifulSoup(html, "html.parser")
 
     # Remove script, style, nav, footer, header elements
     for element in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
         element.decompose()
 
-    # Convert to markdown
     converter = html2text.HTML2Text()
     converter.ignore_links = False
     converter.ignore_images = True
     converter.ignore_emphasis = False
     converter.body_width = 0  # No wrapping
 
-    text = converter.handle(str(soup))
+    return converter.handle(str(soup))
+
+
+def _extract_text_from_html(html: str, max_length: int | None = None) -> str:
+    """Extract readable text from HTML, preferring main-content extraction.
+
+    trafilatura isolates the article body for denser signal; link hubs and
+    SPAs have no recognizable article, so we fall back to the broad html2text
+    pass when it returns too little.
+    """
+    text = _extract_main_content(html)
+    if len(text) < _MIN_MAIN_CONTENT_CHARS:
+        text = _html_to_markdown(html)
 
     # Truncate if too long
     limit = max_length if max_length is not None else Config.HTML_TEXT_MAX_LENGTH
