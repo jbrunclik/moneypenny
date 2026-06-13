@@ -54,6 +54,78 @@ class TestUsageTokens:
         assert _usage_tokens({}) == (0, 0, 0)
 
 
+class TestToolTelemetry:
+    """Tests for _tool_telemetry (round-multiplication counting)."""
+
+    def test_counts_rounds_and_calls(self) -> None:
+        from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+        from src.agent.agent import _tool_telemetry
+
+        # One LLM round with two tool calls, then their two results
+        msgs = [
+            HumanMessage(content="find bakeries", id="h1"),
+            AIMessage(
+                content="",
+                id="ai1",
+                tool_calls=[
+                    {"name": "web_search", "args": {}, "id": "t1"},
+                    {"name": "web_search", "args": {}, "id": "t2"},
+                ],
+            ),
+            ToolMessage(content="r1", tool_call_id="t1", id="tm1"),
+            ToolMessage(content="r2", tool_call_id="t2", id="tm2"),
+            AIMessage(content="here you go", id="ai2"),  # final answer, no tools
+        ]
+        assert _tool_telemetry(msgs) == (1, 2)  # 1 round, 2 tool executions
+
+    def test_sequential_rounds_counted_separately(self) -> None:
+        from langchain_core.messages import AIMessage, ToolMessage
+
+        from src.agent.agent import _tool_telemetry
+
+        # Two separate single-search rounds (the expensive pattern)
+        msgs = [
+            AIMessage(
+                content="", id="ai1", tool_calls=[{"name": "web_search", "args": {}, "id": "a"}]
+            ),
+            ToolMessage(content="r", tool_call_id="a", id="tm1"),
+            AIMessage(
+                content="", id="ai2", tool_calls=[{"name": "web_search", "args": {}, "id": "b"}]
+            ),
+            ToolMessage(content="r", tool_call_id="b", id="tm2"),
+        ]
+        assert _tool_telemetry(msgs) == (2, 2)  # 2 rounds, 2 calls
+
+    def test_streaming_chunks_share_id_count_once(self) -> None:
+        from langchain_core.messages import AIMessageChunk
+
+        from src.agent.agent import _tool_telemetry
+
+        # Two chunks of the SAME response (same id) carrying tool call deltas
+        chunks = [
+            AIMessageChunk(
+                content="",
+                id="run-1",
+                tool_call_chunks=[{"name": "web_search", "args": "", "id": "t1", "index": 0}],
+            ),
+            AIMessageChunk(
+                content="",
+                id="run-1",
+                tool_call_chunks=[{"name": None, "args": '{"q":1}', "id": None, "index": 0}],
+            ),
+        ]
+        rounds, _calls = _tool_telemetry(chunks)
+        assert rounds == 1  # one round despite two chunks
+
+    def test_no_tools(self) -> None:
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        from src.agent.agent import _tool_telemetry
+
+        assert _tool_telemetry([HumanMessage(content="hi"), AIMessage(content="hello")]) == (0, 0)
+
+
 class TestExtractTextContent:
     """Tests for extract_text_content function."""
 

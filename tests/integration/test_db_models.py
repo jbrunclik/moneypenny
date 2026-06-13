@@ -472,6 +472,48 @@ class TestCostOperations:
         assert cost2 is not None
         assert cost2["cached_input_tokens"] == 0
 
+    def test_save_message_cost_with_tool_telemetry(
+        self,
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        """Should persist and return tool_rounds / tool_call_count; default 0."""
+        msg = test_database.add_message(test_conversation.id, "assistant", "Searched")
+
+        test_database.save_message_cost(
+            message_id=msg.id,
+            conversation_id=test_conversation.id,
+            user_id=test_user.id,
+            model="gemini-3.5-flash",
+            input_tokens=300_000,
+            output_tokens=4_000,
+            cost_usd=0.45,
+            tool_rounds=13,
+            tool_call_count=13,
+        )
+
+        cost = test_database.get_message_cost(msg.id)
+        assert cost is not None
+        assert cost["tool_rounds"] == 13
+        assert cost["tool_call_count"] == 13
+
+        # Default path records 0 for non-tool turns
+        msg2 = test_database.add_message(test_conversation.id, "assistant", "Plain")
+        test_database.save_message_cost(
+            message_id=msg2.id,
+            conversation_id=test_conversation.id,
+            user_id=test_user.id,
+            model="gemini-3.5-flash",
+            input_tokens=100,
+            output_tokens=50,
+            cost_usd=0.001,
+        )
+        cost2 = test_database.get_message_cost(msg2.id)
+        assert cost2 is not None
+        assert cost2["tool_rounds"] == 0
+        assert cost2["tool_call_count"] == 0
+
     def test_get_conversation_cost(
         self,
         test_database: Database,

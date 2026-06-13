@@ -55,9 +55,10 @@ def main() -> None:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     conv_type = _conv_type_case()
-    # Older DBs (pre-0043) lack the cache telemetry column
+    # Older DBs lack telemetry columns added by later migrations
     cost_columns = {r["name"] for r in conn.execute("PRAGMA table_info(message_costs)")}
     has_cache_column = "cached_input_tokens" in cost_columns
+    has_tool_columns = "tool_rounds" in cost_columns
 
     print(f"=== Cost analysis: last {days} days (since {since[:10]}) ===\n")
 
@@ -189,6 +190,38 @@ def main() -> None:
             f"| in {r['tin']:>10,} | {r['ctype']:<8} | {(r['title'] or '')[:38]}"
         )
     print()
+
+    # ---- Round multiplication (tool-heavy turns re-send the prefix each round)
+    if has_tool_columns:
+        print("ROUND MULTIPLICATION (turns with the most tool rounds):")
+        rows = conn.execute(
+            """SELECT mc.created_at, mc.cost_usd, mc.input_tokens, mc.tool_rounds,
+                      mc.tool_call_count, c.title
+               FROM message_costs mc LEFT JOIN conversations c ON mc.conversation_id = c.id
+               WHERE mc.created_at >= ? AND mc.tool_rounds > 0
+               ORDER BY mc.tool_rounds DESC, mc.cost_usd DESC LIMIT 10""",
+            (since,),
+        ).fetchall()
+        if rows:
+            for r in rows:
+                print(
+                    f"  {r['created_at'][:16]} {_fmt_usd(r['cost_usd']):>7} "
+                    f"| {r['tool_rounds']:>2} rounds, {r['tool_call_count']:>2} calls "
+                    f"| in {r['input_tokens']:>8,} | {(r['title'] or '')[:34]}"
+                )
+            agg = conn.execute(
+                """SELECT SUM(tool_rounds * cost_usd) / NULLIF(SUM(cost_usd), 0) wavg_rounds,
+                          MAX(tool_rounds) max_rounds
+                   FROM message_costs WHERE created_at >= ? AND tool_rounds > 0""",
+                (since,),
+            ).fetchone()
+            print(
+                f"  -> cost-weighted avg {agg['wavg_rounds']:.1f} rounds/turn, "
+                f"max {agg['max_rounds']} (each round re-sends the ~30k prefix)"
+            )
+        else:
+            print("  (no tool-using turns in window)")
+        print()
 
     # ---- Daily trend
     print("DAILY TREND (last 14 days):")

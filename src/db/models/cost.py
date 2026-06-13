@@ -47,6 +47,8 @@ class CostMixin:
         cost_usd: float,
         image_generation_cost_usd: float = 0.0,
         cached_input_tokens: int = 0,
+        tool_rounds: int = 0,
+        tool_call_count: int = 0,
     ) -> None:
         """Save cost information for a message.
 
@@ -60,6 +62,8 @@ class CostMixin:
             cost_usd: Total cost in USD
             image_generation_cost_usd: Cost for image generation in USD (default 0.0)
             cached_input_tokens: Subset of input_tokens served from the context cache (default 0)
+            tool_rounds: Distinct LLM responses in the turn that requested tools (default 0)
+            tool_call_count: Number of tool executions in the turn (default 0)
         """
         cost_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -74,6 +78,8 @@ class CostMixin:
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "cached_input_tokens": cached_input_tokens,
+                "tool_rounds": tool_rounds,
+                "tool_call_count": tool_call_count,
                 "cost_usd": cost_usd,
             },
         )
@@ -84,8 +90,9 @@ class CostMixin:
                 """INSERT INTO message_costs (
                     id, message_id, conversation_id, user_id, model,
                     input_tokens, output_tokens, cached_input_tokens,
+                    tool_rounds, tool_call_count,
                     cost_usd, image_generation_cost_usd, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     cost_id,
                     message_id,
@@ -95,6 +102,8 @@ class CostMixin:
                     input_tokens,
                     output_tokens,
                     cached_input_tokens,
+                    tool_rounds,
+                    tool_call_count,
                     cost_usd,
                     image_generation_cost_usd,
                     now,
@@ -112,12 +121,14 @@ class CostMixin:
 
         Returns:
             Dict with 'cost_usd', 'input_tokens', 'output_tokens', 'cached_input_tokens',
-            'model', 'image_generation_cost_usd', or None if not found
+            'tool_rounds', 'tool_call_count', 'model', 'image_generation_cost_usd',
+            or None if not found
         """
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
                 """SELECT cost_usd, input_tokens, output_tokens, cached_input_tokens,
+                          tool_rounds, tool_call_count,
                           model, image_generation_cost_usd
                    FROM message_costs
                    WHERE message_id = ?""",
@@ -132,6 +143,8 @@ class CostMixin:
                 "input_tokens": int(row["input_tokens"] or 0),
                 "output_tokens": int(row["output_tokens"] or 0),
                 "cached_input_tokens": int(row["cached_input_tokens"] or 0),
+                "tool_rounds": int(row["tool_rounds"] or 0),
+                "tool_call_count": int(row["tool_call_count"] or 0),
                 "model": row["model"],
                 "image_generation_cost_usd": float(
                     row["image_generation_cost_usd"]

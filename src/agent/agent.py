@@ -5,7 +5,7 @@ with the LLM, as well as the generate_title function for conversation titles.
 """
 
 import contextvars
-from collections.abc import Generator, Mapping
+from collections.abc import Generator, Iterable, Mapping
 from typing import Any, cast
 
 from langchain_core.messages import (
@@ -51,6 +51,31 @@ def _usage_tokens(usage: Mapping[str, Any]) -> tuple[int, int, int]:
     details = usage.get("input_token_details")
     cache_read = details.get("cache_read", 0) if isinstance(details, dict) else 0
     return usage.get("input_tokens", 0), usage.get("output_tokens", 0), cache_read
+
+
+def _tool_telemetry(messages: Iterable[BaseMessage]) -> tuple[int, int]:
+    """Count (tool_rounds, tool_call_count) over a turn's messages/chunks.
+
+    tool_rounds: distinct LLM responses (by message id) that requested tool
+    calls. This is the round-multiplication multiplier - each one re-invokes
+    the model with the accumulated context, so it drives input-token cost far
+    more than the size of any single tool payload.
+    tool_call_count: number of tool executions (ToolMessages) in the turn.
+
+    Streaming chunks of one response share an id (verified for Gemini), so
+    deduping by id counts each round once however many chunks carried the
+    tool call. Full messages (batch path) each have their own id too.
+    """
+    round_ids: set[Any] = set()
+    tool_execs = 0
+    for m in messages:
+        if isinstance(m, ToolMessage):
+            tool_execs += 1
+        elif isinstance(m, AIMessage | AIMessageChunk) and (
+            getattr(m, "tool_calls", None) or getattr(m, "tool_call_chunks", None)
+        ):
+            round_ids.add(m.id or id(m))
+    return len(round_ids), tool_execs
 
 
 class ChatAgent:
@@ -483,10 +508,13 @@ class ChatAgent:
                                 },
                             )
 
+        tool_rounds, tool_call_count = _tool_telemetry(result_messages)
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
             "cached_input_tokens": total_cached_tokens,
+            "tool_rounds": tool_rounds,
+            "tool_call_count": tool_call_count,
         }
 
         if total_input_tokens > 0 or total_output_tokens > 0:
@@ -496,6 +524,8 @@ class ChatAgent:
                     "input_tokens": total_input_tokens,
                     "output_tokens": total_output_tokens,
                     "cached_input_tokens": total_cached_tokens,
+                    "tool_rounds": tool_rounds,
+                    "tool_call_count": tool_call_count,
                 },
             )
 
@@ -631,10 +661,13 @@ class ChatAgent:
                 },
             )
 
+        tool_rounds, tool_call_count = _tool_telemetry(all_messages)
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
             "cached_input_tokens": total_cached_tokens,
+            "tool_rounds": tool_rounds,
+            "tool_call_count": tool_call_count,
         }
 
         if total_input_tokens > 0 or total_output_tokens > 0:
@@ -644,6 +677,8 @@ class ChatAgent:
                     "input_tokens": total_input_tokens,
                     "output_tokens": total_output_tokens,
                     "cached_input_tokens": total_cached_tokens,
+                    "tool_rounds": tool_rounds,
+                    "tool_call_count": tool_call_count,
                     "chunk_count": chunk_count,
                 },
             )
@@ -980,10 +1015,13 @@ class ChatAgent:
                 },
             )
 
+        tool_rounds, tool_call_count = _tool_telemetry(all_messages)
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
             "cached_input_tokens": total_cached_tokens,
+            "tool_rounds": tool_rounds,
+            "tool_call_count": tool_call_count,
         }
 
         # Final yield with all accumulated data
