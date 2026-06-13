@@ -234,13 +234,23 @@ def _todoist_list_tasks(
 
     Enriches tasks with section_name and project_name for better context.
     """
-    params: dict[str, Any] = {}
+    # Todoist API v1 evaluates the filter query language ("overdue", "today",
+    # "7 days", ...) ONLY on the dedicated /tasks/filter endpoint. Passing
+    # `filter` to /tasks is silently ignored - it returns ALL active tasks
+    # (paginated), so "overdue" came back with 50 tasks including future-dated
+    # recurring ones, which the briefing then mislabeled as overdue. Route any
+    # filter through /tasks/filter with the `query` param; plain project
+    # listing stays on /tasks.
     if filter_string:
-        params["filter"] = filter_string
-    if project_id:
-        params["project_id"] = project_id
-
-    tasks = _todoist_api_request("GET", "/tasks", token, params=params)
+        params: dict[str, Any] = {"query": filter_string}
+        if project_id:
+            params["project_id"] = project_id
+        tasks = _todoist_api_request("GET", "/tasks/filter", token, params=params)
+    else:
+        params = {}
+        if project_id:
+            params["project_id"] = project_id
+        tasks = _todoist_api_request("GET", "/tasks", token, params=params)
     if not isinstance(tasks, list):
         tasks = []
 

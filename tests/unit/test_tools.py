@@ -1819,6 +1819,43 @@ class TestTodoistTool:
 
     @patch("src.agent.tools.todoist._get_todoist_token")
     @patch("src.agent.tools.todoist._todoist_api_request")
+    def test_list_tasks_with_filter_uses_filter_endpoint(
+        self, mock_api: MagicMock, mock_get_token: MagicMock
+    ) -> None:
+        """A filter must hit /tasks/filter with query= - the `filter` param on
+        /tasks is silently ignored by API v1 and returns ALL tasks."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = []  # empty -> no enrichment calls
+
+        todoist.invoke({"action": "list_tasks", "filter_string": "overdue"})
+
+        endpoint = mock_api.call_args_list[0][0][1]
+        params = mock_api.call_args_list[0][1]["params"]
+        assert endpoint == "/tasks/filter"
+        assert params == {"query": "overdue"}
+
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
+    def test_list_tasks_without_filter_uses_plain_endpoint(
+        self, mock_api: MagicMock, mock_get_token: MagicMock
+    ) -> None:
+        """Unfiltered listing stays on /tasks and never sends a `filter` param."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.return_value = []
+
+        todoist.invoke({"action": "list_tasks"})
+
+        endpoint = mock_api.call_args_list[0][0][1]
+        params = mock_api.call_args_list[0][1].get("params", {})
+        assert endpoint == "/tasks"
+        assert "filter" not in params
+
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
     def test_add_task_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully add a task."""
         from src.agent.tools import todoist

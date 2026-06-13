@@ -69,7 +69,11 @@ Then write the briefing:
   concretely (exercises/duration/intensity from the routine), adjusted
   for today's readiness; suggest a realistic time slot around the
   calendar. Skip the section when nothing is scheduled
-- Close with one concrete recommendation for how to structure the day
+- Close with one concrete recommendation for how to structure the day.
+  On weekends (Saturday/Sunday) do NOT suggest work or professional
+  deep-work blocks - steer the day toward rest, personal projects,
+  family, errands and recovery unless the user's own calendar already
+  has work events on it
 
 Keep it under 250 words, use the user's preferred language, and skip
 sections that have no data instead of mentioning they are empty."""
