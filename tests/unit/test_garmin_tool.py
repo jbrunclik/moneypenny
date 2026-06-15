@@ -172,3 +172,136 @@ class TestBulkyFieldStripping:
         before = len(json.dumps(payload))
         after = len(json.dumps(_strip_bulky_fields(payload)))
         assert after < before / 10
+
+
+class TestActivityBreakdowns:
+    """get_activity_details attaches per-set / HR-zone / per-lap data that
+    live in dedicated endpoints (get_activity returns only the summary)."""
+
+    @staticmethod
+    def _dispatch(mapping: dict) -> object:
+        """Build a _safe_api_call side_effect dispatching on method name.
+
+        A mapped Exception is raised; an unmapped method returns {}.
+        """
+
+        def fake(garmin: object, method: str, *args: object, **kwargs: object) -> object:
+            val = mapping.get(method, {})
+            if isinstance(val, Exception):
+                raise val
+            return val
+
+        return fake
+
+    def _invoke(self, mapping: dict) -> dict:
+        with (
+            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin._safe_api_call", side_effect=self._dispatch(mapping)),
+        ):
+            return json.loads(
+                garmin_connect.invoke({"action": "get_activity_details", "activity_id": "a1"})
+            )
+
+    def test_strength_exercise_sets_slimmed(self) -> None:
+        out = self._invoke(
+            {
+                "get_activity": {"summaryDTO": {"duration": 138.5}},
+                "get_activity_exercise_sets": {
+                    "exerciseSets": [
+                        {
+                            "setType": "ACTIVE",
+                            "exercises": [{"category": "PUSH_UP", "probability": 100.0}],
+                            "repetitionCount": 28,
+                            "weight": None,
+                            "duration": 54.606,
+                            "messageIndex": 0,
+                        },
+                        {"setType": "REST", "exercises": [], "duration": 181.6},
+                        {
+                            "setType": "ACTIVE",
+                            "exercises": [{"category": "PUSH_UP"}],
+                            "repetitionCount": 23,
+                            "duration": 46.8,
+                        },
+                    ]
+                },
+            }
+        )
+        sets = out["exercise_sets"]
+        assert [s.get("reps") for s in sets if s["setType"] == "ACTIVE"] == [28, 23]
+        # noise fields (messageIndex, probability, startTime) are dropped
+        assert sets[0] == {
+            "setType": "ACTIVE",
+            "category": "PUSH_UP",
+            "reps": 28,
+            "weight": None,
+            "duration_s": 54.6,
+        }
+
+    def test_hr_zones_converted_to_minutes(self) -> None:
+        out = self._invoke(
+            {
+                "get_activity": {"summaryDTO": {"averagePower": 115}},
+                "get_activity_hr_in_timezones": [
+                    {"zoneNumber": 1, "secsInZone": 426.0, "zoneLowBoundary": 96},
+                    {"zoneNumber": 2, "secsInZone": 4512.0, "zoneLowBoundary": 115},
+                ],
+            }
+        )
+        assert out["hr_zones"] == [
+            {"zone": 1, "minutes": 7.1, "low_bpm": 96},
+            {"zone": 2, "minutes": 75.2, "low_bpm": 115},
+        ]
+        assert "exercise_sets" not in out  # no sets for a ride
+
+    def test_multi_lap_splits_exposed(self) -> None:
+        out = self._invoke(
+            {
+                "get_activity": {"summaryDTO": {}},
+                "get_activity_splits": {
+                    "lapDTOs": [
+                        {"distance": 5000, "duration": 600, "averageHR": 140, "averagePower": 200},
+                        {"distance": 5000, "duration": 620, "averageHR": 150, "averagePower": 210},
+                    ]
+                },
+            }
+        )
+        assert len(out["laps"]) == 2
+        assert out["laps"][0]["lap"] == 1
+        assert out["laps"][0]["distance_km"] == 5.0
+        assert out["laps"][1]["avg_power"] == 210
+
+    def test_single_lap_omitted(self) -> None:
+        """One lap == the whole activity, already in the summary - skip it."""
+        out = self._invoke(
+            {
+                "get_activity": {"summaryDTO": {}},
+                "get_activity_splits": {"lapDTOs": [{"distance": 32000, "duration": 5400}]},
+            }
+        )
+        assert "laps" not in out
+
+    def test_laps_capped_with_note(self) -> None:
+        out = self._invoke(
+            {
+                "get_activity": {"summaryDTO": {}},
+                "get_activity_splits": {
+                    "lapDTOs": [{"distance": 1000, "duration": 200} for _ in range(45)]
+                },
+            }
+        )
+        assert len(out["laps"]) == 40
+        assert "first 40 of 45" in out["laps_note"]
+
+    def test_breakdown_endpoint_errors_are_swallowed(self) -> None:
+        """A failing breakdown endpoint must not fail the details call."""
+        out = self._invoke(
+            {
+                "get_activity": {"summaryDTO": {"duration": 100}},
+                "get_activity_exercise_sets": Exception("500 server error"),
+                "get_activity_hr_in_timezones": Exception("403 forbidden"),
+            }
+        )
+        assert out["action"] == "get_activity_details"
+        assert "exercise_sets" not in out
+        assert "hr_zones" not in out

@@ -122,6 +122,112 @@ def _strip_bulky_fields(obj: Any, max_list_items: int = 20) -> Any:
     return obj
 
 
+def _slim_exercise_set(s: dict[str, Any]) -> dict[str, Any]:
+    """Project one Garmin exercise set down to the coaching-relevant fields.
+
+    The raw set carries startTime, wktStepIndex, messageIndex, per-exercise
+    probability etc. - noise for an LLM. We keep set type, the exercise, reps,
+    weight and duration, which is what answers "how many reps per set".
+    """
+    exercises = s.get("exercises") or []
+    category = None
+    if exercises and isinstance(exercises[0], dict):
+        category = exercises[0].get("category")
+    duration = s.get("duration")
+    return {
+        "setType": s.get("setType"),
+        "category": category,
+        "reps": s.get("repetitionCount"),
+        "weight": s.get("weight"),
+        "duration_s": round(duration, 1) if isinstance(duration, int | float) else None,
+    }
+
+
+def _num(value: Any, ndigits: int = 1) -> float | None:
+    """Round a numeric value, or None if it isn't a number."""
+    return round(value, ndigits) if isinstance(value, int | float) else None
+
+
+def _slim_hr_zones(zones: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Compact the per-activity HR time-in-zone breakdown (minutes per zone)."""
+    out = []
+    for z in zones:
+        if not isinstance(z, dict):
+            continue
+        secs = z.get("secsInZone")
+        out.append(
+            {
+                "zone": z.get("zoneNumber"),
+                "minutes": _num((secs / 60.0) if isinstance(secs, int | float) else None),
+                "low_bpm": z.get("zoneLowBoundary"),
+            }
+        )
+    return out
+
+
+# Max laps to expose per activity - covers interval sessions without letting a
+# long auto-lapped ride (one lap per km) flood the context.
+_MAX_LAPS = 40
+
+
+def _slim_lap(lap: dict[str, Any], index: int) -> dict[str, Any]:
+    """Project one lap/split to coaching-relevant fields, dropping empty ones."""
+    dist = lap.get("distance")
+    dur = lap.get("duration")
+    speed = lap.get("averageSpeed")
+    slim = {
+        "lap": index,
+        "distance_km": _num((dist / 1000.0) if isinstance(dist, int | float) else None, 2),
+        "duration_min": _num((dur / 60.0) if isinstance(dur, int | float) else None),
+        "avg_hr": lap.get("averageHR"),
+        "max_hr": lap.get("maxHR"),
+        "avg_power": lap.get("averagePower"),
+        "norm_power": lap.get("normalizedPower"),
+        "avg_cadence": lap.get("averageBikeCadence") or lap.get("averageRunCadence"),
+        "avg_speed_kmh": _num((speed * 3.6) if isinstance(speed, int | float) else None),
+    }
+    return {k: v for k, v in slim.items() if v is not None}
+
+
+def _attach_activity_breakdowns(garmin: Any, activity_id: str, payload: dict[str, Any]) -> None:
+    """Best-effort attach per-set / HR-zone / per-lap breakdowns to an activity.
+
+    Each lives in a dedicated Garmin endpoint that get_activity does not
+    include. Any endpoint that errors or has no data is simply skipped - these
+    enrich the activity but must never fail the details call.
+    """
+    # Strength: per-set reps/weight (e.g. 28/23/16 across three sets)
+    try:
+        sets_result = _safe_api_call(garmin, "get_activity_exercise_sets", activity_id)
+        raw_sets = sets_result.get("exerciseSets") if isinstance(sets_result, dict) else sets_result
+        if isinstance(raw_sets, list) and raw_sets:
+            payload["exercise_sets"] = [
+                _slim_exercise_set(s) for s in raw_sets if isinstance(s, dict)
+            ]
+    except Exception as e:
+        logger.debug("No exercise sets", extra={"activity_id": activity_id, "error": str(e)})
+
+    # Cardio: time spent in each heart-rate zone
+    try:
+        zones = _safe_api_call(garmin, "get_activity_hr_in_timezones", activity_id)
+        if isinstance(zones, list) and zones:
+            payload["hr_zones"] = _slim_hr_zones(zones)
+    except Exception as e:
+        logger.debug("No HR zones", extra={"activity_id": activity_id, "error": str(e)})
+
+    # Per-lap splits (intervals). A single lap == the whole activity, already
+    # covered by the summary, so only expose 2+ laps.
+    try:
+        splits = _safe_api_call(garmin, "get_activity_splits", activity_id)
+        laps = splits.get("lapDTOs") if isinstance(splits, dict) else None
+        if isinstance(laps, list) and len(laps) >= 2:
+            payload["laps"] = [_slim_lap(lap, i) for i, lap in enumerate(laps[:_MAX_LAPS], start=1)]
+            if len(laps) > _MAX_LAPS:
+                payload["laps_note"] = f"showing first {_MAX_LAPS} of {len(laps)} laps"
+    except Exception as e:
+        logger.debug("No lap splits", extra={"activity_id": activity_id, "error": str(e)})
+
+
 _GARMIN_ACTIONS = {
     "get_stats",
     "get_heart_rates",
@@ -174,7 +280,11 @@ def garmin_connect(
       Optional: date_str (YYYY-MM-DD, defaults to today).
     - "get_activities": List recent activities.
       Optional: limit (default 10), activity_type (e.g., "running", "cycling").
-    - "get_activity_details": Detailed data for one activity.
+    - "get_activity_details": Detailed data for one activity, including
+      breakdowns beyond the summary: `exercise_sets` (strength: per-set type,
+      exercise, reps, weight, duration - e.g. 28/23/16 reps across three sets),
+      `hr_zones` (minutes spent in each heart-rate zone), and `laps` (per-lap
+      distance/HR/power/cadence/speed for interval sessions).
       Required: activity_id.
     - "get_training_readiness": Training readiness score and contributing factors.
       Optional: date_str (YYYY-MM-DD, defaults to today).
@@ -291,13 +401,16 @@ def garmin_connect(
             if not activity_id:
                 return json.dumps({"error": "activity_id is required for get_activity_details"})
             result = _safe_api_call(garmin, "get_activity", activity_id)
-            return json.dumps(
-                {
-                    "action": "get_activity_details",
-                    "activity_id": activity_id,
-                    "activity": _strip_bulky_fields(result),
-                }
-            )
+            payload: dict[str, Any] = {
+                "action": "get_activity_details",
+                "activity_id": activity_id,
+                "activity": _strip_bulky_fields(result),
+            }
+            # get_activity returns only summaryDTO. The granular breakdowns
+            # (strength sets, HR time-in-zone, per-lap splits) each live in a
+            # separate endpoint - attach them best-effort.
+            _attach_activity_breakdowns(garmin, activity_id, payload)
+            return json.dumps(payload)
 
         elif action == "get_training_readiness":
             result = _safe_api_call(garmin, "get_training_readiness", target_date)
