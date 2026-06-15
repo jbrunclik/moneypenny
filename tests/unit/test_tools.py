@@ -1095,6 +1095,9 @@ class TestExecuteCode:
         assert kwargs["runtime_configs"]["network_disabled"] is True
         assert kwargs["runtime_configs"]["mem_limit"]
         assert kwargs["runtime_configs"]["nano_cpus"] > 0
+        # init (tini) as PID 1 so SIGTERM is handled - without it container
+        # teardown waits the full ~10s docker-stop grace on every call
+        assert kwargs["runtime_configs"]["init"] is True
         # Setup is skipped: libraries are baked into the image, and the
         # default setup's pip upgrade would need the disabled network
         assert kwargs["skip_environment_setup"] is True

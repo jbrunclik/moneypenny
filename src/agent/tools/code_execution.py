@@ -40,6 +40,11 @@ def _sandbox_runtime_configs() -> dict[str, Any]:
         "network_disabled": True,
         "mem_limit": Config.CODE_SANDBOX_MEMORY_LIMIT,
         "nano_cpus": int(Config.CODE_SANDBOX_CPU_LIMIT * 1_000_000_000),
+        # Run an init (tini) as PID 1. Without it, the sandbox's PID 1 ignores
+        # SIGTERM, so container teardown waits the full ~10s docker-stop grace
+        # before SIGKILL - on EVERY execute_code call. With init, SIGTERM is
+        # handled and teardown drops from ~10s to ~0.1s (measured).
+        "init": True,
     }
 
 

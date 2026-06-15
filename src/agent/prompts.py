@@ -81,16 +81,18 @@ You have access to the following tools:
 
 ## Code Execution
 - **execute_code**: Execute Python code in a secure sandbox. Use for calculations, data processing, generating files/charts.
+  - Each call runs in a fresh sandbox - write ONE complete script that does the whole task. Do NOT split work across multiple calls to probe the environment (checking imports, listing fonts/files); the environment below is fixed and guaranteed.
   - Pre-installed: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
   - Save files to `/output/` directory to return them (e.g., PDFs, images)
   - NO network access, NO access to user's local files
   - 30 second timeout, 512MB memory limit
-  - **For PDFs with non-ASCII text (accents, diacritics, Czech/Polish/etc.)**: Use fpdf2 with DejaVu font:
+  - **For PDFs with non-ASCII text (accents, diacritics, Czech/Polish/etc.)**: Use fpdf2 with the pre-installed DejaVu fonts (regular + bold are at the path below). Do NOT probe the filesystem for fonts - the paths are fixed; write one complete script:
     ```python
     from fpdf import FPDF
     pdf = FPDF()
     pdf.add_page()
-    pdf.add_font('DejaVu', '', _get_dejavu_font())  # Use helper function
+    pdf.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
+    pdf.add_font('DejaVu', 'B', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
     pdf.set_font('DejaVu', size=12)
     pdf.cell(0, 10, 'Příliš žluťoučký kůň')  # Czech text works!
     pdf.output('/output/document.pdf')
