@@ -32,19 +32,15 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 - [ ] **Daily language review nudge** - SRS itself shipped in the tutor prompt (Jun 2026: due-queue batch quiz, mastery/leech handling); remaining: a scheduled nudge ("5 words due today") via push, ideally a system-managed agent like the Daily Briefing.
 - [ ] **Health/recovery coach program** - Third program type on Garmin data. Q2 dedup done - shared program factory is in place.
 
-## Security
-
-
 ## AI-Agent Best Practices
 
 - [ ] **Agent-behavior evals + observability (A3)** - Eval harness (golden tasks) + per-turn metrics for tool success/tokens/latency/retries.
 
 ## Performance / Cost
 
-Cost analysis Jun 2026 (`scripts/analyze_costs.py`, 30d window = $234): broken explicit context cache until Jun 9 (554 silent `CreateCachedContentConfig` failures, zero hits) made every turn pay full price for static prompt + tools (~20-25k tok) AND broke implicit history caching (timestamped SystemMessage at position 0 in uncached mode). Probes show implicit caching gives `cache_read: 0` even on identical 12.6k-token prefixes — only the explicit cache saves money. **Root cause of big turns is round-multiplication, not payload size**: web payloads are capped (fetch_url/browser extract 15k chars, search snippets ~1k); a $0.83 turn was 13 sequential `web_search` rounds each re-sending the ~30k prefix (~80% of the cost). Shipped since: `cache_read` recorded + billed at cached rate (migration 0043); token-based compaction trigger (`CONVERSATION_COMPACTION_TOKEN_THRESHOLD`); batched `web_search` queries; tool-schema-aware cache invalidation; per-turn `tool_rounds`/`tool_call_count` telemetry (migration 0044) surfaced in the analysis script's ROUND MULTIPLICATION section. Remaining:
+(Cost tooling: `scripts/analyze_costs.py`. Context caching, token-based compaction, batched `web_search`, and a per-turn tool-round cap all shipped Jun 2026.)
 
-- [x] **Verify cost drop after a week of data** - VERIFIED Jun 15: cache hit rate ramped 0% -> 58-60% of input tokens over 3 days post-deploy; cost/msg ~halved ($0.17 -> $0.08-0.12); input:output 42:1 -> 23.7:1; cost-weighted tool_rounds 4.4/turn (max 7, was 13). ~$15 saved on a $48 4-day bill (~24%). Both explicit + implicit caching confirmed working.
-- [x] **Reduce search round-multiplication behaviorally** - soft per-turn tool-round cap (`AGENT_MAX_TOOL_ROUNDS`, default 6) in `check_tool_results`: at/above the cap the graph injects an "answer with what you have" nudge (escalates each further round; recursion limit is the hard backstop). Verify effect via the `tool_rounds` telemetry after a few days.
+- [ ] **Model routing / tiering by turn difficulty** - the biggest untapped cost lever, and a real-agent pattern in its own right. Everything currently runs on `gemini-3.5-flash` ($1.50/$9 per M tok); a large share of turns are short and trivial (greetings, quick lookups, one-line follow-ups) yet pay frontier-flash rates. Route by predicted difficulty: cheap/small model for simple turns, the strong model reserved for genuinely hard requests (multi-step reasoning, tool orchestration, code). Two viable shapes: (a) a lightweight up-front classifier — reuse the `should_plan` pattern in `graph.py`, which already does a fast Flash classification, to also emit a model tier; or (b) escalation — start on the cheap model and bump to the strong one when the turn needs tools / the classifier flags complexity / a retry is needed. Caveats to design around: the context cache is keyed per `(profile, model)` (`context_cache.py`), so mixing models fragments cache hits — weigh cheaper tokens vs lost cache; and the cheap model must hold tool-calling quality (validate against the agent graph, not just chat). Add a `MODELS`/pricing tier table in `config.py` and measure the blended cost/msg via `scripts/analyze_costs.py` (already groups BY MODEL) before/after.
 
 ## Reliability
 
