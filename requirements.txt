@@ -30,7 +30,7 @@ llm-sandbox[docker]>=0.3.39
 langdetect>=1.0.9
 
 # Garmin Connect integration
-garminconnect>=0.3.5
+garminconnect>=0.3.6
 
 # Schedule parsing
 croniter>=6.2.2
