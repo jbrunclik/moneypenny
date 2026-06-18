@@ -40,7 +40,7 @@ pywebpush>=2.0.0
 
 # Token encryption at rest (also a pywebpush transitive dep, pinned
 # explicitly because token_crypto imports it directly)
-cryptography>=42.0
+cryptography>=49.0.0
 
 # Database migrations
 yoyo-migrations>=9.0
