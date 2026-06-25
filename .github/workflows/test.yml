@@ -26,7 +26,7 @@ jobs:
           node-version: '25'
 
       - name: Cache Node dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: web/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('web/package-lock.json') }}
@@ -82,7 +82,7 @@ jobs:
           node-version: '25'
 
       - name: Cache Node dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: web/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('web/package-lock.json') }}
@@ -122,7 +122,7 @@ jobs:
           node-version: '25'
 
       - name: Cache Node dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: web/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('web/package-lock.json') }}
