@@ -33,7 +33,7 @@ langdetect>=1.0.9
 garminconnect>=0.3.6
 
 # Schedule parsing
-croniter>=6.2.3
+croniter>=6.2.4
 
 # Web Push notifications (VAPID)
 pywebpush>=2.3.0
