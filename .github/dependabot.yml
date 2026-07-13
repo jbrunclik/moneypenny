@@ -15,6 +15,11 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # typescript-eslint peer range caps TypeScript at <6.1.0
+      # (typescript-eslint@8.63.0); unblock once it supports TS 7
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
