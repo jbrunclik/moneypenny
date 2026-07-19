@@ -24,8 +24,16 @@ class PermissionResult(Enum):
     BLOCKED = "blocked"
 
 
-# Tools that are always safe (read-only operations) and always allowed
-ALWAYS_SAFE_TOOLS: set[str] = {"web_search", "fetch_url", "retrieve_file", "request_approval"}
+# Tools that are always safe and always allowed. kv_store is included because
+# it is unconditionally bound for agents (auto and interactive) and only
+# touches the agent's own per-user K/V namespace.
+ALWAYS_SAFE_TOOLS: set[str] = {
+    "web_search",
+    "fetch_url",
+    "retrieve_file",
+    "request_approval",
+    "kv_store",
+}
 
 
 def check_tool_permission(

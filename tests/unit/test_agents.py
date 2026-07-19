@@ -260,6 +260,20 @@ class TestPermissionChecking:
         result = check_tool_permission(agent, "web_search", {})
         assert result == PermissionResult.ALLOWED
 
+    def test_kv_store_allowed_despite_explicit_permissions(self):
+        """kv_store is always bound for agents, so it must never be blocked.
+
+        Agents with an explicit tool_permissions list (not mentioning kv_store)
+        must still be able to access their own K/V namespace.
+        """
+        from src.agent.permissions import PermissionResult, check_tool_permission
+
+        agent = MagicMock()
+        agent.tool_permissions = ["web_search"]  # kv_store not listed
+
+        result = check_tool_permission(agent, "kv_store", {"action": "get", "key": "state"})
+        assert result == PermissionResult.ALLOWED
+
 
 # =============================================================================
 # Executor context tests
