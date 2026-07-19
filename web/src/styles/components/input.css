@@ -482,4 +482,34 @@
     .file-preview-item.file-preview-doc {
         height: 56px;
     }
+
+    /* Narrow screens: the toolbar must never push its buttons off-screen.
+       The model selector is the only flexible element — let it shrink and
+       ellipsize while the icon buttons keep their size. */
+    .input-toolbar {
+        gap: var(--space-1);
+    }
+
+    .toolbar-left {
+        min-width: 0;
+    }
+
+    .toolbar-right {
+        flex-shrink: 0;
+    }
+
+    .model-selector {
+        min-width: 0;
+    }
+
+    .model-selector-btn {
+        max-width: 100%;
+    }
+
+    #current-model-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 }

@@ -304,3 +304,55 @@ test.describe('Chat - Upload Progress', () => {
     await expect(uploadProgress).toHaveClass(/hidden/);
   });
 });
+
+test.describe('Chat - Upload Progress Mobile Layout', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('upload progress strip aligns with input container on mobile', async ({ page }) => {
+    await page.goto('/');
+    // On mobile the sidebar is off-canvas; the chat input is visible directly
+    await page.waitForSelector('#input-container');
+
+    // Reveal the progress strip the same way showUploadProgress() does
+    await page.evaluate(() => {
+      document.getElementById('upload-progress')?.classList.remove('hidden');
+    });
+
+    const progressBox = await page.locator('#upload-progress').boundingBox();
+    const inputBox = await page.locator('#input-container').boundingBox();
+    expect(progressBox).not.toBeNull();
+    expect(inputBox).not.toBeNull();
+
+    // The strip visually attaches to the input container: same left edge and width
+    expect(Math.abs(progressBox!.x - inputBox!.x)).toBeLessThan(2);
+    expect(Math.abs(progressBox!.width - inputBox!.width)).toBeLessThan(2);
+
+    // The strip must sit directly on top of the input container (merged box)
+    expect(Math.abs(progressBox!.y + progressBox!.height - inputBox!.y)).toBeLessThan(2);
+
+    // No horizontal page overflow
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+});
+
+test.describe('Chat - Narrow Viewport Toolbar', () => {
+  test.use({ viewport: { width: 320, height: 568 } });
+
+  test('all toolbar buttons stay within the viewport on narrow screens', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#input-container');
+
+    const attachBox = await page.locator('#attach-btn').boundingBox();
+    expect(attachBox).not.toBeNull();
+    // The right-most toolbar button must be fully visible, not clipped
+    expect(attachBox!.x + attachBox!.width).toBeLessThanOrEqual(320);
+    expect(attachBox!.x).toBeGreaterThanOrEqual(0);
+
+    const voiceBox = await page.locator('#voice-btn').boundingBox();
+    expect(voiceBox).not.toBeNull();
+    expect(voiceBox!.x + voiceBox!.width).toBeLessThanOrEqual(320);
+  });
+});
