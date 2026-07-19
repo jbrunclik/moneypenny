@@ -132,3 +132,24 @@ class TestDeleteCachedFileUri:
         test_database.kv_set(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, "msg-8:0", '{"uri": "x"}')
         gemini_files.delete_cached_file_uri("msg-8", 0)
         assert test_database.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, "msg-8:0") is None
+
+
+class TestAttachNeverRaises:
+    def test_unexpected_exception_degrades_to_error_annotation(self) -> None:
+        """DB/client failures must not propagate — the chat request must survive."""
+        files = [{"name": "b.mp4", "type": "video/mp4", "data": base64.b64encode(b"v").decode()}]
+        with patch(
+            "src.agent.gemini_files.ensure_gemini_file_uri",
+            side_effect=RuntimeError("db lock timeout"),
+        ):
+            attach_gemini_file_uris("msg-9", files)
+        assert "gemini_file_uri" not in files[0]
+        assert "db lock timeout" in files[0]["gemini_upload_error"]
+
+    def test_active_file_without_uri_raises_gemini_error(self) -> None:
+        client = _mock_client(("ACTIVE",), uri=None)
+        with (
+            patch("src.agent.gemini_files._get_client", return_value=client),
+            pytest.raises(GeminiFileError, match="without a URI"),
+        ):
+            ensure_gemini_file_uri("msg-10", 0, b"vid", "video/mp4")

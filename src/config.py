@@ -616,6 +616,14 @@ class Config:
         if cls.MAX_VIDEO_FILE_SIZE < 1:
             errors.append(f"MAX_VIDEO_FILE_SIZE must be positive, got {cls.MAX_VIDEO_FILE_SIZE}")
 
+        # Base64 inflates ~4/3; at least one max-size video must fit in a request,
+        # or Werkzeug rejects with a bare 413 before friendly validation runs
+        if cls.MAX_REQUEST_SIZE < cls.MAX_VIDEO_FILE_SIZE * 1.4:
+            errors.append(
+                f"MAX_REQUEST_SIZE ({cls.MAX_REQUEST_SIZE}) must be at least 1.4x "
+                f"MAX_VIDEO_FILE_SIZE ({cls.MAX_VIDEO_FILE_SIZE}) to fit a base64-encoded video"
+            )
+
         if cls.MAX_FILES_PER_MESSAGE < 1:
             errors.append(
                 f"MAX_FILES_PER_MESSAGE must be at least 1, got {cls.MAX_FILES_PER_MESSAGE}"

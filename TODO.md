@@ -8,6 +8,8 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
   - Multipart streaming upload endpoint (approach B in the spec) — revisit if base64 JSON memory spikes or >100MB clips become a real problem
   - Video poster-frame thumbnails (requires ffmpeg on the server)
   - Sweep scan optimization: track last-swept cutoff instead of rescanning all old messages daily (fine at current scale)
+  - Dedupe repeated base64 decodes of upload payloads (validate_files → save_file_to_blob_store → extract_file_metadata → attach_gemini_file_uris each decode independently; ~400MB transient allocations for a 100MB video)
+  - Revoke video blob object URLs when message elements are removed (attachments.ts tap-to-load player; bounded leak today)
 
 - [ ] **Gmail integration** - Read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): summarize what needs a reply, surface invoices, feed briefings/agents.
 - [ ] **Web Push notifications, Phase 3** - Phases 1-2 + Daily Briefing shipped (Jun 2026; see [docs/features/push-notifications.md](docs/features/push-notifications.md)). Remaining:

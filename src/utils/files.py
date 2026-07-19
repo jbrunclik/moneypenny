@@ -140,7 +140,9 @@ def verify_file_type_by_magic(
     if detected_mime_type == "application/octet-stream" and _matches_video_signature(
         file_data, claimed_mime_type
     ):
-        logger.debug(
+        # INFO (not DEBUG): this softer validation path should stay observable
+        # in production logs in case abuse patterns emerge
+        logger.info(
             "Magic validation passed via container signature",
             extra={"file_name": file_name, "claimed_type": claimed_mime_type},
         )

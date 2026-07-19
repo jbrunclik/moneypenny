@@ -22,6 +22,7 @@ function resetStore() {
     pendingFiles: [],
     uploadConfig: {
       maxFileSize: 20 * 1024 * 1024,
+      maxVideoFileSize: 100 * 1024 * 1024,
       maxFilesPerMessage: 10,
       allowedFileTypes: [],
     },
@@ -510,6 +511,7 @@ describe('Store - Files', () => {
     it('sets upload config', () => {
       const config = {
         maxFileSize: 10 * 1024 * 1024,
+        maxVideoFileSize: 100 * 1024 * 1024,
         maxFilesPerMessage: 5,
         allowedFileTypes: ['image/png'],
       };
