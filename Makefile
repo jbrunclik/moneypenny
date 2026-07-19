@@ -284,6 +284,8 @@ deploy:
 	cp -f systemd/ai-chatbot-memory-defrag.timer ~/.config/systemd/user/
 	cp -f systemd/ai-chatbot-agent-scheduler.service ~/.config/systemd/user/
 	cp -f systemd/ai-chatbot-agent-scheduler.timer ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-file-cleanup.service ~/.config/systemd/user/
+	cp -f systemd/ai-chatbot-file-cleanup.timer ~/.config/systemd/user/
 	systemctl --user daemon-reload
 	systemctl --user enable ai-chatbot
 	systemctl --user enable ai-chatbot-vacuum.timer
@@ -291,11 +293,13 @@ deploy:
 	systemctl --user enable ai-chatbot-backup.timer
 	systemctl --user enable ai-chatbot-memory-defrag.timer
 	systemctl --user enable ai-chatbot-agent-scheduler.timer
+	systemctl --user enable ai-chatbot-file-cleanup.timer
 	systemctl --user start ai-chatbot-vacuum.timer
 	systemctl --user start ai-chatbot-currency.timer
 	systemctl --user start ai-chatbot-backup.timer
 	systemctl --user start ai-chatbot-memory-defrag.timer
 	systemctl --user start ai-chatbot-agent-scheduler.timer
+	systemctl --user start ai-chatbot-file-cleanup.timer
 	systemctl --user restart ai-chatbot
 	@echo "Deployed. View logs with: journalctl --user -u ai-chatbot -f"
 	@echo "Timers enabled. Check with: systemctl --user list-timers"

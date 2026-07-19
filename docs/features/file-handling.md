@@ -438,12 +438,13 @@ Users can upload short videos (iPhone/Android camera or library) and consult the
 3. **Follow-up turns**: the video is attached only on its upload turn. History carries metadata only (`"type": "video"` + `retrieve_file` id); the system prompt tells the model to call `retrieve_file`, which reuses the cached URI or re-uploads from blob storage.
 4. **Upload failure**: `attach_gemini_file_uris` never raises — the message content gets a text notice instead so the model can tell the user.
 
-### Media Retention
+### File Retention
 
-Attachments are not permanent storage: **videos are kept 7 days, images 30 days** (`VIDEO_RETENTION_DAYS` / `IMAGE_RETENTION_DAYS`); PDFs/text are unaffected. Implemented in [media_retention.py](../../src/utils/media_retention.py):
+Attachments are not permanent storage: **videos are kept 7 days, images and all other files 30 days** (`VIDEO_RETENTION_DAYS` / `IMAGE_RETENTION_DAYS` / `FILE_RETENTION_DAYS`). Implemented in [file_retention.py](../../src/utils/file_retention.py):
 
-- A daemon thread (started in [app.py](../../src/app.py), skipped when `FLASK_ENV=testing`) ticks hourly and sweeps at most daily, guarded by a `kv_store` last-run stamp (`_system`/`media_cleanup`) — multi-worker safe because deletes are idempotent.
-- The sweep deletes full-size blobs and stale Gemini URI cache entries. **Thumbnails are kept** so old conversations still render a placeholder.
+- **Production**: the `ai-chatbot-file-cleanup` systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) daily at 02:30 (installed by `make deploy`), consistent with the other scheduled jobs (backup, vacuum, defrag, currency, agent scheduler).
+- **Development**: the dev scheduler loop calls `run_file_cleanup_if_due()` (at most one sweep per day, tracked via a `kv_store` stamp under `_system`/`file_cleanup`).
+- The sweep deletes full-size blobs and stale Gemini URI cache entries. **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
 - Expiry is *age-derived* everywhere, so behavior is correct even before the sweep runs: history metadata marks files `"expired": true`, `retrieve_file` returns a clear "cleaned up" error, and the file endpoint returns **410 Gone** (`ErrorCode.GONE`).
 
 ### Playback
@@ -456,12 +457,13 @@ JWT is header-only, so a bare `<video src>` cannot authenticate. Sent videos ren
 MAX_VIDEO_FILE_SIZE=104857600   # 100 MB
 VIDEO_RETENTION_DAYS=7
 IMAGE_RETENTION_DAYS=30
+FILE_RETENTION_DAYS=30
 ```
 
 ### Key Files
 
 - [gemini_files.py](../../src/agent/gemini_files.py) - Files API bridge + kv URI cache
-- [media_retention.py](../../src/utils/media_retention.py) - retention policy, sweep job, cleanup thread
+- [file_retention.py](../../src/utils/file_retention.py) - retention policy + sweep; [cleanup_files.py](../../scripts/cleanup_files.py) + systemd timer run it
 - [file_retrieval.py](../../src/agent/tools/file_retrieval.py) - video branch + expiry errors
 - [agent.py](../../src/agent/agent.py) - `_build_message_content()` media blocks
 - [routes/chat.py](../../src/api/routes/chat.py) - `attach_gemini_file_uris()` call sites
@@ -470,7 +472,7 @@ IMAGE_RETENTION_DAYS=30
 
 ### Testing
 
-- Unit: [test_gemini_files.py](../../tests/unit/test_gemini_files.py), [test_media_retention.py](../../tests/unit/test_media_retention.py), video classes in [test_files.py](../../tests/unit/test_files.py), [test_tools.py](../../tests/unit/test_tools.py), [test_history.py](../../tests/unit/test_history.py)
+- Unit: [test_gemini_files.py](../../tests/unit/test_gemini_files.py), [test_file_retention.py](../../tests/unit/test_file_retention.py), video classes in [test_files.py](../../tests/unit/test_files.py), [test_tools.py](../../tests/unit/test_tools.py), [test_history.py](../../tests/unit/test_history.py)
 - Integration: video/410 classes in [test_routes_chat.py](../../tests/integration/test_routes_chat.py), [test_routes_files.py](../../tests/integration/test_routes_files.py)
 - E2E: "Chat - Video Upload" in [attachments.spec.ts](../../web/tests/e2e/chat/attachments.spec.ts); real ffmpeg-generated fixtures in [tests/fixtures/](../../tests/fixtures/)
 

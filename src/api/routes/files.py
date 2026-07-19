@@ -24,8 +24,8 @@ from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models import User, db, make_blob_key, make_thumbnail_key
 from src.utils.background_thumbnails import generate_and_save_thumbnail
+from src.utils.file_retention import is_file_expired, retention_note
 from src.utils.logging import get_logger
-from src.utils.media_retention import is_media_expired, retention_note
 
 logger = get_logger(__name__)
 
@@ -324,7 +324,7 @@ def get_message_file(
     file_type = file.get("type", "application/octet-stream")
 
     # Age-based retention gate: expired media is (or is about to be) deleted
-    if is_media_expired(file_type, message.created_at):
+    if is_file_expired(file_type, message.created_at):
         logger.info(
             "Expired media requested",
             extra={

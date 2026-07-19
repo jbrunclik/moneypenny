@@ -648,10 +648,19 @@ class TestVideoHistoryMetadata:
         assert files is not None
         assert files[0]["expired"] is True
 
-    def test_old_pdf_not_marked_expired(self) -> None:
+    def test_old_pdf_marked_expired(self) -> None:
         msg = self._make_message(
             [{"name": "a.pdf", "type": "application/pdf"}],
             created_at=datetime.now() - timedelta(days=999),
+        )
+        files = format_file_metadata(msg)
+        assert files is not None
+        assert files[0]["expired"] is True
+
+    def test_fresh_pdf_not_marked_expired(self) -> None:
+        msg = self._make_message(
+            [{"name": "a.pdf", "type": "application/pdf"}],
+            created_at=datetime.now() - timedelta(days=1),
         )
         files = format_file_metadata(msg)
         assert files is not None

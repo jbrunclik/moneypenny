@@ -283,13 +283,6 @@ def create_app() -> APIFlask:
 
         start_dev_scheduler()
 
-    # Media retention sweep runs in dev and prod (no systemd timer for it);
-    # skipped in tests so unit/E2E runs never sweep a database
-    if not Config.is_testing():
-        from src.utils.media_retention import start_media_cleanup_thread
-
-        start_media_cleanup_thread()
-
     return app
 
 

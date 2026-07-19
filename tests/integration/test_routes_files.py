@@ -208,7 +208,7 @@ class TestExpiredMediaGone:
         resp = client.get(f"/api/messages/{msg_id}/files/0", headers=auth_headers)
         assert resp.status_code == 410
 
-    def test_old_pdf_still_served(
+    def test_old_pdf_returns_410(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
@@ -229,5 +229,28 @@ class TestExpiredMediaGone:
             ],
         )
         _backdate_message(test_database, message.id, days_old=999)
+        resp = client.get(f"/api/messages/{message.id}/files/0", headers=auth_headers)
+        assert resp.status_code == 410
+
+    def test_fresh_pdf_still_served(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "Docs2", "gemini-3.5-flash")
+        message = test_database.add_message(
+            conv.id,
+            MessageRole.USER,
+            "a document",
+            files=[
+                {
+                    "name": "doc.pdf",
+                    "type": "application/pdf",
+                    "data": base64.b64encode(b"%PDF-1.4 fake").decode(),
+                }
+            ],
+        )
         resp = client.get(f"/api/messages/{message.id}/files/0", headers=auth_headers)
         assert resp.status_code == 200

@@ -25,8 +25,9 @@ def retrieve_file(
     - View a video from an earlier message again (videos are only attached on
       the turn they were uploaded)
 
-    Retention: uploaded media is temporary — videos are kept 7 days, images
-    30 days. Expired files return an error explaining the cleanup.
+    Retention: uploaded attachments are temporary — videos are kept 7 days,
+    images and other files 30 days. Expired files return an error explaining
+    the cleanup.
 
     The message_id and file_index can be found in the conversation history metadata.
     Each user message with files includes a "files" array with "id" in format "message_id:file_index".
@@ -122,9 +123,9 @@ def retrieve_file(
 
     # Age-based retention gate: stays truthful even before the physical
     # sweep has deleted the blob (videos 7 days, images 30 days)
-    from src.utils.media_retention import is_media_expired, retention_note
+    from src.utils.file_retention import is_file_expired, retention_note
 
-    if is_media_expired(mime_type, message.created_at):
+    if is_file_expired(mime_type, message.created_at):
         return json.dumps(
             {
                 "error": f"This file has been cleaned up and is no longer available. "

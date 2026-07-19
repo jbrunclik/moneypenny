@@ -209,9 +209,10 @@ class Config:
     MAX_VIDEO_FILE_SIZE: int = int(
         os.getenv("MAX_VIDEO_FILE_SIZE", str(100 * BYTES_PER_MB))
     )  # 100 MB
-    # Media retention: attachments are not permanent storage
+    # File retention: attachments are not permanent storage
     VIDEO_RETENTION_DAYS: int = int(os.getenv("VIDEO_RETENTION_DAYS", "7"))
     IMAGE_RETENTION_DAYS: int = int(os.getenv("IMAGE_RETENTION_DAYS", "30"))
+    FILE_RETENTION_DAYS: int = int(os.getenv("FILE_RETENTION_DAYS", "30"))  # PDFs, text, etc.
     MAX_FILES_PER_MESSAGE: int = int(os.getenv("MAX_FILES_PER_MESSAGE", "10"))
     ALLOWED_FILE_TYPES: set[str] = set(
         os.getenv(

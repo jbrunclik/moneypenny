@@ -9,7 +9,7 @@ from typing import Any, NotRequired, TypedDict
 
 from src.config import Config
 from src.db.models.dataclasses import Message
-from src.utils.media_retention import is_media_expired
+from src.utils.file_retention import is_file_expired
 
 
 class FileMetadata(TypedDict):
@@ -154,7 +154,7 @@ def format_file_metadata(msg: Message) -> list[FileMetadata] | None:
         )
         # NOTE: this flag flips once when the file crosses its retention
         # window — a one-time history byte change; acceptable for caching.
-        if is_media_expired(mime_type, msg.created_at):
+        if is_file_expired(mime_type, msg.created_at):
             entry["expired"] = True
         files.append(entry)
 

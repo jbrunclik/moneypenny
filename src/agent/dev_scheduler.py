@@ -36,6 +36,15 @@ def _scheduler_loop(stop_event: threading.Event) -> None:
         except Exception as e:
             logger.error(f"Dev scheduler: error in evaluation loop: {e}", exc_info=True)
 
+        # Dev stand-in for the ai-chatbot-file-cleanup systemd timer
+        # (kv last-run stamp keeps this to at most one sweep per day)
+        try:
+            from src.utils.file_retention import run_file_cleanup_if_due
+
+            run_file_cleanup_if_due()
+        except Exception as e:
+            logger.error(f"Dev scheduler: file cleanup failed: {e}", exc_info=True)
+
         # Wait for the interval or until stopped
         stop_event.wait(SCHEDULER_INTERVAL_SECONDS)
 

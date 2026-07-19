@@ -1,0 +1,26 @@
+# Systemd user service for AI Chatbot file retention cleanup
+# Install to: ~/.config/systemd/user/ai-chatbot-file-cleanup.service
+# This service is triggered by ai-chatbot-file-cleanup.timer
+
+[Unit]
+Description=AI Chatbot - File retention cleanup (expired attachments)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/ai-chatbot
+ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/cleanup_files.py
+Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+# Load environment from .env file (for database paths and retention windows)
+EnvironmentFile=%h/src/ai-chatbot/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Don't restart on failure (timer will retry next day)
+Restart=no
+
+[Install]
+WantedBy=default.target
