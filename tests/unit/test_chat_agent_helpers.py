@@ -2348,3 +2348,36 @@ class TestBuildMessageContentVideo:
         assert isinstance(blocks, list)
         texts = [b["text"] for b in blocks if isinstance(b, dict) and b.get("type") == "text"]
         assert any("could not be attached" in t for t in texts)
+
+
+class TestInteractiveAgentToolWiring:
+    """Interactive turns in an agent conversation must bind kv_store (parity with auto runs)."""
+
+    @staticmethod
+    def _captured_tool_names(monkeypatch, agent_tools) -> set[str]:
+        import src.agent.agent as agent_mod
+        import src.agent.graph as graph_mod
+
+        captured: dict[str, list] = {}
+
+        def fake_create_chat_graph(model_name, **kwargs):
+            captured["tools"] = kwargs.get("tools") or []
+            return object()
+
+        monkeypatch.setattr(agent_mod, "create_chat_graph", fake_create_chat_graph)
+        monkeypatch.setattr(graph_mod, "compile_graph", lambda graph: graph)
+
+        agent_mod.ChatAgent(
+            model_name="gemini-test",
+            is_autonomous=True,
+            agent_context={"name": "watcher", "tools": agent_tools},
+        )
+        return {t.name for t in captured["tools"]}
+
+    def test_agent_with_explicit_permissions_gets_kv_store(self, monkeypatch) -> None:
+        names = self._captured_tool_names(monkeypatch, agent_tools=["web_search"])
+        assert "kv_store" in names
+
+    def test_agent_with_unrestricted_permissions_gets_kv_store(self, monkeypatch) -> None:
+        names = self._captured_tool_names(monkeypatch, agent_tools=None)
+        assert "kv_store" in names

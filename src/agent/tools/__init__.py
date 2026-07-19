@@ -124,6 +124,7 @@ def get_tools_for_request(
     is_sports: bool = False,
     is_language: bool = False,
     agent_tool_permissions: list[str] | None = None,
+    is_agent: bool = False,
 ) -> list[Any]:
     """Get tools for a specific request, optionally excluding integration tools.
 
@@ -134,14 +135,24 @@ def get_tools_for_request(
         is_language: If True, includes the kv_store tool.
         agent_tool_permissions: If provided, only include these tools plus basic safe tools.
             This is used for autonomous agents to restrict their capabilities.
+        is_agent: If True, this is an interactive turn in an agent conversation;
+            includes kv_store so chat turns have the same K/V access as auto runs.
 
     Returns:
         List of tools to bind to the LLM for this request.
     """
     # For autonomous agents with specific permissions
     if agent_tool_permissions is not None:
-        # Always include basic safe tools + metadata tools
-        tools: list[Any] = [fetch_url, web_search, retrieve_file, cite_sources, manage_memory]
+        # Always include basic safe tools + metadata tools + kv_store
+        # (kv_store parity with get_tools_for_agent, which always binds it)
+        tools: list[Any] = [
+            fetch_url,
+            web_search,
+            retrieve_file,
+            cite_sources,
+            manage_memory,
+            kv_store,
+        ]
 
         # Add permitted tools
         for tool_name in agent_tool_permissions:
@@ -186,6 +197,11 @@ def get_tools_for_request(
 
     # Add kv_store tool in language mode (for storing vocabulary, assessment, etc.)
     if is_language and kv_store not in tools:
+        tools.append(kv_store)
+
+    # Interactive agent conversation with unrestricted permissions (None) falls
+    # through to here - still needs kv_store for parity with auto execution
+    if is_agent and kv_store not in tools:
         tools.append(kv_store)
 
     return tools

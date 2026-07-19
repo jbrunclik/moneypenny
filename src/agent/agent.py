@@ -117,7 +117,7 @@ class ChatAgent:
             # Note: tools=None means all tools, tools=[] means no extra integrations
             agent_tools = agent_context.get("tools")
             active_tools = get_tools_for_request(
-                anonymous_mode, is_planning, agent_tool_permissions=agent_tools
+                anonymous_mode, is_planning, agent_tool_permissions=agent_tools, is_agent=True
             )
         else:
             active_tools = get_tools_for_request(

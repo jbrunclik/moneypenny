@@ -106,7 +106,7 @@ def validate_tool_names() -> None:
 
     # Add conditional tools that are only available in specific contexts
     # refresh_planner_dashboard is only added in planner mode via get_tools_for_request()
-    # kv_store is only added for autonomous agents via get_tools_for_agent()
+    # kv_store is only added for agent, sports, and language conversations
     conditional_tools = {"refresh_planner_dashboard", "kv_store", "browser"}
     valid_tool_names = actual_tool_names | conditional_tools
 

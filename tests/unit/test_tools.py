@@ -2305,6 +2305,30 @@ class TestGetToolsForRequest:
         tools = get_tools_for_request()
         assert tools == get_available_tools()
 
+    def test_agent_permissions_always_include_kv_store(self) -> None:
+        """Interactive agent turns must get kv_store, matching get_tools_for_agent."""
+        tools = get_tools_for_request(agent_tool_permissions=["web_search"])
+        tool_names = {t.name for t in tools}
+        assert "kv_store" in tool_names
+
+    def test_agent_empty_permissions_include_kv_store(self) -> None:
+        """Even an agent with no extra integrations gets kv_store."""
+        tools = get_tools_for_request(agent_tool_permissions=[])
+        tool_names = {t.name for t in tools}
+        assert "kv_store" in tool_names
+
+    def test_agent_unrestricted_permissions_include_kv_store(self) -> None:
+        """Agent with tool_permissions=None (all tools) still gets kv_store via is_agent."""
+        tools = get_tools_for_request(agent_tool_permissions=None, is_agent=True)
+        tool_names = {t.name for t in tools}
+        assert "kv_store" in tool_names
+
+    def test_non_agent_request_excludes_kv_store(self) -> None:
+        """Regular (non-agent, non-sports, non-language) chats must not get kv_store."""
+        tools = get_tools_for_request()
+        tool_names = {t.name for t in tools}
+        assert "kv_store" not in tool_names
+
 
 class TestRetrieveFileVideo:
     """Tests for retrieve_file video support and retention expiry."""
