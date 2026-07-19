@@ -478,6 +478,33 @@ class MessageMixin:
 
             return messages, pagination
 
+    def get_messages_with_files_before(self, cutoff: datetime) -> list[Message]:
+        """Messages older than cutoff that have file attachments (for retention sweep)."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM messages
+                   WHERE files IS NOT NULL AND files != '[]' AND created_at < ?
+                   ORDER BY created_at""",
+                (cutoff.isoformat(),),
+            ).fetchall()
+            return [
+                Message(
+                    id=row["id"],
+                    conversation_id=row["conversation_id"],
+                    role=MessageRole(row["role"]),
+                    content=row["content"],
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    files=json.loads(row["files"]) if row["files"] else [],
+                    sources=json.loads(row["sources"]) if row["sources"] else None,
+                    generated_images=json.loads(row["generated_images"])
+                    if row["generated_images"]
+                    else None,
+                    language=row["language"],
+                )
+                for row in rows
+            ]
+
     def get_message_by_id(self, message_id: str) -> Message | None:
         """Get a single message by its ID."""
         with self._pool.get_connection() as conn:

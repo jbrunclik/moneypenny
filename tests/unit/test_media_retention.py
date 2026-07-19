@@ -51,3 +51,115 @@ class TestRetentionNote:
     def test_notes(self) -> None:
         assert "7 days" in retention_note("video/mp4")
         assert "30 days" in retention_note("image/png")
+
+
+# =============================================================================
+# Sweep job tests
+# =============================================================================
+
+
+import base64
+from unittest.mock import patch
+
+import pytest
+
+from src.db.models import make_blob_key, make_thumbnail_key
+from src.utils.datetime_utils import utcnow_naive
+from src.utils.media_retention import cleanup_expired_media, run_media_cleanup_if_due
+
+
+@pytest.fixture
+def seeded_env(test_database, test_blob_store):
+    """Patch module-level db/blob_store lookups to the isolated test instances."""
+    with (
+        patch("src.db.models.db", test_database),
+        patch("src.db.blob_store.get_blob_store", return_value=test_blob_store),
+        patch("src.db.models.message.get_blob_store", return_value=test_blob_store),
+        patch("src.db.models.helpers.get_blob_store", return_value=test_blob_store),
+        patch("src.agent.gemini_files.db", test_database),
+    ):
+        user = test_database.get_or_create_user(email="t@example.com", name="T")
+        conv = test_database.create_conversation(user.id)
+        yield test_database, test_blob_store, conv.id
+
+
+def _seed(db, blob_store, conversation_id, mime, days_old, data=b"blob-data"):
+    """Insert a message with one file + blob, created days_old ago."""
+    ext = "mp4" if mime.startswith("video/") else "png"
+    msg = db.add_message(
+        conversation_id,
+        "user",
+        "here is a file",
+        files=[
+            {
+                "name": f"f.{ext}",
+                "type": mime,
+                "size": len(data),
+                "data": base64.b64encode(data).decode("utf-8"),
+            }
+        ],
+    )
+    backdated = (datetime.now() - timedelta(days=days_old)).isoformat()
+    with db._pool.get_connection() as conn:
+        conn.execute("UPDATE messages SET created_at = ? WHERE id = ?", (backdated, msg.id))
+        conn.commit()
+    # add_message saved the blob via the patched get_blob_store already;
+    # assert it exists so the test setup is trustworthy
+    assert blob_store.get(make_blob_key(msg.id, 0)) is not None
+    return msg.id
+
+
+class TestCleanupExpiredMedia:
+    def test_deletes_expired_video_blob(self, seeded_env) -> None:
+        db, blob_store, conv_id = seeded_env
+        msg_id = _seed(db, blob_store, conv_id, "video/mp4", days_old=8)
+        counts = cleanup_expired_media()
+        assert counts["videos_deleted"] == 1
+        assert blob_store.get(make_blob_key(msg_id, 0)) is None
+
+    def test_keeps_fresh_video(self, seeded_env) -> None:
+        db, blob_store, conv_id = seeded_env
+        msg_id = _seed(db, blob_store, conv_id, "video/mp4", days_old=3)
+        cleanup_expired_media()
+        assert blob_store.get(make_blob_key(msg_id, 0)) is not None
+
+    def test_deletes_old_image_but_keeps_thumbnail(self, seeded_env) -> None:
+        db, blob_store, conv_id = seeded_env
+        msg_id = _seed(db, blob_store, conv_id, "image/png", days_old=31)
+        blob_store.save(make_thumbnail_key(msg_id, 0), b"thumb", "image/jpeg")
+        counts = cleanup_expired_media()
+        assert counts["images_deleted"] == 1
+        assert blob_store.get(make_blob_key(msg_id, 0)) is None
+        assert blob_store.get(make_thumbnail_key(msg_id, 0)) is not None
+
+    def test_image_between_windows_kept(self, seeded_env) -> None:
+        db, blob_store, conv_id = seeded_env
+        msg_id = _seed(db, blob_store, conv_id, "image/png", days_old=10)
+        cleanup_expired_media()
+        assert blob_store.get(make_blob_key(msg_id, 0)) is not None
+
+    def test_deletes_gemini_uri_cache_for_videos(self, seeded_env) -> None:
+        db, blob_store, conv_id = seeded_env
+        msg_id = _seed(db, blob_store, conv_id, "video/mp4", days_old=8)
+        db.kv_set("_system", "gemini_files", f"{msg_id}:0", '{"uri": "x"}')
+        cleanup_expired_media()
+        assert db.kv_get("_system", "gemini_files", f"{msg_id}:0") is None
+
+    def test_idempotent(self, seeded_env) -> None:
+        db, blob_store, conv_id = seeded_env
+        _seed(db, blob_store, conv_id, "video/mp4", days_old=8)
+        cleanup_expired_media()
+        counts = cleanup_expired_media()
+        assert counts == {"videos_deleted": 0, "images_deleted": 0}
+
+
+class TestRunIfDue:
+    def test_skips_when_ran_recently(self, seeded_env) -> None:
+        db, _, _ = seeded_env
+        db.kv_set("_system", "media_cleanup", "last_run", utcnow_naive().isoformat())
+        assert run_media_cleanup_if_due() is False
+
+    def test_runs_and_stamps_when_due(self, seeded_env) -> None:
+        db, _, _ = seeded_env
+        assert run_media_cleanup_if_due() is True
+        assert db.kv_get("_system", "media_cleanup", "last_run") is not None
