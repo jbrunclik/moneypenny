@@ -2,10 +2,12 @@
 
 import base64
 import io
+from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
 
+from src.config import Config
 from src.utils.files import (
     MIME_TYPE_ALIASES,
     TEXT_BASED_MIME_TYPES,
@@ -409,3 +411,83 @@ class TestMimeTypeAliases:
         # These types are unreliably detected by libmagic, so we skip them
         expected_skip_types = {"text/plain", "text/markdown", "text/csv", "application/json"}
         assert TEXT_BASED_MIME_TYPES == expected_skip_types
+
+
+# =============================================================================
+# Tests for video uploads
+# =============================================================================
+
+# Real (tiny) ffmpeg-generated videos: libmagic needs full container structure —
+# bare ftyp headers detect as generic "ISO Media" (application/octet-stream)
+FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+MP4_BYTES = (FIXTURES_DIR / "tiny.mp4").read_bytes()
+MOV_BYTES = (FIXTURES_DIR / "tiny.mov").read_bytes()
+
+
+class TestVideoValidation:
+    """Tests for video upload validation (MIME whitelist + per-type size limits)."""
+
+    def test_mp4_video_is_allowed(self) -> None:
+        files = [
+            {
+                "name": "clip.mp4",
+                "type": "video/mp4",
+                "data": base64.b64encode(MP4_BYTES).decode("utf-8"),
+            }
+        ]
+        is_valid, error = validate_files(files)
+        assert is_valid, error
+
+    def test_quicktime_video_is_allowed(self) -> None:
+        files = [
+            {
+                "name": "clip.mov",
+                "type": "video/quicktime",
+                "data": base64.b64encode(MOV_BYTES).decode("utf-8"),
+            }
+        ]
+        is_valid, error = validate_files(files)
+        assert is_valid, error
+
+    def test_video_uses_video_size_limit(self) -> None:
+        with patch.object(Config, "MAX_VIDEO_FILE_SIZE", 100):
+            big = MP4_BYTES + b"\x00" * 200
+            files = [
+                {
+                    "name": "clip.mp4",
+                    "type": "video/mp4",
+                    "data": base64.b64encode(big).decode("utf-8"),
+                }
+            ]
+            is_valid, error = validate_files(files)
+        assert is_valid is False
+        assert "clip.mp4" in error
+
+    def test_image_still_uses_default_limit(self) -> None:
+        """A video-sized image must NOT get the video allowance."""
+        with (
+            patch.object(Config, "MAX_FILE_SIZE", 100),
+            patch.object(Config, "MAX_VIDEO_FILE_SIZE", 10_000),
+        ):
+            png = base64.b64encode(create_png_bytes(50, 50)).decode("utf-8")
+            files = [{"name": "big.png", "type": "image/png", "data": png}]
+            is_valid, error = validate_files(files)
+        assert is_valid is False
+        assert "big.png" in error
+
+    def test_spoofed_video_rejected(self) -> None:
+        """PNG bytes claiming to be a video must be rejected by magic check."""
+        files = [
+            {
+                "name": "fake.mp4",
+                "type": "video/mp4",
+                "data": base64.b64encode(create_png_bytes()).decode("utf-8"),
+            }
+        ]
+        is_valid, error = validate_files(files)
+        assert is_valid is False
+        assert "fake.mp4" in error
+
+    def test_video_types_have_alias_mappings(self) -> None:
+        for mime_type in ("video/mp4", "video/quicktime", "video/webm"):
+            assert mime_type in MIME_TYPE_ALIASES, f"Missing mapping for {mime_type}"

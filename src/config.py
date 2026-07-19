@@ -206,11 +206,17 @@ class Config:
 
     # File upload settings
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", str(20 * BYTES_PER_MB)))  # 20 MB default
+    MAX_VIDEO_FILE_SIZE: int = int(
+        os.getenv("MAX_VIDEO_FILE_SIZE", str(100 * BYTES_PER_MB))
+    )  # 100 MB
+    # Media retention: attachments are not permanent storage
+    VIDEO_RETENTION_DAYS: int = int(os.getenv("VIDEO_RETENTION_DAYS", "7"))
+    IMAGE_RETENTION_DAYS: int = int(os.getenv("IMAGE_RETENTION_DAYS", "30"))
     MAX_FILES_PER_MESSAGE: int = int(os.getenv("MAX_FILES_PER_MESSAGE", "10"))
     ALLOWED_FILE_TYPES: set[str] = set(
         os.getenv(
             "ALLOWED_FILE_TYPES",
-            "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv",
+            "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv,video/mp4,video/quicktime,video/webm",
         ).split(",")
     )
 
@@ -606,6 +612,9 @@ class Config:
 
         if cls.MAX_FILE_SIZE < 1:
             errors.append(f"MAX_FILE_SIZE must be positive, got {cls.MAX_FILE_SIZE}")
+
+        if cls.MAX_VIDEO_FILE_SIZE < 1:
+            errors.append(f"MAX_VIDEO_FILE_SIZE must be positive, got {cls.MAX_VIDEO_FILE_SIZE}")
 
         if cls.MAX_FILES_PER_MESSAGE < 1:
             errors.append(

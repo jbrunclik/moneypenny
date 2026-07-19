@@ -21,6 +21,10 @@ MIME_TYPE_ALIASES: dict[str, set[str]] = {
     "image/webp": {"image/webp", "application/octet-stream"},
     # PDF
     "application/pdf": {"application/pdf"},
+    # Videos - libmagic detects container formats; .mov sometimes reads as mp4 family
+    "video/mp4": {"video/mp4", "video/x-m4v"},
+    "video/quicktime": {"video/quicktime", "video/mp4"},
+    "video/webm": {"video/webm", "video/x-matroska"},
     # Text files - libmagic may detect various text subtypes
     "text/plain": {
         "text/plain",
@@ -130,6 +134,18 @@ def verify_file_type_by_magic(
         )
         return True, ""
 
+    # Some libmagic builds detect video containers only via from_file, not
+    # from_buffer (returning application/octet-stream). Fall back to checking
+    # the container signature directly so spoof detection stays meaningful.
+    if detected_mime_type == "application/octet-stream" and _matches_video_signature(
+        file_data, claimed_mime_type
+    ):
+        logger.debug(
+            "Magic validation passed via container signature",
+            extra={"file_name": file_name, "claimed_type": claimed_mime_type},
+        )
+        return True, ""
+
     # Type mismatch - potential spoofing attempt
     logger.warning(
         "File content does not match claimed type",
@@ -144,6 +160,26 @@ def verify_file_type_by_magic(
         False,
         f"File '{file_name}' content does not match claimed type '{claimed_mime_type}'",
     )
+
+
+def _matches_video_signature(file_data: bytes, claimed_mime_type: str) -> bool:
+    """Check a video container's magic bytes directly.
+
+    MP4/QuickTime are ISO-BMFF ("ftyp" box at offset 4); WebM is
+    Matroska/EBML (magic bytes at offset 0).
+    """
+    if claimed_mime_type in ("video/mp4", "video/quicktime"):
+        return len(file_data) >= 8 and file_data[4:8] == b"ftyp"
+    if claimed_mime_type == "video/webm":
+        return file_data.startswith(b"\x1a\x45\xdf\xa3")
+    return False
+
+
+def max_size_for_mime(mime_type: str) -> int:
+    """Per-type upload size limit (videos get a larger allowance)."""
+    if mime_type.startswith("video/"):
+        return Config.MAX_VIDEO_FILE_SIZE
+    return Config.MAX_FILE_SIZE
 
 
 def validate_files(files: list[dict[str, Any]]) -> tuple[bool, str]:
@@ -176,14 +212,15 @@ def validate_files(files: list[dict[str, Any]]) -> tuple[bool, str]:
         data = file.get("data", "")
         try:
             decoded_data = base64.b64decode(data)
-            if len(decoded_data) > Config.MAX_FILE_SIZE:
-                max_mb = Config.MAX_FILE_SIZE / (1024 * 1024)
+            max_size = max_size_for_mime(file_type)
+            if len(decoded_data) > max_size:
+                max_mb = max_size / (1024 * 1024)
                 logger.warning(
                     "File too large",
                     extra={
                         "file_name": file_name,
                         "size": len(decoded_data),
-                        "max_size": Config.MAX_FILE_SIZE,
+                        "max_size": max_size,
                     },
                 )
                 return False, f"File '{file_name}' exceeds {max_mb:.0f}MB limit"
