@@ -5,19 +5,21 @@ adding timestamps, session gap indicators, file metadata, and tool summaries.
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from src.config import Config
 from src.db.models.dataclasses import Message
+from src.utils.media_retention import is_media_expired
 
 
 class FileMetadata(TypedDict):
     """File metadata for direct tool access."""
 
     name: str
-    type: str  # Simplified type: "image", "PDF", "text file", etc.
+    type: str  # Simplified type: "image", "video", "PDF", "text file", etc.
     message_id: str
     file_index: int
+    expired: NotRequired[bool]  # Media past its retention window (not retrievable)
 
 
 class MessageMetadata(TypedDict, total=False):
@@ -112,6 +114,8 @@ def simplify_mime_type(mime_type: str) -> str:
     """
     if mime_type.startswith("image/"):
         return "image"
+    if mime_type.startswith("video/"):
+        return "video"
     if mime_type == "application/pdf":
         return "PDF"
     if mime_type.startswith("text/"):
@@ -142,14 +146,17 @@ def format_file_metadata(msg: Message) -> list[FileMetadata] | None:
     for idx, file in enumerate(msg.files):
         name = file.get("name", f"file_{idx}")
         mime_type = file.get("type", "application/octet-stream")
-        files.append(
-            FileMetadata(
-                name=name,
-                type=simplify_mime_type(mime_type),
-                message_id=msg.id,
-                file_index=idx,
-            )
+        entry = FileMetadata(
+            name=name,
+            type=simplify_mime_type(mime_type),
+            message_id=msg.id,
+            file_index=idx,
         )
+        # NOTE: this flag flips once when the file crosses its retention
+        # window — a one-time history byte change; acceptable for caching.
+        if is_media_expired(mime_type, msg.created_at):
+            entry["expired"] = True
+        files.append(entry)
 
     return files if files else None
 

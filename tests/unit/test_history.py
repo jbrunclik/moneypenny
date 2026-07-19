@@ -600,3 +600,59 @@ class TestPartialDataBackwardCompatibility:
         # New message should have tool metadata
         assert "tools_used" in result[1]["metadata"]
         assert "web_search" in result[1]["metadata"]["tools_used"]
+
+
+class TestVideoHistoryMetadata:
+    """Tests for video MIME simplification and expired-media labeling."""
+
+    @staticmethod
+    def _make_message(files: list[dict], created_at: datetime) -> Message:
+        return Message(
+            id="msg-vid",
+            conversation_id="conv-1",
+            role=MessageRole.USER,
+            content="Test",
+            created_at=created_at,
+            files=files,
+        )
+
+    def test_simplify_video_mime(self) -> None:
+        assert simplify_mime_type("video/mp4") == "video"
+        assert simplify_mime_type("video/quicktime") == "video"
+        assert simplify_mime_type("video/webm") == "video"
+
+    def test_fresh_video_not_marked_expired(self) -> None:
+        msg = self._make_message(
+            [{"name": "a.mp4", "type": "video/mp4"}],
+            created_at=datetime.now() - timedelta(days=1),
+        )
+        files = format_file_metadata(msg)
+        assert files is not None
+        assert "expired" not in files[0]
+
+    def test_old_video_marked_expired(self) -> None:
+        msg = self._make_message(
+            [{"name": "a.mp4", "type": "video/mp4"}],
+            created_at=datetime.now() - timedelta(days=8),
+        )
+        files = format_file_metadata(msg)
+        assert files is not None
+        assert files[0]["expired"] is True
+
+    def test_old_image_marked_expired(self) -> None:
+        msg = self._make_message(
+            [{"name": "a.png", "type": "image/png"}],
+            created_at=datetime.now() - timedelta(days=31),
+        )
+        files = format_file_metadata(msg)
+        assert files is not None
+        assert files[0]["expired"] is True
+
+    def test_old_pdf_not_marked_expired(self) -> None:
+        msg = self._make_message(
+            [{"name": "a.pdf", "type": "application/pdf"}],
+            created_at=datetime.now() - timedelta(days=999),
+        )
+        files = format_file_metadata(msg)
+        assert files is not None
+        assert "expired" not in files[0]

@@ -298,6 +298,7 @@ class ChatAgent:
                     "name": f["name"],
                     "type": f["type"],
                     "id": f"{f['message_id']}:{f['file_index']}",
+                    **({"expired": True} if f.get("expired") else {}),
                 }
                 for f in metadata["files"]
             ]
