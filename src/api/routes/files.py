@@ -13,6 +13,7 @@ from flask import Response
 
 from src.api.errors import (
     raise_auth_forbidden_error,
+    raise_gone_error,
     raise_not_found_error,
     raise_validation_error,
 )
@@ -24,6 +25,7 @@ from src.db.blob_store import get_blob_store
 from src.db.models import User, db, make_blob_key, make_thumbnail_key
 from src.utils.background_thumbnails import generate_and_save_thumbnail
 from src.utils.logging import get_logger
+from src.utils.media_retention import is_media_expired, retention_note
 
 logger = get_logger(__name__)
 
@@ -265,7 +267,7 @@ def get_message_thumbnail(
 @api.doc(
     summary="Get full file from a message",
     description="Returns the file as binary data with appropriate content-type header.",
-    responses=[403, 404, 429],
+    responses=[403, 404, 410, 429],
 )
 @rate_limit_files
 @require_auth
@@ -320,6 +322,19 @@ def get_message_file(
 
     file = message.files[file_index]
     file_type = file.get("type", "application/octet-stream")
+
+    # Age-based retention gate: expired media is (or is about to be) deleted
+    if is_media_expired(file_type, message.created_at):
+        logger.info(
+            "Expired media requested",
+            extra={
+                "user_id": user.id,
+                "message_id": message_id,
+                "file_index": file_index,
+                "file_type": file_type,
+            },
+        )
+        raise_gone_error(f"This file has been cleaned up. {retention_note(file_type)}.")
 
     # Try blob store first (new format)
     blob_store = get_blob_store()

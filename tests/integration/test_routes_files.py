@@ -142,3 +142,92 @@ class TestGetMessageThumbnail:
 
         response = client.get(f"/api/messages/{message.id}/files/0/thumbnail", headers=auth_headers)
         assert response.status_code == 400
+
+
+def _backdate_message(test_database: Database, message_id: str, days_old: int) -> None:
+    from datetime import datetime, timedelta
+
+    backdated = (datetime.now() - timedelta(days=days_old)).isoformat()
+    with test_database._pool.get_connection() as conn:
+        conn.execute("UPDATE messages SET created_at = ? WHERE id = ?", (backdated, message_id))
+        conn.commit()
+
+
+def _message_with_video(test_database: Database, user: User, days_old: int = 0) -> str:
+    """Create a conversation + user message carrying one mp4 attachment."""
+    from pathlib import Path
+
+    mp4_b64 = base64.b64encode(
+        (Path(__file__).parent.parent / "fixtures" / "tiny.mp4").read_bytes()
+    ).decode()
+    conv = test_database.create_conversation(user.id, "Video test", "gemini-3.5-flash")
+    message = test_database.add_message(
+        conv.id,
+        MessageRole.USER,
+        "here is a video",
+        files=[{"name": "clip.mp4", "type": "video/mp4", "data": mp4_b64}],
+    )
+    if days_old:
+        _backdate_message(test_database, message.id, days_old)
+    return message.id
+
+
+class TestExpiredMediaGone:
+    def test_expired_video_returns_410(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        msg_id = _message_with_video(test_database, test_user, days_old=8)
+        resp = client.get(f"/api/messages/{msg_id}/files/0", headers=auth_headers)
+        assert resp.status_code == 410
+
+    def test_fresh_video_returns_200(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        msg_id = _message_with_video(test_database, test_user)
+        resp = client.get(f"/api/messages/{msg_id}/files/0", headers=auth_headers)
+        assert resp.status_code == 200
+        assert resp.mimetype == "video/mp4"
+
+    def test_expired_image_returns_410(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        msg_id = _message_with_image(test_database, test_user)
+        _backdate_message(test_database, msg_id, days_old=31)
+        resp = client.get(f"/api/messages/{msg_id}/files/0", headers=auth_headers)
+        assert resp.status_code == 410
+
+    def test_old_pdf_still_served(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "Docs", "gemini-3.5-flash")
+        message = test_database.add_message(
+            conv.id,
+            MessageRole.USER,
+            "a document",
+            files=[
+                {
+                    "name": "doc.pdf",
+                    "type": "application/pdf",
+                    "data": base64.b64encode(b"%PDF-1.4 fake").decode(),
+                }
+            ],
+        )
+        _backdate_message(test_database, message.id, days_old=999)
+        resp = client.get(f"/api/messages/{message.id}/files/0", headers=auth_headers)
+        assert resp.status_code == 200

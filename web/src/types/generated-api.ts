@@ -4738,6 +4738,15 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
                 /** @description Too Many Requests */
                 429: {
                     headers: {

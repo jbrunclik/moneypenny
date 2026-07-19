@@ -37,6 +37,7 @@ class ErrorCode(StrEnum):
 
     # Resource errors
     NOT_FOUND = "NOT_FOUND"  # Resource doesn't exist
+    GONE = "GONE"  # Resource expired per retention policy
     CONFLICT = "CONFLICT"  # Resource state conflict
     PAYLOAD_TOO_LARGE = "PAYLOAD_TOO_LARGE"  # Request body exceeds size limit
 
@@ -153,6 +154,11 @@ def raise_invalid_format_error(message: str = "Invalid format") -> NoReturn:
 def raise_not_found_error(resource: str = "Resource") -> NoReturn:
     """Raise a not found error (404)."""
     raise APIError(404, ErrorCode.NOT_FOUND, f"{resource} not found")
+
+
+def raise_gone_error(message: str) -> NoReturn:
+    """Raise a gone error (410) for media past its retention window."""
+    raise APIError(410, ErrorCode.GONE, message)
 
 
 def raise_auth_required_error() -> NoReturn:

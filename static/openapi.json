@@ -3796,6 +3796,16 @@
             },
             "description": "Forbidden"
           },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Gone"
+          },
           "429": {
             "content": {
               "application/json": {
