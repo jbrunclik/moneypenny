@@ -4,6 +4,11 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Features
 
+- [ ] **Video uploads — deferred follow-ups** (Jul 2026, see docs/superpowers/specs/2026-07-19-video-upload-design.md):
+  - Multipart streaming upload endpoint (approach B in the spec) — revisit if base64 JSON memory spikes or >100MB clips become a real problem
+  - Video poster-frame thumbnails (requires ffmpeg on the server)
+  - Sweep scan optimization: track last-swept cutoff instead of rescanning all old messages daily (fine at current scale)
+
 - [ ] **Gmail integration** - Read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): summarize what needs a reply, surface invoices, feed briefings/agents.
 - [ ] **Web Push notifications, Phase 3** - Phases 1-2 + Daily Briefing shipped (Jun 2026; see [docs/features/push-notifications.md](docs/features/push-notifications.md)). Remaining:
   - Planner event reminders (needs a small scheduler loop), program nudges (opt-in per program), budget alerts (threshold check in the cost-recording path)

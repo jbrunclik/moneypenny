@@ -1,11 +1,19 @@
 """Tests for media retention helpers."""
 
+import base64
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
+import pytest
+
+from src.db.models import make_blob_key, make_thumbnail_key
+from src.utils.datetime_utils import utcnow_naive
 from src.utils.media_retention import (
+    cleanup_expired_media,
     is_media_expired,
     retention_days_for_mime,
     retention_note,
+    run_media_cleanup_if_due,
 )
 
 
@@ -56,16 +64,6 @@ class TestRetentionNote:
 # =============================================================================
 # Sweep job tests
 # =============================================================================
-
-
-import base64
-from unittest.mock import patch
-
-import pytest
-
-from src.db.models import make_blob_key, make_thumbnail_key
-from src.utils.datetime_utils import utcnow_naive
-from src.utils.media_retention import cleanup_expired_media, run_media_cleanup_if_due
 
 
 @pytest.fixture

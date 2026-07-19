@@ -427,6 +427,53 @@ The app provides copy-to-clipboard functionality at two levels.
 
 - E2E tests: "Chat - Copy to Clipboard" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
 
+## Video Uploads
+
+Users can upload short videos (iPhone/Android camera or library) and consult the AI about their content.
+
+### How it works
+
+1. **Upload**: `video/mp4`, `video/quicktime`, `video/webm` up to 100MB (`MAX_VIDEO_FILE_SIZE`) ride the normal base64 chat request; the file input's `accept` offers camera capture on mobile. Magic-byte validation has a container-signature fallback (`ftyp`/EBML) because some libmagic builds detect video only via `from_file`, not `from_buffer`.
+2. **Gemini Files API bridge**: Gemini's inline request limit is ~20MB, so videos are uploaded to the Files API before the agent runs (`attach_gemini_file_uris()` in [gemini_files.py](../../src/agent/gemini_files.py)), polled to `ACTIVE`, and sent as `{"type": "media", "file_uri", "mime_type"}` blocks. The `file_uri` (48h lifetime) is cached in `kv_store` under user `_system`, namespace `gemini_files`, key `message_id:file_index`, TTL 47h.
+3. **Follow-up turns**: the video is attached only on its upload turn. History carries metadata only (`"type": "video"` + `retrieve_file` id); the system prompt tells the model to call `retrieve_file`, which reuses the cached URI or re-uploads from blob storage.
+4. **Upload failure**: `attach_gemini_file_uris` never raises — the message content gets a text notice instead so the model can tell the user.
+
+### Media Retention
+
+Attachments are not permanent storage: **videos are kept 7 days, images 30 days** (`VIDEO_RETENTION_DAYS` / `IMAGE_RETENTION_DAYS`); PDFs/text are unaffected. Implemented in [media_retention.py](../../src/utils/media_retention.py):
+
+- A daemon thread (started in [app.py](../../src/app.py), skipped when `FLASK_ENV=testing`) ticks hourly and sweeps at most daily, guarded by a `kv_store` last-run stamp (`_system`/`media_cleanup`) — multi-worker safe because deletes are idempotent.
+- The sweep deletes full-size blobs and stale Gemini URI cache entries. **Thumbnails are kept** so old conversations still render a placeholder.
+- Expiry is *age-derived* everywhere, so behavior is correct even before the sweep runs: history metadata marks files `"expired": true`, `retrieve_file` returns a clear "cleaned up" error, and the file endpoint returns **410 Gone** (`ErrorCode.GONE`).
+
+### Playback
+
+JWT is header-only, so a bare `<video src>` cannot authenticate. Sent videos render as tap-to-load players ([attachments.ts](../../web/src/components/messages/attachments.ts)): an authenticated fetch loads the blob and plays it via an object URL; a 410 renders an "expired" chip. Just-uploaded videos play directly from their local preview URL.
+
+### Configuration
+
+```bash
+MAX_VIDEO_FILE_SIZE=104857600   # 100 MB
+VIDEO_RETENTION_DAYS=7
+IMAGE_RETENTION_DAYS=30
+```
+
+### Key Files
+
+- [gemini_files.py](../../src/agent/gemini_files.py) - Files API bridge + kv URI cache
+- [media_retention.py](../../src/utils/media_retention.py) - retention policy, sweep job, cleanup thread
+- [file_retrieval.py](../../src/agent/tools/file_retrieval.py) - video branch + expiry errors
+- [agent.py](../../src/agent/agent.py) - `_build_message_content()` media blocks
+- [routes/chat.py](../../src/api/routes/chat.py) - `attach_gemini_file_uris()` call sites
+- [routes/files.py](../../src/api/routes/files.py) - 410 Gone gate
+- [attachments.ts](../../web/src/components/messages/attachments.ts) - tap-to-load player
+
+### Testing
+
+- Unit: [test_gemini_files.py](../../tests/unit/test_gemini_files.py), [test_media_retention.py](../../tests/unit/test_media_retention.py), video classes in [test_files.py](../../tests/unit/test_files.py), [test_tools.py](../../tests/unit/test_tools.py), [test_history.py](../../tests/unit/test_history.py)
+- Integration: video/410 classes in [test_routes_chat.py](../../tests/integration/test_routes_chat.py), [test_routes_files.py](../../tests/integration/test_routes_files.py)
+- E2E: "Chat - Video Upload" in [attachments.spec.ts](../../web/tests/e2e/chat/attachments.spec.ts); real ffmpeg-generated fixtures in [tests/fixtures/](../../tests/fixtures/)
+
 ## See Also
 
 - [Chat and Streaming](chat-and-streaming.md) - Web search sources, thinking indicators

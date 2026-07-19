@@ -79,24 +79,30 @@ def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_t
             "size": len(data),
         },
     )
+
+    def _state_name(f: Any) -> str:
+        return f.state.name if f.state else "UNKNOWN"
+
     try:
         gfile = client.files.upload(
             file=io.BytesIO(data),
             config=genai_types.UploadFileConfig(mime_type=mime_type),
         )
         deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
-        while gfile.state.name == "PROCESSING":
+        while _state_name(gfile) == "PROCESSING":
             if time.monotonic() > deadline:
                 raise GeminiFileError("Timed out waiting for Gemini to process the file")
             time.sleep(POLL_INTERVAL_SECONDS)
+            if not gfile.name:
+                raise GeminiFileError("Gemini file upload returned no file name")
             gfile = client.files.get(name=gfile.name)
     except GeminiFileError:
         raise
     except Exception as e:
         raise GeminiFileError(f"Gemini Files API upload failed: {e}") from e
 
-    if gfile.state.name != "ACTIVE":
-        raise GeminiFileError(f"Gemini file processing failed (state: {gfile.state.name})")
+    if _state_name(gfile) != "ACTIVE":
+        raise GeminiFileError(f"Gemini file processing failed (state: {_state_name(gfile)})")
 
     expires_at = (utcnow_naive() + timedelta(hours=CACHE_TTL_HOURS)).isoformat()
     db.kv_set(

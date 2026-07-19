@@ -16,10 +16,10 @@ from src.agent.content import (
     extract_metadata_tool_args,
     extract_sources_fallback_from_tool_results,
 )
+from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 
 # Agent context imports for interactive agent conversations
 from src.agent.gemini_files import attach_gemini_file_uris
-from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
