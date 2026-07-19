@@ -356,3 +356,69 @@ test.describe('Chat - Narrow Viewport Toolbar', () => {
     expect(voiceBox!.x + voiceBox!.width).toBeLessThanOrEqual(320);
   });
 });
+
+test.describe('Chat - Video Upload', () => {
+  const attachVideo = async (page: import('../../global-setup').Page) => {
+    const { readFileSync } = await import('fs');
+    const mp4Buffer = readFileSync('../tests/fixtures/tiny.mp4');
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
+      name: 'clip.mp4',
+      mimeType: 'video/mp4',
+      buffer: mp4Buffer,
+    });
+  };
+
+  test('user can attach and send a video', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await disableStreaming(page);
+
+    await attachVideo(page);
+
+    // Pending chip appears with the file name
+    await expect(page.locator('#file-preview')).toContainText('clip.mp4');
+
+    await page.fill('#message-input', 'what is in this video?');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // The sent user message renders a playable video (local preview URL)
+    await expect(page.locator('.message.user .message-video video')).toBeVisible();
+  });
+
+  test.describe('with route mocking', () => {
+    // Service-worker-mediated fetches bypass page.route — block the SW
+    test.use({ serviceWorkers: 'block' });
+
+    test('oversized video is rejected with a toast', async ({ page }) => {
+      // Shrink the server-driven limit below the fixture size via route mock
+      await page.route('**/api/config/upload', async (route) => {
+        const response = await route.fetch();
+        const json = await response.json();
+        json.maxVideoFileSize = 10; // bytes — smaller than tiny.mp4
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(json),
+        });
+      });
+
+      // Wait for the (mocked) config to land in the store before attaching
+      const configResponse = page.waitForResponse('**/api/config/upload');
+      await page.goto('/');
+      await configResponse;
+      await page.waitForSelector('#new-chat-btn');
+      await page.click('#new-chat-btn');
+
+      await attachVideo(page);
+
+      await expect(page.locator('.toast:has-text("exceeds")')).toBeVisible();
+      // Nothing was added to the pending preview
+      await expect(page.locator('#file-preview')).not.toContainText('clip.mp4');
+    });
+  });
+});

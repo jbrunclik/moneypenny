@@ -261,6 +261,22 @@ def create_mock_httpx() -> MagicMock:
     return mock
 
 
+def create_mock_gemini_files_client() -> MagicMock:
+    """Mock the Gemini Files API client used for video uploads."""
+    from types import SimpleNamespace
+
+    client = MagicMock()
+    uploaded = SimpleNamespace(
+        name="files/e2e-mock",
+        uri="https://files.example/e2e-mock",
+        state=SimpleNamespace(name="ACTIVE"),
+    )
+    client.files.upload.return_value = uploaded
+    client.files.get.return_value = uploaded
+    factory = MagicMock(return_value=client)
+    return factory
+
+
 def create_mock_genai() -> MagicMock:
     """Create mock Gemini image generation."""
     mock = MagicMock()
@@ -539,6 +555,9 @@ def main() -> None:
         stack.enter_context(
             patch("src.agent.tools.image_generation.genai.Client", create_mock_genai())
         )
+        stack.enter_context(
+            patch("src.agent.gemini_files._get_client", create_mock_gemini_files_client())
+        )
         # Conversation compaction summarizes long histories via a separate
         # google-genai client (not the langchain mock above). Stub it so the
         # real compaction path runs without a network call when a seeded
@@ -602,6 +621,7 @@ def main() -> None:
             stack.enter_context(patch(f"src.api.routes.{module}.db", proxy_db))
 
         # Patch database in helper modules and utilities
+        stack.enter_context(patch("src.agent.gemini_files.db", proxy_db))
         stack.enter_context(patch("src.api.helpers.chat_streaming.db", proxy_db))
         stack.enter_context(patch("src.api.helpers.chat_save.db", proxy_db))
         stack.enter_context(patch("src.api.helpers.stream_resume.db", proxy_db))
