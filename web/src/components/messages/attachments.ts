@@ -1,7 +1,8 @@
 /**
- * File attachments rendering for messages (images and documents).
+ * File attachments rendering for messages (images, videos, and documents).
  */
 
+import { files as filesApi } from '../../api/client';
 import { escapeHtml } from '../../utils/dom';
 import { observeThumbnail } from '../../utils/thumbnails';
 import { getFileIcon, DOWNLOAD_ICON } from '../../utils/icons';
@@ -14,9 +15,12 @@ export function renderMessageFiles(files: FileMetadata[], messageId: string): HT
   const container = document.createElement('div');
   container.className = 'message-files';
 
-  // Separate images from other files
+  // Separate images and videos from other files
   const images = files.filter((f) => f.type.startsWith('image/'));
-  const documents = files.filter((f) => !f.type.startsWith('image/'));
+  const videos = files.filter((f) => f.type.startsWith('video/'));
+  const documents = files.filter(
+    (f) => !f.type.startsWith('image/') && !f.type.startsWith('video/')
+  );
 
   // Render images in horizontal gallery
   if (images.length > 0) {
@@ -124,5 +128,89 @@ export function renderMessageFiles(files: FileMetadata[], messageId: string): HT
     container.appendChild(list);
   }
 
+  // Render videos as tap-to-load players (below images, above documents visually
+  // is not critical; appended after both for simplicity)
+  videos.forEach((file) => {
+    const fileIndex = files.indexOf(file);
+    container.appendChild(
+      renderVideoAttachment(file, file.messageId || messageId, file.fileIndex ?? fileIndex)
+    );
+  });
+
   return container;
+}
+
+/**
+ * Render a single video attachment.
+ *
+ * JWT rides the Authorization header, so a bare <video src="/api/..."> cannot
+ * authenticate. Playback fetches the file as a Blob via the API client and
+ * plays it from an object URL. Just-uploaded videos play directly from their
+ * local preview URL.
+ */
+function renderVideoAttachment(
+  file: FileMetadata,
+  messageId: string,
+  fileIndex: number
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'message-video';
+
+  // Just-uploaded file: play directly from the local blob URL
+  if (file.previewUrl) {
+    wrapper.appendChild(createVideoElement(file.previewUrl));
+    return wrapper;
+  }
+
+  // Historical file: click-to-load via authenticated fetch
+  const button = document.createElement('button');
+  button.className = 'message-video-load';
+
+  const icon = document.createElement('span');
+  icon.className = 'video-load-icon';
+  icon.innerHTML = getFileIcon(file.type);
+
+  const name = document.createElement('span');
+  name.className = 'video-load-name';
+  name.textContent = file.name;
+
+  const hint = document.createElement('span');
+  hint.className = 'video-load-hint';
+  hint.textContent = 'Tap to load';
+
+  button.append(icon, name, hint);
+
+  button.addEventListener('click', () => {
+    void (async () => {
+      button.disabled = true;
+      hint.textContent = 'Loading…';
+      try {
+        const blob = await filesApi.fetchFile(messageId, fileIndex);
+        const video = createVideoElement(URL.createObjectURL(blob));
+        wrapper.replaceChildren(video);
+        void video.play();
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        button.classList.add('expired');
+        hint.textContent =
+          status === 410
+            ? 'Video expired (videos are kept 7 days)'
+            : 'Failed to load video';
+        button.disabled = status === 410;
+      }
+    })();
+  });
+
+  wrapper.appendChild(button);
+  return wrapper;
+}
+
+function createVideoElement(src: string): HTMLVideoElement {
+  const video = document.createElement('video');
+  video.className = 'message-video-player';
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = 'metadata';
+  video.src = src;
+  return video;
 }
