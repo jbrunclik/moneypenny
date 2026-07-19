@@ -351,9 +351,12 @@ test.describe('Chat - Narrow Viewport Toolbar', () => {
     expect(attachBox!.x + attachBox!.width).toBeLessThanOrEqual(320);
     expect(attachBox!.x).toBeGreaterThanOrEqual(0);
 
+    // The voice button is hidden when speech recognition is unsupported
+    // (e.g. Linux WebKit on CI) — only assert on it when present
     const voiceBox = await page.locator('#voice-btn').boundingBox();
-    expect(voiceBox).not.toBeNull();
-    expect(voiceBox!.x + voiceBox!.width).toBeLessThanOrEqual(320);
+    if (voiceBox !== null) {
+      expect(voiceBox.x + voiceBox.width).toBeLessThanOrEqual(320);
+    }
   });
 });
 
