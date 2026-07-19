@@ -1,6 +1,7 @@
 """Unit tests for src/agent/tools package."""
 
 import base64
+import datetime as _dt
 import json
 import socket
 from unittest.mock import MagicMock, patch
@@ -1655,6 +1656,7 @@ class TestRetrieveFile:
         mock_message = MagicMock()
         mock_message.conversation_id = "conv-123"
         mock_message.files = [{"name": "photo.jpg", "type": "image/jpeg", "size": 1000}]
+        mock_message.created_at = _dt.datetime.now()
         mock_db.get_message_by_id.return_value = mock_message
 
         # Mock blob store
@@ -1687,6 +1689,7 @@ class TestRetrieveFile:
         mock_message = MagicMock()
         mock_message.conversation_id = "conv-123"
         mock_message.files = [{"name": "data.txt", "type": "text/plain", "size": 100}]
+        mock_message.created_at = _dt.datetime.now()
         mock_db.get_message_by_id.return_value = mock_message
 
         # Mock blob store
@@ -1717,6 +1720,7 @@ class TestRetrieveFile:
         mock_message = MagicMock()
         mock_message.conversation_id = "conv-123"
         mock_message.files = [{"name": "old_photo.jpg", "type": "image/jpeg", "data": legacy_data}]
+        mock_message.created_at = _dt.datetime.now()
         mock_db.get_message_by_id.return_value = mock_message
 
         # Blob store returns None
@@ -1745,6 +1749,7 @@ class TestRetrieveFile:
         mock_message.files = [
             {"name": "missing.jpg", "type": "image/jpeg"}  # No "data" key
         ]
+        mock_message.created_at = _dt.datetime.now()
         mock_db.get_message_by_id.return_value = mock_message
 
         # Blob store returns None
@@ -2299,3 +2304,110 @@ class TestGetToolsForRequest:
         """Should default to anonymous_mode=False."""
         tools = get_tools_for_request()
         assert tools == get_available_tools()
+
+
+class TestRetrieveFileVideo:
+    """Tests for retrieve_file video support and retention expiry."""
+
+    @staticmethod
+    def _video_message(days_old: int = 0, mime: str = "video/mp4", name: str = "clip.mp4"):
+        from datetime import datetime, timedelta
+
+        mock_message = MagicMock()
+        mock_message.conversation_id = "conv-123"
+        mock_message.files = [{"name": name, "type": mime, "size": 1000}]
+        mock_message.created_at = datetime.now() - timedelta(days=days_old)
+        return mock_message
+
+    @patch("src.agent.gemini_files.ensure_gemini_file_uri")
+    @patch("src.db.blob_store.get_blob_store")
+    @patch("src.db.models.db")
+    def test_video_returns_media_block(
+        self,
+        mock_db: MagicMock,
+        mock_get_blob_store: MagicMock,
+        mock_ensure: MagicMock,
+    ) -> None:
+        """Should return video as a Files API media block."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+        mock_db.get_message_by_id.return_value = self._video_message()
+
+        mock_blob_store = MagicMock()
+        mock_blob_store.get.return_value = (b"fake_video_data", "video/mp4")
+        mock_get_blob_store.return_value = mock_blob_store
+        mock_ensure.return_value = "https://files.example/f1"
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+
+        assert isinstance(result, list)
+        assert result[0]["type"] == "text"
+        assert "clip.mp4" in result[0]["text"]
+        assert result[1] == {
+            "type": "media",
+            "file_uri": "https://files.example/f1",
+            "mime_type": "video/mp4",
+        }
+        mock_ensure.assert_called_once_with("msg-1", 0, b"fake_video_data", "video/mp4")
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_expired_video_returns_cleanup_error(self, mock_db: MagicMock) -> None:
+        """Should return a clear cleanup error for videos past retention."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+        mock_db.get_message_by_id.return_value = self._video_message(days_old=8)
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+        parsed = json.loads(result)
+
+        assert "cleaned up" in parsed["error"]
+        assert "7 days" in parsed["error"]
+
+        set_conversation_context(None, None)
+
+    @patch("src.db.models.db")
+    def test_expired_image_returns_cleanup_error(self, mock_db: MagicMock) -> None:
+        """Should return a clear cleanup error for images past retention."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+        mock_db.get_message_by_id.return_value = self._video_message(
+            days_old=31, mime="image/png", name="old.png"
+        )
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+        parsed = json.loads(result)
+
+        assert "cleaned up" in parsed["error"]
+        assert "30 days" in parsed["error"]
+
+        set_conversation_context(None, None)
+
+    @patch("src.agent.gemini_files.ensure_gemini_file_uri")
+    @patch("src.db.blob_store.get_blob_store")
+    @patch("src.db.models.db")
+    def test_gemini_failure_returns_error(
+        self,
+        mock_db: MagicMock,
+        mock_get_blob_store: MagicMock,
+        mock_ensure: MagicMock,
+    ) -> None:
+        """Should return an error JSON when the Files API upload fails."""
+        from src.agent.gemini_files import GeminiFileError
+
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+        mock_db.get_message_by_id.return_value = self._video_message()
+
+        mock_blob_store = MagicMock()
+        mock_blob_store.get.return_value = (b"fake_video_data", "video/mp4")
+        mock_get_blob_store.return_value = mock_blob_store
+        mock_ensure.side_effect = GeminiFileError("quota exceeded")
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+        parsed = json.loads(result)
+
+        assert "quota exceeded" in parsed["error"]
+
+        set_conversation_context(None, None)

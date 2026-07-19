@@ -22,6 +22,11 @@ def retrieve_file(
     Use this tool to:
     - Retrieve a specific file by message_id and file_index for analysis
     - Get images from earlier messages to use with generate_image as references
+    - View a video from an earlier message again (videos are only attached on
+      the turn they were uploaded)
+
+    Retention: uploaded media is temporary — videos are kept 7 days, images
+    30 days. Expired files return an error explaining the cleanup.
 
     The message_id and file_index can be found in the conversation history metadata.
     Each user message with files includes a "files" array with "id" in format "message_id:file_index".
@@ -115,6 +120,18 @@ def retrieve_file(
     mime_type = file_meta.get("type", "application/octet-stream")
     file_size = file_meta.get("size", 0)
 
+    # Age-based retention gate: stays truthful even before the physical
+    # sweep has deleted the blob (videos 7 days, images 30 days)
+    from src.utils.media_retention import is_media_expired, retention_note
+
+    if is_media_expired(mime_type, message.created_at):
+        return json.dumps(
+            {
+                "error": f"This file has been cleaned up and is no longer available. "
+                f"{retention_note(mime_type)}."
+            }
+        )
+
     # Get file data from blob store
     blob_store = get_blob_store()
     blob_key = make_blob_key(message_id, file_index)
@@ -143,9 +160,32 @@ def retrieve_file(
             )
             return json.dumps({"error": "File data not found in storage."})
 
+    file_size = len(binary_data)
+
+    # Videos go via the Gemini Files API (inline limit is ~20MB); skip the
+    # base64 encoding below — a 100MB video would be needlessly inflated
+    if mime_type.startswith("video/"):
+        from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri
+
+        try:
+            uri = ensure_gemini_file_uri(message_id, file_index, binary_data, mime_type)
+        except GeminiFileError as e:
+            return json.dumps({"error": f"Failed to prepare video for viewing: {e}"})
+        logger.info(
+            "retrieve_file: video prepared via Files API",
+            extra={"message_id": message_id, "file_index": file_index},
+        )
+        return [
+            {
+                "type": "text",
+                "text": f"Here is {file_name} ({mime_type}, {file_size} bytes) "
+                f"from message {message_id}:",
+            },
+            {"type": "media", "file_uri": uri, "mime_type": mime_type},
+        ]
+
     # Encode as base64 for return
     file_base64 = base64.b64encode(binary_data).decode("utf-8")
-    file_size = len(binary_data)
 
     logger.info(
         "retrieve_file: file retrieved successfully",
