@@ -118,6 +118,7 @@ def stream_events(
     is_language: bool = False,
     language_context: dict[str, Any] | None = None,
     journal_message_id: str | None = None,
+    agent_execution_context: AgentContext | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -138,6 +139,9 @@ def stream_events(
         stream_request_id: Stream request ID (for context)
         journal_message_id: Assistant message id for the resumable-stream
             journal (None disables journaling)
+        agent_execution_context: AgentContext for interactive agent
+            conversations - contextvars don't cross threads, so it must be
+            re-set here for kv_store and permission checks to see it
     """
     journal: _StreamJournal | None = None
     if journal_message_id and Config.STREAM_JOURNAL_ENABLED:
@@ -146,6 +150,8 @@ def stream_events(
     set_current_request_id(stream_request_id)
     set_current_message_files(files if files else None)
     set_conversation_context(conv_id, user_id)
+    if agent_execution_context is not None:
+        set_agent_context(agent_execution_context)
     if is_sports and sports_context:
         from src.agent.tools.context import set_sports_context
 
@@ -561,6 +567,9 @@ class _StreamContext:
         # Agent context for interactive agent conversations
         self.is_autonomous = False
         self.agent_context: dict[str, Any] | None = None
+        # AgentContext instance forwarded to the producer thread (contextvars
+        # don't cross threads)
+        self.agent_execution_context: AgentContext | None = None
 
         # Approval request info (set when ApprovalRequestedException is caught)
         self.approval_info: dict[str, Any] | None = None
@@ -653,6 +662,7 @@ class _StreamContext:
                 trigger_chain=[agent_record.id],
             )
             set_agent_context(agent_execution_context)
+            self.agent_execution_context = agent_execution_context
             self.is_autonomous = True
             # Build agent context for the ChatAgent (for tool filtering)
             # Note: tool_permissions=None means all tools, [] means no tools
@@ -719,7 +729,10 @@ class _StreamContext:
                 self.conv.is_language,
                 self.language_context,
             ),
-            kwargs={"journal_message_id": self.expected_assistant_msg_id},
+            kwargs={
+                "journal_message_id": self.expected_assistant_msg_id,
+                "agent_execution_context": self.agent_execution_context,
+            },
             daemon=False,
         )
         self.stream_thread.start()

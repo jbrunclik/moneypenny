@@ -74,6 +74,65 @@ def test_stream_events_breaks_at_deadline(monkeypatch) -> None:
     assert final_results["ready"] is False  # no final event arrived
 
 
+def test_stream_events_forwards_agent_context_to_worker_thread() -> None:
+    """The producer thread must see the interactive agent context.
+
+    kv_store's guard and the graph's permission checks read get_agent_context()
+    at tool-execution time, which happens inside the producer thread - the
+    contextvar set in the request thread does not cross threads on its own.
+    """
+    import threading
+
+    from src.agent.executor import AgentContext, get_agent_context
+
+    captured: dict = {}
+
+    class _CapturingAgent:
+        def stream_chat_events(self, *args, **kwargs):
+            captured["ctx"] = get_agent_context()
+            yield {
+                "type": "final",
+                "content": "",
+                "result_messages": [],
+                "tool_results": [],
+                "usage_info": {},
+            }
+
+    agent_ctx = AgentContext(
+        agent=types.SimpleNamespace(id="agent-1"),  # type: ignore[arg-type]
+        user=types.SimpleNamespace(id="user-1"),  # type: ignore[arg-type]
+        trigger_chain=["agent-1"],
+    )
+    q: queue.Queue = queue.Queue()
+    final_results: dict = {"ready": False, "saved": False}
+
+    thread = threading.Thread(
+        target=stream_events,
+        args=(
+            _CapturingAgent(),
+            q,
+            final_results,
+            "hello",
+            None,
+            [],
+            None,
+            "Alice",
+            "user-1",
+            None,
+            False,
+            None,
+            "conv-1",
+            "req-1",
+        ),
+        kwargs={"agent_execution_context": agent_ctx},
+    )
+    thread.start()
+    thread.join(timeout=10)
+    assert not thread.is_alive()
+
+    assert captured["ctx"] is agent_ctx
+
+
 def _make_ctx(items=()) -> types.SimpleNamespace:
     """Minimal stand-in for _StreamContext for consumer-path tests."""
     q: queue.Queue = queue.Queue()
