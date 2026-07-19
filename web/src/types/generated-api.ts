@@ -40,6 +40,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sw.js": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Serve the push service worker from the site root.
+         * @description A service worker's max scope is its URL's directory - served from
+         *     /static/assets/ it could never control "/", so it gets its own
+         *     root-level route. The file is copied verbatim from web/public/ by
+         *     the Vite build.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all namespaces with key counts for the current user. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KVNamespacesResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/me": {
         parameters: {
             query?: never;
@@ -64,6 +151,42 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["UserContainerResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/privacy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Privacy Policy */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
                     };
                 };
             };
@@ -689,6 +812,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test notification to the caller's devices.
+         * @description Synchronous on purpose - the user is waiting to see whether the
+         *     pipeline works end to end (essential for debugging iOS).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/client-id": {
         parameters: {
             query?: never;
@@ -735,9 +898,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Complete Garmin MFA login with verification code.
-         * @description Must be called after POST /auth/garmin/connect returns mfa_required=True.
-         *     The MFA session expires after 5 minutes.
+         * Complete Garmin login by re-submitting credentials together with the
+         * @description MFA verification code. Runs the full login in a single request so no
+         *     cross-worker state is needed.
          */
         post: {
             parameters: {
@@ -1132,11 +1295,12 @@ export interface paths {
         put?: never;
         /**
          * Connect Garmin account with email and password.
-         * @description The password is used only for garth login and is never stored.
+         * @description The password is used only for the live login attempt and is never stored.
          *     Only serialized session tokens are persisted in the database.
          *
-         *     May return mfa_required=True if the account has MFA enabled.
-         *     In that case, call POST /auth/garmin/mfa with the verification code.
+         *     Returns ``mfa_required=True`` if the account has MFA enabled. In that
+         *     case, the frontend should prompt for the verification code and call
+         *     POST /auth/garmin/mfa with email, password, and the code together.
          */
         post: {
             parameters: {
@@ -1167,6 +1331,107 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sports/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List user's programs. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SportsProgramsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a new program. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SportsProgramsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1668,6 +1933,107 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/language/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List user's programs. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LanguageProgramsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a new program. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LanguageProgramsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/calendar/auth-url": {
         parameters: {
             query?: never;
@@ -1813,6 +2179,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Store (or refresh) a device's push subscription. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PushSubscribeResponse"];
+                    };
+                };
+            };
+        };
+        /** Remove a device's push subscription (settings toggle off). */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/todoist/disconnect": {
         parameters: {
             query?: never;
@@ -1902,6 +2324,102 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kv/{namespace}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all keys and values in a namespace. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    namespace: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KVKeysResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Clear all keys in a namespace. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    namespace: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -2296,6 +2814,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/push/vapid-public-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** VAPID public key the client needs for PushManager.subscribe(). */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PushKeysResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/archived": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List archived conversations with pagination. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me/costs/monthly": {
         parameters: {
             query?: never;
@@ -2371,6 +2970,71 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sports/{program}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset the program conversation (delete messages). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SportsResetResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -2667,6 +3331,232 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/language/{program}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset the program conversation (delete messages). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LanguageResetResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kv/{namespace}/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single key's value. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    namespace: string;
+                    key: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KVValueResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        /** Set a key's value (create or update). Value must be valid JSON. */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    namespace: string;
+                    key: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["KVSetRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KVValueResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Delete a key. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    namespace: string;
+                    key: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{message_id}/cost": {
         parameters: {
             query?: never;
@@ -2921,6 +3811,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sports/programs/{program_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a program and its conversation. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/{agent_id}/mark-viewed": {
         parameters: {
             query?: never;
@@ -3042,6 +3997,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sports/{program}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get or create the program conversation. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SportsConversationResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals/{approval_id}/reject": {
         parameters: {
             query?: never;
@@ -3087,6 +4107,127 @@ export interface paths {
                 };
                 /** @description Not found */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/language/programs/{program_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a program and its conversation. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive a conversation (hide from main list). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3162,6 +4303,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/language/{program}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get or create the program conversation. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LanguageConversationResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/messages": {
         parameters: {
             query?: never;
@@ -3225,6 +4431,62 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unarchive a conversation (restore to main list). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -3564,10 +4826,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/chat/stream/{message_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resume an interrupted chat stream
+         * @description Resume a chat stream from the event journal after a connection loss.
+         *
+         *     Pass `after_seq` (the `seq` of the last SSE event the client rendered; 0 for
+         *     none). The server replays journaled events with a higher seq, continues live
+         *     while generation is still running, and finishes with a `done` event built
+         *     from the saved message. Emits `{"type": "error", "code": "RESUME_FAILED"}`
+         *     when the turn failed and nothing was saved.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                    message_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * KVNamespaceItem
+         * @description Single namespace entry.
+         */
+        "KVNamespacesResponse.KVNamespaceItem": {
+            /** Namespace */
+            namespace: string;
+            /** Key Count */
+            key_count: number;
+        };
+        /**
+         * KVNamespacesResponse
+         * @description List of namespaces with key counts.
+         */
+        KVNamespacesResponse: {
+            /** Namespaces */
+            namespaces: components["schemas"]["KVNamespacesResponse.KVNamespaceItem"][];
+        };
+        HTTPError: {
+            detail?: Record<string, never>;
+            message?: string;
+        };
         /**
          * UserResponse
          * @description User information.
@@ -3624,10 +4956,6 @@ export interface components {
              * @default null
              */
             version: string | null;
-        };
-        HTTPError: {
-            detail?: Record<string, never>;
-            message?: string;
         };
         /**
          * ModelResponse
@@ -3795,6 +5123,24 @@ export interface components {
              */
             budget_limit: number | null;
             /**
+             * Fresh Context
+             * @description Run each execution without prior conversation history
+             * @default false
+             */
+            fresh_context: boolean;
+            /**
+             * System Type
+             * @description System-managed agent marker (e.g. 'daily_briefing'); null for regular agents
+             * @default null
+             */
+            system_type: string | null;
+            /**
+             * Effective System Prompt
+             * @description Resolved prompt: the stock default for system-managed agents on a NULL prompt
+             * @default null
+             */
+            effective_system_prompt: string | null;
+            /**
              * Daily Spending
              * @description Today's spending in USD
              * @default 0
@@ -3897,6 +5243,24 @@ export interface components {
              */
             budget_limit: number | null;
             /**
+             * Fresh Context
+             * @description Run each execution without prior conversation history
+             * @default false
+             */
+            fresh_context: boolean;
+            /**
+             * System Type
+             * @description System-managed agent marker (e.g. 'daily_briefing'); null for regular agents
+             * @default null
+             */
+            system_type: string | null;
+            /**
+             * Effective System Prompt
+             * @description Resolved prompt: the stock default for system-managed agents on a NULL prompt
+             * @default null
+             */
+            effective_system_prompt: string | null;
+            /**
              * Daily Spending
              * @description Today's spending in USD
              * @default 0
@@ -3987,6 +5351,12 @@ export interface components {
              * @default null
              */
             budget_limit: number | null;
+            /**
+             * Fresh Context
+             * @description Run each execution without prior conversation history
+             * @default true
+             */
+            fresh_context: boolean;
         };
         /**
          * UserResponse
@@ -4424,6 +5794,17 @@ export interface components {
             memories: components["schemas"]["MemoriesListResponse.MemoryResponse"][];
         };
         /**
+         * StatusResponse
+         * @description Simple status response for operations that don't return data.
+         */
+        StatusResponse: {
+            /**
+             * Status
+             * @description Operation status (e.g., 'updated', 'deleted')
+             */
+            status: string;
+        };
+        /**
          * ClientIdResponse
          * @description Response containing Google Client ID.
          */
@@ -4499,6 +5880,11 @@ export interface components {
              */
             maxFileSize: number;
             /**
+             * Maxvideofilesize
+             * @description Maximum video file size in bytes
+             */
+            maxVideoFileSize: number;
+            /**
              * Maxfilespermessage
              * @description Maximum files per message
              */
@@ -4529,6 +5915,11 @@ export interface components {
              * @default null
              */
             message_count: number | null;
+            /**
+             * Archived
+             * @default null
+             */
+            archived: boolean | null;
         };
         /**
          * ConversationsPaginationResponse
@@ -4581,6 +5972,11 @@ export interface components {
              * @default null
              */
             message_count: number | null;
+            /**
+             * Archived
+             * @default null
+             */
+            archived: boolean | null;
         };
         /**
          * PlannerResetResponse
@@ -4649,6 +6045,33 @@ export interface components {
              * @default false
              */
             needs_reconnect: boolean;
+        };
+        /**
+         * SportsProgramItem
+         * @description A single sports training program.
+         */
+        "SportsProgramsResponse.SportsProgramItem": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Emoji */
+            emoji: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Has Conversation
+             * @default false
+             */
+            has_conversation: boolean;
+        };
+        /**
+         * SportsProgramsResponse
+         * @description List of user's sports programs.
+         */
+        SportsProgramsResponse: {
+            /** Programs */
+            programs: components["schemas"]["SportsProgramsResponse.SportsProgramItem"][];
         };
         /**
          * TodoistConnectResponse
@@ -4781,6 +6204,27 @@ export interface components {
             calendar_email: string | null;
         };
         /**
+         * DailyBriefingSettings
+         * @description Daily Briefing opt-in state (backed by a system-managed agent).
+         */
+        "UserSettingsResponse.DailyBriefingSettings": {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Time
+             * @default 08:00
+             */
+            time: string;
+            /**
+             * Timezone
+             * @default UTC
+             */
+            timezone: string;
+        };
+        /**
          * UserSettingsResponse
          * @description User settings.
          */
@@ -4803,17 +6247,13 @@ export interface components {
              * @default false
              */
             whatsapp_available: boolean;
-        };
-        /**
-         * StatusResponse
-         * @description Simple status response for operations that don't return data.
-         */
-        StatusResponse: {
             /**
-             * Status
-             * @description Operation status (e.g., 'updated', 'deleted')
+             * Preferred Language
+             * @description Primary response language (English name, e.g. 'Czech'); null = auto
+             * @default null
              */
-            status: string;
+            preferred_language: string | null;
+            daily_briefing?: components["schemas"]["UserSettingsResponse.DailyBriefingSettings"];
         };
         /**
          * UpdateAgentRequest
@@ -4865,6 +6305,38 @@ export interface components {
              * @default null
              */
             budget_limit: number | null;
+            /**
+             * Fresh Context
+             * @default null
+             */
+            fresh_context: boolean | null;
+        };
+        /**
+         * LanguageProgramItem
+         * @description A single language learning program.
+         */
+        "LanguageProgramsResponse.LanguageProgramItem": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Emoji */
+            emoji: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Has Conversation
+             * @default false
+             */
+            has_conversation: boolean;
+        };
+        /**
+         * LanguageProgramsResponse
+         * @description List of user's language programs.
+         */
+        LanguageProgramsResponse: {
+            /** Programs */
+            programs: components["schemas"]["LanguageProgramsResponse.LanguageProgramItem"][];
         };
         /**
          * GoogleCalendarAuthUrlResponse
@@ -4914,6 +6386,16 @@ export interface components {
             is_full_sync: boolean;
         };
         /**
+         * PushSubscribeResponse
+         * @description Result of storing a subscription.
+         */
+        PushSubscribeResponse: {
+            /** Success */
+            success: boolean;
+            /** Subscription Id */
+            subscription_id: string;
+        };
+        /**
          * Calendar
          * @description A Google Calendar.
          */
@@ -4961,6 +6443,26 @@ export interface components {
              * @default null
              */
             error: string | null;
+        };
+        /**
+         * KVKeyItem
+         * @description Single key-value entry.
+         */
+        "KVKeysResponse.KVKeyItem": {
+            /** Key */
+            key: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * KVKeysResponse
+         * @description Keys in a namespace.
+         */
+        KVKeysResponse: {
+            /** Namespace */
+            namespace: string;
+            /** Keys */
+            keys: components["schemas"]["KVKeysResponse.KVKeyItem"][];
         };
         /**
          * FileMetadataResponse
@@ -5295,6 +6797,24 @@ export interface components {
              */
             budget_limit: number | null;
             /**
+             * Fresh Context
+             * @description Run each execution without prior conversation history
+             * @default false
+             */
+            fresh_context: boolean;
+            /**
+             * System Type
+             * @description System-managed agent marker (e.g. 'daily_briefing'); null for regular agents
+             * @default null
+             */
+            system_type: string | null;
+            /**
+             * Effective System Prompt
+             * @description Resolved prompt: the stock default for system-managed agents on a NULL prompt
+             * @default null
+             */
+            effective_system_prompt: string | null;
+            /**
              * Daily Spending
              * @description Today's spending in USD
              * @default 0
@@ -5326,6 +6846,44 @@ export interface components {
             last_execution_status: string | null;
         };
         /**
+         * AgentStatsBlock
+         * @description Aggregated observability stats for the command center.
+         */
+        "CommandCenterResponse.AgentStatsBlock": {
+            /**
+             * Days
+             * @default 7
+             */
+            days: number;
+            /**
+             * Total Runs
+             * @default 0
+             */
+            total_runs: number;
+            /**
+             * Total Completed
+             * @default 0
+             */
+            total_completed: number;
+            /**
+             * Total Failed
+             * @default 0
+             */
+            total_failed: number;
+            /**
+             * Total Cost Usd
+             * @default 0
+             */
+            total_cost_usd: number;
+            /**
+             * Total Cost Display
+             * @default
+             */
+            total_cost_display: string;
+            /** Per Agent */
+            per_agent?: components["schemas"]["CommandCenterResponse.AgentWindowStats"][];
+        };
+        /**
          * AgentStatus
          * @description Status of an agent execution.
          * @enum {string}
@@ -5337,6 +6895,55 @@ export interface components {
          * @enum {string}
          */
         "CommandCenterResponse.AgentTriggerType": "scheduled" | "manual" | "agent_trigger";
+        /**
+         * AgentWindowStats
+         * @description One agent's runs and cost over the stats window.
+         */
+        "CommandCenterResponse.AgentWindowStats": {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Runs
+             * @default 0
+             */
+            runs: number;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Waiting Approval
+             * @default 0
+             */
+            waiting_approval: number;
+            /**
+             * Cost Usd
+             * @default 0
+             */
+            cost_usd: number;
+            /**
+             * Cost Display
+             * @description Cost formatted in the display currency
+             * @default
+             */
+            cost_display: string;
+            /**
+             * Input Tokens
+             * @default 0
+             */
+            input_tokens: number;
+            /**
+             * Output Tokens
+             * @default 0
+             */
+            output_tokens: number;
+        };
         /**
          * ApprovalRequestResponse
          * @description Approval request information.
@@ -5409,12 +7016,27 @@ export interface components {
              * @default 0
              */
             agents_waiting: number;
+            /** @description Run/cost aggregates over the trailing window */
+            stats?: components["schemas"]["CommandCenterResponse.AgentStatsBlock"];
             /**
              * Agents With Errors
              * @description Number of agents whose last execution failed
              * @default 0
              */
             agents_with_errors: number;
+        };
+        /**
+         * PushKeysResponse
+         * @description VAPID public key for client-side subscription.
+         */
+        PushKeysResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Public Key
+             * @default null
+             */
+            public_key: string | null;
         };
         /**
          * ModelCostBreakdown
@@ -5488,6 +7110,16 @@ export interface components {
             user_id: string;
             /** History */
             history: components["schemas"]["CostHistoryResponse.MonthCostEntry"][];
+        };
+        /**
+         * SportsResetResponse
+         * @description Response from resetting a sports conversation.
+         */
+        SportsResetResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
         };
         /**
          * FileMetadataResponse
@@ -5633,6 +7265,11 @@ export interface components {
              * @default false
              */
             has_pending_approval: boolean;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
             /** Messages */
             messages: components["schemas"]["ConversationDetailPaginatedResponse.MessageResponse"][];
             message_pagination: components["schemas"]["ConversationDetailPaginatedResponse.MessagesPaginationResponse"];
@@ -5717,6 +7354,36 @@ export interface components {
              * @default null
              */
             tool_permissions: string[] | null;
+        };
+        /**
+         * LanguageResetResponse
+         * @description Response from resetting a language conversation.
+         */
+        LanguageResetResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+        };
+        /**
+         * KVValueResponse
+         * @description Single key value.
+         */
+        KVValueResponse: {
+            /** Namespace */
+            namespace: string;
+            /** Key */
+            key: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * KVSetRequest
+         * @description Request to set a key value.
+         */
+        KVSetRequest: {
+            /** Value */
+            value: string;
         };
         /**
          * MessageCostResponse
@@ -5836,6 +7503,50 @@ export interface components {
             currency: string;
             /** Formatted */
             formatted: string;
+        };
+        /**
+         * SportsConversationResponse
+         * @description Sports program conversation with messages.
+         */
+        SportsConversationResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Model */
+            model: string;
+            /** Program */
+            program: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Messages */
+            messages: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * LanguageConversationResponse
+         * @description Language program conversation with messages.
+         */
+        LanguageConversationResponse: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Model */
+            model: string;
+            /** Program */
+            program: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Messages */
+            messages: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * FileMetadataResponse

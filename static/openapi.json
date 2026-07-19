@@ -42,6 +42,18 @@
     },
     {
       "name": "Costs"
+    },
+    {
+      "name": "KV Store"
+    },
+    {
+      "name": "Sports"
+    },
+    {
+      "name": "Language"
+    },
+    {
+      "name": "Push"
     }
   ],
   "paths": {
@@ -59,6 +71,54 @@
           }
         },
         "summary": "Index"
+      }
+    },
+    "/sw.js": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Serve the push service worker from the site root.",
+        "description": "A service worker's max scope is its URL's directory - served from\n/static/assets/ it could never control \"/\", so it gets its own\nroot-level route. The file is copied verbatim from web/public/ by\nthe Vite build."
+      }
+    },
+    "/api/kv": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KVNamespacesResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "KV Store"
+        ],
+        "summary": "List all namespaces with key counts for the current user."
       }
     },
     "/auth/me": {
@@ -80,6 +140,22 @@
           "Auth"
         ],
         "summary": "Get current user info."
+      }
+    },
+    "/privacy": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Privacy Policy"
       }
     },
     "/api/ready": {
@@ -493,6 +569,28 @@
         "summary": "List all memories for the current user."
       }
     },
+    "/api/push/test": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Push"
+        ],
+        "summary": "Send a test notification to the caller's devices.",
+        "description": "Synchronous on purpose - the user is waiting to see whether the\npipeline works end to end (essential for debugging iOS)."
+      }
+    },
     "/auth/client-id": {
       "get": {
         "parameters": [],
@@ -552,8 +650,8 @@
         "tags": [
           "Garmin"
         ],
-        "summary": "Complete Garmin MFA login with verification code.",
-        "description": "Must be called after POST /auth/garmin/connect returns mfa_required=True.\nThe MFA session expires after 5 minutes."
+        "summary": "Complete Garmin login by re-submitting credentials together with the",
+        "description": "MFA verification code. Runs the full login in a single request so no\ncross-worker state is needed."
       }
     },
     "/api/planner/sync": {
@@ -815,7 +913,97 @@
           "Garmin"
         ],
         "summary": "Connect Garmin account with email and password.",
-        "description": "The password is used only for garth login and is never stored.\nOnly serialized session tokens are persisted in the database.\n\nMay return mfa_required=True if the account has MFA enabled.\nIn that case, call POST /auth/garmin/mfa with the verification code."
+        "description": "The password is used only for the live login attempt and is never stored.\nOnly serialized session tokens are persisted in the database.\n\nReturns ``mfa_required=True`` if the account has MFA enabled. In that\ncase, the frontend should prompt for the verification code and call\nPOST /auth/garmin/mfa with email, password, and the code together."
+      }
+    },
+    "/api/sports/programs": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SportsProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "List user's programs."
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SportsProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Create a new program."
       }
     },
     "/auth/todoist/connect": {
@@ -1214,6 +1402,96 @@
         "description": "Also deletes:\n- All messages in the agent's conversation\n- All approval requests for this agent\n- All execution records for this agent\n\nMessage costs are preserved for accurate cost tracking."
       }
     },
+    "/api/language/programs": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "List user's programs."
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Create a new program."
+      }
+    },
     "/auth/calendar/auth-url": {
       "get": {
         "parameters": [],
@@ -1308,6 +1586,46 @@
         "description": "Query parameters:\n- since: ISO timestamp to get conversations updated after this time (optional)\n- full: If \"true\", returns all conversations for delete detection (optional)\n\nReturns:\n- conversations: List of conversation objects with message_count\n- server_time: Current server timestamp to use for next sync\n- is_full_sync: Whether this was a full sync (all conversations returned)"
       }
     },
+    "/api/push/subscriptions": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushSubscribeResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Push"
+        ],
+        "summary": "Store (or refresh) a device's push subscription."
+      },
+      "delete": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Push"
+        ],
+        "summary": "Remove a device's push subscription (settings toggle off)."
+      }
+    },
     "/auth/todoist/disconnect": {
       "post": {
         "parameters": [],
@@ -1369,6 +1687,104 @@
           "Calendar"
         ],
         "summary": "List all available Google Calendars for the current user."
+      }
+    },
+    "/api/kv/{namespace}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KVKeysResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "KV Store"
+        ],
+        "summary": "List all keys and values in a namespace."
+      },
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "KV Store"
+        ],
+        "summary": "Clear all keys in a namespace."
       }
     },
     "/auth/calendar/disconnect": {
@@ -1677,6 +2093,58 @@
         "description": "Returns aggregated data for the agents command center:\n- agents: All agents with unread counts and pending status\n- pending_approvals: All pending approval requests\n- recent_executions: Recent execution history\n- total_unread: Total unread messages across all agents\n- agents_waiting: Number of agents blocked on approval"
       }
     },
+    "/api/push/vapid-public-key": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushKeysResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Push"
+        ],
+        "summary": "VAPID public key the client needs for PushManager.subscribe()."
+      }
+    },
+    "/api/conversations/archived": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationsListPaginatedResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "List archived conversations with pagination."
+      }
+    },
     "/api/users/me/costs/monthly": {
       "get": {
         "parameters": [],
@@ -1727,6 +2195,66 @@
           "Costs"
         ],
         "summary": "Get monthly cost history for the current user."
+      }
+    },
+    "/api/sports/{program}/reset": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SportsResetResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Reset the program conversation (delete messages)."
       }
     },
     "/api/conversations/{conv_id}": {
@@ -1998,6 +2526,265 @@
         }
       }
     },
+    "/api/language/{program}/reset": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageResetResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Reset the program conversation (delete messages)."
+      }
+    },
+    "/api/kv/{namespace}/{key}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KVValueResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "KV Store"
+        ],
+        "summary": "Get a single key's value."
+      },
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KVValueResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "KV Store"
+        ],
+        "summary": "Set a key's value (create or update). Value must be valid JSON.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KVSetRequest"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "KV Store"
+        ],
+        "summary": "Delete a key."
+      }
+    },
     "/api/messages/{message_id}/cost": {
       "get": {
         "parameters": [
@@ -2219,6 +3006,66 @@
         "summary": "Get total cost for a conversation."
       }
     },
+    "/api/sports/programs/{program_id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Delete a program and its conversation."
+      }
+    },
     "/api/agents/{agent_id}/mark-viewed": {
       "post": {
         "parameters": [
@@ -2312,6 +3159,66 @@
         "description": "This endpoint is for local development/testing without systemd timers.\nIt evaluates which agents are due to run based on their cron schedules\nand triggers them.\n\nOnly available in development mode (FLASK_ENV=development)."
       }
     },
+    "/api/sports/{program}/conversation": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SportsConversationResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Get or create the program conversation."
+      }
+    },
     "/api/approvals/{approval_id}/reject": {
       "post": {
         "parameters": [
@@ -2361,6 +3268,116 @@
         ],
         "summary": "Reject a pending approval request.",
         "description": "Marks the request as rejected. The agent will not perform\nthe requested action. Adds a rejection message to the conversation."
+      }
+    },
+    "/api/language/programs/{program_id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Delete a program and its conversation."
+      }
+    },
+    "/api/conversations/{conv_id}/archive": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Archive a conversation (hide from main list)."
       }
     },
     "/api/approvals/{approval_id}/approve": {
@@ -2414,6 +3431,66 @@
         "description": "Marks the request as approved and resumes the agent execution.\nThe agent will continue with a message indicating the action was approved."
       }
     },
+    "/api/language/{program}/conversation": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageConversationResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Get or create the program conversation."
+      }
+    },
     "/api/conversations/{conv_id}/messages": {
       "get": {
         "parameters": [
@@ -2463,6 +3540,56 @@
         ],
         "summary": "Get paginated messages for a conversation.",
         "description": "This is a dedicated endpoint for fetching message pages, more efficient\nthan the full conversation endpoint when only messages are needed.\n\nQuery parameters:\n- limit: Number of messages to return (default: 50, max: 200)\n- cursor: Cursor for fetching older/newer messages\n- direction: \"older\" (default) or \"newer\" for pagination direction\n- around_message_id: Load messages around a specific message (for search navigation)\nWhen specified, cursor and direction are ignored.\n\nBy default, returns the newest messages."
+      }
+    },
+    "/api/conversations/{conv_id}/unarchive": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Unarchive a conversation (restore to main list)."
       }
     },
     "/api/conversations/{conv_id}/chat/batch": {
@@ -2753,11 +3880,97 @@
         "summary": "Get thumbnail for an image file",
         "description": "Returns thumbnail binary data (200) or pending status (202)."
       }
+    },
+    "/api/conversations/{conv_id}/chat/stream/{message_id}/resume": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Resume an interrupted chat stream",
+        "description": "Resume a chat stream from the event journal after a connection loss.\n\nPass `after_seq` (the `seq` of the last SSE event the client rendered; 0 for\nnone). The server replays journaled events with a higher seq, continues live\nwhile generation is still running, and finishes with a `done` event built\nfrom the saved message. Emits `{\"type\": \"error\", \"code\": \"RESUME_FAILED\"}`\nwhen the turn failed and nothing was saved.\n"
+      }
     }
   },
   "openapi": "3.0.3",
   "components": {
     "schemas": {
+      "KVNamespacesResponse.KVNamespaceItem": {
+        "description": "Single namespace entry.",
+        "properties": {
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "key_count": {
+            "title": "Key Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "namespace",
+          "key_count"
+        ],
+        "title": "KVNamespaceItem",
+        "type": "object"
+      },
+      "KVNamespacesResponse": {
+        "description": "List of namespaces with key counts.",
+        "properties": {
+          "namespaces": {
+            "items": {
+              "$ref": "#/components/schemas/KVNamespacesResponse.KVNamespaceItem"
+            },
+            "title": "Namespaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "namespaces"
+        ],
+        "title": "KVNamespacesResponse",
+        "type": "object"
+      },
+      "HTTPError": {
+        "properties": {
+          "detail": {
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "UserContainerResponse.UserResponse": {
         "description": "User information.",
         "properties": {
@@ -2866,17 +4079,6 @@
           "checks"
         ],
         "title": "ReadinessResponse",
-        "type": "object"
-      },
-      "HTTPError": {
-        "properties": {
-          "detail": {
-            "type": "object"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
         "type": "object"
       },
       "ModelsListResponse.ModelResponse": {
@@ -3185,6 +4387,38 @@
             "description": "Daily budget limit in USD (null = unlimited)",
             "title": "Budget Limit"
           },
+          "fresh_context": {
+            "default": false,
+            "description": "Run each execution without prior conversation history",
+            "title": "Fresh Context",
+            "type": "boolean"
+          },
+          "system_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "System-managed agent marker (e.g. 'daily_briefing'); null for regular agents",
+            "title": "System Type"
+          },
+          "effective_system_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Resolved prompt: the stock default for system-managed agents on a NULL prompt",
+            "title": "Effective System Prompt"
+          },
           "daily_spending": {
             "default": 0,
             "description": "Today's spending in USD",
@@ -3384,6 +4618,38 @@
             "description": "Daily budget limit in USD (null = unlimited)",
             "title": "Budget Limit"
           },
+          "fresh_context": {
+            "default": false,
+            "description": "Run each execution without prior conversation history",
+            "title": "Fresh Context",
+            "type": "boolean"
+          },
+          "system_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "System-managed agent marker (e.g. 'daily_briefing'); null for regular agents",
+            "title": "System Type"
+          },
+          "effective_system_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Resolved prompt: the stock default for system-managed agents on a NULL prompt",
+            "title": "Effective System Prompt"
+          },
           "daily_spending": {
             "default": 0,
             "description": "Today's spending in USD",
@@ -3559,6 +4825,12 @@
             "default": null,
             "description": "Daily budget limit in USD (null = unlimited)",
             "title": "Budget Limit"
+          },
+          "fresh_context": {
+            "default": true,
+            "description": "Run each execution without prior conversation history",
+            "title": "Fresh Context",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4378,6 +5650,21 @@
         "title": "MemoriesListResponse",
         "type": "object"
       },
+      "StatusResponse": {
+        "description": "Simple status response for operations that don't return data.",
+        "properties": {
+          "status": {
+            "description": "Operation status (e.g., 'updated', 'deleted')",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StatusResponse",
+        "type": "object"
+      },
       "ClientIdResponse": {
         "description": "Response containing Google Client ID.",
         "properties": {
@@ -4498,6 +5785,11 @@
             "title": "Maxfilesize",
             "type": "integer"
           },
+          "maxVideoFileSize": {
+            "description": "Maximum video file size in bytes",
+            "title": "Maxvideofilesize",
+            "type": "integer"
+          },
           "maxFilesPerMessage": {
             "description": "Maximum files per message",
             "title": "Maxfilespermessage",
@@ -4514,6 +5806,7 @@
         },
         "required": [
           "maxFileSize",
+          "maxVideoFileSize",
           "maxFilesPerMessage",
           "allowedFileTypes"
         ],
@@ -4554,6 +5847,18 @@
             ],
             "default": null,
             "title": "Message Count"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Archived"
           }
         },
         "required": [
@@ -4655,6 +5960,18 @@
             ],
             "default": null,
             "title": "Message Count"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Archived"
           }
         },
         "required": [
@@ -4763,6 +6080,57 @@
           "connected"
         ],
         "title": "TodoistStatusResponse",
+        "type": "object"
+      },
+      "SportsProgramsResponse.SportsProgramItem": {
+        "description": "A single sports training program.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "emoji": {
+            "title": "Emoji",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "has_conversation": {
+            "default": false,
+            "title": "Has Conversation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "emoji",
+          "created_at"
+        ],
+        "title": "SportsProgramItem",
+        "type": "object"
+      },
+      "SportsProgramsResponse": {
+        "description": "List of user's sports programs.",
+        "properties": {
+          "programs": {
+            "items": {
+              "$ref": "#/components/schemas/SportsProgramsResponse.SportsProgramItem"
+            },
+            "title": "Programs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "programs"
+        ],
+        "title": "SportsProgramsResponse",
         "type": "object"
       },
       "TodoistConnectResponse": {
@@ -4983,6 +6351,30 @@
         "title": "GoogleCalendarConnectResponse",
         "type": "object"
       },
+      "UserSettingsResponse.DailyBriefingSettings": {
+        "description": "Daily Briefing opt-in state (backed by a system-managed agent).",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "time": {
+            "default": "08:00",
+            "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$",
+            "title": "Time",
+            "type": "string"
+          },
+          "timezone": {
+            "default": "UTC",
+            "maxLength": 64,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "title": "DailyBriefingSettings",
+        "type": "object"
+      },
       "UserSettingsResponse": {
         "description": "User settings.",
         "properties": {
@@ -5010,24 +6402,25 @@
             "description": "Whether WhatsApp is configured at the app level",
             "title": "Whatsapp Available",
             "type": "boolean"
+          },
+          "preferred_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Primary response language (English name, e.g. 'Czech'); null = auto",
+            "title": "Preferred Language"
+          },
+          "daily_briefing": {
+            "$ref": "#/components/schemas/UserSettingsResponse.DailyBriefingSettings"
           }
         },
         "title": "UserSettingsResponse",
-        "type": "object"
-      },
-      "StatusResponse": {
-        "description": "Simple status response for operations that don't return data.",
-        "properties": {
-          "status": {
-            "description": "Operation status (e.g., 'updated', 'deleted')",
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
-        ],
-        "title": "StatusResponse",
         "type": "object"
       },
       "UpdateAgentRequest": {
@@ -5147,9 +6540,72 @@
             ],
             "default": null,
             "title": "Budget Limit"
+          },
+          "fresh_context": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Fresh Context"
           }
         },
         "title": "UpdateAgentRequest",
+        "type": "object"
+      },
+      "LanguageProgramsResponse.LanguageProgramItem": {
+        "description": "A single language learning program.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "emoji": {
+            "title": "Emoji",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "has_conversation": {
+            "default": false,
+            "title": "Has Conversation",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "emoji",
+          "created_at"
+        ],
+        "title": "LanguageProgramItem",
+        "type": "object"
+      },
+      "LanguageProgramsResponse": {
+        "description": "List of user's language programs.",
+        "properties": {
+          "programs": {
+            "items": {
+              "$ref": "#/components/schemas/LanguageProgramsResponse.LanguageProgramItem"
+            },
+            "title": "Programs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "programs"
+        ],
+        "title": "LanguageProgramsResponse",
         "type": "object"
       },
       "GoogleCalendarAuthUrlResponse": {
@@ -5235,6 +6691,25 @@
         "title": "SyncResponse",
         "type": "object"
       },
+      "PushSubscribeResponse": {
+        "description": "Result of storing a subscription.",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "subscription_id": {
+            "title": "Subscription Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "subscription_id"
+        ],
+        "title": "PushSubscribeResponse",
+        "type": "object"
+      },
       "CalendarListResponse.Calendar": {
         "description": "A Google Calendar.",
         "properties": {
@@ -5307,6 +6782,47 @@
           }
         },
         "title": "CalendarListResponse",
+        "type": "object"
+      },
+      "KVKeysResponse.KVKeyItem": {
+        "description": "Single key-value entry.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "KVKeyItem",
+        "type": "object"
+      },
+      "KVKeysResponse": {
+        "description": "Keys in a namespace.",
+        "properties": {
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/KVKeysResponse.KVKeyItem"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "namespace",
+          "keys"
+        ],
+        "title": "KVKeysResponse",
         "type": "object"
       },
       "PlannerConversationResponse.FileMetadataResponse": {
@@ -6023,6 +7539,38 @@
             "description": "Daily budget limit in USD (null = unlimited)",
             "title": "Budget Limit"
           },
+          "fresh_context": {
+            "default": false,
+            "description": "Run each execution without prior conversation history",
+            "title": "Fresh Context",
+            "type": "boolean"
+          },
+          "system_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "System-managed agent marker (e.g. 'daily_briefing'); null for regular agents",
+            "title": "System Type"
+          },
+          "effective_system_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Resolved prompt: the stock default for system-managed agents on a NULL prompt",
+            "title": "Effective System Prompt"
+          },
           "daily_spending": {
             "default": 0,
             "description": "Today's spending in USD",
@@ -6073,6 +7621,50 @@
         "title": "AgentResponse",
         "type": "object"
       },
+      "CommandCenterResponse.AgentStatsBlock": {
+        "description": "Aggregated observability stats for the command center.",
+        "properties": {
+          "days": {
+            "default": 7,
+            "title": "Days",
+            "type": "integer"
+          },
+          "total_runs": {
+            "default": 0,
+            "title": "Total Runs",
+            "type": "integer"
+          },
+          "total_completed": {
+            "default": 0,
+            "title": "Total Completed",
+            "type": "integer"
+          },
+          "total_failed": {
+            "default": 0,
+            "title": "Total Failed",
+            "type": "integer"
+          },
+          "total_cost_usd": {
+            "default": 0.0,
+            "title": "Total Cost Usd",
+            "type": "number"
+          },
+          "total_cost_display": {
+            "default": "",
+            "title": "Total Cost Display",
+            "type": "string"
+          },
+          "per_agent": {
+            "items": {
+              "$ref": "#/components/schemas/CommandCenterResponse.AgentWindowStats"
+            },
+            "title": "Per Agent",
+            "type": "array"
+          }
+        },
+        "title": "AgentStatsBlock",
+        "type": "object"
+      },
       "CommandCenterResponse.AgentStatus": {
         "description": "Status of an agent execution.",
         "enum": [
@@ -6093,6 +7685,61 @@
         ],
         "title": "AgentTriggerType",
         "type": "string"
+      },
+      "CommandCenterResponse.AgentWindowStats": {
+        "description": "One agent's runs and cost over the stats window.",
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "runs": {
+            "default": 0,
+            "title": "Runs",
+            "type": "integer"
+          },
+          "completed": {
+            "default": 0,
+            "title": "Completed",
+            "type": "integer"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "waiting_approval": {
+            "default": 0,
+            "title": "Waiting Approval",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "default": 0.0,
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "cost_display": {
+            "default": "",
+            "description": "Cost formatted in the display currency",
+            "title": "Cost Display",
+            "type": "string"
+          },
+          "input_tokens": {
+            "default": 0,
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "default": 0,
+            "title": "Output Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent_id"
+        ],
+        "title": "AgentWindowStats",
+        "type": "object"
       },
       "CommandCenterResponse.ApprovalRequestResponse": {
         "description": "Approval request information.",
@@ -6212,6 +7859,10 @@
             "title": "Agents Waiting",
             "type": "integer"
           },
+          "stats": {
+            "$ref": "#/components/schemas/CommandCenterResponse.AgentStatsBlock",
+            "description": "Run/cost aggregates over the trailing window"
+          },
           "agents_with_errors": {
             "default": 0,
             "description": "Number of agents whose last execution failed",
@@ -6223,6 +7874,32 @@
           "agents"
         ],
         "title": "CommandCenterResponse",
+        "type": "object"
+      },
+      "PushKeysResponse": {
+        "description": "VAPID public key for client-side subscription.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "public_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Public Key"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "PushKeysResponse",
         "type": "object"
       },
       "MonthlyCostResponse.ModelCostBreakdown": {
@@ -6376,6 +8053,25 @@
           "history"
         ],
         "title": "CostHistoryResponse",
+        "type": "object"
+      },
+      "SportsResetResponse": {
+        "description": "Response from resetting a sports conversation.",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "SportsResetResponse",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse.FileMetadataResponse": {
@@ -6655,6 +8351,11 @@
             "title": "Has Pending Approval",
             "type": "boolean"
           },
+          "archived": {
+            "default": false,
+            "title": "Archived",
+            "type": "boolean"
+          },
           "messages": {
             "items": {
               "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.MessageResponse"
@@ -6819,6 +8520,64 @@
           "agent_name"
         ],
         "title": "EnhancePromptRequest",
+        "type": "object"
+      },
+      "LanguageResetResponse": {
+        "description": "Response from resetting a language conversation.",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "LanguageResetResponse",
+        "type": "object"
+      },
+      "KVValueResponse": {
+        "description": "Single key value.",
+        "properties": {
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "namespace",
+          "key",
+          "value"
+        ],
+        "title": "KVValueResponse",
+        "type": "object"
+      },
+      "KVSetRequest": {
+        "description": "Request to set a key value.",
+        "properties": {
+          "value": {
+            "maxLength": 65536,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "KVSetRequest",
         "type": "object"
       },
       "MessageCostResponse": {
@@ -7064,6 +8823,102 @@
           "formatted"
         ],
         "title": "ConversationCostResponse",
+        "type": "object"
+      },
+      "SportsConversationResponse": {
+        "description": "Sports program conversation with messages.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "program": {
+            "title": "Program",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "model",
+          "program",
+          "created_at",
+          "updated_at",
+          "messages"
+        ],
+        "title": "SportsConversationResponse",
+        "type": "object"
+      },
+      "LanguageConversationResponse": {
+        "description": "Language program conversation with messages.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "program": {
+            "title": "Program",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "model",
+          "program",
+          "created_at",
+          "updated_at",
+          "messages"
+        ],
+        "title": "LanguageConversationResponse",
         "type": "object"
       },
       "MessagesListResponse.FileMetadataResponse": {
