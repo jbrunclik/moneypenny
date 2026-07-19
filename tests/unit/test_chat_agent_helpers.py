@@ -2303,3 +2303,48 @@ class TestGenerateTitle:
         assert agent_mod.generate_title("how do I sort?", "use sorted()") == (
             "🐍 Python List Sorting"
         )
+
+
+class TestBuildMessageContentVideo:
+    """Video attachments become Files API media blocks in message content."""
+
+    @staticmethod
+    def _agent():
+        from src.agent.agent import ChatAgent
+
+        # _build_message_content is pure; skip the heavyweight __init__
+        return ChatAgent.__new__(ChatAgent)
+
+    def test_video_with_uri_becomes_media_block(self) -> None:
+        files = [
+            {
+                "name": "clip.mp4",
+                "type": "video/mp4",
+                "data": "aaaa",
+                "gemini_file_uri": "https://files.example/f1",
+            }
+        ]
+        blocks = self._agent()._build_message_content("what is this?", files)
+        assert isinstance(blocks, list)
+        media = [b for b in blocks if isinstance(b, dict) and b.get("type") == "media"]
+        assert media == [
+            {
+                "type": "media",
+                "file_uri": "https://files.example/f1",
+                "mime_type": "video/mp4",
+            }
+        ]
+
+    def test_video_without_uri_becomes_text_notice(self) -> None:
+        files = [
+            {
+                "name": "clip.mp4",
+                "type": "video/mp4",
+                "data": "aaaa",
+                "gemini_upload_error": "boom",
+            }
+        ]
+        blocks = self._agent()._build_message_content("what is this?", files)
+        assert isinstance(blocks, list)
+        texts = [b["text"] for b in blocks if isinstance(b, dict) and b.get("type") == "text"]
+        assert any("could not be attached" in t for t in texts)

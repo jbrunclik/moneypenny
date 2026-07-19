@@ -1170,3 +1170,55 @@ class TestGetMessage:
         response = client.get(f"/api/messages/{msg.id}")
 
         assert response.status_code == 401
+
+
+class TestChatVideoUpload:
+    """Video attachments trigger the Gemini Files API attach step."""
+
+    def test_video_upload_triggers_gemini_files_attach(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        import base64
+        from pathlib import Path
+
+        mp4_bytes = (Path(__file__).parent.parent / "fixtures" / "tiny.mp4").read_bytes()
+        attached: dict[str, Any] = {}
+
+        def fake_attach(message_id: str, files: list[dict[str, Any]]) -> None:
+            attached["message_id"] = message_id
+            attached["files"] = files
+
+        with (
+            patch("src.api.routes.chat.ChatAgent") as mock_agent_class,
+            patch("src.api.routes.chat.attach_gemini_file_uris", side_effect=fake_attach),
+        ):
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "I see a test pattern.",
+                [],
+                {"input_tokens": 100, "output_tokens": 50},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={
+                    "message": "what is in this video?",
+                    "files": [
+                        {
+                            "name": "clip.mp4",
+                            "type": "video/mp4",
+                            "data": base64.b64encode(mp4_bytes).decode("utf-8"),
+                        }
+                    ],
+                },
+            )
+
+        assert response.status_code == 200
+        assert attached["files"][0]["name"] == "clip.mp4"
+        assert attached["message_id"]

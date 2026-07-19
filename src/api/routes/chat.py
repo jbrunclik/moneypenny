@@ -18,6 +18,7 @@ from src.agent.content import (
 )
 
 # Agent context imports for interactive agent conversations
+from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
@@ -157,6 +158,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     # Queue background thumbnail generation for pending files
     if files:
         queue_pending_thumbnails(user_msg.id, files)
+        # Upload videos to the Gemini Files API and annotate files with URIs
+        # (annotations are transient: the message was already saved without them)
+        attach_gemini_file_uris(user_msg.id, files)
 
     # Get conversation history with enrichment (timestamps, file refs, tool summaries)
     # Files are excluded from previous messages to save tokens (only metadata is included)
@@ -612,6 +616,9 @@ def chat_stream(
     # Queue background thumbnail generation for pending files
     if files:
         queue_pending_thumbnails(user_msg.id, files)
+        # Upload videos to the Gemini Files API and annotate files with URIs
+        # (annotations are transient: the message was already saved without them)
+        attach_gemini_file_uris(user_msg.id, files)
 
     # Get conversation history with enrichment (timestamps, file refs, tool summaries)
     # NOTE: We exclude file DATA from history to avoid re-sending large base64 data.

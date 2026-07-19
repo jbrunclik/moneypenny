@@ -214,6 +214,23 @@ class ChatAgent:
                         "mime_type": mime_type,
                     }
                 )
+            elif mime_type.startswith("video/"):
+                # Videos go via the Gemini Files API (inline limit is ~20MB).
+                # The URI is attached by attach_gemini_file_uris() before the
+                # agent runs; absence means the upload failed.
+                uri = file.get("gemini_file_uri")
+                if uri:
+                    blocks.append({"type": "media", "file_uri": uri, "mime_type": mime_type})
+                else:
+                    error = file.get("gemini_upload_error", "processing failed")
+                    name = file.get("name", "video")
+                    blocks.append(
+                        {
+                            "type": "text",
+                            "text": f"[Video '{name}' could not be attached: {error}. "
+                            "Tell the user the video could not be processed.]",
+                        }
+                    )
             elif mime_type == "application/pdf":
                 # PDF - Gemini supports inline PDFs
                 blocks.append(
