@@ -127,10 +127,12 @@ that the graph turns into a content block on the next model call.
 
 ### Viewing videos
 
-- Sent videos render as `<video controls preload="metadata">` against the
-  existing file endpoint.
-- The file route gains HTTP **Range request** support (byte-slicing of the blob)
-  — iOS Safari requires it for video playback.
+- **Amended during planning:** JWT is sent via the `Authorization` header only,
+  so a bare `<video src="/api/...">` cannot authenticate. Instead of adding
+  HTTP Range support, playback uses the existing authenticated-fetch pattern
+  (like thumbnails/lightbox): tap-to-load fetches the file into a Blob and
+  plays it via `URL.createObjectURL`. Just-uploaded videos play directly from
+  their local object URL. Acceptable because clips are short (≤100MB).
 - `simplify_mime_type()` (src/agent/history.py) learns `"video"`.
 
 ### Upload progress (includes existing mobile layout bug)
@@ -140,8 +142,11 @@ that the graph turns into a content block on the next model call.
   (TDD), then fix the CSS.
 - Behavior unchanged otherwise: batch mode shows real percentage (XHR),
   streaming mode indeterminate.
-- New "Processing video…" phase after upload completes, covering the Gemini
-  Files API upload + ACTIVE poll so the bar doesn't appear stuck.
+- **Amended during planning:** no separate "Processing video…" phase. Batch
+  mode already shows "Processing..." at 100%, which covers the server-side
+  Gemini Files API upload + ACTIVE poll; streaming mode's indeterminate
+  "Uploading…" likewise. A dedicated phase would require new SSE plumbing for
+  marginal benefit (YAGNI).
 
 ### Error handling
 
