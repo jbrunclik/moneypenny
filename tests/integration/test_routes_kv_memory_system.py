@@ -170,3 +170,5 @@ class TestSystemRoutes:
         data = response.get_json()
         assert data["maxFileSize"] > 0
         assert len(data["allowedFileTypes"]) > 0
+        assert data["maxVideoFileSize"] == 100 * 1024 * 1024
+        assert "video/mp4" in data["allowedFileTypes"]

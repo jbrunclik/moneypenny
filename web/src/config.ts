@@ -322,7 +322,13 @@ export const UPLOAD_ALLOWED_TYPES = [
   'text/markdown',
   'text/csv',
   'application/json',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
 ];
+
+/** Default maximum video file size (server config overrides via /api/config/upload) */
+export const UPLOAD_DEFAULT_MAX_VIDEO_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 // =============================================================================
 // Search Configuration

@@ -61,6 +61,7 @@ def get_upload_config(user: User) -> dict[str, Any]:
     _ = user
     return {
         "maxFileSize": Config.MAX_FILE_SIZE,
+        "maxVideoFileSize": Config.MAX_VIDEO_FILE_SIZE,
         "maxFilesPerMessage": Config.MAX_FILES_PER_MESSAGE,
         "allowedFileTypes": list(Config.ALLOWED_FILE_TYPES),
     }

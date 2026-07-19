@@ -124,6 +124,7 @@ export interface Model {
 
 export interface UploadConfig {
   maxFileSize: number;
+  maxVideoFileSize: number;
   maxFilesPerMessage: number;
   allowedFileTypes: string[];
 }

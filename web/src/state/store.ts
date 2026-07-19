@@ -295,6 +295,7 @@ interface AppState {
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   maxFileSize: 20 * 1024 * 1024,
+  maxVideoFileSize: 100 * 1024 * 1024,
   maxFilesPerMessage: 10,
   allowedFileTypes: [
     'image/png',
@@ -306,6 +307,9 @@ const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
     'text/markdown',
     'application/json',
     'text/csv',
+    'video/mp4',
+    'video/quicktime',
+    'video/webm',
   ],
 };
 

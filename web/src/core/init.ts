@@ -140,7 +140,7 @@ export function renderAppShell(): string {
             </div>
           </div>
           <div id="file-preview" class="file-preview hidden"></div>
-          <input type="file" id="file-input" multiple>
+          <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json">
           <div id="upload-progress" class="upload-progress hidden">
             <div class="upload-progress-bar"></div>
             <span class="upload-progress-text">Uploading...</span>

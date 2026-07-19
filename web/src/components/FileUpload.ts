@@ -3,9 +3,14 @@ import { useStore } from '../state/store';
 import { renderFilePreview, updateSendButtonState } from './MessageInput';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
-import type { FileUpload } from '../types/api';
+import type { FileUpload, UploadConfig } from '../types/api';
 
 const log = createLogger('file-upload');
+
+/** Per-type upload size limit (videos get a larger allowance) */
+export function maxSizeForType(config: UploadConfig, mimeType: string): number {
+  return mimeType.startsWith('video/') ? config.maxVideoFileSize : config.maxFileSize;
+}
 
 /**
  * Initialize file upload handlers
@@ -90,9 +95,10 @@ export async function addFilesToPending(files: File[]): Promise<void> {
       continue;
     }
 
-    // Check file size
-    if (file.size > uploadConfig.maxFileSize) {
-      const maxMB = uploadConfig.maxFileSize / (1024 * 1024);
+    // Check file size (per-type limit: videos get a larger allowance)
+    const maxSize = maxSizeForType(uploadConfig, file.type);
+    if (file.size > maxSize) {
+      const maxMB = maxSize / (1024 * 1024);
       toast.warning(`File '${file.name}' exceeds ${maxMB}MB limit`);
       continue;
     }
@@ -104,9 +110,10 @@ export async function addFilesToPending(files: File[]): Promise<void> {
         name: file.name,
         type: file.type,
         data,
-        previewUrl: file.type.startsWith('image/')
-          ? URL.createObjectURL(file)
-          : undefined,
+        previewUrl:
+          file.type.startsWith('image/') || file.type.startsWith('video/')
+            ? URL.createObjectURL(file)
+            : undefined,
       };
 
       store.addPendingFile(fileUpload);
