@@ -34,7 +34,7 @@ test.describe('Sync - Unread Count Badges', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message for unread badge');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Get the conversation ID from the active item
     const convItem = page.locator('.conversation-item-wrapper.active').first();
@@ -44,7 +44,7 @@ test.describe('Sync - Unread Count Badges', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Now we have 2 conversations
     const convItems = page.locator('.conversation-item-wrapper');
@@ -60,7 +60,7 @@ test.describe('Sync - Unread Count Badges', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // The active conversation should never show an unread badge
     const activeItem = page.locator('.conversation-item-wrapper.active');
@@ -90,13 +90,13 @@ test.describe('Sync - Conversation Switching', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Create second conversation
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Switch to first conversation
     const convItems = page.locator('.conversation-item-wrapper');
@@ -119,17 +119,17 @@ test.describe('Sync - Conversation Switching', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Message 1');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.fill('#message-input', 'Message 2');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=1', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=1', { timeout: 10000 });
 
     // Create second conversation and switch back
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Other conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Switch to first conversation
     const convItems = page.locator('.conversation-item-wrapper');
@@ -164,7 +164,7 @@ test.describe('Sync - Conversation Deletion Detection', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test external deletion');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Verify conversation exists in sidebar
     const convItems = page.locator('.conversation-item-wrapper');
@@ -220,12 +220,12 @@ test.describe('Sync - Conversation Deletion Detection', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation - will be deleted');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Verify we have 2 conversations
     const convItems = page.locator('.conversation-item-wrapper');
@@ -260,7 +260,7 @@ test.describe('Sync - Conversation Deletion Detection', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test deletion');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Verify conversation exists
     const convItems = page.locator('.conversation-item-wrapper');
@@ -290,12 +290,12 @@ test.describe('Sync - Conversation Deletion Detection', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Verify we have 2 conversations
     const convItems = page.locator('.conversation-item-wrapper');
@@ -338,11 +338,11 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message 1');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.fill('#message-input', 'Test message 2');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=1', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=1', { timeout: 10000 });
 
     // Call sync endpoint directly
     const response = await request.get('/api/conversations/sync');
@@ -360,7 +360,7 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Initial message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Get initial sync time
     const initialSync = await request.get('/api/conversations/sync');
@@ -373,7 +373,7 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     // Add another message
     await page.fill('#message-input', 'Second message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=1', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=1', { timeout: 10000 });
 
     // Incremental sync should return the updated conversation
     const incrementalSync = await request.get(`/api/conversations/sync?since=${serverTime}`);
@@ -390,7 +390,7 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Call sync endpoint
     const response = await request.get('/api/conversations/sync');
@@ -425,13 +425,13 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Create a second conversation via UI
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Created in another tab');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Reload the page (triggers full sync)
     await page.reload();
@@ -447,12 +447,12 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Verify both conversations exist
     const convItemsBefore = page.locator('.conversation-item-wrapper');
@@ -486,7 +486,7 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Rename via UI
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -516,7 +516,13 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
 });
 
 test.describe('Sync - Streaming Active', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // These tests assert mid-stream state (.streaming class). The default
+    // mock stream is 10ms/token and can finish before the selector poll
+    // ever observes it — slow it down so the streaming phase is reliably
+    // observable (per-execution-id isolated, no reset needed).
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
 
@@ -537,7 +543,7 @@ test.describe('Sync - Streaming Active', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Now send another message - this will stream
     await page.fill('#message-input', 'Second message that triggers streaming');
@@ -593,11 +599,11 @@ test.describe('Sync - Streaming Active', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.fill('#message-input', 'Second message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=1', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=1', { timeout: 10000 });
 
     // Now send another message that will stream
     await page.fill('#message-input', 'Third message that triggers streaming');
@@ -660,7 +666,7 @@ test.describe('Sync - Visibility Change', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Simulate visibility change (tab hidden then visible)
     // This tests that the SyncManager handles visibility changes
@@ -701,12 +707,12 @@ test.describe('Sync - Visibility Change', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Verify both conversations exist
     const convItemsBefore = page.locator('.conversation-item-wrapper');
@@ -777,7 +783,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Initial conversation on this device');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Verify we have 1 conversation
     const convItemsBefore = page.locator('.conversation-item-wrapper');
@@ -832,7 +838,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Initial conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.waitForTimeout(100);
 
@@ -869,7 +875,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Initial conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     await page.waitForTimeout(100);
 

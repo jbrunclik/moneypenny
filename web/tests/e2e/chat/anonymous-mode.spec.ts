@@ -42,7 +42,7 @@ test.describe('Chat - Anonymous Mode', () => {
     await page.click('#send-btn');
 
     // Wait for response
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Anonymous button should STILL be active (persists, unlike force tools)
     await expect(anonymousBtn).toHaveClass(/active/);
@@ -52,7 +52,7 @@ test.describe('Chat - Anonymous Mode', () => {
     await page.click('#send-btn');
 
     // Wait for second response
-    await page.locator('.message.assistant').nth(1).waitFor({ timeout: 10000 });
+    await page.locator('.message.assistant:not(.streaming)').nth(1).waitFor({ timeout: 10000 });
 
     // Anonymous button should still be active
     await expect(anonymousBtn).toHaveClass(/active/);
@@ -68,7 +68,7 @@ test.describe('Chat - Anonymous Mode', () => {
     // Send message to persist the conversation
     await page.fill('#message-input', 'Test message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Create new conversation
     await page.click('#new-chat-btn');
@@ -87,7 +87,7 @@ test.describe('Chat - Anonymous Mode', () => {
     // Send message to persist the conversation
     await page.fill('#message-input', 'First conversation message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Create second conversation (should be non-anonymous by default)
     await page.click('#new-chat-btn');
@@ -96,7 +96,7 @@ test.describe('Chat - Anonymous Mode', () => {
     // Send message in second conversation (non-anonymous)
     await page.fill('#message-input', 'Second conversation message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Now we should have 2 conversations
     const convItems = page.locator('.conversation-item-wrapper');
@@ -138,7 +138,7 @@ test.describe('Chat - Anonymous Mode', () => {
     await page.click('#send-btn');
 
     // Wait for response
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Step 4: Verify the anonymous button is still active after the temp->permanent transition
     await expect(anonymousBtn).toHaveClass(/active/);
@@ -152,7 +152,7 @@ test.describe('Chat - Anonymous Mode', () => {
     await page.click('#send-btn');
 
     // Wait for second response
-    await page.locator('.message.assistant').nth(1).waitFor({ timeout: 10000 });
+    await page.locator('.message.assistant:not(.streaming)').nth(1).waitFor({ timeout: 10000 });
 
     // Anonymous mode should persist
     await expect(anonymousBtn).toHaveClass(/active/);
@@ -200,7 +200,7 @@ test.describe('Chat - Anonymous Mode Initial State', () => {
     await page.click('#send-btn');
 
     // Wait for response
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Step 5: Verify anonymous button is still active
     await expect(anonymousBtn).toHaveClass(/active/);
@@ -235,7 +235,7 @@ test.describe('Chat - Anonymous Mode Initial State', () => {
     // Step 4: Send a message to persist the conversation
     await page.fill('#message-input', 'First conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Step 5: Click new-chat-btn AGAIN - this new conversation should be NON-anonymous
     // because pending state was cleared when first conversation was created
