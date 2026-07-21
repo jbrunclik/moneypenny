@@ -17,10 +17,10 @@ class Config:
 
     # Available models - each model has a full name and short name for compact display
     MODELS = {
-        "gemini-3.5-flash": {"name": "Gemini 3.5 Flash", "short_name": "Fast"},
+        "gemini-3.6-flash": {"name": "Gemini 3.6 Flash", "short_name": "Fast"},
         "gemini-3.1-pro-preview": {"name": "Gemini 3.1 Pro", "short_name": "Advanced"},
     }
-    DEFAULT_MODEL = "gemini-3.5-flash"
+    DEFAULT_MODEL = "gemini-3.6-flash"
 
     # Image generation model
     IMAGE_GENERATION_MODEL = "gemini-3-pro-image-preview"
@@ -119,17 +119,22 @@ class Config:
         os.getenv("COST_HISTORY_MAX_MONTHS", "120")
     )  # Max 10 years of history (120 months)
 
-    # Gemini pricing (per million tokens) - as of May 2026
+    # Gemini pricing (per million tokens) - as of July 2026
     # These should be updated when Google changes pricing
     # cached_input = rate for tokens served from the context cache
     # (usage_metadata.input_token_details.cache_read), billed at 25% of the
     # input rate. Cache storage cost is not attributed per message - caches
     # are shared across workers with short TTLs, so it is negligible.
     MODEL_PRICING = {
-        "gemini-3.5-flash": {
+        "gemini-3.6-flash": {
             "input": 1.50,  # $1.50 per million input tokens
             "cached_input": 0.375,
-            "output": 9.00,  # $9.00 per million output tokens
+            "output": 7.50,  # $7.50 per million output tokens
+        },
+        "gemini-3.5-flash": {
+            "input": 1.50,  # $1.50 per million input tokens (historical)
+            "cached_input": 0.375,
+            "output": 9.00,  # $9.00 per million output tokens (historical)
         },
         "gemini-3-flash-preview": {
             "input": 0.50,  # $0.50 per million input tokens (historical)
@@ -252,7 +257,7 @@ class Config:
     }
 
     # Title generation settings
-    TITLE_GENERATION_MODEL = "gemini-3.5-flash"
+    TITLE_GENERATION_MODEL = "gemini-3.6-flash"
     TITLE_GENERATION_TEMPERATURE = 0.7
     TITLE_MAX_LENGTH = 62  # Extra 2 chars for emoji + space prefix
     TITLE_TRUNCATE_LENGTH = 59  # Leaves room for "..."
@@ -260,7 +265,7 @@ class Config:
     TITLE_FALLBACK_LENGTH = 50  # Length for fallback title from user message
 
     # AI assist settings (cron parsing, prompt enhancement)
-    AI_ASSIST_MODEL = "gemini-3.5-flash"
+    AI_ASSIST_MODEL = "gemini-3.6-flash"
     AI_ASSIST_TIMEOUT_SECONDS = 15  # Minimum allowed by Gemini API is 10s
 
     # LLM settings

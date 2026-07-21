@@ -83,13 +83,13 @@ class TestCreateConversation:
         response = client.post(
             "/api/conversations",
             headers=auth_headers,
-            json={"model": "gemini-3.5-flash"},
+            json={"model": "gemini-3.6-flash"},
         )
 
         assert response.status_code == 201
         data = json.loads(response.data)
         assert "id" in data
-        assert data["model"] == "gemini-3.5-flash"
+        assert data["model"] == "gemini-3.6-flash"
         assert "title" in data
 
     def test_creates_with_default_model(

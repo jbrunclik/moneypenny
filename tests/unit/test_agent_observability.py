@@ -16,7 +16,7 @@ class TestObservabilityStats:
             message_id=msg.id,
             conversation_id=agent.conversation_id,
             user_id=test_user.id,
-            model="gemini-3.5-flash",
+            model="gemini-3.6-flash",
             input_tokens=1000,
             output_tokens=200,
             cost_usd=0.05,

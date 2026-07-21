@@ -35,7 +35,7 @@ def get_model_pricing(model_name: str) -> dict[str, float]:
     Returns:
         Dict with 'input' and 'output' prices per million tokens
     """
-    return Config.MODEL_PRICING.get(model_name, Config.MODEL_PRICING["gemini-3.5-flash"])
+    return Config.MODEL_PRICING.get(model_name, Config.MODEL_PRICING["gemini-3.6-flash"])
 
 
 def calculate_token_cost(

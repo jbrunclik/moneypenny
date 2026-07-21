@@ -98,8 +98,8 @@ class TestCreateConversationRequest:
 
     def test_valid_model(self) -> None:
         """Should accept valid model."""
-        data = CreateConversationRequest(model="gemini-3.5-flash")
-        assert data.model == "gemini-3.5-flash"
+        data = CreateConversationRequest(model="gemini-3.6-flash")
+        assert data.model == "gemini-3.6-flash"
 
     def test_invalid_model(self) -> None:
         """Should reject invalid model."""
@@ -160,9 +160,9 @@ class TestUpdateConversationRequest:
 
     def test_both_fields(self) -> None:
         """Should accept both title and model."""
-        data = UpdateConversationRequest(title="New Title", model="gemini-3.5-flash")
+        data = UpdateConversationRequest(title="New Title", model="gemini-3.6-flash")
         assert data.title == "New Title"
-        assert data.model == "gemini-3.5-flash"
+        assert data.model == "gemini-3.6-flash"
 
 
 class TestChatRequest:
