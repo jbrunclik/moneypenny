@@ -38,7 +38,8 @@
   "overrides": {
     "openapi-typescript": {
       "typescript": "$typescript"
-    }
+    },
+    "js-yaml": "^4.3.0"
   },
   "dependencies": {
     "@types/uuid": "^11.0.0",
