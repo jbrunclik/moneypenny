@@ -61,6 +61,8 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 - [ ] **Re-upgrade TypeScript to 7.x** - Pinned back to ^6.0.3 (Jul 2026) because `typescript-eslint@8.63.0` caps its peer range at `<6.1.0`, which broke `npm ci` in the dependency-audit workflow after Dependabot merged the TS 7.0.2 bump (#182). Dependabot now ignores `typescript >=7.0.0` in [.github/dependabot.yml](.github/dependabot.yml). When typescript-eslint ships TS 7 support: bump both together, remove the ignore rule, and verify `npm ci` + typecheck + lint pass.
 
+- [ ] **Reconcile eslint version mismatch** - `web/package.json` requests `eslint@^10.7.0` but the lockfile resolves `10.6.0`, so `npm ls` reports it `invalid` (noticed Jul 2026 during the Dependabot fix). Pre-existing and harmless for now (lint runs fine). Fix: `npm install eslint@^10.7.0` in `web/` and verify lint + `npm ci` pass, or relax the range to `^10.6.0` if 10.7.0 isn't actually needed.
+
 - [ ] **Webkit search-spec flake under full-suite load** - 2 occurrences (Jun 2026), still unexplained after a deep hunt (Jun 12):
   - The "stray version banner" clue was a red herring: `.version-banner` hides via `transform: translateY(-100%)` so it is ALWAYS in the accessibility tree and appears in every failure snapshot.
   - Real failure state: `isSearchActive=true` + `store.searchQuery=''` + empty input after `fill()`. Only in-app paths producing that are Escape-on-input or the clear button - neither happens in the specs.
