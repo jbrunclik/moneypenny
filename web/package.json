@@ -46,7 +46,7 @@
     "dompurify": "^3.4.12",
     "highlight.js": "^11.9.0",
     "katex": "^0.18.1",
-    "marked": "^18.0.6",
+    "marked": "^18.0.7",
     "uuid": "^14.0.1",
     "zustand": "^5.0.14"
   }
