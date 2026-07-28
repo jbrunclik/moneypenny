@@ -72,7 +72,7 @@ ai-chatbot/
 │   ├── config.py                 # Environment config
 │   ├── auth/                     # Authentication (JWT, Google, Todoist, Calendar OAuth)
 │   ├── api/                      # REST endpoints, validation, errors
-│   │   └── routes/               # 12 modules, 48 endpoints (organized by feature)
+│   │   └── routes/               # 18 modules, ~100 endpoints (organized by feature)
 │   ├── agent/                    # LangGraph agent with Gemini + tools
 │   │   └── tools/                # web_search, fetch_url, browser, generate_image, execute_code, todoist, etc.
 │   ├── db/                       # SQLite: User, Conversation, Message, sports columns
@@ -91,7 +91,7 @@ ai-chatbot/
 │       └── styles/                # CSS (modular structure)
 ├── tests/                        # Backend tests (unit, integration)
 ├── web/tests/                    # Frontend tests (unit, component, E2E, visual)
-├── migrations/                   # Database migrations (yoyo, 31 migrations)
+├── migrations/                   # Database migrations (yoyo, 47 migrations)
 ├── docs/                         # Detailed documentation
 └── .claude/                      # Claude Code config (agents, commands, hooks)
 ```

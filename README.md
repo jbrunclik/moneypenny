@@ -1,132 +1,171 @@
 # AI Chatbot
 
-A personal AI chatbot web application using Google Gemini APIs, similar to ChatGPT.
+A personal, self-hosted AI assistant built on Google Gemini. Chat is the entry point,
+but it also runs a planner over your tasks and calendar, coaches training programs,
+teaches languages, and executes autonomous agents on a schedule.
+
+Built for a household of a few users, deployed on a single box.
+
+**[Features](#features)** · **[Screenshots](#screenshots)** · **[Quick Start](#quick-start)** ·
+**[Documentation](docs/README.md)** · **[Commands](#commands)**
+
+---
 
 ## Screenshots
 
-### Desktop Interface
-
 <p align="center">
-  <img src="web/tests/visual/chat.visual.ts-snapshots/conversation-with-messages-chromium-darwin.png" alt="Desktop chat interface" width="700">
+  <img src="web/tests/visual/chat.visual.ts-snapshots/conversation-with-messages-chromium-darwin.png" alt="Desktop chat interface" width="820">
+  <br><em>Chat with streaming responses, markdown rendering, syntax highlighting, and an expandable trace of the model's thinking and tool calls</em>
 </p>
-<p align="center"><em>Chat interface with message history, markdown rendering, and syntax highlighting</em></p>
-
-### Sidebar & Mobile
 
 <table align="center">
   <tr>
-    <td align="center">
-      <img src="web/tests/visual/chat.visual.ts-snapshots/sidebar-conversations-chromium-darwin.png" alt="Sidebar with conversations" width="280">
-      <br><em>Conversation list with search</em>
+    <td align="center" width="50%">
+      <img src="web/tests/visual/planner.visual.ts-snapshots/dashboard-full-chromium-darwin.png" alt="Planner dashboard" width="400">
+      <br><strong>Planner</strong>
+      <br><em>Todoist tasks and Calendar events in one schedule, analyzed proactively by the AI</em>
     </td>
-    <td align="center">
-      <img src="web/tests/visual/mobile.visual.ts-snapshots/mobile-sidebar-open-chromium-darwin.png" alt="Mobile layout" width="200">
-      <br><em>Mobile-responsive layout</em>
+    <td align="center" width="50%">
+      <img src="web/tests/visual/agents.visual.ts-snapshots/command-center-with-approvals-chromium-darwin.png" alt="Agent command center with pending approvals" width="400">
+      <br><strong>Autonomous agents</strong>
+      <br><em>Destructive actions wait for approval, showing the exact tool and arguments</em>
     </td>
   </tr>
 </table>
 
-### Planner Dashboard
+<p align="center">
+  <img src="web/tests/visual/kv-store.visual.ts-snapshots/storage-page-memories-only-chromium-darwin.png" alt="Memories on the Data page" width="560">
+  <br><strong>Memory, fully inspectable</strong>
+  <br><em>Everything the assistant remembers about you, with per-entry protection against automatic deletion</em>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="web/tests/visual/language.visual.ts-snapshots/quiz-batch-chromium-darwin.png" alt="Language learning quiz" width="230">
+      <br><strong>Language quizzes</strong>
+      <br><em>Interactive, graded by the model</em>
+    </td>
+    <td align="center">
+      <img src="web/tests/visual/search.visual.ts-snapshots/search-results-list-chromium-darwin.png" alt="Full-text search results" width="230">
+      <br><strong>Full-text search</strong>
+      <br><em>Across every conversation</em>
+    </td>
+    <td align="center">
+      <img src="web/tests/visual/mobile.visual.ts-snapshots/mobile-conversation-chromium-darwin.png" alt="Mobile layout" width="195">
+      <br><strong>Mobile / PWA</strong>
+      <br><em>Installable, touch gestures</em>
+    </td>
+  </tr>
+</table>
 
 <p align="center">
-  <img src="web/tests/visual/planner.visual.ts-snapshots/dashboard-full-chromium-darwin.png" alt="Planner dashboard with tasks and events" width="700">
+  <img src="web/tests/visual/planner.visual.ts-snapshots/health-summary-full-chromium-darwin.png" alt="Garmin health summary" width="760">
+  <br><em>Garmin Connect data surfaces in the planner and gives the training coach real context</em>
 </p>
-<p align="center"><em>Unified view of your schedule - combining Todoist tasks and Google Calendar events with priority indicators</em></p>
 
-<p align="center"><sub>Screenshots from visual regression tests - always up-to-date with the latest UI.</sub></p>
+<p align="center"><sub>All screenshots are visual regression baselines from the test suite, so they cannot drift from the real UI.</sub></p>
 
 ## Features
 
 ### Chat & AI
-- Chat with Google Gemini AI models (Pro and Flash)
-- **Streaming responses**: Real-time token-by-token display (toggleable) with thinking indicator showing model processing and tool activity
-- **Stop streaming**: Abort streaming responses mid-generation
-- Model selection (Gemini 3 Pro for complex tasks, Flash for speed)
-- **Agentic planning**: Automatically plans execution steps for complex multi-tool requests before responding
-- **Self-correcting tools**: When a tool fails, the AI analyzes the error and retries with a different approach (up to configurable limit)
+- Two models: **Gemini 3.6 Flash** ("Fast", the default) and **Gemini 3.1 Pro** ("Advanced") - switchable per conversation
+- **Streaming responses**: token-by-token display (toggleable) with a thinking indicator that shows model reasoning and live tool activity
+- **Resumable streams**: a dropped connection reconnects and replays the response from a server-side journal instead of losing it
+- **Stop streaming**: abort mid-generation
+- **Agentic planning**: complex multi-tool requests get an execution plan before the first tool call
+- **Self-correcting tools**: on a tool failure the model reads the error and retries differently, up to a configurable limit
+- **Long-chat compaction**: older turns are summarized non-destructively so long conversations stay affordable without losing history
+- **Prompt caching**: the static system prompt and tool definitions live in Gemini's context cache
 - Markdown rendering with syntax highlighting
 
 ### Tools & Capabilities
-- **File uploads**: Images, PDFs, and text files with multimodal AI analysis
-- **Clipboard paste**: Paste screenshots directly from clipboard (Cmd+V / Ctrl+V)
-- **Image generation**: Generate images from text descriptions, or edit uploaded images
-- **Image lightbox**: Click thumbnails to view full-size images, with loading indicator and on-demand thumbnail loading
-- **Web tools**: Real-time web search (DuckDuckGo), URL fetching with source citations, and full browser automation (JavaScript rendering, clicks, form filling, screenshots via Playwright)
-- **Code execution**: Secure Python sandbox for calculations, data analysis, and generating PDFs/charts
-- **Todoist integration**: Manage tasks via AI - list, add, complete, prioritize, and organize tasks across projects
-- **Google Calendar integration**: Schedule meetings/focus blocks, update events, and RSVP directly from the chat
-- **Garmin Connect integration**: Query health and fitness data - steps, sleep, heart rate, HRV, SpO2, training readiness, and activities
+- **File uploads**: images, PDFs, and text files with multimodal analysis; paste screenshots straight from the clipboard
+- **Image generation**: create images from text, or edit an uploaded one; click any thumbnail for a full-size lightbox
+- **Web tools**: web search (DuckDuckGo), URL fetching with source citations, and full browser automation - JS rendering, clicks, form filling, screenshots (Playwright)
+- **Code execution**: Python in a sandboxed Docker container for calculations, data analysis, charts, and PDFs
+- **Conversation recall**: the assistant can search and read your past conversations, so "what did we decide about X?" does not depend on it having memorized X
+- **Todoist**: list, add, complete, prioritize, and organize tasks across projects
+- **Google Calendar**: schedule meetings and focus blocks, update events, RSVP
+- **Garmin Connect**: steps, sleep, heart rate, HRV, SpO2, training readiness, activities
+- **WhatsApp**: outbound notifications from autonomous agents
+- **Key-value storage**: durable structured state for agents and program conversations
+
+### Memory & Personalization
+- **Long-term memory**: the assistant records facts about you and applies them across conversations. Writes happen through a tool that reports its result, so a rejected or failed write is visible rather than silently dropped
+- **You stay in control**: inspect every memory on the Data page, delete any of them, or mark one **protected** so neither the model nor the nightly cleanup can remove it. Deletes are recoverable for a retention window
+- **Provenance**: each memory records the conversation it was learned in
+- **Nightly defragmentation**: an LLM pass merges duplicates and drops stale entries, with guards that refuse a plan which would grow the memory bank
+- **Anonymous mode**: a per-conversation toggle that disables memory, conversation recall, and integrations. Persisted, so it survives a reload
+- **Custom instructions**: free-text behavior tuning (e.g. "respond in Czech", "be concise")
+- **User context**: location-aware units, currency, and recommendations
 
 ### Planner Dashboard
-- **Unified schedule view**: See all your Todoist tasks and Google Calendar events in one place
-- **Multi-calendar support**: Select which calendars to include (work, personal, shared calendars)
-- **Smart organization**: Today, Tomorrow, and This Week sections with overdue task detection
-- **Priority indicators**: Visual badges for P1-P4 tasks with progressive prominence
-- **Calendar labels**: Events from non-primary calendars show their calendar name as a badge
-- **Interactive elements**: One-click copy, location links to Google Maps, collapsible sections
-- **Proactive AI analysis**: AI automatically analyzes your schedule and provides insights
-- **Real-time sync**: Refresh button fetches latest data; reset button clears and triggers fresh analysis
+- **Unified schedule**: Todoist tasks and Calendar events in one view, with multi-calendar selection
+- **Smart organization**: Today, Tomorrow, and This Week sections with overdue detection
+- **Priority indicators**: P1-P4 badges with progressive prominence; non-primary calendars show a source badge
+- **Interactive**: one-click copy, locations link to Google Maps, collapsible sections, weather badges
+- **Proactive AI analysis**: the schedule is analyzed automatically; refresh for latest data, reset for a fresh analysis
 
 ### Sports Tracking
-- **Training programs**: Create custom sports programs (running, cycling, pushups, etc.) with a dedicated AI personal trainer conversation per program
-- **Persistent coaching**: AI remembers your goals, preferences, routine, and progress across sessions using per-program storage
-- **Garmin integration**: Optional Garmin Connect data provides fitness context for personalized coaching advice
-- **Full control**: Reset a program's conversation at any time to start fresh; delete programs you no longer need
+- **Training programs**: running, cycling, pushups, anything - each with its own AI trainer conversation
+- **Persistent coaching**: goals, preferences, routine, and progress persist per program
+- **Garmin integration**: optional fitness data gives the trainer real context
+- **Full control**: reset a program's conversation or delete the program entirely
 
 ### Language Learning
-- **Language programs**: Create programs for any language (Spanish, French, German, etc.) with a dedicated AI tutor conversation per program
-- **AI-driven assessment**: AI conducts initial assessment and tailors lessons to your level
-- **Interactive quizzes**: Multiple-choice, fill-in-the-blank, translation, and batch quiz blocks rendered inline in chat
-- **Progress tracking**: AI remembers your vocabulary, grammar, weak points, and session history across sessions
+- **Language programs**: any language, each with a dedicated tutor conversation
+- **AI-driven assessment**: an initial assessment sets the level, and lessons adapt
+- **Interactive quizzes**: multiple-choice, fill-in-the-blank, translation, and batch quizzes rendered inline; all grading is done by the model
+- **Progress tracking**: vocabulary, grammar, weak points, and session history persist
 
 ### Autonomous Agents
-- **Scheduled execution**: Create agents that run automatically on cron schedules
-- **Command Center**: Dashboard showing all agents, pending approvals, and recent activity
-- **Approval workflow**: Dangerous operations (task creation, calendar events, code execution) require user approval
-- **Agent-to-agent communication**: Agents can trigger other agents for multi-step workflows
-- **Tool permissions**: Control which tools each agent can use
-- **Dedicated conversations**: Each agent has its own conversation showing activity and history
-
-### Personalization
-- **User memory**: AI learns and remembers facts about you across conversations (viewable/deletable via brain icon)
-- **Custom instructions**: Customize AI behavior via settings (e.g., "respond in Czech", "be concise")
-- **User context**: Location-aware responses with appropriate units, currency, and local recommendations
+- **Scheduled execution**: cron-scheduled agents that run unattended
+- **Command Center**: every agent, pending approval, and recent run in one dashboard
+- **Approval workflow**: destructive actions are blocked in code until you approve them - not merely discouraged in the prompt
+- **Tool permissions**: per-agent allowlists. Capabilities that outlive the run, such as writing to long-term memory, must be granted explicitly
+- **Agent-to-agent**: agents can trigger other agents for multi-step workflows
+- **Dedicated conversations**: each agent has its own conversation and history
 
 ### Conversation Management
-- Multiple conversations with history
-- **Full-text search**: Search across all conversations and messages with highlighted results
-- **Deep linking**: Bookmarkable URLs for specific conversations (`#/conversations/{id}`)
-- **Real-time sync**: Multi-device/tab synchronization with unread message badges
-- **Infinite scroll**: Cursor-based pagination for conversations and messages
-- **Copy messages**: One-click copy button on messages with rich text support
+- **Full-text search** across all conversations and messages, with highlighted results
+- **Deep linking**: bookmarkable URLs (`#/conversations/{id}`)
+- **Real-time sync**: multi-device and multi-tab, with unread badges
+- **Infinite scroll**: cursor-based pagination for conversations and messages
+- **Archive**, rename, delete, and one-click copy of any message
 
 ### UI & Experience
-- **Color scheme**: Light, Dark, and System modes with instant switching
-- **Version update banner**: Automatic detection of new deployments with reload prompt
-- **Cost tracking**: Track API costs per conversation and per month with currency conversion
-- Mobile-first responsive design
-- **Voice input**: Speech-to-text using Web Speech API (Chrome, Safari), with language selection
-- **Touch gestures**: Swipe left on conversations to rename/delete, swipe from left edge to open sidebar
-- **Error handling**: Toast notifications, retry on network errors, draft message preservation
-- iOS Safari and PWA compatible
+- **Light, Dark, and System** color schemes with instant switching
+- **Push notifications**: Web Push for agent results and reminders (iOS requires the app on the Home Screen)
+- **Voice input**: speech-to-text via the Web Speech API, with language selection
+- **Touch gestures**: swipe a conversation to rename or delete, swipe from the left edge for the sidebar
+- **Cost tracking**: per-conversation and per-month API cost with currency conversion
+- **Version banner**: new deployments are detected and offer a reload
+- **Resilient**: toast notifications, retry on network errors, draft preservation
+- Mobile-first responsive design, iOS Safari and PWA compatible
 
 ### Authentication & Security
-- Google Sign In authentication with email whitelist
-- Local development mode (no auth required)
-- **Rate limiting**: Per-user/per-IP rate limits to prevent abuse and protect against runaway clients
+- Google Sign In with an email allowlist; local development runs without auth
+- **Rate limiting** per user and per IP
+- **Encryption at rest** for OAuth and Garmin tokens
+- **Untrusted content handling**: web and browser output is fenced as data, never instructions, and high-impact actions triggered only by fetched content require confirmation
+- **SSRF protection**: fetched URLs are validated against localhost and private ranges, including after DNS resolution
 
 ## Tech Stack
 
-- **Backend**: Python 3, Flask, LangGraph/LangChain
-- **Frontend**: TypeScript, Vite, Zustand
-- **Database**: SQLite
-- **Auth**: Google Identity Services (GIS) + JWT tokens
+- **Backend**: Python 3.14, Flask (APIFlask/OpenAPI), LangGraph + LangChain, gunicorn
+- **Frontend**: TypeScript (strict), Vite, Zustand - no UI framework
+- **Database**: SQLite with yoyo migrations, FTS5 full-text search, WAL mode
+- **LLM**: Google Gemini via `langchain-google-genai`, with context caching
+- **Auth**: Google Identity Services + JWT
+- **Tests**: pytest, Vitest, Playwright (E2E + visual regression)
+- **Types**: OpenAPI spec exported from the backend generates the frontend's API types
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.14+
 - Node.js 18+ and npm
 - Git LFS (for visual test screenshots)
 - Google Gemini API key ([Get one here](https://aistudio.google.com/apikey))
@@ -136,7 +175,7 @@ A personal AI chatbot web application using Google Gemini APIs, similar to ChatG
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ai-chatbot.git
+git clone https://github.com/jbrunclik/ai-chatbot.git
 cd ai-chatbot
 
 # Setup virtual environment and install dependencies
@@ -148,72 +187,41 @@ cp .env.example .env
 
 ### Configuration
 
-Edit `.env` with your settings:
+[`.env.example`](.env.example) is the authoritative, commented list of every setting -
+copy it and edit. Only one variable is strictly required:
 
 ```bash
-# Required
 GEMINI_API_KEY=your-gemini-api-key
+```
 
-# For local development (no auth)
-FLASK_ENV=development
+For local development that is enough; `FLASK_ENV=development` skips authentication.
+A production deployment additionally wants:
 
-# For production with Google Sign In
+```bash
 FLASK_ENV=production
 GOOGLE_CLIENT_ID=your-client-id
 JWT_SECRET_KEY=your-secret-key
 ALLOWED_EMAILS=user1@gmail.com,user2@gmail.com
-
-# File upload limits (optional)
-MAX_FILE_SIZE=20971520              # 20 MB in bytes
-MAX_FILES_PER_MESSAGE=10
-ALLOWED_FILE_TYPES=image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv
-
-# Code execution sandbox (optional, requires Docker)
-CODE_SANDBOX_ENABLED=true                    # Enable/disable code execution
-CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local  # Custom image (build with: make sandbox-image)
-CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
-CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
-CODE_SANDBOX_LIBRARIES=numpy,pandas,matplotlib,scipy,sympy,pillow,reportlab,fpdf2
-
-# Browser automation (optional, requires: make browser-setup)
-BROWSER_ENABLED=true                 # Enable/disable browser tool (default: true)
-BROWSER_SESSION_TTL_SECONDS=600      # Seconds of inactivity before session cleanup
-BROWSER_MAX_CONCURRENT_SESSIONS=5    # Maximum simultaneous browser sessions
-BROWSER_PAGE_TIMEOUT_MS=30000        # Default per-action timeout in milliseconds
-
-# Gunicorn settings (optional)
-GUNICORN_WORKERS=2                  # Number of worker processes
-GUNICORN_TIMEOUT=300                # 5 minutes default
-SSE_KEEPALIVE_INTERVAL=15           # Heartbeat interval for streaming
-
-# Cost tracking (optional)
-COST_CURRENCY=CZK                   # Display currency (USD, CZK, EUR, GBP)
-
-# User context (optional)
-USER_LOCATION=Prague, Czech Republic  # For localized units, currency, recommendations
-
-# Rate limiting (optional)
-RATE_LIMITING_ENABLED=true            # Enable/disable rate limiting
-RATE_LIMIT_STORAGE_URI=memory://      # Storage backend (memory://, redis://host:port)
-RATE_LIMIT_DEFAULT=200 per minute     # Default limit for all endpoints
-RATE_LIMIT_AUTH=10 per minute         # Auth endpoints (brute force protection)
-RATE_LIMIT_CHAT=30 per minute         # Chat endpoints (expensive LLM calls)
-RATE_LIMIT_CONVERSATIONS=60 per minute  # Conversation CRUD
-RATE_LIMIT_FILES=120 per minute       # File downloads
-
-# Todoist integration (optional)
-TODOIST_CLIENT_ID=your-todoist-client-id
-TODOIST_CLIENT_SECRET=your-todoist-client-secret
-TODOIST_REDIRECT_URI=http://localhost:5173  # Your app URL (OAuth redirects here, use Vite port in dev)
-
-# Google Calendar integration (optional)
-GOOGLE_CALENDAR_CLIENT_ID=your-google-oauth-client-id
-GOOGLE_CALENDAR_CLIENT_SECRET=your-google-client-secret
-GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Same origin as your frontend
-
-# Garmin Connect integration (optional, no API keys required)
-GARMIN_API_TIMEOUT=15  # API request timeout in seconds
+TOKEN_ENCRYPTION_KEY=            # generate with: make token-key (encrypts stored OAuth tokens)
 ```
+
+Everything else is optional and has a sensible default. Grouped by area, with the
+knobs worth knowing about:
+
+| Area | Variables |
+|---|---|
+| Uploads | `MAX_FILE_SIZE`, `MAX_FILES_PER_MESSAGE`, `ALLOWED_FILE_TYPES` |
+| Code sandbox | `CODE_SANDBOX_ENABLED`, `CODE_SANDBOX_IMAGE`, `CODE_SANDBOX_TIMEOUT`, `CODE_SANDBOX_MEMORY_LIMIT`, `CODE_SANDBOX_CPU_LIMIT` |
+| Browser tool | `BROWSER_ENABLED`, `BROWSER_SESSION_TTL_SECONDS`, `BROWSER_MAX_CONCURRENT_SESSIONS`, `BROWSER_PAGE_TIMEOUT_MS` |
+| Long-term memory | `MEMORY_MAX_ENTRIES`, `MEMORY_MAX_ENTRY_CHARS`, `MEMORY_WARNING_THRESHOLD`, `MEMORY_MAX_OPS_PER_CALL`, `MEMORY_SOFT_DELETE_RETENTION_DAYS`, `MEMORY_DEFRAG_THRESHOLD`, `MEMORY_DEFRAG_MODEL` |
+| Context caching | `CONTEXT_CACHE_ENABLED`, `CONTEXT_CACHE_TTL_SECONDS`, `CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS` |
+| Rate limiting | `RATE_LIMITING_ENABLED`, `RATE_LIMIT_STORAGE_URI`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_AUTH`, `RATE_LIMIT_CHAT`, `RATE_LIMIT_CONVERSATIONS`, `RATE_LIMIT_FILES` |
+| Server | `GUNICORN_WORKERS`, `GUNICORN_TIMEOUT`, `SSE_KEEPALIVE_INTERVAL` |
+| Localization | `USER_LOCATION`, `COST_CURRENCY` |
+| Push notifications | `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_CLAIMS_EMAIL` (generate with `make push-keys`) |
+| Integrations | `TODOIST_*`, `GOOGLE_CALENDAR_*`, `GARMIN_API_TIMEOUT`, `WHATSAPP_*`, `WEATHER_LOCATION` |
+
+The integration setup guides below cover the OAuth apps those variables point at.
 
 ### Setting up Code Execution (Docker)
 
@@ -608,28 +616,48 @@ make run
 
 ## Commands
 
+`make` with no arguments lists every target. The ones used day to day:
+
 ```bash
-make            # Show available targets
-make setup      # Create venv and install dependencies (Python + Node.js)
-make dev        # Run Flask + Vite dev servers concurrently (with HMR)
-make build      # Build frontend for production
-make run        # Run Flask server (production mode)
-make sandbox-image    # Build custom Docker image for code execution
-make browser-setup    # Install Playwright + Chromium for browser tool
-make lint       # Run ruff, mypy, and ESLint
-make lint-fix   # Auto-fix linting issues
-make test       # Run all tests
-make test-unit  # Run unit tests only
-make test-integration  # Run integration tests only
-make test-cov   # Run tests with coverage report
-make deploy     # Deploy systemd service (Linux) - full restart
-make reload     # Graceful reload - zero downtime (backend only)
-make update     # Full update with deps rebuild + graceful reload
-make vacuum     # Run database vacuum (reclaim space)
-make update-currency  # Update currency exchange rates
-make backup     # Create database backup manually
-make backup-list  # List existing database backups
-make defrag-memories  # Run memory defragmentation (consolidate user memories)
+# Setup & running
+make setup            # Create venv and install dependencies (Python + Node)
+make dev              # Flask + Vite dev servers concurrently, with HMR
+make build            # Production frontend build
+make run              # Flask server (production mode)
+make sandbox-image    # Build the Docker image for code execution
+make browser-setup    # Install Playwright + Chromium for the browser tool
+
+# Quality
+make lint             # ruff + mypy + ESLint + tsc
+make lint-fix         # Auto-fix what can be auto-fixed
+make test             # Backend tests
+make test-all         # Backend + frontend
+make pre-commit       # lint + test-all + security scan
+make audit            # Dependency vulnerability scan
+
+# Visual regression (baselines are darwin-only; CI skips them)
+make test-fe-visual         # Run visual tests
+make test-fe-visual-update  # Re-baseline after intentional UI changes
+make test-fe-visual-report  # Open the HTML report to spot-check diffs
+
+# Schema & types
+make migration NAME=xxx   # Create a new database migration
+make openapi              # Export the OpenAPI spec
+make types                # Regenerate frontend API types from the spec
+
+# Secrets
+make token-key        # Generate the token-encryption key
+make push-keys        # Generate VAPID keys for Web Push
+
+# Operations
+make deploy           # Deploy systemd service (full restart)
+make reload           # Graceful reload, zero downtime (backend only)
+make update           # Rebuild frontend + graceful reload
+make vacuum           # Reclaim database space
+make backup           # Create a database backup
+make backup-list      # List existing backups
+make update-currency  # Refresh currency exchange rates
+make defrag-memories  # Consolidate user memories (add -- --dry-run to preview)
 ```
 
 ## Testing
@@ -669,6 +697,17 @@ Frontend tests are organized in `web/tests/`:
 E2E tests run against a mock Flask server (`tests/e2e-server.py`) that simulates LLM responses without external API calls.
 
 All external services (Gemini API, Google Auth, DuckDuckGo) are mocked - tests run offline and fast.
+
+### Visual Regression
+
+Baselines live next to their specs in `*-snapshots/` directories, stored in **Git LFS**, and
+are **darwin-only** - CI skips visual tests because font rendering differs per platform. Two
+things to know before touching them:
+
+- The mock server serves the **built** frontend, so a CSS or markup change needs `make build`
+  before `make test-fe-visual` will see it.
+- After an intentional UI change, re-baseline with `make test-fe-visual-update` and review the
+  diffs (`make test-fe-visual-report`) rather than trusting a green run.
 
 ## Deployment
 
@@ -767,7 +806,14 @@ Backups are stored in `backups/{database_name}/` directories alongside the datab
 
 ### Memory Defragmentation
 
-A nightly systemd timer consolidates and cleans up user memories using an LLM. This merges related memories, removes duplicates, and keeps memory banks efficient.
+A nightly systemd timer consolidates and cleans up user memories using an LLM: it merges
+related memories, removes duplicates, drops stale entries, and purges soft-deleted memories
+whose recovery window has passed.
+
+The job is deliberately conservative. It asks the model for a schema-validated plan rather
+than parsing prose, it refuses a plan that would leave the user with *more* memories than it
+started with, it skips memories marked protected, and its deletes are soft - so a bad run is
+recoverable until the retention window expires.
 
 ```bash
 # View defrag logs
@@ -780,7 +826,7 @@ make defrag-memories
 make defrag-memories -- --dry-run
 ```
 
-Only users with 50+ memories are processed by default.
+Only users with `MEMORY_DEFRAG_THRESHOLD` memories or more are processed (default: 30).
 
 ### Reverse Proxy (nginx)
 
@@ -874,48 +920,65 @@ watch -n 60 'journalctl --user --disk-usage'
 ```
 ai-chatbot/
 ├── src/                          # Flask backend
-│   ├── app.py                    # Flask entry point, Vite manifest loading, /privacy route
-│   ├── config.py                 # Environment config
-│   ├── templates/
-│   │   ├── index.html            # Jinja2 shell (meta tags, asset injection)
-│   │   └── privacy.html          # Privacy policy page (required for Google OAuth Production)
-│   ├── auth/                     # Google Sign In + JWT authentication
-│   ├── api/                      # REST API routes
-│   ├── agent/                    # LangGraph agent and tools
-│   ├── db/                       # SQLite models
-│   └── utils/                    # Utilities (image processing)
+│   ├── app.py                    # Entry point, Vite manifest loading, /privacy, /sw.js
+│   ├── config.py                 # All environment configuration and model definitions
+│   ├── api/
+│   │   ├── routes/               # 18 modules of REST endpoints, split by feature
+│   │   ├── helpers/              # Streaming, save pipeline, stream resume
+│   │   ├── schemas.py            # Pydantic request/response schemas (source of the OpenAPI spec)
+│   │   └── rate_limiting.py
+│   ├── agent/                    # LangGraph agent
+│   │   ├── graph.py              # Nodes, routing, planning, self-correction
+│   │   ├── prompts.py            # System prompts (static/cacheable vs per-request)
+│   │   ├── tools/                # One module per tool
+│   │   ├── executor.py           # Autonomous agent execution
+│   │   ├── permissions.py        # Agent tool permission gates
+│   │   ├── context_cache.py      # Gemini context caching
+│   │   └── compaction.py         # Long-conversation summarization
+│   ├── auth/                     # Google Sign In, JWT, OAuth for integrations
+│   ├── db/                       # SQLite models, connection pool, blob store
+│   ├── templates/                # Jinja2 shell + privacy policy
+│   └── utils/                    # Images, costs, logging, push, weather, files
 ├── web/                          # Vite + TypeScript frontend
-│   ├── vite.config.ts            # Vite config with Flask proxy
-│   ├── tsconfig.json             # TypeScript config
-│   ├── package.json              # Frontend dependencies
 │   └── src/
-│       ├── main.ts               # Entry point
-│       ├── types/                # TypeScript interfaces
-│       ├── api/                  # API client
-│       ├── auth/                 # Google Sign-In
-│       ├── state/                # Zustand store
-│       ├── components/           # UI modules
+│       ├── core/                 # Conversation, messaging, programs, toolbar, kv-store
+│       ├── components/           # UI modules (messages/, dashboards, popups)
+│       ├── state/store.ts        # Zustand store
+│       ├── api/client.ts         # Typed fetch wrapper
+│       ├── types/                # Hand-written + OpenAPI-generated types
+│       ├── sync/                 # Multi-device sync manager
 │       ├── gestures/             # Touch handlers
-│       ├── utils/                # DOM, markdown, icons
-│       └── styles/               # CSS
-├── static/                       # Build output + PWA assets
-│   ├── assets/                   # Vite output (hashed JS/CSS)
-│   └── manifest.json             # PWA manifest
-├── scripts/                      # Utility scripts
-│   ├── vacuum_databases.py       # Database vacuum script
-│   ├── update_currency_rates.py  # Currency rate update script
-│   ├── backup_databases.py       # Database backup script
-│   └── defragment_memories.py    # Memory defragmentation script
-├── systemd/                      # Systemd service files
-│   ├── ai-chatbot.service        # Main application service
-│   ├── ai-chatbot-vacuum.*       # Weekly database vacuum
-│   ├── ai-chatbot-currency.*     # Daily currency rate updates
-│   ├── ai-chatbot-backup.*       # Daily database backups
-│   └── ai-chatbot-memory-defrag.* # Nightly memory defragmentation
-├── Makefile                      # Build and run targets
-├── pyproject.toml                # Python project configuration
-└── requirements.txt              # Python dependencies
+│       └── styles/               # Modular CSS
+├── migrations/                   # yoyo migrations (schema history)
+├── tests/                        # Backend: unit/ and integration/, plus the E2E mock server
+├── web/tests/                    # Frontend: unit, component, e2e/, visual/ (LFS baselines)
+├── scripts/                      # Operational scripts (backup, vacuum, defrag, cost analysis)
+├── systemd/                      # Service + timer units for the app and scheduled jobs
+├── docs/                         # Architecture and per-feature documentation
+├── static/                       # Build output, PWA manifest, OpenAPI spec
+└── Makefile                      # Everything runnable
 ```
+
+## Documentation
+
+Detailed docs live in [`docs/`](docs/README.md):
+
+| Topic | |
+|---|---|
+| Agents & tools | [features/agents.md](docs/features/agents.md) |
+| Memory & context | [features/memory-and-context.md](docs/features/memory-and-context.md) |
+| Chat & streaming | [features/chat-and-streaming.md](docs/features/chat-and-streaming.md) |
+| Integrations | [features/integrations.md](docs/features/integrations.md) |
+| Language learning | [features/language-learning.md](docs/features/language-learning.md) |
+| Search | [features/search.md](docs/features/search.md) |
+| Sync | [features/sync.md](docs/features/sync.md) |
+| Push notifications | [features/push-notifications.md](docs/features/push-notifications.md) |
+| Cost tracking | [features/cost-tracking.md](docs/features/cost-tracking.md) |
+| API design | [architecture/api-design.md](docs/architecture/api-design.md) |
+| Database | [architecture/database.md](docs/architecture/database.md) |
+| Authentication | [architecture/authentication.md](docs/architecture/authentication.md) |
+| Testing | [testing.md](docs/testing.md) |
+| Code conventions | [conventions.md](docs/conventions.md) |
 
 ## License
 
