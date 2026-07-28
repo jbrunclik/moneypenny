@@ -25,7 +25,7 @@ from src.agent.content import extract_text_content, strip_full_result_from_tool_
 from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import get_available_tools
-from src.agent.tools.metadata import METADATA_TOOL_NAMES
+from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -141,20 +141,23 @@ def create_chat_model(
 def should_continue(state: AgentState) -> Literal["tools", "end"]:
     """Decide whether to continue to tools or end the conversation.
 
-    When all tool calls in the final message are metadata-only (cite_sources,
-    manage_memory) AND the LLM already produced text, routes to "end" instead
-    of "tools" to avoid an extra LLM round-trip. The tool call args are
-    extracted from the AIMessage in post-processing.
+    When all tool calls in the final message are extract-only (cite_sources)
+    AND the LLM already produced text, routes to "end" instead of "tools" to
+    avoid an extra LLM round-trip. Those tool call args are read from the
+    AIMessage in post-processing, so executing them would be a no-op.
 
-    If the LLM produced metadata-only tool calls but NO text, routes to "tools"
-    so the tools execute normally and the LLM gets another turn to respond with text.
-    This prevents empty messages when e.g. manage_memory is the only output.
+    If the LLM produced extract-only tool calls but NO text, routes to "tools"
+    so the tools execute normally and the LLM gets another turn to respond with
+    text. This prevents empty messages.
+
+    Note that manage_memory is deliberately NOT extract-only: it performs real
+    writes and the model needs to read their outcome, so it always executes.
     """
     messages = state["messages"]
     last_message = messages[-1]
 
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
-        if all(tc["name"] in METADATA_TOOL_NAMES for tc in last_message.tool_calls):
+        if all(tc["name"] in EXTRACT_ONLY_TOOL_NAMES for tc in last_message.tool_calls):
             # If LLM already generated text alongside metadata tools,
             # skip execution - args are extracted in post-processing
             if extract_text_content(last_message.content).strip():

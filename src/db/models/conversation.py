@@ -71,6 +71,10 @@ class ConversationMixin:
             is_language = bool(row["is_language"]) if row["is_language"] else False
             language_program = row["language_program"]
 
+        anonymous_mode = False
+        if "anonymous_mode" in row.keys():
+            anonymous_mode = bool(row["anonymous_mode"]) if row["anonymous_mode"] else False
+
         return Conversation(
             id=row["id"],
             user_id=row["user_id"],
@@ -87,6 +91,7 @@ class ConversationMixin:
             sports_program=sports_program,
             is_language=is_language,
             language_program=language_program,
+            anonymous_mode=anonymous_mode,
         )
 
     def create_conversation(
@@ -539,6 +544,31 @@ class ConversationMixin:
             return conversations_with_counts, next_cursor, has_more, total_count
 
     # Whitelist of allowed columns for update_conversation to prevent SQL injection
+    def set_conversation_anonymous_mode(
+        self, conv_id: str, user_id: str, anonymous_mode: bool
+    ) -> bool:
+        """Persist the anonymous-mode flag for a conversation.
+
+        Deliberately does not touch updated_at: toggling privacy is not activity
+        and should not reorder the conversation list.
+
+        Args:
+            conv_id: The conversation ID
+            user_id: The user ID (for ownership verification)
+            anonymous_mode: Whether the conversation is anonymous
+
+        Returns:
+            True if the conversation was updated, False if not found
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE conversations SET anonymous_mode = ? WHERE id = ? AND user_id = ?",
+                (int(anonymous_mode), conv_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     _CONVERSATION_UPDATE_COLUMNS = frozenset({"title", "model"})
 
     def update_conversation(

@@ -65,8 +65,28 @@ class TestShouldContinue:
         }
         assert should_continue(state) == "end"
 
-    def test_routes_to_end_on_metadata_only_tools_with_text(self) -> None:
-        """AI message with text + metadata-only tool calls should route to 'end'."""
+    def test_routes_to_end_on_extract_only_tools_with_text(self) -> None:
+        """AI message with text + extract-only tool calls should route to 'end'."""
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content="Here's my answer.",
+                    tool_calls=[
+                        {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
+                    ],
+                )
+            ],
+            "tool_retries": 0,
+            "plan": "",
+        }
+        assert should_continue(state) == "end"
+
+    def test_routes_to_tools_when_memory_write_accompanies_text(self) -> None:
+        """manage_memory must reach the tool node even alongside a text answer.
+
+        It performs the write and reports the outcome, so skipping execution
+        would drop the write and leave the model believing it succeeded.
+        """
         state: AgentState = {
             "messages": [
                 AIMessage(
@@ -80,7 +100,7 @@ class TestShouldContinue:
             "tool_retries": 0,
             "plan": "",
         }
-        assert should_continue(state) == "end"
+        assert should_continue(state) == "tools"
 
     def test_routes_to_tools_on_metadata_only_without_text(self) -> None:
         """AI message with metadata-only tool calls but NO text should route to 'tools'.

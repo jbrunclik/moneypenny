@@ -1553,6 +1553,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memories/deleted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recently deleted memories that can still be restored. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MemoriesListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/approvals": {
         parameters: {
             query?: never;
@@ -2480,7 +2516,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a memory. */
+        /** Delete a memory (soft delete, restorable during the retention window). */
         delete: {
             parameters: {
                 query?: never;
@@ -3705,6 +3741,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memories/{memory_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a soft-deleted memory. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    memory_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/{agent_id}/executions": {
         parameters: {
             query?: never;
@@ -4185,6 +4268,66 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/memories/{memory_id}/protection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Protect or unprotect a memory against LLM and defrag deletion. */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    memory_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateMemoryProtectionRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/conversations/{conv_id}/archive": {
@@ -4695,6 +4838,67 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/anonymous-mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Turn anonymous mode on or off for a conversation.
+         * @description Persisted server-side so the setting survives a page reload - it used to be
+         *     client-only state, which meant a "private" conversation quietly became
+         *     memory-enabled after a refresh.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/messages/{message_id}/files/{file_index}": {
@@ -5793,6 +5997,21 @@ export interface components {
             created_at: string;
             /** Updated At */
             updated_at: string;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
+            /**
+             * Source Conversation Id
+             * @default null
+             */
+            source_conversation_id: string | null;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
         };
         /**
          * MemoriesListResponse
@@ -5801,6 +6020,12 @@ export interface components {
         MemoriesListResponse: {
             /** Memories */
             memories: components["schemas"]["MemoriesListResponse.MemoryResponse"][];
+            /**
+             * Limit
+             * @description Maximum memories this user can store
+             * @default 0
+             */
+            limit: number;
         };
         /**
          * StatusResponse
@@ -7279,6 +7504,11 @@ export interface components {
              * @default false
              */
             archived: boolean;
+            /**
+             * Anonymous Mode
+             * @default false
+             */
+            anonymous_mode: boolean;
             /** Messages */
             messages: components["schemas"]["ConversationDetailPaginatedResponse.MessageResponse"][];
             message_pagination: components["schemas"]["ConversationDetailPaginatedResponse.MessagesPaginationResponse"];
@@ -7534,6 +7764,17 @@ export interface components {
             messages: {
                 [key: string]: unknown;
             }[];
+        };
+        /**
+         * UpdateMemoryProtectionRequest
+         * @description Request to protect or unprotect a memory.
+         */
+        UpdateMemoryProtectionRequest: {
+            /**
+             * Protected
+             * @description Whether the memory is exempt from auto-deletion
+             */
+            protected: boolean;
         };
         /**
          * LanguageConversationResponse

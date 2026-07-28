@@ -236,6 +236,18 @@ export const conversations = {
     });
   },
 
+  /**
+   * Persist anonymous mode for a conversation so it survives a page reload.
+   */
+  async setAnonymousMode(id: string, anonymousMode: boolean): Promise<void> {
+    // PATCH is idempotent (same update = same result), safe to retry
+    await request<{ status: string }>(`/api/conversations/${id}/anonymous-mode`, {
+      method: 'PATCH',
+      body: JSON.stringify({ anonymous_mode: anonymousMode }),
+      retry: true,
+    });
+  },
+
   async archive(id: string): Promise<void> {
     await request<{ status: string }>(`/api/conversations/${id}/archive`, {
       method: 'POST',
@@ -555,10 +567,45 @@ export const memories = {
     return data.memories;
   },
 
+  /**
+   * List memories together with the server-side cap, so the UI does not need
+   * its own copy of the limit.
+   */
+  async listWithLimit(): Promise<{ memories: Memory[]; limit: number }> {
+    const data = await requestWithRetry<MemoriesResponse>('/api/memories');
+    return { memories: data.memories, limit: data.limit ?? 0 };
+  },
+
+  /**
+   * Recently deleted memories, still restorable until the nightly purge.
+   */
+  async listDeleted(): Promise<Memory[]> {
+    const data = await requestWithRetry<MemoriesResponse>('/api/memories/deleted');
+    return data.memories;
+  },
+
   async delete(memoryId: string): Promise<void> {
     // DELETE is idempotent, safe to retry
     await request<{ status: string }>(`/api/memories/${memoryId}`, {
       method: 'DELETE',
+      retry: true,
+    });
+  },
+
+  async restore(memoryId: string): Promise<void> {
+    await request<{ status: string }>(`/api/memories/${memoryId}/restore`, {
+      method: 'POST',
+      retry: true,
+    });
+  },
+
+  /**
+   * Protect a memory so the LLM and the defrag job cannot delete it.
+   */
+  async setProtected(memoryId: string, isProtected: boolean): Promise<void> {
+    await request<{ status: string }>(`/api/memories/${memoryId}/protection`, {
+      method: 'PATCH',
+      body: JSON.stringify({ protected: isProtected }),
       retry: true,
     });
   },

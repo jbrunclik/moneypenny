@@ -63,6 +63,24 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Accessed storage",
         "icon": "database",
     },
+    # Memory writes are shown like any other tool: the user should see when
+    # something was learned about them, at the moment it happens, rather than
+    # having to open the memories popup to find out.
+    "manage_memory": {
+        "label": "Updating memory",
+        "label_past": "Updated memory",
+        "icon": "brain",
+    },
+    "search_conversations": {
+        "label": "Searching past conversations",
+        "label_past": "Searched past conversations",
+        "icon": "history",
+    },
+    "read_conversation": {
+        "label": "Reading a past conversation",
+        "label_past": "Read a past conversation",
+        "icon": "history",
+    },
 }
 
 # Check if Google Calendar is configured
@@ -88,6 +106,8 @@ _detail_tools = {
     "generate_image",
     "execute_code",
     "todoist",
+    "manage_memory",
+    "search_conversations",
 }
 if _GOOGLE_CALENDAR_CONFIGURED:
     _detail_tools.add("google_calendar")
@@ -218,6 +238,28 @@ def _format_calendar_detail(tool_args: dict[str, Any]) -> str:
     return action
 
 
+def _format_memory_detail(tool_args: dict[str, Any]) -> str:
+    """Summarize memory operations, e.g. "remembered 2, updated 1"."""
+    operations = tool_args.get("operations")
+    if not isinstance(operations, list):
+        return "updated memory"
+
+    verbs = {"add": "remembered", "update": "updated", "delete": "forgot"}
+    counts: dict[str, int] = {}
+    for op in operations:
+        if not isinstance(op, dict):
+            continue
+        verb = verbs.get(str(op.get("action")))
+        if verb:
+            counts[verb] = counts.get(verb, 0) + 1
+
+    if not counts:
+        return "updated memory"
+
+    # Stable order so the same batch always reads the same way
+    return ", ".join(f"{verb} {count}" for verb, count in sorted(counts.items()))
+
+
 def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:
     """Extract a human-readable detail string from complete tool arguments.
 
@@ -255,6 +297,10 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
         return _format_todoist_detail(tool_args)
     elif tool_name == "google_calendar" and "action" in tool_args:
         return _format_calendar_detail(tool_args)
+    elif tool_name == "manage_memory" and "operations" in tool_args:
+        return _format_memory_detail(tool_args)
+    elif tool_name == "search_conversations" and tool_args.get("query"):
+        return str(tool_args["query"])
     return None
 
 

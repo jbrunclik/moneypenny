@@ -32,7 +32,6 @@ import { initSourcesPopup } from '../components/SourcesPopup';
 import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHistoryPopup';
-import { initMemoriesPopup, getMemoriesPopupHtml } from '../components/MemoriesPopup';
 import {
   initSettingsPopup,
   getSettingsPopupHtml,
@@ -197,9 +196,6 @@ export function renderAppShell(): string {
 
     <!-- Cost History Popup -->
     ${getCostHistoryPopupHtml()}
-
-    <!-- Memories Popup -->
-    ${getMemoriesPopupHtml()}
 
     <!-- Settings Popup -->
     ${getSettingsPopupHtml()}
@@ -406,7 +402,6 @@ export async function init(): Promise<void> {
   initImageGenPopup();
   initMessageCostPopup();
   costHistoryPopup.init();
-  initMemoriesPopup();
   initSettingsPopup();
   initAgents();
   initScrollToBottom();

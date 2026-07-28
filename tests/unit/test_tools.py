@@ -2278,12 +2278,21 @@ class TestGetToolsForRequest:
         assert "generate_image" in tool_names
         assert "retrieve_file" in tool_names
 
+    def test_excludes_manage_memory_in_anonymous_mode(self) -> None:
+        """Anonymous mode must not be able to write to long-term memory.
+
+        The tool is unbound rather than filtered after the fact, so the model
+        cannot even attempt a write it is not allowed to make.
+        """
+        assert "manage_memory" in {t.name for t in get_tools_for_request(anonymous_mode=False)}
+        assert "manage_memory" not in {t.name for t in get_tools_for_request(anonymous_mode=True)}
+
     def test_returns_fewer_or_same_tools_in_anonymous_mode(self) -> None:
         """Should return same or fewer tools in anonymous mode.
 
-        Note: The exact count depends on whether integration tools are configured.
-        If Todoist and Google Calendar are not configured, both modes return the same tools.
-        If they are configured, anonymous mode returns 2 fewer tools.
+        Note: the exact count depends on which integration tools are configured.
+        manage_memory is always withheld, so anonymous mode returns at least one
+        fewer tool than a standard request.
         """
         normal_tools = get_tools_for_request(anonymous_mode=False)
         anonymous_tools = get_tools_for_request(anonymous_mode=True)
@@ -2291,14 +2300,17 @@ class TestGetToolsForRequest:
         # Anonymous mode should have same or fewer tools
         assert len(anonymous_tools) <= len(normal_tools)
 
-        # Count how many integration tools are actually configured
+        # Count how many of the withheld tools are actually available. Derived
+        # from the module's own set so adding a withheld tool cannot make this
+        # test wrong without also making it fail loudly.
+        from src.agent.tools import _ANONYMOUS_EXCLUDED_TOOLS
+
         normal_tool_names = {t.name for t in normal_tools}
-        integration_tools_available = len(
-            {"todoist", "google_calendar", "garmin_connect"} & normal_tool_names
-        )
+        withheld_available = len(_ANONYMOUS_EXCLUDED_TOOLS & normal_tool_names)
 
         # Should be exactly this many fewer
-        assert len(anonymous_tools) == len(normal_tools) - integration_tools_available
+        assert len(anonymous_tools) == len(normal_tools) - withheld_available
+        assert not _ANONYMOUS_EXCLUDED_TOOLS & {t.name for t in anonymous_tools}
 
     def test_default_parameter_is_false(self) -> None:
         """Should default to anonymous_mode=False."""
@@ -2328,6 +2340,62 @@ class TestGetToolsForRequest:
         tools = get_tools_for_request()
         tool_names = {t.name for t in tools}
         assert "kv_store" not in tool_names
+
+    def test_restricted_agent_does_not_get_manage_memory(self) -> None:
+        """Memory writes are a granted capability for agents, not a baseline one.
+
+        An unattended run that reads the web could otherwise persist
+        attacker-controlled text into memory that is injected into every later
+        conversation.
+        """
+        tools = get_tools_for_request(agent_tool_permissions=["web_search"])
+        assert "manage_memory" not in {t.name for t in tools}
+
+    def test_agent_granted_manage_memory_gets_it(self) -> None:
+        """An explicit grant is honoured."""
+        tools = get_tools_for_request(agent_tool_permissions=["manage_memory"])
+        assert "manage_memory" in {t.name for t in tools}
+
+
+class TestGetToolsForAgent:
+    """Tool binding for autonomous agent runs."""
+
+    @staticmethod
+    def _agent(tool_permissions: list[str] | None) -> MagicMock:
+        """Minimal agent stub for tool selection."""
+        agent = MagicMock()
+        agent.id = "agent-1"
+        agent.user_id = "user-1"
+        agent.tool_permissions = tool_permissions
+        return agent
+
+    def test_restricted_agent_does_not_get_manage_memory(self) -> None:
+        """Baseline agent tools must not include long-term memory writes."""
+        from src.agent.tools import get_tools_for_agent
+
+        tools = get_tools_for_agent(self._agent(["web_search"]))
+        assert "manage_memory" not in {t.name for t in tools}
+
+    def test_agent_with_empty_permissions_does_not_get_manage_memory(self) -> None:
+        """tool_permissions=[] means no extra capabilities at all."""
+        from src.agent.tools import get_tools_for_agent
+
+        tools = get_tools_for_agent(self._agent([]))
+        assert "manage_memory" not in {t.name for t in tools}
+
+    def test_agent_granted_manage_memory_gets_it(self) -> None:
+        """An explicit grant is honoured."""
+        from src.agent.tools import get_tools_for_agent
+
+        tools = get_tools_for_agent(self._agent(["manage_memory"]))
+        assert "manage_memory" in {t.name for t in tools}
+
+    def test_unrestricted_agent_keeps_manage_memory(self) -> None:
+        """tool_permissions=None means unrestricted, including memory."""
+        from src.agent.tools import get_tools_for_agent
+
+        tools = get_tools_for_agent(self._agent(None))
+        assert "manage_memory" in {t.name for t in tools}
 
 
 class TestRetrieveFileVideo:

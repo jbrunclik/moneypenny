@@ -321,6 +321,77 @@ class TestDeleteConversation:
         assert response.status_code == 401
 
 
+class TestAnonymousMode:
+    """Tests for PATCH /api/conversations/<conv_id>/anonymous-mode endpoint."""
+
+    def test_anonymous_mode_survives_reload(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """The flag must be readable back from the server.
+
+        It used to be client-only state, so a conversation the user marked
+        private silently became memory-enabled after a page refresh.
+        """
+        response = client.patch(
+            f"/api/conversations/{test_conversation.id}/anonymous-mode",
+            json={"anonymous_mode": True},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+        detail = client.get(
+            f"/api/conversations/{test_conversation.id}", headers=auth_headers
+        ).get_json()
+        assert detail["anonymous_mode"] is True
+
+    def test_anonymous_mode_defaults_to_off(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """New conversations are not anonymous."""
+        detail = client.get(
+            f"/api/conversations/{test_conversation.id}", headers=auth_headers
+        ).get_json()
+
+        assert detail["anonymous_mode"] is False
+
+    def test_anonymous_mode_can_be_turned_off(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """The toggle works in both directions."""
+        for value in (True, False):
+            client.patch(
+                f"/api/conversations/{test_conversation.id}/anonymous-mode",
+                json={"anonymous_mode": value},
+                headers=auth_headers,
+            )
+
+        detail = client.get(
+            f"/api/conversations/{test_conversation.id}", headers=auth_headers
+        ).get_json()
+        assert detail["anonymous_mode"] is False
+
+    def test_nonexistent_conversation_returns_404(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        """Should return 404 for an unknown conversation."""
+        response = client.patch(
+            "/api/conversations/nope/anonymous-mode",
+            json={"anonymous_mode": True},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 404
+
+
 class TestArchiveConversation:
     """Tests for POST /api/conversations/<conv_id>/archive endpoint."""
 

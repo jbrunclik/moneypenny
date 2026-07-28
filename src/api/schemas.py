@@ -534,7 +534,16 @@ class ConversationDetailResponse(BaseModel):
     updated_at: str
     is_agent: bool = False
     agent_id: str | None = None
+    anonymous_mode: bool = False
     messages: list[MessageResponse]
+
+
+class UpdateAnonymousModeRequest(BaseModel):
+    """Request to turn anonymous mode on or off for a conversation."""
+
+    anonymous_mode: bool = Field(
+        ..., description="Whether to disable memory and integrations for this conversation"
+    )
 
 
 class ConversationsListResponse(BaseModel):
@@ -746,12 +755,23 @@ class MemoryResponse(BaseModel):
     category: str | None = None
     created_at: str
     updated_at: str
+    protected: bool = False
+    source_conversation_id: str | None = None
+    deleted_at: str | None = None
 
 
 class MemoriesListResponse(BaseModel):
     """List of memories."""
 
     memories: list[MemoryResponse]
+    # Served from config so the UI does not keep its own copy of the cap
+    limit: int = Field(default=0, description="Maximum memories this user can store")
+
+
+class UpdateMemoryProtectionRequest(BaseModel):
+    """Request to protect or unprotect a memory."""
+
+    protected: bool = Field(..., description="Whether the memory is exempt from auto-deletion")
 
 
 # -----------------------------------------------------------------------------
@@ -813,6 +833,7 @@ class ConversationDetailPaginatedResponse(BaseModel):
     agent_id: str | None = None
     has_pending_approval: bool = False  # True if agent has pending approval request
     archived: bool = False
+    anonymous_mode: bool = False  # Memory and integrations disabled for this conversation
     messages: list[MessageResponse]
     message_pagination: MessagesPaginationResponse
 

@@ -1,8 +1,12 @@
 """Persistence pipeline for a completed chat turn.
 
-Orchestrates metadata extraction, memory operations, generated-file
-collection, message persistence, cost accounting and title generation.
-Called from both the stream generator and the cleanup thread.
+Orchestrates metadata extraction, generated-file collection, message
+persistence, cost accounting and title generation. Called from both the stream
+generator and the cleanup thread.
+
+Memory operations are not handled here: manage_memory writes during the turn so
+the model can read the outcome, rather than having its arguments replayed after
+the fact.
 """
 
 from __future__ import annotations
@@ -12,18 +16,14 @@ from typing import Any
 from src.agent.agent import generate_title
 from src.agent.content import (
     detect_response_language,
+    extract_cited_sources,
     extract_image_prompts_from_messages,
-    extract_metadata_tool_args,
     extract_sources_fallback_from_tool_results,
 )
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, set_current_message_files
 from src.api.schemas import MessageRole
-from src.api.utils import (
-    calculate_and_save_message_cost,
-    process_memory_operations,
-    validate_memory_operations,
-)
+from src.api.utils import calculate_and_save_message_cost
 from src.config import Config
 from src.db.models import db
 from src.utils.images import (
@@ -61,9 +61,9 @@ def _extract_stream_metadata(
     tools: list[dict[str, Any]],
     user_id: str,
     conv_id: str,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None, list[dict[str, Any]]]:
-    """Extract sources, image prompts, language and memory ops from the turn."""
-    sources, memory_ops = extract_metadata_tool_args(result_messages)
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+    """Extract sources, image prompts and language from the turn."""
+    sources: list[dict[str, Any]] = list(extract_cited_sources(result_messages))
     generated_images_meta = extract_image_prompts_from_messages(result_messages)
     language = detect_response_language(content)
 
@@ -81,29 +81,7 @@ def _extract_stream_metadata(
             "language": language,
         },
     )
-    return sources, generated_images_meta, language, memory_ops
-
-
-def _apply_memory_operations(
-    memory_ops: list[dict[str, Any]],
-    stream_user_id: str,
-    conv_id: str,
-    anonymous_mode: bool,
-) -> None:
-    """Validate and persist manage_memory operations (skipped in anonymous mode)."""
-    if anonymous_mode:
-        return
-    memory_ops = validate_memory_operations(memory_ops)
-    if memory_ops:
-        logger.debug(
-            "Processing memory operations from stream",
-            extra={
-                "user_id": stream_user_id,
-                "conversation_id": conv_id,
-                "operation_count": len(memory_ops),
-            },
-        )
-        process_memory_operations(stream_user_id, memory_ops)
+    return sources, generated_images_meta, language
 
 
 def _collect_generated_files(
@@ -215,19 +193,16 @@ def save_message_to_db(
     usage: dict[str, Any],
     conv_id: str,
     user_id: str,
-    stream_user_id: str,
     model: str,
     message_text: str,
     stream_request_id: str,
-    anonymous_mode: bool,
     client_connected: bool,
     assistant_message_id: str | None = None,
 ) -> SaveResult | None:
     """Save message to database. Called from both generator and cleanup thread.
 
-    Orchestrates the sub-steps: metadata extraction, memory operations,
-    generated-file collection, message persistence, cost accounting and
-    title generation.
+    Orchestrates the sub-steps: metadata extraction, generated-file collection,
+    message persistence, cost accounting and title generation.
 
     Args:
         content: Message content to save
@@ -236,11 +211,9 @@ def save_message_to_db(
         usage: Usage info dictionary
         conv_id: Conversation ID
         user_id: User ID string (for logging)
-        stream_user_id: Streaming user ID string (for memory operations)
         model: Model name
         message_text: Original user message text (for title generation)
         stream_request_id: Streaming request ID (for full tool results)
-        anonymous_mode: Whether anonymous mode is enabled
         client_connected: Whether client is still connected (for logging)
         assistant_message_id: Pre-generated message ID for streaming recovery
 
@@ -248,10 +221,9 @@ def save_message_to_db(
         SaveResult with extracted data for building done event, or None on error.
     """
     try:
-        sources, generated_images_meta, language, memory_ops = _extract_stream_metadata(
+        sources, generated_images_meta, language = _extract_stream_metadata(
             content, result_messages, tools, user_id, conv_id
         )
-        _apply_memory_operations(memory_ops, stream_user_id, conv_id, anonymous_mode)
         all_generated_files, full_tool_results = _collect_generated_files(
             stream_request_id, user_id, conv_id
         )

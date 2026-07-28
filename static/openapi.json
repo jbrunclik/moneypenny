@@ -1079,6 +1079,27 @@
         "summary": "Return Google Calendar connection status."
       }
     },
+    "/api/memories/deleted": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoriesListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Memory"
+        ],
+        "summary": "List recently deleted memories that can still be restored."
+      }
+    },
     "/api/agents/approvals": {
       "get": {
         "parameters": [],
@@ -1855,7 +1876,7 @@
         "tags": [
           "Memory"
         ],
-        "summary": "Delete a memory."
+        "summary": "Delete a memory (soft delete, restorable during the retention window)."
       }
     },
     "/api/planner/conversation": {
@@ -2915,6 +2936,46 @@
         "summary": "Update the user's selected calendar IDs."
       }
     },
+    "/api/memories/{memory_id}/restore": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memory_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Memory"
+        ],
+        "summary": "Restore a soft-deleted memory."
+      }
+    },
     "/api/agents/{agent_id}/executions": {
       "get": {
         "parameters": [
@@ -3328,6 +3389,65 @@
           "Language"
         ],
         "summary": "Delete a program and its conversation."
+      }
+    },
+    "/api/memories/{memory_id}/protection": {
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memory_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Memory"
+        ],
+        "summary": "Protect or unprotect a memory against LLM and defrag deletion.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemoryProtectionRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/conversations/{conv_id}/archive": {
@@ -3753,6 +3873,57 @@
         ],
         "summary": "Stream chat response via SSE",
         "description": "Send a message and stream the response via Server-Sent Events.\n\nReturns text/event-stream with the following event types:\n- `thinking`: LLM thinking text (if enabled) - `{\"type\": \"thinking\", \"text\": \"...\"}`\n- `tool_start`: Tool starting - `{\"type\": \"tool_start\", \"tool\": \"web_search\", \"detail\": \"...\"}`\n- `tool_end`: Tool completed - `{\"type\": \"tool_end\", \"tool\": \"web_search\"}`\n- `token`: Content token - `{\"type\": \"token\", \"text\": \"...\"}`\n- `error`: Error occurred - `{\"type\": \"error\", \"message\": \"...\", \"code\": \"...\", \"retryable\": bool}`\n- `done`: Stream complete with metadata - `{\"type\": \"done\", \"id\": \"...\", \"created_at\": \"...\", ...}`\n\nUses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.\n"
+      }
+    },
+    "/api/conversations/{conv_id}/anonymous-mode": {
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Turn anonymous mode on or off for a conversation.",
+        "description": "Persisted server-side so the setting survives a page reload - it used to be\nclient-only state, which meant a \"private\" conversation quietly became\nmemory-enabled after a refresh."
       }
     },
     "/api/messages/{message_id}/files/{file_index}": {
@@ -5632,6 +5803,35 @@
           "updated_at": {
             "title": "Updated At",
             "type": "string"
+          },
+          "protected": {
+            "default": false,
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "source_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Conversation Id"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
           }
         },
         "required": [
@@ -5652,6 +5852,12 @@
             },
             "title": "Memories",
             "type": "array"
+          },
+          "limit": {
+            "default": 0,
+            "description": "Maximum memories this user can store",
+            "title": "Limit",
+            "type": "integer"
           }
         },
         "required": [
@@ -8366,6 +8572,11 @@
             "title": "Archived",
             "type": "boolean"
           },
+          "anonymous_mode": {
+            "default": false,
+            "title": "Anonymous Mode",
+            "type": "boolean"
+          },
           "messages": {
             "items": {
               "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.MessageResponse"
@@ -8881,6 +9092,21 @@
           "messages"
         ],
         "title": "SportsConversationResponse",
+        "type": "object"
+      },
+      "UpdateMemoryProtectionRequest": {
+        "description": "Request to protect or unprotect a memory.",
+        "properties": {
+          "protected": {
+            "description": "Whether the memory is exempt from auto-deletion",
+            "title": "Protected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protected"
+        ],
+        "title": "UpdateMemoryProtectionRequest",
         "type": "object"
       },
       "LanguageConversationResponse": {

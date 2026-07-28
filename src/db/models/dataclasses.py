@@ -57,6 +57,9 @@ class Conversation:
     sports_program: str | None = None  # Program ID (e.g., "pushups")
     is_language: bool = False  # Whether this is a language learning conversation
     language_program: str | None = None  # Program ID (e.g., "spanish")
+    # No memory read/write and no integration tools. Persisted so the setting
+    # survives a page reload instead of silently reverting to off.
+    anonymous_mode: bool = False
 
 
 @dataclass
@@ -85,6 +88,13 @@ class Memory:
     category: str | None
     created_at: datetime
     updated_at: datetime
+    # Protected memories are exempt from LLM and defrag deletion (identity
+    # facts, family, allergies). Only the user can remove them.
+    protected: bool = False
+    # Conversation the memory was learned in, for "why do you know this?".
+    source_conversation_id: str | None = None
+    # Set when soft-deleted; the row is purged after the retention window.
+    deleted_at: datetime | None = None
 
 
 @dataclass

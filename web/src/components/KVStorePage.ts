@@ -4,7 +4,16 @@
  */
 
 import { escapeHtml, clearElement } from '../utils/dom';
-import { DELETE_ICON, DATABASE_ICON, BRAIN_ICON, REFRESH_ICON, CHEVRON_RIGHT_ICON } from '../utils/icons';
+import {
+  DELETE_ICON,
+  DATABASE_ICON,
+  BRAIN_ICON,
+  REFRESH_ICON,
+  CHEVRON_RIGHT_ICON,
+  LOCK_ICON,
+  UNLOCK_ICON,
+  RESTORE_ICON,
+} from '../utils/icons';
 import type { KVNamespacesResponse, KVKeysResponse, Memory } from '../types/api';
 import { showConfirm } from './Modal';
 
@@ -34,6 +43,8 @@ export interface KVStoreCallbacks {
   onDeleteKey: (namespace: string, key: string) => Promise<void>;
   onClearNamespace: (namespace: string) => Promise<void>;
   onDeleteMemory: (memoryId: string) => Promise<void>;
+  onSetMemoryProtected: (memoryId: string, isProtected: boolean) => Promise<void>;
+  onRestoreMemory: (memoryId: string) => Promise<void>;
 }
 
 /** Category labels */
@@ -72,6 +83,7 @@ export function renderKVStorePage(
   kvData: KVNamespacesResponse,
   memories: Memory[],
   callbacks: KVStoreCallbacks,
+  options?: { limit?: number; deletedMemories?: Memory[] },
 ): HTMLDivElement {
   const container = document.createElement('div');
   container.className = 'kv-store';
@@ -92,8 +104,14 @@ export function renderKVStorePage(
   container.appendChild(header);
 
   // Memories section
-  const memoriesSection = renderMemoriesSection(memories, callbacks);
+  const memoriesSection = renderMemoriesSection(memories, callbacks, options);
   container.appendChild(memoriesSection);
+
+  // Recently deleted memories, restorable until the nightly purge
+  const deleted = options?.deletedMemories ?? [];
+  if (deleted.length > 0) {
+    container.appendChild(renderDeletedMemoriesSection(deleted, callbacks));
+  }
 
   // K/V Storage section
   const kvSection = renderKVSection(kvData, callbacks);
@@ -105,13 +123,20 @@ export function renderKVStorePage(
 /**
  * Render the memories section.
  */
-function renderMemoriesSection(memories: Memory[], callbacks: KVStoreCallbacks): HTMLDivElement {
+function renderMemoriesSection(
+  memories: Memory[],
+  callbacks: KVStoreCallbacks,
+  options?: { limit?: number },
+): HTMLDivElement {
   const section = document.createElement('div');
   section.className = 'kv-store-section';
 
+  // The cap comes from the API so the UI never keeps its own copy of it
+  const countLabel = options?.limit ? `${memories.length}/${options.limit}` : String(memories.length);
+
   const title = document.createElement('h3');
   title.className = 'kv-store-section-title';
-  title.innerHTML = `<span class="section-icon">${BRAIN_ICON}</span> Memories <span class="kv-store-section-count">${memories.length}</span>`;
+  title.innerHTML = `<span class="section-icon">${BRAIN_ICON}</span> Memories <span class="kv-store-section-count">${escapeHtml(countLabel)}</span>`;
   section.appendChild(title);
 
   if (memories.length === 0) {
@@ -126,40 +151,144 @@ function renderMemoriesSection(memories: Memory[], callbacks: KVStoreCallbacks):
   list.className = 'kv-memories-list';
 
   for (const memory of memories) {
-    const item = document.createElement('div');
-    item.className = 'memory-item';
+    list.appendChild(renderMemoryItem(memory, section, list, callbacks));
+  }
 
-    const categoryConfig = memory.category ? CATEGORY_CONFIG[memory.category] : null;
-    const categoryBadge = categoryConfig
-      ? `<span class="memory-category memory-category--${categoryConfig.class}">${categoryConfig.label}</span>`
+  section.appendChild(list);
+  return section;
+}
+
+/**
+ * Render one memory row with its protect and delete actions.
+ */
+function renderMemoryItem(
+  memory: Memory,
+  section: HTMLDivElement,
+  list: HTMLDivElement,
+  callbacks: KVStoreCallbacks,
+): HTMLDivElement {
+  const item = document.createElement('div');
+  item.className = 'memory-item';
+
+  const categoryConfig = memory.category ? CATEGORY_CONFIG[memory.category] : null;
+  const categoryBadge = categoryConfig
+    ? `<span class="memory-category memory-category--${categoryConfig.class}">${categoryConfig.label}</span>`
+    : '';
+
+  let isProtected = memory.protected === true;
+
+  const renderRow = (): void => {
+    const protectTitle = isProtected
+      ? 'Protected - the assistant cannot delete this. Click to unprotect.'
+      : 'Protect from automatic deletion';
+    const protectedBadge = isProtected
+      ? '<span class="memory-protected-badge">Protected</span>'
       : '';
 
+    item.classList.toggle('memory-item--protected', isProtected);
     item.innerHTML = `
       <div class="memory-content-row">
         <span class="memory-text">${escapeHtml(memory.content)}</span>
+        <button class="memory-protect" aria-pressed="${String(isProtected)}"
+                title="${escapeHtml(protectTitle)}">${isProtected ? LOCK_ICON : UNLOCK_ICON}</button>
         <button class="memory-delete" title="Delete memory">${DELETE_ICON}</button>
       </div>
       <div class="memory-meta">
         ${categoryBadge}
+        ${protectedBadge}
         <span class="memory-time">${formatRelativeTime(memory.updated_at)}</span>
       </div>
     `;
+    attachHandlers();
+  };
+
+  const updateCount = (): void => {
+    const countEl = section.querySelector('.kv-store-section-count');
+    if (!countEl) return;
+    // Keep the "N/limit" shape when a limit is being shown
+    const [, limit] = (countEl.textContent ?? '').split('/');
+    countEl.textContent = limit ? `${list.children.length}/${limit}` : String(list.children.length);
+  };
+
+  const attachHandlers = (): void => {
+    item.querySelector('.memory-protect')?.addEventListener('click', async () => {
+      const next = !isProtected;
+      try {
+        await callbacks.onSetMemoryProtected(memory.id, next);
+        isProtected = next;
+        renderRow();
+      } catch {
+        // Error surfaced by the caller
+      }
+    });
 
     item.querySelector('.memory-delete')?.addEventListener('click', async () => {
-      const confirmed = await showConfirm({ message: 'Delete this memory?', confirmLabel: 'Delete', danger: true });
+      const confirmed = await showConfirm({
+        message: 'Delete this memory?',
+        confirmLabel: 'Delete',
+        danger: true,
+      });
       if (!confirmed) return;
       try {
         await callbacks.onDeleteMemory(memory.id);
         item.remove();
-        // Update count
-        const countEl = section.querySelector('.kv-store-section-count');
-        if (countEl) {
-          const remaining = list.children.length;
-          countEl.textContent = String(remaining);
-        }
+        updateCount();
         if (list.children.length === 0) {
           list.innerHTML = '<div class="kv-store-section-empty"><p>No memories remaining.</p></div>';
         }
+      } catch {
+        // Error handled by caller
+      }
+    });
+  };
+
+  renderRow();
+  return item;
+}
+
+/**
+ * Render recently deleted memories with a restore action.
+ *
+ * Deletes are soft, and can be made by the assistant as well as the user, so the
+ * recovery window needs to be visible somewhere.
+ */
+function renderDeletedMemoriesSection(
+  deletedMemories: Memory[],
+  callbacks: KVStoreCallbacks,
+): HTMLDivElement {
+  const section = document.createElement('div');
+  section.className = 'kv-store-section';
+
+  const title = document.createElement('h3');
+  title.className = 'kv-store-section-title';
+  title.innerHTML = `<span class="section-icon">${RESTORE_ICON}</span> Recently deleted <span class="kv-store-section-count">${deletedMemories.length}</span>`;
+  section.appendChild(title);
+
+  const list = document.createElement('div');
+  list.className = 'kv-memories-list';
+
+  for (const memory of deletedMemories) {
+    const item = document.createElement('div');
+    item.className = 'memory-item memory-item--deleted';
+    item.innerHTML = `
+      <div class="memory-content-row">
+        <span class="memory-text">${escapeHtml(memory.content)}</span>
+        <button class="memory-restore" title="Restore this memory">${RESTORE_ICON}</button>
+      </div>
+      <div class="memory-meta">
+        <span class="memory-time">deleted ${escapeHtml(
+          memory.deleted_at ? formatRelativeTime(memory.deleted_at) : ''
+        )}</span>
+      </div>
+    `;
+
+    item.querySelector('.memory-restore')?.addEventListener('click', async () => {
+      try {
+        await callbacks.onRestoreMemory(memory.id);
+        item.remove();
+        const countEl = section.querySelector('.kv-store-section-count');
+        if (countEl) countEl.textContent = String(list.children.length);
+        if (list.children.length === 0) section.remove();
       } catch {
         // Error handled by caller
       }

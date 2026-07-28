@@ -18,6 +18,8 @@ import {
   CHECKLIST_ICON,
   CALENDAR_ICON,
   GLOBE_ICON,
+  DATABASE_ICON,
+  HISTORY_ICON,
 } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { renderMarkdown } from '../utils/markdown';
@@ -33,6 +35,8 @@ const ICON_MAP: Record<string, string> = {
   checklist: CHECKLIST_ICON,
   calendar: CALENDAR_ICON,
   brain: BRAIN_ICON,
+  database: DATABASE_ICON,
+  history: HISTORY_ICON,
 };
 
 /**

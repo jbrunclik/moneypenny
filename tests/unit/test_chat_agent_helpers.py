@@ -3,8 +3,8 @@
 from src.agent.content import (
     clean_tool_call_json,
     detect_response_language,
+    extract_cited_sources,
     extract_image_prompts_from_messages,
-    extract_metadata_tool_args,
     extract_sources_fallback_from_tool_results,
     extract_text_content,
     extract_thinking_and_text,
@@ -448,8 +448,8 @@ class TestExtractImagePromptsFromMessages:
         assert result[1]["prompt"] == "a dog"
 
 
-class TestExtractMetadataToolArgs:
-    """Tests for extract_metadata_tool_args function."""
+class TestExtractCitedSources:
+    """Tests for extract_cited_sources function."""
 
     def test_extracts_sources_from_cite_sources(self) -> None:
         """Should extract sources from cite_sources tool call."""
@@ -472,14 +472,13 @@ class TestExtractMetadataToolArgs:
                 ],
             )
         ]
-        sources, memory_ops = extract_metadata_tool_args(messages)
+        sources = extract_cited_sources(messages)
         assert len(sources) == 2
         assert sources[0]["title"] == "Example"
         assert sources[1]["url"] == "https://test.com"
-        assert memory_ops == []
 
-    def test_extracts_memory_ops_from_manage_memory(self) -> None:
-        """Should extract memory operations from manage_memory tool call."""
+    def test_ignores_non_citation_tool_calls(self) -> None:
+        """Should return nothing for tool calls that are not cite_sources."""
         from langchain_core.messages import AIMessage
 
         messages = [
@@ -488,70 +487,87 @@ class TestExtractMetadataToolArgs:
                 tool_calls=[
                     {
                         "name": "manage_memory",
-                        "args": {
-                            "operations": [
-                                {
-                                    "action": "add",
-                                    "content": "User likes pizza",
-                                    "category": "preference",
-                                }
-                            ]
-                        },
+                        "args": {"operations": [{"action": "add", "content": "User likes pizza"}]},
                         "id": "1",
                     }
                 ],
             )
         ]
-        sources, memory_ops = extract_metadata_tool_args(messages)
-        assert sources == []
-        assert len(memory_ops) == 1
-        assert memory_ops[0]["action"] == "add"
-        assert memory_ops[0]["content"] == "User likes pizza"
+        assert extract_cited_sources(messages) == []
 
-    def test_extracts_both_sources_and_memory(self) -> None:
-        """Should extract both sources and memory operations."""
+    def test_collects_citations_from_every_ai_message(self) -> None:
+        """A multi-step turn can cite as it goes; none of it may be dropped.
+
+        Regression: extraction used to stop at the most recent AIMessage with a
+        metadata tool call, so citations made earlier in a tool loop vanished.
+        """
         from langchain_core.messages import AIMessage
 
         messages = [
             AIMessage(
-                content="Here's the answer.",
+                content="Searching.",
                 tool_calls=[
                     {
                         "name": "cite_sources",
-                        "args": {"sources": [{"title": "Wiki", "url": "https://wiki.org"}]},
+                        "args": {"sources": [{"title": "First", "url": "https://first.com"}]},
                         "id": "1",
-                    },
-                    {
-                        "name": "manage_memory",
-                        "args": {"operations": [{"action": "add", "content": "fact"}]},
-                        "id": "2",
-                    },
+                    }
                 ],
-            )
+            ),
+            AIMessage(
+                content="And now the answer.",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {"sources": [{"title": "Second", "url": "https://second.com"}]},
+                        "id": "2",
+                    }
+                ],
+            ),
         ]
-        sources, memory_ops = extract_metadata_tool_args(messages)
-        assert len(sources) == 1
-        assert len(memory_ops) == 1
+        sources = extract_cited_sources(messages)
+        assert [s["title"] for s in sources] == ["First", "Second"]
 
-    def test_no_metadata_tools(self) -> None:
-        """Should return empty lists when no metadata tools are called."""
+    def test_deduplicates_repeated_urls(self) -> None:
+        """The same source cited twice should appear once."""
         from langchain_core.messages import AIMessage
 
         messages = [
             AIMessage(
-                content="Just a response.",
-                tool_calls=[],
-            )
+                content="One",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {"sources": [{"title": "Same", "url": "https://same.com"}]},
+                        "id": "1",
+                    }
+                ],
+            ),
+            AIMessage(
+                content="Two",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {"sources": [{"title": "Same again", "url": "https://same.com"}]},
+                        "id": "2",
+                    }
+                ],
+            ),
         ]
-        sources, memory_ops = extract_metadata_tool_args(messages)
-        assert sources == []
-        assert memory_ops == []
+        sources = extract_cited_sources(messages)
+        assert len(sources) == 1
+        assert sources[0]["title"] == "Same"
+
+    def test_no_metadata_tools(self) -> None:
+        """Should return an empty list when no metadata tools are called."""
+        from langchain_core.messages import AIMessage
+
+        messages = [AIMessage(content="Just a response.", tool_calls=[])]
+        assert extract_cited_sources(messages) == []
 
     def test_empty_messages(self) -> None:
-        """Should return empty lists for empty messages."""
-        sources, memory_ops = extract_metadata_tool_args([])
-        assert sources == []
-        assert memory_ops == []
+        """Should return an empty list for empty messages."""
+        assert extract_cited_sources([]) == []
 
     def test_skips_invalid_sources(self) -> None:
         """Should skip source dicts that are missing title or url."""
@@ -575,7 +591,7 @@ class TestExtractMetadataToolArgs:
                 ],
             )
         ]
-        sources, _ = extract_metadata_tool_args(messages)
+        sources = extract_cited_sources(messages)
         assert len(sources) == 1
         assert sources[0]["title"] == "Valid"
 
@@ -683,77 +699,6 @@ class TestStripFullResultFromToolContent:
         """JSON array should pass through unchanged."""
         content = "[1, 2, 3]"
         assert strip_full_result_from_tool_content(content) == content
-
-
-class TestValidateMemoryOperations:
-    """Tests for validate_memory_operations function."""
-
-    def test_validates_add_operation(self) -> None:
-        """Should accept valid add operations."""
-        from src.api.utils import validate_memory_operations
-
-        ops = [{"action": "add", "content": "User likes pizza", "category": "preference"}]
-        result = validate_memory_operations(ops)
-        assert len(result) == 1
-        assert result[0]["action"] == "add"
-
-    def test_validates_update_operation(self) -> None:
-        """Should accept valid update operations."""
-        from src.api.utils import validate_memory_operations
-
-        ops = [{"action": "update", "id": "mem-123", "content": "Updated content"}]
-        result = validate_memory_operations(ops)
-        assert len(result) == 1
-
-    def test_validates_delete_operation(self) -> None:
-        """Should accept valid delete operations."""
-        from src.api.utils import validate_memory_operations
-
-        ops = [{"action": "delete", "id": "mem-456"}]
-        result = validate_memory_operations(ops)
-        assert len(result) == 1
-
-    def test_rejects_add_without_content(self) -> None:
-        """Should reject add operations without content."""
-        from src.api.utils import validate_memory_operations
-
-        ops = [{"action": "add", "category": "preference"}]
-        result = validate_memory_operations(ops)
-        assert result == []
-
-    def test_rejects_update_without_id(self) -> None:
-        """Should reject update operations without id."""
-        from src.api.utils import validate_memory_operations
-
-        ops = [{"action": "update", "content": "New content"}]
-        result = validate_memory_operations(ops)
-        assert result == []
-
-    def test_rejects_invalid_action(self) -> None:
-        """Should reject operations with invalid action."""
-        from src.api.utils import validate_memory_operations
-
-        ops = [{"action": "invalid", "content": "Test"}]
-        result = validate_memory_operations(ops)
-        assert result == []
-
-    def test_returns_empty_for_empty_input(self) -> None:
-        """Should return empty list for empty input."""
-        from src.api.utils import validate_memory_operations
-
-        assert validate_memory_operations([]) == []
-
-    def test_filters_mixed_valid_and_invalid(self) -> None:
-        """Should keep valid ops and filter out invalid ones."""
-        from src.api.utils import validate_memory_operations
-
-        ops = [
-            {"action": "add", "content": "Valid"},
-            {"action": "invalid"},
-            {"action": "delete", "id": "mem-1"},
-        ]
-        result = validate_memory_operations(ops)
-        assert len(result) == 2
 
 
 class TestCleanToolCallJson:
@@ -1690,8 +1635,8 @@ class TestCleanupAndSave:
 class TestSmartRouting:
     """Tests for should_continue() smart routing in graph.py.
 
-    Verifies that metadata-only tool calls (cite_sources, manage_memory) route
-    to "end" while real tool calls route to "tools".
+    Verifies that extract-only tool calls (cite_sources) route to "end" while
+    real tool calls - including manage_memory - route to "tools".
     """
 
     def test_metadata_only_routes_to_end(self) -> None:
@@ -1710,8 +1655,14 @@ class TestSmartRouting:
         }
         assert should_continue(state) == "end"
 
-    def test_manage_memory_only_routes_to_end(self) -> None:
-        """manage_memory-only tool calls should route to 'end'."""
+    def test_manage_memory_routes_to_tools_even_with_text(self) -> None:
+        """manage_memory must execute: it performs the write and reports it.
+
+        Regression: manage_memory used to be treated as metadata, so a response
+        with text plus a memory write short-circuited to "end" and the tool
+        never ran. The write was replayed afterwards from the tool call args,
+        which meant the model never learned whether it succeeded.
+        """
         from langchain_core.messages import AIMessage
 
         from src.agent.graph import AgentState, should_continue
@@ -1730,10 +1681,10 @@ class TestSmartRouting:
                 )
             ]
         }
-        assert should_continue(state) == "end"
+        assert should_continue(state) == "tools"
 
-    def test_both_metadata_tools_route_to_end(self) -> None:
-        """cite_sources + manage_memory together should route to 'end'."""
+    def test_citation_plus_memory_routes_to_tools(self) -> None:
+        """A batch containing manage_memory must still reach the tool node."""
         from langchain_core.messages import AIMessage
 
         from src.agent.graph import AgentState, should_continue
@@ -1749,7 +1700,7 @@ class TestSmartRouting:
                 )
             ]
         }
-        assert should_continue(state) == "end"
+        assert should_continue(state) == "tools"
 
     def test_real_tool_routes_to_tools(self) -> None:
         """Non-metadata tool calls should route to 'tools'."""
@@ -2083,9 +2034,7 @@ class TestMetadataToolEdgeCases:
             HumanMessage(content="Hello"),
             ToolMessage(content="Result", tool_call_id="1"),
         ]
-        sources, memory_ops = extract_metadata_tool_args(messages)
-        assert sources == []
-        assert memory_ops == []
+        assert extract_cited_sources(messages) == []
 
     def test_extract_metadata_cite_sources_missing_args(self) -> None:
         """cite_sources with empty args should return empty sources."""
@@ -2097,21 +2046,7 @@ class TestMetadataToolEdgeCases:
                 tool_calls=[{"name": "cite_sources", "args": {}, "id": "1"}],
             )
         ]
-        sources, _ = extract_metadata_tool_args(messages)
-        assert sources == []
-
-    def test_extract_metadata_manage_memory_missing_args(self) -> None:
-        """manage_memory with empty args should return empty memory ops."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="Response",
-                tool_calls=[{"name": "manage_memory", "args": {}, "id": "1"}],
-            )
-        ]
-        _, memory_ops = extract_metadata_tool_args(messages)
-        assert memory_ops == []
+        assert extract_cited_sources(messages) == []
 
     def test_extract_metadata_sources_non_dict_items(self) -> None:
         """Sources list containing non-dict items should be filtered out."""
@@ -2135,34 +2070,9 @@ class TestMetadataToolEdgeCases:
                 ],
             )
         ]
-        sources, _ = extract_metadata_tool_args(messages)
+        sources = extract_cited_sources(messages)
         assert len(sources) == 1
         assert sources[0]["title"] == "Valid"
-
-    def test_extract_metadata_memory_ops_without_action(self) -> None:
-        """Memory operations without 'action' key should be filtered out."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="Response",
-                tool_calls=[
-                    {
-                        "name": "manage_memory",
-                        "args": {
-                            "operations": [
-                                {"content": "no action key"},
-                                {"action": "add", "content": "valid"},
-                            ]
-                        },
-                        "id": "1",
-                    }
-                ],
-            )
-        ]
-        _, memory_ops = extract_metadata_tool_args(messages)
-        assert len(memory_ops) == 1
-        assert memory_ops[0]["action"] == "add"
 
     def test_extract_image_prompts_missing_prompt_arg(self) -> None:
         """generate_image without 'prompt' arg should be skipped."""
@@ -2189,8 +2099,8 @@ class TestMetadataToolEdgeCases:
         result = extract_image_prompts_from_messages(messages)
         assert result == []
 
-    def test_extract_metadata_only_checks_last_ai_message_with_metadata_tools(self) -> None:
-        """Should only extract from the last AIMessage that has metadata tool calls."""
+    def test_extract_metadata_keeps_citations_from_all_ai_messages(self) -> None:
+        """Citations from every AIMessage in the turn are kept, not just the last."""
         from langchain_core.messages import AIMessage
 
         messages = [
@@ -2215,10 +2125,8 @@ class TestMetadataToolEdgeCases:
                 ],
             ),
         ]
-        sources, _ = extract_metadata_tool_args(messages)
-        # Should get sources from the LAST AIMessage only
-        assert len(sources) == 1
-        assert sources[0]["title"] == "New"
+        sources = extract_cited_sources(messages)
+        assert [s["title"] for s in sources] == ["Old", "New"]
 
     def test_sources_fallback_handles_non_list_content(self) -> None:
         """Fallback should handle tool results with string content."""

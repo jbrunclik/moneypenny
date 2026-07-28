@@ -146,6 +146,30 @@ export const CLOCK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 </svg>`;
 
 /**
+ * Closed padlock icon (protected memory)
+ */
+export const LOCK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="11" width="18" height="11" rx="2"/>
+  <path d="M7 11V7a5 5 0 0110 0v4"/>
+</svg>`;
+
+/**
+ * Open padlock icon (unprotected memory)
+ */
+export const UNLOCK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="11" width="18" height="11" rx="2"/>
+  <path d="M7 11V7a5 5 0 019.9-1"/>
+</svg>`;
+
+/**
+ * Restore icon (counter-clockwise arrow)
+ */
+export const RESTORE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 12a9 9 0 109-9 9 9 0 00-6.36 2.64L3 8"/>
+  <polyline points="3 3 3 8 8 8"/>
+</svg>`;
+
+/**
  * History icon (clock with rotate arrow)
  */
 export const HISTORY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

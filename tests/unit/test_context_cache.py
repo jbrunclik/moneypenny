@@ -156,18 +156,39 @@ class TestGetDynamicPromptParts:
         assert "Always respond in Czech" in result
 
     @patch("src.agent.prompts.db")
-    def test_includes_memories(self, mock_db: MagicMock) -> None:
+    def test_includes_memory_list(self, mock_db: MagicMock) -> None:
         from src.agent.prompts import get_dynamic_prompt_parts
 
         mock_db.list_memories.return_value = []
         result = get_dynamic_prompt_parts(user_id="user-1")
-        assert "User Memory System" in result
+        assert "Current Memories" in result
+
+    @patch("src.agent.prompts.db")
+    def test_excludes_static_memory_instructions(self, mock_db: MagicMock) -> None:
+        """The instructions are invariant, so they belong in the cached prefix.
+
+        Bundling them with the per-request memory list re-sent ~1k uncached
+        tokens on every single request.
+        """
+        from src.agent.prompts import get_dynamic_prompt_parts, get_static_prompt_for_profile
+
+        mock_db.list_memories.return_value = []
+        dynamic = get_dynamic_prompt_parts(user_id="user-1")
+
+        assert "User Memory System" not in dynamic
+        assert "User Memory System" in get_static_prompt_for_profile("standard")
 
     def test_excludes_memories_in_anonymous(self) -> None:
         from src.agent.prompts import get_dynamic_prompt_parts
 
         result = get_dynamic_prompt_parts(user_id="user-1", anonymous_mode=True)
-        assert "User Memory System" not in result
+        assert "Current Memories" not in result
+
+    def test_anonymous_static_prompt_has_no_memory_instructions(self) -> None:
+        """Anonymous conversations have no memory tool, so no instructions either."""
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        assert "User Memory System" not in get_static_prompt_for_profile("anonymous")
 
     def test_includes_force_tools(self) -> None:
         from src.agent.prompts import get_dynamic_prompt_parts

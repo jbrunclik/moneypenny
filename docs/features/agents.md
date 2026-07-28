@@ -132,11 +132,21 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | `todoist` | Todoist task management | Requires user integration |
 | `google_calendar` | Calendar events | Requires user integration |
 | `whatsapp` | WhatsApp notifications | Requires app config + user phone |
+| `manage_memory` | Write to the user's long-term memory | **Must be granted** |
+| `search_conversations` | Search the user's past conversations | Requires grant |
+| `read_conversation` | Read one past conversation | Requires grant |
 
 **Permission settings:**
 - `tool_permissions=null` (default): All available tools enabled
 - `tool_permissions=[]`: Only "always available" tools enabled
 - `tool_permissions=["todoist", ...]`: Only specified tools + "always available" tools
+
+`manage_memory` is deliberately NOT "always available": an unattended run that reads the web
+could otherwise persist attacker-controlled text into the user's long-term memory, which is
+then injected into every later conversation. Agents that genuinely need it must list it (or
+run unrestricted), and the tool re-checks the grant at call time via
+`check_autonomous_permission`. See
+[memory-and-context.md](memory-and-context.md#bounds-and-safety).
 
 ### Tool Security
 

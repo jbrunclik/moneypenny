@@ -229,6 +229,7 @@ export interface ConversationDetailResponse {
   agent_id?: string | null;
   has_pending_approval?: boolean; // True if agent has pending approval request
   archived?: boolean;
+  anonymous_mode?: boolean; // Memory and integrations disabled for this conversation
   messages: Message[];
   message_pagination: MessagesPagination;
 }
@@ -352,10 +353,18 @@ export interface Memory {
   category: string | null;
   created_at: string;
   updated_at: string;
+  /** Exempt from LLM and defrag deletion; only the user can remove it. */
+  protected?: boolean;
+  /** Conversation the memory was learned in, for "why do you know this?". */
+  source_conversation_id?: string | null;
+  /** Set when soft-deleted; the memory is restorable until purged. */
+  deleted_at?: string | null;
 }
 
 export interface MemoriesResponse {
   memories: Memory[];
+  /** Server-side cap on stored memories. */
+  limit?: number;
 }
 
 // =============================================================================

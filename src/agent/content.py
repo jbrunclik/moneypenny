@@ -159,8 +159,9 @@ def strip_full_result_from_tool_content(content: str) -> str:
 
 # ============ Structured Metadata Extraction ============
 # These functions replace the old text-based <!-- METADATA: --> parsing.
-# Metadata is now extracted from tool calls (cite_sources, manage_memory)
-# and deterministic server-side analysis.
+# Metadata is now extracted from tool calls (cite_sources) and deterministic
+# server-side analysis. Memory operations are NOT extracted here - manage_memory
+# performs its own writes and reports the outcome to the model.
 
 
 def detect_response_language(text: str) -> str | None:
@@ -209,53 +210,40 @@ def extract_image_prompts_from_messages(messages: list[BaseMessage]) -> list[dic
     return prompts
 
 
-def extract_metadata_tool_args(
-    messages: list[BaseMessage],
-) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-    """Extract cite_sources and manage_memory args from the final AIMessage.
+def extract_cited_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
+    """Extract cite_sources args from the turn's AIMessages.
 
-    Scans the last AIMessage's tool_calls for metadata tools and returns
-    their structured args directly (no JSON parsing needed - Gemini validates
-    the schema at the API level).
+    Reads the structured args directly off the tool calls (no JSON parsing
+    needed - Gemini validates the schema at the API level). Every cite_sources
+    call in the turn is collected: a multi-step turn can cite as it goes, and
+    stopping at the most recent call silently dropped the earlier citations.
 
     Args:
         messages: List of LangChain messages from the graph result
 
     Returns:
-        Tuple of (sources, memory_operations)
-        - sources: List of source dicts with "title" and "url"
-        - memory_operations: List of memory operation dicts
+        List of source dicts with "title" and "url", de-duplicated by URL
     """
-    from src.agent.tools.metadata import METADATA_TOOL_NAMES
-
     sources: list[dict[str, str]] = []
-    memory_ops: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
 
-    # Scan from the end - metadata tools are typically on the last AIMessage
-    for msg in reversed(messages):
+    for msg in messages:
         if not isinstance(msg, AIMessage) or not msg.tool_calls:
             continue
 
         for tc in msg.tool_calls:
-            name = tc.get("name")
-            args = tc.get("args", {})
+            if tc.get("name") != "cite_sources":
+                continue
+            for s in tc.get("args", {}).get("sources", []):
+                if not isinstance(s, dict) or "title" not in s or "url" not in s:
+                    continue
+                url = str(s["url"])
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                sources.append({"title": str(s["title"]), "url": url})
 
-            if name == "cite_sources":
-                raw_sources = args.get("sources", [])
-                for s in raw_sources:
-                    if isinstance(s, dict) and "title" in s and "url" in s:
-                        sources.append({"title": str(s["title"]), "url": str(s["url"])})
-            elif name == "manage_memory":
-                raw_ops = args.get("operations", [])
-                for op in raw_ops:
-                    if isinstance(op, dict) and "action" in op:
-                        memory_ops.append(op)
-
-        # Only check the last AIMessage that has tool calls
-        if any(tc.get("name") in METADATA_TOOL_NAMES for tc in msg.tool_calls):
-            break
-
-    return sources, memory_ops
+    return sources
 
 
 def extract_sources_fallback_from_tool_results(

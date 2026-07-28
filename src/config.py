@@ -302,8 +302,30 @@ class Config:
     # Long-term memory bounds: memories are injected into every request, so
     # unbounded writes mean unbounded context growth (and an
     # injection-persistence vector via fetched web content) - A2
+    #
+    # MEMORY_MAX_ENTRIES is the single source of truth for the bank size: it is
+    # both what the LLM is told in the prompt and what add operations enforce.
+    # Keeping one number avoids the LLM self-throttling at a limit the store
+    # does not enforce (or vice versa).
     MEMORY_MAX_ENTRY_CHARS: int = int(os.getenv("MEMORY_MAX_ENTRY_CHARS", "500"))
     MEMORY_MAX_ENTRIES: int = int(os.getenv("MEMORY_MAX_ENTRIES", "200"))
+    # Point at which the LLM is nudged to consolidate rather than keep adding.
+    # Defaults to 80% of the cap so the two stay in step when the cap changes.
+    MEMORY_WARNING_THRESHOLD: int = int(
+        os.getenv("MEMORY_WARNING_THRESHOLD", str(int(MEMORY_MAX_ENTRIES * 0.8)))
+    )
+    # Per-call write budget. One turn has no legitimate need to rewrite the whole
+    # bank, and the operation list can be influenced by fetched content, so a
+    # mass delete/overwrite is refused rather than applied.
+    MEMORY_MAX_OPS_PER_CALL: int = int(os.getenv("MEMORY_MAX_OPS_PER_CALL", "10"))
+
+    # Episodic recall: searching/reading past conversations. These bound how much
+    # history one tool call can pull into the context window.
+    CONVERSATION_SEARCH_MAX_RESULTS: int = int(os.getenv("CONVERSATION_SEARCH_MAX_RESULTS", "25"))
+    CONVERSATION_READ_MAX_MESSAGES: int = int(os.getenv("CONVERSATION_READ_MAX_MESSAGES", "100"))
+    CONVERSATION_READ_MAX_CHARS_PER_MESSAGE: int = int(
+        os.getenv("CONVERSATION_READ_MAX_CHARS_PER_MESSAGE", "2000")
+    )
 
     # Browser automation settings (Playwright)
     BROWSER_ENABLED: bool = os.getenv("BROWSER_ENABLED", "true").lower() == "true"
@@ -443,12 +465,6 @@ class Config:
     PAYLOAD_LOG_MAX_LENGTH = 500
     FILE_DATA_SNIPPET_LENGTH = 100
 
-    # User memory settings
-    USER_MEMORY_LIMIT: int = int(os.getenv("USER_MEMORY_LIMIT", "100"))  # Max memories per user
-    USER_MEMORY_WARNING_THRESHOLD: int = int(
-        os.getenv("USER_MEMORY_WARNING_THRESHOLD", "80")
-    )  # Warn LLM to consolidate at this count
-
     # Memory defragmentation settings
     # Automated nightly job consolidates and cleans up memories using LLM
     MEMORY_DEFRAG_THRESHOLD: int = int(
@@ -457,6 +473,11 @@ class Config:
     MEMORY_DEFRAG_MODEL: str = os.getenv(
         "MEMORY_DEFRAG_MODEL", "gemini-3.1-pro-preview"
     )  # Use advanced model for quality consolidation
+    # Deletes are soft: rows stay for this long so a bad defrag run or an
+    # unwanted LLM delete can be recovered before the nightly purge.
+    MEMORY_SOFT_DELETE_RETENTION_DAYS: int = int(
+        os.getenv("MEMORY_SOFT_DELETE_RETENTION_DAYS", "7")
+    )
 
     # Pagination settings
     # Client requests appropriate size based on viewport; these are server-side limits

@@ -21,11 +21,13 @@ from src.agent.tools.context import (
     set_language_context,
     set_sports_context,
 )
+from src.agent.tools.conversation_search import read_conversation, search_conversations
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.garmin import garmin_connect, is_garmin_available
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
-from src.agent.tools.metadata import METADATA_TOOL_NAMES, cite_sources, manage_memory
+from src.agent.tools.memory import manage_memory
+from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES, cite_sources
 from src.agent.tools.planner import (
     is_refresh_planner_dashboard_available,
     refresh_planner_dashboard,
@@ -45,6 +47,17 @@ logger = get_logger(__name__)
 # Integration tools that are disabled in anonymous mode
 _INTEGRATION_TOOLS = {"todoist", "google_calendar", "garmin_connect"}
 
+# Tools withheld in anonymous mode on top of the integrations. manage_memory is
+# unbound rather than filtered later so the model cannot even attempt a write it
+# is not allowed to make.
+_ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
+    "manage_memory",
+    # Reading past conversations would pull the history the user deliberately
+    # stepped away from back into an anonymous chat.
+    "search_conversations",
+    "read_conversation",
+}
+
 
 def get_available_tools() -> list[Any]:
     """Get the list of available tools, including execute_code if Docker is available.
@@ -58,6 +71,8 @@ def get_available_tools() -> list[Any]:
         retrieve_file,
         cite_sources,
         manage_memory,
+        search_conversations,
+        read_conversation,
     ]
 
     # Only add browser if enabled and Playwright is installed
@@ -144,13 +159,14 @@ def get_tools_for_request(
     # For autonomous agents with specific permissions
     if agent_tool_permissions is not None:
         # Always include basic safe tools + metadata tools + kv_store
-        # (kv_store parity with get_tools_for_agent, which always binds it)
+        # (kv_store parity with get_tools_for_agent, which always binds it).
+        # manage_memory is NOT here: writing to the user's long-term memory is a
+        # granted capability, not a baseline one - see get_tools_for_agent.
         tools: list[Any] = [
             fetch_url,
             web_search,
             retrieve_file,
             cite_sources,
-            manage_memory,
             kv_store,
         ]
 
@@ -183,7 +199,7 @@ def get_tools_for_request(
     # installed, integration configured - apply without a process restart.
     available = get_available_tools()
     if anonymous_mode:
-        tools = [t for t in available if t.name not in _INTEGRATION_TOOLS]
+        tools = [t for t in available if t.name not in _ANONYMOUS_EXCLUDED_TOOLS]
     else:
         tools = available
 
@@ -222,6 +238,8 @@ _TOOL_MAP: dict[str, Any] = {
     "whatsapp": whatsapp,
     "cite_sources": cite_sources,
     "manage_memory": manage_memory,
+    "search_conversations": search_conversations,
+    "read_conversation": read_conversation,
     "kv_store": kv_store,
 }
 
@@ -240,8 +258,14 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
         - tool_permissions=[]: Explicitly no extra tools, only basic safe tools
         - tool_permissions=["todoist", ...]: Only these specific tools plus basic safe tools
     """
-    # Always include basic safe tools + metadata tools
-    tools: list[Any] = [fetch_url, web_search, retrieve_file, cite_sources, manage_memory]
+    # Always include basic safe tools + metadata tools.
+    #
+    # manage_memory is deliberately excluded: an unattended run that reads the
+    # web could otherwise persist attacker-controlled text into the user's
+    # long-term memory, which is injected into every later conversation. Agents
+    # that genuinely need it must list it in tool_permissions (or run with
+    # unrestricted permissions), and the tool re-checks that at call time.
+    tools: list[Any] = [fetch_url, web_search, retrieve_file, cite_sources]
 
     # Add request_approval for sensitive actions
     tools.append(request_approval)
@@ -294,6 +318,8 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
         if Config.BROWSER_ENABLED and is_browser_available():
             tools.append(browser)
         tools.append(generate_image)
+        # Unrestricted agents keep memory access; restricted ones must ask for it
+        tools.append(manage_memory)
 
     logger.debug(
         "Tools for agent",
@@ -323,9 +349,11 @@ __all__ = [
     "whatsapp",
     "cite_sources",
     "manage_memory",
+    "search_conversations",
+    "read_conversation",
     "kv_store",
     # Metadata tool constants
-    "METADATA_TOOL_NAMES",
+    "EXTRACT_ONLY_TOOL_NAMES",
     # Exceptions
     "ApprovalRequestedException",
     # Context helpers

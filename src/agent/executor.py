@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING, Any
 from src.agent.agent import ChatAgent
 from src.agent.content import (
     detect_response_language,
+    extract_cited_sources,
     extract_image_prompts_from_messages,
-    extract_metadata_tool_args,
     extract_sources_fallback_from_tool_results,
 )
 from src.agent.daily_briefing import resolve_agent_system_prompt
@@ -34,8 +34,6 @@ from src.agent.tools.request_approval import (
 from src.api.schemas import MessageRole
 from src.api.utils import (
     calculate_and_save_message_cost,
-    process_memory_operations,
-    validate_memory_operations,
 )
 from src.config import Config
 from src.db.models import db
@@ -356,7 +354,7 @@ def execute_agent(
 
         # Extract metadata from tool calls and deterministic analysis
         clean_response = raw_response
-        sources, memory_ops = extract_metadata_tool_args(result_messages)
+        sources: list[dict[str, str]] = extract_cited_sources(result_messages)
         generated_images_meta = extract_image_prompts_from_messages(result_messages)
         language = detect_response_language(clean_response)
 
@@ -364,14 +362,8 @@ def execute_agent(
         if not sources and tool_results:
             sources = extract_sources_fallback_from_tool_results(tool_results)
 
-        # Process memory operations
-        memory_ops = validate_memory_operations(memory_ops)
-        if memory_ops:
-            logger.debug(
-                "Processing memory operations from agent",
-                extra={"agent_id": agent.id, "operation_count": len(memory_ops)},
-            )
-            process_memory_operations(user.id, memory_ops)
+        # Memory writes happen inside manage_memory during the run, and are only
+        # available to agents that were granted the tool.
 
         # Extract generated files from tool results
         gen_image_files = extract_generated_images_from_tool_results(full_tool_results)

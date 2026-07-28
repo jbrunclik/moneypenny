@@ -4,10 +4,11 @@
  */
 
 import { useStore } from '../state/store';
-import { costs } from '../api/client';
+import { conversations, costs } from '../api/client';
 import { updateMonthlyCost } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { STREAM_ICON, STREAM_OFF_ICON } from '../utils/icons';
+import { logger } from '../utils/logger';
 
 import { isTempConversation } from './conversation';
 
@@ -102,6 +103,12 @@ export function initToolbarButtons(): void {
       const newState = !currentState;
       state.setAnonymousMode(convId, newState);
       updateAnonymousButtonState(anonymousBtn, newState);
+      // Persist so the setting survives a reload. Optimistic: the local toggle
+      // already applied, and the server ORs its stored flag with the per-request
+      // one, so a failed write cannot silently un-anonymise the conversation.
+      void conversations.setAnonymousMode(convId, newState).catch((error: unknown) => {
+        logger.error('Failed to persist anonymous mode', { error });
+      });
     });
   }
 }

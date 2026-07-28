@@ -24,6 +24,7 @@ from src.api.schemas import (
     SearchResultsResponse,
     StatusResponse,
     SyncResponse,
+    UpdateAnonymousModeRequest,
     UpdateConversationRequest,
 )
 from src.api.utils import normalize_generated_images
@@ -405,6 +406,7 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         "agent_id": conv.agent_id,
         "has_pending_approval": has_pending_approval,
         "archived": conv.archived,
+        "anonymous_mode": conv.anonymous_mode,
         "messages": optimized_messages,
         "message_pagination": {
             "older_cursor": pagination.older_cursor,
@@ -442,6 +444,39 @@ def update_conversation(
         raise_not_found_error("Conversation")
 
     logger.info("Conversation updated", extra={"user_id": user.id, "conversation_id": conv_id})
+    return {"status": "updated"}, 200
+
+
+@api.route("/conversations/<conv_id>/anonymous-mode", methods=["PATCH"])
+@api.output(StatusResponse)
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
+@require_auth
+@validate_request(UpdateAnonymousModeRequest)
+def update_anonymous_mode(
+    user: User, data: UpdateAnonymousModeRequest, conv_id: str
+) -> tuple[dict[str, str], int]:
+    """Turn anonymous mode on or off for a conversation.
+
+    Persisted server-side so the setting survives a page reload - it used to be
+    client-only state, which meant a "private" conversation quietly became
+    memory-enabled after a refresh.
+    """
+    if not db.set_conversation_anonymous_mode(conv_id, user.id, data.anonymous_mode):
+        logger.warning(
+            "Conversation not found for anonymous mode update",
+            extra={"user_id": user.id, "conversation_id": conv_id},
+        )
+        raise_not_found_error("Conversation")
+
+    logger.info(
+        "Anonymous mode updated",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "anonymous_mode": data.anonymous_mode,
+        },
+    )
     return {"status": "updated"}, 200
 
 

@@ -106,16 +106,21 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
 
   let storageData = store.storageData;
   let memoriesData: Memory[] = [];
+  let deletedMemories: Memory[] = [];
+  let memoryLimit = 0;
   let fetchFailed = false;
 
   if (needsRefresh) {
     try {
-      const [kvData, memData] = await Promise.all([
+      const [kvData, memData, deletedData] = await Promise.all([
         kvStore.getNamespaces(),
-        memories.list(),
+        memories.listWithLimit(),
+        memories.listDeleted(),
       ]);
       storageData = kvData;
-      memoriesData = memData;
+      memoriesData = memData.memories;
+      memoryLimit = memData.limit;
+      deletedMemories = deletedData;
       store.setStorageData(storageData);
     } catch (error) {
       log.error('Failed to fetch storage data', { error });
@@ -124,7 +129,13 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   } else {
     // Still need to fetch memories even if KV data is cached
     try {
-      memoriesData = await memories.list();
+      const [memData, deletedData] = await Promise.all([
+        memories.listWithLimit(),
+        memories.listDeleted(),
+      ]);
+      memoriesData = memData.memories;
+      memoryLimit = memData.limit;
+      deletedMemories = deletedData;
     } catch (error) {
       log.error('Failed to fetch memories', { error });
     }
@@ -172,10 +183,21 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
       await memories.delete(memoryId);
       toast.success('Memory deleted.');
     },
+    onSetMemoryProtected: async (memoryId: string, isProtected: boolean) => {
+      await memories.setProtected(memoryId, isProtected);
+      toast.success(isProtected ? 'Memory protected.' : 'Protection removed.');
+    },
+    onRestoreMemory: async (memoryId: string) => {
+      await memories.restore(memoryId);
+      toast.success('Memory restored.');
+    },
   };
 
   // Render storage page
-  const storageEl = renderKVStorePage(storageData, memoriesData, callbacks);
+  const storageEl = renderKVStorePage(storageData, memoriesData, callbacks, {
+    limit: memoryLimit,
+    deletedMemories,
+  });
 
   // Add stale data warning banner if fetch failed but we have cached data
   if (fetchFailed) {

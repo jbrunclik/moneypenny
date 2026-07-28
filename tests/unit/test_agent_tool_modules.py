@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.file_retrieval import retrieve_file
-from src.agent.tools.metadata import METADATA_TOOL_NAMES, cite_sources, manage_memory
+from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES, cite_sources
 from src.agent.tools.trigger_agent import trigger_agent
 
 # ============ metadata.py ============
@@ -23,15 +23,20 @@ class TestMetadataTools:
         )
         assert "2" in result
 
-    def test_manage_memory_acknowledges_count(self) -> None:
-        result = manage_memory.invoke(
-            {"operations": [{"action": "add", "content": "likes tea", "category": "preference"}]}
-        )
-        assert "1" in result
-
-    def test_metadata_tool_names_match_tools(self) -> None:
+    def test_extract_only_tool_names_match_tools(self) -> None:
         """should_continue routes on this set - it must match the tool names."""
-        assert METADATA_TOOL_NAMES == frozenset({cite_sources.name, manage_memory.name})
+        assert EXTRACT_ONLY_TOOL_NAMES == frozenset({cite_sources.name})
+
+    def test_manage_memory_is_not_extract_only(self) -> None:
+        """manage_memory performs real writes, so it must always execute.
+
+        If it lands back in this set, should_continue will skip execution
+        whenever the model also produced text - silently dropping every
+        memory write, which is the bug this split fixed.
+        """
+        from src.agent.tools.memory import manage_memory
+
+        assert manage_memory.name not in EXTRACT_ONLY_TOOL_NAMES
 
 
 # ============ trigger_agent.py ============

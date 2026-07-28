@@ -12,8 +12,8 @@ from flask import Response, request
 from src.agent.agent import ChatAgent, generate_title
 from src.agent.content import (
     detect_response_language,
+    extract_cited_sources,
     extract_image_prompts_from_messages,
-    extract_metadata_tool_args,
     extract_sources_fallback_from_tool_results,
 )
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
@@ -39,8 +39,6 @@ from src.api.schemas import ChatBatchResponse, ChatRequest, MessageRole
 from src.api.utils import (
     build_chat_response,
     calculate_and_save_message_cost,
-    process_memory_operations,
-    validate_memory_operations,
 )
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
@@ -105,7 +103,12 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
     force_tools = data.force_tools
-    anonymous_mode = data.anonymous_mode
+    # OR the persisted flag with the request flag: a conversation marked
+    # anonymous stays anonymous even if a stale client omits the flag, and a
+    # brand-new conversation can be anonymous before the toggle is persisted.
+    anonymous_mode = conv.anonymous_mode or data.anonymous_mode
+    if data.anonymous_mode and not conv.anonymous_mode:
+        db.set_conversation_anonymous_mode(conv_id, user.id, True)
     log_payload_snippet(
         logger,
         {
@@ -333,7 +336,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
 
         # Extract metadata from tool calls and deterministic analysis
         clean_response = raw_response
-        sources, memory_ops = extract_metadata_tool_args(result_messages)
+        sources: list[dict[str, str]] = extract_cited_sources(result_messages)
         generated_images_meta = extract_image_prompts_from_messages(result_messages)
         language = detect_response_language(clean_response)
 
@@ -354,19 +357,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             },
         )
 
-        # Process memory operations (skip in anonymous mode)
-        if not anonymous_mode:
-            memory_ops = validate_memory_operations(memory_ops)
-            if memory_ops:
-                logger.debug(
-                    "Processing memory operations",
-                    extra={
-                        "user_id": user.id,
-                        "conversation_id": conv_id,
-                        "operation_count": len(memory_ops),
-                    },
-                )
-                process_memory_operations(user.id, memory_ops)
+        # Memory operations are applied by the manage_memory tool during the
+        # turn (and the tool is not bound at all in anonymous mode), so there is
+        # nothing to replay here.
 
         # Extract generated files from FULL tool results (before stripping)
         # We need the full results because they contain the _full_result data
@@ -563,7 +556,12 @@ def chat_stream(
     message_text = data.message.strip()
     files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
     force_tools = data.force_tools
-    anonymous_mode = data.anonymous_mode
+    # OR the persisted flag with the request flag: a conversation marked
+    # anonymous stays anonymous even if a stale client omits the flag, and a
+    # brand-new conversation can be anonymous before the toggle is persisted.
+    anonymous_mode = conv.anonymous_mode or data.anonymous_mode
+    if data.anonymous_mode and not conv.anonymous_mode:
+        db.set_conversation_anonymous_mode(conv_id, user.id, True)
     log_payload_snippet(
         logger,
         {

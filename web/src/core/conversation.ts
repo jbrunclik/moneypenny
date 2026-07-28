@@ -299,6 +299,12 @@ export async function selectConversation(convId: string): Promise<void> {
     // Store messages and pagination in the per-conversation Maps
     store.setMessages(convId, response.messages, response.message_pagination);
 
+    // Anonymous mode is persisted server-side; adopt it so a reload does not
+    // silently drop the conversation back to memory-enabled.
+    if (response.anonymous_mode) {
+      store.setAnonymousMode(convId, true);
+    }
+
     // Convert response to Conversation object for switchToConversation
     const conv: Conversation = {
       id: response.id,

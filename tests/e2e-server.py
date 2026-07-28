@@ -1043,6 +1043,8 @@ def main() -> None:
 
             data = request.get_json() or {}
             MOCK_CONFIG["memories"] = data.get("memories")
+            if "deleted_memories" in data:
+                MOCK_CONFIG["deleted_memories"] = data.get("deleted_memories")
             return {"status": "set"}, 200
 
         @test_bp.route("/test/clear-kv-store-config", methods=["POST"])
@@ -1051,6 +1053,7 @@ def main() -> None:
             MOCK_CONFIG["kv_namespaces"] = None
             MOCK_CONFIG["kv_keys"] = None
             MOCK_CONFIG["memories"] = None
+            MOCK_CONFIG["deleted_memories"] = None
             return {"status": "cleared"}, 200
 
         # =============================================================================
@@ -1331,6 +1334,8 @@ def main() -> None:
         def intercept_kv_store() -> Any | None:
             from flask import jsonify, request
 
+            from src.config import Config
+
             if request.path == "/api/kv" and request.method == "GET":
                 if MOCK_CONFIG.get("kv_namespaces") is not None:
                     return jsonify({"namespaces": MOCK_CONFIG["kv_namespaces"]})
@@ -1346,7 +1351,22 @@ def main() -> None:
 
             if request.path == "/api/memories" and request.method == "GET":
                 if MOCK_CONFIG.get("memories") is not None:
-                    return jsonify({"memories": MOCK_CONFIG["memories"]})
+                    return jsonify(
+                        {
+                            "memories": MOCK_CONFIG["memories"],
+                            "limit": Config.MEMORY_MAX_ENTRIES,
+                        }
+                    )
+
+            # The storage page also loads the soft-deleted list; served here so
+            # tests can drive the "Recently deleted" section explicitly.
+            if request.path == "/api/memories/deleted" and request.method == "GET":
+                return jsonify(
+                    {
+                        "memories": MOCK_CONFIG.get("deleted_memories") or [],
+                        "limit": Config.MEMORY_MAX_ENTRIES,
+                    }
+                )
 
             return None
 

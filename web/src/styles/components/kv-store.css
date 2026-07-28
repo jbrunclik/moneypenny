@@ -513,6 +513,12 @@
 }
 
 .memory-item {
+    /* These four used to arrive from popups.css, which happened to define a
+       `.memory-item` for the (now deleted) memories popup and loaded first.
+       Declared here so this component owns its own layout. */
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
@@ -522,6 +528,7 @@
 
 .memory-item:hover {
     border-color: var(--border-hover);
+    background-color: var(--bg-hover);
 }
 
 .memory-content-row {
@@ -540,7 +547,9 @@
     word-break: break-word;
 }
 
-.memory-delete {
+.memory-delete,
+.memory-protect,
+.memory-restore {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -554,13 +563,43 @@
     transition: color var(--transition-fast);
 }
 
-.memory-delete svg {
+.memory-delete svg,
+.memory-protect svg,
+.memory-restore svg {
     width: 14px;
     height: 14px;
 }
 
 .memory-delete:hover {
     color: var(--color-error-500);
+}
+
+.memory-protect:hover,
+.memory-restore:hover {
+    color: var(--text-primary);
+}
+
+/* A protected memory reads as state, so its lock stays emphasised */
+.memory-item--protected .memory-protect {
+    color: var(--text-secondary);
+}
+
+.memory-item--protected {
+    border-left: 2px solid var(--border-hover);
+}
+
+.memory-item--deleted .memory-text {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.memory-protected-badge {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
 }
 
 .memory-meta {
@@ -571,6 +610,8 @@
 }
 
 .memory-category {
+    display: inline-flex;
+    align-items: center;
     font-size: var(--font-size-xs);
     font-weight: 500;
     padding: 1px var(--space-2);

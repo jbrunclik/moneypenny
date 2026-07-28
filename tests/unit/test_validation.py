@@ -139,27 +139,6 @@ class TestPydanticToErrorResponse:
         assert "Invalid email format - must contain @" in response["error"]["message"]
 
 
-class TestMemoryBounds:
-    """A2: memory writes are size-bounded (injected into every request)."""
-
-    def test_oversized_add_rejected(self):
-        from src.api.utils import validate_memory_operations
-        from src.config import Config
-
-        ops = [{"action": "add", "content": "x" * (Config.MEMORY_MAX_ENTRY_CHARS + 1)}]
-        assert validate_memory_operations(ops) == []
-
-    def test_normal_add_accepted(self):
-        from src.api.utils import validate_memory_operations
-
-        ops = [{"action": "add", "content": "User lives in Prague"}]
-        assert len(validate_memory_operations(ops)) == 1
-
-    def test_oversized_update_rejected(self):
-        from src.api.utils import validate_memory_operations
-        from src.config import Config
-
-        ops = [
-            {"action": "update", "id": "m1", "content": "x" * (Config.MEMORY_MAX_ENTRY_CHARS + 1)}
-        ]
-        assert validate_memory_operations(ops) == []
+# Memory write bounds (A2) are enforced inside the manage_memory tool, which
+# also has to report each rejection back to the model. Those tests live in
+# tests/unit/test_memory_tool.py.
