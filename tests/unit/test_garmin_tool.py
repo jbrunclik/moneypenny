@@ -12,10 +12,149 @@ import pytest
 
 from src.agent.tools.garmin import (
     _GARMIN_ACTIONS,
+    _detect_climbs,
+    _profile_samples,
     _safe_api_call,
+    _slim_course_detail,
+    _slim_course_summary,
     _strip_bulky_fields,
     garmin_connect,
 )
+
+
+def _ramp(d0, d1, e0, e1, step=50):
+    """Straight elevation ramp of (distance_m, elevation_m) points, inclusive."""
+    pts = []
+    d = d0
+    span = d1 - d0
+    while d <= d1:
+        frac = (d - d0) / span if span else 0
+        pts.append((float(d), e0 + (e1 - e0) * frac))
+        d += step
+    return pts
+
+
+class TestClimbDetection:
+    def test_flat_profile_has_no_climbs(self):
+        pts = _ramp(0, 3000, 100, 100)
+        assert _detect_climbs(pts) == []
+
+    def test_single_climb(self):
+        # 100 m gain over 2 km = 5% grade
+        pts = _ramp(0, 2000, 100, 200)
+        climbs = _detect_climbs(pts)
+        assert len(climbs) == 1
+        c = climbs[0]
+        assert c["gain_m"] == 100
+        assert c["length_km"] == 2.0
+        assert 4.5 <= c["avg_grade_pct"] <= 5.5
+
+    def test_small_bump_below_threshold_ignored(self):
+        # 15 m gain — below the 25 m minimum
+        assert _detect_climbs(_ramp(0, 500, 100, 115)) == []
+
+    def test_climb_descent_climb_gives_two(self):
+        pts = _ramp(0, 1000, 100, 170) + _ramp(1000, 2000, 170, 100) + _ramp(2000, 3000, 100, 160)
+        climbs = _detect_climbs(pts)
+        assert len(climbs) == 2
+        assert climbs[0]["start_km"] == 0.0
+        assert climbs[1]["start_km"] == 2.0
+
+    def test_small_dip_within_climb_does_not_split(self):
+        # rise, tiny 8 m dip (< 12 m tolerance), rise again -> one climb
+        pts = _ramp(0, 1000, 100, 160) + _ramp(1000, 1100, 160, 152) + _ramp(1100, 2000, 152, 210)
+        climbs = _detect_climbs(pts)
+        assert len(climbs) == 1
+
+
+class TestProfileAndSummary:
+    def test_profile_downsamples_to_n(self):
+        pts = _ramp(0, 10000, 100, 300, step=10)  # 1001 points
+        prof = _profile_samples(pts, 32)
+        assert len(prof) == 32
+        assert prof[0] == {"km": 0.0, "elev_m": 100}
+        assert prof[-1]["km"] == 10.0
+
+    def test_profile_keeps_all_when_fewer_than_n(self):
+        pts = [(0.0, 100.0), (500.0, 120.0), (1000.0, 110.0)]
+        prof = _profile_samples(pts, 32)
+        assert len(prof) == 3
+
+    def test_slim_course_summary(self):
+        item = {
+            "courseId": 1,
+            "courseName": "Test",
+            "activityType": {"typeKey": "gravel_cycling"},
+            "distanceInMeters": 86363.28,
+            "elevationGainInMeters": 1218.91,
+            "elevationLossInMeters": 1221.3,
+            "favorite": False,
+        }
+        assert _slim_course_summary(item) == {
+            "course_id": 1,
+            "name": "Test",
+            "activity_type": "gravel_cycling",
+            "distance_km": 86.36,
+            "elevation_gain_m": 1219,
+            "elevation_loss_m": 1221,
+            "favorite": False,
+        }
+
+    def test_slim_course_detail_uses_exact_totals_and_derives_climbs(self):
+        geo = [{"distance": d, "elevation": e} for d, e in _ramp(0, 2000, 100, 200)]
+        detail = {
+            "courseId": 9,
+            "courseName": "D",
+            "distanceMeter": 2000.0,
+            "elevationGainMeter": 101.0,
+            "elevationLossMeter": 0.0,
+            "geoPoints": geo,
+        }
+        out = _slim_course_detail(detail)
+        assert out["distance_km"] == 2.0
+        assert out["elevation_gain_m"] == 101  # exact Garmin value, not derived
+        assert out["climb_count"] == 1
+        assert out["min_elevation_m"] == 100
+        assert out["max_elevation_m"] == 200
+
+
+class TestCourseDispatch:
+    def test_get_courses_slims_and_filters(self):
+        raw = [
+            {
+                "courseId": 1,
+                "courseName": "Ride",
+                "activityType": {"typeKey": "gravel_cycling"},
+                "distanceInMeters": 1000,
+                "elevationGainInMeters": 10,
+                "elevationLossInMeters": 10,
+            },
+            {
+                "courseId": 2,
+                "courseName": "Run",
+                "activityType": {"typeKey": "trail_running"},
+                "distanceInMeters": 500,
+                "elevationGainInMeters": 5,
+                "elevationLossInMeters": 5,
+            },
+        ]
+        with (
+            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin._safe_api_call", return_value=raw),
+        ):
+            out = json.loads(
+                garmin_connect.invoke({"action": "get_courses", "activity_type": "cycling"})
+            )
+        assert out["count"] == 1
+        assert out["courses"][0]["name"] == "Ride"
+
+    def test_get_course_details_requires_course_id(self):
+        with patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()):
+            out = json.loads(garmin_connect.invoke({"action": "get_course_details"}))
+        assert "course_id is required" in out["error"]
+
+    def test_course_actions_in_action_set(self):
+        assert {"get_courses", "get_course_details"} <= _GARMIN_ACTIONS
 
 
 class TestGarminGuards:

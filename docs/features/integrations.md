@@ -714,8 +714,20 @@ The `garmin_connect` tool is read-only and exposes the following actions:
 | `get_training_readiness` | `date_str` (optional) | Training readiness score and contributing factors |
 | `get_training_status` | `date_str` (optional) | Training status and load metrics |
 | `get_steps` | `date_str` (optional) | Step count and daily goal |
+| `get_courses` | `activity_type` (optional) | List saved courses/routes: `{course_id, name, activity_type, distance_km, elevation_gain_m, elevation_loss_m}`. `activity_type` is a substring filter (e.g. `"cycling"`). |
+| `get_course_details` | `course_id` (required) | One course's profile: distance, exact elevation gain/loss, min/max elevation, a compact altitude `profile` (~32 samples), and derived `climbs` (start_km / length_km / gain_m / avg & max grade). |
 
 All date parameters default to today. `date_str` format: `YYYY-MM-DD`.
+
+> **Courses (routes).** Saved courses live in Garmin's `course-service`, which
+> the `garminconnect` library does not wrap, so the tool calls the raw endpoints
+> via `connectapi` (`/course-service/course` and `/course-service/course/{id}`).
+> A course's raw `geoPoints` run to thousands of points — `get_course_details`
+> downsamples the altitude profile to ~32 samples and never returns the raw
+> track. Garmin exposes no climb API (its own "N Climbs" list is computed
+> client-side), so `climbs` are **derived** from the profile (sustained-ascent
+> detection); the distance and elevation gain/loss totals are Garmin's exact
+> values.
 
 > **Weight units:** `get_activity_details` → `exercise_sets` reports weight in **kilograms** (`weight_kg`). The raw Garmin activity endpoint stores weight in grams (e.g. `24000` for 24 kg); `_slim_exercise_set` divides by 1000 so the whole agent surface is consistent with `garmin_workout` (see the gotchas below).
 
