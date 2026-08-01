@@ -106,6 +106,9 @@ jobs:
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
     needs: [backend-tests, frontend-unit-tests]
+    # Fail fast instead of burning ~6h of runner time if the browser/app hangs
+    # (e.g. a Playwright bump whose webkit build never completes page load).
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 

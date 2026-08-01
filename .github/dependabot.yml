@@ -20,6 +20,11 @@ updates:
       # (typescript-eslint@8.63.0); unblock once it supports TS 7
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
+      # @playwright/test 1.62.x ships a webkit build that never completes page
+      # load, hanging every webkit E2E test (chromium is fine). Pinned to 1.61.1.
+      # Remove this once a newer Playwright fixes the webkit regression.
+      - dependency-name: "@playwright/test"
+        versions: ["1.62.x"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
