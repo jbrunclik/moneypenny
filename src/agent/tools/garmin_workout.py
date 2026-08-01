@@ -472,7 +472,7 @@ def _parse_edits(edits: Any) -> list[dict[str, Any]]:
 def garmin_workout(
     action: str,
     workout_id: str | None = None,
-    edits: Any = None,
+    edits: str | None = None,
     query: str | None = None,
 ) -> str:
     """Read and edit the user's saved Garmin strength workouts.
@@ -498,7 +498,7 @@ def garmin_workout(
       <refreshed view>}. Required: workout_id, edits. Use "applied" to tell the
       user exactly what changed.
 
-    Edit ops (edits = JSON array; each op has an "op", default "set"):
+    Edit ops (edits = a JSON-encoded array string; each op has an "op", default "set"):
     - Edit numbers (existing step): {"step_id": 12, "reps": 6, "weight_kg": 26}
       rest: {"step_id": 13, "rest_s": 120}; sets: {"step_id": 10, "sets": 5} (block id)
     - Swap movement: {"op": "swap", "step_id": 12, "exercise": "Goblet Squat"}
@@ -526,7 +526,8 @@ def garmin_workout(
     Args:
         action: "list", "get", "search_exercises", or "update".
         workout_id: Target workout id (required for get/update).
-        edits: JSON array of edit ops (required for update).
+        edits: A JSON string encoding an array of edit ops (required for update),
+            e.g. '[{"step_id": 12, "reps": 6, "weight_kg": 26}]'.
         query: Search term (required for search_exercises).
 
     Returns:

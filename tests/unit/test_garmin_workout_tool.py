@@ -436,7 +436,7 @@ class TestToolDispatch:
                     {
                         "action": "update",
                         "workout_id": "1647614440",
-                        "edits": [{"step_id": 103, "weight_kg": 26}],
+                        "edits": '[{"step_id": 103, "weight_kg": 26}]',
                     }
                 )
             )
@@ -481,3 +481,32 @@ class TestToolDispatch:
                 garmin_workout.invoke({"action": "update", "workout_id": "1647614440"})
             )
         assert "edits is required" in result["error"]
+
+
+class TestToolSchema:
+    """Guards the tool's parameter schema stays convertible to a Gemini function.
+
+    A parameter typed ``Any`` yields a schema with no ``type``/``anyOf``, which
+    some langchain_google_genai versions reject at bind time — breaking EVERY
+    chat that binds this tool, not just sports. This regression test catches
+    that class of bug (which .invoke()-based tests miss, since they never run
+    the genai schema conversion).
+    """
+
+    def test_every_param_has_a_concrete_type(self):
+        for name, schema in garmin_workout.args.items():
+            assert "type" in schema or "anyOf" in schema, (
+                f"param {name!r} has no concrete type (schema={schema}); "
+                "an Any-typed param breaks Gemini schema conversion"
+            )
+
+    def test_converts_to_genai_declaration(self):
+        # Best-effort: on versions where the conversion is available, it must
+        # not raise for this tool's schema.
+        try:
+            from langchain_google_genai._function_utils import (
+                convert_to_genai_function_declarations,
+            )
+        except Exception:
+            return
+        convert_to_genai_function_declarations([garmin_workout])
