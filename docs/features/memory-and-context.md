@@ -44,7 +44,11 @@ The LLM can learn and remember facts about the user across conversations for per
 - **The tool performs the writes**: `manage_memory` writes during the turn and returns a
   result line per operation (new IDs, or a `REJECTED` line with the reason). It used to be
   a no-op stub whose args were replayed after the turn, which meant every rejection was
-  logged server-side while the model was told it had succeeded.
+  logged server-side while the model was told it had succeeded. **Dev guardrail:** because it
+  now has a real side effect whose result the model must read, `manage_memory` must never be
+  added back to `EXTRACT_ONLY_TOOL_NAMES` in
+  [`src/agent/tools/metadata.py`](../../src/agent/tools/metadata.py) — `cite_sources` is the
+  only tool that belongs there (there is a regression test for this).
 - **Delete only (for the user)**: users can view, delete and protect memories, but not edit
   their text (prevents fake memories)
 - **Soft delete**: deletes are recoverable for `MEMORY_SOFT_DELETE_RETENTION_DAYS`
@@ -59,7 +63,10 @@ The LLM can learn and remember facts about the user across conversations for per
    the per-request dynamic context
 3. **Writes**: the model calls `manage_memory`, which validates, writes, and reports the
    outcome so the model can correct course
-4. **Management**: users view/delete/protect memories via the brain icon in the sidebar
+4. **Management**: users view/delete/protect memories on the **Data page**
+   ([`KVStorePage.ts`](../../web/src/components/KVStorePage.ts)), reached via the
+   "Memories & Storage" button in the sidebar. (The old `MemoriesPopup` was removed — the
+   memories UI now lives on the Data page alongside the K/V namespaces.)
 
 ### Memory Operations
 

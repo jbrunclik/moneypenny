@@ -108,6 +108,32 @@ Calculated from `usage_metadata` with separate pricing for prompt tokens and can
 
 Web search and URL fetching are free (no cost tracking).
 
+## Prompt Caching & Known Limitations
+
+Long conversations (especially program conversations and multi-round tool turns)
+re-send a large stable prefix on every LLM call. A few durable facts govern how
+caching affects tracked cost:
+
+- **Explicit context caching is what saves money.** The explicit cache
+  ([src/agent/context_cache.py](../../src/agent/context_cache.py)) registers the
+  stable prefix (system prompt + tool declarations) with Gemini so it is billed at
+  the discounted `cached_input` rate. Implicit Gemini caching was observed **not**
+  to hit for this workload, so it cannot be relied on.
+- **Cached tokens are recorded and discounted.** Cache hits are read from
+  `usage_metadata.input_token_details.cache_read`, aggregated as
+  `cached_input_tokens` in `usage_info`, and billed at the model's `cached_input`
+  price in `calculate_token_cost()` ([src/utils/costs.py](../../src/utils/costs.py)).
+  `input_tokens` from the API already *includes* the cached subset; the cost code
+  splits it into cached/uncached rather than double-counting. (Earlier builds did
+  not record `cache_read` and therefore overstated cost — that gap is closed.)
+- **Streaming usage is delta-encoded.** `input_tokens` and `cache_read` arrive
+  once per LLM call (not per chunk), so summing usage across streamed chunks and
+  across messages in a turn is correct and does not double-count.
+- **Fixed per-round overhead.** Each tool round re-sends the system prompt plus the
+  full tool-schema declarations. Unless that prefix is served from the explicit
+  cache, a turn with N sequential tool rounds pays this fixed overhead N times —
+  the main reason multi-round tool turns dominate cost.
+
 ## Currency Rate Updates
 
 Currency exchange rates are stored in the database (`app_settings` table) and updated daily via a systemd timer.

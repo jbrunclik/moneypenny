@@ -127,6 +127,39 @@ def test_chat_endpoint(client, test_user, test_conversation, auth_headers):
     assert 'response' in data
 ```
 
+### Mock Return Value Formats (Chat Path)
+
+When mocking the agent's chat entrypoints, the return shapes must match exactly
+or downstream code (metadata extraction, cost saving) breaks.
+
+**`ChatAgent.chat_batch`** returns a 4-tuple
+`(response_text, tool_results, usage_info, result_messages)`:
+
+```python
+mock_chat.return_value = ("Response text", [], usage_info, [ai_message])
+```
+
+- `result_messages` is the full list of LangChain `BaseMessage` objects from the
+  graph — sources, generated-image prompts, and memory ops are extracted from it.
+- `usage_info` is a dict: `input_tokens`, `output_tokens`, `cached_input_tokens`,
+  `tool_rounds`, `tool_call_count`.
+
+**`ChatAgent.stream_chat_events`** yields events; the terminal event carries the
+same payload under `result_messages` (not `metadata`):
+
+```python
+yield {
+    "type": "final",
+    "content": "...",
+    "tool_results": [...],
+    "usage_info": {...},
+    "result_messages": [ai_message],
+}
+```
+
+When you change either return type, update **every** mock return value across
+`tests/` and `web/tests/` — see the Interface Extension Checklist below.
+
 ## Frontend Testing
 
 ### Test Structure
@@ -511,6 +544,31 @@ cd web && python ../tests/e2e-server.py
 cd web && npx playwright test
 ```
 
+### E2E Gotchas (Streaming, Service Workers, Media)
+
+- **E2E serves BUILT assets** — run `npm run build` after every `web/src` change
+  before running specs, or you test the stale bundle.
+- **Streaming outruns assertions**: the default mock stream delay is ~10ms/token,
+  so the stream finishes before any mid-stream click/assertion. Specs that must
+  observe streaming state set a larger delay via `POST /test/set-stream-delay`
+  (per-execution-id isolated).
+- **Service worker blocks route mocks**: the app registers `/sw.js`
+  ([src/app.py](../../src/app.py)), and `page.route()` does **not** intercept
+  service-worker-mediated fetches. Any spec that mocks API responses must opt out
+  with `test.use({ serviceWorkers: 'block' })` (see
+  `web/tests/e2e/chat/attachments.spec.ts`).
+- **Config-shrinking route mocks race app init**: after `goto`, await the config
+  response (e.g. `waitForResponse('**/api/config/upload')`) before acting, or the
+  store still holds defaults.
+- **libmagic video detection**: production validation uses `magic.from_buffer`,
+  which can return `application/octet-stream` for real video containers — hence
+  the `_matches_video_signature()` fallback in
+  [src/utils/files.py](../../src/utils/files.py). Hand-crafted `ftyp` headers are
+  not enough; use real (tiny, ffmpeg-generated) fixtures under `tests/fixtures/`.
+- **Stop button never satisfies Playwright actionability**: `#send-btn.btn-stop`
+  has an infinite CSS pulse animation, so use `click({ force: true })` and assert
+  the resulting effect rather than the button state.
+
 ## Visual Regression Tests
 
 Visual tests capture screenshots and compare against baselines pixel-by-pixel.
@@ -748,6 +806,39 @@ This ensures:
 - **Dynamic content**: Use robust matchers (e.g., `toContainText` not exact length)
 - **Scroll positions**: Use `isScrolledToBottom()` threshold, not exact values
 - **Image loading**: Track `load` events, not just fetch completion
+
+### Interface Extension Checklist
+
+When you change a **shared return type** or **extend a TypeScript interface / store
+shape**, every test double for it must be updated together, or tests pass against
+a stale contract. Classes of places to update:
+
+- **Agent chat return types** (`chat_batch` tuple, `stream_chat_events` final
+  event) → all `mock_chat.return_value` / yielded-event mocks across `tests/`.
+- **`usage_info` dict shape** → cost-tracking test fixtures that assert on token
+  fields.
+- **TypeScript interfaces** (e.g. `InitialRoute` in `deeplink.ts`) → the
+  `toEqual` / `toHaveBeenCalledWith` assertions in the matching `*.test.ts`.
+- **Zustand store state/actions** (`store.ts`) → every mock store object passed to
+  `useStore.getState()` in unit/component tests.
+- Search first: `grep -rn 'mock_chat\|InitialRoute\|getState.*mock\|mockStore' tests/ web/tests/`.
+
+## Lint, Coverage & Audit Gates
+
+CI enforces these; a green test run alone does not guarantee a green build.
+
+- **Security lint (ruff / flake8-bandit)**: the `S` ruleset is enabled in
+  [pyproject.toml](../../pyproject.toml). `per-file-ignores` scope the test/script
+  asserts and registry-validated SQL interpolation in `src/db/models/*` (`S608`).
+  New justified findings need an inline `# noqa: SXXX - reason`.
+- **Coverage floor**: `fail_under = 70` under `[tool.coverage.report]` (currently
+  hovering ~72%), enforced by `make test-cov`. Adding uncovered code can fail CI
+  even when all tests pass.
+- **npm audit**: `make audit` gates the frontend tree at `--audit-level=high`.
+- **TOML-ordering pitfall**: `[tool.ruff.lint.per-file-ignores]` must come **after**
+  all other `[tool.ruff.lint]` keys (`select`, `ignore`). Inserting a subsection
+  mid-`[tool.ruff.lint]` orphans the keys below it (e.g. silently un-ignoring
+  `E501`), producing a flood of errors.
 
 ## See Also
 

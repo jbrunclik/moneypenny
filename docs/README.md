@@ -25,6 +25,7 @@ System design and architectural decisions:
 - **[database.md](architecture/database.md)** - Blob storage, connection pooling, indexes, performance monitoring, vacuum, backup, best practices
 - **[api-design.md](architecture/api-design.md)** - OpenAPI documentation, rate limiting, request validation (including magic bytes), comprehensive error handling
 - **[streaming-metadata.md](architecture/streaming-metadata.md)** - Streaming metadata handling, MSG_CONTEXT/METADATA markers, malformed metadata bug fix, debugging guide
+- **[scheduled-jobs.md](architecture/scheduled-jobs.md)** - Time-scheduled work: systemd timers in production, dev_scheduler loop in development, job inventory, how to add a new job
 
 ### UI (`ui/`)
 User interface patterns and implementations:

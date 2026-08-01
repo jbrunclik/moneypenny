@@ -43,3 +43,11 @@ Detailed code quality guidelines and patterns for the AI Chatbot project. See [A
 - `src/db/models.py` (600+ lines) -> `src/db/models/` (4 focused modules)
 - `web/src/main.ts` (3100+ lines) -> `web/src/core/` (11 focused modules)
 - `web/src/components/Messages.ts` (1100+ lines) -> `web/src/components/messages/` (9 focused modules)
+
+## Multi-worker state
+
+Production runs multiple gunicorn workers (count set by `GUNICORN_WORKERS`, default 2 - verify against `src/config.py` rather than assuming a fixed number). Each worker is a separate process, so **module-level dicts and globals are per-worker and NOT shared**: state written in one HTTP request may land in a different worker on the next request and be invisible.
+
+- Any multi-step or stateful flow that can span requests (e.g. multi-step OAuth / MFA like Garmin's) must be **stateless on the backend** or persist to a **shared store** (the database or `kv_store`). If step 2 needs data from step 1, have the client resend it rather than relying on in-process state.
+- A shared / cross-worker store cannot hold **live library objects** - anything with thread locks, network sessions, or sockets (e.g. a partially-authenticated `garminconnect.Garmin` client) is not picklable and will raise `TypeError: cannot pickle '_thread.RLock' object`. `kv_store` (pickle + base64) works only for serializable data - dicts, tokens, strings.
+- Flask's `test_client` is single-process and never reproduces cross-worker breakage. If a flow's correctness depends on within-process state, write a test that asserts the contract is stateless (or document the requirement explicitly).

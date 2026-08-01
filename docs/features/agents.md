@@ -11,6 +11,22 @@ The autonomous agents feature enables:
 - **Agent-to-agent communication**: Agents can trigger other agents via the `trigger_agent` tool
 - **Command Center**: Dashboard UI for managing agents and approvals
 
+### When a prompt-only agent suffices
+
+Many watcher/digest-style features (periodically check something, summarize it, notify)
+need **no new code and no new tool** — just an agent with a crafted system prompt on a cron
+schedule. The default toolset (`web_search`, `fetch_url`, `kv_store`, auto-namespaced per
+agent) already covers "fetch, compare against remembered state, report". Before writing a
+bespoke tool for a recurring notifier, check whether a prompt-only agent can do it.
+
+Prompt guidance for these agents:
+- Make **line 1 of the response a plain-text headline** — the push-notification body is the
+  first line of the agent's response (truncated to ~160 chars).
+- Pair `fresh_context` with `kv_store` so the agent keeps state across runs (last value seen,
+  rolling history) rather than re-deriving it every time.
+- Forbid writing guessed/placeholder data to `kv_store` on a fetch failure, and state units
+  and formats explicitly so the model does not silently transform values.
+
 ## Architecture
 
 ### Database Schema
@@ -131,6 +147,8 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | `execute_code` | Code execution in sandbox | Requires `CODE_SANDBOX_ENABLED` |
 | `todoist` | Todoist task management | Requires user integration |
 | `google_calendar` | Calendar events | Requires user integration |
+| `garmin_connect` | Read-only Garmin health/activity data | Requires user integration |
+| `garmin_workout` | Read/write Garmin saved workouts (edit sets/reps/weight/rest, swap/add/remove exercises) | Requires user integration |
 | `whatsapp` | WhatsApp notifications | Requires app config + user phone |
 | `manage_memory` | Write to the user's long-term memory | **Must be granted** |
 | `search_conversations` | Search the user's past conversations | Requires grant |
@@ -147,6 +165,30 @@ then injected into every later conversation. Agents that genuinely need it must 
 run unrestricted), and the tool re-checks the grant at call time via
 `check_autonomous_permission`. See
 [memory-and-context.md](memory-and-context.md#bounds-and-safety).
+
+### Three layers decide tool availability
+
+Whether a tool actually works for an agent depends on **three** independent layers that must
+all agree — the first two are the obvious ones, the third is easy to miss:
+
+1. **Binding** — `get_tools_for_request(..., is_agent=True)` / `get_tools_for_agent()` decide
+   which tools the LLM is even offered.
+2. **Enforcement** — the graph's tool node calls `check_tool_permission()`
+   ([`src/agent/permissions.py`](../../src/agent/permissions.py)); tools not in the agent's
+   explicit `tool_permissions` are blocked unless listed in `ALWAYS_SAFE_TOOLS`.
+3. **Context propagation** — interactive turns run the graph in a **separate producer
+   thread** (`stream_events` in
+   [`src/api/helpers/chat_streaming.py`](../../src/api/helpers/chat_streaming.py)). Python
+   contextvars do **not** cross thread boundaries, so per-request context (request id,
+   message files, conversation, sports/language, agent context) is manually **re-set** inside
+   that producer. Any tool that reads a contextvar depends on this re-set.
+
+> **Pitfall — forward every new contextvar into the producer thread.** When you add a
+> contextvar that a tool reads, set it in the `stream_events` block alongside the existing
+> ones, or it is silently `None` at tool-execution time and any guard or permission check
+> keyed on it misbehaves without an error. The batch/request-thread path needs nothing extra.
+> Cover it with a test that runs `stream_events` in a fresh thread and captures the contextvar
+> inside the tool.
 
 ### Tool Security
 
@@ -198,6 +240,16 @@ When adding a new tool for autonomous agents, update these locations:
 
 12. **`tests/unit/test_<tool>.py`** - Unit tests for the tool
 13. **`web/tests/visual/agents.visual.ts`** - Update visual snapshots if UI changed
+
+> **Pitfall — type every tool parameter concretely.** A parameter typed `Any`
+> (or otherwise producing a schema with no `type`/`anyOf`) can break when
+> `langchain_google_genai` converts the tool to a Gemini function declaration —
+> and since tools are bound on *every* request, that breaks all chat, not just
+> the feature. Prefer scalar types; pass variable/nested arguments as a JSON
+> **string** parameter and decode it inside the tool. `.invoke()`-based unit
+> tests do **not** exercise this schema conversion, so add a guard that asserts
+> each parameter has a concrete type (see
+> `tests/unit/test_garmin_workout_tool.py::TestToolSchema`).
 
 ### LLM-Driven Approval System
 

@@ -116,9 +116,24 @@ with self._pool.get_connection() as conn:
     conn.commit()
 ```
 
+### Gotcha: thread-ident recycling
+
+The pool tracks connections in a dict keyed by `threading.get_ident()`. That ident is **not unique over time** - the OS recycles idents after a thread dies, so a brand-new thread can be handed the same key a dead thread used. Combined with deferred cleanup (a `weakref.finalize` callback that fires when the old `Thread` object is garbage-collected), a naive "pop and close whatever sits under this ident" callback closed a *live* connection belonging to the new thread mid-`execute`, crashing the sqlite3 C extension. This surfaced as CI segfaults ("Segmentation fault (core dumped)") killing the E2E server mid-run.
+
+**Invariant:** never assume `get_ident()` uniquely identifies a thread over time. Any per-thread registry with deferred cleanup (finalizers, reapers) must **identity-guard** before removing or closing - the finalizer must close only the exact connection it was registered for, not the dict's current entry:
+
+```python
+# _release_connection / close_thread_connection in connection_pool.py
+if connections.get(thread_id) is conn:  # identity check, not just key presence
+    connections.pop(thread_id, None)
+conn.close()
+```
+
+Keep `faulthandler.enable()` in `tests/e2e-server.py` - its traceback dump is what made this diagnosable.
+
 ### Key Files
 
-- [connection_pool.py](../../src/utils/connection_pool.py) - `ConnectionPool` class
+- [connection_pool.py](../../src/utils/connection_pool.py) - `ConnectionPool` class (see `_release_connection` / `close_thread_connection` identity guards)
 - [models/base.py](../../src/db/models/base.py) - `Database` class uses `self._pool`
 - [blob_store.py](../../src/db/blob_store.py) - `BlobStore` class uses `self._pool`
 

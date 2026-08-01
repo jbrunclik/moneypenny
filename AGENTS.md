@@ -57,11 +57,11 @@ A `PostToolUse` hook auto-formats files after every Edit/Write:
 
 This eliminates manual formatting cycles. See `.claude/hooks/auto-format.sh`.
 
-### Memory
+### Project Knowledge & Docs
 
-Project memory is at `memory/MEMORY.md` with topic files (`testing.md`, `streaming.md`, `frontend.md`).
-- Check memory before starting unfamiliar tasks
-- Update memory after discovering new patterns or pitfalls
+Durable engineering knowledge — architecture, conventions, feature internals, and hard-won pitfalls — lives in [docs/](docs/) (indexed by [docs/README.md](docs/README.md)).
+- Check the relevant `docs/` page before starting an unfamiliar task.
+- After discovering a new pattern or pitfall, update the appropriate `docs/` page so the knowledge is shared with all collaborators and agents (don't leave it only in a personal/agent scratch memory).
 
 ## Project Structure
 

@@ -192,6 +192,40 @@ If the generator hangs or crashes, the cleanup thread has a timeout
 
 **Key file:** [chat_streaming.py](../../src/api/helpers/chat_streaming.py)
 
+### Streaming Data Flow (components that change together)
+
+The producer/consumer pipeline in [chat_streaming.py](../../src/api/helpers/chat_streaming.py) has several parts that are tightly coupled — changing the shape of streamed events or the accumulated state means updating **all** of them in lockstep, or the stream silently loses data:
+
+```
+stream_events() → event_queue → _process_event_queue() → _handle_queue_event() → _finalize_stream() → save_message_to_db()
+```
+
+1. `_StreamContext` class — holds the accumulated state (content, thinking, IDs, journal) for the stream
+2. `stream_events()` — the producer thread that runs the LangGraph stream and pushes events onto `event_queue`
+3. `_handle_queue_event()` — translates each queued event into the client-facing SSE payload
+4. `_finalize_stream()` — final processing / `done` event after the queue drains
+5. `_StreamContext.start_threads()` — starts the producer (and cleanup) threads
+6. `save_message_to_db()` in [chat_save.py](../../src/api/helpers/chat_save.py) — persists the assistant message (`result_messages: list[Any]` of LangChain `BaseMessage` objects)
+7. All mock return values in the integration tests (they stub these return types)
+
+### Resumable Streams
+
+Generation always survived a client disconnect (the producer thread plus the cleanup-thread save complete the turn regardless). Resumable streams add the ability for a reconnecting client to **replay what it missed** and keep tailing the same in-flight turn.
+
+**Stream journal.** The producer journals every client-facing SSE event to the `stream_journal` table (migration [0035_add_stream_journal.py](../../migrations/0035_add_stream_journal.py)) via `_StreamJournal` in [stream_resume.py](../../src/api/helpers/stream_resume.py), keyed by assistant `message_id` with a monotonic `seq`. Writes are batch-flushed (by count or interval) and old rows are TTL-swept at journal start. Journaling is **best-effort** — a journal failure logs a warning and never breaks the live stream.
+
+**Why DB-backed?** A resume request may land on a **different gunicorn worker** than the one still generating, so an in-memory buffer would be invisible to it. Persisting to SQLite makes the journal cross-worker.
+
+**Resume endpoint.** `GET /conversations/<conv_id>/chat/stream/<message_id>/resume?after_seq=N` (`chat_stream_resume` in [routes/chat.py](../../src/api/routes/chat.py), generator `stream_resume_events` in [stream_resume.py](../../src/api/helpers/stream_resume.py)). It replays journaled rows with `seq > after_seq`, then tails the journal until the producer's `stream_end` marker, then waits briefly for the saved message and synthesizes a `done` event from it. If the placeholder is gone (failed turn) or the stream stalls with no terminal marker, it emits `{"type": "error", "code": "RESUME_FAILED"}`.
+
+**Client reconnect.** `tryResumeStream` in [messaging.ts](../../web/src/core/messaging.ts) tracks `state.lastSeq` from each `event.seq` and reconnects with `after_seq=lastSeq`. This is what makes mobile network handoffs (wifi ↔ cellular, backgrounding) recover live progress instead of only polling for the final message.
+
+**Invariants (violating these re-introduces fixed bugs):**
+
+- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`.) The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
+- **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
+- The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [messaging.ts](../../web/src/core/messaging.ts) / [conversation.ts](../../web/src/core/conversation.ts).
+
 ## Thinking Indicator
 
 During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.
@@ -488,7 +522,11 @@ After tool execution, `check_tool_results()` inspects `ToolMessage` results for 
 5. On success: resets `tool_retries` to 0
 6. Always routes back to the `chat` node - the LLM decides the next step
 
-The `ToolNode` is created with `handle_tool_errors=True` so unhandled exceptions in tools become `ToolMessage` errors rather than crashes.
+The `ToolNode` is created with `handle_tool_errors=_handle_tool_errors` (a callable, **not** `True`) so ordinary tool exceptions become `ToolMessage` errors rather than crashes, while control-flow exceptions still propagate.
+
+> **Pitfall — never pass `handle_tool_errors=True`.** With `True`, LangGraph's `ToolNode` catches *every* `Exception` subclass and converts it into an error `ToolMessage` (`status="error"`). That silently swallows control-flow exceptions too: `ApprovalRequestedException` (raised by the autonomous-agent approval flow) never reached the executor, so runs *completed* instead of pausing in `waiting_approval`, and self-correction told the model to retry — producing duplicate approval records. The fix is the `_handle_tool_errors(e)` callable in [graph.py](../../src/agent/graph.py): it re-raises `ApprovalRequestedException` and returns the default error-template string for everything else. (LangGraph's own `interrupt()` uses `GraphBubbleUp`, which the framework exempts — the native alternative.)
+>
+> **Lesson:** when an exception must cross a framework boundary (`ToolNode`, `executor.map`, `graph.stream`), write the regression test through a **real compiled graph**, not a mocked node — tests that mocked `execute_agent` never exercised this propagation boundary, and the `except` in the streaming layer was dead code until the exception actually started arriving. Fixing propagation can also unmask latent bugs in the previously-dead catch paths.
 
 **Configuration:**
 - `AGENT_MAX_TOOL_RETRIES`: Max consecutive tool failures before giving up (default: `2`)
