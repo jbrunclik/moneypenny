@@ -210,9 +210,9 @@ class TestActivityBreakdowns:
                     "exerciseSets": [
                         {
                             "setType": "ACTIVE",
-                            "exercises": [{"category": "PUSH_UP", "probability": 100.0}],
+                            "exercises": [{"category": "DEADLIFT", "probability": 100.0}],
                             "repetitionCount": 28,
-                            "weight": None,
+                            "weight": 24000.0,
                             "duration": 54.606,
                             "messageIndex": 0,
                         },
@@ -221,6 +221,7 @@ class TestActivityBreakdowns:
                             "setType": "ACTIVE",
                             "exercises": [{"category": "PUSH_UP"}],
                             "repetitionCount": 23,
+                            "weight": None,
                             "duration": 46.8,
                         },
                     ]
@@ -229,12 +230,13 @@ class TestActivityBreakdowns:
         )
         sets = out["exercise_sets"]
         assert [s.get("reps") for s in sets if s["setType"] == "ACTIVE"] == [28, 23]
-        # noise fields (messageIndex, probability, startTime) are dropped
+        # noise fields (messageIndex, probability, startTime) are dropped;
+        # weight is converted from grams to kg (24000 g -> 24.0 kg)
         assert sets[0] == {
             "setType": "ACTIVE",
-            "category": "PUSH_UP",
+            "category": "DEADLIFT",
             "reps": 28,
-            "weight": None,
+            "weight_kg": 24.0,
             "duration_s": 54.6,
         }
 

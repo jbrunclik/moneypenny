@@ -128,17 +128,23 @@ def _slim_exercise_set(s: dict[str, Any]) -> dict[str, Any]:
     The raw set carries startTime, wktStepIndex, messageIndex, per-exercise
     probability etc. - noise for an LLM. We keep set type, the exercise, reps,
     weight and duration, which is what answers "how many reps per set".
+
+    Weight is reported in KILOGRAMS. Note the activity endpoint stores it in
+    grams (e.g. 24000 for a 24 kg kettlebell), so we divide by 1000 here to
+    match the kg convention used everywhere else the agent sees weight
+    (including the garmin_workout editing tool).
     """
     exercises = s.get("exercises") or []
     category = None
     if exercises and isinstance(exercises[0], dict):
         category = exercises[0].get("category")
     duration = s.get("duration")
+    weight_g = s.get("weight")
     return {
         "setType": s.get("setType"),
         "category": category,
         "reps": s.get("repetitionCount"),
-        "weight": s.get("weight"),
+        "weight_kg": round(weight_g / 1000.0, 1) if isinstance(weight_g, int | float) else None,
         "duration_s": round(duration, 1) if isinstance(duration, int | float) else None,
     }
 
@@ -282,7 +288,7 @@ def garmin_connect(
       Optional: limit (default 10), activity_type (e.g., "running", "cycling").
     - "get_activity_details": Detailed data for one activity, including
       breakdowns beyond the summary: `exercise_sets` (strength: per-set type,
-      exercise, reps, weight, duration - e.g. 28/23/16 reps across three sets),
+      exercise, reps, weight_kg, duration - e.g. 28/23/16 reps across three sets),
       `hr_zones` (minutes spent in each heart-rate zone), and `laps` (per-lap
       distance/HR/power/cadence/speed for interval sessions).
       Required: activity_id.
