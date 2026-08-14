@@ -79,22 +79,22 @@ test.describe('Chat - Image Loading Scroll', () => {
     const messageImage = page.locator('.message-image');
     await expect(messageImage).toBeVisible({ timeout: 10000 });
 
-    // Wait a bit for scroll logic to complete
-    await page.waitForTimeout(500);
-
-    // Verify we're at the bottom after everything loads
+    // Verify we end up at the bottom after everything loads. The scroll is
+    // scheduled via double-RAF after render, so on a slow CI VM it can land
+    // well after a fixed delay — poll the condition instead of sampling once.
+    // If the original regression existed (image load above the viewport
+    // disabling auto-scroll), the container would settle short of the bottom
+    // and this poll would time out.
     const messagesContainer = page.locator('#messages');
-    const scrollInfo = await messagesContainer.evaluate((el) => ({
-      scrollTop: el.scrollTop,
-      scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight,
-    }));
-    const distanceFromBottom =
-      scrollInfo.scrollHeight - scrollInfo.scrollTop - scrollInfo.clientHeight;
-
-    // Should be at or very near the bottom (within threshold)
-    // Using a reasonable threshold since smooth scroll may not be pixel-perfect
-    expect(distanceFromBottom).toBeLessThan(50);
+    await expect
+      .poll(
+        () =>
+          messagesContainer.evaluate(
+            (el) => el.scrollHeight - el.scrollTop - el.clientHeight
+          ),
+        { timeout: 10000 }
+      )
+      .toBeLessThan(50);
   });
 
   test('user can still scroll up to disable auto-scroll with images', async ({ page }) => {

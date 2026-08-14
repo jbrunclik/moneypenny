@@ -806,6 +806,14 @@ This ensures:
 - **Dynamic content**: Use robust matchers (e.g., `toContainText` not exact length)
 - **Scroll positions**: Use `isScrolledToBottom()` threshold, not exact values
 - **Image loading**: Track `load` events, not just fetch completion
+- **Single-sample assertions after `waitForTimeout`**: `await page.waitForTimeout(N)`
+  followed by a one-shot `expect(...)` fails deterministically on a slow CI VM
+  (all retries share the VM, so it doesn't even look flaky). Poll the condition
+  instead: `await expect.poll(() => ..., { timeout: 10000 }).toBeLessThan(50)`.
+  Real case (Aug 2026): webkit scroll-to-bottom assertion sampled 500ms after
+  render on a CI VM running 5-7× slower than usual — the RAF-scheduled scroll
+  hadn't run yet. Note the exception: "asserting something does NOT happen"
+  (e.g., auto-scroll stays disabled) genuinely needs a fixed wait.
 
 ### Interface Extension Checklist
 
