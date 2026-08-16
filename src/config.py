@@ -541,6 +541,10 @@ class Config:
         "CONTACT_EMAIL", "admin@example.com"
     )  # For User-Agent header (Yr.no requirement)
 
+    # Places & Routing (Mapy.com REST API)
+    MAPY_CZ_API_KEY: str = os.getenv("MAPY_CZ_API_KEY", "")
+    MAPY_API_TIMEOUT: int = int(os.getenv("MAPY_API_TIMEOUT", "10"))  # seconds
+
     # WhatsApp Cloud API Integration (for autonomous agents)
     # User phone numbers are stored per-user in the database, not here
     WHATSAPP_PHONE_NUMBER_ID: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
