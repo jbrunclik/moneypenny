@@ -111,3 +111,10 @@ class TestAutonomousPromptContext:
         )
         assert "persistent conversation" in prompt
         assert "clean slate" not in prompt
+
+
+def test_briefing_prompt_mentions_leave_by_routing() -> None:
+    from src.agent.daily_briefing import BRIEFING_SYSTEM_PROMPT
+
+    assert "get_route" in BRIEFING_SYSTEM_PROMPT
+    assert "leave by" in BRIEFING_SYSTEM_PROMPT.lower()

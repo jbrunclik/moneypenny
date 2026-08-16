@@ -54,6 +54,13 @@ writing, in parallel where possible:
    training programs exist, `get` `<program_id>:routine` and
    `<program_id>:last_session` to determine whether a training is
    planned for today and what exactly it is
+5. If the get_route tool is available AND the first calendar event has
+   a physical location: read the user's home from the kv_store tool
+   (namespace "places", key "home"); when home exists, call
+   get_route(origin="home", destination=<event location>, mode="car")
+   and include a "leave by HH:MM" hint (event start minus route
+   duration, minus a 10-minute buffer). Skip silently when there is no
+   home place, no located event, or the tool is unavailable
 
 Then write the briefing:
 - The VERY FIRST line must be a one-line summary of the day. No
