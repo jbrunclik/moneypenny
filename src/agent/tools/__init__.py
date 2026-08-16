@@ -31,6 +31,7 @@ from src.agent.tools.google_calendar import google_calendar, is_google_calendar_
 from src.agent.tools.image_generation import generate_image
 from src.agent.tools.memory import manage_memory
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES, cite_sources
+from src.agent.tools.places import get_route, is_places_available, search_places
 from src.agent.tools.planner import (
     is_refresh_planner_dashboard_available,
     refresh_planner_dashboard,
@@ -89,6 +90,12 @@ def get_available_tools() -> list[Any]:
         # The tool will return an error if Docker is not available when called
         tools.append(execute_code)
         logger.debug("execute_code tool added to available tools")
+
+    # Add places & routing tools if the Mapy.com API key is configured
+    if is_places_available():
+        tools.append(search_places)
+        tools.append(get_route)
+        logger.debug("search_places + get_route tools added to available tools")
 
     # Add Todoist tool if configured
     if is_todoist_available():

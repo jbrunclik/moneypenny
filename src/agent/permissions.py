@@ -33,6 +33,9 @@ ALWAYS_SAFE_TOOLS: set[str] = {
     "retrieve_file",
     "request_approval",
     "kv_store",
+    # Read-only places/routing lookups (Mapy.com)
+    "search_places",
+    "get_route",
 }
 
 
