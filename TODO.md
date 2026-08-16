@@ -11,6 +11,7 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
   - Dedupe repeated base64 decodes of upload payloads (validate_files → save_file_to_blob_store → extract_file_metadata → attach_gemini_file_uris each decode independently; ~400MB transient allocations for a 100MB video)
   - Revoke video blob object URLs when message elements are removed (attachments.ts tap-to-load player; bounded leak today)
 
+- [ ] **Traffic-aware car ETAs** - Optional upgrade to location awareness (see docs/superpowers/specs/2026-08-16-location-awareness-design.md): swap `get_route(mode="car")` backend to HERE or TomTom free tier for live-traffic ETAs; keep Mapy.com for POI search and other modes.
 - [ ] **Gmail integration** - Read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): summarize what needs a reply, surface invoices, feed briefings/agents.
 - [ ] **Web Push notifications, Phase 3** - Phases 1-2 + Daily Briefing shipped (Jun 2026; see [docs/features/push-notifications.md](docs/features/push-notifications.md)). Remaining:
   - Planner event reminders (needs a small scheduler loop), program nudges (opt-in per program), budget alerts (threshold check in the cost-recording path)
