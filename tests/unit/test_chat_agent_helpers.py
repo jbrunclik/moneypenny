@@ -836,7 +836,6 @@ class TestGetUserContext:
             mock_config.USER_LOCATION = "New York, USA"
             context = get_user_context(user_name=None)
             assert "measurement units" in context.lower()
-            assert "metric" in context.lower() or "imperial" in context.lower()
             assert "currency" in context.lower()
             assert "local" in context.lower()
 

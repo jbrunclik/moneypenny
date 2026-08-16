@@ -4,14 +4,53 @@ This module contains all the system prompts, user context generation,
 and memory-related prompt functions.
 """
 
+import functools
+import json
 from datetime import datetime
 from typing import Any
 
+from src.agent.tools.context import get_location_context
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
+from src.utils.mapy import MapyError, is_mapy_configured, mapy_rgeocode
 
 logger = get_logger(__name__)
+
+
+@functools.lru_cache(maxsize=256)
+def _cached_locality(lon_r: float, lat_r: float) -> str | None:
+    """Reverse geocode rounded coords -> short locality label (cached per worker)."""
+    try:
+        items = mapy_rgeocode(lon_r, lat_r)
+    except MapyError as e:
+        logger.warning("Reverse geocode failed", extra={"error": str(e)})
+        return None
+    if not items:
+        return None
+    return items[0].get("location") or items[0].get("name")
+
+
+def _reverse_geocode_locality(lon: float, lat: float) -> str | None:
+    """Locality label for coords, rounded to ~110 m so the cache and prompt stay stable."""
+    if not is_mapy_configured():
+        return None
+    return _cached_locality(round(lon, 3), round(lat, 3))
+
+
+def _get_saved_places_lines(user_id: str | None) -> list[str]:
+    """Bullet lines for the user's saved places (kv_store namespace 'places')."""
+    if not user_id:
+        return []
+    lines: list[str] = []
+    for key, value in db.kv_list(user_id, "places"):
+        try:
+            address = json.loads(value).get("address", "")
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            address = ""
+        lines.append(f"- {key}: {address}" if address else f"- {key}")
+    return lines
+
 
 # ============ Base System Prompt ============
 
@@ -178,6 +217,24 @@ IMPORTANT for file generation:
 - Save generated files to `/output/` directory (e.g., `/output/report.pdf`)
 - Files saved there will be returned to the user as downloadable attachments
 - Always tell the user what files were generated
+"""
+
+# Places & routing documentation (Mapy.com) - only included when the API key is configured
+TOOLS_SYSTEM_PROMPT_PLACES = """
+## Places & Routing
+- **search_places**: Find restaurants, shops, POIs, and addresses near a location. The `near`
+  parameter accepts "current" (the user's live device location), a saved place name (e.g.
+  "home"), or a free-text address/city.
+- **get_route**: Distance and ETA between two locations (same location formats). Modes:
+  "car" (traffic-aware), "bike", "foot", "hiking". For public transport, use web_search
+  (e.g. IDOS) instead.
+- Mapy.com data has NO ratings or reviews. For restaurant/venue quality, follow up with
+  web_search on the top candidates before recommending.
+- **Saved places**: When the user shares a home/work/other address worth remembering, first
+  resolve it with search_places, then store it with the kv_store tool: namespace "places",
+  key = lowercase name (e.g. "home"), value = JSON
+  {"address": "...", "lon": <number>, "lat": <number>}. The user can view and delete these
+  on the Data page. Use saved place names directly in search_places/get_route.
 """
 
 # Productivity tools documentation (Todoist, Google Calendar) - only included when NOT in anonymous mode
@@ -1192,17 +1249,31 @@ The user's name is {user_name}. Use it naturally when appropriate (greetings, pe
         context_parts.append(f"""## Language
 The user's primary language is {preferred_language}. Always respond in {preferred_language} — including to system-generated messages (see "System-Generated Messages"). Deviate only when the user explicitly writes in a different language, asks for another language, or a more specific instruction applies (such as the language tutor's target-language immersion gradient).""")
 
-    # Location context
-    location = Config.USER_LOCATION
-    if location:
-        context_parts.append(f"""## Location
-The user is located in {location}. Use this to:
-- Use appropriate measurement units (metric vs imperial) based on local conventions
-- Prefer local currency when discussing prices or costs
-- Recommend locally available retailers, services, or resources when relevant
-- Consider local regulations, holidays, customs, and cultural context
-- Use appropriate date/time formats for the locale
-- When suggesting products, consider regional availability""")
+    # Location context: device fix > saved places > static env fallback
+    location_lines: list[str] = []
+    device_loc = get_location_context()
+    if device_loc:
+        locality = _reverse_geocode_locality(device_loc["lon"], device_loc["lat"])
+        if locality:
+            location_lines.append(
+                f"The user is currently near {locality} (live device location). "
+                "Use it for 'near me' requests, local recommendations, and as the "
+                "default origin for routes."
+            )
+    saved_lines = _get_saved_places_lines(user_id)
+    if saved_lines:
+        location_lines.append(
+            "Saved places (usable by name in search_places/get_route):\n" + "\n".join(saved_lines)
+        )
+    if not location_lines and Config.USER_LOCATION:
+        location_lines.append(f"The user is located in {Config.USER_LOCATION}.")
+    if location_lines:
+        location_lines.append(
+            "Use the location for measurement units, local currency, locally "
+            "available services, local regulations/holidays/customs, and "
+            "date/time formats."
+        )
+        context_parts.append("## Location\n" + "\n\n".join(location_lines))
 
     if not context_parts:
         return ""
@@ -1439,6 +1510,9 @@ def get_static_prompt_for_profile(profile: str) -> str:
     prompt = BASE_SYSTEM_PROMPT
     # All profiles get base tools
     prompt += TOOLS_SYSTEM_PROMPT_BASE
+    # Places docs are env-stable (key presence), so the cached prefix stays stable
+    if is_mapy_configured():
+        prompt += TOOLS_SYSTEM_PROMPT_PLACES
     # All non-anonymous profiles get productivity tools (mirrors get_system_prompt)
     if profile in ("standard", "planning", "sports", "language"):
         prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
@@ -1604,6 +1678,9 @@ def get_system_prompt(
     if with_tools and get_available_tools():
         # Always include base tools documentation
         prompt += TOOLS_SYSTEM_PROMPT_BASE
+        # Include places/routing docs only when the Mapy.com key is configured
+        if is_mapy_configured():
+            prompt += TOOLS_SYSTEM_PROMPT_PLACES
         # Include productivity tools (Todoist, Calendar) docs only when NOT in anonymous mode
         if not anonymous_mode:
             prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
