@@ -14,11 +14,13 @@ from src.agent.tools.context import (
     get_conversation_context,
     get_current_message_files,
     get_language_context,
+    get_location_context,
     get_sports_context,
     set_agent_name,
     set_conversation_context,
     set_current_message_files,
     set_language_context,
+    set_location_context,
     set_sports_context,
 )
 from src.agent.tools.conversation_search import read_conversation, search_conversations

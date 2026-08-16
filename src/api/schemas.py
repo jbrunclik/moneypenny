@@ -162,6 +162,15 @@ class UpdateConversationRequest(BaseModel):
 # -----------------------------------------------------------------------------
 
 
+class ClientLocation(BaseModel):
+    """Device GPS fix sent by the frontend when location sharing is enabled."""
+
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    accuracy_m: float | None = Field(default=None, ge=0)
+    timestamp_ms: int | None = Field(default=None, ge=0)
+
+
 class ChatRequest(BaseModel):
     """Schema for POST /api/conversations/<conv_id>/chat/batch and /chat/stream.
 
@@ -173,6 +182,7 @@ class ChatRequest(BaseModel):
     files: list[FileAttachment] = Field(default_factory=list)
     force_tools: list[str] = Field(default_factory=list)
     anonymous_mode: bool = Field(default=False)
+    client_location: ClientLocation | None = Field(default=None)
 
     @field_validator("force_tools")
     @classmethod

@@ -24,6 +24,7 @@ from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
     set_current_message_files,
+    set_location_context,
 )
 from src.api.errors import (
     raise_llm_error,
@@ -191,6 +192,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         set_current_message_files(files if files else None)
         # Set conversation context for tools (like retrieve_file) to access history
         set_conversation_context(conv_id, user.id)
+        # Device location (if shared) for places tools and prompt context
+        set_location_context(data.client_location.model_dump() if data.client_location else None)
 
         # If this is a planner conversation, fetch dashboard data for context
         dashboard_data = None
@@ -309,6 +312,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         set_current_request_id(None)  # Clean up
         set_current_message_files(None)  # Clean up
         set_conversation_context(None, None)  # Clean up
+        set_location_context(None)  # Clean up
         if conv.is_sports:
             from src.agent.tools import set_sports_context
 
@@ -651,6 +655,7 @@ def chat_stream(
         force_tools=force_tools,
         anonymous_mode=anonymous_mode,
         stream_request_id=stream_request_id,
+        client_location=data.client_location.model_dump() if data.client_location else None,
     )
 
     return Response(

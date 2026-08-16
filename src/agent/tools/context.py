@@ -28,6 +28,21 @@ _current_agent_name: contextvars.ContextVar[str | None] = contextvars.ContextVar
     "_current_agent_name", default=None
 )
 
+# Contextvar holding the device location for the current request (never persisted)
+_client_location: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "_client_location", default=None
+)
+
+
+def set_location_context(location: dict[str, Any] | None) -> None:
+    """Set the device location for tool/prompt access (ClientLocation.model_dump())."""
+    _client_location.set(location)
+
+
+def get_location_context() -> dict[str, Any] | None:
+    """Get the device location for the current request, if shared."""
+    return _client_location.get()
+
 
 def set_current_message_files(files: list[dict[str, Any]] | None) -> None:
     """Set the current message's files for tool access."""

@@ -19,7 +19,11 @@ from src.agent.agent import ChatAgent
 # Agent context imports for interactive agent conversations
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.tool_results import set_current_request_id
-from src.agent.tools import set_conversation_context, set_current_message_files
+from src.agent.tools import (
+    set_conversation_context,
+    set_current_message_files,
+    set_location_context,
+)
 from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
@@ -119,6 +123,7 @@ def stream_events(
     language_context: dict[str, Any] | None = None,
     journal_message_id: str | None = None,
     agent_execution_context: AgentContext | None = None,
+    client_location: dict[str, Any] | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -150,6 +155,7 @@ def stream_events(
     set_current_request_id(stream_request_id)
     set_current_message_files(files if files else None)
     set_conversation_context(conv_id, user_id)
+    set_location_context(client_location)
     if agent_execution_context is not None:
         set_agent_context(agent_execution_context)
     if is_sports and sports_context:
@@ -405,6 +411,7 @@ def create_stream_generator(
     force_tools: list[str] | None,
     anonymous_mode: bool,
     stream_request_id: str,
+    client_location: dict[str, Any] | None = None,
 ) -> Generator[str]:
     """Create the SSE stream generator for chat streaming.
 
@@ -442,6 +449,7 @@ def create_stream_generator(
             force_tools=force_tools,
             anonymous_mode=anonymous_mode,
             stream_request_id=stream_request_id,
+            client_location=client_location,
         )
 
         # Set up threading context
@@ -511,6 +519,7 @@ class _StreamContext:
         force_tools: list[str] | None,
         anonymous_mode: bool,
         stream_request_id: str,
+        client_location: dict[str, Any] | None = None,
     ) -> None:
         self.user = user
         self.conv = conv
@@ -521,6 +530,8 @@ class _StreamContext:
         self.force_tools = force_tools
         self.anonymous_mode = anonymous_mode
         self.stream_request_id = stream_request_id
+        # Device GPS fix (ClientLocation.model_dump()); in-flight only, never persisted
+        self.client_location = client_location
 
         # Derived values
         self.conv_id = conv.id
@@ -579,6 +590,7 @@ class _StreamContext:
         set_current_request_id(self.stream_request_id)
         set_current_message_files(self.files if self.files else None)
         set_conversation_context(self.conv_id, self.user_id)
+        set_location_context(self.client_location)
 
         # Fetch planner dashboard if needed
         if self.conv.is_planning:
@@ -732,6 +744,7 @@ class _StreamContext:
             kwargs={
                 "journal_message_id": self.expected_assistant_msg_id,
                 "agent_execution_context": self.agent_execution_context,
+                "client_location": self.client_location,
             },
             daemon=False,
         )
@@ -1101,6 +1114,7 @@ def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
     set_current_request_id(None)
     set_current_message_files(None)
     set_conversation_context(None, None)
+    set_location_context(None)
 
     def notify_approval_needed() -> None:
         # The turn is blocked on the user and nobody saw the request

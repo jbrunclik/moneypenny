@@ -21,7 +21,11 @@ from src.agent.content import (
     extract_sources_fallback_from_tool_results,
 )
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
-from src.agent.tools import set_conversation_context, set_current_message_files
+from src.agent.tools import (
+    set_conversation_context,
+    set_current_message_files,
+    set_location_context,
+)
 from src.api.schemas import MessageRole
 from src.api.utils import calculate_and_save_message_cost
 from src.config import Config
@@ -96,6 +100,7 @@ def _collect_generated_files(
     set_current_request_id(None)  # Clean up
     set_current_message_files(None)  # Clean up
     set_conversation_context(None, None)  # Clean up
+    set_location_context(None)  # Clean up
 
     # Extract generated files from FULL tool results (before stripping)
     gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
