@@ -64,6 +64,16 @@ export const API_RETRY_JITTER_FACTOR = 0.25;
 export const API_RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 
 // =============================================================================
+// Device Location
+// =============================================================================
+
+/** Reuse a device location fix younger than this at message-send time */
+export const LOCATION_MAX_AGE_MS = 5 * MS_PER_MINUTE;
+
+/** Give up waiting for a GPS fix after this long (send without location) */
+export const LOCATION_FIX_TIMEOUT_MS = 3 * MS_PER_SECOND;
+
+// =============================================================================
 // Authentication
 // =============================================================================
 

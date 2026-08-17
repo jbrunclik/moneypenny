@@ -45,10 +45,11 @@ import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom, programmaticScrollToElementTop } from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
-import type { Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
+import type { ClientLocation, Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 
 import { isTempConversation, createConversation, updateConversationTitle } from './conversation';
+import { getClientLocation } from './location';
 import { updateConversationCost, resetForceTools } from './toolbar';
 import { hasPendingApproval } from '../components/messages';
 import {
@@ -385,11 +386,14 @@ export async function sendMessage(): Promise<void> {
   const anonymousMode = useStore.getState().getAnonymousMode(conv.id);
   resetForceTools();
 
+  // Device location (null when sharing is disabled, denied, or times out)
+  const clientLocation = await getClientLocation();
+
   try {
     if (store.streamingEnabled) {
-      await sendStreamingMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode);
+      await sendStreamingMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode, clientLocation);
     } else {
-      await sendBatchMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode);
+      await sendBatchMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode, clientLocation);
     }
     // Clear draft on successful send
     useStore.getState().clearDraft();
@@ -1338,7 +1342,8 @@ async function sendStreamingMessage(
   files: ReturnType<typeof getPendingFiles>,
   forceTools: string[],
   tempUserMessageId: string,
-  anonymousMode: boolean
+  anonymousMode: boolean,
+  clientLocation: ClientLocation | null = null
 ): Promise<void> {
   const hasFiles = files && files.length > 0;
   const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
@@ -1347,7 +1352,7 @@ async function sendStreamingMessage(
   const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
 
   try {
-    for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode)) {
+    for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation)) {
       // Hide upload progress on first event
       if (hasFiles && !state.uploadProgressHidden) {
         hideUploadProgress();
@@ -1470,7 +1475,8 @@ async function sendBatchMessage(
   files: ReturnType<typeof getPendingFiles>,
   forceTools: string[],
   tempUserMessageId: string,
-  anonymousMode: boolean
+  anonymousMode: boolean,
+  clientLocation: ClientLocation | null = null
 ): Promise<void> {
   const requestId = `batch-${convId}-${Date.now()}`;
 
@@ -1502,7 +1508,7 @@ async function sendBatchMessage(
       useStore.getState().setUploadProgress(progress);
     } : undefined;
 
-    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode);
+    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
 
     // Update user message ID from temp to real ID (for file fetching in lightbox)

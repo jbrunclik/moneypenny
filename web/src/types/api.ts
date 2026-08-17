@@ -108,6 +108,14 @@ export interface FileUpload {
   previewUrl?: string; // blob URL for local preview
 }
 
+/** Device GPS fix attached to chat requests when location sharing is enabled */
+export interface ClientLocation {
+  lat: number;
+  lon: number;
+  accuracy_m: number | null;
+  timestamp_ms: number;
+}
+
 // =============================================================================
 // Model types
 // =============================================================================

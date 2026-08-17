@@ -16,7 +16,13 @@ import {
   BELL_ICON,
   SUNRISE_ICON,
   LANGUAGE_ICON,
+  MAP_PIN_ICON,
 } from '../utils/icons';
+import {
+  getClientLocation,
+  isLocationSharingEnabled,
+  setLocationSharingEnabled,
+} from '../core/location';
 import { settings, todoist, calendar, garmin } from '../api/client';
 import { ApiError } from '../api/http';
 import {
@@ -532,6 +538,29 @@ async function handleBriefingChange(): Promise<void> {
 }
 
 /**
+ * Apply the location-sharing toggle immediately (per-device, localStorage).
+ * Enabling requests a fix right away so the browser permission prompt (and
+ * any denial) is visible now, not at message-send time.
+ */
+function handleLocationSharingChange(checkbox: HTMLInputElement): void {
+  const enabled = checkbox.checked;
+  setLocationSharingEnabled(enabled);
+  if (!enabled) {
+    toast.success('Location sharing disabled');
+    return;
+  }
+  void getClientLocation().then((fix) => {
+    if (fix) {
+      toast.success('Location sharing enabled');
+    } else {
+      toast.error('Location permission denied or unavailable');
+      setLocationSharingEnabled(false);
+      checkbox.checked = false;
+    }
+  });
+}
+
+/**
  * Apply a primary-language change immediately ('' = auto).
  */
 async function handlePreferredLanguageChange(select: HTMLSelectElement): Promise<void> {
@@ -668,6 +697,21 @@ function renderContent(
             <input type="time" id="briefing-time" class="settings-input settings-briefing-time" value="${escapeHtml(briefingSettings.time)}">
           </label>
         </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field" data-section="location">
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${MAP_PIN_ICON}</span>
+          Location
+        </label>
+        <p class="settings-helper">Used for "near me" suggestions and routes. Sent only with your messages, never stored. Applies to this device only.</p>
+        <label class="toggle-label">
+          <input type="checkbox" id="location-sharing-enabled" ${isLocationSharingEnabled() ? 'checked' : ''}>
+          <span class="toggle-switch"></span>
+          <span class="toggle-text">Share device location with the assistant</span>
+        </label>
       </div>
 
       ${whatsappAvailable ? `
@@ -1476,6 +1520,9 @@ export function initSettingsPopup(): void {
     }
     if (target.id === 'preferred-language') {
       void handlePreferredLanguageChange(target as HTMLSelectElement);
+    }
+    if (target.id === 'location-sharing-enabled') {
+      handleLocationSharingChange(target as HTMLInputElement);
     }
   });
 
