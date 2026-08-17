@@ -63,11 +63,14 @@ def _resolve_point(ref: str) -> tuple[tuple[float, float], str] | None:
     saved = _get_saved_place(ref)
     if saved:
         return (saved["lon"], saved["lat"]), ref
-    items = mapy_geocode(ref, limit=1)
+    items = mapy_geocode(ref, limit=3)
     if not items:
         return None
-    pos = items[0]["position"]
-    return (pos["lon"], pos["lat"]), items[0]["name"]
+    # Prefer regional entities (cities, streets, addresses) over POIs: the top
+    # hit for a plain city name can be a POI (e.g. "Brno" -> Brno dam)
+    best = next((i for i in items if str(i.get("type", "")).startswith("regional")), items[0])
+    pos = best["position"]
+    return (pos["lon"], pos["lat"]), best["name"]
 
 
 def _distance_m(a: tuple[float, float], b: tuple[float, float]) -> int:
