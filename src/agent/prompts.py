@@ -230,6 +230,10 @@ TOOLS_SYSTEM_PROMPT_PLACES = """
   (e.g. IDOS) instead.
 - Mapy.com data has NO ratings or reviews. For restaurant/venue quality, follow up with
   web_search on the top candidates before recommending.
+- If a "near me" request comes in but device location is unavailable, still help (ask for
+  a neighborhood, or use a saved place) and add ONE short line telling the user they can
+  enable location sharing via Settings -> Location -> "Share device location with the
+  assistant". Do not repeat this hint once the user has seen it in the conversation.
 - **Saved places**: When the user shares a home/work/other address worth remembering, first
   resolve it with search_places, then store it with the kv_store tool: namespace "places",
   key = lowercase name (e.g. "home"), value = JSON

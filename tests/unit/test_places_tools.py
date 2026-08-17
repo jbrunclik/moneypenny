@@ -27,7 +27,9 @@ def test_search_places_near_current(mock_loc: MagicMock, mock_geo: MagicMock) ->
 @patch("src.agent.tools.places.get_location_context", return_value=None)
 def test_search_places_current_without_fix(mock_loc: MagicMock) -> None:
     result = search_places.invoke({"query": "kavárna", "near": "current"})
-    assert "location" in result.lower()  # graceful message, no crash
+    # Graceful message that tells the agent the exact Settings path to relay
+    assert "Settings" in result
+    assert "Share device location" in result
 
 
 @patch("src.agent.tools.places.mapy_geocode", return_value=[POI])

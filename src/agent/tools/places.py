@@ -113,8 +113,12 @@ def search_places(query: str, near: str = "current", limit: int = 5) -> str:
         if anchor is None:
             if near.strip().lower() == "current":
                 return (
-                    "Device location is not available (user hasn't shared it). "
-                    "Ask for a neighborhood/city, or use a saved place."
+                    "Device location is not available - the user has not enabled "
+                    "location sharing on this device. Tell them they can enable it "
+                    'via Settings -> Location -> "Share device location with the '
+                    'assistant" (the browser will then ask for permission once). '
+                    "Meanwhile, answer with what you have: ask for a "
+                    "neighborhood/city, or use a saved place."
                 )
             return f"Could not resolve location '{near}'."
         (anchor_pt, anchor_label) = anchor
