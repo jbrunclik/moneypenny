@@ -31,7 +31,14 @@ from src.agent.tools.google_calendar import google_calendar, is_google_calendar_
 from src.agent.tools.image_generation import generate_image
 from src.agent.tools.memory import manage_memory
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES, cite_sources
-from src.agent.tools.places import get_route, is_places_available, search_places
+from src.agent.tools.places import (
+    delete_place,
+    get_route,
+    is_places_available,
+    list_places,
+    save_place,
+    search_places,
+)
 from src.agent.tools.planner import (
     is_refresh_planner_dashboard_available,
     refresh_planner_dashboard,
@@ -56,6 +63,9 @@ _INTEGRATION_TOOLS = {"todoist", "google_calendar", "garmin_connect", "garmin_wo
 # is not allowed to make.
 _ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
     "manage_memory",
+    # Write persistent user data (saved places) - not allowed from anonymous chats
+    "save_place",
+    "delete_place",
     # Reading past conversations would pull the history the user deliberately
     # stepped away from back into an anonymous chat.
     "search_conversations",
@@ -93,9 +103,8 @@ def get_available_tools() -> list[Any]:
 
     # Add places & routing tools if the Mapy.com API key is configured
     if is_places_available():
-        tools.append(search_places)
-        tools.append(get_route)
-        logger.debug("search_places + get_route tools added to available tools")
+        tools.extend([search_places, get_route, save_place, list_places, delete_place])
+        logger.debug("places tools added to available tools")
 
     # Add Todoist tool if configured
     if is_todoist_available():
@@ -256,6 +265,11 @@ _TOOL_MAP: dict[str, Any] = {
     "search_conversations": search_conversations,
     "read_conversation": read_conversation,
     "kv_store": kv_store,
+    "search_places": search_places,
+    "get_route": get_route,
+    "save_place": save_place,
+    "list_places": list_places,
+    "delete_place": delete_place,
 }
 
 
@@ -374,6 +388,9 @@ __all__ = [
     "kv_store",
     "search_places",
     "get_route",
+    "save_place",
+    "list_places",
+    "delete_place",
     # Metadata tool constants
     "EXTRACT_ONLY_TOOL_NAMES",
     # Exceptions

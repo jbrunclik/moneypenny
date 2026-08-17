@@ -36,6 +36,7 @@ ALWAYS_SAFE_TOOLS: set[str] = {
     # Read-only places/routing lookups (Mapy.com)
     "search_places",
     "get_route",
+    "list_places",
 }
 
 

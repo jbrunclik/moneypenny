@@ -143,6 +143,96 @@ def search_places(query: str, near: str = "current", limit: int = 5) -> str:
 
 
 @tool
+def save_place(name: str, address: str) -> str:
+    """Save or update a named place (home, work, ...) for later use by name.
+
+    Args:
+        name: Short name for the place, e.g. "home", "work", "cottage"
+        address: Full address to geocode and store, e.g. "Nádražní 12, Praha"
+
+    Returns:
+        Confirmation with the resolved address, or an error message.
+        Saved places work as `near`/`origin`/`destination` in
+        search_places/get_route. The user can view/delete them on the Data page.
+    """
+    _, user_id = get_conversation_context()
+    if not user_id:
+        return "Cannot save places: no user context is available in this conversation."
+    try:
+        items = mapy_geocode(address, limit=1)
+    except MapyError as e:
+        logger.warning("save_place geocode failed", extra={"error": str(e)})
+        return f"Saving place failed: {e}"
+    if not items:
+        return f"Could not resolve address '{address}' - ask the user to refine it."
+    pos = items[0]["position"]
+    # "Nádražní 12" + "Praha 5 - Smíchov, Česko" -> full human-readable address
+    location = items[0].get("location", "")
+    resolved = f"{items[0]['name']}, {location}" if location else items[0]["name"]
+    from src.db.models import db
+
+    key = name.strip().lower()
+    db.kv_set(
+        user_id,
+        PLACES_KV_NAMESPACE,
+        key,
+        json.dumps(
+            {"address": resolved, "lon": pos["lon"], "lat": pos["lat"]},
+            ensure_ascii=False,
+        ),
+    )
+    return f"Saved place '{key}': {resolved} ({pos['lon']}, {pos['lat']})."
+
+
+@tool
+def list_places() -> str:
+    """List the user's saved places (name, address, coordinates).
+
+    Returns:
+        One line per saved place, or a note that none are saved yet.
+    """
+    _, user_id = get_conversation_context()
+    if not user_id:
+        return "Cannot list places: no user context is available in this conversation."
+    from src.db.models import db
+
+    entries = db.kv_list(user_id, PLACES_KV_NAMESPACE)
+    if not entries:
+        return "No saved places yet. Use save_place(name, address) to add one."
+    lines = ["Saved places:"]
+    for key, value in entries:
+        try:
+            data = json.loads(value)
+            lines.append(
+                f"- {key}: {data.get('address', '')} ({data.get('lon')}, {data.get('lat')})"
+            )
+        except (json.JSONDecodeError, TypeError):
+            lines.append(f"- {key}: (unreadable entry - re-save it to fix)")
+    return "\n".join(lines)
+
+
+@tool
+def delete_place(name: str) -> str:
+    """Delete a saved place by name.
+
+    Args:
+        name: The place name to delete, e.g. "home"
+
+    Returns:
+        Confirmation, or a note that no such place exists.
+    """
+    _, user_id = get_conversation_context()
+    if not user_id:
+        return "Cannot delete places: no user context is available in this conversation."
+    from src.db.models import db
+
+    key = name.strip().lower()
+    if db.kv_delete(user_id, PLACES_KV_NAMESPACE, key):
+        return f"Deleted saved place '{key}'."
+    return f"No saved place named '{key}'. Use list_places to see what exists."
+
+
+@tool
 def get_route(origin: str, destination: str, mode: str = "car") -> str:
     """Plan a route and get distance + ETA between two locations.
 

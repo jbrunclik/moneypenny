@@ -234,11 +234,12 @@ TOOLS_SYSTEM_PROMPT_PLACES = """
   a neighborhood, or use a saved place) and add ONE short line telling the user they can
   enable location sharing via Settings -> Location -> "Share device location with the
   assistant". Do not repeat this hint once the user has seen it in the conversation.
-- **Saved places**: When the user shares a home/work/other address worth remembering, first
-  resolve it with search_places, then store it with the kv_store tool: namespace "places",
-  key = lowercase name (e.g. "home"), value = JSON
-  {"address": "...", "lon": <number>, "lat": <number>}. The user can view and delete these
-  on the Data page. Use saved place names directly in search_places/get_route.
+- **Saved places** (save_place / list_places / delete_place): When the user shares a
+  home/work/other address worth remembering, save it with save_place(name, address) -
+  e.g. save_place("home", "Nádražní 12, Praha"). Saving to an existing name updates it.
+  Use list_places to see what exists, delete_place(name) to remove one. Use saved place
+  names directly as `near`/`origin`/`destination` in search_places/get_route. The user
+  can also view/delete saved places on the Data page.
 """
 
 # Productivity tools documentation (Todoist, Google Calendar) - only included when NOT in anonymous mode

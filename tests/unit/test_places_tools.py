@@ -1,8 +1,15 @@
-"""Tests for the places agent tools (search_places, get_route)."""
+"""Tests for the places agent tools (search_places, get_route, save_place)."""
 
+import json
 from unittest.mock import MagicMock, patch
 
-from src.agent.tools.places import get_route, search_places
+from src.agent.tools.places import (
+    delete_place,
+    get_route,
+    list_places,
+    save_place,
+    search_places,
+)
 
 POI = {
     "name": "Kavárna Slavia",
@@ -77,3 +84,67 @@ def test_get_route_foot_mode(
 def test_get_route_unknown_mode() -> None:
     result = get_route.invoke({"origin": "A", "destination": "B", "mode": "teleport"})
     assert "Unknown mode" in result
+
+
+@patch("src.agent.tools.places.mapy_geocode", return_value=[POI])
+@patch("src.agent.tools.places.get_conversation_context", return_value=("conv1", "u1"))
+def test_save_place_geocodes_and_stores(mock_ctx: MagicMock, mock_geo: MagicMock) -> None:
+    with patch("src.db.models.db.kv_set") as mock_set:
+        result = save_place.invoke({"name": "Home", "address": "Nádražní 12, Praha"})
+    assert "saved" in result.lower()
+    mock_set.assert_called_once()
+    user_id, namespace, key, value = mock_set.call_args.args
+    assert (user_id, namespace, key) == ("u1", "places", "home")
+    stored = json.loads(value)
+    assert stored["lon"] == 14.4135
+    assert stored["lat"] == 50.0813
+    assert stored["address"]
+
+
+@patch("src.agent.tools.places.mapy_geocode", return_value=[])
+@patch("src.agent.tools.places.get_conversation_context", return_value=("conv1", "u1"))
+def test_save_place_geocode_miss(mock_ctx: MagicMock, mock_geo: MagicMock) -> None:
+    result = save_place.invoke({"name": "home", "address": "xyzzy nowhere 999"})
+    assert "could not" in result.lower()
+
+
+@patch("src.agent.tools.places.get_conversation_context", return_value=(None, None))
+def test_save_place_without_user(mock_ctx: MagicMock) -> None:
+    result = save_place.invoke({"name": "home", "address": "Nádražní 12"})
+    assert "cannot" in result.lower() or "not available" in result.lower()
+
+
+@patch("src.agent.tools.places.get_conversation_context", return_value=("conv1", "u1"))
+def test_list_places(mock_ctx: MagicMock) -> None:
+    with patch("src.db.models.db.kv_list") as mock_list:
+        mock_list.return_value = [
+            ("home", '{"address": "Nádražní 12, Praha 5 - Smíchov", "lon": 14.4, "lat": 50.07}'),
+            ("work", "corrupted-json"),
+        ]
+        result = list_places.invoke({})
+    mock_list.assert_called_once_with("u1", "places")
+    assert "home" in result
+    assert "Nádražní 12" in result
+    assert "work" in result  # corrupted entries still listed by name
+
+
+@patch("src.agent.tools.places.get_conversation_context", return_value=("conv1", "u1"))
+def test_list_places_empty(mock_ctx: MagicMock) -> None:
+    with patch("src.db.models.db.kv_list", return_value=[]):
+        result = list_places.invoke({})
+    assert "no saved places" in result.lower()
+
+
+@patch("src.agent.tools.places.get_conversation_context", return_value=("conv1", "u1"))
+def test_delete_place(mock_ctx: MagicMock) -> None:
+    with patch("src.db.models.db.kv_delete", return_value=True) as mock_del:
+        result = delete_place.invoke({"name": "Home"})
+    mock_del.assert_called_once_with("u1", "places", "home")
+    assert "deleted" in result.lower()
+
+
+@patch("src.agent.tools.places.get_conversation_context", return_value=("conv1", "u1"))
+def test_delete_place_missing(mock_ctx: MagicMock) -> None:
+    with patch("src.db.models.db.kv_delete", return_value=False):
+        result = delete_place.invoke({"name": "chata"})
+    assert "no saved place" in result.lower()

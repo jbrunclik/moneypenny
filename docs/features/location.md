@@ -40,11 +40,21 @@ Stored in the existing kv_store, namespace `places`:
 key = lowercase name (e.g. `home`), value = JSON
 `{"address": "...", "lon": <number>, "lat": <number>}`.
 
-There is no dedicated UI — the agent saves places when the user shares an
-address (guided by `TOOLS_SYSTEM_PROMPT_PLACES` in
-[prompts.py](../../src/agent/prompts.py)); users view/delete them on the
-Data page. Saved place names work directly in both tools and are listed in
-the user-context prompt.
+There is no dedicated UI — the agent has full CRUD via dedicated tools:
+`save_place(name, address)` (create/update — geocodes and stores),
+`list_places()`, `delete_place(name)`, guided by `TOOLS_SYSTEM_PROMPT_PLACES`
+in [prompts.py](../../src/agent/prompts.py). Users can also view/delete
+entries on the Data page. Saved place names work directly in
+search_places/get_route and are listed in the user-context prompt.
+
+Note: the generic `kv_store` tool is bound only in sports/language/agent
+conversations — regular chats cannot use it, which is why the dedicated
+places tools exist. `save_place`/`delete_place` are excluded in anonymous
+mode (they write persistent user data, like `manage_memory`) and are NOT in
+`ALWAYS_SAFE_TOOLS` (autonomous agents need an explicit permission grant to
+modify places; read-only `search_places`/`get_route`/`list_places` need
+none). All five places tools are in `_TOOL_MAP`, so permission-restricted
+agents can be granted them.
 
 ## Prompt context
 
