@@ -133,7 +133,8 @@ def create_app() -> APIFlask:
         headers.setdefault("X-Content-Type-Options", "nosniff")
         headers.setdefault("X-Frame-Options", "DENY")
         headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        headers.setdefault("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)")
+        # geolocation=(self): the app reads device location for location sharing
+        headers.setdefault("Permissions-Policy", "camera=(), geolocation=(self), microphone=(self)")
         # same-origin-allow-popups keeps the Google sign-in popup flow working
         headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
         # HSTS only over TLS (directly or behind the reverse proxy)

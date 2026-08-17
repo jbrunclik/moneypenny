@@ -15,6 +15,9 @@ class TestSecurityHeaders:
         assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
         assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
         assert "microphone=(self)" in response.headers["Permissions-Policy"]
+        # geolocation=(self) - the app itself reads device location for the
+        # location-sharing feature; embedded third-party content still cannot
+        assert "geolocation=(self)" in response.headers["Permissions-Policy"]
 
     def test_no_cors_headers(self, client: FlaskClient) -> None:
         """The API is same-origin only - no Access-Control-Allow-Origin anywhere."""
