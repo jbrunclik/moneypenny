@@ -74,7 +74,7 @@ ai-chatbot/
 │   ├── api/                      # REST endpoints, validation, errors
 │   │   └── routes/               # 18 modules, ~100 endpoints (organized by feature)
 │   ├── agent/                    # LangGraph agent with Gemini + tools
-│   │   └── tools/                # web_search, fetch_url, browser, generate_image, execute_code, todoist, etc.
+│   │   └── tools/                # web_search, fetch_url, browser, generate_image, execute_code, todoist, places/routing, etc.
 │   ├── db/                       # SQLite: User, Conversation, Message, sports columns
 │   │   └── models/               # Split by entity
 │   ├── templates/                # Jinja2 templates (index.html, privacy.html)
