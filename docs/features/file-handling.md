@@ -292,38 +292,38 @@ Users can paste screenshots directly from the clipboard into the message input (
 
 ## Upload Progress
 
-When sending messages with file attachments, an upload progress indicator shows the upload status.
+When sending messages with file attachments, upload progress renders as a conic-gradient ring inside the send/stop button. It deliberately does NOT render as an element in the input area's document flow: an earlier strip-above-the-input implementation grew/shrank the input area when it appeared and disappeared, visibly jumping the whole layout twice per send on mobile.
 
 ### How it works
 
 1. When files are attached and the user clicks send, `showUploadProgress()` is called
-2. In batch mode: Uses XMLHttpRequest with `upload.onprogress` to track actual upload progress (0-100%)
-3. In streaming mode: Shows indeterminate progress ("Uploading...") since fetch doesn't support upload progress
-4. Progress bar updates in real-time showing percentage and "Processing..." at 100%
+2. In batch mode: Uses XMLHttpRequest with `upload.onprogress` to track actual upload progress (0-100%), shown as a determinate ring sweep
+3. In streaming mode: `showUploadProgress(true)` shows the indeterminate spin, since fetch doesn't support upload progress events
+4. At 100% the ring switches to the indeterminate spin (`.processing`) while the server processes the upload
 5. `hideUploadProgress()` is called in the finally block to ensure cleanup
 
 ### UI Behavior
 
-- Progress bar appears below file preview, above input container
-- Shows percentage text (e.g., "Uploading 75%") during upload
-- Shows "Processing..." when upload reaches 100% (server is processing)
-- Hidden when not uploading (uses `.hidden` class)
-- CSS transition animates the progress bar smoothly
+- Ring renders inside the button bounds (`::after` with a mask that punches out the center) - zero layout shift when the upload state toggles
+- Button classes: `.uploading` (ring visible, driven by the `--progress` custom property) and `.processing` (indeterminate spin)
+- Progress is announced via the button's `aria-label` ("Uploading 75%", "Processing upload")
+- The stop icon stays visible inside the ring (uploads remain cancellable); the `stop-pulse` animation is suppressed while uploading
+- `--progress` is registered via `@property` so the sweep animates smoothly between updates (snaps in browsers without support)
 
 ### Implementation Details
 
 - `requestWithProgress<T>()` in [client.ts](../../web/src/api/client.ts) wraps XHR for upload progress tracking
 - `chat.sendBatch()` accepts optional `onUploadProgress` callback, uses XHR when files are present
-- `showUploadProgress()`, `hideUploadProgress()`, `updateUploadProgress()` in [MessageInput.ts](../../web/src/components/MessageInput.ts)
+- `showUploadProgress(indeterminate?)`, `hideUploadProgress()`, `updateUploadProgress()` in [MessageInput.ts](../../web/src/components/MessageInput.ts)
 - `uploadProgress` state in Zustand store (not currently used for display, but available for future use)
-- CSS styles in [input.css](../../web/src/styles/components/input.css) using `--progress` custom property
+- CSS styles in [buttons.css](../../web/src/styles/components/buttons.css) ("Upload Progress Ring" section)
 
 ### Key Files
 
 - [client.ts](../../web/src/api/client.ts) - `requestWithProgress()` XHR wrapper
 - [MessageInput.ts](../../web/src/components/MessageInput.ts) - Progress UI functions
 - [messaging.ts](../../web/src/core/messaging.ts) - Integration in `sendBatchMessage()` and `sendStreamingMessage()`
-- [input.css](../../web/src/styles/components/input.css) - `.upload-progress` styles
+- [buttons.css](../../web/src/styles/components/buttons.css) - `.uploading` / `.processing` ring styles
 
 ### Testing
 
