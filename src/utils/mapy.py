@@ -57,12 +57,14 @@ def mapy_geocode(
         params["type"] = "poi"
     if prefer_near is not None:
         params["preferNear"] = f"{prefer_near[0]},{prefer_near[1]}"
-    return _get("geocode", params).get("items", [])
+    items: list[dict[str, Any]] = _get("geocode", params).get("items", [])
+    return items
 
 
 def mapy_rgeocode(lon: float, lat: float) -> list[dict[str, Any]]:
     """Reverse geocode coordinates to regional entities (smallest first)."""
-    return _get("rgeocode", {"lon": lon, "lat": lat}).get("items", [])
+    items: list[dict[str, Any]] = _get("rgeocode", {"lon": lon, "lat": lat}).get("items", [])
+    return items
 
 
 def mapy_route(

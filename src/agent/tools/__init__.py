@@ -372,6 +372,8 @@ __all__ = [
     "search_conversations",
     "read_conversation",
     "kv_store",
+    "search_places",
+    "get_route",
     # Metadata tool constants
     "EXTRACT_ONLY_TOOL_NAMES",
     # Exceptions
@@ -387,6 +389,8 @@ __all__ = [
     "get_sports_context",
     "set_language_context",
     "get_language_context",
+    "set_location_context",
+    "get_location_context",
     # Availability checks
     "is_browser_available",
     "is_code_sandbox_available",
@@ -395,6 +399,7 @@ __all__ = [
     "is_garmin_available",
     "is_refresh_planner_dashboard_available",
     "is_whatsapp_available",
+    "is_places_available",
     # Tool lists
     "get_available_tools",
     "get_tools_for_request",
