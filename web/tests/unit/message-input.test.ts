@@ -629,46 +629,46 @@ describe('handlePaste', () => {
 });
 
 describe('Upload Progress UI Functions', () => {
-  let container: HTMLDivElement;
+  let sendBtn: HTMLButtonElement;
 
   beforeEach(() => {
-    // Create the upload progress container DOM structure
-    container = document.createElement('div');
-    container.id = 'upload-progress';
-    container.className = 'upload-progress hidden';
-    container.innerHTML = `
-      <div class="upload-progress-bar"></div>
-      <span class="upload-progress-text">Uploading...</span>
-    `;
-    document.body.appendChild(container);
+    // Upload progress renders as a ring on the send/stop button
+    sendBtn = document.createElement('button');
+    sendBtn.id = 'send-btn';
+    sendBtn.className = 'btn btn-send';
+    sendBtn.setAttribute('aria-label', 'Send message');
+    document.body.appendChild(sendBtn);
   });
 
   afterEach(() => {
     // Clean up DOM
-    container.remove();
+    sendBtn.remove();
   });
 
   describe('showUploadProgress', () => {
-    it('removes hidden class from container', () => {
-      expect(container.classList.contains('hidden')).toBe(true);
-
+    it('adds uploading class to send button', () => {
       showUploadProgress();
 
-      expect(container.classList.contains('hidden')).toBe(false);
+      expect(sendBtn.classList.contains('uploading')).toBe(true);
     });
 
     it('resets progress to 0%', () => {
-      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
-      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
-
       showUploadProgress();
 
-      expect(bar.style.getPropertyValue('--progress')).toBe('0%');
-      expect(text.textContent).toBe('Uploading 0%');
+      expect(sendBtn.style.getPropertyValue('--progress')).toBe('0%');
+      expect(sendBtn.getAttribute('aria-label')).toBe('Uploading 0%');
     });
 
-    it('does nothing if container not found', () => {
-      container.remove();
+    it('shows indeterminate spin when progress is unknown (streaming)', () => {
+      showUploadProgress(true);
+
+      expect(sendBtn.classList.contains('uploading')).toBe(true);
+      expect(sendBtn.classList.contains('processing')).toBe(true);
+      expect(sendBtn.getAttribute('aria-label')).toBe('Uploading');
+    });
+
+    it('does nothing if button not found', () => {
+      sendBtn.remove();
 
       // Should not throw
       expect(() => showUploadProgress()).not.toThrow();
@@ -676,25 +676,33 @@ describe('Upload Progress UI Functions', () => {
   });
 
   describe('hideUploadProgress', () => {
-    it('adds hidden class to container', () => {
-      container.classList.remove('hidden');
-      expect(container.classList.contains('hidden')).toBe(false);
+    it('removes uploading and processing classes', () => {
+      sendBtn.classList.add('uploading', 'processing');
 
       hideUploadProgress();
 
-      expect(container.classList.contains('hidden')).toBe(true);
+      expect(sendBtn.classList.contains('uploading')).toBe(false);
+      expect(sendBtn.classList.contains('processing')).toBe(false);
     });
 
-    it('does nothing if already hidden', () => {
-      expect(container.classList.contains('hidden')).toBe(true);
+    it('clears the progress custom property', () => {
+      sendBtn.style.setProperty('--progress', '60%');
 
       hideUploadProgress();
 
-      expect(container.classList.contains('hidden')).toBe(true);
+      expect(sendBtn.style.getPropertyValue('--progress')).toBe('');
     });
 
-    it('does nothing if container not found', () => {
-      container.remove();
+    it('restores the send aria-label', () => {
+      sendBtn.setAttribute('aria-label', 'Uploading 60%');
+
+      hideUploadProgress();
+
+      expect(sendBtn.getAttribute('aria-label')).toBe('Send message');
+    });
+
+    it('does nothing if button not found', () => {
+      sendBtn.remove();
 
       // Should not throw
       expect(() => hideUploadProgress()).not.toThrow();
@@ -702,73 +710,45 @@ describe('Upload Progress UI Functions', () => {
   });
 
   describe('updateUploadProgress', () => {
-    it('updates progress bar CSS custom property', () => {
-      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
-
+    it('updates the progress custom property', () => {
       updateUploadProgress(50);
 
-      expect(bar.style.getPropertyValue('--progress')).toBe('50%');
+      expect(sendBtn.style.getPropertyValue('--progress')).toBe('50%');
     });
 
-    it('updates text to show percentage', () => {
-      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
-
+    it('announces percentage via aria-label', () => {
       updateUploadProgress(75);
 
-      expect(text.textContent).toBe('Uploading 75%');
+      expect(sendBtn.getAttribute('aria-label')).toBe('Uploading 75%');
     });
 
-    it('shows "Processing..." at 100%', () => {
-      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
-
+    it('switches to indeterminate processing state at 100%', () => {
       updateUploadProgress(100);
 
-      expect(text.textContent).toBe('Processing...');
+      expect(sendBtn.classList.contains('processing')).toBe(true);
+      expect(sendBtn.getAttribute('aria-label')).toBe('Processing upload');
+    });
+
+    it('leaves processing state when progress drops below 100%', () => {
+      updateUploadProgress(100);
+      updateUploadProgress(40);
+
+      expect(sendBtn.classList.contains('processing')).toBe(false);
+      expect(sendBtn.getAttribute('aria-label')).toBe('Uploading 40%');
     });
 
     it('handles 0% progress', () => {
-      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
-      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
-
       updateUploadProgress(0);
 
-      expect(bar.style.getPropertyValue('--progress')).toBe('0%');
-      expect(text.textContent).toBe('Uploading 0%');
+      expect(sendBtn.style.getPropertyValue('--progress')).toBe('0%');
+      expect(sendBtn.getAttribute('aria-label')).toBe('Uploading 0%');
     });
 
-    it('handles intermediate values', () => {
-      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
-      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
-
-      updateUploadProgress(33);
-
-      expect(bar.style.getPropertyValue('--progress')).toBe('33%');
-      expect(text.textContent).toBe('Uploading 33%');
-    });
-
-    it('does nothing if container not found', () => {
-      container.remove();
+    it('does nothing if button not found', () => {
+      sendBtn.remove();
 
       // Should not throw
       expect(() => updateUploadProgress(50)).not.toThrow();
-    });
-
-    it('handles missing bar element gracefully', () => {
-      container.innerHTML = '<span class="upload-progress-text">Uploading...</span>';
-      const text = container.querySelector('.upload-progress-text') as HTMLSpanElement;
-
-      // Should not throw, but still update text
-      expect(() => updateUploadProgress(50)).not.toThrow();
-      expect(text.textContent).toBe('Uploading 50%');
-    });
-
-    it('handles missing text element gracefully', () => {
-      container.innerHTML = '<div class="upload-progress-bar"></div>';
-      const bar = container.querySelector('.upload-progress-bar') as HTMLDivElement;
-
-      // Should not throw, but still update bar
-      expect(() => updateUploadProgress(50)).not.toThrow();
-      expect(bar.style.getPropertyValue('--progress')).toBe('50%');
     });
   });
 });

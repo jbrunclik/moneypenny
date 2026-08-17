@@ -448,43 +448,52 @@ function renderFilePreviewItem(file: FileUpload, index: number): string {
 }
 
 /**
- * Show upload progress indicator
+ * Show upload progress as a ring on the send/stop button.
+ * Rendering progress on the button (instead of a strip above the input)
+ * avoids any layout shift in the input area when an upload starts/ends.
+ * @param indeterminate - Set when no progress events are available (the
+ *   streaming path uploads via fetch): shows the spin instead of a 0% ring
  */
-export function showUploadProgress(): void {
-  const container = getElementById<HTMLDivElement>('upload-progress');
-  if (container) {
-    container.classList.remove('hidden');
+export function showUploadProgress(indeterminate = false): void {
+  const sendBtn = getElementById<HTMLButtonElement>('send-btn');
+  if (!sendBtn) return;
+
+  sendBtn.classList.add('uploading');
+  if (indeterminate) {
+    sendBtn.classList.add('processing');
+    sendBtn.setAttribute('aria-label', 'Uploading');
+  } else {
     updateUploadProgress(0);
   }
 }
 
 /**
- * Hide upload progress indicator
+ * Hide upload progress ring and restore the button's normal appearance
  */
 export function hideUploadProgress(): void {
-  const container = getElementById<HTMLDivElement>('upload-progress');
-  if (container) {
-    container.classList.add('hidden');
-  }
+  const sendBtn = getElementById<HTMLButtonElement>('send-btn');
+  if (!sendBtn) return;
+
+  sendBtn.classList.remove('uploading', 'processing');
+  sendBtn.style.removeProperty('--progress');
+  sendBtn.setAttribute('aria-label', isStopMode ? 'Stop generating' : 'Send message');
 }
 
 /**
- * Update upload progress indicator
- * @param progress - Progress value from 0 to 100
+ * Update upload progress ring
+ * @param progress - Progress value from 0 to 100; at 100 the ring switches
+ *   to an indeterminate spin while the server processes the upload
  */
 export function updateUploadProgress(progress: number): void {
-  const container = getElementById<HTMLDivElement>('upload-progress');
-  if (!container) return;
+  const sendBtn = getElementById<HTMLButtonElement>('send-btn');
+  if (!sendBtn) return;
 
-  const bar = container.querySelector<HTMLDivElement>('.upload-progress-bar');
-  const text = container.querySelector<HTMLSpanElement>('.upload-progress-text');
-
-  if (bar) {
-    bar.style.setProperty('--progress', `${progress}%`);
-  }
-  if (text) {
-    text.textContent = progress < 100 ? `Uploading ${progress}%` : 'Processing...';
-  }
+  sendBtn.style.setProperty('--progress', `${progress}%`);
+  sendBtn.classList.toggle('processing', progress >= 100);
+  sendBtn.setAttribute(
+    'aria-label',
+    progress < 100 ? `Uploading ${progress}%` : 'Processing upload'
+  );
 }
 
 /**

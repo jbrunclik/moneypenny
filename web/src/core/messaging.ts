@@ -516,14 +516,10 @@ function initStreamingRequest(
   getSyncManager()?.setConversationStreaming(convId, true);
   useStore.getState().setStreamingConversation(convId);
 
-  // Show upload progress if needed
+  // Show upload progress if needed. The streaming path uploads via fetch,
+  // which has no progress events - show the indeterminate spin.
   if (hasFiles) {
-    showUploadProgress();
-    updateUploadProgress(0);
-    const progressText = document.querySelector('.upload-progress-text');
-    if (progressText) {
-      progressText.textContent = 'Uploading...';
-    }
+    showUploadProgress(true);
   }
 
   const state: StreamingState = {

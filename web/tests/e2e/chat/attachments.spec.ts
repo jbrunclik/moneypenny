@@ -182,24 +182,19 @@ test.describe('Chat - Upload Progress', () => {
     await page.click('#new-chat-btn');
   });
 
-  test('upload progress element exists and is initially hidden', async ({ page }) => {
-    const uploadProgress = page.locator('#upload-progress');
+  test('send button has no upload ring initially', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
 
-    // Upload progress should exist in the DOM
-    await expect(uploadProgress).toBeAttached();
+    await expect(sendBtn).toBeAttached();
+    await expect(sendBtn).not.toHaveClass(/uploading/);
 
-    // Upload progress should be hidden initially
-    await expect(uploadProgress).toHaveClass(/hidden/);
-
-    // Should have progress bar and text elements
-    const progressBar = uploadProgress.locator('.upload-progress-bar');
-    const progressText = uploadProgress.locator('.upload-progress-text');
-    await expect(progressBar).toBeAttached();
-    await expect(progressText).toBeAttached();
+    // The old upload progress strip must not come back - it caused
+    // layout shift in the input area on mobile
+    await expect(page.locator('#upload-progress')).not.toBeAttached();
   });
 
-  test('upload progress shows briefly when sending message with files', async ({ page }) => {
-    const uploadProgress = page.locator('#upload-progress');
+  test('upload ring shows on send button when sending message with files', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
 
     // Upload an image
     const fileChooserPromise = page.waitForEvent('filechooser');
@@ -220,37 +215,30 @@ test.describe('Chat - Upload Progress', () => {
     // Add a batch delay to slow down the response so we can observe the progress
     await setBatchDelay(page, 1000);
 
-    // Set up a MutationObserver before clicking send to catch the progress indicator
-    const progressWasShown = page.evaluate(() => {
+    // Set up a MutationObserver before clicking send to catch the upload state
+    const ringWasShown = page.evaluate(() => {
       return new Promise<boolean>((resolve) => {
-        const uploadEl = document.getElementById('upload-progress');
-        if (!uploadEl) {
+        const btn = document.getElementById('send-btn');
+        if (!btn) {
           resolve(false);
           return;
         }
 
-        // If already visible, we caught it
-        if (!uploadEl.classList.contains('hidden')) {
+        // If already in upload state, we caught it
+        if (btn.classList.contains('uploading')) {
           resolve(true);
           return;
         }
 
-        // Watch for the hidden class to be removed
-        const observer = new MutationObserver((mutations) => {
-          for (const mutation of mutations) {
-            if (
-              mutation.type === 'attributes' &&
-              mutation.attributeName === 'class' &&
-              !uploadEl.classList.contains('hidden')
-            ) {
-              observer.disconnect();
-              resolve(true);
-              return;
-            }
+        // Watch for the uploading class to be added
+        const observer = new MutationObserver(() => {
+          if (btn.classList.contains('uploading')) {
+            observer.disconnect();
+            resolve(true);
           }
         });
 
-        observer.observe(uploadEl, { attributes: true, attributeFilter: ['class'] });
+        observer.observe(btn, { attributes: true, attributeFilter: ['class'] });
 
         // Timeout after 5 seconds
         setTimeout(() => {
@@ -263,23 +251,23 @@ test.describe('Chat - Upload Progress', () => {
     // Click send to start the upload
     await page.click('#send-btn');
 
-    // Check if progress was shown during the request
-    const wasShown = await progressWasShown;
+    // Check if the ring was shown during the request
+    const wasShown = await ringWasShown;
     expect(wasShown).toBe(true);
 
     // Wait for the message to complete
     const assistantMessage = page.locator('.message.assistant');
     await expect(assistantMessage).toBeVisible({ timeout: 10000 });
 
-    // Progress should be hidden after completion
-    await expect(uploadProgress).toHaveClass(/hidden/);
+    // Ring should be gone after completion
+    await expect(sendBtn).not.toHaveClass(/uploading/);
 
     // Reset batch delay
     await resetBatchDelay(page);
   });
 
-  test('upload progress is hidden after completion', async ({ page }) => {
-    const uploadProgress = page.locator('#upload-progress');
+  test('upload ring is removed after completion', async ({ page }) => {
+    const sendBtn = page.locator('#send-btn');
 
     // Upload an image
     const fileChooserPromise = page.waitForEvent('filechooser');
@@ -300,35 +288,59 @@ test.describe('Chat - Upload Progress', () => {
     const assistantMessage = page.locator('.message.assistant');
     await expect(assistantMessage).toBeVisible({ timeout: 10000 });
 
-    // Progress should be hidden after completion
-    await expect(uploadProgress).toHaveClass(/hidden/);
+    // Ring should be gone after completion
+    await expect(sendBtn).not.toHaveClass(/uploading/);
   });
 });
 
 test.describe('Chat - Upload Progress Mobile Layout', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('upload progress strip aligns with input container on mobile', async ({ page }) => {
+  /**
+   * REGRESSION TEST: Upload indicator causing input area layout shift
+   *
+   * Bug: Upload progress rendered as a strip inserted above the input
+   * container, growing/shrinking the input area when it appeared and
+   * disappeared - on mobile the whole layout visibly jumped twice per send.
+   *
+   * Fix: Progress renders as a ring inside the send/stop button, which is
+   * always present, so entering/leaving the upload state moves nothing.
+   */
+  test('upload ring causes no layout shift on mobile', async ({ page }) => {
     await page.goto('/');
     // On mobile the sidebar is off-canvas; the chat input is visible directly
     await page.waitForSelector('#input-container');
 
-    // Reveal the progress strip the same way showUploadProgress() does
+    const inputBefore = await page.locator('#input-container').boundingBox();
+    const btnBefore = await page.locator('#send-btn').boundingBox();
+
+    // Enter the upload state the same way showUploadProgress() /
+    // updateUploadProgress() do
     await page.evaluate(() => {
-      document.getElementById('upload-progress')?.classList.remove('hidden');
+      const btn = document.getElementById('send-btn');
+      btn?.classList.add('uploading');
+      btn?.style.setProperty('--progress', '40%');
     });
 
-    const progressBox = await page.locator('#upload-progress').boundingBox();
-    const inputBox = await page.locator('#input-container').boundingBox();
-    expect(progressBox).not.toBeNull();
-    expect(inputBox).not.toBeNull();
+    const inputDuring = await page.locator('#input-container').boundingBox();
+    const btnDuring = await page.locator('#send-btn').boundingBox();
 
-    // The strip visually attaches to the input container: same left edge and width
-    expect(Math.abs(progressBox!.x - inputBox!.x)).toBeLessThan(2);
-    expect(Math.abs(progressBox!.width - inputBox!.width)).toBeLessThan(2);
+    // The processing state (indeterminate spin at 100%) must not shift either
+    await page.evaluate(() => {
+      document.getElementById('send-btn')?.classList.add('processing');
+    });
+    const inputProcessing = await page.locator('#input-container').boundingBox();
 
-    // The strip must sit directly on top of the input container (merged box)
-    expect(Math.abs(progressBox!.y + progressBox!.height - inputBox!.y)).toBeLessThan(2);
+    expect(inputBefore).not.toBeNull();
+    expect(inputDuring).not.toBeNull();
+    expect(inputProcessing).not.toBeNull();
+    expect(btnBefore).not.toBeNull();
+    expect(btnDuring).not.toBeNull();
+
+    // Nothing in the input area moves when the upload state toggles
+    expect(inputDuring).toEqual(inputBefore);
+    expect(inputProcessing).toEqual(inputBefore);
+    expect(btnDuring).toEqual(btnBefore);
 
     // No horizontal page overflow
     const overflow = await page.evaluate(

@@ -218,6 +218,71 @@
 }
 
 /* ----------------------------------------
+   Upload Progress Ring (on send/stop button)
+   ----------------------------------------
+   File upload progress renders as a conic-gradient ring inside the
+   send/stop button instead of a strip above the input - inserting a
+   strip caused the whole input area to jump on mobile. */
+
+/* Registered so the ring sweep animates smoothly between progress updates
+   (no-op in browsers without @property support - updates just snap) */
+@property --progress {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 0%;
+}
+
+.btn-send.uploading,
+.btn-stop.uploading {
+    position: relative;
+    transition: --progress 0.15s ease-out;
+    /* The ring is the activity indicator - the stop-pulse scale animation
+       underneath it reads as jitter */
+    animation: none;
+}
+
+/* Shrink the icon so the ring has breathing room around it */
+.btn-send.uploading svg,
+.btn-stop.uploading svg {
+    width: 10px;
+    height: 10px;
+}
+
+.btn-send.uploading::after,
+.btn-stop.uploading::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: var(--radius-full);
+    padding: 2.5px;
+    background: conic-gradient(#fff var(--progress, 0%), rgb(255 255 255 / 25%) 0);
+    /* Punch out the center so only a ring remains */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+}
+
+/* Batch mode keeps the button in send mode (disabled, dimmed) during
+   upload - the ring needs full opacity to stay legible */
+.btn-send.uploading:disabled {
+    opacity: 1;
+}
+
+/* Bytes are up, server is processing: indeterminate spin */
+.btn-send.processing::after,
+.btn-stop.processing::after {
+    background: conic-gradient(from 0deg, rgb(255 255 255 / 15%), #fff 50%, rgb(255 255 255 / 15%));
+    animation: upload-ring-spin 0.9s linear infinite;
+}
+
+@keyframes upload-ring-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ----------------------------------------
    Logout Button
    ---------------------------------------- */
 

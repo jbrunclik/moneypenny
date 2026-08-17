@@ -140,10 +140,6 @@ export function renderAppShell(): string {
           </div>
           <div id="file-preview" class="file-preview hidden"></div>
           <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json">
-          <div id="upload-progress" class="upload-progress hidden">
-            <div class="upload-progress-bar"></div>
-            <span class="upload-progress-text">Uploading...</span>
-          </div>
           <div id="input-container" class="input-container">
             <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
             <button id="send-btn" class="btn btn-send" aria-label="Send message" disabled>
