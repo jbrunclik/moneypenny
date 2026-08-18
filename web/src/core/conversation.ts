@@ -111,6 +111,22 @@ export function findReusableEmptyConversation(
 }
 
 /**
+ * Mark an agent's messages as viewed on the server and refresh the
+ * command center so unread badges clear. Fire-and-forget: reading the
+ * conversation must never block on this.
+ */
+export function markAgentViewedAndRefresh(agentId: string): void {
+  agents.markViewed(agentId)
+    .then(() => agents.getCommandCenter())
+    .then((data) => {
+      useStore.getState().setCommandCenterData(data);
+    })
+    .catch((err) => {
+      log.warn('Failed to mark agent as viewed', { agentId, error: err });
+    });
+}
+
+/**
  * Build the icon action buttons for the regular conversation header.
  */
 function buildChatHeaderActions(convId: string): HTMLElement[] {
@@ -382,18 +398,7 @@ export async function selectConversation(convId: string): Promise<void> {
     if (response.is_agent && response.agent_id) {
       // Track agent for sync manager to detect external updates
       getSyncManager()?.setViewedAgent(response.agent_id, response.message_pagination.total_count);
-
-      agents.markViewed(response.agent_id)
-        .then(() => {
-          // Refresh command center data to update badge counts
-          return agents.getCommandCenter();
-        })
-        .then((data) => {
-          store.setCommandCenterData(data);
-        })
-        .catch((err) => {
-          log.warn('Failed to mark agent as viewed', { agentId: response.agent_id, error: err });
-        });
+      markAgentViewedAndRefresh(response.agent_id);
     } else {
       // Not an agent conversation - clear any tracked agent
       getSyncManager()?.setViewedAgent(null);

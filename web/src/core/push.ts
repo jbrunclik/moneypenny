@@ -92,9 +92,17 @@ function setupWorkerMessageListener(): void {
       // Different route: the hashchange router loads fresh data
       window.location.hash = targetHash;
     } else {
-      // Already on the target conversation - fetch what the
-      // notification was about
-      void import('../sync/SyncManager').then(({ getSyncManager }) => {
+      // Already on the target conversation - the user tapped the
+      // notification to READ it, so reload the open conversation (which
+      // also marks agent messages viewed) instead of waiting for a
+      // "new messages" banner click
+      void import('../state/store').then(async ({ useStore }) => {
+        const currentConv = useStore.getState().currentConversation;
+        if (currentConv) {
+          const { reloadCurrentConversation } = await import('./sync-banner');
+          await reloadCurrentConversation(currentConv.id);
+        }
+        const { getSyncManager } = await import('../sync/SyncManager');
         getSyncManager()?.incrementalSync();
       });
     }

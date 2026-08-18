@@ -11,8 +11,13 @@
 
 .kv-store {
     padding: var(--space-4);
-    max-width: 900px;
+    max-width: min(900px, 100%);
     margin: 0 auto;
+    /* As a flex-column child of #messages the container otherwise sizes
+       to the min-content of nowrap children (long mono namespace names),
+       widening every card past the viewport on mobile */
+    min-width: 0;
+    width: 100%;
 }
 
 .kv-store--loading {

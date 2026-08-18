@@ -44,6 +44,9 @@ const MOCK_MEMORIES = [
 const MOCK_NAMESPACES = [
   { namespace: 'fitness', key_count: 2 },
   { namespace: 'lang:czech', key_count: 3 },
+  // Long mono nowrap name - regression guard: this used to blow the
+  // container past the mobile viewport and widen every card on the page
+  { namespace: 'agent:81c0fe14-0cbf-48a1-a5b3-8266bc3b370d', key_count: 2 },
   { namespace: 'news', key_count: 2 },
 ];
 
