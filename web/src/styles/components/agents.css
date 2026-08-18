@@ -1775,3 +1775,14 @@
         gap: var(--space-2);
     }
 }
+
+/* Mobile: the mobile header already shows "Command Center" */
+@media (max-width: 768px) {
+    .command-center-title {
+        display: none;
+    }
+
+    .command-center-header {
+        justify-content: flex-end;
+    }
+}

@@ -640,3 +640,14 @@
         animation: none;
     }
 }
+
+/* Mobile: the mobile header already shows "Sports Training" */
+@media (max-width: 768px) {
+    .sports-programs-title {
+        display: none;
+    }
+
+    .sports-programs-title-row {
+        justify-content: flex-end;
+    }
+}

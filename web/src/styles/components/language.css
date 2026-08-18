@@ -598,3 +598,14 @@
         animation: none;
     }
 }
+
+/* Mobile: the mobile header already shows "Language Learning" */
+@media (max-width: 768px) {
+    .language-programs-title {
+        display: none;
+    }
+
+    .language-programs-title-row {
+        justify-content: flex-end;
+    }
+}
