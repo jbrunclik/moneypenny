@@ -854,3 +854,21 @@ CI enforces these; a green test run alone does not guarantee a green build.
 - [API Documentation](backend/api.md) - API endpoints and schemas
 - [UI Components](ui/components.md) - Frontend component patterns
 - [Error Handling](backend/error-handling.md) - Error handling strategies
+
+
+## E2E Stability Pitfalls (Aug 2026)
+
+- **Stale e2e server after `make build`**: Playwright reuses a running
+  server (`reuseExistingServer`). A server started before a rebuild serves
+  the old bundle while `/api/version` etc. reflect old state - kill the
+  listener first: `lsof -tiTCP:8001 -sTCP:LISTEN | xargs kill`.
+- **Parallel-load setup timeouts**: under full parallelism (~14 browser
+  contexts vs the single-process Flask mock server), roughly 1 in 600
+  tests can time out waiting for the Nth mock response during setup
+  (`waiting for locator('.message.assistant').nth(N)`). These pass solo
+  and with `--workers=4`. If a local full-suite run shows a single random
+  timeout of this signature, re-run with `--workers=4` before digging.
+- **Version banner in accessibility snapshots**: `.version-banner` is
+  always in the DOM (hidden via transform), so it appears in every
+  Playwright error-context snapshot - it is NOT evidence the banner was
+  shown.
