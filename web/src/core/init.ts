@@ -126,13 +126,13 @@ export function renderAppShell(): string {
               <button id="stream-btn" class="btn-toolbar active" title="Toggle streaming" aria-label="Toggle streaming" aria-pressed="true">
                 ${STREAM_ICON}
               </button>
-              <button id="search-btn" class="btn-toolbar" title="Force web search for next message" aria-label="Force web search for next message">
+              <button id="search-btn" class="btn-toolbar" aria-pressed="false" title="Force web search for next message" aria-label="Force web search for next message">
                 ${SEARCH_ICON}
               </button>
-              <button id="imagegen-btn" class="btn-toolbar" title="Force image generation for next message" aria-label="Force image generation for next message">
+              <button id="imagegen-btn" class="btn-toolbar" aria-pressed="false" title="Force image generation for next message" aria-label="Force image generation for next message">
                 ${SPARKLES_ICON}
               </button>
-              <button id="anonymous-btn" class="btn-toolbar" title="Anonymous mode - disable memory and integrations" aria-label="Anonymous mode">
+              <button id="anonymous-btn" class="btn-toolbar" aria-pressed="false" title="Anonymous mode - disable memory and integrations" aria-label="Anonymous mode">
                 ${INCOGNITO_ICON}
               </button>
             </div>

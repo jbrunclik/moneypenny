@@ -123,6 +123,7 @@
 
 .btn-toolbar.active {
     color: var(--accent);
+    background-color: var(--accent-muted);
 }
 
 .btn-toolbar.active:hover {
@@ -155,11 +156,11 @@
 }
 
 .btn-send:disabled {
-    /* Keep the accent tint so the control reads as "send, currently
-       unavailable" rather than a dead gray placeholder */
-    background-color: var(--accent);
-    color: white;
-    opacity: 0.35;
+    /* Neutral gray: the washed-out accent tint read as a broken button */
+    background-color: var(--bg-tertiary);
+    color: var(--text-muted);
+    opacity: 1;
+    cursor: default;
 }
 
 /* ----------------------------------------

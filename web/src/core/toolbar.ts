@@ -126,6 +126,7 @@ export function initToolbarButtons(): void {
 function updateStreamButtonState(btn: HTMLButtonElement, enabled: boolean): void {
   btn.classList.toggle('active', enabled);
   btn.setAttribute('aria-pressed', String(enabled));
+  btn.setAttribute('aria-pressed', String(enabled));
   btn.innerHTML = enabled ? STREAM_ICON : STREAM_OFF_ICON;
   btn.title = enabled ? 'Streaming enabled (click to disable)' : 'Streaming disabled (click to enable)';
 }
@@ -135,6 +136,7 @@ function updateStreamButtonState(btn: HTMLButtonElement, enabled: boolean): void
  */
 function updateSearchButtonState(btn: HTMLButtonElement, active: boolean): void {
   btn.classList.toggle('active', active);
+  btn.setAttribute('aria-pressed', String(active));
   btn.title = active ? 'Web search will be used for next message' : 'Force web search for next message';
 }
 
@@ -143,6 +145,7 @@ function updateSearchButtonState(btn: HTMLButtonElement, active: boolean): void 
  */
 function updateImagegenButtonState(btn: HTMLButtonElement, active: boolean): void {
   btn.classList.toggle('active', active);
+  btn.setAttribute('aria-pressed', String(active));
   btn.title = active ? 'Image generation will be used for next message' : 'Force image generation for next message';
 }
 
@@ -151,6 +154,7 @@ function updateImagegenButtonState(btn: HTMLButtonElement, active: boolean): voi
  */
 export function updateAnonymousButtonState(btn: HTMLButtonElement, active: boolean): void {
   btn.classList.toggle('active', active);
+  btn.setAttribute('aria-pressed', String(active));
   btn.title = active ? 'Anonymous mode enabled - memory and integrations disabled' : 'Anonymous mode - disable memory and integrations';
 }
 
