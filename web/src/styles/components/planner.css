@@ -387,7 +387,7 @@
 
 .dashboard-section details[open] {
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 0 2px rgba(87, 83, 232, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-section details summary {
@@ -493,7 +493,7 @@
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent), #8B5CF6);
     color: white;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 2px 8px rgba(87, 83, 232, 0.3);
 }
 
 .dashboard-day-icon svg {
@@ -603,7 +603,7 @@
 
 /* Event cards - subtle blue tint */
 .planner-item-event {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), var(--bg-primary));
+    background: linear-gradient(135deg, rgba(87, 83, 232, 0.08), var(--bg-primary));
 }
 
 /* Task cards - subtle orange tint */
@@ -651,9 +651,9 @@
     font-size: var(--font-size-xs);
     font-weight: 700;
     color: var(--color-brand-600);
-    background: rgba(99, 102, 241, 0.12);
+    background: rgba(87, 83, 232, 0.12);
     border-radius: var(--radius-md);
-    border: 1px solid rgba(99, 102, 241, 0.3);
+    border: 1px solid rgba(87, 83, 232, 0.3);
     position: relative;
 }
 
@@ -677,16 +677,16 @@
     transition: all var(--transition-fast);
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-md);
-    background: rgba(99, 102, 241, 0.08);
+    background: rgba(87, 83, 232, 0.08);
     margin-top: var(--space-2);
     width: fit-content;
-    border: 1px solid rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(87, 83, 232, 0.2);
 }
 
 .planner-item-location:hover {
-    background: rgba(99, 102, 241, 0.15);
+    background: rgba(87, 83, 232, 0.15);
     color: var(--color-brand-600);
-    border-color: rgba(99, 102, 241, 0.3);
+    border-color: rgba(87, 83, 232, 0.3);
     transform: translateX(2px);
 }
 
@@ -736,9 +736,9 @@
 /* Copy button - Integrated into content */
 .planner-item-copy {
     opacity: 0;
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(87, 83, 232, 0.1);
     color: var(--accent);
-    border: 1px solid rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(87, 83, 232, 0.2);
     padding: var(--space-1);
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -1162,7 +1162,7 @@
 .planner-reset-btn:focus-visible {
     outline: 3px solid var(--accent);
     outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.2);
 }
 
 .planner-reset-btn:focus-visible {
@@ -1174,19 +1174,19 @@
     outline: 3px solid white;
     outline-offset: 2px;
     opacity: 1;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.3);
 }
 
 .planner-item-location:focus-visible {
     outline: 3px solid white;
     outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.3);
 }
 
 .dashboard-section details summary:focus-visible {
     outline: 3px solid var(--accent);
     outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.15);
 }
 
 /* Reduced motion for users who prefer it */

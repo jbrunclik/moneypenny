@@ -203,8 +203,8 @@
 
 /* Active item styling with accent glow */
 .thinking-trace-item.active {
-    background: linear-gradient(135deg, var(--bg-tertiary), rgba(99, 102, 241, 0.1));
-    border: 1px solid rgba(99, 102, 241, 0.2);
+    background: linear-gradient(135deg, var(--bg-tertiary), rgba(87, 83, 232, 0.1));
+    border: 1px solid rgba(87, 83, 232, 0.2);
 }
 
 .thinking-trace-item.active .thinking-icon {

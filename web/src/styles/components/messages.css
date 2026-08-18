@@ -111,6 +111,13 @@
     max-width: 100%;
 }
 
+/* Accent-on-accent selection is illegible inside the user bubble */
+.message.user .message-content::selection,
+.message.user .message-content *::selection {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: inherit;
+}
+
 .message-content-wrapper {
     display: flex;
     flex-direction: column;
