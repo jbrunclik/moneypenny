@@ -57,6 +57,27 @@ export function initToolbarButtons(): void {
   const searchBtn = getElementById<HTMLButtonElement>('search-btn');
   const imagegenBtn = getElementById<HTMLButtonElement>('imagegen-btn');
 
+  // Mobile: the four toggles live in a popover behind the options button
+  const optionsBtn = getElementById<HTMLButtonElement>('toolbar-options-btn');
+  const togglesPanel = document.querySelector<HTMLDivElement>('.toolbar-toggles');
+  if (optionsBtn && togglesPanel) {
+    optionsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = togglesPanel.classList.toggle('open');
+      optionsBtn.setAttribute('aria-expanded', String(open));
+    });
+    document.addEventListener('click', (e) => {
+      if (
+        togglesPanel.classList.contains('open') &&
+        !togglesPanel.contains(e.target as Node) &&
+        !optionsBtn.contains(e.target as Node)
+      ) {
+        togglesPanel.classList.remove('open');
+        optionsBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
   // Initialize stream button state from store
   if (streamBtn) {
     updateStreamButtonState(streamBtn, store.streamingEnabled);

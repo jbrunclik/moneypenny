@@ -50,7 +50,15 @@ test.describe('Mobile - iPhone', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // Open sidebar to access new chat button on mobile
@@ -135,7 +143,15 @@ test.describe('Mobile - iPad', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // iPad is above mobile breakpoint (768px), so sidebar should be visible
@@ -187,7 +203,15 @@ test.describe('Touch gestures', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // Open sidebar to access new chat button on mobile

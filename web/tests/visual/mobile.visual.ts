@@ -49,7 +49,15 @@ test.describe('Visual: Mobile iPhone', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     await page.fill('#message-input', 'Mobile test message');
@@ -165,7 +173,15 @@ test.describe('Visual: Mobile Interactions', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // Send a very short message that could wrap character-by-character
@@ -189,7 +205,15 @@ test.describe('Visual: Mobile Interactions', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // Set mock response to return a wide markdown table
@@ -235,7 +259,15 @@ test.describe('Visual: Mobile Interactions', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed !== 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // Send a message containing "think" to trigger thinking events
@@ -261,7 +293,15 @@ test.describe('Visual: Mobile Interactions', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // Create a conversation with a message
@@ -357,7 +397,15 @@ test.describe('Visual: Mobile Interactions', () => {
     const streamBtn = page.locator('#stream-btn');
     const isPressed = await streamBtn.getAttribute('aria-pressed');
     if (isPressed === 'true') {
-      await streamBtn.click();
+      // Below the mobile breakpoint the toggles live behind the options popover
+      const optionsBtn = page.locator('#toolbar-options-btn');
+      if (await optionsBtn.isVisible()) {
+        await optionsBtn.click();
+        await streamBtn.click();
+        await optionsBtn.click();
+      } else {
+        await streamBtn.click();
+      }
     }
 
     // Create first conversation

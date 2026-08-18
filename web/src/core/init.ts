@@ -53,7 +53,7 @@ import {
   parseHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { ATTACH_ICON, CHEVRON_DOWN_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
+import { ATTACH_ICON, CHEVRON_DOWN_ICON, SLIDERS_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
 import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -123,18 +123,23 @@ export function renderAppShell(): string {
                 </button>
                 <div id="model-dropdown" class="model-dropdown hidden"></div>
               </div>
-              <button id="stream-btn" class="btn-toolbar active" title="Toggle streaming" aria-label="Toggle streaming" aria-pressed="true">
-                ${STREAM_ICON}
+              <button id="toolbar-options-btn" class="btn-toolbar" aria-label="Message options" aria-expanded="false">
+                ${SLIDERS_ICON}
               </button>
-              <button id="search-btn" class="btn-toolbar" aria-pressed="false" title="Force web search for next message" aria-label="Force web search for next message">
-                ${SEARCH_ICON}
-              </button>
-              <button id="imagegen-btn" class="btn-toolbar" aria-pressed="false" title="Force image generation for next message" aria-label="Force image generation for next message">
-                ${SPARKLES_ICON}
-              </button>
-              <button id="anonymous-btn" class="btn-toolbar" aria-pressed="false" title="Anonymous mode - disable memory and integrations" aria-label="Anonymous mode">
-                ${INCOGNITO_ICON}
-              </button>
+              <div class="toolbar-toggles">
+                <button id="stream-btn" class="btn-toolbar active" title="Toggle streaming" aria-label="Toggle streaming" aria-pressed="true">
+                  ${STREAM_ICON}<span class="toolbar-toggle-label">Streaming</span>
+                </button>
+                <button id="search-btn" class="btn-toolbar" aria-pressed="false" title="Force web search for next message" aria-label="Force web search for next message">
+                  ${SEARCH_ICON}<span class="toolbar-toggle-label">Web search</span>
+                </button>
+                <button id="imagegen-btn" class="btn-toolbar" aria-pressed="false" title="Force image generation for next message" aria-label="Force image generation for next message">
+                  ${SPARKLES_ICON}<span class="toolbar-toggle-label">Generate image</span>
+                </button>
+                <button id="anonymous-btn" class="btn-toolbar" aria-pressed="false" title="Anonymous mode - disable memory and integrations" aria-label="Anonymous mode">
+                  ${INCOGNITO_ICON}<span class="toolbar-toggle-label">Incognito</span>
+                </button>
+              </div>
             </div>
             <div class="toolbar-right">
               <button id="voice-btn" class="btn-toolbar btn-voice" title="Voice input" aria-label="Voice input" aria-pressed="false">
