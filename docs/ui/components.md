@@ -80,16 +80,21 @@ All design tokens are defined in [../../web/src/styles/variables.css](../../web/
 --color-neutral-100: #f4f4f5;  /* Lightest - text on dark */
 ```
 
-**Brand colors** (indigo/purple):
+**Brand colors** (indigo, refreshed Aug 2026 - deeper/warmer than stock Tailwind):
 ```css
---color-brand-950: #1e1b4b;
---color-brand-900: #312e81;
---color-brand-800: #3730a3;
---color-brand-700: #4338ca;
---color-brand-600: #4f46e5;
---color-brand-500: #6366f1;
---color-brand-400: #818cf8;
+--color-brand-950: #1d1b4f;
+--color-brand-900: #2b2973;
+--color-brand-800: #34318a;
+--color-brand-700: #3f3ba8;
+--color-brand-600: #4a46c6;   /* pressed state / user bubble (--bg-user) */
+--color-brand-500: #5753e8;   /* primary accent */
+--color-brand-400: #7b78f0;
+--color-brand-300: #a9a6f7;
 ```
+
+The user message bubble uses `--bg-user: var(--color-brand-600)` in both
+themes - there is deliberately a single accent family (the old blue
+`--color-user-500` was removed).
 
 **Semantic colors**:
 ```css
@@ -126,22 +131,36 @@ All design tokens are defined in [../../web/src/styles/variables.css](../../web/
 
 ### Typography
 
-**Sizes**:
+**Sizes** (semantic: `base` = 16px body/message text, `ui` = 14px chrome default):
 ```css
---font-size-xs: 0.75rem;    /* 12px */
---font-size-sm: 0.875rem;   /* 14px */
---font-size-base: 1rem;     /* 16px */
---font-size-lg: 1.125rem;   /* 18px */
---font-size-xl: 1.25rem;    /* 20px */
---font-size-2xl: 1.5rem;    /* 24px */
---font-size-3xl: 1.875rem;  /* 30px */
---font-size-4xl: 2.25rem;   /* 36px */
+--font-size-xs: 0.6875rem;  /* 11px */
+--font-size-sm: 0.75rem;    /* 12px */
+--font-size-ui: 0.875rem;   /* 14px - UI chrome default */
+--font-size-md: 0.9375rem;  /* 15px */
+--font-size-base: 1rem;     /* 16px - body/message text */
+--font-size-xl: 1.125rem;   /* 18px */
+--font-size-2xl: 1.25rem;   /* 20px */
+--font-size-3xl: 1.5rem;    /* 24px */
+--font-size-4xl: 2rem;      /* 32px */
 ```
 
-**Families**:
+**Families** (self-hosted via Fontsource, latin + latin-ext for Czech; no external font requests):
 ```css
---font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", ...;
---font-family-mono: "SF Mono", Monaco, "Cascadia Code", ...;
+--font-family: 'Inter Variable', -apple-system, ...;          /* UI + message text */
+--font-family-display: 'Bricolage Grotesque Variable', ...;   /* page titles, empty states */
+--font-family-mono: 'SF Mono', Consolas, Monaco, monospace;
+```
+
+The display face is used sparingly: the welcome headline, dashboard page
+titles, and nothing else. Fonts are imported at the top of `main.ts`
+(`@fontsource-variable/inter`, `@fontsource-variable/bricolage-grotesque`).
+
+**Motion tokens** (all animation is disabled under `prefers-reduced-motion`):
+```css
+--duration-fast: 120ms;   /* popover/modal entrances */
+--duration-base: 180ms;   /* message entrance */
+--duration-slow: 240ms;
+--ease-out: cubic-bezier(0.2, 0, 0, 1);
 ```
 
 ### Other Design Tokens
@@ -725,6 +744,46 @@ Comprehensive E2E and visual tests ensure dashboard quality:
 - UI state is properly reset when leaving the planner
 
 See [Testing](../testing.md#planner-tests) for details.
+
+
+## Chat Header
+
+`web/src/components/ChatHeader.ts` renders the shared conversation header
+into the `#chat-header` mount in the app shell (above `#messages`):
+
+- Regular conversations: title (click to rename inline), per-conversation
+  cost chip (`#conversation-cost`), archive + delete actions.
+- Program variants: sports/language/agent conversation headers delegate to
+  the same component via `renderSportsProgramHeader` /
+  `renderLanguageProgramHeader` / `renderAgentConversationHeader`, passing
+  a back button, emoji/icon and their action button (Reset / New Lesson /
+  Edit). The variant's legacy class (e.g. `.sports-program-header`) is kept
+  on the mount as a styling/test hook.
+- Mobile (<= 768px) hides the header; `.mobile-header` shows the title and
+  a compact cost chip (`#conversation-cost-mobile`).
+- Dashboards hide it with `renderChatHeader(null)`.
+
+`updateChatTitle()` (messages/utils.ts) keeps both the mobile header title
+and the chat header title in sync.
+
+## Wide Table Breakout
+
+On viewports >= 1200px, assistant-message tables (`.table-wrapper`) wider
+than the 800px message column break out of the bubble - centered via
+`margin-left: 50% + translateX(-50%)` (transform never affects layout or
+scroll anchoring), capped at the available chat width. `#messages` has
+`overflow-x: hidden`, so the page never scrolls horizontally; truly huge
+tables still scroll inside their own wrapper. Covered by the
+`desktop-wide-table` visual baseline.
+
+## UI Capture Utility
+
+`node web/scripts/ui-capture.cjs` (dev server running) screenshots the app
+across light/dark x desktop/mobile x main pages into `web/ui-captures/`
+(gitignored). Use `CAPTURE_CONV='/#/conversations/<id>'` to include a rich
+conversation. Use it to eyeball all four variants after UI changes -
+project rule: every UI change is verified on desktop and mobile in both
+themes.
 
 ## Key Files
 

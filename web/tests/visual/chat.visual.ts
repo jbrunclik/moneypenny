@@ -117,6 +117,52 @@ test.describe('Visual: Long Content Wrapping', () => {
     await expect(userMessage).toHaveScreenshot('user-message-long-url.png');
   });
 
+  test('wide table breaks out of the message column on desktop', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Disable streaming for reliable mock responses
+    const streamBtn = page.locator('#stream-btn');
+    const isPressed = await streamBtn.getAttribute('aria-pressed');
+    if (isPressed === 'true') {
+      await streamBtn.click();
+    }
+
+    // A table wide enough to exceed the 800px message column
+    const wideTableMarkdown = `Here's a wide comparison table:
+
+| Quarterly metric | January 2026 | February 2026 | March 2026 | April 2026 | May 2026 | June 2026 | July 2026 |
+|------------------|--------------|---------------|------------|------------|----------|-----------|-----------|
+| Total revenue    | 1,234,567 Kč | 2,345,678 Kč  | 987,654 Kč | 876,543 Kč | 1,111 Kč | 2,222 Kč  | 3,333 Kč  |
+| Operating margin | 23.4 percent | 21.7 percent  | 19.2 pct   | 24.8 pct   | 22.1 pct | 20.5 pct  | 25.0 pct  |
+| Active users     | 4,321        | 5,432         | 6,543      | 7,654      | 8,765    | 9,876     | 10,987    |`;
+
+    const setResponse = await page.request.post('/test/set-mock-response', {
+      data: { response: wideTableMarkdown },
+    });
+    if (!setResponse.ok()) {
+      throw new Error(`Failed to set mock response: ${setResponse.status()}`);
+    }
+
+    await page.fill('#message-input', 'Show me a wide table');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant table', { timeout: 10000 });
+    await page.waitForTimeout(500);
+    await page.request.post('/test/clear-mock-response');
+
+    // The table card may exceed the message bubble width, but the page
+    // itself must never scroll horizontally
+    const hasHorizontalScroll = await page.evaluate(() => {
+      const messages = document.getElementById('messages')!;
+      return messages.scrollWidth > messages.clientWidth + 1;
+    });
+    expect(hasHorizontalScroll).toBe(false);
+
+    // Screenshot the full messages area so the breakout is visible
+    await expect(page.locator('#messages')).toHaveScreenshot('desktop-wide-table.png');
+  });
+
   test('short message displays correctly', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
