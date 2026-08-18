@@ -1727,11 +1727,6 @@
     height: 14px;
 }
 
-.btn-sm {
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--font-size-xs);
-}
-
 .form-input-sm {
     padding: var(--space-2);
     font-size: var(--font-size-sm);

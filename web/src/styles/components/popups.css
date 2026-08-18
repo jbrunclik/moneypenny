@@ -608,15 +608,15 @@
     padding: var(--space-3) var(--space-4);
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-md);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
     pointer-events: auto;
-    animation: toast-enter 0.2s ease-out;
+    animation: toast-enter var(--duration-base) var(--ease-out);
     max-width: 400px;
 }
 
 .toast-exit {
-    animation: toast-exit 0.2s ease-in forwards;
+    animation: toast-exit var(--duration-fast) var(--ease-in-out) forwards;
 }
 
 /* Collapsed "+N more" indicator when the stack exceeds the visible cap */

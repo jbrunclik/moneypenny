@@ -201,10 +201,9 @@
     }
 }
 
-/* Active item styling with accent glow */
+/* Active item styling - flat accent tint */
 .thinking-trace-item.active {
-    background: linear-gradient(135deg, var(--bg-tertiary), rgba(87, 83, 232, 0.1));
-    border: 1px solid rgba(87, 83, 232, 0.2);
+    background: var(--accent-muted);
 }
 
 .thinking-trace-item.active .thinking-icon {
