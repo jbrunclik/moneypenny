@@ -14,6 +14,23 @@ test.describe('Settings', () => {
     await expect(settingsBtn).toContainText('Settings');
   });
 
+  test('opens scrolled to the top with Appearance visible', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#user-info');
+
+    await page.locator('#user-menu-btn').click();
+    await page.locator('#settings-btn').click();
+    await page.waitForSelector('#settings-popup:not(.hidden)');
+    // Settings load async; wait for the real content to replace the loader
+    await expect(page.locator('.settings-label').first()).toHaveText('Appearance');
+
+    await expect(page.locator('.settings-label', { hasText: 'Appearance' })).toBeInViewport();
+    const scrollTop = await page
+      .locator('#settings-popup .info-popup-body')
+      .evaluate((el) => el.scrollTop);
+    expect(scrollTop).toBe(0);
+  });
+
   test('opens settings popup when clicking settings button', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#user-info');

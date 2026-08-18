@@ -1457,8 +1457,8 @@ export async function openSettingsPopup(): Promise<void> {
     const textarea = document.getElementById('custom-instructions') as HTMLTextAreaElement;
     if (textarea) {
       textarea.addEventListener('input', () => updateCharCount(textarea));
-      // Focus the textarea
-      textarea.focus();
+      // NOTE: no autofocus here - focusing this last field scrolled the
+      // popup body to the bottom on open (regression test in settings.spec)
     }
 
     // Attach color scheme click handlers
