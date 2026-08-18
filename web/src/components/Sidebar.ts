@@ -204,7 +204,9 @@ export function renderConversationsList(): void {
     lastRenderedListHtml = '';
     container.innerHTML = navEntriesHtml + `
       <div class="conversations-loading">
-        <div class="loading-spinner"></div>
+        <div class="conversation-skeleton"></div>
+        <div class="conversation-skeleton"></div>
+        <div class="conversation-skeleton"></div>
       </div>
     `;
     return;

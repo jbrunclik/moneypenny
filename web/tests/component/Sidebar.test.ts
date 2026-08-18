@@ -98,13 +98,13 @@ describe('Sidebar', () => {
       expect(container?.innerHTML).toContain('Start a new chat');
     });
 
-    it('renders loading state when loading with no conversations', () => {
+    it('renders skeleton rows when loading with no conversations', () => {
       useStore.setState({ isLoading: true });
 
       renderConversationsList();
 
       const container = document.getElementById('conversations-list');
-      expect(container?.innerHTML).toContain('loading-spinner');
+      expect(container?.querySelectorAll('.conversation-skeleton').length).toBe(3);
     });
 
     it('renders conversations list', () => {
