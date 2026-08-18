@@ -37,6 +37,7 @@ import {
 import type { Agent } from '../types/api';
 
 import { renderChatHeader } from '../components/ChatHeader';
+import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { COMMAND_CENTER_CACHE_MS } from '../config';
@@ -412,12 +413,7 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
     // Clear messages to show welcome state
     const messagesContainer = getElementById<HTMLDivElement>('messages');
     if (messagesContainer) {
-      messagesContainer.innerHTML = `
-        <div class="welcome-message">
-          <h2>Welcome to AI Chatbot</h2>
-          <p>Start a conversation with Gemini AI</p>
-        </div>
-      `;
+      messagesContainer.innerHTML = renderWelcomeMessageHtml();
     }
 
     // Focus input after leaving agents view (respects iOS auto-focus preferences)

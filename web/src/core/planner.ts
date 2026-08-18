@@ -40,6 +40,7 @@ import {
 
 import { sendMessage } from './messaging';
 import { renderChatHeader } from '../components/ChatHeader';
+import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 
@@ -290,12 +291,7 @@ export function leavePlannerView(): void {
   // Clear messages to show welcome state
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (messagesContainer) {
-    messagesContainer.innerHTML = `
-      <div class="welcome-message">
-        <h2>Welcome to AI Chatbot</h2>
-        <p>Start a conversation with Gemini AI</p>
-      </div>
-    `;
+    messagesContainer.innerHTML = renderWelcomeMessageHtml();
   }
 
   // Ensure input area is visible and focus input after leaving planner

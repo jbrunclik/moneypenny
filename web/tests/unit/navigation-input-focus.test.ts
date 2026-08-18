@@ -82,6 +82,7 @@ vi.mock('@/components/ScrollToBottom', () => ({
 vi.mock('@/utils/dom', () => ({
   getElementById: vi.fn(),
   clearElement: vi.fn(),
+  escapeHtml: vi.fn((text: string) => text),
 }));
 
 vi.mock('@/router/deeplink', () => ({

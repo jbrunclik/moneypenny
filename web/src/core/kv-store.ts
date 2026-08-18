@@ -32,6 +32,7 @@ import {
 } from '../components/MessageInput';
 
 import { renderChatHeader } from '../components/ChatHeader';
+import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { STORAGE_CACHE_MS } from '../config';
@@ -272,12 +273,7 @@ export function leaveStorageView(clearMessages: boolean = true): void {
 
     const messagesContainer = getElementById<HTMLDivElement>('messages');
     if (messagesContainer) {
-      messagesContainer.innerHTML = `
-        <div class="welcome-message">
-          <h2>Welcome to AI Chatbot</h2>
-          <p>Start a conversation with Gemini AI</p>
-        </div>
-      `;
+      messagesContainer.innerHTML = renderWelcomeMessageHtml();
     }
 
     if (shouldAutoFocusInput()) {
