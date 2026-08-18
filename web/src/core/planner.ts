@@ -39,6 +39,7 @@ import {
 } from '../components/MessageInput';
 
 import { sendMessage } from './messaging';
+import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 
@@ -103,6 +104,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   updateChatTitle('Planner');
   renderModelDropdown(); // Update model selector to show planner's model
   updateConversationCost(null); // Clear cost display (planner has no cost yet)
+  renderChatHeader(null);
 
   // Update anonymous button state (planner doesn't use anonymous mode)
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
@@ -277,6 +279,7 @@ export function leavePlannerView(): void {
   // Clear stale UI state from planner
   renderModelDropdown(); // Reset to default model display
   updateConversationCost(null); // Clear cost display
+  renderChatHeader(null);
 
   // Update anonymous button state (reset to pending state)
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');

@@ -99,7 +99,10 @@ export function renderAppShell(): string {
       <header class="mobile-header">
         <button id="menu-btn" class="btn-icon">${MENU_ICON}</button>
         <span id="current-chat-title">AI Chatbot</span>
+        <span id="conversation-cost-mobile" class="chat-header-cost"></span>
       </header>
+
+      <header id="chat-header" class="chat-header hidden"></header>
 
       <div id="messages" class="messages">
         ${renderWelcomeMessageHtml()}
@@ -146,7 +149,6 @@ export function renderAppShell(): string {
               ${SEND_ICON}
             </button>
           </div>
-          <div id="conversation-cost" class="conversation-cost-display"></div>
         </div>
       </div>
     </main>

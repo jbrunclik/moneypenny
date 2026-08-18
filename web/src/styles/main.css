@@ -25,6 +25,9 @@
 /* Layout */
 @import './layout.css';
 
+/* Chat header */
+@import './components/chat-header.css';
+
 /* Components */
 @import './components/buttons.css';
 @import './components/messages.css';

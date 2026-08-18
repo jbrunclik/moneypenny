@@ -42,6 +42,7 @@ import {
   shouldAutoFocusInput,
 } from '../components/MessageInput';
 import { sendMessage } from './messaging';
+import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 
@@ -90,6 +91,7 @@ export async function navigateToSports(forceRefresh: boolean = false): Promise<v
   updateChatTitle('Sports Training');
   renderModelDropdown();
   updateConversationCost(null);
+  renderChatHeader(null);
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
@@ -205,6 +207,7 @@ export async function navigateToSportsProgram(programId: string): Promise<void> 
     setCurrentConversationForBlobs(convResponse.id);
     updateChatTitle(programName);
     renderModelDropdown();
+    renderChatHeader(null);
     updateConversationCost(convResponse.id);
 
     // Render header + messages
@@ -335,6 +338,7 @@ export function leaveSportsView(): void {
   updateChatTitle('AI Chatbot');
   renderModelDropdown();
   updateConversationCost(null);
+  renderChatHeader(null);
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {

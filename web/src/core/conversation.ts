@@ -48,6 +48,8 @@ import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 import { createAgentConversationHeader } from '../components/CommandCenter';
+import { renderChatHeader } from '../components/ChatHeader';
+import { ARCHIVE_ICON, DELETE_ICON } from '../utils/icons';
 
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { leavePlannerView } from './planner';
@@ -92,6 +94,43 @@ export function isTempConversation(convId: string | undefined): boolean {
 }
 
 /**
+ * Build the icon action buttons for the regular conversation header.
+ */
+function buildChatHeaderActions(convId: string): HTMLElement[] {
+  const archiveBtn = document.createElement('button');
+  archiveBtn.className = 'btn-icon chat-header-action';
+  archiveBtn.setAttribute('aria-label', 'Archive conversation');
+  archiveBtn.title = 'Archive conversation';
+  archiveBtn.innerHTML = ARCHIVE_ICON;
+  archiveBtn.addEventListener('click', () => void archiveConversation(convId));
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn-icon chat-header-action chat-header-action-danger';
+  deleteBtn.setAttribute('aria-label', 'Delete conversation');
+  deleteBtn.title = 'Delete conversation';
+  deleteBtn.innerHTML = DELETE_ICON;
+  deleteBtn.addEventListener('click', () => void deleteConversation(convId));
+
+  return [archiveBtn, deleteBtn];
+}
+
+/**
+ * Render the chat header for a regular (non-agent) conversation.
+ * Temp conversations get a plain header (no rename/actions until persisted).
+ */
+function renderChatHeaderForConversation(conv: Conversation): void {
+  if (isTempConversation(conv.id)) {
+    renderChatHeader({ title: conv.title });
+    return;
+  }
+  renderChatHeader({
+    title: conv.title,
+    onRenameCommit: (newTitle) => void renameConversationTo(conv.id, newTitle),
+    actions: buildChatHeaderActions(conv.id),
+  });
+}
+
+/**
  * Switch to a conversation and update UI.
  */
 export function switchToConversation(conv: Conversation, totalMessageCount?: number): void {
@@ -120,6 +159,14 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   store.setCurrentConversation(conv);
   setActiveConversation(conv.id);
   updateChatTitle(conv.title);
+
+  // Regular conversations get the shared chat header; agent conversations
+  // keep their sticky in-messages header (hide the regular one)
+  if (conv.is_agent) {
+    renderChatHeader(null);
+  } else {
+    renderChatHeaderForConversation(conv);
+  }
 
   // Update URL hash for deep linking (skips temp conversations automatically)
   setConversationHash(conv.id);
@@ -426,6 +473,7 @@ export function createConversation(): void {
   renderConversationsList();
   setActiveConversation(conv.id);
   updateChatTitle(conv.title);
+  renderChatHeaderForConversation(conv);
   renderMessages([]);
   renderModelDropdown();
   closeSidebar();
@@ -461,6 +509,7 @@ export function removeConversationFromUI(convId: string): void {
     store.setCurrentConversation(null);
     renderMessages([]);
     updateChatTitle('AI Chatbot');
+    renderChatHeader(null);
     // Clear the hash since conversation no longer exists
     clearConversationHash();
   }
@@ -546,8 +595,6 @@ export async function renameConversation(convId: string): Promise<void> {
     return;
   }
 
-  const isArchived = store.archivedConversations.some(c => c.id === convId);
-
   const currentTitle = conv.title || DEFAULT_CONVERSATION_TITLE;
 
   const newTitle = await showPrompt({
@@ -564,10 +611,29 @@ export async function renameConversation(convId: string): Promise<void> {
     return;
   }
 
+  await renameConversationTo(convId, newTitle);
+}
+
+/**
+ * Rename a conversation to a specific title (no prompt).
+ * Used by the prompt flow above and the chat header inline rename.
+ */
+export async function renameConversationTo(convId: string, newTitle: string): Promise<void> {
+  const store = useStore.getState();
+  const conv = store.conversations.find(c => c.id === convId)
+    || store.archivedConversations.find(c => c.id === convId);
+
+  if (!conv) {
+    log.warn('Conversation not found for rename', { conversationId: convId });
+    return;
+  }
+
+  const isArchived = store.archivedConversations.some(c => c.id === convId);
+  const currentTitle = conv.title || DEFAULT_CONVERSATION_TITLE;
   const trimmedTitle = newTitle.trim();
 
-  // No change
-  if (trimmedTitle === currentTitle) {
+  // Empty or no change
+  if (!trimmedTitle || trimmedTitle === currentTitle) {
     return;
   }
 
@@ -894,6 +960,7 @@ export async function archiveConversation(convId: string): Promise<void> {
       store.setCurrentConversation(null);
       renderMessages([]);
       updateChatTitle('AI Chatbot');
+      renderChatHeader(null);
       clearConversationHash();
     }
 

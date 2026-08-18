@@ -36,6 +36,7 @@ import {
 } from '../components/MessageInput';
 import type { Agent } from '../types/api';
 
+import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { COMMAND_CENTER_CACHE_MS } from '../config';
@@ -108,6 +109,7 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   updateChatTitle('Command Center');
   renderModelDropdown(); // Update model selector (will show default since no conversation)
   updateConversationCost(null); // Clear cost display
+  renderChatHeader(null);
 
   // Update anonymous button state (agents view doesn't use anonymous mode)
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
@@ -405,6 +407,7 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
     // Clear stale UI state
     renderModelDropdown();
     updateConversationCost(null);
+    renderChatHeader(null);
 
     // Clear messages to show welcome state
     const messagesContainer = getElementById<HTMLDivElement>('messages');

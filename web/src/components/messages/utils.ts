@@ -4,6 +4,7 @@
 
 import { getElementById } from '../../utils/dom';
 import { createLogger } from '../../utils/logger';
+import { updateChatHeaderTitle } from '../ChatHeader';
 
 const log = createLogger('messages');
 
@@ -39,13 +40,14 @@ export function formatMessageTime(isoString: string): string {
 }
 
 /**
- * Update chat title in mobile header
+ * Update chat title in the mobile header and the desktop chat header.
  */
 export function updateChatTitle(title: string): void {
   const titleEl = getElementById<HTMLSpanElement>('current-chat-title');
   if (titleEl) {
     titleEl.textContent = title;
   }
+  updateChatHeaderTitle(title);
 }
 
 /**

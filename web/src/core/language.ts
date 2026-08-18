@@ -42,6 +42,7 @@ import {
   shouldAutoFocusInput,
 } from '../components/MessageInput';
 import { sendMessage } from './messaging';
+import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 
@@ -90,6 +91,7 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
   updateChatTitle('Language Learning');
   renderModelDropdown();
   updateConversationCost(null);
+  renderChatHeader(null);
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
@@ -205,6 +207,7 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
     setCurrentConversationForBlobs(convResponse.id);
     updateChatTitle(programName);
     renderModelDropdown();
+    renderChatHeader(null);
     updateConversationCost(convResponse.id);
 
     // Render header + messages
@@ -337,6 +340,7 @@ export function leaveLanguageView(): void {
   updateChatTitle('AI Chatbot');
   renderModelDropdown();
   updateConversationCost(null);
+  renderChatHeader(null);
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {

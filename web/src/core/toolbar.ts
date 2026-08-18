@@ -16,28 +16,35 @@ import { isTempConversation } from './conversation';
  * Update conversation cost display and monthly cost in sidebar.
  */
 export async function updateConversationCost(convId: string | null): Promise<void> {
-  const costEl = getElementById<HTMLDivElement>('conversation-cost');
-  if (!costEl) return;
+  // Desktop chip lives in the chat header (only when rendered); mobile chip
+  // lives in the mobile header and always exists.
+  const costEls = [
+    getElementById<HTMLElement>('conversation-cost'),
+    getElementById<HTMLElement>('conversation-cost-mobile'),
+  ].filter((el): el is HTMLElement => el !== null);
+  if (costEls.length === 0) return;
+
+  const setCost = (text: string): void => {
+    for (const el of costEls) {
+      el.textContent = text;
+      if (text) el.title = 'Total cost of this conversation';
+    }
+  };
 
   if (!convId || isTempConversation(convId)) {
-    costEl.textContent = '';
+    setCost('');
     return;
   }
 
   try {
     const costData = await costs.getConversationCost(convId);
     // Only show cost if it's greater than 0
-    if (costData.cost_usd > 0) {
-      costEl.textContent = costData.formatted;
-      costEl.title = 'Total cost of this conversation';
-    } else {
-      costEl.textContent = '';
-    }
+    setCost(costData.cost_usd > 0 ? costData.formatted : '');
     // Also update the monthly cost in the sidebar
     updateMonthlyCost();
   } catch {
     // Ignore errors - cost display is optional
-    costEl.textContent = '';
+    setCost('');
   }
 }
 

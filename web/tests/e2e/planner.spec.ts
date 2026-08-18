@@ -423,10 +423,13 @@ test.describe('Planner - UI State Management', () => {
     // Wait for planner to load
     await expect(page.locator('#planner-dashboard')).toBeVisible();
 
-    // Cost display should change (planner's cost is different from the conversation)
-    // The cost is cleared initially and then may show planner's cost (0.00)
-    // Key assertion: cost should NOT show the previous conversation's cost
-    await expect(costDisplay).not.toHaveText(conversationCost || 'dummy');
+    // The chat header (and its cost chip) is removed entirely in planner view,
+    // so the previous conversation's cost can never leak into the planner.
+    await expect(costDisplay).toHaveCount(0);
+    // The mobile cost chip stays mounted but must be cleared
+    await expect(page.locator('#conversation-cost-mobile')).toHaveText('');
+    // Silence unused-var lint: the captured cost documents what must not leak
+    expect(conversationCost).toBeDefined();
   });
 
   test('model selector updates when switching from conversation to planner', async ({ page }) => {

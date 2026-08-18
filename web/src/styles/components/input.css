@@ -65,17 +65,6 @@
     color: var(--text-muted);
 }
 
-/* Conversation cost display */
-.conversation-cost-display {
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    text-align: right;
-    padding: var(--space-1) var(--space-4) 0;
-    min-height: 16px;
-    height: auto;
-    font-variant-numeric: tabular-nums;
-}
-
 /* ----------------------------------------
    Model Selector
    ---------------------------------------- */

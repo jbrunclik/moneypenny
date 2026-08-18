@@ -31,6 +31,7 @@ import {
   shouldAutoFocusInput,
 } from '../components/MessageInput';
 
+import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { STORAGE_CACHE_MS } from '../config';
@@ -70,6 +71,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   updateChatTitle('Storage');
   renderModelDropdown();
   updateConversationCost(null);
+  renderChatHeader(null);
 
   // Update anonymous button state
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
@@ -266,6 +268,7 @@ export function leaveStorageView(clearMessages: boolean = true): void {
     updateChatTitle('AI Chatbot');
     renderModelDropdown();
     updateConversationCost(null);
+    renderChatHeader(null);
 
     const messagesContainer = getElementById<HTMLDivElement>('messages');
     if (messagesContainer) {

@@ -1,0 +1,115 @@
+/* ============================================
+   Chat Header - desktop conversation header
+   ============================================
+
+   Rendered into #chat-header (app shell, above #messages).
+   Hidden on mobile for regular conversations (mobile-header takes over);
+   program variants re-enable it via their extraClass.
+*/
+
+.chat-header {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    background-color: var(--bg-primary);
+    padding: 0 var(--space-6);
+}
+
+.chat-header.hidden {
+    display: none;
+}
+
+.chat-header-inner {
+    max-width: var(--message-max-width);
+    margin: 0 auto;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.chat-header-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.chat-header-title.renameable {
+    cursor: text;
+}
+
+.chat-header-title-input {
+    font: inherit;
+    color: inherit;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-xs);
+    padding: 2px var(--space-2);
+    min-width: 240px;
+    outline: none;
+}
+
+.chat-header-spacer {
+    flex: 1;
+}
+
+.chat-header-cost {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: 2px var(--space-2-5);
+    white-space: nowrap;
+}
+
+.chat-header-cost:empty {
+    display: none;
+}
+
+.chat-header-emoji {
+    font-size: var(--font-size-xl);
+    flex-shrink: 0;
+}
+
+.chat-header-back {
+    flex-shrink: 0;
+}
+
+.chat-header-back svg {
+    width: 20px;
+    height: 20px;
+}
+
+.chat-header-action {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.chat-header-action:hover {
+    color: var(--text-primary);
+}
+
+.chat-header-action-danger:hover {
+    color: var(--error);
+}
+
+.chat-header-action svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Mobile: the mobile-header takes over for regular conversations */
+@media (max-width: 768px) {
+    .chat-header {
+        display: none;
+    }
+
+    #conversation-cost-mobile {
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+}
