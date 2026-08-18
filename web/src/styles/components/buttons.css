@@ -436,6 +436,6 @@
    Press Feedback
    ---------------------------------------- */
 
-:is(.btn-primary, .btn-send, .btn-stop, .welcome-prompt-chip, .btn-new-agent, .sports-add-btn, .language-add-btn):active {
+:is(.btn-primary, .btn-send, .btn-stop, .btn-new-agent, .sports-add-btn, .language-add-btn):active {
     transform: scale(0.97);
 }

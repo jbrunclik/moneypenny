@@ -147,8 +147,8 @@ export function initToolbarButtons(): void {
 function updateStreamButtonState(btn: HTMLButtonElement, enabled: boolean): void {
   btn.classList.toggle('active', enabled);
   btn.setAttribute('aria-pressed', String(enabled));
-  btn.setAttribute('aria-pressed', String(enabled));
-  btn.innerHTML = enabled ? STREAM_ICON : STREAM_OFF_ICON;
+  // Keep the label span - it's visible in the mobile options popover
+  btn.innerHTML = `${enabled ? STREAM_ICON : STREAM_OFF_ICON}<span class="toolbar-toggle-label">Streaming</span>`;
   btn.title = enabled ? 'Streaming enabled (click to disable)' : 'Streaming disabled (click to enable)';
 }
 

@@ -237,10 +237,6 @@ describe('Messages - renderMessages', () => {
 
       const container = document.getElementById('messages');
       expect(container?.innerHTML).toContain('What can I help with?');
-      expect(container?.querySelectorAll('.welcome-prompt-chip').length).toBe(4);
-      container?.querySelectorAll<HTMLElement>('.welcome-prompt-chip').forEach((chip) => {
-        expect(chip.dataset.prompt).toBeTruthy();
-      });
     });
 
     it('does not scroll when rendering empty messages', () => {

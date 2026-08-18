@@ -241,19 +241,6 @@ export function setupEventListeners(): void {
       return;
     }
 
-    // Suggested-prompt chip fills the composer
-    const promptChip = (e.target as HTMLElement).closest<HTMLElement>('.welcome-prompt-chip');
-    if (promptChip) {
-      const input = document.getElementById('message-input') as HTMLTextAreaElement | null;
-      if (input) {
-        input.value = promptChip.dataset.prompt ?? '';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      }
-      return;
-    }
-
     // Inline copy button (code blocks, tables)
     const inlineCopyBtn = (e.target as HTMLElement).closest('.inline-copy-btn');
     if (inlineCopyBtn) {
