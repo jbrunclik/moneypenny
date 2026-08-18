@@ -1895,24 +1895,30 @@
 
 .login-box {
     text-align: center;
-    padding: var(--space-12);
+    padding: var(--space-12) var(--space-10);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-lg);
     width: min(360px, calc(100vw - 2 * var(--space-4)));
+}
+
+.login-overlay:not(.hidden) .login-box {
+    animation: popup-in var(--duration-slow) var(--ease-out);
 }
 
 .login-logo {
     width: 64px;
     height: 64px;
     border-radius: var(--radius-md);
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
 }
 
 .login-box h2 {
+    font-family: var(--font-family-display);
     font-size: var(--font-size-3xl);
     font-weight: 600;
+    letter-spacing: -0.02em;
     color: var(--text-primary);
     margin: 0 0 var(--space-2);
 }
@@ -1923,10 +1929,15 @@
     margin: 0 0 var(--space-6);
 }
 
+.google-btn-container {
+    display: flex;
+    justify-content: center;
+}
+
 .login-privacy-link {
     display: inline-block;
-    margin-top: var(--space-4);
-    color: var(--text-tertiary);
+    margin-top: var(--space-5);
+    color: var(--text-muted);
     font-size: var(--font-size-xs);
     text-decoration: none;
 }
