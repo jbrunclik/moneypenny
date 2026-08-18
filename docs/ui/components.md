@@ -766,14 +766,13 @@ into the `#chat-header` mount in the app shell (above `#messages`):
 `updateChatTitle()` (messages/utils.ts) keeps both the mobile header title
 and the chat header title in sync.
 
-## Wide Table Breakout
+## Wide Tables
 
-On viewports >= 1200px, assistant-message tables (`.table-wrapper`) wider
-than the 800px message column break out of the bubble - centered via
-`margin-left: 50% + translateX(-50%)` (transform never affects layout or
-scroll anchoring), capped at the available chat width. `#messages` has
-`overflow-x: hidden`, so the page never scrolls horizontally; truly huge
-tables still scroll inside their own wrapper. Covered by the
+On viewports >= 1200px, assistant messages containing a table widen the
+whole bubble (`.message.assistant:has(.table-wrapper)`) beyond the 800px
+column, up to the available chat width - the table stays inside the card
+instead of overflowing it. Truly huge tables still scroll inside their
+own wrapper, and the page never scrolls horizontally. Covered by the
 `desktop-wide-table` visual baseline.
 
 ## UI Capture Utility

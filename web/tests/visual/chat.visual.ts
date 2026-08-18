@@ -117,7 +117,7 @@ test.describe('Visual: Long Content Wrapping', () => {
     await expect(userMessage).toHaveScreenshot('user-message-long-url.png');
   });
 
-  test('wide table breaks out of the message column on desktop', async ({ page }) => {
+  test('wide table widens the message bubble on desktop', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
     await page.click('#new-chat-btn');
@@ -151,8 +151,8 @@ test.describe('Visual: Long Content Wrapping', () => {
     await page.waitForTimeout(500);
     await page.request.post('/test/clear-mock-response');
 
-    // The table card may exceed the message bubble width, but the page
-    // itself must never scroll horizontally
+    // The bubble widens to contain the table, but the page itself must
+    // never scroll horizontally
     const hasHorizontalScroll = await page.evaluate(() => {
       const messages = document.getElementById('messages')!;
       return messages.scrollWidth > messages.clientWidth + 1;

@@ -646,18 +646,13 @@ a.document-name:hover {
     border: 1px solid var(--border);
 }
 
-/* Wide tables on large screens break out of the message column (up to
-   the available chat width) instead of forcing horizontal scrolling.
-   Centered with transform, which never affects layout or scroll
-   anchoring; .messages clips any excess (overflow-x: hidden) and the
-   inner scroll-wrapper still scrolls for truly huge tables. */
+/* Messages containing tables widen the whole bubble on large screens
+   (up to the available chat width) so wide tables fit INSIDE the card
+   without horizontal scrolling. Truly huge tables still scroll inside
+   their wrapper. */
 @media (min-width: 1200px) {
-    .message.assistant .table-wrapper {
-        width: fit-content;
-        min-width: 100%;
+    .message.assistant:has(.table-wrapper) {
         max-width: min(calc(100vw - var(--sidebar-width) - 2 * var(--space-8)), 1600px);
-        margin-left: 50%;
-        transform: translateX(-50%);
     }
 }
 
