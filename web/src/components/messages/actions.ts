@@ -165,15 +165,20 @@ export function createMessageActions(
   const showCostButton = role === 'assistant';
   const showSpeakButton = role === 'assistant' && typeof speechSynthesis !== 'undefined';
 
-  // Build HTML
+  // Build HTML. On touch devices the buttons collapse behind the overflow
+  // toggle (CSS-controlled); on desktop the overflow toggle is hidden and
+  // the buttons reveal on hover as before.
   actions.innerHTML = `
     ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
-    ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
-    ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
-    ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
-    ${showSpeakButton ? `<button class="message-speak-btn" title="Read aloud">${SPEAKER_ICON}</button>` : ''}
-    <button class="message-delete-btn" title="Delete message">${DELETE_ICON}</button>
-    <button class="message-copy-btn" title="Copy message">${COPY_ICON}</button>
+    <button class="message-actions-overflow" aria-label="Message actions" aria-expanded="false">⋯</button>
+    <span class="message-actions-buttons">
+      ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
+      ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
+      ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
+      ${showSpeakButton ? `<button class="message-speak-btn" title="Read aloud">${SPEAKER_ICON}</button>` : ''}
+      <button class="message-delete-btn" title="Delete message">${DELETE_ICON}</button>
+      <button class="message-copy-btn" title="Copy message">${COPY_ICON}</button>
+    </span>
   `;
 
   // Attach handlers

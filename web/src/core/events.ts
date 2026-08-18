@@ -204,6 +204,17 @@ export function setupEventListeners(): void {
       return;
     }
 
+    // Message actions overflow toggle (touch devices)
+    const overflowBtn = (e.target as HTMLElement).closest<HTMLElement>('.message-actions-overflow');
+    if (overflowBtn) {
+      const actionsEl = overflowBtn.closest('.message-actions');
+      if (actionsEl) {
+        const expanded = actionsEl.classList.toggle('expanded');
+        overflowBtn.setAttribute('aria-expanded', String(expanded));
+      }
+      return;
+    }
+
     // Suggested-prompt chip fills the composer
     const promptChip = (e.target as HTMLElement).closest<HTMLElement>('.welcome-prompt-chip');
     if (promptChip) {
