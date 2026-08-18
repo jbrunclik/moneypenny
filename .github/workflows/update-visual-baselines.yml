@@ -2,14 +2,19 @@ name: Update Visual Baselines (Linux)
 
 # Manually-triggered: regenerates the *-linux.png visual baselines in the
 # exact environment the CI visual job uses (Playwright Docker container on
-# an ubuntu runner) and pushes them to the triggering branch. Run this
-# after intentional UI changes; CI's visual job compares against these.
+# an ubuntu runner) and uploads them as an artifact. Branch protection
+# forbids direct bot pushes to main, so the invoker downloads the artifact
+# and commits it:
+#   gh workflow run "Update Visual Baselines (Linux)"
+#   gh run watch <run-id> --exit-status
+#   gh run download <run-id> -n linux-baselines -D web/tests/visual/
+#   git add web/tests/visual && git commit && git push
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   update-baselines:
@@ -70,14 +75,18 @@ jobs:
             "mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy" \
             npx playwright test tests/visual --update-snapshots
 
-      - name: Commit and push baselines
+      - name: Collect linux baselines
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add web/tests/visual/*.visual.ts-snapshots
-          if git diff --cached --quiet; then
-            echo "No baseline changes."
-          else
-            git commit -m "test(visual): regenerate linux baselines"
-            git push
-          fi
+          mkdir -p /tmp/linux-baselines
+          cd web/tests/visual
+          for dir in *.visual.ts-snapshots; do
+            mkdir -p "/tmp/linux-baselines/$dir"
+            find "$dir" -name '*-linux.png' -exec cp {} "/tmp/linux-baselines/$dir/" \;
+          done
+
+      - name: Upload linux baselines
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-baselines
+          path: /tmp/linux-baselines/
+          retention-days: 7
