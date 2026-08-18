@@ -411,6 +411,7 @@ def create_mock_stream_chat_events() -> Any:
         sports_context: dict[str, Any] | None = None,
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
+        conversation_title: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
         # Use custom response if set, otherwise use prefix + message
