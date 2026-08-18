@@ -174,21 +174,23 @@
 }
 
 /* Touch devices: timestamp + copy always visible, other buttons behind
-   the overflow toggle (copy is the most-used action) */
+   the overflow toggle (copy is the most-used action). Buttons get
+   uniform compact boxes with centered glyphs - mismatched hit-box
+   widths read as erratic spacing. */
 @media (hover: none) {
     .message-actions {
         opacity: 0.75;
+        gap: var(--space-1);
     }
 
-    .message-copy-btn {
-        min-width: 44px;
-        min-height: 32px;
-    }
-
+    .message-copy-btn,
     .message-actions-overflow {
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        min-width: 40px;
+        min-height: 36px;
+        padding: var(--space-1);
     }
 
     .message-actions .message-actions-buttons {
