@@ -3,34 +3,41 @@
  */
 import { test, expect } from '../global-setup';
 
+// Timestamps are generated relative to the test run and sit mid-bucket
+// ("Nmo ago"), so the rendered relative time is identical on every run.
+// Fixed ISO dates here are a time bomb: the snapshot silently expires
+// whenever wall-clock time crosses a bucket boundary.
+const DAY_MS = 86_400_000;
+const daysAgo = (days: number): string => new Date(Date.now() - days * DAY_MS).toISOString();
+
 const MOCK_MEMORIES = [
   {
     id: 'mem-1',
     content: 'User prefers dark mode for all applications',
     category: 'preference',
-    created_at: '2026-01-15T10:00:00Z',
-    updated_at: '2026-01-15T10:00:00Z',
+    created_at: daysAgo(135),
+    updated_at: daysAgo(135), // "4mo ago"
   },
   {
     id: 'mem-2',
     content: 'Works as a software engineer at a Prague-based company',
     category: 'fact',
-    created_at: '2026-01-20T14:30:00Z',
-    updated_at: '2026-01-20T14:30:00Z',
+    created_at: daysAgo(105),
+    updated_at: daysAgo(105), // "3mo ago"
   },
   {
     id: 'mem-3',
     content: 'Currently learning Czech language, intermediate level',
     category: 'context',
-    created_at: '2026-02-01T09:00:00Z',
-    updated_at: '2026-02-01T09:00:00Z',
+    created_at: daysAgo(75),
+    updated_at: daysAgo(75), // "2mo ago"
   },
   {
     id: 'mem-4',
     content: 'Training for Prague Half Marathon in April 2026',
     category: 'goal',
-    created_at: '2026-02-10T16:00:00Z',
-    updated_at: '2026-02-10T16:00:00Z',
+    created_at: daysAgo(45),
+    updated_at: daysAgo(45), // "1mo ago"
   },
 ];
 

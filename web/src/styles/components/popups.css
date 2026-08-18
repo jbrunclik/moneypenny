@@ -452,25 +452,18 @@
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: var(--font-size-sm);
-    background-color: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-}
-
-.cost-history-table thead {
-    background: var(--gradient-table-header);
-    border-bottom: 2px solid var(--border);
+    font-size: var(--font-size-ui);
 }
 
 .cost-history-table th {
-    padding: 14px var(--space-4);
+    padding: var(--space-2) var(--space-3);
     text-align: left;
     font-weight: 600;
-    color: var(--text-primary);
-    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
 }
 
 .cost-history-table th:last-child,
@@ -478,34 +471,23 @@
     text-align: right;
 }
 
-.cost-history-table tbody {
-    background-color: var(--bg-primary);
-}
-
 .cost-history-table tbody tr {
     transition: background-color var(--transition-fast);
-}
-
-.cost-history-table tbody tr:not(:last-child) {
-    border-bottom: 1px solid var(--border);
 }
 
 .cost-history-table tbody tr:hover {
     background-color: var(--bg-hover);
 }
 
-.cost-history-table tbody tr:first-child {
-    background-color: var(--bg-tertiary);
-    border-left: 3px solid var(--accent);
-}
-
-.cost-history-table tbody tr:first-child:hover {
-    background-color: var(--bg-hover);
-}
-
 .cost-history-table td {
-    padding: 14px var(--space-4);
+    padding: var(--space-2-5) var(--space-3);
     color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-light);
+}
+
+/* Current month */
+.cost-history-table tbody tr:first-child {
+    background-color: var(--accent-muted);
 }
 
 .cost-history-table tbody tr:first-child td {
@@ -513,43 +495,45 @@
     font-weight: 500;
 }
 
-.cost-history-table tfoot {
-    background: var(--gradient-table-header);
-    border-top: 2px solid var(--border);
+.cost-history-table tbody tr:first-child td:first-child {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.cost-history-table tbody tr:first-child td:last-child {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .cost-history-table tfoot td {
-    padding: 18px var(--space-4);
+    padding: var(--space-3);
     color: var(--text-primary);
-    font-size: var(--font-size-md);
+    border-top: 1px solid var(--border);
+    border-bottom: none;
 }
 
 .cost-amount {
     text-align: right;
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-primary);
-    letter-spacing: 0.3px;
 }
 
 .cost-history-table tbody tr:first-child .cost-amount {
-    color: var(--accent);
+    color: var(--accent-hover);
+    font-weight: 600;
 }
 
 .cost-messages {
     text-align: right;
     color: var(--text-muted);
-    font-size: var(--font-size-ui);
-    font-weight: 400;
+    font-variant-numeric: tabular-nums;
 }
 
 .cost-history-total .cost-amount {
-    font-size: 1.0625rem;
+    font-size: var(--font-size-base);
     font-weight: 700;
 }
 
 .cost-history-total .cost-messages {
-    font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--text-primary);
 }
