@@ -53,15 +53,7 @@
     white-space: nowrap;
 }
 
-/* Nav row compact-tile layout lives in planner.css (shared by all entries) */
-.sidebar-nav-row.single .sports-entry {
-    flex: 1;
-    justify-content: flex-start;
-}
-
-.sidebar-nav-row.single .sports-label {
-    display: block;
-}
+/* Nav list layout lives in planner.css (shared by all entries) */
 
 /* ----------------------------------------
    Sports Programs Container

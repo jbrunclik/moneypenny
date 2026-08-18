@@ -55,80 +55,62 @@
 }
 
 /* ----------------------------------------
-   Sidebar Navigation Row
+   Sidebar Navigation List
    ----------------------------------------
-   Displays planner/agents/sports/language entries side by side.
-   When only one entry is shown (.single), it takes full width with
-   the label next to the icon. With multiple entries, each becomes a
-   compact tile: icon above a small label (icons alone are ambiguous).
+   Planner/Agents/Sports/Language render as a compact vertical nav
+   list (icon + label rows) - scales to any number of programs.
 */
 
 .sidebar-nav-row {
     display: flex;
-    gap: var(--space-2);
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 var(--space-2);
 }
 
 .sidebar-nav-row .planner-entry,
-.sidebar-nav-row .agents-entry {
-    flex: 1;
-    min-width: 0;
-    justify-content: center;
-}
-
-.sidebar-nav-row:not(.single) .planner-entry,
-.sidebar-nav-row:not(.single) .agents-entry,
-.sidebar-nav-row:not(.single) .sports-entry,
-.sidebar-nav-row:not(.single) .language-entry {
-    position: relative;
-    flex: 1;
-    min-width: 0;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--space-1);
-    padding: var(--space-2);
-}
-
-.sidebar-nav-row:not(.single) .planner-label,
-.sidebar-nav-row:not(.single) .agents-label,
-.sidebar-nav-row:not(.single) .sports-label,
-.sidebar-nav-row:not(.single) .language-label {
-    display: block;
-    flex: none;
-    max-width: 100%;
-    font-size: var(--font-size-xs);
-    font-weight: 500;
+.sidebar-nav-row .agents-entry,
+.sidebar-nav-row .sports-entry,
+.sidebar-nav-row .language-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2-5);
+    padding: var(--space-2) var(--space-2-5);
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-ui);
     color: var(--text-secondary);
 }
 
-/* Badges sit in the tile corners so they don't push the column layout */
-.sidebar-nav-row:not(.single) .agents-entry .unread-badge {
-    position: absolute;
-    top: var(--space-1);
-    right: var(--space-1);
-}
-
-.sidebar-nav-row:not(.single) .agents-entry .waiting-badge {
-    position: absolute;
-    top: var(--space-1);
-    left: var(--space-1);
-}
-
-.sidebar-nav-row:not(.single) .agents-entry .error-indicator {
-    position: absolute;
-    bottom: var(--space-1);
-    right: var(--space-1);
-}
-
-/* When only one entry is shown, show full label */
-.sidebar-nav-row.single .planner-entry,
-.sidebar-nav-row.single .agents-entry {
-    flex: 1;
-    justify-content: flex-start;
-}
-
-.sidebar-nav-row.single .planner-label,
-.sidebar-nav-row.single .agents-label {
+.sidebar-nav-row .planner-label,
+.sidebar-nav-row .agents-label,
+.sidebar-nav-row .sports-label,
+.sidebar-nav-row .language-label {
     display: block;
+    font-weight: 500;
+}
+
+.sidebar-nav-row .planner-entry:hover,
+.sidebar-nav-row .agents-entry:hover,
+.sidebar-nav-row .sports-entry:hover,
+.sidebar-nav-row .language-entry:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* Badges align to the right edge of the row */
+.sidebar-nav-row .agents-entry .unread-badge,
+.sidebar-nav-row .agents-entry .waiting-badge,
+.sidebar-nav-row .agents-entry .error-indicator {
+    margin-left: auto;
+}
+
+.sidebar-nav-row .agents-entry .unread-badge ~ .waiting-badge,
+.sidebar-nav-row .agents-entry .waiting-badge ~ .unread-badge,
+.sidebar-nav-row .agents-entry .error-indicator ~ .unread-badge,
+.sidebar-nav-row .agents-entry .error-indicator ~ .waiting-badge {
+    margin-left: var(--space-1);
 }
 
 .sidebar-divider {
