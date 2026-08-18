@@ -25,7 +25,7 @@
     --color-neutral-800: #242424;   /* Tertiary bg */
     --color-neutral-700: #2a2a2a;   /* Hover bg */
     --color-neutral-600: #383838;   /* Borders */
-    --color-neutral-400: #666666;   /* Muted text */
+    --color-neutral-400: #8a8a8a;   /* Muted text (5.3:1 on bg-primary - AA) */
     --color-neutral-300: #a0a0a0;   /* Secondary text */
     --color-neutral-100: #e5e5e5;   /* Primary text */
 
