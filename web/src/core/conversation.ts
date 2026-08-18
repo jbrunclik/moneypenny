@@ -94,6 +94,23 @@ export function isTempConversation(convId: string | undefined): boolean {
 }
 
 /**
+ * Find an existing empty, untitled, non-archived, non-agent conversation
+ * that New Chat can reuse instead of creating another one.
+ */
+export function findReusableEmptyConversation(
+  conversationList: Conversation[],
+): Conversation | null {
+  return (
+    conversationList.find((c) => {
+      if (c.title !== DEFAULT_CONVERSATION_TITLE || c.archived || c.is_agent) return false;
+      const isEmpty =
+        c.messageCount === 0 || (c.messageCount === undefined && c.messages?.length === 0);
+      return isEmpty;
+    }) ?? null
+  );
+}
+
+/**
  * Build the icon action buttons for the regular conversation header.
  */
 function buildChatHeaderActions(convId: string): HTMLElement[] {
@@ -401,6 +418,22 @@ export async function selectConversation(convId: string): Promise<void> {
 export function createConversation(): void {
   log.debug('Creating new conversation');
   const store = useStore.getState();
+
+  // Reuse an existing empty conversation instead of piling up untitled ones
+  const reusable = findReusableEmptyConversation(store.conversations);
+  if (reusable) {
+    const inSpecialView =
+      store.isPlannerView ||
+      store.isAgentsView ||
+      store.isStorageView ||
+      store.isSportsView ||
+      store.isLanguageView;
+    const alreadyViewingIt = store.currentConversation?.id === reusable.id && !inSpecialView;
+    if (!alreadyViewingIt) {
+      void selectConversation(reusable.id);
+    }
+    return;
+  }
 
   // Leave any special view before creating new conversation
   if (store.isPlannerView) {
