@@ -83,7 +83,6 @@
 
 .message.assistant .message-avatar {
     background: var(--gradient-assistant-avatar);
-    box-shadow: var(--shadow-glow-accent);
 }
 
 .message.user .message-avatar {
@@ -130,7 +129,7 @@
 .message.user .message-content-wrapper {
     flex: 0 1 auto;
     align-items: flex-end;
-    max-width: calc(100% - 48px);
+    max-width: min(70%, calc(100% - 48px));
 }
 
 /* ----------------------------------------
@@ -805,19 +804,22 @@ a.document-name:hover {
    ---------------------------------------- */
 
 @media (max-width: 768px) {
+    /* No avatars on mobile - reclaim the gutter for content */
     .message {
-        gap: var(--space-3);
+        gap: 0;
     }
 
     .message-avatar {
-        width: 28px;
-        height: 28px;
-        font-size: var(--font-size-sm);
+        display: none;
     }
 
     .message-content {
-        max-width: calc(100% - 40px);
+        max-width: 100%;
         padding: 10px 14px;
+    }
+
+    .message.user .message-content-wrapper {
+        max-width: 85%;
     }
 }
 
