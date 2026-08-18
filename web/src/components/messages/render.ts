@@ -282,7 +282,8 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
 export function addMessageToUI(
   message: Message,
   container: HTMLElement = getElementById('messages')!,
-  approvalResolutions?: Map<string, { resolved: boolean; approved: boolean }>
+  approvalResolutions?: Map<string, { resolved: boolean; approved: boolean }>,
+  options?: { animate?: boolean }
 ): void {
   // Check if this is a trigger message (agent execution notification)
   if (message.role === 'user' && isTriggerMessage(message.content)) {
@@ -311,6 +312,17 @@ export function addMessageToUI(
   const messageEl = document.createElement('div');
   messageEl.className = `message ${message.role}`;
   messageEl.dataset.messageId = message.id;
+
+  // Entrance animation only for live appends (never on history load).
+  // Transform/opacity only - does not affect layout or scroll anchoring.
+  if (options?.animate) {
+    messageEl.classList.add('message--entering');
+    messageEl.addEventListener(
+      'animationend',
+      () => messageEl.classList.remove('message--entering'),
+      { once: true },
+    );
+  }
 
   // Avatar
   const avatar = document.createElement('div');

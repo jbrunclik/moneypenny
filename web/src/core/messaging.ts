@@ -361,7 +361,7 @@ export async function sendMessage(): Promise<void> {
     if (welcomeMessage) {
       welcomeMessage.remove();
     }
-    addMessageToUI(userMessage, messagesContainer);
+    addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
     // Scroll to bottom after adding user message so it's visible
     programmaticScrollToBottom(messagesContainer);
     // Update scroll button visibility after adding user message
@@ -1547,7 +1547,7 @@ async function sendBatchMessage(
       // Note: We intentionally don't call enableScrollOnImageLoad() here because
       // we're using scroll-to-top-of-message behavior, not scroll-to-bottom.
       // The scroll-on-image-load system is designed for bottom-scrolling.
-      addMessageToUI(assistantMessage, messagesContainer);
+      addMessageToUI(assistantMessage, messagesContainer, undefined, { animate: true });
 
       // Only scroll if user was following (at bottom) - don't hijack scroll if user is browsing history
       if (wasAtBottom) {

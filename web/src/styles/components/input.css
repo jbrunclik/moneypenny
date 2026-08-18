@@ -71,6 +71,7 @@
 
     .toolbar-toggles.open {
         display: flex;
+        animation: popup-in var(--duration-fast) var(--ease-out);
     }
 
     .toolbar-toggles .btn-toolbar {
@@ -190,6 +191,10 @@
 
 .model-dropdown.hidden {
     display: none;
+}
+
+.model-dropdown:not(.hidden) {
+    animation: popup-in var(--duration-fast) var(--ease-out);
 }
 
 /* Model option styling */

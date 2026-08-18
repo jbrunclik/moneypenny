@@ -431,3 +431,11 @@
         box-shadow: var(--shadow-scroll-btn), 0 0 0 8px rgba(87, 83, 232, 0);
     }
 }
+
+/* ----------------------------------------
+   Press Feedback
+   ---------------------------------------- */
+
+:is(.btn-primary, .btn-send, .btn-stop, .welcome-prompt-chip, .btn-new-agent, .sports-add-btn, .language-add-btn):active {
+    transform: scale(0.97);
+}

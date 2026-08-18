@@ -298,17 +298,39 @@
 }
 
 /* ----------------------------------------
+   Message Entrance (live appends only)
+   ---------------------------------------- */
+
+@keyframes message-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+
+.message--entering {
+    animation: message-in var(--duration-base) var(--ease-out);
+}
+
+/* ----------------------------------------
    Streaming Cursor
    ---------------------------------------- */
 
 .streaming-cursor {
     display: inline-block;
     width: 8px;
-    height: 1.2em;
+    height: 1.1em;
     background-color: var(--accent);
+    border-radius: 2px;
     margin-left: 2px;
     vertical-align: text-bottom;
-    animation: blink-cursor 0.8s step-end infinite;
+    animation: caret-pulse 1s ease-in-out infinite;
+}
+
+@keyframes caret-pulse {
+    50% {
+        opacity: 0.25;
+    }
 }
 
 @keyframes blink-cursor {

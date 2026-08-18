@@ -301,6 +301,10 @@
     display: none;
 }
 
+.user-menu:not(.hidden) {
+    animation: popup-in var(--duration-fast) var(--ease-out);
+}
+
 .user-menu-item {
     display: flex;
     align-items: center;

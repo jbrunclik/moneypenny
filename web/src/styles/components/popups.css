@@ -135,6 +135,17 @@
     display: none;
 }
 
+@keyframes popup-in {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+}
+
+.info-popup:not(.hidden) .info-popup-content {
+    animation: popup-in var(--duration-fast) var(--ease-out);
+}
+
 .info-popup-content {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
