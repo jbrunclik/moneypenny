@@ -30,6 +30,7 @@
  */
 
 import { escapeHtml } from '../utils/dom';
+import { trapTabKey } from '../utils/focus-trap';
 import { CLOSE_ICON } from '../utils/icons';
 
 // Modal container element
@@ -253,24 +254,7 @@ function handleModalKeydown(e: KeyboardEvent): void {
   }
 
   // Tab for focus trapping
-  if (e.key === 'Tab') {
-    const focusableElements = modalContainer.querySelectorAll(
-      'button, input, [tabindex]:not([tabindex="-1"])'
-    ) as NodeListOf<HTMLElement>;
-
-    if (focusableElements.length === 0) return;
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-
-    if (e.shiftKey && document.activeElement === firstElement) {
-      e.preventDefault();
-      lastElement.focus();
-    } else if (!e.shiftKey && document.activeElement === lastElement) {
-      e.preventDefault();
-      firstElement.focus();
-    }
-  }
+  trapTabKey(modalContainer, e);
 }
 
 /**

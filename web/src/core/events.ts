@@ -94,6 +94,50 @@ export function setupEventListeners(): void {
     }
   });
 
+  // Conversation list keyboard navigation: Enter/Space activate the
+  // focused row or nav entry; arrows move a roving tabindex through rows
+  getElementById('conversations-list')?.addEventListener('keydown', (e) => {
+    const target = e.target as HTMLElement;
+
+    if (e.key === 'Enter' || e.key === ' ') {
+      const actionable = target.closest<HTMLElement>(
+        '.conversation-item, .planner-entry, .agents-entry, .sports-entry, .language-entry'
+      );
+      if (actionable) {
+        e.preventDefault();
+        actionable.click();
+      }
+      return;
+    }
+
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') {
+      return;
+    }
+
+    const items = Array.from(
+      document.querySelectorAll<HTMLElement>('#conversations-list .conversation-item')
+    );
+    if (items.length === 0) return;
+
+    const current = items.indexOf(target.closest('.conversation-item') as HTMLElement);
+    let next: number;
+    if (e.key === 'Home') {
+      next = 0;
+    } else if (e.key === 'End') {
+      next = items.length - 1;
+    } else if (current === -1) {
+      next = e.key === 'ArrowDown' ? 0 : items.length - 1;
+    } else {
+      next = current + (e.key === 'ArrowDown' ? 1 : -1);
+      if (next < 0 || next >= items.length) return; // no wrap
+    }
+
+    e.preventDefault();
+    items.forEach((item) => item.setAttribute('tabindex', '-1'));
+    items[next].setAttribute('tabindex', '0');
+    items[next].focus();
+  });
+
   // Conversation list clicks
   getElementById('conversations-list')?.addEventListener('click', (e) => {
     // Handle rename button clicks

@@ -19,6 +19,7 @@
  */
 
 import { createLogger } from './logger';
+import { trapTabKey } from './focus-trap';
 
 const log = createLogger('popup-escape');
 
@@ -60,24 +61,37 @@ export function registerPopupEscapeHandler(
 }
 
 /**
- * Handle Escape key press - close the topmost visible popup.
+ * Find the topmost visible registered popup (most recently registered first).
  */
-function handleEscapeKey(e: KeyboardEvent): void {
-  if (e.key !== 'Escape') return;
-
-  // Find visible popups (iterate in reverse to handle most recently registered first)
+function findVisiblePopup(): { popup: HTMLElement; handler: PopupHandler } | null {
   for (let i = handlers.length - 1; i >= 0; i--) {
-    const { popupId, onEscape } = handlers[i];
-    const popup = document.getElementById(popupId);
-
+    const popup = document.getElementById(handlers[i].popupId);
     if (popup && !popup.classList.contains('hidden')) {
-      log.debug('Escape key closing popup', { popupId });
-      onEscape();
-      e.preventDefault();
-      e.stopPropagation();
-      return; // Only close one popup at a time
+      return { popup, handler: handlers[i] };
     }
   }
+  return null;
+}
+
+/**
+ * Handle keydown for open popups: Escape closes the topmost visible
+ * popup; Tab is trapped inside it so focus cannot escape to the page.
+ */
+function handleEscapeKey(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' && e.key !== 'Tab') return;
+
+  const visible = findVisiblePopup();
+  if (!visible) return;
+
+  if (e.key === 'Tab') {
+    trapTabKey(visible.popup, e);
+    return;
+  }
+
+  log.debug('Escape key closing popup', { popupId: visible.handler.popupId });
+  visible.handler.onEscape();
+  e.preventDefault();
+  e.stopPropagation();
 }
 
 /**

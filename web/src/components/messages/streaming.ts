@@ -53,6 +53,9 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
 
   const messageEl = document.createElement('div');
   messageEl.className = 'message assistant streaming';
+  // Announce streamed content to screen readers without interrupting
+  messageEl.setAttribute('role', 'log');
+  messageEl.setAttribute('aria-live', 'polite');
 
   // Create thinking indicator
   const thinkingIndicator = createThinkingIndicator();
@@ -252,6 +255,9 @@ export function restoreStreamingMessage(conversationId: string, content: string,
 
   const messageEl = document.createElement('div');
   messageEl.className = 'message assistant streaming';
+  // Announce streamed content to screen readers without interrupting
+  messageEl.setAttribute('role', 'log');
+  messageEl.setAttribute('aria-live', 'polite');
 
   // Create thinking indicator with the restored state
   const thinkingIndicator = createThinkingIndicator();
@@ -459,6 +465,9 @@ export function finalizeStreamingMessage(
   language?: string
 ): boolean {
   messageEl.classList.remove('streaming');
+  // Stop live-region announcements once the message is final
+  messageEl.removeAttribute('role');
+  messageEl.removeAttribute('aria-live');
   messageEl.dataset.messageId = messageId;
 
   // Remove cursor

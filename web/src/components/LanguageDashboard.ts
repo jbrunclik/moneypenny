@@ -10,6 +10,7 @@ import { showConfirm } from './Modal';
 import { renderChatHeader } from './ChatHeader';
 import { CLOSE_ICON, DELETE_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, LANGUAGE_ICON } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
+import { trapTabKey } from '../utils/focus-trap';
 
 // ============================================================================
 // Programs List View
@@ -184,7 +185,11 @@ function showNewProgramModal(
   overlay.appendChild(modal);
 
   const handleKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') close();
+    if (e.key === 'Escape') {
+      close();
+      return;
+    }
+    trapTabKey(modal, e);
   };
 
   const close = () => {

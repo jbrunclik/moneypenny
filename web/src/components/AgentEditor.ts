@@ -7,6 +7,7 @@ import { agents, aiAssist, settings } from '../api/client';
 import { useStore } from '../state/store';
 import { toast } from './Toast';
 import { escapeHtml } from '../utils/dom';
+import { trapTabKey } from '../utils/focus-trap';
 import {
   ACTIVITY_ICON,
   CALENDAR_ICON,
@@ -668,6 +669,9 @@ function handleModalKeydown(e: KeyboardEvent): void {
     handleSave();
     return;
   }
+
+  // Keep Tab focus inside the editor while it is open
+  trapTabKey(modalContainer, e);
 }
 
 /**

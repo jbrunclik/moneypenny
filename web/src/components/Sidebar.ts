@@ -66,7 +66,7 @@ export function shouldShowLanguage(user: User | null): boolean {
  */
 function renderPlannerEntry(isActive: boolean): string {
   return `
-    <div class="planner-entry ${isActive ? 'active' : ''}" data-route="planner" title="Planner">
+    <div class="planner-entry ${isActive ? 'active' : ''}" data-route="planner" title="Planner" role="button" tabindex="0">
       <span class="planner-icon">${PLANNER_ICON}</span>
       <span class="planner-label">Planner</span>
     </div>
@@ -93,7 +93,7 @@ function renderAgentsEntryWithoutDivider(
   const errorTooltip = errorsCount === 1 ? '1 agent failed' : `${errorsCount} agents failed`;
   const errorIndicator = errorsCount > 0 ? `<span class="error-indicator" title="${errorTooltip}"></span>` : '';
   return `
-    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents" title="Agents">
+    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents" title="Agents" role="button" tabindex="0">
       <span class="agents-icon">${ROBOT_ICON}</span>
       <span class="agents-label">Agents</span>
       ${errorIndicator}${waitingBadge}${badge}
@@ -106,7 +106,7 @@ function renderAgentsEntryWithoutDivider(
  */
 function renderSportsEntry(isActive: boolean): string {
   return `
-    <div class="sports-entry ${isActive ? 'active' : ''}" data-route="sports" title="Sports">
+    <div class="sports-entry ${isActive ? 'active' : ''}" data-route="sports" title="Sports" role="button" tabindex="0">
       <span class="sports-icon">${SPORTS_ICON}</span>
       <span class="sports-label">Sports</span>
     </div>
@@ -118,7 +118,7 @@ function renderSportsEntry(isActive: boolean): string {
  */
 function renderLanguageEntry(isActive: boolean): string {
   return `
-    <div class="language-entry ${isActive ? 'active' : ''}" data-route="language" title="Language">
+    <div class="language-entry ${isActive ? 'active' : ''}" data-route="language" title="Language" role="button" tabindex="0">
       <span class="language-icon">${LANGUAGE_ICON}</span>
       <span class="language-label">Language</span>
     </div>
@@ -265,6 +265,7 @@ export function renderConversationsList(): void {
     container.scrollTop = scrollTop;
     lastRenderedListHtml = listHtml;
     lastRenderedFirstChild = container.firstElementChild;
+    ensureListTabStop(container);
   }
 
   // Render archive entry in its own pinned container (always visible, not scrolled)
@@ -272,6 +273,19 @@ export function renderConversationsList(): void {
 
   // Set up infinite scroll if not already set up
   setupInfiniteScroll(container);
+}
+
+/**
+ * Roving tabindex: exactly one conversation row should be reachable via
+ * Tab (the active one, or the first). Arrow keys move focus from there.
+ */
+function ensureListTabStop(container: HTMLElement): void {
+  const items = container.querySelectorAll<HTMLElement>('.conversation-item');
+  if (items.length === 0) return;
+  const hasStop = Array.from(items).some((el) => el.getAttribute('tabindex') === '0');
+  if (!hasStop) {
+    items[0].setAttribute('tabindex', '0');
+  }
 }
 
 /**
@@ -291,7 +305,7 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
 
   return `
     <div class="conversation-item-wrapper ${isActive ? 'active' : ''}" data-conv-id="${conv.id}">
-      <div class="conversation-item">
+      <div class="conversation-item" role="button" tabindex="${isActive ? '0' : '-1'}"${isActive ? ' aria-current="true"' : ''}>
         <div class="conversation-title">${title}</div>
         ${unreadBadge}
         ${relativeTime}
@@ -334,7 +348,7 @@ function renderArchivedConversationItem(conv: Conversation): string {
 
   return `
     <div class="conversation-item-wrapper" data-conv-id="${conv.id}">
-      <div class="conversation-item">
+      <div class="conversation-item" role="button" tabindex="-1">
         <div class="conversation-title">${title}</div>
         ${relativeTime}
         <div class="conversation-actions">
@@ -716,6 +730,7 @@ function renderArchiveView(container: HTMLDivElement): void {
     : '';
 
   container.innerHTML = headerHtml + archivedItemsHtml + loadMoreHtml;
+  ensureListTabStop(container);
 
   // Set up infinite scroll for archive
   setupArchiveInfiniteScroll(container);

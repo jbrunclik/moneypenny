@@ -572,6 +572,8 @@ function markStreamingMessageAsIncomplete(convId: string): void {
     messageEl.classList.add('message-incomplete');
     // Remove streaming class and cursor
     messageEl.classList.remove('streaming');
+    messageEl.removeAttribute('role');
+    messageEl.removeAttribute('aria-live');
     const cursor = messageEl.querySelector('.streaming-cursor');
     cursor?.remove();
   }

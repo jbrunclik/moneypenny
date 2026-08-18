@@ -10,6 +10,7 @@ import { showConfirm } from './Modal';
 import { renderChatHeader } from './ChatHeader';
 import { CLEAR_ICON, CLOSE_ICON, DELETE_ICON, PLAY_ICON, PLUS_ICON, SPORTS_ICON } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
+import { trapTabKey } from '../utils/focus-trap';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('SportsDashboard');
@@ -175,7 +176,11 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
 
   // Close on Escape
   const handleKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') close();
+    if (e.key === 'Escape') {
+      close();
+      return;
+    }
+    trapTabKey(modal, e);
   };
 
   const close = () => {
