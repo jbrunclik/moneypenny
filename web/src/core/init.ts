@@ -110,7 +110,11 @@ export function renderAppShell(): string {
 
       <div class="input-area">
         <div class="input-wrapper">
-          <div class="input-toolbar">
+          <div id="file-preview" class="file-preview hidden"></div>
+          <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json">
+          <div id="input-container" class="input-container">
+            <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
+            <div class="input-toolbar">
             <div class="toolbar-left">
               <div class="model-selector">
                 <button id="model-selector-btn" class="model-selector-btn">
@@ -139,15 +143,11 @@ export function renderAppShell(): string {
               <button id="attach-btn" class="btn-toolbar" title="Attach files" aria-label="Attach files">
                 ${ATTACH_ICON}
               </button>
+              <button id="send-btn" class="btn btn-send" aria-label="Send message" disabled>
+                ${SEND_ICON}
+              </button>
             </div>
-          </div>
-          <div id="file-preview" class="file-preview hidden"></div>
-          <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json">
-          <div id="input-container" class="input-container">
-            <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
-            <button id="send-btn" class="btn btn-send" aria-label="Send message" disabled>
-              ${SEND_ICON}
-            </button>
+            </div>
           </div>
         </div>
       </div>
