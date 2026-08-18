@@ -173,10 +173,16 @@
     border-radius: var(--radius-sm);
 }
 
-/* Touch devices: timestamp always visible, buttons behind the overflow toggle */
+/* Touch devices: timestamp + copy always visible, other buttons behind
+   the overflow toggle (copy is the most-used action) */
 @media (hover: none) {
     .message-actions {
         opacity: 0.75;
+    }
+
+    .message-copy-btn {
+        min-width: 44px;
+        min-height: 32px;
     }
 
     .message-actions-overflow {
