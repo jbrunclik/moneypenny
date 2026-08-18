@@ -163,7 +163,80 @@ jobs:
           path: web/test-results/
           retention-days: 7
 
-  # Visual regression tests are skipped in CI because:
-  # - Baselines are platform-specific (darwin vs linux) and font rendering differs
-  # - Run locally with: make test-fe-visual
-  # - Update baselines with: make test-fe-visual-update
+  # Visual regression tests run inside the Playwright Docker container so
+  # font rendering matches the committed *-linux.png baselines exactly.
+  # The mock server runs on the runner host (python 3.14); the container
+  # reaches it via host networking. Baselines are (re)generated locally
+  # with: make test-fe-visual-linux-update (requires Docker).
+  frontend-visual-tests:
+    name: Frontend Visual Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-unit-tests]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          allow-prereleases: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '25'
+
+      - name: Cache Node dependencies
+        uses: actions/cache@v6
+        with:
+          path: web/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: cd web && npm ci
+
+      - name: Build frontend
+        run: cd web && npm run build
+
+      - name: Start e2e mock server
+        run: |
+          python tests/e2e-server.py &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:8001/ && break
+            sleep 1
+          done
+          curl -sf -o /dev/null http://localhost:8001/
+
+      - name: Run visual tests in Playwright container
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('./web/package.json').devDependencies['@playwright/test']")
+          docker run --rm --network host \
+            -v "$PWD":/work -w /work/web \
+            -e PW_BASE_URL=http://127.0.0.1:8001 \
+            -e CI=1 \
+            --ipc=host \
+            "mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy" \
+            npx playwright test tests/visual --project=chromium
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: visual-playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: visual-test-results
+          path: web/test-results/
+          retention-days: 7

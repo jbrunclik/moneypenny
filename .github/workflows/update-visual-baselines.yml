@@ -73,9 +73,10 @@ jobs:
             -e CI=1 \
             --ipc=host \
             "mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy" \
-            npx playwright test tests/visual --update-snapshots
+            npx playwright test tests/visual --project=chromium --update-snapshots
 
       - name: Collect linux baselines
+        if: always()
         run: |
           mkdir -p /tmp/linux-baselines
           cd web/tests/visual
@@ -86,6 +87,7 @@ jobs:
 
       - name: Upload linux baselines
         uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: linux-baselines
           path: /tmp/linux-baselines/

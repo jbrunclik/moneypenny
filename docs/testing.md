@@ -454,10 +454,12 @@ make test-fe-visual-linux-update   # regenerate *-linux.png baselines
 ```
 
 **Visual baselines are per-platform.** Local development on macOS produces
-`*-darwin.png` baselines; CI runs the suite inside the Playwright Docker
-container (`mcr.microsoft.com/playwright:v<version>-jammy`, version taken
-from `@playwright/test` in `web/package.json`) and compares against the
-committed `*-linux.png` baselines. Both sets live in
+`*-darwin.png` baselines (chromium + webkit); CI runs the suite inside the
+Playwright Docker container (`mcr.microsoft.com/playwright:v<version>-jammy`,
+version taken from `@playwright/test` in `web/package.json`) and compares
+against the committed `*-linux.png` baselines. The CI/container runs are
+**chromium-only** - webkit inside the Linux container is flaky in ways the
+darwin runs are not, so Safari coverage stays local. Both sets live in
 `web/tests/visual/*.visual.ts-snapshots/` and both must be regenerated
 after intentional UI changes:
 
