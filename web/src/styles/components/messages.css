@@ -620,13 +620,26 @@ a.document-name:hover {
     border: 1px solid var(--border);
 }
 
-/* Messages containing tables widen the whole bubble on large screens
-   (up to the available chat width) so wide tables fit INSIDE the card
-   without horizontal scrolling. Truly huge tables still scroll inside
-   their wrapper. */
+/* Messages containing tables widen the bubble on large screens - but
+   only as much as the table actually needs (fit-content), up to the
+   available chat width. Inside the bubble the table fills the width and
+   WRAPS cell text instead of laying out at max-content, so a single
+   verbose column can't shove the others off-screen; the scroll wrapper
+   remains the fallback for tables whose min-content truly can't fit. */
 @media (min-width: 1200px) {
     .message.assistant:has(.table-wrapper) {
+        width: fit-content;
+        min-width: var(--message-max-width);
         max-width: min(calc(100vw - var(--sidebar-width) - 2 * var(--space-8)), 1600px);
+    }
+
+    .message.assistant .table-wrapper table {
+        width: 100%;
+        /* Base rule pins tables at max-content (scroll-first, for small
+           screens); here we want wrap-first - a table never shrinks
+           below its min-content anyway, so scrolling still kicks in
+           when even wrapped columns can't fit */
+        min-width: 0;
     }
 }
 
@@ -792,7 +805,6 @@ a.document-name:hover {
 
 .message-loading .message-avatar {
     background: var(--gradient-assistant-avatar);
-    box-shadow: var(--shadow-glow-accent);
 }
 
 .message-loading .loading-dots {
