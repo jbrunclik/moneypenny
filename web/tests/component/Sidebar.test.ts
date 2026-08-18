@@ -126,6 +126,26 @@ describe('Sidebar', () => {
       expect(container?.innerHTML).toContain('Second Chat');
     });
 
+    it('groups conversations by recency with labels and relative times', () => {
+      const today = new Date().toISOString();
+      const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000).toISOString();
+      useStore.setState({
+        conversations: [
+          { ...createConversation('1', 'Fresh Chat'), updated_at: today },
+          { ...createConversation('2', 'Old Chat'), updated_at: tenDaysAgo },
+        ],
+      });
+
+      renderConversationsList();
+
+      const container = document.getElementById('conversations-list');
+      const labels = Array.from(
+        container?.querySelectorAll('.conversation-group-label') ?? []
+      ).map((el) => el.textContent);
+      expect(labels).toEqual(['Today', 'Previous 30 days']);
+      expect(container?.querySelectorAll('.conversation-time').length).toBe(2);
+    });
+
     it('marks current conversation as active', () => {
       const conv = createConversation('1', 'Active Chat');
       useStore.setState({

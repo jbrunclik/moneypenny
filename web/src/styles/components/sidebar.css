@@ -48,6 +48,32 @@
     border-radius: var(--radius-sm);
 }
 
+.conversation-group-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    position: sticky;
+    top: 0;
+    background: var(--bg-secondary);
+    z-index: 3;
+}
+
+.conversation-time {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-left: auto;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Hover swaps the timestamp for the action buttons */
+.conversation-item:hover .conversation-time {
+    display: none;
+}
+
 .conversation-item {
     padding: var(--space-3);
     border-radius: var(--radius-sm);

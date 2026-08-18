@@ -1,4 +1,5 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
+import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { renderUserAvatarHtml } from '../utils/avatar';
 import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
@@ -220,9 +221,22 @@ export function renderConversationsList(): void {
     return;
   }
 
-  // Render conversations
+  // Render conversations grouped by recency (list arrives sorted by
+  // updated_at desc, so a label is emitted whenever the group changes)
+  let lastGroup: string | null = null;
   const conversationsHtml = conversations
-    .map((conv) => renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView && !isAgentsView))
+    .map((conv) => {
+      const group = groupForDate(conv.updated_at);
+      const label =
+        group !== lastGroup
+          ? `<div class="conversation-group-label">${escapeHtml(group)}</div>`
+          : '';
+      lastGroup = group;
+      return (
+        label +
+        renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView && !isAgentsView)
+      );
+    })
     .join('');
 
   // Render loading indicator for "load more" if there are more pages
@@ -269,11 +283,16 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
     ? `<span class="unread-badge">${conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>`
     : '';
 
+  const relativeTime = conv.updated_at
+    ? `<span class="conversation-time">${escapeHtml(formatRelativeTime(conv.updated_at))}</span>`
+    : '';
+
   return `
     <div class="conversation-item-wrapper ${isActive ? 'active' : ''}" data-conv-id="${conv.id}">
       <div class="conversation-item">
         <div class="conversation-title">${title}</div>
         ${unreadBadge}
+        ${relativeTime}
         <div class="conversation-actions">
           <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
             ${EDIT_ICON}
