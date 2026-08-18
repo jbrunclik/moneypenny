@@ -447,7 +447,38 @@ make test-fe-visual
 
 # Update visual baselines
 make test-fe-visual-update
+
+# Linux baselines (what CI compares against; requires Docker)
+make test-fe-visual-linux          # verify
+make test-fe-visual-linux-update   # regenerate *-linux.png baselines
 ```
+
+**Visual baselines are per-platform.** Local development on macOS produces
+`*-darwin.png` baselines; CI runs the suite inside the Playwright Docker
+container (`mcr.microsoft.com/playwright:v<version>-jammy`, version taken
+from `@playwright/test` in `web/package.json`) and compares against the
+committed `*-linux.png` baselines. Both sets live in
+`web/tests/visual/*.visual.ts-snapshots/` and both must be regenerated
+after intentional UI changes:
+
+```bash
+make test-fe-visual-update          # darwin (local)
+make test-fe-visual-linux-update    # linux (Docker; used by CI)
+```
+
+The Linux run works by starting the e2e mock server on the host and
+pointing the container at it via `PW_BASE_URL` (which also disables
+Playwright's managed webServer - see `scripts/visual_linux.sh`). If the
+Playwright version is bumped, the Docker image tag follows automatically,
+but all Linux baselines must be regenerated.
+
+**No local Docker?** Trigger the `Update Visual Baselines (Linux)`
+workflow instead (`gh workflow run "Update Visual Baselines (Linux)"`).
+It regenerates the baselines on a GitHub runner - the exact environment
+the CI visual job uses - and pushes a `test(visual): regenerate linux
+baselines` commit to the branch it ran on. This is also the most
+reliable option in general since it cannot drift from CI (local Docker
+on Apple Silicon runs the arm64 image unless forced to amd64).
 
 ### All Tests
 

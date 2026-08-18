@@ -174,6 +174,14 @@ test-fe-visual:
 test-fe-visual-update:
 	cd web && $(NPM) run test:visual:update
 
+# Linux baselines (used by CI) - runs the suite in the Playwright Docker
+# image against a mock server on the host
+test-fe-visual-linux:
+	scripts/visual_linux.sh
+
+test-fe-visual-linux-update:
+	scripts/visual_linux.sh --update-snapshots
+
 # Open visual test report in browser for spot-checking
 # Run after test-fe-visual to review any diffs
 test-fe-visual-report:

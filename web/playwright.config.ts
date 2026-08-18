@@ -1,5 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// PW_BASE_URL overrides the target server (used when the tests run inside
+// the Playwright Docker container against a server on the host, e.g. for
+// generating/verifying Linux visual baselines). Setting it also disables
+// the managed webServer - the caller owns the server lifecycle.
+const baseURL = process.env.PW_BASE_URL || 'http://localhost:8001';
+const manageServer = !process.env.PW_BASE_URL;
+
 export default defineConfig({
   testDir: './tests',
   testMatch: ['e2e/**/*.spec.ts', 'visual/**/*.visual.ts'],
@@ -19,7 +26,7 @@ export default defineConfig({
   workers: 4,
   reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']],
   use: {
-    baseURL: 'http://localhost:8001',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     reducedMotion: 'reduce',
@@ -46,14 +53,16 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    // Use .venv/bin/python if available, otherwise fall back to system python (for CI)
-    command: 'cd .. && if [ -f .venv/bin/python ]; then .venv/bin/python tests/e2e-server.py; else python tests/e2e-server.py; fi',
-    url: 'http://localhost:8001',
-    reuseExistingServer: !process.env.CI,
-    timeout: 30000,
-    // Kill any hanging servers before starting
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: manageServer
+    ? {
+        // Use .venv/bin/python if available, otherwise fall back to system python (for CI)
+        command: 'cd .. && if [ -f .venv/bin/python ]; then .venv/bin/python tests/e2e-server.py; else python tests/e2e-server.py; fi',
+        url: 'http://localhost:8001',
+        reuseExistingServer: !process.env.CI,
+        timeout: 30000,
+        // Kill any hanging servers before starting
+        stdout: 'pipe',
+        stderr: 'pipe',
+      }
+    : undefined,
 });

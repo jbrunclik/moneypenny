@@ -1,0 +1,83 @@
+name: Update Visual Baselines (Linux)
+
+# Manually-triggered: regenerates the *-linux.png visual baselines in the
+# exact environment the CI visual job uses (Playwright Docker container on
+# an ubuntu runner) and pushes them to the triggering branch. Run this
+# after intentional UI changes; CI's visual job compares against these.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-baselines:
+    name: Regenerate Linux Baselines
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          allow-prereleases: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '25'
+
+      - name: Cache Node dependencies
+        uses: actions/cache@v6
+        with:
+          path: web/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: cd web && npm ci
+
+      - name: Build frontend
+        run: cd web && npm run build
+
+      - name: Start e2e mock server
+        run: |
+          python tests/e2e-server.py &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:8001/ && break
+            sleep 1
+          done
+          curl -sf -o /dev/null http://localhost:8001/
+
+      - name: Regenerate baselines in Playwright container
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('./web/package.json').devDependencies['@playwright/test']")
+          docker run --rm --network host \
+            -v "$PWD":/work -w /work/web \
+            -e PW_BASE_URL=http://127.0.0.1:8001 \
+            -e CI=1 \
+            --ipc=host \
+            "mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy" \
+            npx playwright test tests/visual --update-snapshots
+
+      - name: Commit and push baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add web/tests/visual/*.visual.ts-snapshots
+          if git diff --cached --quiet; then
+            echo "No baseline changes."
+          else
+            git commit -m "test(visual): regenerate linux baselines"
+            git push
+          fi
