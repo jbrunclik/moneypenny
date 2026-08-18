@@ -827,6 +827,9 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
     } catch (error) {
       log.error('Failed to load deep-linked conversation from API', { error, conversationId });
       hideConversationLoader();
+      // Fall back to the welcome state - the boot path replaced it with
+      // the loader, so it must be re-rendered explicitly
+      renderMessages([]);
       // Clear the invalid hash - conversation likely doesn't exist or user doesn't have access
       clearConversationHash();
       toast.error('Conversation not found or you don\'t have access to it.');

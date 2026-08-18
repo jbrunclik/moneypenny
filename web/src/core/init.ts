@@ -21,6 +21,7 @@ import {
   renderMessages,
   updateChatTitle,
   initOrientationChangeHandler,
+  showConversationLoader,
 } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
@@ -388,6 +389,18 @@ export async function init(): Promise<void> {
 
   // Render app shell
   app.innerHTML = renderAppShell();
+
+  // Booting straight into a route (deep link / PWA relaunch) must show a
+  // loading state, not the new-chat welcome screen - the welcome flashing
+  // before messages arrive reads as landing in the wrong place
+  const bootRoute = parseHash(window.location.hash);
+  if (bootRoute.type !== 'home' && bootRoute.type !== 'unknown') {
+    const messagesEl = getElementById<HTMLDivElement>('messages');
+    if (messagesEl) {
+      clearElement(messagesEl);
+      showConversationLoader();
+    }
+  }
 
   // Initialize components
   initToast();
