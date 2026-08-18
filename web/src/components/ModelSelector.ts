@@ -16,6 +16,10 @@ export function initModelSelector(): void {
 
   if (!btn || !dropdown) return;
 
+  btn.setAttribute('aria-haspopup', 'listbox');
+  btn.setAttribute('aria-expanded', 'false');
+  dropdown.setAttribute('role', 'listbox');
+
   // Toggle dropdown
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -28,6 +32,30 @@ export function initModelSelector(): void {
       !dropdown.contains(e.target as Node) &&
       !btn.contains(e.target as Node)
     ) {
+      closeModelDropdown();
+    }
+  });
+
+  // Keyboard navigation: arrows move focus, Enter selects, Escape closes
+  btn.addEventListener('keydown', (e) => {
+    if (dropdown.classList.contains('hidden')) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        toggleModelDropdown();
+        moveFocusedOption(dropdown, e.key === 'ArrowDown' ? 1 : -1);
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveFocusedOption(dropdown, e.key === 'ArrowDown' ? 1 : -1);
+    } else if (e.key === 'Enter') {
+      const focused = dropdown.querySelector<HTMLElement>('.model-option.focused');
+      if (focused?.dataset.modelId) {
+        e.preventDefault();
+        selectModel(focused.dataset.modelId);
+      }
+    } else if (e.key === 'Escape') {
       closeModelDropdown();
     }
   });
@@ -45,6 +73,22 @@ export function initModelSelector(): void {
 }
 
 /**
+ * Move the keyboard focus highlight between dropdown options.
+ */
+function moveFocusedOption(dropdown: HTMLElement, delta: number): void {
+  const options = Array.from(dropdown.querySelectorAll<HTMLElement>('.model-option'));
+  if (options.length === 0) return;
+  const currentIndex = options.findIndex((o) => o.classList.contains('focused'));
+  const nextIndex =
+    currentIndex === -1
+      ? delta > 0
+        ? 0
+        : options.length - 1
+      : (currentIndex + delta + options.length) % options.length;
+  options.forEach((o, i) => o.classList.toggle('focused', i === nextIndex));
+}
+
+/**
  * Toggle model dropdown visibility.
  * Re-renders dropdown content when opening to ensure checkmark reflects current model.
  */
@@ -58,6 +102,10 @@ function toggleModelDropdown(): void {
     renderModelDropdown();
   }
   dropdown.classList.toggle('hidden');
+  getElementById<HTMLButtonElement>('model-selector-btn')?.setAttribute(
+    'aria-expanded',
+    String(isHidden),
+  );
 }
 
 /**
@@ -66,6 +114,7 @@ function toggleModelDropdown(): void {
 function closeModelDropdown(): void {
   const dropdown = getElementById<HTMLDivElement>('model-dropdown');
   dropdown?.classList.add('hidden');
+  getElementById<HTMLButtonElement>('model-selector-btn')?.setAttribute('aria-expanded', 'false');
 }
 
 /**
@@ -148,9 +197,14 @@ export function renderModelDropdown(): void {
     .map(
       (model) => `
       <div class="model-option ${model.id === currentModelId ? 'selected' : ''}"
+           role="option"
+           aria-selected="${model.id === currentModelId}"
            data-model-id="${model.id}"
            data-short-name="${escapeHtml(model.short_name)}">
-        <span class="model-name">${escapeHtml(model.name)}</span>
+        <span class="model-option-text">
+          <span class="model-name">${escapeHtml(model.name)}</span>
+          ${model.description ? `<span class="model-option-desc">${escapeHtml(model.description)}</span>` : ''}
+        </span>
         ${model.id === currentModelId ? `<span class="model-check">${CHECK_ICON}</span>` : ''}
       </div>
     `

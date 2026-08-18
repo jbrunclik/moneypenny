@@ -40,7 +40,12 @@ def list_models(user: User) -> dict[str, Any]:
     _ = user
     return {
         "models": [
-            {"id": model_id, "name": model_info["name"], "short_name": model_info["short_name"]}
+            {
+                "id": model_id,
+                "name": model_info["name"],
+                "short_name": model_info["short_name"],
+                "description": model_info.get("description", ""),
+            }
             for model_id, model_info in Config.MODELS.items()
         ],
         "default": Config.DEFAULT_MODEL,

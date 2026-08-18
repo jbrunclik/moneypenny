@@ -17,8 +17,16 @@ class Config:
 
     # Available models - each model has a full name and short name for compact display
     MODELS = {
-        "gemini-3.7-flash": {"name": "Gemini 3.7 Flash", "short_name": "Fast"},
-        "gemini-3.1-pro-preview": {"name": "Gemini 3.1 Pro", "short_name": "Advanced"},
+        "gemini-3.7-flash": {
+            "name": "Gemini 3.7 Flash",
+            "short_name": "Fast",
+            "description": "Quick answers for everyday questions",
+        },
+        "gemini-3.1-pro-preview": {
+            "name": "Gemini 3.1 Pro",
+            "short_name": "Advanced",
+            "description": "Deeper reasoning for complex tasks",
+        },
     }
     DEFAULT_MODEL = "gemini-3.7-flash"
 

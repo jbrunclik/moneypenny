@@ -53,7 +53,7 @@ import {
   parseHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { ATTACH_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
+import { ATTACH_ICON, CHEVRON_DOWN_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
 import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -119,7 +119,7 @@ export function renderAppShell(): string {
               <div class="model-selector">
                 <button id="model-selector-btn" class="model-selector-btn">
                   <span id="current-model-name">Loading...</span>
-                  <span class="dropdown-arrow">▼</span>
+                  <span class="dropdown-arrow">${CHEVRON_DOWN_ICON}</span>
                 </button>
                 <div id="model-dropdown" class="model-dropdown hidden"></div>
               </div>

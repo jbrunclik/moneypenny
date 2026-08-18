@@ -124,6 +124,7 @@ export interface Model {
   id: string;
   name: string;
   short_name: string; // Short display name for compact UI (e.g., 'Fast', 'Advanced')
+  description?: string; // One-line description shown in the model dropdown
 }
 
 // =============================================================================
