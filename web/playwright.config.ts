@@ -12,7 +12,11 @@ export default defineConfig({
   expect: {
     timeout: 10000,
   },
-  workers: '50%', // Don't saturate the CPU, leave room for the python server
+  // Pinned: the single-process mock server (threaded Flask + SQLite)
+  // sustains ~8 concurrent contexts (4 workers x 2 browser projects).
+  // '50%' on beefy machines meant ~14 contexts and ~1/600 tests timing
+  // out waiting for mock responses during setup.
+  workers: 4,
   reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']],
   use: {
     baseURL: 'http://localhost:8001',
