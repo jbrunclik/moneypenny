@@ -514,55 +514,8 @@
    Program Chat Header
    ---------------------------------------- */
 
-.sports-program-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-6);
-    margin-left: calc(-1 * var(--space-6));
-    margin-right: calc(-1 * var(--space-6));
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.sports-back-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-2);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.sports-back-btn:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-.sports-program-header-emoji {
-    font-size: var(--font-size-xl);
-    flex-shrink: 0;
-}
-
-.sports-program-header-name {
-    font-size: var(--font-size-ui);
-    font-weight: 600;
-    color: var(--text-primary);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
+/* Program header now renders via the shared ChatHeader component
+   (.chat-header.sports-program-header); only the reset button is bespoke. */
 .sports-reset-btn {
     display: flex;
     align-items: center;
@@ -641,7 +594,6 @@
     outline-offset: 2px;
 }
 
-.sports-back-btn:focus-visible,
 .sports-reset-btn:focus-visible,
 .sports-add-btn:focus-visible {
     outline: 3px solid var(--accent);
@@ -685,9 +637,6 @@
         padding: var(--space-3);
     }
 
-    .sports-program-header {
-        display: none; /* Layout already provides header with title on mobile */
-    }
 }
 
 /* Reduced motion */

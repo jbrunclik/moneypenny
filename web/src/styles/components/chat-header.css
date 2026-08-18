@@ -75,6 +75,18 @@
     flex-shrink: 0;
 }
 
+.chat-header-icon {
+    display: flex;
+    align-items: center;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.chat-header-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
 .chat-header-back {
     flex-shrink: 0;
 }

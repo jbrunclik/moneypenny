@@ -30,7 +30,7 @@ import {
 import type { Conversation } from '../types/api';
 import {
   createLanguageProgramsElement,
-  createLanguageProgramHeader,
+  renderLanguageProgramHeader,
   createLanguageLoadingElement,
 } from '../components/LanguageDashboard';
 import { LANGUAGE_PROGRAMS_CACHE_MS } from '../config';
@@ -207,21 +207,19 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
     setCurrentConversationForBlobs(convResponse.id);
     updateChatTitle(programName);
     renderModelDropdown();
-    renderChatHeader(null);
-    updateConversationCost(convResponse.id);
-
-    // Render header + messages
-    clearElement(messagesContainer);
-
     if (program) {
-      messagesContainer.classList.add('has-sticky-header');
-      const headerEl = createLanguageProgramHeader(
+      renderLanguageProgramHeader(
         program,
         () => navigateToLanguage(),
         () => handleProgramReset(programId),
       );
-      messagesContainer.appendChild(headerEl);
+    } else {
+      renderChatHeader(null);
     }
+    updateConversationCost(convResponse.id);
+
+    // Render messages
+    clearElement(messagesContainer);
 
     if (convResponse.messages.length > 0) {
       convResponse.messages.forEach((msg) => {

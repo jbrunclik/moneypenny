@@ -7,6 +7,7 @@
 
 import type { LanguageProgram } from '../types/api';
 import { showConfirm } from './Modal';
+import { renderChatHeader } from './ChatHeader';
 import { CLOSE_ICON, DELETE_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, LANGUAGE_ICON } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 
@@ -228,42 +229,32 @@ function showNewProgramModal(
 // ============================================================================
 
 /** Create the header above a program's chat (back arrow, name, reset button). */
-export function createLanguageProgramHeader(
+export function renderLanguageProgramHeader(
   program: LanguageProgram,
   onBack: () => void,
   onReset: () => void,
-): HTMLElement {
-  const header = document.createElement('div');
-  header.className = 'language-program-header';
-  header.innerHTML = `
-    <button class="language-back-btn" title="Back to programs">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-        <polyline points="15,18 9,12 15,6"/>
-      </svg>
-    </button>
-    <span class="language-program-header-emoji">${escapeHtml(program.emoji)}</span>
-    <span class="language-program-header-name">${escapeHtml(program.name)}</span>
-    <button class="language-reset-btn" title="Start a new lesson">${REFRESH_ICON}<span>New Lesson</span></button>
-  `;
-
-  header.addEventListener('click', async (e) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('.language-back-btn')) {
-      onBack();
-      return;
-    }
-    if (target.closest('.language-reset-btn')) {
-      const confirmed = await showConfirm({
-        title: 'New Lesson',
-        message: 'Start a new lesson? The current conversation will be cleared. Your vocabulary and assessment data will be kept.',
-        confirmLabel: 'Start New',
-        danger: false,
-      });
-      if (confirmed) onReset();
-    }
+): void {
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'language-reset-btn';
+  resetBtn.title = 'Start a new lesson';
+  resetBtn.innerHTML = `${REFRESH_ICON}<span>New Lesson</span>`;
+  resetBtn.addEventListener('click', async () => {
+    const confirmed = await showConfirm({
+      title: 'New Lesson',
+      message: 'Start a new lesson? The current conversation will be cleared. Your vocabulary and assessment data will be kept.',
+      confirmLabel: 'Start New',
+      danger: false,
+    });
+    if (confirmed) onReset();
   });
 
-  return header;
+  renderChatHeader({
+    title: program.name,
+    emoji: program.emoji,
+    extraClass: 'language-program-header',
+    onBack,
+    actions: [resetBtn],
+  });
 }
 
 // ============================================================================

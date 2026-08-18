@@ -47,7 +47,7 @@ import {
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
-import { createAgentConversationHeader } from '../components/CommandCenter';
+import { renderAgentConversationHeader } from '../components/CommandCenter';
 import { renderChatHeader } from '../components/ChatHeader';
 import { ARCHIVE_ICON, DELETE_ICON } from '../utils/icons';
 
@@ -182,27 +182,22 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
     hasPendingApproval: conv.has_pending_approval,
   });
 
-  // Add agent conversation header after renderMessages (which clears the container)
+  // Agent conversations use the shared chat header with back/edit actions
   if (conv.is_agent && conv.agent_id) {
-    const messagesContainer = getElementById<HTMLDivElement>('messages');
-    if (messagesContainer) {
-      messagesContainer.classList.add('has-sticky-header');
-      const agentName = getAgentNameById(conv.agent_id) || conv.title;
-      const headerEl = createAgentConversationHeader(
-        agentName,
-        () => {
-          import('./agents').then(({ navigateToAgents }) => navigateToAgents());
-        },
-        () => {
-          if (conv.agent_id) {
-            import('./agents').then(({ handleAgentEditById }) => {
-              handleAgentEditById(conv.agent_id!);
-            });
-          }
-        },
-      );
-      messagesContainer.prepend(headerEl);
-    }
+    const agentName = getAgentNameById(conv.agent_id) || conv.title;
+    renderAgentConversationHeader(
+      agentName,
+      () => {
+        import('./agents').then(({ navigateToAgents }) => navigateToAgents());
+      },
+      () => {
+        if (conv.agent_id) {
+          import('./agents').then(({ handleAgentEditById }) => {
+            handleAgentEditById(conv.agent_id!);
+          });
+        }
+      },
+    );
   }
 
   // Set up scroll listener for loading older messages (if not a temp conversation)

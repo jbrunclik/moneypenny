@@ -11,6 +11,8 @@ export interface ChatHeaderOptions {
   title: string;
   extraClass?: string;
   emoji?: string;
+  /** Trusted icon markup (from utils/icons) rendered before the title. */
+  iconHtml?: string;
   onBack?: () => void;
   onRenameCommit?: (title: string) => void;
   actions?: HTMLElement[];
@@ -40,6 +42,11 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
     emoji.className = 'chat-header-emoji';
     emoji.textContent = opts.emoji;
     header.appendChild(emoji);
+  } else if (opts.iconHtml) {
+    const icon = document.createElement('span');
+    icon.className = 'chat-header-icon';
+    icon.innerHTML = opts.iconHtml;
+    header.appendChild(icon);
   }
 
   const title = document.createElement('h2');
