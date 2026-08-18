@@ -331,6 +331,7 @@ class ChatAgent:
         sports_context: dict[str, Any] | None = None,
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
+        conversation_title: str | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
         from src.agent.prompts import get_dynamic_prompt_parts
@@ -362,6 +363,7 @@ class ChatAgent:
                 sports_context=sports_context,
                 is_language=is_language,
                 language_context=language_context,
+                conversation_title=conversation_title,
             )
             dynamic_context_msg = HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]")
         else:
@@ -384,6 +386,7 @@ class ChatAgent:
                         sports_context=sports_context,
                         is_language=is_language,
                         language_context=language_context,
+                        conversation_title=conversation_title,
                     )
                 )
             )
@@ -428,6 +431,7 @@ class ChatAgent:
         sports_context: dict[str, Any] | None = None,
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
+        conversation_title: str | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
         """
         Send a message and get a response (non-streaming).
@@ -462,6 +466,7 @@ class ChatAgent:
             sports_context=sports_context,
             is_language=is_language,
             language_context=language_context,
+            conversation_title=conversation_title,
         )
         logger.debug(
             "Starting chat_batch",
@@ -565,6 +570,7 @@ class ChatAgent:
         sports_context: dict[str, Any] | None = None,
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
+        conversation_title: str | None = None,
     ) -> Generator[str | tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]]:
         """
         Stream response tokens using LangGraph's stream method.
@@ -600,6 +606,7 @@ class ChatAgent:
             sports_context=sports_context,
             is_language=is_language,
             language_context=language_context,
+            conversation_title=conversation_title,
         )
 
         # Accumulate full response text
@@ -720,6 +727,7 @@ class ChatAgent:
         sports_context: dict[str, Any] | None = None,
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
+        conversation_title: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -757,6 +765,7 @@ class ChatAgent:
             sports_context=sports_context,
             is_language=is_language,
             language_context=language_context,
+            conversation_title=conversation_title,
         )
 
         # Accumulate full response text

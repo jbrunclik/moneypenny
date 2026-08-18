@@ -4,6 +4,7 @@ from src.agent.content import (
     clean_tool_call_json,
     detect_response_language,
     extract_cited_sources,
+    extract_conversation_title,
     extract_image_prompts_from_messages,
     extract_sources_fallback_from_tool_results,
     extract_text_content,
@@ -596,6 +597,120 @@ class TestExtractCitedSources:
         assert sources[0]["title"] == "Valid"
 
 
+class TestExtractConversationTitle:
+    """Tests for extract_conversation_title function."""
+
+    def test_extracts_title_from_tool_call(self) -> None:
+        """Should extract the title arg from a set_conversation_title call."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="Sure, let's talk about Rust instead.",
+                tool_calls=[
+                    {
+                        "name": "set_conversation_title",
+                        "args": {"title": "🦀 Rust Ownership Basics"},
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        assert extract_conversation_title(messages) == "🦀 Rust Ownership Basics"
+
+    def test_last_call_wins(self) -> None:
+        """A multi-step turn may retitle more than once; the final call wins."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "set_conversation_title", "args": {"title": "🐍 First"}, "id": "1"}
+                ],
+            ),
+            AIMessage(
+                content="Done.",
+                tool_calls=[
+                    {"name": "set_conversation_title", "args": {"title": "🦀 Second"}, "id": "2"}
+                ],
+            ),
+        ]
+        assert extract_conversation_title(messages) == "🦀 Second"
+
+    def test_returns_none_when_not_called(self) -> None:
+        """Should return None when the tool was never called."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="Response",
+                tool_calls=[
+                    {
+                        "name": "cite_sources",
+                        "args": {"sources": [{"title": "T", "url": "https://t.com"}]},
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        assert extract_conversation_title(messages) is None
+        assert extract_conversation_title([]) is None
+
+    def test_strips_whitespace_and_quotes(self) -> None:
+        """Should clean up stray quotes/whitespace like generate_title does."""
+        from langchain_core.messages import AIMessage
+
+        messages = [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "set_conversation_title",
+                        "args": {"title": '  "📚 Book Recommendations"  '},
+                        "id": "1",
+                    }
+                ],
+            )
+        ]
+        assert extract_conversation_title(messages) == "📚 Book Recommendations"
+
+    def test_empty_or_missing_title_returns_none(self) -> None:
+        """A blank title must be ignored rather than wiping the current one."""
+        from langchain_core.messages import AIMessage
+
+        def msg(args: dict) -> list:
+            return [
+                AIMessage(
+                    content="",
+                    tool_calls=[{"name": "set_conversation_title", "args": args, "id": "1"}],
+                )
+            ]
+
+        assert extract_conversation_title(msg({"title": "   "})) is None
+        assert extract_conversation_title(msg({})) is None
+
+    def test_truncates_overlong_title(self) -> None:
+        """Should clamp titles beyond TITLE_MAX_LENGTH like generate_title."""
+        from langchain_core.messages import AIMessage
+
+        from src.config import Config
+
+        long_title = "🔥 " + "x" * (Config.TITLE_MAX_LENGTH * 2)
+        messages = [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "set_conversation_title", "args": {"title": long_title}, "id": "1"}
+                ],
+            )
+        ]
+        result = extract_conversation_title(messages)
+        assert result is not None
+        assert result.endswith("...")
+        assert len(result) == Config.TITLE_TRUNCATE_LENGTH + 3
+
+
 class TestExtractSourcesFallbackFromToolResults:
     """Tests for extract_sources_fallback_from_tool_results function."""
 
@@ -771,6 +886,44 @@ class TestGetSystemPrompt:
         prompt = get_system_prompt(with_tools=False)
         assert "helpful" in prompt.lower()
         assert "markdown" in prompt.lower()
+
+
+class TestConversationTitleContext:
+    """Current-title injection so the agent can judge title staleness."""
+
+    def test_system_prompt_includes_current_title(self) -> None:
+        prompt = get_system_prompt(conversation_title="🐍 Python List Sorting")
+        assert "🐍 Python List Sorting" in prompt
+        assert "set_conversation_title" in prompt
+
+    def test_dynamic_parts_include_current_title(self) -> None:
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        dynamic = get_dynamic_prompt_parts(conversation_title="🐍 Python List Sorting")
+        assert "🐍 Python List Sorting" in dynamic
+        assert "set_conversation_title" in dynamic
+
+    def test_no_title_context_when_absent(self) -> None:
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        assert "set_conversation_title" not in get_dynamic_prompt_parts()
+        prompt = get_system_prompt(with_tools=False)
+        assert "set_conversation_title" not in prompt
+
+    def test_no_title_context_in_program_modes(self) -> None:
+        """Sports/language/planner conversations keep their titles — no nudge."""
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        for kwargs in (
+            {"is_sports": True},
+            {"is_language": True},
+            {"is_planning": True},
+        ):
+            dynamic = get_dynamic_prompt_parts(
+                conversation_title="🏃 Running Program",
+                **kwargs,  # type: ignore[arg-type]
+            )
+            assert "set_conversation_title" not in dynamic
 
 
 class TestGetForceToolsPrompt:
@@ -2255,6 +2408,36 @@ class TestBuildMessageContentVideo:
         assert isinstance(blocks, list)
         texts = [b["text"] for b in blocks if isinstance(b, dict) and b.get("type") == "text"]
         assert any("could not be attached" in t for t in texts)
+
+
+class TestBuildMessagesConversationTitle:
+    """conversation_title must reach the prompt in both cached and uncached modes."""
+
+    @staticmethod
+    def _agent(cached: bool):
+        from src.agent.agent import ChatAgent
+
+        agent = ChatAgent.__new__(ChatAgent)
+        agent._cached_content_name = "cache/x" if cached else None
+        agent.with_tools = True
+        agent.anonymous_mode = False
+        agent.is_autonomous = False
+        agent.agent_context = None
+        return agent
+
+    def test_uncached_system_prompt_contains_title(self) -> None:
+        messages = self._agent(cached=False)._build_messages(
+            "hi", conversation_title="🐍 Python List Sorting"
+        )
+        system_content = str(messages[0].content)
+        assert "🐍 Python List Sorting" in system_content
+
+    def test_cached_dynamic_context_contains_title(self) -> None:
+        messages = self._agent(cached=True)._build_messages(
+            "hi", conversation_title="🐍 Python List Sorting"
+        )
+        combined = "".join(str(m.content) for m in messages)
+        assert "🐍 Python List Sorting" in combined
 
 
 class TestInteractiveAgentToolWiring:

@@ -17,6 +17,7 @@ from src.agent.agent import generate_title
 from src.agent.content import (
     detect_response_language,
     extract_cited_sources,
+    extract_conversation_title,
     extract_image_prompts_from_messages,
     extract_sources_fallback_from_tool_results,
 )
@@ -153,36 +154,53 @@ def _persist_assistant_message(
     return db.add_message(conv_id, MessageRole.ASSISTANT, content, **kwargs)
 
 
-def _maybe_generate_title(
-    conv_id: str, user_id: str, message_text: str, content: str
+def _resolve_title_update(
+    conv_id: str,
+    user_id: str,
+    message_text: str,
+    content: str,
+    result_messages: list[Any],
 ) -> str | None:
-    """Auto-generate the conversation title from the first exchange.
+    """Resolve the conversation title change for this turn, if any.
 
-    Wrapped in its own try/except so a title-generation failure can never
-    abort the message save (which already succeeded). On failure the default
-    title stays; the next user message retries.
+    First exchange (title still default): auto-generate via generate_title,
+    which takes precedence over any set_conversation_title call in the same
+    turn. Later turns: apply the agent's set_conversation_title retitle when
+    it differs from the current title. Program conversations (sports, language,
+    planner) are never retitled.
+
+    Wrapped in its own try/except so a title failure can never abort the
+    message save (which already succeeded).
     """
     conv = db.get_conversation(conv_id, user_id)
-    if not conv or conv.title != Config.DEFAULT_CONVERSATION_TITLE:
+    if not conv:
         return None
 
-    logger.debug(
-        "Auto-generating conversation title from stream",
-        extra={"user_id": user_id, "conversation_id": conv_id},
-    )
     try:
-        generated_title = generate_title(message_text, content)
-        if generated_title is not None:
-            db.update_conversation(conv_id, user_id, title=generated_title)
+        if conv.title == Config.DEFAULT_CONVERSATION_TITLE:
             logger.debug(
-                "Conversation title generated from stream",
+                "Auto-generating conversation title from stream",
+                extra={"user_id": user_id, "conversation_id": conv_id},
+            )
+            new_title = generate_title(message_text, content)
+        elif conv.is_sports or conv.is_language or conv.is_planning:
+            return None
+        else:
+            new_title = extract_conversation_title(result_messages)
+            if new_title == conv.title:
+                return None
+
+        if new_title is not None:
+            db.update_conversation(conv_id, user_id, title=new_title)
+            logger.debug(
+                "Conversation title updated from stream",
                 extra={
                     "user_id": user_id,
                     "conversation_id": conv_id,
-                    "title": generated_title,
+                    "title": new_title,
                 },
             )
-        return generated_title
+        return new_title
     except Exception:
         logger.exception(
             "Title generation/update failed (continuing without title)",
@@ -255,7 +273,9 @@ def save_message_to_db(
             mode="stream",
         )
 
-        generated_title = _maybe_generate_title(conv_id, user_id, message_text, content)
+        generated_title = _resolve_title_update(
+            conv_id, user_id, message_text, content, result_messages
+        )
 
         logger.info(
             "Stream chat completed and saved",

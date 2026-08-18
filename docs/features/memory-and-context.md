@@ -47,8 +47,9 @@ The LLM can learn and remember facts about the user across conversations for per
   logged server-side while the model was told it had succeeded. **Dev guardrail:** because it
   now has a real side effect whose result the model must read, `manage_memory` must never be
   added back to `EXTRACT_ONLY_TOOL_NAMES` in
-  [`src/agent/tools/metadata.py`](../../src/agent/tools/metadata.py) — `cite_sources` is the
-  only tool that belongs there (there is a regression test for this).
+  [`src/agent/tools/metadata.py`](../../src/agent/tools/metadata.py) — only true extract-only
+  tools belong there (`cite_sources`, `set_conversation_title`; there is a regression test
+  for this).
 - **Delete only (for the user)**: users can view, delete and protect memories, but not edit
   their text (prevents fake memories)
 - **Soft delete**: deletes are recoverable for `MEMORY_SOFT_DELETE_RETENTION_DAYS`

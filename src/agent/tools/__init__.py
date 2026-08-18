@@ -30,7 +30,11 @@ from src.agent.tools.garmin_workout import garmin_workout
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
 from src.agent.tools.memory import manage_memory
-from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES, cite_sources
+from src.agent.tools.metadata import (
+    EXTRACT_ONLY_TOOL_NAMES,
+    cite_sources,
+    set_conversation_title,
+)
 from src.agent.tools.places import (
     delete_place,
     get_route,
@@ -84,6 +88,7 @@ def get_available_tools() -> list[Any]:
         generate_image,
         retrieve_file,
         cite_sources,
+        set_conversation_title,
         manage_memory,
         search_conversations,
         read_conversation,
@@ -382,6 +387,7 @@ __all__ = [
     "request_approval",
     "whatsapp",
     "cite_sources",
+    "set_conversation_title",
     "manage_memory",
     "search_conversations",
     "read_conversation",

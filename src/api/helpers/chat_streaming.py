@@ -124,6 +124,7 @@ def stream_events(
     journal_message_id: str | None = None,
     agent_execution_context: AgentContext | None = None,
     client_location: dict[str, Any] | None = None,
+    conversation_title: str | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -188,6 +189,7 @@ def stream_events(
             sports_context=sports_context,
             is_language=is_language,
             language_context=language_context,
+            conversation_title=conversation_title,
         )
         try:
             for event in gen:
@@ -745,6 +747,7 @@ class _StreamContext:
                 "journal_message_id": self.expected_assistant_msg_id,
                 "agent_execution_context": self.agent_execution_context,
                 "client_location": self.client_location,
+                "conversation_title": self.conv.title,
             },
             daemon=False,
         )

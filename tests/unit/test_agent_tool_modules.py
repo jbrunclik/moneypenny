@@ -10,7 +10,11 @@ from unittest.mock import MagicMock, patch
 
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.file_retrieval import retrieve_file
-from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES, cite_sources
+from src.agent.tools.metadata import (
+    EXTRACT_ONLY_TOOL_NAMES,
+    cite_sources,
+    set_conversation_title,
+)
 from src.agent.tools.trigger_agent import trigger_agent
 
 # ============ metadata.py ============
@@ -25,7 +29,20 @@ class TestMetadataTools:
 
     def test_extract_only_tool_names_match_tools(self) -> None:
         """should_continue routes on this set - it must match the tool names."""
-        assert EXTRACT_ONLY_TOOL_NAMES == frozenset({cite_sources.name})
+        assert EXTRACT_ONLY_TOOL_NAMES == frozenset(
+            {cite_sources.name, set_conversation_title.name}
+        )
+
+    def test_set_conversation_title_acknowledges(self) -> None:
+        result = set_conversation_title.invoke({"title": "🦀 Rust Ownership Basics"})
+        assert "🦀 Rust Ownership Basics" in result
+
+    def test_set_conversation_title_is_bound_for_main_chat(self) -> None:
+        """The tool must be offered to the model in normal chat requests."""
+        from src.agent.tools import get_available_tools
+
+        tool_names = {t.name for t in get_available_tools()}
+        assert "set_conversation_title" in tool_names
 
     def test_manage_memory_is_not_extract_only(self) -> None:
         """manage_memory performs real writes, so it must always execute.

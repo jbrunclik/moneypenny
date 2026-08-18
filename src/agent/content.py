@@ -246,6 +246,41 @@ def extract_cited_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
     return sources
 
 
+def extract_conversation_title(messages: list[BaseMessage]) -> str | None:
+    """Extract the title arg from the turn's set_conversation_title calls.
+
+    The agent retitles a conversation when its scope has drifted from the
+    current title. Like cite_sources this is an extract-only tool: the args
+    are read straight off the AIMessage tool calls. When a multi-step turn
+    retitles more than once, the last call wins.
+
+    Args:
+        messages: List of LangChain messages from the graph result
+
+    Returns:
+        The cleaned title (quotes stripped, clamped to TITLE_MAX_LENGTH),
+        or None when the tool wasn't called or the title was blank.
+    """
+    from src.config import Config
+
+    title: str | None = None
+    for msg in messages:
+        if not isinstance(msg, AIMessage) or not msg.tool_calls:
+            continue
+        for tc in msg.tool_calls:
+            if tc.get("name") != "set_conversation_title":
+                continue
+            candidate = str(tc.get("args", {}).get("title", "")).strip().strip("\"'").strip()
+            if candidate:
+                title = candidate
+
+    if title is None:
+        return None
+    if len(title) > Config.TITLE_MAX_LENGTH:
+        title = title[: Config.TITLE_TRUNCATE_LENGTH] + "..."
+    return title
+
+
 def extract_sources_fallback_from_tool_results(
     tool_results: list[dict[str, Any]],
 ) -> list[dict[str, str]]:

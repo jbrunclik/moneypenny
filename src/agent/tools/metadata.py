@@ -30,5 +30,20 @@ def cite_sources(sources: list[dict[str, Any]]) -> str:
     return f"Noted {len(sources)} source(s)."
 
 
+@tool
+def set_conversation_title(title: str) -> str:
+    """Update the conversation title when it no longer matches the conversation.
+
+    Call this when the conversation's scope has clearly widened or narrowed
+    away from the current title shown in your context. Do NOT call it for
+    minor drift or on every message.
+
+    Args:
+        title: The new title. Must start with a single relevant emoji followed
+            by a space, then 3-6 words in the user's language. No quotes.
+    """
+    return f"Conversation title updated to: {title}"
+
+
 # Tools whose args are extracted post-hoc and whose execution can be skipped.
-EXTRACT_ONLY_TOOL_NAMES = frozenset({"cite_sources"})
+EXTRACT_ONLY_TOOL_NAMES = frozenset({"cite_sources", "set_conversation_title"})

@@ -1029,6 +1029,34 @@ _AGENT_CONTEXT_FRESH = """This run starts from a clean slate: previous runs are 
 
 # ============ Custom Instructions and Memory ============
 
+CONVERSATION_TITLE_CONTEXT_PROMPT = """
+# Conversation Title
+Current conversation title: {title}
+
+If the conversation's scope has clearly widened or narrowed so this title no
+longer fits, call the set_conversation_title tool with an updated title: a
+single relevant emoji followed by a space, then 3-6 words in the user's
+language, no quotes. Retitle sparingly - only when the title is clearly
+inaccurate, never for minor drift and never just because the topic briefly
+detoured. Do not mention retitling in your reply."""
+
+
+def _get_conversation_title_context(
+    conversation_title: str | None,
+    is_sports: bool,
+    is_language: bool,
+    is_planning: bool,
+) -> str | None:
+    """Title-awareness block for normal conversations.
+
+    Program conversations (sports/language/planner) keep their titles, so the
+    agent is not told about retitling there.
+    """
+    if not conversation_title or is_sports or is_language or is_planning:
+        return None
+    return CONVERSATION_TITLE_CONTEXT_PROMPT.format(title=conversation_title)
+
+
 CUSTOM_INSTRUCTIONS_PROMPT = """
 # User's Custom Instructions
 The user has provided these custom instructions for how you should respond:
@@ -1575,6 +1603,7 @@ def get_dynamic_prompt_parts(
     sports_context: dict[str, Any] | None = None,
     is_language: bool = False,
     language_context: dict[str, Any] | None = None,
+    conversation_title: str | None = None,
 ) -> str:
     """Return only the dynamic (per-request) parts of the prompt.
 
@@ -1609,6 +1638,12 @@ def get_dynamic_prompt_parts(
 
     if custom_instructions and custom_instructions.strip():
         parts.append(CUSTOM_INSTRUCTIONS_PROMPT.format(instructions=custom_instructions.strip()))
+
+    title_context = _get_conversation_title_context(
+        conversation_title, is_sports, is_language, is_planning
+    )
+    if title_context:
+        parts.append(title_context)
 
     if user_id and not anonymous_mode:
         # Instructions live in the cached static prefix; only the list is dynamic
@@ -1649,6 +1684,7 @@ def get_system_prompt(
     sports_context: dict[str, Any] | None = None,
     is_language: bool = False,
     language_context: dict[str, Any] | None = None,
+    conversation_title: str | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -1679,6 +1715,12 @@ def get_system_prompt(
 
     # Add user context if configured
     prompt += get_user_context(user_name, user_id)
+
+    title_context = _get_conversation_title_context(
+        conversation_title, is_sports, is_language, is_planning
+    )
+    if title_context:
+        prompt += title_context
 
     if with_tools and get_available_tools():
         # Always include base tools documentation

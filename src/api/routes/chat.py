@@ -9,7 +9,7 @@ import uuid
 from apiflask import APIBlueprint
 from flask import Response, request
 
-from src.agent.agent import ChatAgent, generate_title
+from src.agent.agent import ChatAgent
 from src.agent.content import (
     detect_response_language,
     extract_cited_sources,
@@ -32,6 +32,7 @@ from src.api.errors import (
     raise_server_error,
     raise_validation_error,
 )
+from src.api.helpers.chat_save import _resolve_title_update
 from src.api.helpers.program_context import load_language_context as _load_language_context
 from src.api.helpers.program_context import load_sports_context as _load_sports_context
 from src.api.rate_limiting import rate_limit_chat
@@ -303,6 +304,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             sports_context=sports_context,
             is_language=conv.is_language,
             language_context=language_context,
+            conversation_title=conv.title,
         )
 
         # Get the FULL tool results (with _full_result) captured before stripping
@@ -457,34 +459,12 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         # Generic server error (don't expose internal details)
         raise_server_error("Failed to generate response. Please try again.")
 
-    # Auto-generate title from first message if still default. Wrapped in its
-    # own try/except so a title-generation failure can never turn a successful
-    # chat into a 500. On failure we leave the default title in place; the
-    # next user message will retry.
-    generated_title: str | None = None
-    if conv.title == Config.DEFAULT_CONVERSATION_TITLE:
-        logger.debug(
-            "Auto-generating conversation title",
-            extra={"user_id": user.id, "conversation_id": conv_id},
-        )
-        try:
-            generated_title = generate_title(message_text, clean_response)
-            if generated_title is not None:
-                db.update_conversation(conv_id, user.id, title=generated_title)
-                logger.debug(
-                    "Conversation title generated",
-                    extra={
-                        "user_id": user.id,
-                        "conversation_id": conv_id,
-                        "title": generated_title,
-                    },
-                )
-        except Exception:
-            logger.exception(
-                "Title generation/update failed (continuing without title)",
-                extra={"user_id": user.id, "conversation_id": conv_id},
-            )
-            generated_title = None
+    # Resolve any title change for this turn: first-exchange auto-generation
+    # or an agent-driven retitle via set_conversation_title. Never raises, so
+    # a title failure can't turn a successful chat into a 500.
+    generated_title = _resolve_title_update(
+        conv_id, user.id, message_text, clean_response, result_messages
+    )
 
     # Build response (include title if it was just generated, and user message ID for UI update)
     response_data = build_chat_response(

@@ -133,6 +133,51 @@ class TestChatBatch:
         assert "sources" in data
         assert len(data["sources"]) == 1
 
+    def test_agent_retitle_applied_in_batch(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """A set_conversation_title tool call retitles a non-default conversation."""
+        from langchain_core.messages import AIMessage
+
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            result_msgs = [
+                AIMessage(
+                    content="Let's dive into Rust.",
+                    tool_calls=[
+                        {
+                            "name": "set_conversation_title",
+                            "args": {"title": "🦀 Rust Ownership Basics"},
+                            "id": "tc-1",
+                        }
+                    ],
+                )
+            ]
+            mock_agent.chat_batch.return_value = (
+                "Let's dive into Rust.",
+                [],
+                {"input_tokens": 100, "output_tokens": 50},
+                result_msgs,
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Actually, tell me about Rust instead"},
+            )
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["title"] == "🦀 Rust Ownership Basics"
+        conv = test_database.get_conversation(test_conversation.id, test_conversation.user_id)
+        assert conv is not None
+        assert conv.title == "🦀 Rust Ownership Basics"
+
     def test_returns_404_for_nonexistent_conversation(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:

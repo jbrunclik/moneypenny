@@ -380,6 +380,30 @@ The `forceTools` state in Zustand allows forcing specific tools to be used. Curr
 
 ## Conversation and Message Patterns
 
+### Conversation Titles
+
+Titles are set two ways, both resolved by `_resolve_title_update()` in
+[chat_save.py](../../src/api/helpers/chat_save.py) (called from both the stream save
+pipeline and the batch endpoint):
+
+1. **First exchange (auto-generation)**: while the title is still `DEFAULT_CONVERSATION_TITLE`,
+   `generate_title()` in [agent.py](../../src/agent/agent.py) creates one with a cheap Flash
+   call (single leading emoji + space, 3-6 words, user's language). This path always takes
+   precedence over the agent tool on the same turn.
+2. **Agent-driven retitle**: the agent sees the current title in its per-request dynamic
+   context (`CONVERSATION_TITLE_CONTEXT_PROMPT` in [prompts.py](../../src/agent/prompts.py))
+   and calls the extract-only `set_conversation_title` tool
+   ([tools/metadata.py](../../src/agent/tools/metadata.py)) when the conversation's scope has
+   clearly widened or narrowed. The arg is read post-hoc by `extract_conversation_title()` in
+   [content.py](../../src/agent/content.py) (last call wins, cleaned and clamped like
+   `generate_title`), applied to the DB, and delivered to the UI via the existing `title`
+   field on the `done` event / batch response — no new SSE event type, no frontend changes.
+
+Rules: program conversations (sports / language / planner) are never retitled and get no
+title context in their prompt; retitling to the identical title is a no-op; a title failure
+never aborts the message save. Manual renames are not protected — the agent may retitle a
+manually renamed conversation on a later scope change.
+
 ### Lazy Conversation Creation
 
 Conversations are created locally with `temp-` prefixed ID and only persisted to DB on first message. This prevents empty conversations from polluting the database.
