@@ -639,6 +639,9 @@ test.describe('Visual: Agent Editor Modal', () => {
     // Click on the agent card to open editor in edit mode
     await page.click('.agent-card[data-agent-id="test-agent-1"] .btn-edit');
     await page.waitForSelector('.agent-editor');
+    // The modal overlay leaves the sidebar visible - wait for the
+    // conversation list to settle (skeletons gone) to keep shots stable
+    await page.waitForSelector('.conversations-empty');
     await page.waitForTimeout(300);
 
     // Verify delete button is visible

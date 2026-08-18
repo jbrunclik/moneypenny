@@ -12,6 +12,7 @@
 import { useStore } from '../state/store';
 import { escapeHtml, getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
+import { formatRelativeTime } from '../utils/relative-time';
 import { renderConversationsList } from './Sidebar';
 import type { SearchResult } from '../types/api';
 
@@ -124,7 +125,7 @@ function renderSearchResultItem(result: SearchResult, index: number, viewedResul
       ${snippetHtml ? `<div class="search-result-snippet">${snippetHtml}</div>` : ''}
       <div class="search-result-meta">
         <span class="search-result-type">${isMessageMatch ? 'Message' : 'Title'}</span>
-        ${result.created_at ? `<span class="search-result-date">${formatDate(result.created_at)}</span>` : ''}
+        ${result.created_at ? `<span class="search-result-date">${escapeHtml(formatRelativeTime(result.created_at))}</span>` : ''}
       </div>
     </div>
   `;
@@ -144,33 +145,6 @@ function formatSnippet(snippet: string): string {
   escaped = escaped.replace(/\[\[\/HIGHLIGHT\]\]/g, '</mark>');
 
   return escaped;
-}
-
-/**
- * Format date for display
- */
-function formatDate(isoDate: string): string {
-  try {
-    const date = new Date(isoDate);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      // Today - show time
-      return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    } else if (diffDays === 1) {
-      return 'Yesterday';
-    } else if (diffDays < 7) {
-      // Within a week - show day name
-      return date.toLocaleDateString(undefined, { weekday: 'long' });
-    } else {
-      // Older - show date
-      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    }
-  } catch {
-    return '';
-  }
 }
 
 /**

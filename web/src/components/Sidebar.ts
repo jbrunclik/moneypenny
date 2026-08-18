@@ -328,10 +328,15 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
 function renderArchivedConversationItem(conv: Conversation): string {
   const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
 
+  const relativeTime = conv.updated_at
+    ? `<span class="conversation-time">${escapeHtml(formatRelativeTime(conv.updated_at))}</span>`
+    : '';
+
   return `
     <div class="conversation-item-wrapper" data-conv-id="${conv.id}">
       <div class="conversation-item">
         <div class="conversation-title">${title}</div>
+        ${relativeTime}
         <div class="conversation-actions">
           <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
             ${EDIT_ICON}
