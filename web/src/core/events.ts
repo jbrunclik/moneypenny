@@ -33,13 +33,32 @@ export function setupEventListeners(): void {
   // Mobile menu button
   getElementById('menu-btn')?.addEventListener('click', toggleSidebar);
 
-  // User info area clicks (logout and monthly cost buttons)
+  // User footer: menu toggle + menu item actions
+  const closeUserMenu = (): void => {
+    const menu = document.querySelector('.user-menu');
+    menu?.classList.add('hidden');
+    getElementById('user-menu-btn')?.setAttribute('aria-expanded', 'false');
+  };
+
   getElementById('user-info')?.addEventListener('click', async (e) => {
-    if ((e.target as HTMLElement).closest('#logout-btn')) {
+    const target = e.target as HTMLElement;
+
+    if (target.closest('#user-menu-btn')) {
+      const menu = document.querySelector('.user-menu');
+      if (menu) {
+        const open = !menu.classList.toggle('hidden');
+        getElementById('user-menu-btn')?.setAttribute('aria-expanded', String(open));
+      }
+      return;
+    }
+
+    if (target.closest('#logout-btn')) {
+      closeUserMenu();
       logout();
       return;
     }
-    if ((e.target as HTMLElement).closest('#monthly-cost')) {
+    if (target.closest('#cost-history-btn')) {
+      closeUserMenu();
       try {
         const history = await costs.getCostHistory(12);
         const { openCostHistory } = await import('../components/CostHistoryPopup');
@@ -50,21 +69,28 @@ export function setupEventListeners(): void {
       }
       return;
     }
-    if ((e.target as HTMLElement).closest('#memories-btn')) {
+    if (target.closest('#memories-btn')) {
+      closeUserMenu();
       navigateToStorage();
       return;
     }
-    if ((e.target as HTMLElement).closest('#settings-btn')) {
+    if (target.closest('.user-menu-archive')) {
+      closeUserMenu();
+      navigateToArchive();
+      return;
+    }
+    if (target.closest('#settings-btn')) {
+      closeUserMenu();
       openSettingsPopup();
     }
   });
 
-  // Archive entry container clicks (pinned below conversations list)
-  getElementById('archive-entry-container')?.addEventListener('click', (e) => {
-    const archiveEntry = (e.target as HTMLElement).closest('.archive-entry');
-    if (archiveEntry) {
-      e.stopPropagation();
-      navigateToArchive();
+  // Close the user menu on outside clicks
+  document.addEventListener('click', (e) => {
+    const menu = document.querySelector('.user-menu');
+    if (!menu || menu.classList.contains('hidden')) return;
+    if (!(e.target as HTMLElement).closest('#user-info')) {
+      closeUserMenu();
     }
   });
 

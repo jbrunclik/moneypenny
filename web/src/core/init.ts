@@ -88,7 +88,6 @@ export function renderAppShell(): string {
       </div>
       <div id="search-container" class="search-container"></div>
       <div id="conversations-list" class="conversations-list"></div>
-      <div id="archive-entry-container"></div>
       <div class="sidebar-footer">
         <div id="user-info" class="user-info"></div>
       </div>

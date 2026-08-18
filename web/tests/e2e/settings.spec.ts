@@ -4,13 +4,14 @@
 import { test, expect } from '../global-setup';
 
 test.describe('Settings', () => {
-  test('settings button is visible in sidebar', async ({ page }) => {
+  test('settings button is visible in the user menu', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#user-info');
 
+    await page.locator('#user-menu-btn').click();
     const settingsBtn = page.locator('#settings-btn');
     await expect(settingsBtn).toBeVisible();
-    await expect(settingsBtn).toHaveAttribute('title', 'Settings');
+    await expect(settingsBtn).toContainText('Settings');
   });
 
   test('opens settings popup when clicking settings button', async ({ page }) => {
@@ -18,6 +19,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // Click settings button
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
 
     // Wait for popup to appear
@@ -54,6 +56,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -69,6 +72,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -84,6 +88,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -99,6 +104,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -113,6 +119,7 @@ test.describe('Settings', () => {
     await expect(page.locator('#settings-popup')).toHaveClass(/hidden/);
 
     // Re-open popup and verify instructions were saved
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -124,6 +131,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -143,6 +151,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -159,6 +168,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#user-info');
 
     // First, set some instructions
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     await page.locator('#custom-instructions').fill('Be concise.');
@@ -166,6 +176,7 @@ test.describe('Settings', () => {
     await expect(page.locator('#settings-popup')).toHaveClass(/hidden/);
 
     // Now clear them
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     await page.locator('#custom-instructions').fill('');
@@ -173,6 +184,7 @@ test.describe('Settings', () => {
     await expect(page.locator('#settings-popup')).toHaveClass(/hidden/);
 
     // Verify they were cleared
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     await expect(page.locator('#custom-instructions')).toHaveValue('');
@@ -193,6 +205,7 @@ test.describe('Color Scheme', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -211,6 +224,7 @@ test.describe('Color Scheme', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -224,6 +238,7 @@ test.describe('Color Scheme', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -250,6 +265,7 @@ test.describe('Color Scheme', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -269,6 +285,7 @@ test.describe('Color Scheme', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup and select light theme
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     await page.locator('.settings-color-scheme-option[data-color-scheme="light"]').click();
@@ -285,6 +302,7 @@ test.describe('Color Scheme', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
     // Open settings popup and verify Light is selected
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     const lightOption = page.locator('.settings-color-scheme-option[data-color-scheme="light"]');
@@ -296,6 +314,7 @@ test.describe('Color Scheme', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings popup
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
@@ -315,6 +334,7 @@ test.describe('Color Scheme', () => {
     await page.waitForSelector('#user-info');
 
     // Open settings and select dark theme to ensure consistent starting point
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     await page.locator('.settings-color-scheme-option[data-color-scheme="dark"]').click();
@@ -326,6 +346,7 @@ test.describe('Color Scheme', () => {
     });
 
     // Switch to light theme
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
     await page.locator('.settings-color-scheme-option[data-color-scheme="light"]').click();

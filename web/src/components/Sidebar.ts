@@ -1,7 +1,7 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -375,51 +375,53 @@ export function renderUserInfo(): void {
   const avatarHtml = renderUserAvatarHtml(user.picture || undefined, name);
 
   container.innerHTML = `
-    <div class="user-profile">
+    <button id="user-menu-btn" class="user-menu-btn" aria-haspopup="menu" aria-expanded="false">
       ${avatarHtml}
       <span class="user-name">${escapeHtml(name)}</span>
-      <div class="user-actions-buttons">
-        <button id="settings-btn" class="btn-icon-action" title="Settings">
-          ${SETTINGS_ICON}
-        </button>
-        <button id="memories-btn" class="btn-icon-action" title="Memories & Storage">
-          ${DATABASE_ICON}
-        </button>
-        <button id="logout-btn" class="btn-icon-action" title="Logout">
-          ${LOGOUT_ICON}
-        </button>
-      </div>
-    </div>
-    <button id="monthly-cost" class="btn-monthly-cost" title="Click to view cost history">
-      <span class="cost-label">This month:</span>
-      <span class="cost-value">—</span>
+      <span id="monthly-cost" class="user-cost" title="This month's cost">—</span>
     </button>
+    <div class="user-menu hidden" role="menu">
+      <button id="settings-btn" class="user-menu-item" role="menuitem">
+        ${SETTINGS_ICON}<span>Settings</span>
+      </button>
+      <button id="memories-btn" class="user-menu-item" role="menuitem">
+        ${DATABASE_ICON}<span>Data</span>
+      </button>
+      <button class="user-menu-item user-menu-archive hidden" role="menuitem" data-route="archive">
+        ${ARCHIVE_ICON}<span>Archive</span><span class="archive-count">0</span>
+      </button>
+      <button id="cost-history-btn" class="user-menu-item" role="menuitem">
+        ${COST_ICON}<span>Cost history</span>
+      </button>
+      <button id="logout-btn" class="user-menu-item user-menu-item-danger" role="menuitem">
+        ${LOGOUT_ICON}<span>Log out</span>
+      </button>
+    </div>
   `;
 
   // Fetch monthly cost after rendering
   const now = new Date();
   costs.getMonthlyCost(now.getFullYear(), now.getMonth() + 1)
     .then(monthlyCost => {
-      const costValueEl = container.querySelector('.cost-value');
+      const costValueEl = container.querySelector('#monthly-cost');
       if (costValueEl) {
         costValueEl.textContent = monthlyCost.formatted;
-      }
-      const costBtn = container.querySelector('#monthly-cost');
-      if (costBtn) {
-        costBtn.setAttribute('title', `Click to view cost history`);
       }
     })
     .catch((error) => {
       // Ignore errors - cost display is optional, but log for debugging
       log.warn('Failed to fetch monthly cost', { error });
     });
+
+  // Re-apply archive badge state (the menu was just re-rendered)
+  renderArchiveEntry();
 }
 
 /**
  * Update the monthly cost display in the sidebar
  */
 export async function updateMonthlyCost(): Promise<void> {
-  const costValueEl = document.querySelector('#user-info .cost-value');
+  const costValueEl = document.querySelector('#user-info #monthly-cost');
   if (!costValueEl) return;
 
   try {
@@ -640,24 +642,15 @@ export async function loadArchivedConversations(): Promise<void> {
  * Hidden when archive view is active (the full view replaces conversations-list).
  */
 function renderArchiveEntry(): void {
-  const entryContainer = getElementById<HTMLDivElement>('archive-entry-container');
-  if (!entryContainer) return;
+  const archiveItem = document.querySelector<HTMLButtonElement>('.user-menu-archive');
+  if (!archiveItem) return;
 
-  const { archivedConversations, archivedPagination, isArchiveView } = useStore.getState();
+  const { archivedConversations, archivedPagination } = useStore.getState();
 
-  // Hide when archive view is active or no archived conversations
-  if (isArchiveView || (archivedPagination.totalCount === 0 && archivedConversations.length === 0)) {
-    clearElement(entryContainer);
-    return;
-  }
-
-  entryContainer.innerHTML = `
-    <div class="archive-entry" data-route="archive">
-      <span class="archive-entry-icon">${ARCHIVE_ICON}</span>
-      <span class="archive-entry-label">Archive</span>
-      <span class="archive-count">${archivedPagination.totalCount}</span>
-    </div>
-  `;
+  const total = archivedPagination.totalCount || archivedConversations.length;
+  archiveItem.classList.toggle('hidden', total === 0);
+  const badge = archiveItem.querySelector('.archive-count');
+  if (badge) badge.textContent = String(total);
 }
 
 /**

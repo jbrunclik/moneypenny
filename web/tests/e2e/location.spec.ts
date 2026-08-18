@@ -13,6 +13,7 @@ test.describe('Location sharing', () => {
     await page.goto('/');
     await page.waitForSelector('#user-info');
 
+    await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 

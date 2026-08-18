@@ -82,7 +82,6 @@ describe('Sidebar', () => {
       <div id="app">
         <aside id="sidebar">
           <div id="conversations-list"></div>
-          <div id="archive-entry-container"></div>
           <div id="user-info"></div>
         </aside>
       </div>
@@ -315,8 +314,9 @@ describe('Sidebar', () => {
       expect(archiveBtns[2].getAttribute('data-archive-id')).toBe('c');
     });
 
-    it('renders archive entry in pinned container when archivedPagination.totalCount > 0', () => {
+    it('shows archive menu item when archivedPagination.totalCount > 0', () => {
       useStore.setState({
+        user: createUser(),
         conversations: [createConversation('1', 'Active Chat')],
         archivedConversations: [createConversation('2', 'Archived Chat')],
         archivedPagination: {
@@ -327,15 +327,17 @@ describe('Sidebar', () => {
         },
       });
 
+      renderUserInfo();
       renderConversationsList();
 
-      const entryContainer = document.getElementById('archive-entry-container');
-      const archiveEntry = entryContainer?.querySelector('.archive-entry');
-      expect(archiveEntry).not.toBeNull();
+      const archiveItem = document.querySelector('.user-menu-archive');
+      expect(archiveItem?.classList.contains('hidden')).toBe(false);
+      expect(archiveItem?.querySelector('.archive-count')?.textContent).toBe('1');
     });
 
     it('renders archive entry when archivedConversations length > 0 with totalCount > 0', () => {
       useStore.setState({
+        user: createUser(),
         conversations: [createConversation('1', 'Active')],
         archivedConversations: [
           createConversation('arch-1', 'Old Chat'),
@@ -349,15 +351,17 @@ describe('Sidebar', () => {
         },
       });
 
+      renderUserInfo();
       renderConversationsList();
 
-      const entryContainer = document.getElementById('archive-entry-container');
-      const archiveEntry = entryContainer?.querySelector('.archive-entry');
-      expect(archiveEntry).not.toBeNull();
+      const archiveItem = document.querySelector('.user-menu-archive');
+      expect(archiveItem?.classList.contains('hidden')).toBe(false);
+      expect(archiveItem?.querySelector('.archive-count')?.textContent).toBe('2');
     });
 
     it('hides archive entry when totalCount is 0 and no archived conversations', () => {
       useStore.setState({
+        user: createUser(),
         conversations: [createConversation('1', 'Active Chat')],
         archivedConversations: [],
         archivedPagination: {
@@ -368,11 +372,11 @@ describe('Sidebar', () => {
         },
       });
 
+      renderUserInfo();
       renderConversationsList();
 
-      const entryContainer = document.getElementById('archive-entry-container');
-      const archiveEntry = entryContainer?.querySelector('.archive-entry');
-      expect(archiveEntry).toBeNull();
+      const archiveItem = document.querySelector('.user-menu-archive');
+      expect(archiveItem?.classList.contains('hidden')).toBe(true);
     });
 
     it('renders archive view with back button and items when isArchiveView is true', () => {
@@ -443,8 +447,9 @@ describe('Sidebar', () => {
       expect(unarchiveBtns[1].getAttribute('data-unarchive-id')).toBe('a2');
     });
 
-    it('does not render archived items in normal view (only archive entry in pinned container)', () => {
+    it('does not render archived items in normal view (only archive menu item)', () => {
       useStore.setState({
+        user: createUser(),
         conversations: [createConversation('1', 'Active')],
         archivedConversations: [createConversation('arch-1', 'Archived Chat')],
         archivedPagination: {
@@ -456,12 +461,12 @@ describe('Sidebar', () => {
         isArchiveView: false,
       });
 
+      renderUserInfo();
       renderConversationsList();
 
-      // Archive entry should be in pinned container but items should not be visible
-      const entryContainer = document.getElementById('archive-entry-container');
-      const archiveEntry = entryContainer?.querySelector('.archive-entry');
-      expect(archiveEntry).not.toBeNull();
+      // Archive shows as a user-menu item but items should not be visible
+      const archiveItem = document.querySelector('.user-menu-archive');
+      expect(archiveItem?.classList.contains('hidden')).toBe(false);
       const unarchiveBtn = document.querySelector('.conversation-unarchive');
       expect(unarchiveBtn).toBeNull();
     });
@@ -469,6 +474,7 @@ describe('Sidebar', () => {
     it('shows archive entry with totalCount even when local list is empty', () => {
       // totalCount > 0 but archivedConversations not yet loaded
       useStore.setState({
+        user: createUser(),
         conversations: [createConversation('1', 'Active')],
         archivedConversations: [],
         archivedPagination: {
@@ -479,12 +485,12 @@ describe('Sidebar', () => {
         },
       });
 
+      renderUserInfo();
       renderConversationsList();
 
-      const entryContainer = document.getElementById('archive-entry-container');
-      const archiveEntry = entryContainer?.querySelector('.archive-entry');
-      expect(archiveEntry).not.toBeNull();
-      expect(archiveEntry?.innerHTML).toContain('3');
+      const archiveItem = document.querySelector('.user-menu-archive');
+      expect(archiveItem?.classList.contains('hidden')).toBe(false);
+      expect(archiveItem?.querySelector('.archive-count')?.textContent).toBe('3');
     });
 
     it('loader state persists correctly after re-render', () => {
@@ -541,14 +547,16 @@ describe('Sidebar', () => {
       expect(logoutBtn).not.toBeNull();
     });
 
-    it('renders monthly cost button', () => {
+    it('renders monthly cost chip and user menu items', () => {
       useStore.setState({ user: createUser() });
 
       renderUserInfo();
 
-      const costBtn = document.getElementById('monthly-cost');
-      expect(costBtn).not.toBeNull();
-      expect(costBtn?.innerHTML).toContain('This month:');
+      expect(document.getElementById('monthly-cost')).not.toBeNull();
+      expect(document.getElementById('user-menu-btn')).not.toBeNull();
+      expect(document.getElementById('settings-btn')).not.toBeNull();
+      expect(document.getElementById('cost-history-btn')).not.toBeNull();
+      expect(document.querySelector('.user-menu-archive')).not.toBeNull();
     });
 
     it('escapes HTML in user name', () => {
