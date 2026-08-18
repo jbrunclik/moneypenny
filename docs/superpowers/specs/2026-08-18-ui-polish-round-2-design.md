@@ -12,7 +12,7 @@ Seven visual items, three accessibility items, two infrastructure items. Explici
 
 ## 1. PWA & browser theming (bug-adjacent)
 
-**Files:** `web/index.html`, `web/public/manifest.json` (or `.webmanifest`), `web/public/icon.svg`, `web/public/icon-192.png`.
+**Files:** `web/index.html`, `static/manifest.json`, `static/icon.svg`, `static/icon-180.png`, `static/icon-192.png`, `static/icon-512.png` (PWA assets live in `static/`, served by Flask).
 
 - `theme-color` meta still ships the pre-overhaul `#1a1a2e`. Replace with theme-aware pair:
   `<meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">` and `content="#ffffff"` for light.
