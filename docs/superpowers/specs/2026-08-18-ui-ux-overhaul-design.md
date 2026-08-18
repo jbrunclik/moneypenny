@@ -105,7 +105,7 @@ One bordered card (`--radius-lg`, `--bg-secondary`, 1px border; focus-within: ac
 
 1. Textarea (top) — autogrow as today, placeholder unchanged for now.
 2. Integrated toolbar (bottom row, inside the card):
-   - **Left:** custom model menu button (replaces native `<select>`): current model name + chevron; popover lists models with name + one-line description; keyboard navigable (arrow keys + Enter, Esc closes), `aria-expanded`/`role="menu"`.
+   - **Left:** model menu — the existing custom dropdown (`#model-selector-btn` + `#model-dropdown`) restyled and enhanced: proper chevron icon (replacing the "▼" text glyph), option rows with name + one-line description (when available), keyboard navigation (arrows + Enter, Esc closes), `aria-expanded`/`role="listbox"`.
    - Toggle buttons (live audio, web search, sparkles/effects, incognito): each gets `aria-label`, `title` tooltip, and a clear pressed state (`aria-pressed`, accent-muted bg + accent icon).
    - **Right:** mic, attach, send.
 3. **Send button states:** disabled (muted gray), ready (filled brand-500), streaming (stop square). Upload progress ring on the send button is preserved exactly (see docs/features upload notes).
@@ -137,7 +137,7 @@ Enter-to-send desktop-only behavior, draft persistence, and voice input are pres
 
 **Files:** `web/src/styles/components/agents.css`, `sports.css`, `language.css`, corresponding TS components.
 
-- Two-tone headings ("Command **Center**") become single-color display-face titles.
+- Two-tone headings (a `linear-gradient(--text-primary, --accent)` + `background-clip: text` treatment on the dashboard `<h2>`s) become single-color display-face titles.
 - **Button system** (defined in `buttons.css`, applied everywhere): `btn-primary` (filled brand), `btn-secondary` (subtle bg + border), `btn-ghost` (icon-only). Continue/Run/New Agent/New Program all map onto it with consistent sizing; no more gray-outline-vs-filled-pill mismatch.
 - Recent Activity: chevron disclosure (not play triangle); first 3 items visible by default with "Show all".
 - Approvals empty state: slim inline note replaces the large gray slab.
