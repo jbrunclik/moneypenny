@@ -197,12 +197,11 @@
 
 .command-center-title h2 {
     font-size: var(--font-size-2xl);
-    font-weight: 700;
     margin: 0;
-    background: linear-gradient(135deg, var(--text-primary), var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-family: var(--font-family-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
 }
 
 .command-center-icon {
@@ -229,14 +228,14 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-4);
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-full);
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-ui);
     font-weight: 500;
 }
 
@@ -887,9 +886,51 @@
 .section-toggle {
     /* Sits next to the badge - a lone chevron pushed to the far edge
        reads as disconnected from the header it toggles */
-    font-size: var(--font-size-xs);
+    display: inline-flex;
+    align-items: center;
     color: var(--text-muted);
     transition: transform var(--transition-fast);
+}
+
+.section-toggle svg {
+    width: 14px;
+    height: 14px;
+}
+
+.section-title--collapsible[data-collapsed="true"] .section-toggle {
+    transform: rotate(-90deg);
+}
+
+/* Empty-state note for sections with nothing to show */
+.section-empty-note {
+    color: var(--text-muted);
+    font-size: var(--font-size-ui);
+    margin: 0;
+    padding: var(--space-1) 0;
+}
+
+/* Limited view shows the first 3 executions */
+.executions-list--limited .execution-item:nth-child(n + 4) {
+    display: none;
+}
+
+.executions-show-all {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    cursor: pointer;
+    padding: var(--space-2) 0 0;
+    text-align: left;
+}
+
+.executions-show-all:hover {
+    color: var(--accent-hover);
+}
+
+.executions-show-all.hidden {
+    display: none;
 }
 
 .executions-list {

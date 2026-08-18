@@ -6,7 +6,7 @@
 
 import { escapeHtml } from '../utils/dom';
 import { renderChatHeader } from './ChatHeader';
-import { CHECK_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON } from '../utils/icons';
+import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON } from '../utils/icons';
 import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
 
 type RefreshCallback = () => Promise<void>;
@@ -117,10 +117,7 @@ export function renderCommandCenter(
         <span class="section-icon">${CHECK_ICON}</span>
         Approvals
       </h3>
-      <div class="approvals-empty">
-        <p>No pending approvals</p>
-        <p class="text-muted">Agents that require permission for certain actions will appear here.</p>
-      </div>
+      <p class="section-empty-note">No pending approvals.</p>
     `;
   }
   el.appendChild(approvalsSection);
@@ -168,31 +165,41 @@ export function renderCommandCenter(
     const executionsSection = document.createElement('div');
     executionsSection.className = 'command-center-section command-center-section--executions';
     executionsSection.innerHTML = `
-      <h3 class="section-title section-title--collapsible" data-collapsed="true">
+      <h3 class="section-title section-title--collapsible" data-collapsed="false">
         <span class="section-icon">${HISTORY_ICON}</span>
         Recent Activity
         <span class="badge">${data.recent_executions.length}</span>
-        <span class="section-toggle">▶</span>
+        <span class="section-toggle">${CHEVRON_DOWN_ICON}</span>
       </h3>
     `;
 
+    // Show the latest 3 by default; "Show all" reveals the rest
+    const executions = data.recent_executions.slice(0, 10);
     const executionsList = document.createElement('div');
-    executionsList.className = 'executions-list collapsed';
-    data.recent_executions.slice(0, 10).forEach(execution => {
+    executionsList.className = 'executions-list executions-list--limited';
+    executions.forEach(execution => {
       executionsList.appendChild(renderExecutionItem(execution, data.agents));
     });
     executionsSection.appendChild(executionsList);
 
-    // Toggle collapsed state
+    if (executions.length > 3) {
+      const showAllBtn = document.createElement('button');
+      showAllBtn.className = 'executions-show-all';
+      showAllBtn.textContent = `Show all (${executions.length})`;
+      showAllBtn.addEventListener('click', () => {
+        executionsList.classList.remove('executions-list--limited');
+        showAllBtn.remove();
+      });
+      executionsSection.appendChild(showAllBtn);
+    }
+
+    // Toggle collapsed state (chevron rotates via CSS)
     const titleEl = executionsSection.querySelector('.section-title--collapsible');
     titleEl?.addEventListener('click', () => {
       const isCollapsed = titleEl.getAttribute('data-collapsed') === 'true';
       titleEl.setAttribute('data-collapsed', isCollapsed ? 'false' : 'true');
       executionsList.classList.toggle('collapsed', !isCollapsed);
-      const toggle = titleEl.querySelector('.section-toggle');
-      if (toggle) {
-        toggle.textContent = isCollapsed ? '▼' : '▶';
-      }
+      executionsSection.querySelector('.executions-show-all')?.classList.toggle('hidden', !isCollapsed);
     });
 
     el.appendChild(executionsSection);
