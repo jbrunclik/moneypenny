@@ -34,7 +34,7 @@
 }
 
 .conversations-empty .text-muted {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
 }
 
 /* ----------------------------------------
@@ -75,7 +75,7 @@
 }
 
 .conversation-title {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -450,7 +450,7 @@
 }
 
 .search-result-title {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 500;
     color: var(--text-primary);
     margin-bottom: var(--space-1);
@@ -628,7 +628,7 @@
 
 .archive-view-title {
     font-weight: 600;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     color: var(--text-primary);
     flex: 1;
 }

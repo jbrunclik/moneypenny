@@ -47,7 +47,7 @@
    ---------------------------------------- */
 
 .quiz-question {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: var(--space-3);
@@ -74,7 +74,7 @@
     color: var(--text-primary);
     cursor: pointer;
     transition: all var(--transition-fast);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     text-align: left;
     font-family: inherit;
 }
@@ -102,7 +102,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-family: inherit;
     transition: border-color var(--transition-fast);
     box-sizing: border-box;
@@ -129,7 +129,7 @@
 }
 
 .quiz-batch-title {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: var(--space-3);
@@ -154,7 +154,7 @@
     border: 1px solid var(--accent);
     border-radius: var(--radius-md);
     color: white;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);

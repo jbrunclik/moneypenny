@@ -57,7 +57,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     flex-shrink: 0;
     align-self: flex-start;
     margin-top: var(--space-2);
@@ -102,6 +102,7 @@
     min-width: 0;
     overflow-wrap: anywhere;
     word-break: break-word;
+    line-height: var(--line-height-relaxed);
 }
 
 .message.user .message-content {
@@ -670,7 +671,7 @@ a.document-name:hover {
 .message-content table {
     border-collapse: collapse;
     margin: var(--space-3) 0;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     width: 100%;
     min-width: max-content;
 }
@@ -771,7 +772,7 @@ a.document-name:hover {
 
 .conversation-loader-content p {
     color: var(--text-secondary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     margin: 0;
 }
 
@@ -1004,7 +1005,7 @@ a.document-name:hover {
 
 .approval-title {
     font-weight: 600;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     color: var(--text-primary);
 }
 
@@ -1151,7 +1152,7 @@ a.document-name:hover {
 }
 
 .action-approved-icon {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     line-height: 1;
     color: var(--color-success-600);
 }

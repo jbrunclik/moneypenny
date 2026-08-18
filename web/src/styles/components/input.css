@@ -50,7 +50,7 @@
     /* Textareas don't inherit the body font; without this the input
        (and placeholder) renders in the UA's monospace default */
     font-family: inherit;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     line-height: var(--line-height);
     resize: none;
     max-height: 200px;
@@ -352,7 +352,7 @@
     border: none;
     background: none;
     color: var(--text-primary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     text-align: left;
     cursor: pointer;
     transition: background-color var(--transition-fast);
@@ -400,7 +400,7 @@
 }
 
 .approval-pending-icon {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
 }
 
 .approval-pending-text {

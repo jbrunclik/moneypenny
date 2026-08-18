@@ -45,7 +45,7 @@
 }
 
 .planner-label {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 500;
     flex: 1;
     min-width: 0;
@@ -311,7 +311,7 @@
 }
 
 .dashboard-loading-text {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 500;
     background: linear-gradient(135deg, var(--text-primary), var(--accent));
     -webkit-background-clip: text;
@@ -332,7 +332,7 @@
 }
 
 .dashboard-section h3 {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 var(--space-3) 0;
@@ -372,7 +372,7 @@
 
 .dashboard-section.overdue h3 {
     color: var(--color-error-600);
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
 }
 
 /* Collapsible sections - Enhanced with animations */
@@ -393,7 +393,7 @@
 .dashboard-section details summary {
     padding: var(--space-4);
     cursor: pointer;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--text-primary);
     background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
@@ -547,7 +547,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: var(--space-3);
@@ -658,7 +658,7 @@
 }
 
 .planner-item-text {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     color: var(--text-primary);
     font-weight: 500;
     flex: 1;
@@ -855,7 +855,7 @@
     padding: var(--space-12);
     text-align: center;
     color: var(--text-secondary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     background: var(--color-success-900);
     border: 2px dashed rgba(52, 211, 153, 0.4);
     border-radius: var(--radius-lg);
@@ -927,7 +927,7 @@
 }
 
 .dashboard-empty p:first-of-type {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     color: var(--text-primary);
     margin-bottom: var(--space-2);
 }
@@ -1015,7 +1015,7 @@
 
 .health-metric-value {
     font-weight: 700;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
 }
 
 .health-metric-label {
@@ -1335,7 +1335,7 @@
     }
 
     .dashboard-day-header {
-        font-size: var(--font-size-lg);
+        font-size: var(--font-size-base);
         padding: var(--space-2-5);
     }
 

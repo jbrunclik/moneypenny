@@ -24,7 +24,7 @@
     border-radius: var(--radius-sm);
     border: none;
     cursor: pointer;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 500;
     transition: all var(--transition-fast);
 }
@@ -292,7 +292,7 @@
     color: var(--text-muted);
     cursor: pointer;
     padding: var(--space-1) var(--space-2);
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     border-radius: var(--radius-sm);
     transition: all var(--transition-fast);
     flex-shrink: 0;

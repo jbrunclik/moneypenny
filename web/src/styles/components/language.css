@@ -44,7 +44,7 @@
 }
 
 .language-label {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 500;
     flex: 1;
     min-width: 0;
@@ -228,7 +228,7 @@
 }
 
 .language-modal-title-row h2 {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     font-weight: 600;
     margin: 0;
     color: var(--text-primary);
@@ -268,7 +268,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-family: inherit;
     transition: border-color var(--transition-fast);
     flex: 1;
@@ -317,7 +317,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-family: inherit;
     cursor: pointer;
     transition: border-color var(--transition-fast);
@@ -403,7 +403,7 @@
 }
 
 .language-card-name {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     color: var(--text-primary);
     flex: 1;
@@ -457,7 +457,7 @@
 }
 
 .language-empty-state p:first-child {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 500;
     color: var(--text-primary);
     margin-bottom: var(--space-2);
@@ -511,7 +511,7 @@
 }
 
 .language-program-header-name {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     color: var(--text-primary);
     flex: 1;
@@ -564,7 +564,7 @@
 }
 
 .language-loading p {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     color: var(--text-secondary);
     margin: 0;
 }

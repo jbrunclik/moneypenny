@@ -31,7 +31,7 @@
 }
 
 .sidebar-header h1 {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     margin-bottom: var(--space-2);
 }

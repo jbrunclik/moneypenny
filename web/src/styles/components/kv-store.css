@@ -31,7 +31,7 @@
 }
 
 .kv-store-loading p {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     color: var(--text-secondary);
 }
 
@@ -182,7 +182,7 @@
 }
 
 .kv-store-empty p:first-child {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     margin-bottom: var(--space-2);
 }
 
@@ -251,7 +251,7 @@
 }
 
 .kv-namespace-name {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-ui);
     font-weight: 600;
     color: var(--text-primary);
     overflow: hidden;
@@ -465,7 +465,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 var(--space-4) 0;

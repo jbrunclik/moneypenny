@@ -20,7 +20,7 @@ body {
 
 body {
     font-family: var(--font-family);
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     line-height: var(--line-height);
     background-color: var(--bg-primary);
     color: var(--text-primary);
