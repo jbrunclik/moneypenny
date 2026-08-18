@@ -2,29 +2,112 @@
    Planner Components
    ============================================
 
-   Professional design with modern loading states, animations,
-   and visual hierarchy following UX best practices.
+   Text-forward timeline agenda: display-face day headings, a fixed
+   tabular time column for events, checkbox-ring task rows, and a quiet
+   accent "now" line. No card-in-card chrome - hairlines carry the
+   structure, the 800px message column carries the width.
 */
 
 /* ----------------------------------------
-   Planner Sidebar Entry
-   ---------------------------------------- */
+   Sidebar Navigation Grid
+   ----------------------------------------
+   Planner/Agents/Sports/Language render as a compact 2-column grid so
+   the nav stays short and the conversation list keeps the space.
+*/
 
+.sidebar-nav-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px;
+    padding: 0 var(--space-2);
+}
+
+.sidebar-nav-row.single {
+    grid-template-columns: 1fr;
+}
+
+.sidebar-nav-row .planner-entry,
+.sidebar-nav-row .agents-entry,
+.sidebar-nav-row .sports-entry,
+.sidebar-nav-row .language-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-2-5);
+    min-width: 0;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-ui);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.sidebar-nav-row .planner-icon svg,
+.sidebar-nav-row .agents-icon svg,
+.sidebar-nav-row .sports-icon svg,
+.sidebar-nav-row .language-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.sidebar-nav-row .planner-label,
+.sidebar-nav-row .agents-label,
+.sidebar-nav-row .sports-label,
+.sidebar-nav-row .language-label {
+    display: block;
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-nav-row .planner-entry:hover,
+.sidebar-nav-row .agents-entry:hover,
+.sidebar-nav-row .sports-entry:hover,
+.sidebar-nav-row .language-entry:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.sidebar-nav-row .planner-entry.active,
+.sidebar-nav-row .agents-entry.active,
+.sidebar-nav-row .sports-entry.active,
+.sidebar-nav-row .language-entry.active {
+    background-color: var(--accent-muted);
+    color: var(--text-primary);
+}
+
+/* Badges align to the right edge of the cell */
+.sidebar-nav-row .agents-entry .unread-badge,
+.sidebar-nav-row .agents-entry .waiting-badge,
+.sidebar-nav-row .agents-entry .error-indicator {
+    margin-left: auto;
+}
+
+.sidebar-nav-row .agents-entry .unread-badge ~ .waiting-badge,
+.sidebar-nav-row .agents-entry .waiting-badge ~ .unread-badge,
+.sidebar-nav-row .agents-entry .error-indicator ~ .unread-badge,
+.sidebar-nav-row .agents-entry .error-indicator ~ .waiting-badge {
+    margin-left: var(--space-1);
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: var(--space-2) 0;
+}
+
+/* Standalone planner entry (outside the nav grid, e.g. legacy render) */
 .planner-entry {
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    padding: var(--space-3);
     cursor: pointer;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
     color: var(--text-primary);
-    transition: background-color var(--transition-fast), border-color var(--transition-fast);
-    background-color: var(--bg-secondary);
-}
-
-.planner-entry:hover {
-    background-color: var(--bg-hover);
 }
 
 .planner-entry.active {
@@ -55,81 +138,13 @@
 }
 
 /* ----------------------------------------
-   Sidebar Navigation List
-   ----------------------------------------
-   Planner/Agents/Sports/Language render as a compact vertical nav
-   list (icon + label rows) - scales to any number of programs.
-*/
-
-.sidebar-nav-row {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 0 var(--space-2);
-}
-
-.sidebar-nav-row .planner-entry,
-.sidebar-nav-row .agents-entry,
-.sidebar-nav-row .sports-entry,
-.sidebar-nav-row .language-entry {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2-5);
-    padding: var(--space-2) var(--space-2-5);
-    border: none;
-    background: transparent;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-ui);
-    color: var(--text-secondary);
-}
-
-.sidebar-nav-row .planner-label,
-.sidebar-nav-row .agents-label,
-.sidebar-nav-row .sports-label,
-.sidebar-nav-row .language-label {
-    display: block;
-    font-weight: 500;
-}
-
-.sidebar-nav-row .planner-entry:hover,
-.sidebar-nav-row .agents-entry:hover,
-.sidebar-nav-row .sports-entry:hover,
-.sidebar-nav-row .language-entry:hover {
-    background-color: var(--bg-hover);
-    color: var(--text-primary);
-}
-
-/* Badges align to the right edge of the row */
-.sidebar-nav-row .agents-entry .unread-badge,
-.sidebar-nav-row .agents-entry .waiting-badge,
-.sidebar-nav-row .agents-entry .error-indicator {
-    margin-left: auto;
-}
-
-.sidebar-nav-row .agents-entry .unread-badge ~ .waiting-badge,
-.sidebar-nav-row .agents-entry .waiting-badge ~ .unread-badge,
-.sidebar-nav-row .agents-entry .error-indicator ~ .unread-badge,
-.sidebar-nav-row .agents-entry .error-indicator ~ .waiting-badge {
-    margin-left: var(--space-1);
-}
-
-.sidebar-divider {
-    height: 1px;
-    background: var(--border);
-    margin: var(--space-2) 0;
-}
-
-/* ----------------------------------------
-   Planner Dashboard Message
+   Dashboard Container
    ---------------------------------------- */
 
-/* Dashboard rendered as a message-like element inside messages container */
 .planner-dashboard-message {
-    margin: var(--space-4);
-    padding: var(--space-6);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
+    max-width: var(--message-max-width);
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-5) var(--space-8);
 }
 
 /* ----------------------------------------
@@ -138,62 +153,59 @@
 
 .dashboard-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: var(--space-6);
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
 }
 
 .dashboard-title {
     display: flex;
-    align-items: center;
-    gap: var(--space-3);
-}
-
-.dashboard-title-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.dashboard-title-icon svg {
-    width: 28px;
-    height: 28px;
-    color: var(--accent);
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
 }
 
 .dashboard-title-text {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-3xl);
     font-family: var(--font-family-display);
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
     color: var(--text-primary);
+}
+
+.dashboard-date {
+    font-size: var(--font-size-ui);
+    color: var(--text-muted);
 }
 
 .dashboard-actions {
     display: flex;
     gap: var(--space-2);
+    flex-shrink: 0;
 }
 
 .planner-refresh-btn,
 .planner-reset-btn {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    background: var(--bg-tertiary);
+    gap: var(--space-1-5);
+    padding: var(--space-1-5) var(--space-3);
+    background: transparent;
     border: 1px solid var(--border);
     border-radius: var(--radius-full);
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: var(--font-size-ui);
+    transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    font-size: var(--font-size-sm);
     font-weight: 500;
 }
 
 .planner-refresh-btn svg,
 .planner-reset-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
 }
 
 .planner-refresh-btn:hover {
@@ -213,15 +225,516 @@
 }
 
 /* ----------------------------------------
-   Dashboard Loading State
+   Health Summary Strip
    ---------------------------------------- */
 
-.planner-dashboard-message.loading {
+.health-summary-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-5);
+    padding-bottom: var(--space-4);
+    margin-bottom: var(--space-6);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.health-metric {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1-5);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.health-metric-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.health-metric-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.health-metric-value {
+    font-weight: 650;
+    font-size: var(--font-size-ui);
+    font-variant-numeric: tabular-nums;
+}
+
+.health-metric-label {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+/* ----------------------------------------
+   Dashboard Errors
+   ---------------------------------------- */
+
+.dashboard-error {
+    background: var(--color-warning-900);
+    border-left: 3px solid var(--color-warning-500);
+    border-radius: var(--radius-xs);
+    padding: var(--space-2-5) var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: var(--line-height);
+}
+
+.dashboard-error strong {
+    font-weight: 600;
+    color: var(--warning-text);
+}
+
+/* ----------------------------------------
+   Sections (overdue + week)
+   ---------------------------------------- */
+
+.dashboard-section {
+    margin-bottom: var(--space-8);
+}
+
+.dashboard-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Overdue: compact labeled section, error accent carried by the label */
+.dashboard-section.overdue h3 {
+    margin: 0 0 var(--space-1) 0;
+    font-size: var(--font-size-xs);
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-error-400);
+}
+
+[data-theme="light"] .dashboard-section.overdue h3 {
+    color: var(--color-error-600);
+}
+
+/* Week disclosure: quiet row above the hidden days */
+.dashboard-section.week details summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--border-light);
+    cursor: pointer;
+    list-style: none;
+    font-size: var(--font-size-ui);
+    font-weight: 550;
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+}
+
+.dashboard-section.week details summary::-webkit-details-marker {
+    display: none;
+}
+
+.dashboard-section.week details summary:hover {
+    color: var(--text-primary);
+}
+
+.dashboard-section.week details summary::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin: 0 var(--space-1);
+    border-right: 1.5px solid var(--text-muted);
+    border-bottom: 1.5px solid var(--text-muted);
+    transform: rotate(-45deg);
+    transition: transform var(--duration-base) var(--ease-out);
+    flex-shrink: 0;
+}
+
+.dashboard-section.week details[open] summary::before {
+    transform: rotate(45deg);
+}
+
+.dashboard-section.week details > div {
+    padding-top: var(--space-5);
+}
+
+.dashboard-section.week details > div .dashboard-day:last-child {
+    margin-bottom: 0;
+}
+
+/* ----------------------------------------
+   Day Sections
+   ---------------------------------------- */
+
+.dashboard-day {
+    margin-bottom: var(--space-8);
+}
+
+.dashboard-day:last-child {
+    margin-bottom: 0;
+}
+
+.dashboard-day-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border);
+}
+
+.dashboard-day-name {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.dashboard-day-meta {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.dashboard-day-empty {
+    padding: var(--space-1) 0 var(--space-2);
+}
+
+.dashboard-day-empty p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* ----------------------------------------
+   Events / Tasks groups
+   ---------------------------------------- */
+
+.dashboard-events,
+.dashboard-tasks {
+    margin-bottom: var(--space-4);
+}
+
+.dashboard-events:last-child,
+.dashboard-tasks:last-child {
+    margin-bottom: 0;
+}
+
+.dashboard-events-header,
+.dashboard-tasks-header {
+    font-size: var(--font-size-xs);
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin: 0 0 var(--space-1);
+}
+
+/* ----------------------------------------
+   Rows (events + tasks)
+   ---------------------------------------- */
+
+.planner-item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-2);
+    margin: 0 calc(-1 * var(--space-2));
+    border-radius: var(--radius-sm);
+    position: relative;
+    transition: background-color var(--transition-fast);
+}
+
+.planner-item + .planner-item {
+    border-top: 1px solid var(--border-light);
+}
+
+.planner-item:hover {
+    background: var(--bg-secondary);
+}
+
+/* Event time column: fixed width, tabular numerals */
+.planner-item-time {
+    flex-shrink: 0;
+    width: 92px;
+    font-size: var(--font-size-sm);
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.planner-item.all-day .planner-item-time {
+    font-size: var(--font-size-xs);
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+/* Task ring: checkbox affordance, color carries priority */
+.planner-task-ring {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 50%;
+    align-self: center;
+}
+
+.planner-item[data-priority="2"] .planner-task-ring {
+    border-color: var(--color-info-500);
+}
+
+.planner-item[data-priority="3"] .planner-task-ring {
+    border-color: var(--color-warning-500);
+}
+
+.planner-item[data-priority="4"] .planner-task-ring {
+    border-color: var(--color-error-500);
+    border-width: 2px;
+}
+
+/* Row body: title + chips */
+.planner-item-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    font-size: var(--font-size-ui);
+    line-height: var(--line-height);
+}
+
+.planner-item-title {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.planner-item-calendar,
+.planner-item-project {
+    font-size: var(--font-size-xs);
+    font-weight: 550;
+    color: var(--text-muted);
+    padding: 1px var(--space-1-5);
+    border-radius: var(--radius-xs);
+    background: var(--bg-tertiary);
+    white-space: nowrap;
+}
+
+.planner-item-location {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--accent-hover);
+    text-decoration: none;
+    min-width: 0;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.planner-item-location:hover {
+    text-decoration: underline;
+}
+
+.planner-item-location .location-icon {
+    display: inline-flex;
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.planner-item-location .location-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Past events dim; the time column goes quiet too */
+.planner-item[data-past="true"] {
+    opacity: 0.45;
+}
+
+/* Copy affordance: appears on row hover/focus */
+.planner-item-copy {
+    opacity: 0;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: var(--space-1);
+    border-radius: var(--radius-xs);
+    cursor: pointer;
+    transition: opacity var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.planner-item:hover .planner-item-copy,
+.planner-item-copy:focus-visible {
+    opacity: 1;
+}
+
+.planner-item-copy:hover {
+    background: var(--accent-muted);
+    color: var(--accent-hover);
+}
+
+.planner-item-copy:active {
+    transform: scale(0.95);
+}
+
+.planner-item-copy svg {
+    width: 13px;
+    height: 13px;
+}
+
+.planner-item-copy.copied {
+    opacity: 1;
+    color: var(--success);
+}
+
+/* ----------------------------------------
+   Time Indicator ("Now" line)
+   ---------------------------------------- */
+
+.time-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-1) 0;
+}
+
+.time-indicator::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+
+.time-indicator-label {
+    font-size: var(--font-size-xs);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent-hover);
+    white-space: nowrap;
+}
+
+.time-indicator-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--accent), transparent);
+    opacity: 0.6;
+}
+
+/* ----------------------------------------
+   Empty State
+   ---------------------------------------- */
+
+.dashboard-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: var(--space-12);
+    padding: var(--space-12) var(--space-4);
+    text-align: center;
+}
+
+.dashboard-empty-icon {
+    width: 44px;
+    height: 44px;
+    color: var(--color-success-500);
+    background: var(--color-success-900);
+    border-radius: 50%;
+    padding: var(--space-2-5);
+    margin-bottom: var(--space-4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dashboard-empty-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.dashboard-empty p {
+    margin: 0;
+}
+
+.dashboard-empty p:first-of-type {
+    font-size: var(--font-size-base);
+    font-weight: 550;
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
+}
+
+.dashboard-empty p:last-of-type {
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* ----------------------------------------
+   Weather Badges
+   ---------------------------------------- */
+
+.weather-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+    align-self: center;
+}
+
+.weather-badge-icon {
+    display: inline-flex;
+    align-items: center;
+    width: 14px;
+    height: 14px;
+    color: var(--color-warning-500);
+}
+
+.weather-badge-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.weather-badge-temp {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+}
+
+.weather-badge-precip {
+    color: var(--color-info-500);
+    font-size: var(--font-size-xs);
+}
+
+/* ----------------------------------------
+   Loading State
+   ---------------------------------------- */
+
+.planner-dashboard-message.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     min-height: 300px;
 }
 
@@ -233,24 +746,14 @@
 }
 
 .dashboard-loading-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     color: var(--accent);
-    animation: float 2s ease-in-out infinite;
 }
 
 .dashboard-loading-icon svg {
     width: 100%;
     height: 100%;
-}
-
-@keyframes float {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-8px);
-    }
 }
 
 .dashboard-loading-dots {
@@ -259,8 +762,8 @@
 }
 
 .dashboard-loading-dots span {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     background: var(--accent);
     border-radius: 50%;
     animation: bounce-loading 1.4s ease-in-out infinite;
@@ -288,837 +791,30 @@
 .dashboard-loading-text {
     font-size: var(--font-size-ui);
     font-weight: 500;
-    color: var(--text-primary);
-}
-
-/* ----------------------------------------
-   Dashboard Sections
-   ---------------------------------------- */
-
-.dashboard-section {
-    margin-bottom: var(--space-6);
-}
-
-.dashboard-section:last-child {
-    margin-bottom: 0;
-}
-
-.dashboard-section h3 {
-    font-size: var(--font-size-ui);
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 var(--space-3) 0;
-}
-
-/* Overdue section - error-tinted hairline card */
-.dashboard-section.overdue {
-    background: var(--color-error-900);
-    border: 1px solid var(--color-error-500);
-    border-radius: var(--radius-md);
-    padding: var(--space-4);
-}
-
-.dashboard-section.overdue h3 {
-    color: var(--color-error-400);
-    font-size: var(--font-size-ui);
-}
-
-/* Collapsible sections - Enhanced with animations */
-.dashboard-section details {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--bg-primary);
-    overflow: hidden;
-    transition: border-color var(--transition-fast);
-}
-
-.dashboard-section details[open] {
-    border-color: var(--border-light);
-}
-
-.dashboard-section details summary {
-    padding: var(--space-4);
-    cursor: pointer;
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--text-primary);
-    background: var(--bg-secondary);
-    list-style: none;
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    transition: all var(--transition-fast);
-}
-
-.dashboard-section details summary::-webkit-details-marker {
-    display: none;
-}
-
-.dashboard-section details summary:hover {
-    background: var(--bg-hover);
-}
-
-.dashboard-section details summary::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-right: 2px solid var(--accent);
-    border-bottom: 2px solid var(--accent);
-    transform: rotate(-45deg);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    flex-shrink: 0;
-}
-
-.dashboard-section details[open] summary::before {
-    transform: rotate(45deg);
-}
-
-/* Item count badge */
-.dashboard-section details summary {
-    position: relative;
-}
-
-.dashboard-section details > div {
-    padding: var(--space-4);
-    animation: expand 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes expand {
-    from {
-        opacity: 0;
-        transform: translateY(-12px);
-        max-height: 0;
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-        max-height: 2000px;
-    }
-}
-
-/* ----------------------------------------
-   Dashboard Day
-   ---------------------------------------- */
-
-.dashboard-day {
-    margin-bottom: var(--space-6);
-    padding: var(--space-4);
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.dashboard-day:last-child {
-    margin-bottom: 0;
-}
-
-.dashboard-day-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin-bottom: var(--space-5);
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-xl);
-    font-weight: 600;
-    color: var(--text-primary);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-}
-
-.dashboard-day-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: var(--space-2);
-    border-radius: 50%;
-    background: var(--accent-muted);
-    color: var(--accent);
-}
-
-.dashboard-day-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.dashboard-day-date {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--text-muted);
-    background: var(--bg-tertiary);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-}
-
-/* Empty state for individual days */
-.dashboard-day-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-4) var(--space-2);
-    text-align: center;
-    color: var(--text-muted);
-    font-size: var(--font-size-sm);
-    background: transparent;
-    border: none;
-    padding: var(--space-2);
-}
-
-.dashboard-day-empty p {
+    color: var(--text-secondary);
     margin: 0;
-}
-
-/* ----------------------------------------
-   Dashboard Items (Events & Tasks)
-   ---------------------------------------- */
-
-.dashboard-events,
-.dashboard-tasks {
-    margin-bottom: var(--space-4);
-}
-
-.dashboard-events:last-child,
-.dashboard-tasks:last-child {
-    margin-bottom: 0;
-}
-
-.dashboard-events-header,
-.dashboard-tasks-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-    margin-bottom: var(--space-3);
-    padding-bottom: var(--space-2);
-    border-bottom: 1px solid var(--border-light);
-}
-
-.dashboard-section-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    color: var(--accent);
-}
-
-.dashboard-section-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.planner-item {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    border-radius: var(--radius-lg);
-    transition: background-color var(--transition-fast), border-color var(--transition-fast);
-    position: relative;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-left-width: 2px; /* Default border for P1/no priority */
-    animation: fadeInItem var(--duration-base) var(--ease-out) both;
-}
-
-@keyframes fadeInItem {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* Event/task cards share the flat card treatment; the left border
-   carries the type/priority color */
-
-/* Tasks need flex-row layout for content area */
-.planner-item-task .planner-item-content {
-    flex-direction: row;
-    align-items: center;
-}
-
-/* Events need flex column to stack title and location */
-.planner-item-event .planner-item-text {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-}
-
-.planner-item:not(:last-child) {
-    margin-bottom: var(--space-2);
-}
-
-.planner-item:hover {
-    background: var(--bg-hover);
-}
-
-.planner-item-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    min-width: 0;
-}
-
-.planner-item-time {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    width: fit-content;
-    padding: 2px var(--space-2);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--accent-hover);
-    background: var(--accent-muted);
-    border-radius: var(--radius-full);
-    position: relative;
-}
-
-.planner-item-text {
-    font-size: var(--font-size-ui);
-    color: var(--text-primary);
-    font-weight: 500;
-    flex: 1;
-    min-width: 0;
-    line-height: 1.6;
-}
-
-.planner-item-location {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--color-brand-500);
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1-5);
-    text-decoration: none;
-    transition: all var(--transition-fast);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-full);
-    background: var(--accent-muted);
-    margin-top: var(--space-2);
-    width: fit-content;
-}
-
-.planner-item-location:hover {
-    color: var(--accent-hover);
-}
-
-.planner-item-location .location-icon {
-    display: inline-flex;
-    width: 16px;
-    height: 16px;
-}
-
-.planner-item-location .location-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.planner-item-project {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-style: normal;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-}
-
-.planner-item-calendar {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-style: normal;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-}
-
-/* Copy button - Integrated into content */
-.planner-item-copy {
-    opacity: 0;
-    background: var(--accent-muted);
-    color: var(--accent);
-    border: none;
-    padding: var(--space-1);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-}
-
-.planner-item:hover .planner-item-copy {
-    opacity: 1;
-}
-
-.planner-item-copy:hover {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
-    transform: scale(1.1);
-}
-
-.planner-item-copy:active {
-    transform: scale(0.95);
-}
-
-.planner-item-copy svg {
-    width: 12px;
-    height: 12px;
-}
-
-.planner-item-copy.copied {
-    background: var(--success);
-    color: white;
-    border-color: var(--success);
-    animation: copy-success 0.3s ease-out;
-}
-
-@keyframes copy-success {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.2);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-/* ----------------------------------------
-   Priority Indicators - Border Thickness System
-   ---------------------------------------- */
-
-/* P1 (Low Priority) - 2px blue border */
-.planner-item[data-priority="1"] {
-    border-left-width: 2px;
-    border-left-color: var(--color-info-500);
-}
-
-/* P2 (Medium Priority) - 3px blue border */
-.planner-item[data-priority="2"] {
-    border-left-width: 3px;
-    border-left-color: var(--color-info-500);
-}
-
-/* P3 (High Priority) - 4px orange border */
-.planner-item[data-priority="3"] {
-    border-left-width: 4px;
-    border-left-color: var(--color-warning-500);
-}
-
-/* P4 (Urgent) - 5px red border with glow */
-.planner-item[data-priority="4"] {
-    border-left-width: 5px;
-    border-left-color: var(--color-error-500);
-}
-
-
-/* All-day event style - Subtle purple badge */
-.planner-item.all-day .planner-item-time {
-    font-style: normal;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: var(--font-size-xs);
-    background: rgba(168, 85, 247, 0.15);
-    color: var(--color-purple-400);
-    border: 1px solid rgba(168, 85, 247, 0.3);
-    padding: var(--space-1) var(--space-2);
-}
-
-/* ----------------------------------------
-   Dashboard Empty State - More Delightful
-   ---------------------------------------- */
-
-.dashboard-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-12);
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: var(--font-size-ui);
-    background: var(--color-success-900);
-    border: 2px dashed rgba(52, 211, 153, 0.4);
-    border-radius: var(--radius-lg);
-    position: relative;
-    overflow: hidden;
-}
-
-.dashboard-empty::before {
-    content: "";
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(52, 211, 153, 0.1) 0%, transparent 70%);
-    animation: rotate-gradient 20s linear infinite;
-}
-
-@keyframes rotate-gradient {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-.dashboard-empty-icon {
-    width: 64px;
-    height: 64px;
-    background: var(--color-success-900);
-    color: var(--color-success-400);
-    margin-bottom: var(--space-4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-3);
-    border-radius: 50%;
-    position: relative;
-    z-index: 1;
-    animation: checkmark-draw 1s ease-out;
-}
-
-@keyframes checkmark-draw {
-    0% {
-        transform: scale(0) rotate(-45deg);
-        opacity: 0;
-    }
-    50% {
-        transform: scale(1.2) rotate(-45deg);
-    }
-    100% {
-        transform: scale(1) rotate(0deg);
-        opacity: 1;
-    }
-}
-
-.dashboard-empty-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.dashboard-empty p {
-    margin: 0;
-    font-weight: 600;
-    position: relative;
-    z-index: 1;
-}
-
-.dashboard-empty p:first-of-type {
-    font-size: var(--font-size-base);
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.dashboard-empty p:last-of-type {
-    color: var(--text-muted);
-    font-size: var(--font-size-sm);
-}
-
-/* ----------------------------------------
-   Dashboard Errors
-   ---------------------------------------- */
-
-.dashboard-error {
-    background: var(--color-warning-900);
-    border: 2px solid rgba(251, 191, 36, 0.4);
-    border-left: 4px solid var(--color-warning-500);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
-    margin-bottom: var(--space-4);
-    font-size: var(--font-size-md);
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-}
-
-.dashboard-error::before {
-    content: "⚠️";
-    font-size: var(--font-size-xl);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: var(--color-warning-900);
-    border-radius: 50%;
-    border: 2px solid white;
-
-}
-
-.dashboard-error strong {
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-/* ----------------------------------------
-   Health Summary Strip
-   ---------------------------------------- */
-
-.health-summary-strip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    margin-bottom: var(--space-4);
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-}
-
-.health-metric {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1-5);
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-}
-
-.health-metric-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    color: var(--accent);
-    flex-shrink: 0;
-}
-
-.health-metric-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.health-metric-value {
-    font-weight: 700;
-    font-size: var(--font-size-ui);
-}
-
-.health-metric-label {
-    color: var(--text-muted);
-    font-size: var(--font-size-xs);
-}
-
-/* ----------------------------------------
-   Weather Badges
-   ---------------------------------------- */
-
-.weather-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    margin-left: auto;
-    padding: var(--space-1) var(--space-2);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--text-secondary);
-    white-space: nowrap;
-}
-
-.weather-badge-icon {
-    display: inline-flex;
-    align-items: center;
-    width: 14px;
-    height: 14px;
-    color: var(--color-warning-500);
-}
-
-.weather-badge-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.weather-badge-temp {
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.weather-badge-precip {
-    color: var(--color-info-500);
-}
-
-/* ----------------------------------------
-   Time Indicator ("Now" line)
-   ---------------------------------------- */
-
-.time-indicator {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin: var(--space-2) 0;
-    position: relative;
-}
-
-.time-indicator-label {
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    color: var(--error);
-    white-space: nowrap;
-    padding: var(--space-1) var(--space-2);
-    background: var(--bg-primary);
-    border: 1px solid var(--error);
-    border-radius: var(--radius-sm);
-}
-
-.time-indicator-line {
-    flex: 1;
-    height: 2px;
-    background: var(--error);
-    border-radius: 1px;
-}
-
-/* ----------------------------------------
-   Past Event Dimming
-   ---------------------------------------- */
-
-.planner-item[data-past="true"] {
-    opacity: 0.5;
-}
-
-.planner-item[data-past="true"] .planner-item-time {
-    background: var(--bg-tertiary);
-    border-color: var(--border);
-    color: var(--text-muted);
-}
-
-/* ----------------------------------------
-   Inline Location
-   ---------------------------------------- */
-
-.planner-item-location-inline {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    font-size: var(--font-size-xs);
-    color: var(--color-brand-500);
-    margin-left: var(--space-2);
-}
-
-.planner-item-location-inline .location-icon {
-    display: inline-flex;
-    width: 12px;
-    height: 12px;
-}
-
-.planner-item-location-inline .location-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.planner-item-location-inline a {
-    color: inherit;
-    text-decoration: none;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-block;
-    vertical-align: bottom;
-}
-
-.planner-item-location-inline a:hover {
-    text-decoration: underline;
 }
 
 /* ----------------------------------------
    Accessibility & Focus States
    ---------------------------------------- */
 
-/* Focus states for keyboard navigation - distinct from hover */
-.planner-entry:focus-visible {
-    outline: 3px solid var(--accent);
+.planner-entry:focus-visible,
+.sidebar-nav-row .planner-entry:focus-visible,
+.sidebar-nav-row .agents-entry:focus-visible,
+.sidebar-nav-row .sports-entry:focus-visible,
+.sidebar-nav-row .language-entry:focus-visible {
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
-    background-color: var(--bg-hover);
 }
 
 .planner-refresh-btn:focus-visible,
-.planner-reset-btn:focus-visible {
-    outline: 3px solid var(--accent);
+.planner-reset-btn:focus-visible,
+.planner-item-copy:focus-visible,
+.planner-item-location:focus-visible,
+.dashboard-section.week details summary:focus-visible {
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.2);
-}
-
-.planner-reset-btn:focus-visible {
-    outline-color: var(--error);
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
-}
-
-.planner-item-copy:focus-visible {
-    outline: 3px solid white;
-    outline-offset: 2px;
-    opacity: 1;
-    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.3);
-}
-
-.planner-item-location:focus-visible {
-    outline: 3px solid white;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.3);
-}
-
-.dashboard-section details summary:focus-visible {
-    outline: 3px solid var(--accent);
-    outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(87, 83, 232, 0.15);
-}
-
-/* Reduced motion for users who prefer it */
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .planner-item {
-        border-width: 2px;
-    }
-
-    .dashboard-section.overdue {
-        border-width: 3px;
-    }
-
-    .planner-item[data-priority="4"]::before {
-        width: 8px;
-    }
 }
 
 /* ----------------------------------------
@@ -1127,154 +823,74 @@
 
 @media (max-width: 768px) {
     .planner-dashboard-message {
-        margin: var(--space-2);
-        padding: var(--space-4);
+        padding: var(--space-4) var(--space-3) var(--space-6);
     }
 
     .dashboard-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--space-3);
-        margin-bottom: var(--space-4);
+        margin-bottom: var(--space-6);
     }
 
     .dashboard-title-text {
-        font-size: var(--font-size-xl);
+        font-size: var(--font-size-2xl);
     }
 
-    .dashboard-title-icon svg {
-        width: 24px;
-        height: 24px;
-    }
-
-    .dashboard-actions {
-        width: 100%;
-        display: flex;
-        gap: var(--space-2);
-    }
-
-    /* Mobile: Icon-only buttons with 44px touch targets */
+    /* Icon-only action buttons with comfortable touch targets */
     .planner-refresh-btn,
     .planner-reset-btn {
-        flex: 1;
+        min-height: 40px;
+        min-width: 40px;
         justify-content: center;
-        min-height: 44px;
-        padding: var(--space-3);
+        padding: var(--space-2);
     }
 
     .planner-refresh-btn span,
     .planner-reset-btn span {
-        display: none; /* Hide text labels on mobile */
+        display: none;
     }
 
     .planner-refresh-btn svg,
     .planner-reset-btn svg {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
     }
 
-    /* Mobile: Health strip wraps */
     .health-summary-strip {
-        gap: var(--space-2);
-        padding: var(--space-2) var(--space-3);
+        gap: var(--space-2) var(--space-4);
     }
 
-    .health-metric {
-        font-size: var(--font-size-xs);
+    .dashboard-day {
+        margin-bottom: var(--space-6);
     }
 
-    .health-metric-value {
-        font-size: var(--font-size-sm);
-    }
-
-    /* Mobile: Weather badge stays compact */
-    .weather-badge {
-        padding: var(--space-1);
-        font-size: 10px;
-    }
-
-    /* Mobile: More spacing for items */
+    /* Stack time above title on narrow screens */
     .planner-item {
-        gap: var(--space-2);
-        padding: var(--space-3);
-        margin-bottom: var(--space-2);
+        flex-wrap: wrap;
+        gap: var(--space-1) var(--space-3);
+        padding: var(--space-2-5) var(--space-2);
     }
 
     .planner-item-time {
-        width: 100%;
-        font-size: var(--font-size-xs);
-        padding: var(--space-2);
+        width: auto;
     }
 
-    .planner-item-content {
-        width: 100%;
+    .planner-item-event .planner-item-body {
+        flex-basis: 100%;
     }
 
-    /* Mobile: Copy button always visible, larger touch target */
+    .planner-item-event .planner-item-copy {
+        position: absolute;
+        top: var(--space-1-5);
+        right: var(--space-1);
+    }
+
+    /* Copy button always discoverable on touch */
     .planner-item-copy {
-        opacity: 0.8; /* Always visible on mobile */
-        min-width: 28px;
-        height: 28px;
-        padding: var(--space-1-5);
+        opacity: 0.55;
+        min-width: 32px;
+        height: 32px;
     }
 
-    .planner-item:hover .planner-item-copy {
-        opacity: 0.8;
-    }
-
-    .planner-item-copy:active {
-        opacity: 1;
-        background: var(--accent);
-        color: white;
-        transform: scale(0.95);
-    }
-
-    .planner-item-copy svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    /* Mobile: Larger day icons */
-    .dashboard-day-icon {
-        width: 28px;
-        height: 28px;
-    }
-
-    .dashboard-day-header {
-        font-size: var(--font-size-base);
-        padding: var(--space-2-5);
-    }
-
-    /* Mobile: Adjust section headers */
-    .dashboard-events-header,
-    .dashboard-tasks-header {
-        font-size: var(--font-size-sm);
-    }
-
-    /* Mobile: Touch-friendly location links */
-    .planner-item-location {
-        padding: var(--space-2) var(--space-3);
+    .weather-badge {
         font-size: var(--font-size-xs);
-        min-height: 36px;
-    }
-
-    /* Mobile: Adjust loading state */
-    .dashboard-loading {
-        padding: var(--space-8);
-    }
-
-    .dashboard-loading-icon {
-        width: 40px;
-        height: 40px;
-    }
-
-    /* Mobile: Reduce empty state padding */
-    .dashboard-empty {
-        padding: var(--space-8);
-    }
-
-    .dashboard-empty-icon {
-        width: 48px;
-        height: 48px;
     }
 }

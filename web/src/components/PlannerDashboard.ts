@@ -1,5 +1,5 @@
-import { escapeHtml, getElementById } from '../utils/dom';
-import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, SUN_ICON, SUNRISE_ICON, SPARKLES_ICON, CHECKLIST_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, getWeatherIcon } from '../utils/icons';
+import { escapeHtml } from '../utils/dom';
+import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, getWeatherIcon } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import type { PlannerDashboard, PlannerDay, PlannerEvent, PlannerTask, PlannerHealthSummary } from '../types/api';
 
@@ -7,7 +7,8 @@ const log = createLogger('planner-dashboard');
 
 /**
  * Create a dashboard element that can be inserted into the messages container.
- * This renders the dashboard as a special "message-like" element that scrolls with messages.
+ * Renders a text-forward agenda: day sections with display-face headings,
+ * a fixed time column for events, and compact checkbox-ring task rows.
  */
 export function createDashboardElement(
   dashboard: PlannerDashboard,
@@ -23,63 +24,18 @@ export function createDashboardElement(
   element.className = 'planner-dashboard-message';
   element.id = 'planner-dashboard';
 
-  // Build dashboard content HTML
-  let contentHtml = '';
-
-  // Health summary strip (if Garmin connected)
-  if (dashboard.health_summary && dashboard.garmin_connected) {
-    contentHtml += renderHealthSummary(dashboard.health_summary);
-  }
-
-  // Errors if any
-  if (dashboard.todoist_error || dashboard.calendar_error || dashboard.garmin_error || dashboard.weather_error) {
-    contentHtml += renderErrors(dashboard);
-  }
-
-  // Overdue tasks section (if any)
-  if (dashboard.overdue_tasks.length > 0) {
-    contentHtml += renderOverdueSection(dashboard.overdue_tasks);
-  }
-
-  // Today and Tomorrow - always expanded
-  if (dashboard.days.length >= 1) {
-    const serverNow = new Date(dashboard.server_time);
-    contentHtml += renderDaySection(dashboard.days[0], true, serverNow); // Today
-
-    if (dashboard.days.length >= 2) {
-      contentHtml += renderDaySection(dashboard.days[1]); // Tomorrow
-    }
-  }
-
-  // Rest of the week - collapsible
-  if (dashboard.days.length > 2) {
-    const weekDays = dashboard.days.slice(2);
-    const weekItemCount = weekDays.reduce(
-      (count, day) => count + day.events.length + day.tasks.length,
-      0
-    );
-    contentHtml += renderWeekSection(weekDays, weekItemCount);
-  }
-
-  // Empty state if no data
-  if (
-    dashboard.days.every((day) => day.events.length === 0 && day.tasks.length === 0) &&
-    dashboard.overdue_tasks.length === 0
-  ) {
-    contentHtml += `
-      <div class="dashboard-empty">
-        <div class="dashboard-empty-icon">${CHECK_ICON}</div>
-        <p>No events or tasks scheduled</p>
-        <p>Your calendar and task list are clear!</p>
-      </div>
-    `;
-  }
+  const serverNow = new Date(dashboard.server_time);
+  const todayLine = serverNow.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   element.innerHTML = `
     <div class="dashboard-header">
       <div class="dashboard-title">
-        <span class="dashboard-title-icon">${CALENDAR_ICON}</span>
         <span class="dashboard-title-text">Your Schedule</span>
+        <span class="dashboard-date">${escapeHtml(todayLine)}</span>
       </div>
       <div class="dashboard-actions">
         <button class="planner-refresh-btn" title="Fetch latest data from Todoist and Google Calendar">
@@ -93,11 +49,10 @@ export function createDashboardElement(
       </div>
     </div>
     <div class="dashboard-content">
-      ${contentHtml}
+      ${buildDashboardContent(dashboard)}
     </div>
   `;
 
-  // Set up refresh button handler
   const refreshBtn = element.querySelector('.planner-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', (e) => {
@@ -106,7 +61,6 @@ export function createDashboardElement(
     });
   }
 
-  // Set up reset button handler
   const resetBtn = element.querySelector('.planner-reset-btn');
   if (resetBtn) {
     resetBtn.addEventListener('click', (e) => {
@@ -115,7 +69,6 @@ export function createDashboardElement(
     });
   }
 
-  // Set up click-to-copy handlers
   setupCopyHandlers(element);
 
   log.debug('Dashboard element created');
@@ -123,22 +76,9 @@ export function createDashboardElement(
 }
 
 /**
- * Render the planner dashboard directly into the #planner-dashboard container.
- * This is a legacy function - prefer createDashboardElement for new code.
+ * Build the inner content HTML (health strip, errors, overdue, days, week).
  */
-export function renderPlannerDashboard(dashboard: PlannerDashboard): void {
-  log.debug('Rendering planner dashboard (legacy)', {
-    days: dashboard.days.length,
-    overdueTasks: dashboard.overdue_tasks.length,
-  });
-
-  const container = getElementById<HTMLDivElement>('planner-dashboard');
-  if (!container) {
-    log.error('Dashboard container not found');
-    return;
-  }
-
-  // Build HTML (same as createDashboardElement but without wrapper)
+function buildDashboardContent(dashboard: PlannerDashboard): string {
   let html = '';
 
   // Health summary strip (if Garmin connected)
@@ -157,10 +97,13 @@ export function renderPlannerDashboard(dashboard: PlannerDashboard): void {
   }
 
   // Today and Tomorrow - always expanded
-  if (dashboard.days.length >= 2) {
+  if (dashboard.days.length >= 1) {
     const serverNow = new Date(dashboard.server_time);
     html += renderDaySection(dashboard.days[0], true, serverNow); // Today
-    html += renderDaySection(dashboard.days[1]); // Tomorrow
+
+    if (dashboard.days.length >= 2) {
+      html += renderDaySection(dashboard.days[1]); // Tomorrow
+    }
   }
 
   // Rest of the week - collapsible
@@ -187,53 +130,30 @@ export function renderPlannerDashboard(dashboard: PlannerDashboard): void {
     `;
   }
 
-  container.innerHTML = html;
-
-  // Set up click-to-copy handlers
-  setupCopyHandlers(container);
-
-  log.debug('Dashboard rendered');
+  return html;
 }
 
 /**
  * Render error messages for failed integrations.
  */
 function renderErrors(dashboard: PlannerDashboard): string {
-  let html = '';
+  const errors: Array<[string, string | null | undefined]> = [
+    ['Todoist', dashboard.todoist_error],
+    ['Calendar', dashboard.calendar_error],
+    ['Garmin', dashboard.garmin_error],
+    ['Weather', dashboard.weather_error],
+  ];
 
-  if (dashboard.todoist_error) {
-    html += `
-      <div class="dashboard-error">
-        <strong>Todoist:</strong> ${escapeHtml(dashboard.todoist_error)}
-      </div>
-    `;
-  }
-
-  if (dashboard.calendar_error) {
-    html += `
-      <div class="dashboard-error">
-        <strong>Calendar:</strong> ${escapeHtml(dashboard.calendar_error)}
-      </div>
-    `;
-  }
-
-  if (dashboard.garmin_error) {
-    html += `
-      <div class="dashboard-error">
-        <strong>Garmin:</strong> ${escapeHtml(dashboard.garmin_error)}
-      </div>
-    `;
-  }
-
-  if (dashboard.weather_error) {
-    html += `
-      <div class="dashboard-error">
-        <strong>Weather:</strong> ${escapeHtml(dashboard.weather_error)}
-      </div>
-    `;
-  }
-
-  return html;
+  return errors
+    .filter(([, message]) => message)
+    .map(
+      ([source, message]) => `
+        <div class="dashboard-error">
+          <strong>${source}:</strong> ${escapeHtml(message as string)}
+        </div>
+      `
+    )
+    .join('');
 }
 
 /**
@@ -258,23 +178,19 @@ function renderOverdueSection(tasks: PlannerTask[]): string {
  */
 function renderDaySection(day: PlannerDay, isToday = false, now = new Date()): string {
   const hasContent = day.events.length > 0 || day.tasks.length > 0;
-  const dayLabel = formatDayLabel(day.day_name, day.date);
-  const weatherBadge = renderWeatherBadge(day);
+  const header = renderDayHeader(day);
 
   if (!hasContent) {
     return `
-      <div class="dashboard-day">
-        <div class="dashboard-day-header">
-          ${dayLabel}
-          <span class="dashboard-day-date">${formatDate(day.date)}</span>
-          ${weatherBadge}
-        </div>
+      <section class="dashboard-day">
+        ${header}
         <div class="dashboard-day-empty">
-          <p>No events or tasks</p>
+          <p>Nothing scheduled</p>
         </div>
-      </div>
+      </section>
     `;
   }
+
   let content = '';
   let timeIndicatorInserted = false;
 
@@ -301,10 +217,7 @@ function renderDaySection(day: PlannerDay, isToday = false, now = new Date()): s
 
     content += `
       <div class="dashboard-events">
-        <div class="dashboard-events-header">
-          <span class="dashboard-section-icon">${SPARKLES_ICON}</span>
-          Events
-        </div>
+        <div class="dashboard-events-header">Events</div>
         ${eventsHtml}
       </div>
     `;
@@ -317,24 +230,36 @@ function renderDaySection(day: PlannerDay, isToday = false, now = new Date()): s
   if (day.tasks.length > 0) {
     content += `
       <div class="dashboard-tasks">
-        <div class="dashboard-tasks-header">
-          <span class="dashboard-section-icon">${CHECKLIST_ICON}</span>
-          Tasks
-        </div>
+        <div class="dashboard-tasks-header">Tasks</div>
         ${day.tasks.map((task) => renderTaskItem(task)).join('')}
       </div>
     `;
   }
 
   return `
-    <div class="dashboard-day">
-      <div class="dashboard-day-header">
-        ${dayLabel}
-        <span class="dashboard-day-date">${formatDate(day.date)}</span>
-        ${weatherBadge}
-      </div>
+    <section class="dashboard-day">
+      ${header}
       ${content}
-    </div>
+    </section>
+  `;
+}
+
+/**
+ * Render a day heading: display-face day name, muted date, weather at right.
+ */
+function renderDayHeader(day: PlannerDay): string {
+  const date = new Date(day.date);
+  const weekday = date.toLocaleDateString(undefined, { weekday: 'long' });
+  const isNamedDay = day.day_name === 'Today' || day.day_name === 'Tomorrow';
+  const meta = isNamedDay ? `${weekday} · ${formatDate(day.date)}` : formatDate(day.date);
+  const weatherBadge = renderWeatherBadge(day);
+
+  return `
+    <header class="dashboard-day-header">
+      <span class="dashboard-day-name">${escapeHtml(day.day_name)}</span>
+      <span class="dashboard-day-meta">${escapeHtml(meta)}</span>
+      ${weatherBadge}
+    </header>
   `;
 }
 
@@ -345,7 +270,7 @@ function renderWeekSection(days: PlannerDay[], itemCount: number): string {
   const daysHtml = days.map((day) => renderDaySection(day)).join('');
 
   return `
-    <div class="dashboard-section">
+    <div class="dashboard-section week">
       <details>
         <summary>This Week (${itemCount} items)</summary>
         <div>
@@ -357,7 +282,8 @@ function renderWeekSection(days: PlannerDay[], itemCount: number): string {
 }
 
 /**
- * Render a single event item.
+ * Render a single event item as a timeline row: fixed time column,
+ * title with optional calendar/location chips, copy affordance at the end.
  * @param isPast - If true, dims the event (for today's past events)
  */
 function renderEventItem(event: PlannerEvent, isPast = false): string {
@@ -365,52 +291,52 @@ function renderEventItem(event: PlannerEvent, isPast = false): string {
     ? 'All day'
     : formatEventTime(event.start, event.end);
 
-  // Location inline with title when possible
-  const locationInline = event.location
-    ? ` <span class="planner-item-location-inline"><span class="location-icon">${MAP_PIN_ICON}</span><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener noreferrer">${escapeHtml(event.location)}</a></span>`
+  const locationChip = event.location
+    ? `<a class="planner-item-location" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener noreferrer"><span class="location-icon">${MAP_PIN_ICON}</span>${escapeHtml(event.location)}</a>`
     : '';
 
   // Show calendar name for non-primary calendars
   const isPrimaryCalendar = !event.calendar_id || event.calendar_id === 'primary';
-  const calendarHtml = !isPrimaryCalendar && event.calendar_summary
-    ? ` <span class="planner-item-calendar">${escapeHtml(event.calendar_summary)}</span>`
+  const calendarChip = !isPrimaryCalendar && event.calendar_summary
+    ? `<span class="planner-item-calendar">${escapeHtml(event.calendar_summary)}</span>`
     : '';
 
-  // Build copy text
   const copyText = buildEventCopyText(event);
   const pastAttr = isPast ? ' data-past="true"' : '';
 
   return `
     <div class="planner-item planner-item-event ${event.is_all_day ? 'all-day' : ''}"${pastAttr} data-copy-text="${escapeHtml(copyText)}">
-      <div class="planner-item-time">
-        <span>${time}</span>
-        <button class="planner-item-copy" title="Copy to clipboard">
-          ${COPY_ICON}
-        </button>
+      <span class="planner-item-time">${time}</span>
+      <div class="planner-item-body">
+        <span class="planner-item-title">${escapeHtml(event.summary)}</span>${calendarChip}${locationChip}
       </div>
-      <div class="planner-item-text">
-        <span>${escapeHtml(event.summary)}${calendarHtml}${locationInline}</span>
-      </div>
+      <button class="planner-item-copy" title="Copy to clipboard" aria-label="Copy to clipboard">
+        ${COPY_ICON}
+      </button>
     </div>
   `;
 }
 
+/**
+ * Render a single task as a compact checkbox-ring row; the ring color
+ * carries the Todoist priority.
+ */
 function renderTaskItem(task: PlannerTask): string {
-  const projectHtml = task.project_name
-    ? ` <span class="planner-item-project">${escapeHtml(task.project_name)}</span>`
+  const projectChip = task.project_name
+    ? `<span class="planner-item-project">${escapeHtml(task.project_name)}</span>`
     : '';
 
-  // Build copy text
   const copyText = buildTaskCopyText(task);
 
   return `
     <div class="planner-item planner-item-task" data-priority="${task.priority}" data-copy-text="${escapeHtml(copyText)}">
-      <div class="planner-item-content">
-        <div class="planner-item-text">${escapeHtml(task.content)}${projectHtml}</div>
-        <button class="planner-item-copy" title="Copy to clipboard">
-          ${COPY_ICON}
-        </button>
+      <span class="planner-task-ring" aria-hidden="true"></span>
+      <div class="planner-item-body">
+        <span class="planner-item-title">${escapeHtml(task.content)}</span>${projectChip}
       </div>
+      <button class="planner-item-copy" title="Copy to clipboard" aria-label="Copy to clipboard">
+        ${COPY_ICON}
+      </button>
     </div>
   `;
 }
@@ -423,64 +349,28 @@ function renderHealthSummary(health: PlannerHealthSummary): string {
 
   if (health.training_readiness?.score != null) {
     const level = health.training_readiness.level || '';
-    metrics.push(`
-      <div class="health-metric">
-        <span class="health-metric-icon">${READINESS_ICON}</span>
-        <span class="health-metric-value">${Math.round(health.training_readiness.score)}</span>
-        <span class="health-metric-label">Readiness${level ? ` (${level})` : ''}</span>
-      </div>
-    `);
+    metrics.push(renderHealthMetric(READINESS_ICON, String(Math.round(health.training_readiness.score)), `Readiness${level ? ` (${level})` : ''}`));
   }
 
   if (health.sleep?.duration_hours != null) {
     const quality = health.sleep.quality || '';
-    metrics.push(`
-      <div class="health-metric">
-        <span class="health-metric-icon">${MOON_ICON}</span>
-        <span class="health-metric-value">${health.sleep.duration_hours}h</span>
-        <span class="health-metric-label">Sleep${quality ? ` (${quality})` : ''}</span>
-      </div>
-    `);
+    metrics.push(renderHealthMetric(MOON_ICON, `${health.sleep.duration_hours}h`, `Sleep${quality ? ` (${quality})` : ''}`));
   }
 
   if (health.resting_hr != null) {
-    metrics.push(`
-      <div class="health-metric">
-        <span class="health-metric-icon">${HEART_ICON}</span>
-        <span class="health-metric-value">${health.resting_hr}</span>
-        <span class="health-metric-label">Resting HR</span>
-      </div>
-    `);
+    metrics.push(renderHealthMetric(HEART_ICON, String(health.resting_hr), 'Resting HR'));
   }
 
   if (health.body_battery != null) {
-    metrics.push(`
-      <div class="health-metric">
-        <span class="health-metric-icon">${BATTERY_ICON}</span>
-        <span class="health-metric-value">${health.body_battery}</span>
-        <span class="health-metric-label">Body Battery</span>
-      </div>
-    `);
+    metrics.push(renderHealthMetric(BATTERY_ICON, String(health.body_battery), 'Body Battery'));
   }
 
   if (health.stress_avg != null) {
-    metrics.push(`
-      <div class="health-metric">
-        <span class="health-metric-icon">${STRESS_ICON}</span>
-        <span class="health-metric-value">${Math.round(health.stress_avg)}</span>
-        <span class="health-metric-label">Stress</span>
-      </div>
-    `);
+    metrics.push(renderHealthMetric(STRESS_ICON, String(Math.round(health.stress_avg)), 'Stress'));
   }
 
   if (health.steps_today != null) {
-    metrics.push(`
-      <div class="health-metric">
-        <span class="health-metric-icon">${STEPS_ICON}</span>
-        <span class="health-metric-value">${health.steps_today.toLocaleString()}</span>
-        <span class="health-metric-label">Steps</span>
-      </div>
-    `);
+    metrics.push(renderHealthMetric(STEPS_ICON, health.steps_today.toLocaleString(), 'Steps'));
   }
 
   if (metrics.length === 0) return '';
@@ -488,6 +378,16 @@ function renderHealthSummary(health: PlannerHealthSummary): string {
   return `
     <div class="health-summary-strip">
       ${metrics.join('')}
+    </div>
+  `;
+}
+
+function renderHealthMetric(icon: string, value: string, label: string): string {
+  return `
+    <div class="health-metric">
+      <span class="health-metric-icon">${icon}</span>
+      <span class="health-metric-value">${escapeHtml(value)}</span>
+      <span class="health-metric-label">${escapeHtml(label)}</span>
     </div>
   `;
 }
@@ -521,7 +421,7 @@ function renderTimeIndicator(now: Date): string {
   const timeStr = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
   return `
     <div class="time-indicator">
-      <span class="time-indicator-label">Now ${timeStr}</span>
+      <span class="time-indicator-label">Now · ${timeStr}</span>
       <div class="time-indicator-line"></div>
     </div>
   `;
@@ -547,33 +447,6 @@ function formatDate(dateStr: string): string {
 }
 
 /**
- * Get icon for day based on day name.
- */
-function getDayIcon(dayName: string): string {
-  if (dayName === 'Today') return SUN_ICON;
-  if (dayName === 'Tomorrow') return SUNRISE_ICON;
-  return CALENDAR_ICON;
-}
-
-/**
- * Format day label with day of week for Today/Tomorrow.
- * Examples: "Today (Monday)", "Tomorrow (Tuesday)", "Wednesday"
- */
-function formatDayLabel(dayName: string, dateStr: string): string {
-  const date = new Date(dateStr);
-  const dayOfWeek = date.toLocaleDateString(undefined, { weekday: 'long' });
-
-  const icon = getDayIcon(dayName);
-  const iconHtml = `<span class="dashboard-day-icon">${icon}</span>`;
-
-  if (dayName === 'Today' || dayName === 'Tomorrow') {
-    return `${iconHtml}${escapeHtml(`${dayName} (${dayOfWeek})`)}`;
-  }
-
-  return `${iconHtml}${escapeHtml(dayName)}`;
-}
-
-/**
  * Format event time range.
  */
 function formatEventTime(start?: string | null, end?: string | null): string {
@@ -595,7 +468,7 @@ function formatEventTime(start?: string | null, end?: string | null): string {
     hour12: false,
   });
 
-  return `${startTime}-${endTime}`;
+  return `${startTime}–${endTime}`;
 }
 
 /**
@@ -668,35 +541,6 @@ function setupCopyHandlers(container: HTMLElement): void {
       log.error('Failed to copy to clipboard', { error: err });
     }
   });
-}
-
-/**
- * Show loading state in the dashboard.
- */
-export function showDashboardLoading(): void {
-  const container = getElementById<HTMLDivElement>('planner-dashboard');
-  if (!container) return;
-
-  container.innerHTML = `
-    <div class="dashboard-loading">
-      <div class="loading-spinner"></div>
-      <p>Loading your schedule...</p>
-    </div>
-  `;
-}
-
-/**
- * Show error state in the dashboard.
- */
-export function showDashboardError(message: string): void {
-  const container = getElementById<HTMLDivElement>('planner-dashboard');
-  if (!container) return;
-
-  container.innerHTML = `
-    <div class="dashboard-error">
-      <strong>Error:</strong> ${escapeHtml(message)}
-    </div>
-  `;
 }
 
 /**
