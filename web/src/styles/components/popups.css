@@ -1098,6 +1098,89 @@
     padding: var(--space-4);
 }
 
+/* Settings popup is wider than generic info popups */
+#settings-popup .info-popup-content {
+    max-width: 640px;
+}
+
+/* Tabbed sections (desktop) */
+.settings-tabs {
+    display: flex;
+    gap: var(--space-1);
+    margin-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--space-2);
+}
+
+.settings-tab {
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: var(--space-1-5) var(--space-2-5);
+    font-size: var(--font-size-ui);
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-tab:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.settings-tab.active {
+    background-color: var(--accent-muted);
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.settings-section {
+    display: none;
+}
+
+.settings-section.active {
+    display: block;
+}
+
+/* Section titles only appear in the stacked mobile layout */
+.settings-section-title {
+    display: none;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: var(--space-4) 0 var(--space-2);
+}
+
+@media (max-width: 768px) {
+    .settings-tabs {
+        display: none;
+    }
+
+    .settings-section {
+        display: block;
+    }
+
+    .settings-section-title {
+        display: block;
+    }
+}
+
+/* Transient per-field save confirmation */
+.settings-saved-indicator {
+    align-self: flex-end;
+    font-size: var(--font-size-sm);
+    color: var(--success);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.settings-saved-indicator.visible {
+    opacity: 1;
+}
+
 .settings-field {
     display: flex;
     flex-direction: column;
@@ -1236,24 +1319,6 @@
 
 .settings-char-count.error {
     color: var(--error);
-}
-
-.settings-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--border);
-    background-color: var(--bg-tertiary);
-}
-
-.settings-save-btn {
-    min-width: 80px;
-}
-
-.settings-save-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
 }
 
 /* Settings divider between sections */

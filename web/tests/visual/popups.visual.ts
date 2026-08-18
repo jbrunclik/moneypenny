@@ -453,9 +453,6 @@ test.describe('Visual: Settings Popup', () => {
               </div>
             </div>
           </div>
-          <div class="info-popup-footer settings-footer">
-            <button class="btn btn-primary settings-save-btn">Save</button>
-          </div>
         </div>
       `;
       const existing = document.getElementById('settings-popup');
@@ -513,9 +510,6 @@ test.describe('Visual: Settings Popup', () => {
                 >
               </div>
             </div>
-          </div>
-          <div class="info-popup-footer settings-footer">
-            <button class="btn btn-primary settings-save-btn">Save</button>
           </div>
         </div>
       `;
@@ -575,9 +569,6 @@ test.describe('Visual: Settings Popup', () => {
                 >
               </div>
             </div>
-          </div>
-          <div class="info-popup-footer settings-footer">
-            <button class="btn btn-primary settings-save-btn">Save</button>
           </div>
         </div>
       `;

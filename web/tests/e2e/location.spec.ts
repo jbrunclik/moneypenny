@@ -17,6 +17,8 @@ test.describe('Location sharing', () => {
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
+    // Location lives in the Integrations tab
+    await page.locator('[data-settings-tab="integrations"]').click();
     const toggle = page.locator('#location-sharing-enabled');
     await expect(toggle).not.toBeChecked();
 

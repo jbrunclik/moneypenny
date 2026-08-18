@@ -46,14 +46,25 @@ test.describe('Settings', () => {
     const popup = page.locator('#settings-popup');
     await expect(popup).toBeVisible();
     await expect(popup.locator('h3')).toHaveText('Settings');
-    await expect(popup.locator('.settings-label').first()).toHaveText('Appearance');
-    await expect(popup.locator('.settings-label').nth(1)).toHaveText('Primary Language');
+    // Appearance tab (default)
+    const visibleLabels = popup.locator('.settings-section.active .settings-label');
+    await expect(visibleLabels.first()).toHaveText('Appearance');
+    await expect(visibleLabels.nth(1)).toHaveText('Primary Language');
     await expect(popup.locator('#preferred-language')).toHaveValue('');
-    await expect(popup.locator('.settings-label').nth(2)).toHaveText('Todoist Integration');
-    await expect(popup.locator('.settings-label').nth(3)).toHaveText('Google Calendar Integration');
-    await expect(popup.locator('.settings-label').nth(4)).toHaveText('Garmin Connect');
-    await expect(popup.locator('.settings-label').nth(5)).toHaveText('Notifications');
-    await expect(popup.locator('.settings-label').nth(6)).toHaveText('Daily Briefing');
+
+    // Integrations tab
+    await popup.locator('[data-settings-tab="integrations"]').click();
+    const integrationLabels = popup.locator('.settings-section.active .settings-label');
+    await expect(integrationLabels.nth(0)).toHaveText('Todoist Integration');
+    await expect(integrationLabels.nth(1)).toHaveText('Google Calendar Integration');
+    await expect(integrationLabels.nth(2)).toHaveText('Garmin Connect');
+    await expect(integrationLabels.nth(3)).toHaveText('Location');
+
+    // Notifications tab
+    await popup.locator('[data-settings-tab="notifications"]').click();
+    const notifLabels = popup.locator('.settings-section.active .settings-label');
+    await expect(notifLabels.nth(0)).toHaveText('Notifications');
+    await expect(notifLabels.nth(1)).toHaveText('Daily Briefing');
     await expect(popup.locator('#briefing-enabled')).not.toBeChecked();
     await expect(popup.locator('#briefing-time')).toHaveValue('08:00');
 
@@ -63,9 +74,13 @@ test.describe('Settings', () => {
     if (await whatsappLabel.count()) {
       await expect(whatsappLabel.first()).toBeVisible();
     }
-    await expect(popup.locator('.settings-label').last()).toHaveText('Custom Instructions');
+
+    // AI Instructions tab
+    await popup.locator('[data-settings-tab="instructions"]').click();
+    await expect(popup.locator('.settings-section.active .settings-label').first()).toHaveText(
+      'Custom Instructions'
+    );
     await expect(popup.locator('#custom-instructions')).toBeVisible();
-    await expect(popup.locator('.settings-save-btn')).toBeVisible();
   });
 
   test('closes settings popup when clicking close button', async ({ page }) => {
@@ -125,20 +140,22 @@ test.describe('Settings', () => {
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
-    // Enter custom instructions
+    // Enter custom instructions (in the AI Instructions tab); blur saves
+    await page.locator('[data-settings-tab="instructions"]').click();
     const textarea = page.locator('#custom-instructions');
     await textarea.fill('Respond in Czech.');
+    await textarea.blur();
+    await expect(
+      page.locator('.settings-saved-indicator[data-saved-for="custom-instructions"]')
+    ).toHaveClass(/visible/);
 
-    // Click save
-    await page.locator('.settings-save-btn').click();
-
-    // Wait for popup to close and toast to appear
+    // Close, re-open popup and verify instructions were saved
+    await page.locator('#settings-popup .info-popup-close').click();
     await expect(page.locator('#settings-popup')).toHaveClass(/hidden/);
-
-    // Re-open popup and verify instructions were saved
     await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
+    await page.locator('[data-settings-tab="instructions"]').click();
 
     await expect(page.locator('#custom-instructions')).toHaveValue('Respond in Czech.');
   });
@@ -152,7 +169,8 @@ test.describe('Settings', () => {
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
-    // Verify initial character count
+    // Verify initial character count (instructions tab)
+    await page.locator('[data-settings-tab="instructions"]').click();
     await expect(page.locator('.settings-char-count')).toHaveText('0/2000');
 
     // Enter some text
@@ -173,6 +191,7 @@ test.describe('Settings', () => {
     await page.waitForSelector('#settings-popup:not(.hidden)');
 
     // Enter text that's over 90% of limit
+    await page.locator('[data-settings-tab="instructions"]').click();
     const textarea = page.locator('#custom-instructions');
     await textarea.fill('x'.repeat(1850));
 
@@ -188,22 +207,31 @@ test.describe('Settings', () => {
     await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
+    await page.locator('[data-settings-tab="instructions"]').click();
     await page.locator('#custom-instructions').fill('Be concise.');
-    await page.locator('.settings-save-btn').click();
-    await expect(page.locator('#settings-popup')).toHaveClass(/hidden/);
+    await page.locator('#custom-instructions').blur();
+    await expect(
+      page.locator('.settings-saved-indicator[data-saved-for="custom-instructions"]')
+    ).toHaveClass(/visible/);
+    await page.locator('#settings-popup .info-popup-close').click();
 
     // Now clear them
     await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
+    await page.locator('[data-settings-tab="instructions"]').click();
     await page.locator('#custom-instructions').fill('');
-    await page.locator('.settings-save-btn').click();
-    await expect(page.locator('#settings-popup')).toHaveClass(/hidden/);
+    await page.locator('#custom-instructions').blur();
+    await expect(
+      page.locator('.settings-saved-indicator[data-saved-for="custom-instructions"]')
+    ).toHaveClass(/visible/);
+    await page.locator('#settings-popup .info-popup-close').click();
 
     // Verify they were cleared
     await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
     await page.waitForSelector('#settings-popup:not(.hidden)');
+    await page.locator('[data-settings-tab="instructions"]').click();
     await expect(page.locator('#custom-instructions')).toHaveValue('');
   });
 });

@@ -610,6 +610,15 @@ function renderContent(
 
   return `
     <div class="settings-body">
+      <div class="settings-tabs" role="tablist">
+        <button class="settings-tab active" role="tab" data-settings-tab="appearance">Appearance</button>
+        <button class="settings-tab" role="tab" data-settings-tab="integrations">Integrations</button>
+        <button class="settings-tab" role="tab" data-settings-tab="notifications">Notifications</button>
+        <button class="settings-tab" role="tab" data-settings-tab="instructions">AI Instructions</button>
+      </div>
+
+      <div class="settings-section active" data-settings-section="appearance">
+      <div class="settings-section-title">Appearance &amp; Language</div>
       <div class="settings-field">
         <label class="settings-label settings-label-with-icon">
           <span class="settings-label-icon">${MONITOR_ICON}</span>
@@ -637,9 +646,10 @@ function renderContent(
           ).join('')}
         </select>
       </div>
+      </div>
 
-      <div class="settings-divider"></div>
-
+      <div class="settings-section" data-settings-section="integrations">
+      <div class="settings-section-title">Integrations</div>
       <div class="settings-field" data-section="todoist">
         <label class="settings-label settings-label-with-icon">
           <span class="settings-label-icon">${CHECKLIST_ICON}</span>
@@ -670,6 +680,22 @@ function renderContent(
 
       <div class="settings-divider"></div>
 
+      <div class="settings-field" data-section="location">
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${MAP_PIN_ICON}</span>
+          Location
+        </label>
+        <p class="settings-helper">Used for "near me" suggestions and routes. Sent only with your messages, never stored. Applies to this device only.</p>
+        <label class="toggle-label">
+          <input type="checkbox" id="location-sharing-enabled" ${isLocationSharingEnabled() ? 'checked' : ''}>
+          <span class="toggle-switch"></span>
+          <span class="toggle-text">Share device location with the assistant</span>
+        </label>
+      </div>
+      </div>
+
+      <div class="settings-section" data-settings-section="notifications">
+      <div class="settings-section-title">Notifications</div>
       <div class="settings-field" data-section="push">
         <label class="settings-label settings-label-with-icon">
           <span class="settings-label-icon">${BELL_ICON}</span>
@@ -699,21 +725,6 @@ function renderContent(
         </div>
       </div>
 
-      <div class="settings-divider"></div>
-
-      <div class="settings-field" data-section="location">
-        <label class="settings-label settings-label-with-icon">
-          <span class="settings-label-icon">${MAP_PIN_ICON}</span>
-          Location
-        </label>
-        <p class="settings-helper">Used for "near me" suggestions and routes. Sent only with your messages, never stored. Applies to this device only.</p>
-        <label class="toggle-label">
-          <input type="checkbox" id="location-sharing-enabled" ${isLocationSharingEnabled() ? 'checked' : ''}>
-          <span class="toggle-switch"></span>
-          <span class="toggle-text">Share device location with the assistant</span>
-        </label>
-      </div>
-
       ${whatsappAvailable ? `
       <div class="settings-divider"></div>
 
@@ -732,11 +743,13 @@ function renderContent(
           value="${escapeHtml(currentWhatsappPhone)}"
         />
         <p class="settings-helper settings-helper-muted">Format: E.164 (e.g., +420123456789)</p>
+        <span class="settings-saved-indicator" data-saved-for="whatsapp-phone">Saved</span>
       </div>
       ` : ''}
+      </div>
 
-      <div class="settings-divider"></div>
-
+      <div class="settings-section" data-settings-section="instructions">
+      <div class="settings-section-title">AI Instructions</div>
       <div class="settings-field">
         <label class="settings-label settings-label-with-icon" for="custom-instructions">
           <span class="settings-label-icon">${EDIT_ICON}</span>
@@ -750,6 +763,8 @@ function renderContent(
           maxlength="${CHAR_LIMIT}"
         >${instructions}</textarea>
         <span class="settings-char-count ${charCountClass}">${charCount}/${CHAR_LIMIT}</span>
+        <span class="settings-saved-indicator" data-saved-for="custom-instructions">Saved</span>
+      </div>
       </div>
     </div>
   `;
@@ -773,56 +788,67 @@ function updateCharCount(textarea: HTMLTextAreaElement): void {
 }
 
 /**
- * Save settings
+ * Show the transient "Saved" indicator next to a field.
  */
-async function saveSettings(): Promise<void> {
-  const textarea = document.getElementById('custom-instructions') as HTMLTextAreaElement;
-  const phoneInput = document.getElementById('whatsapp-phone') as HTMLInputElement | null;
+function showSavedIndicator(fieldId: string): void {
+  const indicator = document.querySelector<HTMLElement>(
+    `.settings-saved-indicator[data-saved-for="${fieldId}"]`,
+  );
+  if (!indicator) return;
+  indicator.classList.add('visible');
+  window.setTimeout(() => indicator.classList.remove('visible'), 1500);
+}
+
+/**
+ * Save the custom instructions field (called on blur when changed).
+ */
+async function saveCustomInstructions(): Promise<void> {
+  const textarea = document.getElementById('custom-instructions') as HTMLTextAreaElement | null;
   if (!textarea) return;
-
   const instructions = textarea.value.trim();
-  // Only get phone value if WhatsApp is available and input exists
-  const whatsappPhone = whatsappAvailable && phoneInput ? phoneInput.value.trim() : currentWhatsappPhone;
-
-  // Check if any values changed
-  const instructionsChanged = instructions !== currentInstructions;
-  const phoneChanged = whatsappAvailable && whatsappPhone !== currentWhatsappPhone;
-
-  if (!instructionsChanged && !phoneChanged) {
-    closeSettingsPopup();
-    return;
-  }
-
-  log.debug('Saving settings', {
-    instructionsLength: instructions.length,
-    phoneChanged,
-  });
+  if (instructions === currentInstructions) return;
 
   try {
-    const updateData: { custom_instructions?: string; whatsapp_phone?: string } = {};
-
-    if (instructionsChanged) {
-      updateData.custom_instructions = instructions;
-    }
-    if (phoneChanged) {
-      updateData.whatsapp_phone = whatsappPhone;
-    }
-
-    await settings.update(updateData);
-
-    if (instructionsChanged) currentInstructions = instructions;
-    if (phoneChanged) currentWhatsappPhone = whatsappPhone;
-
-    closeSettingsPopup();
-    toast.success('Settings saved');
-    log.info('Settings saved', {
-      instructionsLength: instructions.length,
-      hasPhone: !!whatsappPhone,
-    });
+    await settings.update({ custom_instructions: instructions });
+    currentInstructions = instructions;
+    showSavedIndicator('custom-instructions');
+    log.info('Custom instructions saved', { length: instructions.length });
   } catch (error) {
-    log.error('Failed to save settings', { error });
-    toast.error('Failed to save settings');
+    log.error('Failed to save custom instructions', { error });
+    toast.error('Failed to save custom instructions');
   }
+}
+
+/**
+ * Save the WhatsApp phone field (called on blur when changed).
+ */
+async function saveWhatsappPhone(): Promise<void> {
+  const phoneInput = document.getElementById('whatsapp-phone') as HTMLInputElement | null;
+  if (!phoneInput || !whatsappAvailable) return;
+  const whatsappPhone = phoneInput.value.trim();
+  if (whatsappPhone === currentWhatsappPhone) return;
+
+  try {
+    await settings.update({ whatsapp_phone: whatsappPhone });
+    currentWhatsappPhone = whatsappPhone;
+    showSavedIndicator('whatsapp-phone');
+    log.info('WhatsApp phone saved', { hasPhone: !!whatsappPhone });
+  } catch (error) {
+    log.error('Failed to save WhatsApp phone', { error });
+    toast.error('Failed to save WhatsApp number');
+  }
+}
+
+/**
+ * Switch the active settings tab (desktop; mobile shows all sections).
+ */
+function switchSettingsTab(tabKey: string): void {
+  document.querySelectorAll<HTMLElement>('.settings-tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.settingsTab === tabKey);
+  });
+  document.querySelectorAll<HTMLElement>('.settings-section').forEach((section) => {
+    section.classList.toggle('active', section.dataset.settingsSection === tabKey);
+  });
 }
 
 /**
@@ -1344,9 +1370,6 @@ export async function openSettingsPopup(): Promise<void> {
       <div class="info-popup-body settings-body">
         <div class="settings-loading">Loading settings...</div>
       </div>
-      <div class="info-popup-footer settings-footer">
-        <button class="btn btn-primary settings-save-btn" disabled>Save</button>
-      </div>
     `;
 
     // Attach close handler
@@ -1446,20 +1469,24 @@ export async function openSettingsPopup(): Promise<void> {
       }
     }
 
-    // Enable save button and attach handlers
-    const saveBtn = popup.querySelector('.settings-save-btn') as HTMLButtonElement;
-    if (saveBtn) {
-      saveBtn.disabled = false;
-      saveBtn.addEventListener('click', saveSettings);
-    }
+    // Tab switching (desktop; mobile shows all sections stacked)
+    popup.querySelectorAll<HTMLElement>('.settings-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        if (tab.dataset.settingsTab) switchSettingsTab(tab.dataset.settingsTab);
+      });
+    });
 
-    // Attach textarea input handler for character count
+    // Text fields save on blur with an inline "Saved" indicator
     const textarea = document.getElementById('custom-instructions') as HTMLTextAreaElement;
     if (textarea) {
       textarea.addEventListener('input', () => updateCharCount(textarea));
+      textarea.addEventListener('blur', () => void saveCustomInstructions());
       // NOTE: no autofocus here - focusing this last field scrolled the
       // popup body to the bottom on open (regression test in settings.spec)
     }
+
+    const phoneInput = document.getElementById('whatsapp-phone') as HTMLInputElement | null;
+    phoneInput?.addEventListener('blur', () => void saveWhatsappPhone());
 
     // Attach color scheme click handlers
     const colorSchemeOptions = popup.querySelectorAll('.settings-color-scheme-option');
