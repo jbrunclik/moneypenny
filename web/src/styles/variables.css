@@ -22,9 +22,9 @@
     --color-neutral-950: #0f0f0f;   /* Darkest - primary bg */
     --color-neutral-900: #1a1a1a;   /* Secondary bg */
     --color-neutral-850: #1f1f1f;   /* Assistant message bg */
-    --color-neutral-800: #252525;   /* Tertiary bg */
-    --color-neutral-700: #303030;   /* Hover bg */
-    --color-neutral-600: #333333;   /* Borders */
+    --color-neutral-800: #242424;   /* Tertiary bg */
+    --color-neutral-700: #2a2a2a;   /* Hover bg */
+    --color-neutral-600: #383838;   /* Borders */
     --color-neutral-400: #666666;   /* Muted text */
     --color-neutral-300: #a0a0a0;   /* Secondary text */
     --color-neutral-100: #e5e5e5;   /* Primary text */
@@ -105,12 +105,15 @@
     --warning: var(--color-warning-500);
 
     /* Overlay/backdrop for modals and popups */
-    --overlay-bg: rgba(0, 0, 0, 0.8);
+    --overlay-bg: rgba(0, 0, 0, 0.55);
     --lightbox-bg: rgba(0, 0, 0, 0.95);
 
     /* Code blocks */
     --code-bg: var(--bg-tertiary);
     --code-inline-bg: rgba(0, 0, 0, 0.3);
+
+    /* Scrollbar */
+    --scrollbar-thumb: var(--bg-tertiary);
 
     /* ----------------------------------------
        Gradients
@@ -231,11 +234,11 @@
 [data-theme="light"] {
     /* Light theme neutral palette */
     --color-neutral-950: #ffffff;   /* Lightest - primary bg */
-    --color-neutral-900: #f9fafb;   /* Secondary bg */
+    --color-neutral-900: #f8f9fb;   /* Secondary bg */
     --color-neutral-850: #f3f4f6;   /* Assistant message bg */
-    --color-neutral-800: #e5e7eb;   /* Tertiary bg */
-    --color-neutral-700: #d1d5db;   /* Hover bg */
-    --color-neutral-600: #d1d5db;   /* Borders */
+    --color-neutral-800: #eceef1;   /* Tertiary bg */
+    --color-neutral-700: #eef0f4;   /* Hover bg */
+    --color-neutral-600: #e2e5ea;   /* Borders */
     --color-neutral-400: #6b7280;   /* Muted text */
     --color-neutral-300: #4b5563;   /* Secondary text */
     --color-neutral-100: #111827;   /* Primary text */
@@ -254,7 +257,10 @@
     --warning-text: var(--color-warning-700);
 
     /* Overlay/backdrop for light theme */
-    --overlay-bg: rgba(0, 0, 0, 0.5);
+    --overlay-bg: rgba(0, 0, 0, 0.45);
+
+    /* Scrollbar - needs explicit gray, tertiary bg is near-invisible on white */
+    --scrollbar-thumb: #d1d5db;
     --lightbox-bg: rgba(0, 0, 0, 0.9);
 
     /* Code blocks for light theme */

@@ -127,8 +127,8 @@
     align-items: center;
     justify-content: center;
     padding: var(--space-4);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .info-popup.hidden {
@@ -777,6 +777,8 @@
     justify-content: center;
     background-color: var(--overlay-bg);
     padding: var(--space-4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     animation: modal-overlay-enter 0.15s ease-out;
 }
 
