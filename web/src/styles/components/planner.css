@@ -163,11 +163,10 @@
 
 .dashboard-title-text {
     font-size: var(--font-size-2xl);
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--text-primary), var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-family: var(--font-family-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
 }
 
 .dashboard-actions {
@@ -183,11 +182,11 @@
     padding: var(--space-2) var(--space-3);
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-full);
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-ui);
     font-weight: 500;
 }
 
@@ -199,24 +198,18 @@
 
 .planner-refresh-btn:hover {
     background: var(--bg-hover);
-    border-color: var(--accent);
-    color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
 }
 
 .planner-reset-btn:hover {
     background: var(--bg-hover);
     border-color: var(--error);
     color: var(--error);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 .planner-refresh-btn:active,
 .planner-reset-btn:active {
-    transform: translateY(1px) scale(0.97);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transform: scale(0.97);
 }
 
 /* ----------------------------------------
@@ -295,10 +288,7 @@
 .dashboard-loading-text {
     font-size: var(--font-size-ui);
     font-weight: 500;
-    background: linear-gradient(135deg, var(--text-primary), var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text-primary);
 }
 
 /* ----------------------------------------
@@ -320,56 +310,30 @@
     margin: 0 0 var(--space-3) 0;
 }
 
-/* Overdue section - Softer, coral/pink tones */
+/* Overdue section - error-tinted hairline card */
 .dashboard-section.overdue {
     background: var(--color-error-900);
-    border: 2px solid rgba(248, 113, 113, 0.3);
-    border-left: 5px solid var(--color-error-400);
-    border-radius: var(--radius-lg);
-    padding: var(--space-5);
-    box-shadow: 0 2px 8px rgba(248, 113, 113, 0.15);
-    animation: soft-pulse 3s ease-in-out infinite;
-    position: relative;
-}
-
-.dashboard-section.overdue::before {
-    content: "⏰";
-    position: absolute;
-    right: var(--space-4);
-    top: var(--space-4);
-    font-size: var(--font-size-2xl);
-    opacity: 0.6;
-}
-
-@keyframes soft-pulse {
-    0%, 100% {
-        border-left-color: var(--color-error-400);
-        box-shadow: 0 2px 8px rgba(248, 113, 113, 0.15);
-    }
-    50% {
-        border-left-color: var(--color-error-500);
-        box-shadow: 0 2px 12px rgba(248, 113, 113, 0.25);
-    }
+    border: 1px solid var(--color-error-500);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
 }
 
 .dashboard-section.overdue h3 {
-    color: var(--color-error-600);
-    font-size: var(--font-size-base);
+    color: var(--color-error-400);
+    font-size: var(--font-size-ui);
 }
 
 /* Collapsible sections - Enhanced with animations */
 .dashboard-section details {
-    border: 2px solid var(--border);
-    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     background: var(--bg-primary);
     overflow: hidden;
-    transition: all var(--transition-normal);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: border-color var(--transition-fast);
 }
 
 .dashboard-section details[open] {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(87, 83, 232, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--border-light);
 }
 
 .dashboard-section details summary {
@@ -378,7 +342,7 @@
     font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--text-primary);
-    background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+    background: var(--bg-secondary);
     list-style: none;
     display: flex;
     align-items: center;
@@ -391,9 +355,7 @@
 }
 
 .dashboard-section details summary:hover {
-    background: linear-gradient(135deg, var(--bg-hover), var(--bg-tertiary));
-    color: var(--accent);
-    padding-left: var(--space-5);
+    background: var(--bg-hover);
 }
 
 .dashboard-section details summary::before {
@@ -459,9 +421,9 @@
     padding: var(--space-3);
     border-radius: var(--radius-md);
     font-size: var(--font-size-xl);
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-primary);
-    background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+    background: var(--bg-secondary);
     border: 1px solid var(--border);
 }
 
@@ -473,9 +435,8 @@
     height: 32px;
     padding: var(--space-2);
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), #8B5CF6);
-    color: white;
-    box-shadow: 0 2px 8px rgba(87, 83, 232, 0.3);
+    background: var(--accent-muted);
+    color: var(--accent);
 }
 
 .dashboard-day-icon svg {
@@ -501,9 +462,9 @@
     text-align: center;
     color: var(--text-muted);
     font-size: var(--font-size-sm);
-    background: var(--color-success-900);
-    border: 2px dashed rgba(52, 211, 153, 0.3);
-    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
+    padding: var(--space-2);
 }
 
 .dashboard-day-empty p {
@@ -529,20 +490,14 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--font-size-ui);
+    font-size: var(--font-size-xs);
     font-weight: 600;
-    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
     margin-bottom: var(--space-3);
     padding-bottom: var(--space-2);
-    border-bottom: 1px solid var(--border);
-}
-
-.dashboard-events-header {
-    color: var(--color-brand-600);
-}
-
-.dashboard-tasks-header {
-    color: var(--color-warning-500);
+    border-bottom: 1px solid var(--border-light);
 }
 
 .dashboard-section-icon {
@@ -567,11 +522,10 @@
     border-radius: var(--radius-lg);
     transition: background-color var(--transition-fast), border-color var(--transition-fast);
     position: relative;
-    background: var(--bg-primary);
+    background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-left-width: 2px; /* Default border for P1/no priority */
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    animation: fadeInItem 0.2s ease-out both;
+    animation: fadeInItem var(--duration-base) var(--ease-out) both;
 }
 
 @keyframes fadeInItem {
@@ -583,15 +537,8 @@
     }
 }
 
-/* Event cards - subtle blue tint */
-.planner-item-event {
-    background: linear-gradient(135deg, rgba(87, 83, 232, 0.08), var(--bg-primary));
-}
-
-/* Task cards - subtle orange tint */
-.planner-item-task {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), var(--bg-primary));
-}
+/* Event/task cards share the flat card treatment; the left border
+   carries the type/priority color */
 
 /* Tasks need flex-row layout for content area */
 .planner-item-task .planner-item-content {
@@ -612,7 +559,6 @@
 
 .planner-item:hover {
     background: var(--bg-hover);
-    border-color: var(--accent);
 }
 
 .planner-item-content {
@@ -624,18 +570,17 @@
 }
 
 .planner-item-time {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-2);
-    width: 100%;
-    padding: var(--space-1) var(--space-2);
+    width: fit-content;
+    padding: 2px var(--space-2);
     font-size: var(--font-size-xs);
-    font-weight: 700;
-    color: var(--color-brand-600);
-    background: rgba(87, 83, 232, 0.12);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(87, 83, 232, 0.3);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent-hover);
+    background: var(--accent-muted);
+    border-radius: var(--radius-full);
     position: relative;
 }
 
@@ -658,22 +603,14 @@
     text-decoration: none;
     transition: all var(--transition-fast);
     padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-md);
-    background: rgba(87, 83, 232, 0.08);
+    border-radius: var(--radius-full);
+    background: var(--accent-muted);
     margin-top: var(--space-2);
     width: fit-content;
-    border: 1px solid rgba(87, 83, 232, 0.2);
 }
 
 .planner-item-location:hover {
-    background: rgba(87, 83, 232, 0.15);
-    color: var(--color-brand-600);
-    border-color: rgba(87, 83, 232, 0.3);
-    transform: translateX(2px);
-}
-
-.planner-item-location:active {
-    transform: translateX(2px) scale(0.98);
+    color: var(--accent-hover);
 }
 
 .planner-item-location .location-icon {
@@ -718,9 +655,9 @@
 /* Copy button - Integrated into content */
 .planner-item-copy {
     opacity: 0;
-    background: rgba(87, 83, 232, 0.1);
+    background: var(--accent-muted);
     color: var(--accent);
-    border: 1px solid rgba(87, 83, 232, 0.2);
+    border: none;
     padding: var(--space-1);
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -792,25 +729,14 @@
 .planner-item[data-priority="3"] {
     border-left-width: 4px;
     border-left-color: var(--color-warning-500);
-    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.12);
 }
 
 /* P4 (Urgent) - 5px red border with glow */
 .planner-item[data-priority="4"] {
     border-left-width: 5px;
     border-left-color: var(--color-error-500);
-    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.2), -2px 0 8px rgba(239, 68, 68, 0.15);
-    animation: priority-glow 3s ease-in-out infinite;
 }
 
-@keyframes priority-glow {
-    0%, 100% {
-        box-shadow: 0 2px 12px rgba(239, 68, 68, 0.2), -2px 0 8px rgba(239, 68, 68, 0.15);
-    }
-    50% {
-        box-shadow: 0 2px 16px rgba(239, 68, 68, 0.3), -3px 0 12px rgba(239, 68, 68, 0.25);
-    }
-}
 
 /* All-day event style - Subtle purple badge */
 .planner-item.all-day .planner-item-time {
@@ -868,15 +794,14 @@
 .dashboard-empty-icon {
     width: 64px;
     height: 64px;
-    background: linear-gradient(135deg, var(--color-success-500), var(--color-success-400));
-    color: white;
+    background: var(--color-success-900);
+    color: var(--color-success-400);
     margin-bottom: var(--space-4);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: var(--space-3);
     border-radius: 50%;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     position: relative;
     z-index: 1;
     animation: checkmark-draw 1s ease-out;
@@ -934,7 +859,6 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
 }
 
 .dashboard-error::before {
@@ -946,10 +870,10 @@
     justify-content: center;
     width: 32px;
     height: 32px;
-    background: linear-gradient(135deg, var(--color-warning-400), var(--color-warning-500));
+    background: var(--color-warning-900);
     border-radius: 50%;
     border: 2px solid white;
-    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+
 }
 
 .dashboard-error strong {
