@@ -19,6 +19,8 @@
  *   import { selectConversation } from './core/conversation';
  */
 
+import '@fontsource-variable/inter';
+import '@fontsource-variable/bricolage-grotesque';
 import './styles/main.css';
 import 'highlight.js/styles/github-dark.css';
 // KaTeX CSS must load at the ENTRY point: imported from markdown.ts it lands

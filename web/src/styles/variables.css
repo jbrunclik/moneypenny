@@ -168,7 +168,8 @@
     /* ----------------------------------------
        Typography
        ---------------------------------------- */
-    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-family-display: 'Bricolage Grotesque Variable', var(--font-family);
     --font-family-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
 
     --font-size-2xs: 0.5rem;     /* 8px - dropdown arrows */
