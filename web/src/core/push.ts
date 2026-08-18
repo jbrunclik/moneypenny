@@ -13,6 +13,9 @@
 
 import { push as pushApi } from '../api/client';
 import { createLogger } from '../utils/logger';
+import { useStore } from '../state/store';
+import { getSyncManager } from '../sync/SyncManager';
+import { reloadCurrentConversation } from './sync-banner';
 
 const log = createLogger('push');
 
@@ -96,15 +99,13 @@ function setupWorkerMessageListener(): void {
       // notification to READ it, so reload the open conversation (which
       // also marks agent messages viewed) instead of waiting for a
       // "new messages" banner click
-      void import('../state/store').then(async ({ useStore }) => {
+      void (async () => {
         const currentConv = useStore.getState().currentConversation;
         if (currentConv) {
-          const { reloadCurrentConversation } = await import('./sync-banner');
           await reloadCurrentConversation(currentConv.id);
         }
-        const { getSyncManager } = await import('../sync/SyncManager');
         getSyncManager()?.incrementalSync();
-      });
+      })();
     }
   });
 }

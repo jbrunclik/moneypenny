@@ -17,6 +17,9 @@ import { checkScrollButtonVisibility } from '../ScrollToBottom';
 import { renderWelcomeMessageHtml } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON } from '../../utils/icons';
 import { useStore } from '../../state/store';
+import { agents } from '../../api/client';
+import { toast } from '../Toast';
+import { renderConversationsList } from '../Sidebar';
 import { createLogger } from '../../utils/logger';
 import { createMessageActions } from './actions';
 import { renderMessageFiles } from './attachments';
@@ -559,8 +562,7 @@ function addApprovalRequestMessageToUI(
  */
 async function handleApprovalAction(approvalId: string, approved: boolean, messageEl: HTMLElement): Promise<void> {
   // Import dynamically to avoid circular dependencies
-  const { agents } = await import('../../api/client');
-  const { toast } = await import('../Toast');
+
 
   // Disable buttons to prevent double-click
   const buttons = messageEl.querySelectorAll<HTMLButtonElement>('.approval-request-actions button');
@@ -589,7 +591,6 @@ async function handleApprovalAction(approvalId: string, approved: boolean, messa
     }
 
     // Refresh the sidebar to update badges
-    const { renderConversationsList } = await import('../Sidebar');
     renderConversationsList();
 
     // Unblock the message input since approval has been handled

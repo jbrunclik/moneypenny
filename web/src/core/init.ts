@@ -51,6 +51,8 @@ import {
   pushEmptyHash,
   isValidConversationId,
   parseHash,
+  getSportsProgramFromHash,
+  getLanguageProgramFromHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
 import { ATTACH_ICON, CHEVRON_DOWN_ICON, SLIDERS_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
@@ -69,6 +71,8 @@ import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
 import { loadDeepLinkedConversation, handleDeepLinkNavigation, deleteMessage } from './conversation';
 import { navigateToPlanner, leavePlannerView } from './planner';
+import { navigateToSports, navigateToSportsProgram } from './sports';
+import { navigateToLanguage, navigateToLanguageProgram } from './language';
 import { navigateToAgents, initAgents } from './agents';
 import { navigateToStorage } from './kv-store';
 import { showNewMessagesAvailableBanner } from './sync-banner';
@@ -290,23 +294,17 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     } else if (initialRoute?.isStorage) {
       await navigateToStorage();
     } else if (initialRoute?.isSports) {
-      const { getSportsProgramFromHash } = await import('../router/deeplink');
       const sportsProgramId = getSportsProgramFromHash();
       if (sportsProgramId) {
-        const { navigateToSportsProgram } = await import('./sports');
         await navigateToSportsProgram(sportsProgramId);
       } else {
-        const { navigateToSports } = await import('./sports');
         await navigateToSports();
       }
     } else if (initialRoute?.isLanguage) {
-      const { getLanguageProgramFromHash } = await import('../router/deeplink');
       const languageProgramId = getLanguageProgramFromHash();
       if (languageProgramId) {
-        const { navigateToLanguageProgram } = await import('./language');
         await navigateToLanguageProgram(languageProgramId);
       } else {
-        const { navigateToLanguage } = await import('./language');
         await navigateToLanguage();
       }
     } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {

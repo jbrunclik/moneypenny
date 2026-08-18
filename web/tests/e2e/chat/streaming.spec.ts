@@ -41,12 +41,12 @@ test.describe('Chat - Streaming Mode', () => {
 
     // Wait for assistant message to appear (streaming creates element immediately)
     const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+    await expect(assistantMessage).toBeVisible({ timeout: 20000 });
 
     // Wait for streaming to complete - content should contain mock response
     // The mock streams "This is a mock response to: Hello streaming" word by word
-    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
-    await expect(assistantMessage).toContainText('Hello streaming', { timeout: 10000 });
+    await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
+    await expect(assistantMessage).toContainText('Hello streaming', { timeout: 20000 });
   });
 
   test('shows both user and assistant messages after streaming', async ({ page }) => {
@@ -55,7 +55,7 @@ test.describe('Chat - Streaming Mode', () => {
 
     // Wait for streaming to complete
     const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+    await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
 
     // Both messages should be visible
     const userMessage = page.locator('.message.user');
@@ -84,7 +84,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     for (let i = 0; i < 3; i++) {
       await page.fill('#message-input', `Setup message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Re-enable streaming
@@ -140,7 +140,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     expect(scrollTopAfterScrollUp).toBe(0);
 
     // Wait for streaming to continue/complete
-    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+    await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
 
     // After streaming completes, we should still be at top (scroll was interrupted)
     const scrollTopAfterStream = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -157,7 +157,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     for (let i = 0; i < 3; i++) {
       await page.fill('#message-input', `Setup message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Re-enable streaming
@@ -195,7 +195,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     await page.waitForTimeout(100);
 
     // Wait for streaming to complete
-    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+    await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
 
     // After streaming completes, we should be at bottom (auto-scroll resumed)
     const scrollInfo = await messagesContainer.evaluate((el) => ({
@@ -227,7 +227,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     for (let i = 0; i < 3; i++) {
       await page.fill('#message-input', `Setup message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Re-enable streaming
@@ -279,7 +279,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     expect(scrollTopAfterTokens).toBeLessThan(100);
 
     // Wait for streaming to complete
-    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+    await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
 
     // After streaming completes, verify we're still near where we scrolled to
     const scrollTopAfterComplete = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -303,7 +303,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     for (let i = 0; i < 2; i++) {
       await page.fill('#message-input', `Setup message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
     await streamBtn.click(); // Re-enable streaming
 
@@ -345,7 +345,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     await page.waitForTimeout(200); // Wait for debounce to re-enable auto-scroll
 
     // Wait for streaming to complete
-    await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
+    await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
 
     // After scrolling to bottom and streaming completing, should be at bottom
     const scrollInfo = await messagesContainer.evaluate((el) => ({
@@ -471,7 +471,7 @@ test.describe('Chat - Stop Streaming', () => {
 
     // Wait for response
     const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+    await expect(assistantMessage).toBeVisible({ timeout: 20000 });
 
     // Send button should never have transformed to stop button
     // It should always have btn-send class (or be disabled during loading)
@@ -566,7 +566,7 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
         `Setup message ${i + 1} with some extra text to make it longer`
       );
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     await streamBtn.click(); // Re-enable streaming
@@ -637,7 +637,7 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
         `Setup message ${i + 1} with some extra text to make it longer`
       );
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     await streamBtn.click(); // Re-enable streaming

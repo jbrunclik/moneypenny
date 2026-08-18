@@ -825,6 +825,7 @@ async function handleDelete(): Promise<void> {
       // If we are currently in the agents view, we need to re-render it
       // The easiest way is to re-navigate to it
       if (useStore.getState().isAgentsView) {
+        // dynamic: breaks import cycle (agents.ts statically imports AgentEditor.ts)
         const { navigateToAgents } = await import('../core/agents');
         await navigateToAgents(true);
       }

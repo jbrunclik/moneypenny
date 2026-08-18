@@ -43,6 +43,8 @@ import {
   setConversationHash,
   clearConversationHash,
   pushEmptyHash,
+  getSportsProgramFromHash,
+  getLanguageProgramFromHash,
 } from '../router/deeplink';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
@@ -52,9 +54,12 @@ import { renderChatHeader } from '../components/ChatHeader';
 import { ARCHIVE_ICON, DELETE_ICON } from '../utils/icons';
 
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { leavePlannerView } from './planner';
+import { leavePlannerView, navigateToPlanner } from './planner';
+import { leaveStorageView, navigateToStorage } from './kv-store';
+import { leaveSportsView, navigateToSportsProgram, navigateToSports } from './sports';
+import { leaveLanguageView, navigateToLanguageProgram, navigateToLanguage } from './language';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
-import { leaveAgentsView } from './agents';
+import { leaveAgentsView, navigateToAgents, handleAgentEditById } from './agents';
 
 const log = createLogger('conversation');
 
@@ -221,13 +226,11 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
     renderAgentConversationHeader(
       agentName,
       () => {
-        import('./agents').then(({ navigateToAgents }) => navigateToAgents());
+        navigateToAgents();
       },
       () => {
         if (conv.agent_id) {
-          import('./agents').then(({ handleAgentEditById }) => {
-            handleAgentEditById(conv.agent_id!);
-          });
+          handleAgentEditById(conv.agent_id!);
         }
       },
     );
@@ -316,11 +319,9 @@ export async function selectConversation(convId: string): Promise<void> {
     leaveAgentsView(false);
   }
   if (store.isStorageView) {
-    const { leaveStorageView } = await import('./kv-store');
     leaveStorageView(false);
   }
   if (store.isSportsView) {
-    const { leaveSportsView } = await import('./sports');
     leaveSportsView();
   }
   store.setActiveView('chat');
@@ -448,14 +449,10 @@ export function createConversation(): void {
     leaveAgentsView(false);
   }
   if (store.isStorageView) {
-    import('./kv-store').then(({ leaveStorageView }) => {
-      leaveStorageView(false);
-    });
+    leaveStorageView(false);
   }
   if (store.isSportsView) {
-    import('./sports').then(({ leaveSportsView }) => {
-      leaveSportsView();
-    });
+    leaveSportsView();
   }
   store.setActiveView('chat');
 
@@ -847,59 +844,41 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
 
   // Handle planner navigation - import dynamically to avoid circular dependency
   if (isPlanner) {
-    import('./planner').then(({ navigateToPlanner }) => {
-      navigateToPlanner();
-    });
+    navigateToPlanner();
     return;
   }
 
   // Handle agents navigation - import dynamically to avoid circular dependency
   if (isAgents) {
-    import('./agents').then(({ navigateToAgents }) => {
-      navigateToAgents();
-    });
+    navigateToAgents();
     return;
   }
 
-  // Handle storage navigation - import dynamically to avoid circular dependency
+  // Handle storage navigation
   if (isStorage) {
-    import('./kv-store').then(({ navigateToStorage }) => {
-      navigateToStorage();
-    });
+    navigateToStorage();
     return;
   }
 
-  // Handle sports navigation - import dynamically to avoid circular dependency
+  // Handle sports navigation
   if (isSports) {
-    import('../router/deeplink').then(({ getSportsProgramFromHash }) => {
-      const sportsProgramId = getSportsProgramFromHash();
-      if (sportsProgramId) {
-        import('./sports').then(({ navigateToSportsProgram }) => {
-          navigateToSportsProgram(sportsProgramId);
-        });
-      } else {
-        import('./sports').then(({ navigateToSports }) => {
-          navigateToSports();
-        });
-      }
-    });
+    const sportsProgramId = getSportsProgramFromHash();
+    if (sportsProgramId) {
+      void navigateToSportsProgram(sportsProgramId);
+    } else {
+      void navigateToSports();
+    }
     return;
   }
 
-  // Handle language navigation - import dynamically to avoid circular dependency
+  // Handle language navigation
   if (isLanguage) {
-    import('../router/deeplink').then(({ getLanguageProgramFromHash }) => {
-      const languageProgramId = getLanguageProgramFromHash();
-      if (languageProgramId) {
-        import('./language').then(({ navigateToLanguageProgram }) => {
-          navigateToLanguageProgram(languageProgramId);
-        });
-      } else {
-        import('./language').then(({ navigateToLanguage }) => {
-          navigateToLanguage();
-        });
-      }
-    });
+    const languageProgramId = getLanguageProgramFromHash();
+    if (languageProgramId) {
+      void navigateToLanguageProgram(languageProgramId);
+    } else {
+      void navigateToLanguage();
+    }
     return;
   }
 
@@ -910,30 +889,22 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
 
   // If we were in agents view and navigating away, leave agents
   if (store.isAgentsView) {
-    import('./agents').then(({ leaveAgentsView }) => {
-      leaveAgentsView();
-    });
+    leaveAgentsView();
   }
 
   // If we were in storage view and navigating away, leave storage
   if (store.isStorageView) {
-    import('./kv-store').then(({ leaveStorageView }) => {
-      leaveStorageView();
-    });
+    leaveStorageView();
   }
 
   // If we were in sports view and navigating away, leave sports
   if (store.isSportsView) {
-    import('./sports').then(({ leaveSportsView }) => {
-      leaveSportsView();
-    });
+    leaveSportsView();
   }
 
   // If we were in language view and navigating away, leave language
   if (store.isLanguageView) {
-    import('./language').then(({ leaveLanguageView }) => {
-      leaveLanguageView();
-    });
+    leaveLanguageView();
   }
 
   if (!conversationId) {

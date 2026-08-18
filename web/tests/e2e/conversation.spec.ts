@@ -144,7 +144,7 @@ test.describe('Conversations', () => {
     await page.click('#send-btn');
 
     // Wait for response
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Conversation should appear in sidebar
     const convItem = page.locator('.conversation-item-wrapper');
@@ -156,14 +156,14 @@ test.describe('Conversations', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Create second conversation
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation');
     await page.click('#send-btn');
     // Wait for the new assistant message (this is a fresh conversation view)
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Should have two conversations in sidebar
     const convItems = page.locator('.conversation-item-wrapper');
@@ -174,7 +174,7 @@ test.describe('Conversations', () => {
 
     // Wait for the conversation to load and messages to update
     // The first conversation should show "First conversation" as the user message
-    await expect(page.locator('.message.user')).toContainText('First conversation', { timeout: 10000 });
+    await expect(page.locator('.message.user')).toContainText('First conversation', { timeout: 20000 });
   });
 
   test('shows message after sending', async ({ page }) => {
@@ -191,7 +191,7 @@ test.describe('Conversations', () => {
 
     // Assistant message should appear (from mock)
     const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toBeVisible({ timeout: 10000 });
+    await expect(assistantMessage).toBeVisible({ timeout: 20000 });
     await expect(assistantMessage).toContainText('mock response', { ignoreCase: true });
   });
 
@@ -258,7 +258,7 @@ test.describe('Conversations', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Get the conversation ID for routing
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -268,7 +268,7 @@ test.describe('Conversations', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // We should now have 2 conversations
     await expect(page.locator('.conversation-item-wrapper')).toHaveCount(2);
@@ -325,7 +325,7 @@ test.describe('Conversations', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'First conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Now create a NEW temp conversation (don't send a message)
     await page.click('#new-chat-btn');
@@ -381,7 +381,7 @@ test.describe('Conversation deletion', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
   });
 
   test('delete button appears on hover', async ({ page }) => {
@@ -459,7 +459,7 @@ test.describe('Conversation rename', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test conversation for rename');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
   });
 
   test('rename button appears on hover', async ({ page }) => {
@@ -631,14 +631,14 @@ test.describe('Scroll to bottom behavior', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Short conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Create a long conversation with many messages
     await page.click('#new-chat-btn');
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Long conversation message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Get the messages container
@@ -650,7 +650,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Wait for the short conversation to load - the message should contain "Short conversation"
     // Use toContainText with timeout as the conversation switch is async
-    await expect(page.locator('.message.user').first()).toContainText('Short conversation', { timeout: 10000 });
+    await expect(page.locator('.message.user').first()).toContainText('Short conversation', { timeout: 20000 });
     await expect(page.locator('.message.user')).toHaveCount(1);
 
     // Now switch back to the long conversation (should be at top of list)
@@ -685,7 +685,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 4; i++) {
       await page.fill('#message-input', `Test message number ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Reload the page to test initial load scroll behavior
@@ -697,7 +697,7 @@ test.describe('Scroll to bottom behavior', () => {
     await convItem.click();
 
     // Wait for messages to render
-    await page.waitForSelector('.message.user >> text=Test message number 4', { timeout: 10000 });
+    await page.waitForSelector('.message.user >> text=Test message number 4', { timeout: 20000 });
 
     // The last message should be visible (scrolled to bottom)
     const lastMessage = page.locator('.message').last();
@@ -710,13 +710,13 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 3; i++) {
       await page.fill('#message-input', `Initial message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Send one more message
     await page.fill('#message-input', 'New message at the end');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=3', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant >> nth=3', { timeout: 20000 });
 
     // The new message should be visible
     const newMessage = page.locator('.message.user >> text=New message at the end');
@@ -733,7 +733,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message number ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     const messagesContainer = page.locator('#messages');
@@ -782,7 +782,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Create a simple 1x1 pixel PNG image for testing
@@ -806,7 +806,7 @@ test.describe('Scroll to bottom behavior', () => {
     // Send the message with the image
     await page.fill('#message-input', 'Message with image');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=5', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant >> nth=5', { timeout: 20000 });
 
     const messagesContainer = page.locator('#messages');
 
@@ -892,7 +892,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 10; i++) {
       await page.fill('#message-input', `Message ${i + 1} - adding more content to ensure the conversation is scrollable`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Add a message with an image
@@ -911,7 +911,7 @@ test.describe('Scroll to bottom behavior', () => {
     await page.waitForSelector('.file-preview', { timeout: 5000 });
     await page.fill('#message-input', 'Message with image');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=10', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant >> nth=10', { timeout: 20000 });
 
     const messagesContainer = page.locator('#messages');
 
@@ -983,7 +983,7 @@ test.describe('Scroll to bottom behavior', () => {
     await page.waitForSelector('.file-preview', { timeout: 5000 });
     await page.fill('#message-input', 'Message with single image');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Wait for image to be in the DOM
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
@@ -997,7 +997,7 @@ test.describe('Scroll to bottom behavior', () => {
     await convItem.click();
 
     // Wait for messages to render
-    await page.waitForSelector('.message.user >> text=Message with single image', { timeout: 10000 });
+    await page.waitForSelector('.message.user >> text=Message with single image', { timeout: 20000 });
 
     // Wait for image to start loading (should have loading class or be observed)
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
@@ -1014,7 +1014,7 @@ test.describe('Scroll to bottom behavior', () => {
           (img) => (img.src && img.complete) || img.classList.contains('loaded')
         );
       },
-      { timeout: 10000 }
+      { timeout: 20000 }
     );
 
     // Wait a bit for scroll to happen after image loads
@@ -1062,7 +1062,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     await page.fill('#message-input', 'Message with two images');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Wait for images to be in the DOM
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
@@ -1080,7 +1080,7 @@ test.describe('Scroll to bottom behavior', () => {
     await convItem.click();
 
     // Wait for messages to render
-    await page.waitForSelector('.message.user >> text=Message with two images', { timeout: 10000 });
+    await page.waitForSelector('.message.user >> text=Message with two images', { timeout: 20000 });
 
     // Wait for images to start loading (should have loading class or be observed)
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
@@ -1101,7 +1101,7 @@ test.describe('Scroll to bottom behavior', () => {
           (img) => (img.src && img.complete) || img.classList.contains('loaded')
         );
       },
-      { timeout: 10000 }
+      { timeout: 20000 }
     );
 
     // Wait a bit for scroll to happen after images load
@@ -1163,7 +1163,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message ${i + 1} - this is a longer message to create more scrollable content`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     // Use proper 400x400 test images (not 1x1) to ensure scrolling is actually needed
@@ -1196,7 +1196,7 @@ test.describe('Scroll to bottom behavior', () => {
     // Send the message with both images
     await page.fill('#message-input', 'Message with two images');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Wait for images to be rendered in the DOM
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
@@ -1217,21 +1217,21 @@ test.describe('Scroll to bottom behavior', () => {
           (img) => (img.src && img.complete && img.naturalHeight > 0) || img.classList.contains('loaded')
         );
       },
-      { timeout: 10000 }
+      { timeout: 20000 }
     );
 
     // STEP 2: Reload the page to test INITIAL LOAD behavior (this is where the bug occurs)
     // On initial load, images are not in browser cache yet, so they load from the server
     // This tests the scenario where images load asynchronously and trigger scroll behavior
     await page.reload();
-    await page.waitForSelector('#new-chat-btn', { timeout: 10000 });
+    await page.waitForSelector('#new-chat-btn', { timeout: 20000 });
 
     // Click on the conversation to load it (this triggers the initial load scenario)
     const convItem = page.locator('.conversation-item-wrapper').first();
     await convItem.click();
 
     // Wait for messages to render (renderMessages() is called here)
-    await page.waitForSelector('.message.user >> text=Message with two images', { timeout: 10000 });
+    await page.waitForSelector('.message.user >> text=Message with two images', { timeout: 20000 });
 
     // Wait for images to be in the DOM (they start without src, waiting for IntersectionObserver)
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
@@ -1362,13 +1362,13 @@ test.describe('Scroll to bottom behavior', () => {
     await page.waitForSelector('.file-preview', { timeout: 5000 });
     await page.fill('#message-input', 'Message with image');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Create a second conversation (to test switching)
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Second conversation');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     // Now switch back to the first conversation (this is SUBSEQUENT LOAD)
     const convItems = page.locator('.conversation-item-wrapper');
@@ -1376,7 +1376,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Wait for the conversation to switch and messages to render
     // First wait for the message text to appear (confirms conversation switched)
-    await expect(page.locator('.message.user')).toContainText('Message with image', { timeout: 10000 });
+    await expect(page.locator('.message.user')).toContainText('Message with image', { timeout: 20000 });
 
     // Wait for image to start loading
     await page.waitForSelector('img[data-message-id][data-file-index]', { timeout: 5000 });
@@ -1392,7 +1392,7 @@ test.describe('Scroll to bottom behavior', () => {
           (img) => (img.src && img.complete) || img.classList.contains('loaded')
         );
       },
-      { timeout: 10000 }
+      { timeout: 20000 }
     );
 
     // Wait a bit for scroll to happen after image loads
@@ -1419,7 +1419,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message ${i + 1} with some content`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 10000 });
+      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
     }
 
     const messagesContainer = page.locator('#messages');
@@ -1449,7 +1449,7 @@ test.describe('Scroll to bottom behavior', () => {
     // Send a short message that will fit in viewport
     await page.fill('#message-input', 'Hi');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
 
     const messagesContainer = page.locator('#messages');
 

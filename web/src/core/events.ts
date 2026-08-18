@@ -6,6 +6,7 @@
 import { createLogger } from '../utils/logger';
 import { costs } from '../api/client';
 import { toast } from '../components/Toast';
+import { openCostHistory } from '../components/CostHistoryPopup';
 import { logout } from '../auth/google';
 import { toggleSidebar } from '../components/Sidebar';
 import { openSettingsPopup } from '../components/SettingsPopup';
@@ -61,7 +62,6 @@ export function setupEventListeners(): void {
       closeUserMenu();
       try {
         const history = await costs.getCostHistory(12);
-        const { openCostHistory } = await import('../components/CostHistoryPopup');
         openCostHistory(history);
       } catch (error) {
         log.error('Failed to load cost history', { error });

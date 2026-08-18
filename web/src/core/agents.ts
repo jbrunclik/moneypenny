@@ -277,6 +277,7 @@ async function handleAgentSelect(agentId: string): Promise<void> {
     const agent = await agents.get(agentId);
     if (agent.conversation_id) {
       // Import selectConversation to navigate to the agent's conversation
+      // dynamic: breaks import cycle (conversation.ts statically imports agents.ts)
       const { selectConversation } = await import('./conversation');
       await selectConversation(agent.conversation_id);
     } else {

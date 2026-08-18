@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from '../utils/logger';
+import { files } from '../api/client';
 import { toast } from '../components/Toast';
 import { CHECK_ICON } from '../utils/icons';
 
@@ -19,7 +20,6 @@ export async function openFileInNewTab(
   fileType: string
 ): Promise<void> {
   try {
-    const { files } = await import('../api/client');
     const blob = await files.fetchFile(messageId, fileIndex);
     const url = URL.createObjectURL(blob);
 
@@ -46,7 +46,6 @@ export async function openFileInNewTab(
  */
 export async function downloadFile(messageId: string, fileIndex: number, fileName: string): Promise<void> {
   try {
-    const { files } = await import('../api/client');
     const blob = await files.fetchFile(messageId, fileIndex);
     const url = URL.createObjectURL(blob);
 
