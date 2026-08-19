@@ -165,7 +165,13 @@ This builds `ai-chatbot-sandbox:local` with:
 - **No network**: Containers run with `--network none` (default in llm-sandbox)
 - **No host access**: Code cannot access files outside the container
 - **Resource limits**: Configurable timeout (30s default), memory limit (512MB default)
-- **Fresh container**: Each execution creates a new container, destroyed after use
+- **Per-conversation sessions**: Containers are reused across `execute_code`
+  calls within a conversation ([sandbox_sessions.py](../../src/agent/tools/sandbox_sessions.py):
+  LRU pool, `CODE_SANDBOX_MAX_SESSIONS` per worker, idle TTL
+  `CODE_SANDBOX_SESSION_TTL_SECONDS`). Files in `/work/` persist across calls;
+  variables do NOT (each run is a fresh Python process); `/output/` is cleared
+  at the start of every run. Without a conversation context the session is
+  ephemeral (created and destroyed per call, the old behavior).
 
 ### Configuration
 
@@ -175,6 +181,8 @@ CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local  # Custom Docker image (required)
 CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
 CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
 CODE_SANDBOX_CPU_LIMIT=1.0                   # CPU limit (1.0 = 1 core)
+CODE_SANDBOX_MAX_SESSIONS=2                  # Pooled sessions per worker
+CODE_SANDBOX_SESSION_TTL_SECONDS=900         # Idle session lifetime
 ```
 
 The sandbox container runs with **networking disabled** and the memory/CPU

@@ -10,7 +10,9 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agent.tools.context import get_conversation_context
 from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.sandbox_sessions import get_sandbox_pool
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -146,7 +148,8 @@ def _wrap_user_code(code: str) -> str:
     """Wrap user code with setup and file listing logic.
 
     The wrapped code:
-    1. Creates /output directory for file saving
+    1. Resets /output (sessions persist across calls - a previous run's files
+       must not be re-extracted) and ensures the persistent /work directory
     2. Runs the user code
     3. Lists files in /output for extraction
 
@@ -157,8 +160,10 @@ def _wrap_user_code(code: str) -> str:
         Wrapped code ready for sandbox execution
     """
     return f"""
-import os
+import os, shutil
+shutil.rmtree('/output', ignore_errors=True)
 os.makedirs('/output', exist_ok=True)
+os.makedirs('/work', exist_ok=True)
 
 # User code starts here
 {code}
@@ -412,6 +417,12 @@ def execute_code(code: str) -> str:
     - 30 second execution timeout
     - 512MB memory limit
 
+    ## Persistence Across Calls
+    - Files saved to /work/ persist across execute_code calls within this
+      conversation (e.g. save a dataset once, analyze it in later calls)
+    - Variables do NOT persist - each call is a fresh Python process
+    - /output/ is cleared at the start of every call
+
     ## Best Practices
     - Print results you want to show the user
     - For plots: use plt.savefig() or plt.show() - plots are captured automatically
@@ -474,19 +485,18 @@ def execute_code(code: str) -> str:
     )
 
     try:
-        from llm_sandbox import SandboxSession
-
         wrapped_code = _wrap_user_code(code)
 
-        # Create sandbox session with security constraints (S4): networking
-        # disabled + resource limits, shared with the availability probe -
-        # see _SANDBOX_SESSION_KWARGS for the rationale.
-        with SandboxSession(
-            image=Config.CODE_SANDBOX_IMAGE,
-            runtime_configs=_sandbox_runtime_configs(),
-            **_SANDBOX_SESSION_KWARGS,
-        ) as session:
-            logger.debug("Sandbox session created, executing code")
+        # Sessions come from the per-conversation pool (security constraints
+        # unchanged: networking disabled + resource limits, shared settings
+        # with the availability probe - see _SANDBOX_SESSION_KWARGS). Without
+        # a conversation context the session is ephemeral, as before.
+        conversation_id, _user_id = get_conversation_context()
+        with get_sandbox_pool().session(conversation_id) as session:
+            logger.debug(
+                "Sandbox session acquired",
+                extra={"pooled": conversation_id is not None},
+            )
 
             # Libraries are pre-installed in the image - run the code directly
             result = session.run(wrapped_code)

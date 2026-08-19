@@ -1004,6 +1004,48 @@ class TestGetMimeType:
 class TestExecuteCode:
     """Tests for execute_code tool."""
 
+    def test_wrapped_code_resets_output_and_creates_work(self) -> None:
+        """Each run starts with a clean /output; /work persists across runs."""
+        from src.agent.tools.code_execution import _wrap_user_code
+
+        wrapped = _wrap_user_code("print('hi')")
+        assert "shutil.rmtree('/output', ignore_errors=True)" in wrapped
+        assert "os.makedirs('/output', exist_ok=True)" in wrapped
+        assert "os.makedirs('/work', exist_ok=True)" in wrapped
+
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
+    def test_uses_pooled_session_for_conversation(
+        self, mock_get_pool: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """execute_code must request the pool session keyed by conversation id."""
+        from src.agent.tools.context import set_conversation_context
+
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stdout = "1\n"
+        mock_result.stderr = ""
+        mock_result.plots = []
+
+        fake_session = MagicMock()
+        fake_session.run.return_value = mock_result
+
+        pool = MagicMock()
+        pool.session.return_value.__enter__ = MagicMock(return_value=fake_session)
+        pool.session.return_value.__exit__ = MagicMock(return_value=False)
+        mock_get_pool.return_value = pool
+
+        set_conversation_context("conv-42", "user-1")
+        try:
+            result = execute_code.invoke({"code": "print(1)"})
+        finally:
+            set_conversation_context(None, None)
+
+        parsed = json.loads(result)
+        assert parsed["success"] is True
+        assert pool.session.call_args[0][0] == "conv-42"
+
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", False)
     def test_returns_error_when_disabled(self) -> None:
         """Should return error when sandbox is disabled."""
