@@ -299,6 +299,9 @@ class Config:
     FILE_CACHE_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY  # 1 year
 
     # Web search settings
+    # Brave Search API key (free tier: 2k queries/mo). Empty = DuckDuckGo
+    # fallback via ddgs. See src/utils/search_provider.py.
+    BRAVE_SEARCH_API_KEY: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
     WEB_SEARCH_DEFAULT_RESULTS = 3
     WEB_SEARCH_MAX_RESULTS = 10
     # Max queries per batched web_search call (the tool encourages the model

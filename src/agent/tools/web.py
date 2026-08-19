@@ -9,13 +9,12 @@ import html2text
 import httpx
 import trafilatura
 from bs4 import BeautifulSoup
-from ddgs import DDGS
-from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 from langchain_core.tools import tool
 
 from src.agent.tools.url_safety import check_host, validate_public_url
 from src.config import Config
 from src.utils.logging import get_logger
+from src.utils.search_provider import SearchProviderError, active_provider, search_web
 
 logger = get_logger(__name__)
 
@@ -338,42 +337,24 @@ _SEARCH_WARNING = (
 
 
 def _search_one(query: str, num_results: int) -> dict[str, Any]:
-    """Run a single DuckDuckGo search and return the result dict."""
-    logger.info("web_search called", extra={"query": query, "num_results": num_results})
+    """Run a single web search via the configured provider, as a result dict."""
+    logger.info(
+        "web_search called",
+        extra={"query": query, "num_results": num_results, "provider": active_provider()},
+    )
 
     try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=num_results))
+        search_results = search_web(query, num_results)
+    except SearchProviderError as e:
+        logger.warning("Search failed", extra={"query": query, "error": str(e)})
+        return {"query": query, "results": [], "error": str(e), "retriable": e.retriable}
 
-        if not results:
-            logger.warning("No search results found", extra={"query": query})
-            return {"query": query, "results": [], "error": "No results found"}
+    if not search_results:
+        logger.warning("No search results found", extra={"query": query})
+        return {"query": query, "results": [], "error": "No results found"}
 
-        search_results = [
-            {
-                "title": r.get("title", "No title"),
-                "url": r.get("href", ""),
-                "snippet": r.get("body", ""),
-            }
-            for r in results
-        ]
-
-        logger.info("Search completed", extra={"query": query, "result_count": len(search_results)})
-        return {"query": query, "results": search_results}
-
-    except RatelimitException:
-        logger.warning("Search rate limited", extra={"query": query})
-        return {
-            "query": query,
-            "results": [],
-            "error": "Search rate limited. Please try again later.",
-        }
-    except TimeoutException:
-        logger.warning("Search timeout", extra={"query": query})
-        return {"query": query, "results": [], "error": "Search timed out. Please try again."}
-    except DDGSException as e:
-        logger.error("Search error", extra={"query": query, "error": str(e)}, exc_info=True)
-        return {"query": query, "results": [], "error": str(e)}
+    logger.info("Search completed", extra={"query": query, "result_count": len(search_results)})
+    return {"query": query, "results": search_results}
 
 
 @tool

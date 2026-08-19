@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from ddgs.exceptions import DDGSException, RatelimitException
 from google.genai import errors as genai_errors
 
 # Import public API from the package
@@ -440,19 +439,15 @@ class TestFetchableBinaryTypes:
 
 
 class TestWebSearch:
-    """Tests for web_search tool."""
+    """Tests for web_search tool (provider mocked at the search_web seam)."""
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_returns_search_results(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_returns_search_results(self, mock_search: MagicMock) -> None:
         """Should return formatted search results."""
-        mock_ddgs = MagicMock()
-        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
-        mock_ddgs.__exit__ = MagicMock(return_value=False)
-        mock_ddgs.text.return_value = [
-            {"title": "Result 1", "href": "https://example.com/1", "body": "Snippet 1"},
-            {"title": "Result 2", "href": "https://example.com/2", "body": "Snippet 2"},
+        mock_search.return_value = [
+            {"title": "Result 1", "url": "https://example.com/1", "snippet": "Snippet 1"},
+            {"title": "Result 2", "url": "https://example.com/2", "snippet": "Snippet 2"},
         ]
-        mock_ddgs_class.return_value = mock_ddgs
 
         result = web_search.invoke({"query": "test query"})
         parsed = json.loads(result)
@@ -465,14 +460,10 @@ class TestWebSearch:
         # Results are flagged as untrusted external content
         assert "untrusted" in parsed["_warning"].lower()
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_handles_empty_results(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_handles_empty_results(self, mock_search: MagicMock) -> None:
         """Should handle no search results."""
-        mock_ddgs = MagicMock()
-        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
-        mock_ddgs.__exit__ = MagicMock(return_value=False)
-        mock_ddgs.text.return_value = []
-        mock_ddgs_class.return_value = mock_ddgs
+        mock_search.return_value = []
 
         result = web_search.invoke({"query": "obscure query xyz123"})
         parsed = json.loads(result)
@@ -480,100 +471,85 @@ class TestWebSearch:
         assert parsed["results"] == []
         assert "error" in parsed  # Should include error message
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_respects_num_results_limit(self, mock_ddgs_class: MagicMock) -> None:
-        """Should pass num_results to DDGS."""
-        mock_ddgs = MagicMock()
-        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
-        mock_ddgs.__exit__ = MagicMock(return_value=False)
-        mock_ddgs.text.return_value = []
-        mock_ddgs_class.return_value = mock_ddgs
+    @patch("src.agent.tools.web.search_web")
+    def test_respects_num_results_limit(self, mock_search: MagicMock) -> None:
+        """Should pass num_results through to the provider."""
+        mock_search.return_value = []
 
         web_search.invoke({"query": "test", "num_results": 3})
 
-        mock_ddgs.text.assert_called_once_with("test", max_results=3)
+        mock_search.assert_called_once_with("test", 3)
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_caps_num_results_at_10(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_caps_num_results_at_10(self, mock_search: MagicMock) -> None:
         """Should cap num_results at 10."""
-        mock_ddgs = MagicMock()
-        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
-        mock_ddgs.__exit__ = MagicMock(return_value=False)
-        mock_ddgs.text.return_value = []
-        mock_ddgs_class.return_value = mock_ddgs
+        mock_search.return_value = []
 
         web_search.invoke({"query": "test", "num_results": 100})
 
-        mock_ddgs.text.assert_called_once_with("test", max_results=10)
+        mock_search.assert_called_once_with("test", 10)
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_handles_search_exception(self, mock_ddgs_class: MagicMock) -> None:
-        """Should handle exceptions gracefully."""
-        mock_ddgs = MagicMock()
-        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
-        mock_ddgs.__exit__ = MagicMock(return_value=False)
-        mock_ddgs.text.side_effect = DDGSException("Search failed")
-        mock_ddgs_class.return_value = mock_ddgs
+    @patch("src.agent.tools.web.search_web")
+    def test_handles_search_exception(self, mock_search: MagicMock) -> None:
+        """Provider errors become an error result, with the retriable hint."""
+        from src.utils.search_provider import SearchProviderError
+
+        mock_search.side_effect = SearchProviderError("Search failed", retriable=False)
 
         result = web_search.invoke({"query": "test"})
         parsed = json.loads(result)
 
         assert "error" in parsed
         assert parsed["results"] == []
+        assert parsed["retriable"] is False
 
 
 class TestWebSearchBatching:
     """Tests for batched multi-query web_search calls."""
 
-    def _mock_ddgs(self, mock_ddgs_class: MagicMock) -> MagicMock:
-        mock_ddgs = MagicMock()
-        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
-        mock_ddgs.__exit__ = MagicMock(return_value=False)
-        mock_ddgs.text.return_value = [{"title": "T", "href": "https://example.com", "body": "S"}]
-        mock_ddgs_class.return_value = mock_ddgs
-        return mock_ddgs
+    _ONE_RESULT = [{"title": "T", "url": "https://example.com", "snippet": "S"}]
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_multiple_queries_in_one_call(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_multiple_queries_in_one_call(self, mock_search: MagicMock) -> None:
         """Batched queries run together and return a searches array."""
-        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
+        mock_search.return_value = self._ONE_RESULT
 
         result = web_search.invoke({"queries": ["alpha", "beta", "gamma"]})
         parsed = json.loads(result)
 
         assert [s["query"] for s in parsed["searches"]] == ["alpha", "beta", "gamma"]
         assert all(s["results"] for s in parsed["searches"])
-        assert mock_ddgs.text.call_count == 3
+        assert mock_search.call_count == 3
         assert "untrusted" in parsed["_warning"].lower()
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_query_and_queries_merge_with_dedup(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_query_and_queries_merge_with_dedup(self, mock_search: MagicMock) -> None:
         """query + queries merge, blanks and duplicates dropped, order kept."""
-        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
+        mock_search.return_value = self._ONE_RESULT
 
         result = web_search.invoke({"query": "alpha", "queries": ["alpha", " ", "beta"]})
         parsed = json.loads(result)
 
         assert [s["query"] for s in parsed["searches"]] == ["alpha", "beta"]
-        assert mock_ddgs.text.call_count == 2
+        assert mock_search.call_count == 2
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_batch_capped_with_note(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_batch_capped_with_note(self, mock_search: MagicMock) -> None:
         """Batches above the cap are truncated and the response says so."""
-        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
+        mock_search.return_value = self._ONE_RESULT
 
         queries = [f"q{i}" for i in range(Config.WEB_SEARCH_MAX_BATCH_QUERIES + 3)]
         result = web_search.invoke({"queries": queries})
         parsed = json.loads(result)
 
         assert len(parsed["searches"]) == Config.WEB_SEARCH_MAX_BATCH_QUERIES
-        assert mock_ddgs.text.call_count == Config.WEB_SEARCH_MAX_BATCH_QUERIES
+        assert mock_search.call_count == Config.WEB_SEARCH_MAX_BATCH_QUERIES
         assert "3 queries were dropped" in parsed["note"]
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_single_query_keeps_legacy_shape(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_single_query_keeps_legacy_shape(self, mock_search: MagicMock) -> None:
         """A one-element queries list returns the flat single-query shape."""
-        self._mock_ddgs(mock_ddgs_class)
+        mock_search.return_value = self._ONE_RESULT
 
         result = web_search.invoke({"queries": ["only one"]})
         parsed = json.loads(result)
@@ -581,13 +557,14 @@ class TestWebSearchBatching:
         assert parsed["query"] == "only one"
         assert "searches" not in parsed
 
-    @patch("src.agent.tools.web.DDGS")
-    def test_per_query_error_does_not_break_batch(self, mock_ddgs_class: MagicMock) -> None:
+    @patch("src.agent.tools.web.search_web")
+    def test_per_query_error_does_not_break_batch(self, mock_search: MagicMock) -> None:
         """A rate-limited query reports its error; the rest still succeed."""
-        mock_ddgs = self._mock_ddgs(mock_ddgs_class)
-        mock_ddgs.text.side_effect = [
-            [{"title": "T", "href": "https://example.com", "body": "S"}],
-            RatelimitException("slow down"),
+        from src.utils.search_provider import SearchProviderError
+
+        mock_search.side_effect = [
+            self._ONE_RESULT,
+            SearchProviderError("slow down", retriable=True),
         ]
 
         result = web_search.invoke({"queries": ["good", "limited"]})
