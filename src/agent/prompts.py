@@ -1158,6 +1158,13 @@ Do NOT update a memory unless there is genuinely new, substantive information to
 - Corrections and clarifications the user makes about themselves
 - Important life events and milestones
 
+## Finding Memories Not Shown
+When the memory bank is large, only core entries (protected, preferences, goals)
+and recently updated ones appear in your context; the list header says how many
+are shown. Use the search_memory tool to look up anything else BEFORE concluding
+you don't know something about the user. update/delete need the memory id -
+search_memory returns ids for entries not listed in your context.
+
 ## What NOT to Memorize
 - Temporary, one-off requests (e.g., "help me write this email")
 - Information they're asking about (external facts, not about them)
@@ -1200,16 +1207,40 @@ def get_user_memories_list_prompt(user_id: str) -> str:
     memory_count = len(memories)
     limit = Config.MEMORY_MAX_ENTRIES
 
-    prompt_parts = [f"## Current Memories ({memory_count}/{limit})"]
+    # Tiered injection: above the threshold, inject only core entries
+    # (protected + preference + goal) plus the most recently updated others.
+    # Everything is still reachable via the search_memory tool; this bounds
+    # the per-turn token cost of a bank approaching MEMORY_MAX_ENTRIES.
+    hidden_count = 0
+    shown = memories
+    if memory_count > Config.MEMORY_INJECT_FULL_MAX:
+        core_ids = {
+            mem.id for mem in memories if mem.protected or mem.category in ("preference", "goal")
+        }
+        rest = [mem for mem in memories if mem.id not in core_ids]
+        recent_ids = {
+            mem.id
+            for mem in sorted(rest, key=lambda m: m.updated_at, reverse=True)[
+                : Config.MEMORY_INJECT_RECENT_COUNT
+            ]
+        }
+        shown = [mem for mem in memories if mem.id in core_ids or mem.id in recent_ids]
+        hidden_count = memory_count - len(shown)
+
+    if hidden_count > 0:
+        header = f"## Current Memories ({len(shown)} of {memory_count}/{limit} shown)"
+    else:
+        header = f"## Current Memories ({memory_count}/{limit})"
+    prompt_parts = [header]
 
     if memory_count >= Config.MEMORY_WARNING_THRESHOLD:
         prompt_parts.append(
             "\n**WARNING**: Near memory limit! Consider consolidating or removing outdated memories."
         )
 
-    if memories:
+    if shown:
         memory_list = []
-        for mem in memories:
+        for mem in shown:
             entry: dict[str, str] = {
                 "id": mem.id,
                 "category": mem.category or "",
@@ -1225,6 +1256,13 @@ def get_user_memories_list_prompt(user_id: str) -> str:
         prompt_parts.append("\n```json\n" + _json.dumps(memory_list, indent=2) + "\n```")
     else:
         prompt_parts.append("\nNo memories stored yet.")
+
+    if hidden_count > 0:
+        prompt_parts.append(
+            f"\n{hidden_count} more memories exist but are not shown (only core and "
+            "recently updated entries are listed). Use search_memory to look for "
+            "facts not listed here BEFORE saying you don't know something about the user."
+        )
 
     return "\n".join(prompt_parts)
 

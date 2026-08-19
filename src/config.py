@@ -353,6 +353,17 @@ class Config:
     # bank, and the operation list can be influenced by fetched content, so a
     # mass delete/overwrite is refused rather than applied.
     MEMORY_MAX_OPS_PER_CALL: int = int(os.getenv("MEMORY_MAX_OPS_PER_CALL", "10"))
+    # Tiered injection: at or below MEMORY_INJECT_FULL_MAX every memory is
+    # injected into the prompt (small banks, current behavior). Above it, only
+    # core entries (protected + preference + goal) plus the most recently
+    # updated MEMORY_INJECT_RECENT_COUNT others are injected; the model reaches
+    # the rest via the search_memory tool. Bounds per-turn token cost as the
+    # bank approaches MEMORY_MAX_ENTRIES.
+    MEMORY_INJECT_FULL_MAX: int = int(os.getenv("MEMORY_INJECT_FULL_MAX", "60"))
+    MEMORY_INJECT_RECENT_COUNT: int = int(os.getenv("MEMORY_INJECT_RECENT_COUNT", "15"))
+    # Minimum cosine similarity for a semantic search_memory hit (keyword hits
+    # are unaffected). Below this, matches are noise.
+    MEMORY_SEARCH_MIN_SIMILARITY: float = float(os.getenv("MEMORY_SEARCH_MIN_SIMILARITY", "0.5"))
 
     # Episodic recall: searching/reading past conversations. These bound how much
     # history one tool call can pull into the context window.

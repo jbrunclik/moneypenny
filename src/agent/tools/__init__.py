@@ -30,7 +30,7 @@ from src.agent.tools.garmin import garmin_connect, is_garmin_available
 from src.agent.tools.garmin_workout import garmin_workout
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
-from src.agent.tools.memory import manage_memory
+from src.agent.tools.memory import manage_memory, search_memory
 from src.agent.tools.metadata import (
     EXTRACT_ONLY_TOOL_NAMES,
     cite_sources,
@@ -69,6 +69,7 @@ _INTEGRATION_TOOLS = {"todoist", "google_calendar", "garmin_connect", "garmin_wo
 # is not allowed to make.
 _ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
     "manage_memory",
+    "search_memory",
     # Write persistent user data (saved places) - not allowed from anonymous chats
     "save_place",
     "delete_place",
@@ -94,6 +95,7 @@ def get_available_tools() -> list[Any]:
         cite_sources,
         set_conversation_title,
         manage_memory,
+        search_memory,
         search_conversations,
         read_conversation,
     ]
@@ -274,6 +276,7 @@ _TOOL_MAP: dict[str, Any] = {
     "whatsapp": whatsapp,
     "cite_sources": cite_sources,
     "manage_memory": manage_memory,
+    "search_memory": search_memory,
     "search_conversations": search_conversations,
     "read_conversation": read_conversation,
     "kv_store": kv_store,
@@ -398,6 +401,7 @@ __all__ = [
     "cite_sources",
     "set_conversation_title",
     "manage_memory",
+    "search_memory",
     "search_conversations",
     "read_conversation",
     "kv_store",

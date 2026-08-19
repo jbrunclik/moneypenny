@@ -266,3 +266,50 @@ class TestMissingContext:
         result = _invoke([{"action": "add", "content": "Orphan", "category": "fact"}])
 
         assert "no user context" in result.lower()
+
+
+class TestSearchMemory:
+    """search_memory finds entries not shown in the tiered injection."""
+
+    def test_substring_match_returns_entries(self, memory_context) -> None:
+        from src.agent.tools.memory import search_memory
+
+        test_database, test_user = memory_context
+        kept = test_database.add_memory(test_user.id, "Allergic to shellfish", "fact")
+        test_database.add_memory(test_user.id, "Prefers dark mode", "preference")
+
+        result = str(search_memory.invoke({"query": "shellfish"}))
+
+        assert kept.id in result
+        assert "Allergic to shellfish" in result
+        assert "dark mode" not in result
+
+    def test_no_match_returns_guidance(self, memory_context) -> None:
+        from src.agent.tools.memory import search_memory
+
+        result = str(search_memory.invoke({"query": "nonexistent-topic-xyz"}))
+
+        assert "No stored memories matched" in result
+
+    def test_semantic_match_via_embeddings(self, memory_context, monkeypatch) -> None:
+        import src.agent.tools.memory as memory_module
+        from src.agent.tools.memory import search_memory
+        from src.utils.embeddings import pack_vector
+
+        test_database, test_user = memory_context
+        memory = test_database.add_memory(test_user.id, "Has a golden retriever named Max", "fact")
+        test_database.upsert_embedding(
+            test_user.id, "memory", memory.id, "test-model", 2, pack_vector([1.0, 0.0])
+        )
+        monkeypatch.setattr(memory_module, "embed_text", lambda text: [1.0, 0.1])
+
+        result = str(search_memory.invoke({"query": "what pet do I own"}))
+
+        assert "golden retriever" in result
+
+    def test_empty_query_rejected(self, memory_context) -> None:
+        from src.agent.tools.memory import search_memory
+
+        result = str(search_memory.invoke({"query": "  "}))
+
+        assert "Error" in result

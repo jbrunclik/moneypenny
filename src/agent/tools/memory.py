@@ -25,9 +25,12 @@ from src.agent.tools.context import get_conversation_context
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.db.models import db
+from src.utils.embeddings import embed_text, top_k_similar
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+_SEARCH_MEMORY_MAX_RESULTS = 10
 
 VALID_ACTIONS = frozenset({"add", "update", "delete"})
 VALID_CATEGORIES = frozenset({"preference", "fact", "context", "goal"})
@@ -226,3 +229,69 @@ def manage_memory(operations: list[dict[str, Any]]) -> str:
             results.append(_reject(str(action), f"storage error: {e}"))
 
     return "\n".join(results)
+
+
+@tool
+def search_memory(query: str) -> str:
+    """Search the user's stored memories for facts not shown in your context.
+
+    When the memory list in your context says more memories exist than are
+    shown, use this BEFORE concluding you don't know something about the user.
+    Matches both keywords and meaning.
+
+    Args:
+        query: What to look for (topic, name, keyword, or a short question).
+
+    Returns:
+        Matching memories with their ids, categories and content.
+    """
+    _, user_id = get_conversation_context()
+    if not user_id:
+        return "Error: no user context available, cannot search memories."
+
+    query = (query or "").strip()
+    if not query:
+        return "Error: 'query' is required."
+
+    memories = db.list_memories(user_id)
+    by_id = {mem.id: mem for mem in memories}
+
+    # Keyword pass: case-insensitive substring over content and category
+    needle = query.casefold()
+    matched_ids = [
+        mem.id
+        for mem in memories
+        if needle in mem.content.casefold() or needle in (mem.category or "").casefold()
+    ]
+
+    # Semantic pass: cosine over stored embeddings, merged after keyword hits
+    if Config.EMBEDDINGS_ENABLED and len(matched_ids) < _SEARCH_MEMORY_MAX_RESULTS:
+        query_vec = embed_text(query)
+        if query_vec is not None:
+            candidates = [
+                (ref_id, vector)
+                for ref_id, _dim, vector in db.get_embeddings(user_id, "memory")
+                if ref_id in by_id
+            ]
+            for ref_id, score in top_k_similar(query_vec, candidates, _SEARCH_MEMORY_MAX_RESULTS):
+                if score >= Config.MEMORY_SEARCH_MIN_SIMILARITY and ref_id not in matched_ids:
+                    matched_ids.append(ref_id)
+
+    matched_ids = matched_ids[:_SEARCH_MEMORY_MAX_RESULTS]
+    logger.info(
+        "Memory search via tool",
+        extra={"user_id": user_id, "query": query, "results": len(matched_ids)},
+    )
+
+    if not matched_ids:
+        return (
+            f"No stored memories matched '{query}'. Try a different keyword or phrasing - "
+            "if it still finds nothing, the user has not told you this."
+        )
+
+    lines = [f"Found {len(matched_ids)} matching memor{'y' if len(matched_ids) == 1 else 'ies'}:"]
+    for memory_id in matched_ids:
+        mem = by_id[memory_id]
+        category = mem.category or "uncategorized"
+        lines.append(f"- id={mem.id} [{category}] {mem.content}")
+    return "\n".join(lines)

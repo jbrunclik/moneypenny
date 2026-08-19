@@ -81,6 +81,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Updated memory",
         "icon": "brain",
     },
+    "search_memory": {
+        "label": "Searching memory",
+        "label_past": "Searched memory",
+        "icon": "brain",
+    },
     "search_conversations": {
         "label": "Searching past conversations",
         "label_past": "Searched past conversations",
