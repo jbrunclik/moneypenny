@@ -1,4 +1,4 @@
-"""Unit tests for graph improvements: self-correction, planning, and checkpointing."""
+"""Unit tests for graph behavior: self-correction, routing, and stateless compilation."""
 
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -16,7 +16,6 @@ from src.agent.graph import (
     create_tool_node,
     get_graph_config,
     should_continue,
-    should_plan,
 )
 from src.config import Config
 
@@ -35,7 +34,6 @@ def _tool_call_state(tool_calls: list[dict[str, Any]]) -> AgentState:
     return {
         "messages": [AIMessage(content="", tool_calls=tool_calls)],
         "tool_retries": 0,
-        "plan": "",
     }
 
 
@@ -52,7 +50,6 @@ class TestShouldContinue:
                 AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}])
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "tools"
 
@@ -61,7 +58,6 @@ class TestShouldContinue:
         state: AgentState = {
             "messages": [AIMessage(content="Hello!")],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "end"
 
@@ -77,7 +73,6 @@ class TestShouldContinue:
                 )
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "end"
 
@@ -98,7 +93,6 @@ class TestShouldContinue:
                 )
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "tools"
 
@@ -118,7 +112,6 @@ class TestShouldContinue:
                 )
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "tools"
 
@@ -138,7 +131,6 @@ class TestShouldContinue:
                 )
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "tools"
 
@@ -154,7 +146,6 @@ class TestShouldContinue:
                 )
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "end"
 
@@ -171,7 +162,6 @@ class TestShouldContinue:
                 )
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         assert should_continue(state) == "tools"
 
@@ -192,7 +182,6 @@ class TestCheckToolResults:
                 error_msg,
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         result = check_tool_results(state)
         assert result["tool_retries"] == 1
@@ -213,7 +202,6 @@ class TestCheckToolResults:
                 ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         result = check_tool_results(state)
         assert result["tool_retries"] == 1
@@ -236,7 +224,6 @@ class TestCheckToolResults:
                 ),
             ],
             "tool_retries": 1,
-            "plan": "",
         }
         result = check_tool_results(state)
         assert result["tool_retries"] == 0
@@ -250,7 +237,6 @@ class TestCheckToolResults:
                 ToolMessage(content='{"results": [{"title": "ok"}]}', tool_call_id="1"),
             ],
             "tool_retries": 1,
-            "plan": "",
         }
         result = check_tool_results(state)
         assert result["tool_retries"] == 0
@@ -264,7 +250,6 @@ class TestCheckToolResults:
                 ToolMessage(content="Search results: ...", tool_call_id="1"),
             ],
             "tool_retries": 2,
-            "plan": "",
         }
         result = check_tool_results(state)
         assert result["tool_retries"] == 0
@@ -278,7 +263,6 @@ class TestCheckToolResults:
                 ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 2,  # Already at max (default is 2)
-            "plan": "",
         }
         result = check_tool_results(state)
         assert result["tool_retries"] == 3
@@ -298,7 +282,6 @@ class TestCheckToolResults:
                 ToolMessage(content="Success: found results", tool_call_id="2"),
             ],
             "tool_retries": 1,
-            "plan": "",
         }
         result = check_tool_results(state)
         assert result["tool_retries"] == 0  # Reset, because latest tools succeeded
@@ -315,7 +298,6 @@ class TestToolRoundCap:
             ],
             "tool_retries": 0,
             "tool_rounds": tool_rounds,
-            "plan": "",
         }
 
     def test_increments_rounds_on_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -345,7 +327,6 @@ class TestToolRoundCap:
             ],
             "tool_retries": 0,
             "tool_rounds": 2,  # +1 hits cap
-            "plan": "",
         }
         result = check_tool_results(state)
         assert "stop calling tools" in result["messages"][0].content.lower()
@@ -365,146 +346,6 @@ class TestToolRoundCap:
         guidance = result["messages"][0]
         assert isinstance(guidance, HumanMessage)
         assert "[SYSTEM GUIDANCE]" in guidance.content
-
-
-# ============ should_plan Tests ============
-
-
-class TestShouldPlan:
-    """Tests for should_plan routing."""
-
-    def test_short_message_skips(self) -> None:
-        """Short messages should skip planning (fast path, no LLM call)."""
-        state: AgentState = {
-            "messages": [HumanMessage(content="Hello there!")],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "chat"
-
-    @patch("src.agent.graph.Config")
-    def test_disabled_planning_skips(self, mock_config: MagicMock) -> None:
-        """When planning is disabled, should always skip."""
-        mock_config.AGENT_PLANNING_ENABLED = False
-        mock_config.AGENT_PLANNING_MIN_LENGTH = 200
-        state: AgentState = {
-            "messages": [HumanMessage(content="x" * 500)],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "chat"
-
-    def test_existing_plan_skips(self) -> None:
-        """If plan already exists, should skip planning."""
-        state: AgentState = {
-            "messages": [HumanMessage(content="x" * 500)],
-            "tool_retries": 0,
-            "plan": "Existing plan",
-        }
-        assert should_plan(state) == "chat"
-
-    @patch.object(Config, "AGENT_PLANNING_ENABLED", True)
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
-    def test_llm_returns_plan(self, mock_llm_class: MagicMock) -> None:
-        """When LLM classifier returns PLAN, should route to plan."""
-        mock_response = MagicMock()
-        mock_response.content = "PLAN"
-        mock_instance = MagicMock()
-        mock_instance.invoke.return_value = mock_response
-        mock_llm_class.return_value = mock_instance
-
-        complex_msg = "x" * 500  # Over min length threshold
-        state: AgentState = {
-            "messages": [HumanMessage(content=complex_msg)],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "plan"
-
-    @patch.object(Config, "AGENT_PLANNING_ENABLED", True)
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
-    def test_llm_returns_chat(self, mock_llm_class: MagicMock) -> None:
-        """When LLM classifier returns CHAT, should route to chat."""
-        mock_response = MagicMock()
-        mock_response.content = "CHAT"
-        mock_instance = MagicMock()
-        mock_instance.invoke.return_value = mock_response
-        mock_llm_class.return_value = mock_instance
-
-        long_msg = "x" * 500  # Over min length threshold
-        state: AgentState = {
-            "messages": [HumanMessage(content=long_msg)],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "chat"
-
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
-    def test_llm_error_falls_back_to_chat(self, mock_llm_class: MagicMock) -> None:
-        """On LLM error, should fall back to chat."""
-        mock_instance = MagicMock()
-        mock_instance.invoke.side_effect = RuntimeError("API error")
-        mock_llm_class.return_value = mock_instance
-
-        long_msg = "x" * 500
-        state: AgentState = {
-            "messages": [HumanMessage(content=long_msg)],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "chat"
-
-    def test_no_human_message_skips(self) -> None:
-        """No HumanMessage in state should skip planning."""
-        state: AgentState = {
-            "messages": [SystemMessage(content="System prompt")],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "chat"
-
-    @patch.object(Config, "AGENT_PLANNING_ENABLED", True)
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
-    @patch("src.agent.graph.logger")
-    def test_emits_classifier_telemetry(
-        self, mock_logger: MagicMock, mock_llm_class: MagicMock
-    ) -> None:
-        """Every classifier invocation logs decision + latency for observability."""
-        mock_response = MagicMock()
-        mock_response.content = "CHAT"
-        mock_instance = MagicMock()
-        mock_instance.invoke.return_value = mock_response
-        mock_llm_class.return_value = mock_instance
-
-        state: AgentState = {
-            "messages": [HumanMessage(content="x" * 500)],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "chat"
-
-        telemetry = [
-            call
-            for call in mock_logger.info.call_args_list
-            if call.args and "planning_classifier" in call.args[0]
-        ]
-        assert telemetry, "expected a planning_classifier telemetry log"
-        extra = telemetry[0].kwargs["extra"]
-        assert extra["result"] == "chat"
-        assert extra["content_length"] == 500
-        assert "latency_ms" in extra
-
-    @patch("src.agent.graph.Config")
-    def test_message_below_threshold_skips_classifier(self, mock_config: MagicMock) -> None:
-        """A message under MIN_LENGTH skips the classifier entirely (no LLM call)."""
-        mock_config.AGENT_PLANNING_ENABLED = True
-        mock_config.AGENT_PLANNING_MIN_LENGTH = 400
-        state: AgentState = {
-            "messages": [HumanMessage(content="x" * 300)],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        assert should_plan(state) == "chat"
 
 
 # ============ Compilation Tests ============
@@ -544,7 +385,7 @@ class TestGraphStructure:
         graph = create_chat_graph("test-model")
         node_names = set(graph.nodes.keys())
         assert "check_tool_results" in node_names
-        assert "plan" in node_names
+        assert "plan" not in node_names
         assert "chat" in node_names
         assert "tools" in node_names
 
@@ -559,146 +400,19 @@ class TestGraphStructure:
         assert "check_tool_results" not in node_names
         assert "plan" not in node_names
 
-
-# ============ chat_node Plan Injection Tests ============
-
-
-class TestChatNodePlanInjection:
-    """Tests for plan injection in chat_node."""
-
-    @patch("src.agent.graph.with_retry")
-    def test_injects_plan_into_messages(self, mock_retry: MagicMock) -> None:
-        """When plan exists, chat_node should inject it as SystemMessage."""
-        from src.agent.graph import chat_node
-
-        mock_model = MagicMock()
-        mock_response = AIMessage(content="Response with plan context")
-        mock_retry.return_value = lambda msgs: mock_response
-
-        state: AgentState = {
-            "messages": [
-                SystemMessage(content="System prompt"),
-                HumanMessage(content="Do complex task"),
-            ],
-            "tool_retries": 0,
-            "plan": "1. Search web\n2. Analyze results",
-        }
-
-        result = chat_node(state, mock_model)
-
-        # Plan should be cleared after use
-        assert result.get("plan") == ""
-        # Response should be in messages
-        assert mock_response in result["messages"]
-
-        assert result["messages"] == [mock_response]
-
-    @patch("src.agent.graph.with_retry")
-    def test_no_injection_without_plan(self, mock_retry: MagicMock) -> None:
-        """Without plan, chat_node should not modify messages."""
-        from src.agent.graph import chat_node
-
-        mock_model = MagicMock()
-        mock_response = AIMessage(content="Normal response")
-        mock_retry.return_value = lambda msgs: mock_response
-
-        state: AgentState = {
-            "messages": [
-                SystemMessage(content="System prompt"),
-                HumanMessage(content="Simple question"),
-            ],
-            "tool_retries": 0,
-            "plan": "",
-        }
-
-        result = chat_node(state, mock_model)
-
-        # No plan key in result (plan was empty)
-        assert "plan" not in result
-        assert result["messages"] == [mock_response]
-
-    @patch("src.agent.graph.with_retry")
-    def test_cached_mode_uses_human_message_for_plan(self, mock_retry: MagicMock) -> None:
-        """When use_cache=True, plan should be injected as HumanMessage."""
-        from src.agent.graph import chat_node
-
-        mock_model = MagicMock()
-        mock_response = AIMessage(content="Cached response")
-        # Capture the messages passed to invoke
-        invoked_messages: list[list] = []
-
-        def capture_invoke(msgs: list) -> AIMessage:
-            invoked_messages.append(msgs)
-            return mock_response
-
-        mock_retry.return_value = capture_invoke
-
-        state: AgentState = {
-            "messages": [
-                HumanMessage(content="[CONTEXT]\ndate info\n[/CONTEXT]"),
-                HumanMessage(content="Do complex task"),
-            ],
-            "tool_retries": 0,
-            "plan": "1. Search web\n2. Analyze results",
-        }
-
-        result = chat_node(state, mock_model, use_cache=True)
-
-        # Plan should be cleared
-        assert result.get("plan") == ""
-        # The injected plan message should be a HumanMessage with SYSTEM GUIDANCE
-        # markers, appended at the TAIL: inserting mid-history would change the
-        # request prefix and bust Gemini's implicit caching of the history.
-        assert len(invoked_messages) == 1
-        msgs = invoked_messages[0]
-        plan_msg = msgs[-1]
-        assert isinstance(plan_msg, HumanMessage)
-        assert "[SYSTEM GUIDANCE]" in plan_msg.content
-        assert "[EXECUTION PLAN]" in plan_msg.content
-        # The original history order is untouched
-        assert msgs[0].content == "[CONTEXT]\ndate info\n[/CONTEXT]"
-        assert msgs[1].content == "Do complex task"
-
-
-# ============ plan_node Tool Awareness Tests ============
-
-
-class TestPlanNodeToolAwareness:
-    """plan_node must know the tool inventory.
-
-    In cached mode the system prompt (which lists tools) lives in the Gemini
-    cache, not in state, so without an explicit tool list the planner is asked
-    to plan tool usage while blind to which tools exist.
-    """
-
-    @patch("src.agent.graph.with_retry")
     @patch("src.agent.graph.create_chat_model")
-    def test_planning_prompt_includes_tool_names(
-        self, mock_create_model: MagicMock, mock_retry: MagicMock
+    @patch("src.agent.graph.create_tool_node")
+    @patch("src.agent.graph.get_available_tools", lambda: [MagicMock(name="mock_tool")])
+    def test_graph_entry_is_chat(
+        self, mock_create_tool_node: MagicMock, mock_model: MagicMock
     ) -> None:
-        from src.agent.graph import plan_node
-
-        mock_create_model.return_value = MagicMock()
-        captured: list[list] = []
-
-        def capture_invoke(msgs: list) -> AIMessage:
-            captured.append(msgs)
-            return AIMessage(content="1. Search\n2. Summarize")
-
-        mock_retry.return_value = capture_invoke
-
-        state: AgentState = {
-            "messages": [HumanMessage(content="Research X and summarize")],
-            "tool_retries": 0,
-            "plan": "",
-        }
-        result = plan_node(state, "test-model", tool_names=["web_search", "fetch_url"])
-
-        assert result["plan"] == "1. Search\n2. Summarize"
-        system_msg = captured[0][0]
-        assert isinstance(system_msg, SystemMessage)
-        assert "web_search" in system_msg.content
-        assert "fetch_url" in system_msg.content
+        """The planning subsystem is gone: the graph enters directly at chat."""
+        mock_model.return_value = MagicMock()
+        mock_create_tool_node.return_value = lambda state: state
+        compiled = compile_graph(create_chat_graph("test-model"))
+        drawable = compiled.get_graph()
+        assert "plan" not in drawable.nodes
+        assert any(e.source == "__start__" and e.target == "chat" for e in drawable.edges)
 
 
 # ============ Cached Model Creation Tests ============
@@ -778,7 +492,6 @@ class TestCachedCheckToolResults:
                 ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         result = check_tool_results(state, use_cache=True)
         assert result["tool_retries"] == 1
@@ -794,7 +507,6 @@ class TestCachedCheckToolResults:
                 ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         result = check_tool_results(state, use_cache=False)
         assert result["tool_retries"] == 1
@@ -1128,7 +840,6 @@ class TestNonRetriableToolErrors:
                 ),
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         result = check_tool_results(state)
         guidance = result["messages"][0]
@@ -1141,7 +852,6 @@ class TestNonRetriableToolErrors:
                 ToolMessage(content='{"error": "Search timed out"}', tool_call_id="1"),
             ],
             "tool_retries": 0,
-            "plan": "",
         }
         result = check_tool_results(state)
         guidance = result["messages"][0]

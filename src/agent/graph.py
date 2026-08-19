@@ -4,15 +4,18 @@ This module handles creating and configuring the LangGraph state machine
 that powers the chat agent's conversation flow with tool support.
 
 Graph flow (with tools):
-  START -> should_plan -> "plan": plan_node -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
-                       -> "chat": chat -> should_continue -> ...                                                -> "end": END
+  START -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
+                                   -> "end": END
 
-Graph flow (without tools or planning disabled):
+Graph flow (without tools):
   START -> chat -> END
+
+Multi-step planning is the model's own job (Gemini native thinking - see the
+thinking_level knob in Config.MODELS); the old classifier+plan-node subsystem
+was removed in Aug 2026 (git history has it).
 """
 
 import json
-import time
 from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -55,29 +58,12 @@ class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     tool_retries: int  # Consecutive tool failure count
     tool_rounds: int  # Tool-execution rounds this turn (round-multiplication cap)
-    plan: str  # Execution plan for complex requests
 
 
-# ============ Node & Planning Constants ============
+# ============ Node Constants ============
 
 # Node name used to filter streaming output — only chunks from this node are sent to frontend
 CHAT_NODE_NAME = "chat"
-
-PLANNING_PROMPT = (
-    "Analyze the user's request and create a concise execution plan.\n"
-    "- List 3-5 concrete steps you'll take\n"
-    "- Mention which tools you'll use for each step\n"
-    "- Keep it brief - this is an internal plan, not a response to the user"
-)
-
-PLANNING_DECISION_PROMPT = (
-    "You are a routing classifier. Decide if the user's request requires multi-step "
-    "planning (using multiple tools sequentially, combining results, or multi-part tasks) "
-    "or can be handled directly.\n\n"
-    "Reply with ONLY one word: PLAN or CHAT\n"
-    "- PLAN: Complex requests needing 3+ steps, multiple tools, or multi-part work\n"
-    "- CHAT: Simple questions, single-tool tasks, greetings, or short requests"
-)
 
 
 # ============ Model Creation ============
@@ -170,107 +156,6 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     return "end"
 
 
-def should_plan(state: AgentState) -> Literal["plan", "chat"]:
-    """Decide whether to run the planning node before chat.
-
-    Uses a fast LLM call to classify whether the request needs planning.
-    This is language-agnostic (works with Czech and any other language).
-    Falls back to "chat" on any error.
-    """
-    if not Config.AGENT_PLANNING_ENABLED:
-        return "chat"
-
-    # Safety: don't re-plan if plan already exists
-    if state.get("plan"):
-        return "chat"
-
-    # Find the latest HumanMessage
-    messages = state["messages"]
-    last_human = None
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            last_human = msg
-            break
-
-    if not last_human:
-        return "chat"
-
-    content = last_human.content if isinstance(last_human.content, str) else str(last_human.content)
-
-    # Short messages skip planning (fast path, no LLM call needed)
-    if len(content) < Config.AGENT_PLANNING_MIN_LENGTH:
-        return "chat"
-
-    # Use fast LLM to decide (language-agnostic)
-    try:
-        classifier = ChatGoogleGenerativeAI(
-            model=Config.AI_ASSIST_MODEL,
-            google_api_key=Config.GEMINI_API_KEY,
-            temperature=0.0,
-        )
-
-        start = time.monotonic()
-        response = classifier.invoke(
-            [
-                SystemMessage(content=PLANNING_DECISION_PROMPT),
-                HumanMessage(content=content[:500]),  # Truncate to save tokens
-            ]
-        )
-        latency_ms = round((time.monotonic() - start) * 1000)
-        decision = extract_text_content(response.content).strip().upper()
-        should = "PLAN" in decision and "CHAT" not in decision
-
-        # Telemetry: fires on EVERY classifier call so plan-fire rate and the
-        # added latency are observable (grep "planning_classifier"). This is the
-        # data needed to decide whether the planning step earns its per-turn cost.
-        logger.info(
-            "planning_classifier decision",
-            extra={
-                "result": "plan" if should else "chat",
-                "raw_decision": decision,
-                "content_length": len(content),
-                "latency_ms": latency_ms,
-            },
-        )
-        return "plan" if should else "chat"
-    except Exception:
-        logger.debug("Planning classifier failed, falling back to chat", exc_info=True)
-        return "chat"
-
-
-def plan_node(
-    state: AgentState, model_name: str, tool_names: list[str] | None = None
-) -> dict[str, str]:
-    """Generate an execution plan for complex requests.
-
-    Creates a separate model instance (no tools) to analyze the request
-    and produce a concise plan. The plan is stored in state but not
-    added to messages (invisible to the user).
-
-    The tool inventory is passed explicitly: in cached mode the system prompt
-    (which lists tools) lives in the Gemini cache, not in state, so without
-    this the planner would invent tool names.
-    """
-    planner = create_chat_model(model_name, with_tools=False, temperature=0.3)
-
-    planning_prompt = PLANNING_PROMPT
-    if tool_names:
-        planning_prompt += "\n\nTools available for the steps: " + ", ".join(tool_names)
-
-    # Build minimal messages for planning: system prompt + recent user messages.
-    # Only the last few HumanMessages matter for planning the CURRENT request -
-    # sending the whole history just re-bills it on an uncached auxiliary call.
-    human_messages = [msg for msg in state["messages"] if isinstance(msg, HumanMessage)]
-    plan_messages: list[BaseMessage] = [SystemMessage(content=planning_prompt)]
-    plan_messages.extend(human_messages[-3:])
-
-    response = with_retry(planner.invoke)(plan_messages)
-    plan_text = extract_text_content(response.content)
-
-    logger.info("Plan generated", extra={"plan_length": len(plan_text)})
-    return {"plan": plan_text}
-
-
 AGED_MULTIMODAL_STUB = (
     "[The binary content returned by this tool was shown to you in an earlier "
     "step of this turn and has been removed to save tokens. Use what you "
@@ -323,42 +208,18 @@ def chat_node(
     state: AgentState,
     model: ChatGoogleGenerativeAI,
     use_cache: bool = False,
-) -> dict[str, list[BaseMessage] | str]:
+) -> dict[str, list[BaseMessage]]:
     """Process messages and generate a response.
 
-    If a plan exists in state, it's injected for this invocation only,
-    then cleared from state. When use_cache is True, uses HumanMessage
-    instead of SystemMessage (LangChain silently drops mid-conversation
-    SystemMessages when there's no SystemMessage at position 0).
+    use_cache is unused here but kept in the signature for parity with
+    check_tool_results (both are bound via lambda in create_chat_graph and
+    the flag documents which mode the graph was built for).
     """
     messages = list(state["messages"])
 
     # Shrink tool results the model already consumed in this turn (they are
     # otherwise re-sent in full on every loop iteration)
     _age_consumed_tool_messages(messages)
-
-    # Inject plan if present
-    plan = state.get("plan", "")
-    if plan:
-        if use_cache:
-            # Append at the TAIL: an insertion mid-history would change the
-            # request prefix and bust Gemini's implicit caching of the stable
-            # history, and the plan belongs next to the current request anyway.
-            messages.append(
-                HumanMessage(
-                    content=f"[SYSTEM GUIDANCE]\n[EXECUTION PLAN]\n{plan}\n[END PLAN]\n[/SYSTEM GUIDANCE]"
-                )
-            )
-        else:
-            # Insert right after the system prompt at position 0
-            plan_message = SystemMessage(content=f"[EXECUTION PLAN]\n{plan}\n[END PLAN]")
-            insert_idx = 1
-            for i, msg in enumerate(messages):
-                if isinstance(msg, SystemMessage):
-                    insert_idx = i + 1
-                    break
-            messages.insert(insert_idx, plan_message)
-        logger.debug("Injected plan into chat messages", extra={"plan_length": len(plan)})
 
     message_count = len(messages)
     logger.debug(
@@ -396,11 +257,7 @@ def chat_node(
         else:
             logger.debug("No usage_metadata attribute found on AIMessage")
 
-    result: dict[str, list[BaseMessage] | str] = {"messages": [response]}
-    # Clear plan after first use
-    if plan:
-        result["plan"] = ""
-    return result
+    return {"messages": [response]}
 
 
 def _tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
@@ -773,7 +630,6 @@ def create_chat_graph(
     """Create a chat graph with optional tool support.
 
     The graph includes:
-    - Planning node (optional, for complex multi-step requests)
     - Chat node (LLM invocation)
     - Tool node (with error handling and result stripping)
     - Self-correction node (inspects tool errors and guides retries)
@@ -815,19 +671,7 @@ def create_chat_graph(
             lambda state: check_tool_results(state, use_cache=use_cache),
         )
 
-        # Add planning node (with the tool inventory, see plan_node docstring)
-        tool_names = [t.name for t in active_tools]
-        graph.add_node("plan", lambda state: plan_node(state, model_name, tool_names=tool_names))
-
-        # Entry point: conditional routing to plan or chat
-        graph.add_conditional_edges(
-            "__start__",
-            should_plan,
-            {"plan": "plan", "chat": "chat"},
-        )
-
-        # After planning, go to chat
-        graph.add_edge("plan", "chat")
+        graph.set_entry_point("chat")
 
         # Add conditional edge based on whether to use tools
         graph.add_conditional_edges("chat", should_continue, {"tools": "tools", "end": END})

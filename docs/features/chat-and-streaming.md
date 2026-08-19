@@ -522,16 +522,22 @@ Long chats re-send their entire history to the LLM on every turn, so cost grows 
 
 ## LangGraph Agent Graph
 
-The chat agent is implemented as a LangGraph state machine in [graph.py](../../src/agent/graph.py). The graph has three major capabilities beyond the basic chat loop.
+The chat agent is implemented as a LangGraph state machine in [graph.py](../../src/agent/graph.py).
 
 ### Graph Flow
 
 ```
-START -> should_plan -> "plan": plan_node -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
-                     -> "chat": chat -> should_continue -> ...                                                -> "end": END
+START -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
+                                 -> "end": END
 ```
 
-Without tools or when planning is disabled: `START -> chat -> END`
+Without tools: `START -> chat -> END`
+
+Multi-step planning is the model's own job (Gemini native thinking; see the
+optional `thinking_level` key on `Config.MODELS` entries). The old
+classifier + plan-node subsystem was removed in Aug 2026 after telemetry
+showed a 1.9% fire rate at 1.6-2.4s added latency — git history has the
+implementation if it's ever needed again.
 
 ### Self-Correction Node
 
@@ -555,28 +561,6 @@ The `ToolNode` is created with `handle_tool_errors=_handle_tool_errors` (a calla
 **Configuration:**
 - `AGENT_MAX_TOOL_RETRIES`: Max consecutive tool failures before giving up (default: `2`)
 
-### Planning Node
-
-For complex multi-step requests, `plan_node()` generates an internal execution plan before the first LLM call.
-
-**How it works:**
-
-1. `should_plan()` runs at graph entry as a conditional router
-2. Checks `AGENT_PLANNING_ENABLED` and skips if disabled
-3. Skips if a plan already exists in state (prevents re-planning in tool loops)
-4. Finds the latest `HumanMessage`; short messages (< `AGENT_PLANNING_MIN_LENGTH`) skip planning without an LLM call
-5. Uses a fast LLM classifier (`AI_ASSIST_MODEL`, Gemini Flash) with `temperature=0.0` to decide `PLAN` or `CHAT`
-6. The classifier prompt is language-agnostic (works with Czech and other languages)
-7. `plan_node()` calls the main model (without tools) to generate a 3-5 step execution plan
-8. The plan is stored in `AgentState.plan` as a string
-9. `chat_node()` injects it as a `SystemMessage` for the first LLM invocation, then clears it
-
-The plan is never shown to the user - it is internal guidance only.
-
-**Configuration:**
-- `AGENT_PLANNING_ENABLED`: Toggle the planning node on/off (default: `true`)
-- `AGENT_PLANNING_MIN_LENGTH`: Minimum message length in characters to trigger LLM classifier (default: `200`)
-
 ### Graph State (no checkpointer)
 
 The chat graph is **stateless across requests**. Every invoke receives the full message list to send (built from the DB history, then compacted — see [Conversation Compaction](#conversation-compaction-cost-control)), so no LangGraph checkpointer is attached.
@@ -589,14 +573,14 @@ This is deliberate: `AgentState.messages` uses the `add_messages` reducer, which
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]  # Messages for this invoke
     tool_retries: int   # Consecutive tool failure count (reset to 0 on success)
-    plan: str           # Current execution plan (cleared after first chat_node use)
+    tool_rounds: int    # Tool-execution rounds this turn (soft cap nudges the model to answer)
 ```
 
 ### Key Files
 
 - [graph.py](../../src/agent/graph.py) - Graph construction, all nodes and routers
 - [agent.py](../../src/agent/agent.py) - `ChatAgent`, `stream_chat_events()`, `chat_batch()`
-- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_PLANNING_*`
+- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_MAX_TOOL_ROUNDS`
 
 ### Testing
 

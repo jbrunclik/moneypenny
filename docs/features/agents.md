@@ -392,8 +392,6 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 | `AGENT_RETRY_MAX_DELAY_SECONDS` | 30.0 | Maximum retry delay |
 | `AGENT_DEFAULT_DAILY_BUDGET_USD` | 0 | Default daily budget (0 = unlimited) |
 | `AGENT_MAX_TOOL_RETRIES` | 2 | Max consecutive tool errors before LLM is told to give up |
-| `AGENT_PLANNING_ENABLED` | true | Enable planning node for complex multi-step requests |
-| `AGENT_PLANNING_MIN_LENGTH` | 200 | Minimum message length (chars) to trigger LLM planning classifier |
 | `GUNICORN_MAX_REQUESTS` | 1000 | Recycle workers after N requests (memory leak safety net) |
 | `GUNICORN_MAX_REQUESTS_JITTER` | 50 | Random jitter to stagger worker recycling |
 

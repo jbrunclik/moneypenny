@@ -1975,8 +1975,12 @@ class TestStreamNodeFiltering:
         }
         return yielded_events, final_event
 
-    def test_plan_node_output_filtered(self) -> None:
-        """AIMessageChunks from 'plan' node should not yield token events."""
+    def test_non_chat_node_output_filtered(self) -> None:
+        """AIMessageChunks from any non-chat graph node must not yield tokens.
+
+        Uses a synthetic 'plan' node name (the real plan node was removed in
+        Aug 2026); the filter applies to any auxiliary node.
+        """
         from langchain_core.messages import AIMessageChunk
 
         events = [
