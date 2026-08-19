@@ -22,9 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      # lfs: true - existing baselines are LFS objects; without it
+      # --update-snapshots chokes on pointer files ("Could not decode
+      # expected image as PNG")
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.ref_name }}
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v7
