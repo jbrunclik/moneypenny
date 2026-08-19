@@ -38,6 +38,10 @@ User asked: {user}
 Assistant answered:
 {response}
 
+Sources the assistant formally cited via its citation tool (these are shown to
+the user as source chips below the answer; citing this way COUNTS as citing):
+{cited_sources}
+
 Reply with ONLY a JSON object: {{"score": <1-5>, "pass": <true|false>, "reasoning": "<one sentence>"}}
 Score 5 = fully satisfies the rubric; pass = score >= 3 AND no rubric requirement is missed."""
 
@@ -125,7 +129,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     from langchain_core.messages import HumanMessage, ToolMessage
 
     from src.agent.agent import ChatAgent
-    from src.agent.content import extract_text_content
+    from src.agent.content import extract_cited_sources, extract_text_content
     from src.agent.tools.context import set_conversation_context
     from src.config import Config
 
@@ -158,11 +162,15 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     judge = ChatGoogleGenerativeAI(
         model=Config.EVAL_JUDGE_MODEL, google_api_key=Config.GEMINI_API_KEY, temperature=0.0
     )
+    cited = extract_cited_sources(result_messages)
     judge_reply = judge.invoke(
         [
             HumanMessage(
                 content=_JUDGE_INSTRUCTION.format(
-                    rubric=case.rubric, user=case.user, response=response[:8000]
+                    rubric=case.rubric,
+                    user=case.user,
+                    response=response[:8000],
+                    cited_sources=json.dumps(cited, ensure_ascii=False) if cited else "none",
                 )
             )
         ]

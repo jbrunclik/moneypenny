@@ -57,6 +57,7 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 ## Reliability
 
 - [ ] **Align prod Python with `requires-python`** - pyproject says >=3.14, prod runs 3.13.
+- [ ] **Context-cache 403 blip** - observed once (Aug 19 2026, locally): a freshly created Gemini context cache returned PERMISSION_DENIED when used seconds after creation, then worked minutes later; prod logs show zero occurrences over 3 days of hourly rotations. If it recurs: add a one-shot uncached-fallback retry when an invoke with `cached_content` 403s (`chat_node`/`create_chat_model` seam).
 
 ## Code Quality
 

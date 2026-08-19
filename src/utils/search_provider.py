@@ -39,12 +39,22 @@ def active_provider() -> str:
 def search_web(query: str, num_results: int) -> list[dict[str, str]]:
     """Run one web search; returns [{title, url, snippet}].
 
+    Zero results for a query containing quote operators triggers ONE retry
+    with the operators stripped: models write Google-style exact-match
+    queries ('"MacBook Air" "watt-hour"') that return nothing on DDGS, then
+    burn whole LLM rounds rephrasing. An in-provider retry costs one extra
+    search call instead.
+
     Raises SearchProviderError on failure (retriable=True for rate limits
     and timeouts).
     """
-    if active_provider() == "brave":
-        return _search_brave(query, num_results)
-    return _search_ddgs(query, num_results)
+    search = _search_brave if active_provider() == "brave" else _search_ddgs
+    results = search(query, num_results)
+    if not results and '"' in query:
+        unquoted = query.replace('"', " ").strip()
+        logger.info("Zero results for quoted query, retrying unquoted", extra={"query": query})
+        results = search(unquoted, num_results)
+    return results
 
 
 def _search_brave(query: str, num_results: int) -> list[dict[str, str]]:

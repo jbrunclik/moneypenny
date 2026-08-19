@@ -103,3 +103,40 @@ class TestDdgsSearch:
         with pytest.raises(SearchProviderError) as exc_info:
             search_web("q", 5)
         assert exc_info.value.retriable is True
+
+
+class TestQuoteStrippingRetry:
+    """Quoted operator queries often return nothing on DDGS; retry unquoted
+    inside the provider - one extra provider call instead of a full LLM round."""
+
+    @patch.object(Config, "BRAVE_SEARCH_API_KEY", "")
+    @patch("src.utils.search_provider.DDGS")
+    def test_zero_results_with_quotes_retries_unquoted(self, mock_ddgs_class: MagicMock) -> None:
+        mock_ddgs = MagicMock()
+        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
+        mock_ddgs.__exit__ = MagicMock(return_value=False)
+        mock_ddgs.text.side_effect = [
+            [],  # quoted query: nothing
+            [{"title": "T", "href": "https://a.example", "body": "B"}],
+        ]
+        mock_ddgs_class.return_value = mock_ddgs
+
+        results = search_web('"MacBook Air" "watt-hour" battery', 5)
+
+        assert len(results) == 1
+        assert mock_ddgs.text.call_count == 2
+        retry_query = mock_ddgs.text.call_args_list[1][0][0]
+        assert '"' not in retry_query
+        assert "MacBook Air" in retry_query
+
+    @patch.object(Config, "BRAVE_SEARCH_API_KEY", "")
+    @patch("src.utils.search_provider.DDGS")
+    def test_no_retry_without_quotes(self, mock_ddgs_class: MagicMock) -> None:
+        mock_ddgs = MagicMock()
+        mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
+        mock_ddgs.__exit__ = MagicMock(return_value=False)
+        mock_ddgs.text.return_value = []
+        mock_ddgs_class.return_value = mock_ddgs
+
+        assert search_web("macbook specs", 5) == []
+        assert mock_ddgs.text.call_count == 1
