@@ -1,12 +1,13 @@
 /**
  * Visual regression tests for Agents (Command Center) feature
  */
-import { test, expect } from '../global-setup';
+import { test, expect, waitForSidebarSettled } from '../global-setup';
 
 test.describe('Visual: Agents Sidebar Entry', () => {
   test('agents entry default state', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.agents-entry');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-default.png');
@@ -15,6 +16,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
   test('agents entry hover state', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.agents-entry');
+    await waitForSidebarSettled(page);
 
     await page.locator('.agents-entry').hover();
     await page.waitForTimeout(200);
@@ -25,6 +27,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
   test('agents entry active state', async ({ page }) => {
     await page.goto('/#/agents');
     await page.waitForSelector('.agents-entry.active');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-active.png');
@@ -57,6 +60,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
 
     await page.goto('/');
     await page.waitForSelector('.agents-entry');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-with-badge.png');
@@ -99,6 +103,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
 
     await page.goto('/');
     await page.waitForSelector('.agents-entry');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(500); // Wait for animation
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-with-waiting.png');
@@ -151,7 +156,9 @@ test.describe('Visual: Agents Sidebar Entry', () => {
 
     await page.goto('/');
     await page.waitForSelector('.planner-entry');
+    await waitForSidebarSettled(page);
     await page.waitForSelector('.agents-entry');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('sidebar-nav-row-with-badges.png');

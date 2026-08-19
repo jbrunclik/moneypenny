@@ -1,7 +1,7 @@
 /**
  * Visual regression tests for Planner feature
  */
-import { test, expect } from '../global-setup';
+import { test, expect, waitForSidebarSettled } from '../global-setup';
 
 test.describe('Visual: Planner Sidebar Entry', () => {
   test('planner entry default state', async ({ page }) => {
@@ -11,6 +11,7 @@ test.describe('Visual: Planner Sidebar Entry', () => {
 
     await page.goto('/');
     await page.waitForSelector('.planner-entry');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('planner-entry-default.png');
@@ -23,6 +24,7 @@ test.describe('Visual: Planner Sidebar Entry', () => {
 
     await page.goto('/');
     await page.waitForSelector('.planner-entry');
+    await waitForSidebarSettled(page);
 
     await page.locator('.planner-entry').hover();
     await page.waitForTimeout(200);
@@ -37,6 +39,7 @@ test.describe('Visual: Planner Sidebar Entry', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.planner-entry.active');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('planner-entry-active.png');

@@ -45,3 +45,15 @@ export const test = base.extend<{
 });
 
 export { expect } from '@playwright/test';
+
+/**
+ * Wait for the sidebar conversation list to leave its loading state.
+ *
+ * Boot shows skeleton placeholders until the conversations fetch resolves
+ * (since the Aug 18 "boot shows a loader, never the welcome screen" change).
+ * Sidebar screenshots taken before they disappear capture skeletons instead
+ * of the settled list/empty state and flake on slow CI runners.
+ */
+export async function waitForSidebarSettled(page: import('@playwright/test').Page): Promise<void> {
+  await expect(page.locator('.conversation-skeleton')).toHaveCount(0);
+}

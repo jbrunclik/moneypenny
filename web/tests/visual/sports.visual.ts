@@ -1,7 +1,7 @@
 /**
  * Visual regression tests for Sports Training feature
  */
-import { test, expect } from '../global-setup';
+import { test, expect, waitForSidebarSettled } from '../global-setup';
 
 const SAMPLE_PROGRAMS = [
   {
@@ -22,6 +22,7 @@ test.describe('Visual: Sports Sidebar Entry', () => {
   test('sports entry default state', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.sports-entry');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('sports-entry-default.png');
@@ -30,6 +31,7 @@ test.describe('Visual: Sports Sidebar Entry', () => {
   test('sports entry hover state', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.sports-entry');
+    await waitForSidebarSettled(page);
 
     await page.locator('.sports-entry').hover();
     await page.waitForTimeout(200);
@@ -40,6 +42,7 @@ test.describe('Visual: Sports Sidebar Entry', () => {
   test('sports entry active state', async ({ page }) => {
     await page.goto('/#/sports');
     await page.waitForSelector('.sports-entry.active');
+    await waitForSidebarSettled(page);
     await page.waitForTimeout(300);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('sports-entry-active.png');
