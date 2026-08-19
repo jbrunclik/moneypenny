@@ -48,6 +48,7 @@ from src.agent.tools.planner import (
     refresh_planner_dashboard,
 )
 from src.agent.tools.request_approval import ApprovalRequestedException, request_approval
+from src.agent.tools.research import research
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
 from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
@@ -85,6 +86,7 @@ def get_available_tools() -> list[Any]:
     tools: list[Any] = [
         fetch_url,
         web_search,
+        research,
         generate_image,
         retrieve_file,
         cite_sources,
@@ -190,6 +192,7 @@ def get_tools_for_request(
         tools: list[Any] = [
             fetch_url,
             web_search,
+            research,
             retrieve_file,
             cite_sources,
             kv_store,
@@ -255,6 +258,7 @@ def get_tools_for_request(
 _TOOL_MAP: dict[str, Any] = {
     "web_search": web_search,
     "fetch_url": fetch_url,
+    "research": research,
     "browser": browser,
     "generate_image": generate_image,
     "retrieve_file": retrieve_file,
@@ -299,7 +303,7 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
     # long-term memory, which is injected into every later conversation. Agents
     # that genuinely need it must list it in tool_permissions (or run with
     # unrestricted permissions), and the tool re-checks that at call time.
-    tools: list[Any] = [fetch_url, web_search, retrieve_file, cite_sources]
+    tools: list[Any] = [fetch_url, web_search, research, retrieve_file, cite_sources]
 
     # Add request_approval for sensitive actions
     tools.append(request_approval)
@@ -374,6 +378,7 @@ __all__ = [
     # Tools
     "fetch_url",
     "web_search",
+    "research",
     "browser",
     "generate_image",
     "execute_code",

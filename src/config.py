@@ -309,6 +309,11 @@ class Config:
     # rounds that each re-send the whole conversation)
     WEB_SEARCH_MAX_BATCH_QUERIES = 5
 
+    # Research tool (search + fetch top sources in one tool round)
+    RESEARCH_MAX_SOURCES = 5
+    RESEARCH_PER_SOURCE_MAX_CHARS = 4000
+    RESEARCH_FETCH_WORKERS = 4
+
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
     # Tool result size caps (chars) - results land in LLM context

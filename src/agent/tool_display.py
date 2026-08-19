@@ -28,6 +28,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Fetched",
         "icon": "link",
     },
+    "research": {
+        "label": "Researching",
+        "label_past": "Researched",
+        "icon": "search",
+    },
     "browser": {
         "label": "Browsing the web",
         "label_past": "Browsed",
@@ -272,7 +277,9 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
     Returns:
         Detail string to display in UI, or None if no detail available
     """
-    if tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):
+    if tool_name == "research" and tool_args.get("question"):
+        return str(tool_args["question"])
+    elif tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):
         parts = [str(tool_args["query"])] if tool_args.get("query") else []
         batched = tool_args.get("queries")
         if isinstance(batched, list):

@@ -30,6 +30,7 @@ class PermissionResult(Enum):
 ALWAYS_SAFE_TOOLS: set[str] = {
     "web_search",
     "fetch_url",
+    "research",  # read-only web: search + fetch composite
     "retrieve_file",
     "request_approval",
     "kv_store",

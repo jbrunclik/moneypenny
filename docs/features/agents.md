@@ -137,6 +137,7 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | Tool | Description | Availability |
 |------|-------------|--------------|
 | `web_search` | Web search queries | Always available |
+| `research` | Composite search + fetch top pages in one round | Always available |
 | `fetch_url` | Fetch content from URLs | Always available |
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |
