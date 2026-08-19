@@ -176,9 +176,7 @@ class TestSemanticConversationSearch:
 
         monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
         # Silence the add_message embedding hook (no live API attempts)
-        monkeypatch.setattr(
-            "src.utils.embeddings.embed_and_store_async", lambda *args: None
-        )
+        monkeypatch.setattr("src.utils.embeddings.embed_and_store_async", lambda *args: None)
         database, user = search_context
         conv = _conversation_with_message(
             database, user, "Pet chat", "Max loves playing fetch in the park"
@@ -201,9 +199,7 @@ class TestSemanticConversationSearch:
 
         monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
         # Silence the add_message embedding hook (no live API attempts)
-        monkeypatch.setattr(
-            "src.utils.embeddings.embed_and_store_async", lambda *args: None
-        )
+        monkeypatch.setattr("src.utils.embeddings.embed_and_store_async", lambda *args: None)
         monkeypatch.setattr(module, "embed_text", lambda text: None)
         database, user = search_context
         _conversation_with_message(database, user, "Keyword chat", "contains magicword here")
@@ -220,9 +216,7 @@ class TestSemanticConversationSearch:
 
         monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
         # Silence the add_message embedding hook (no live API attempts)
-        monkeypatch.setattr(
-            "src.utils.embeddings.embed_and_store_async", lambda *args: None
-        )
+        monkeypatch.setattr("src.utils.embeddings.embed_and_store_async", lambda *args: None)
         database, user = search_context
         conv = _conversation_with_message(database, user, "Tiles", "hexagonal tiles decision")
         message = database.get_messages(conv.id)[0]
