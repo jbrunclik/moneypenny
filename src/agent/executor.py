@@ -120,11 +120,11 @@ class AgentExecutor:
         self.trigger_type = trigger_type
         self.triggered_by_agent_id = triggered_by_agent_id
 
-    def run(self, message: str = "Continue") -> Any:
+    def run(self, message: str = "") -> Any:
         """Run the agent and return a result object.
 
-        Note: The `message` parameter is currently unused. The trigger message
-        is generated internally by `execute_agent()` based on `trigger_type`.
+        `message` carries instructions from the triggering agent; it is
+        appended to the generated trigger message ("Continue"/empty = none).
         """
         # Get current trigger chain to pass to child
         parent_chain = get_trigger_chain()
@@ -143,6 +143,7 @@ class AgentExecutor:
             self.trigger_type,
             execution.id,
             parent_trigger_chain=parent_chain,
+            extra_message=message,
         )
 
         # Handle the different return values properly
@@ -167,12 +168,32 @@ class AgentExecutor:
 # ============ Main Executor Function ============
 
 
+def _build_trigger_message(trigger_type: str, extra_message: str | None = None) -> str:
+    """Build the synthetic user message that starts an autonomous run.
+
+    extra_message carries instructions from a triggering agent (trigger_agent's
+    `message` arg). "Continue" is the legacy default and means "no message".
+    """
+    now = datetime.now(UTC)
+    templates = {
+        "scheduled": f"[Scheduled run at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
+        "manual": f"[Manual trigger at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
+        "agent_trigger": f"[Triggered by another agent at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
+    }
+    message = templates.get(trigger_type, f"[Triggered: {trigger_type}]")
+    extra = (extra_message or "").strip()
+    if extra and extra != "Continue":
+        message += f"\n\nMessage from triggering agent: {extra}"
+    return message
+
+
 def execute_agent(
     agent: Agent,
     user: User,
     trigger_type: str,
     execution_id: str,
     parent_trigger_chain: list[str] | None = None,
+    extra_message: str | None = None,
 ) -> tuple[bool | str, str | None]:
     """Execute an autonomous agent.
 
@@ -188,6 +209,8 @@ def execute_agent(
         trigger_type: How the agent was triggered (scheduled, manual, agent_trigger)
         execution_id: The execution record ID
         parent_trigger_chain: List of agent IDs from parent execution (for circular detection)
+        extra_message: Optional instructions from the triggering agent
+            (trigger_agent's `message` arg), appended to the trigger message
 
     Returns:
         Tuple of (success/status, error_message)
@@ -245,14 +268,9 @@ def execute_agent(
         logger.error(error_msg, extra={"agent_id": agent.id})
         return False, error_msg
 
-    # Build the trigger message based on trigger type
-    now = datetime.now(UTC)
-    trigger_messages = {
-        "scheduled": f"[Scheduled run at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
-        "manual": f"[Manual trigger at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
-        "agent_trigger": f"[Triggered by another agent at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
-    }
-    trigger_message = trigger_messages.get(trigger_type, f"[Triggered: {trigger_type}]")
+    # Build the trigger message based on trigger type (+ any message passed
+    # by a triggering agent)
+    trigger_message = _build_trigger_message(trigger_type, extra_message)
 
     # Save trigger message
     logger.debug(
