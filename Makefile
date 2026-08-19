@@ -319,10 +319,11 @@ reload:
 
 # Full update with dependencies rebuild and graceful reload
 update:
+	git pull --ff-only
 	$(PIP) install -r requirements.txt
 	cd web && npm install && npm run build
 	systemctl --user reload ai-chatbot
-	@echo "Dependencies updated, frontend rebuilt, graceful reload triggered."
+	@echo "Code pulled, dependencies updated, frontend rebuilt, graceful reload triggered."
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py
