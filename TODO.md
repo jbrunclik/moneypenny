@@ -17,8 +17,8 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
   - Planner event reminders (needs a small scheduler loop), program nudges (opt-in per program), budget alerts (threshold check in the cost-recording path)
   - Cross-device read-state suppression if stale notifications annoy: grace-delay sends ~30-60s and skip when the message was viewed anywhere (agents have last_viewed_at; regular conversations would need a viewed ping + column)
 - [ ] **Daily Briefing follow-ups** - Core shipped (Jun 2026: opt-in toggle + delivery time in Settings, backed by a system-managed agent). Remaining ideas: evening review variant (second time slot), richer default prompt iteration based on real briefings.
-- [ ] **Personal knowledge base** - Persistent user documents searchable across conversations. SQLite FTS5 over extracted text is enough.
-- [ ] **Thinking mode toggle** - Gemini thinking mode with configurable level, long-press UI like the voice-language selector.
+- [ ] **Personal knowledge base** - Persistent user documents searchable across conversations. SQLite FTS5 over extracted text + the embeddings table (shipped Aug 2026, `kind` column extends naturally to `document`) covers both keyword and semantic search.
+- [ ] **Thinking mode toggle** - Backend plumbing shipped Aug 2026 (optional `thinking_level` key on `Config.MODELS` entries → Gemini 3+ native reasoning). Remaining: per-request override + long-press UI like the voice-language selector.
 - [ ] **Conversation sharing** - Public links for sharing conversations.
 - [ ] **Keyboard shortcuts** for common actions.
 - [ ] **Voice conversation mode** - Speech-to-text in, text-to-speech out.
@@ -60,7 +60,7 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Code Quality
 
-- [ ] **File-size convention violations (Q3, remainder)** - First pass done (chat_streaming.py -> 4 modules; client.ts -> http/sse/client). Remaining over-cap: chat_streaming.py (1147, producer/consumer engine split next), client.ts (1017, domain-module split touches every importer), messaging.ts (1639), prompts.py/schemas.py (declarative), agent.py, models/agent.py, SettingsPopup.ts, routes/agents.py, planner_data.py, todoist.py, thumbnails.ts.
+- [ ] **File-size convention violations (Q3, remainder)** - First pass done (chat_streaming.py -> 4 modules; client.ts -> http/sse/client). Remaining over-cap (Aug 2026 counts): prompts.py (1848), messaging.ts (1662), SettingsPopup.ts (1661), schemas.py (1575, declarative), models/agent.py (1510), chat_streaming.py (1211, producer/consumer engine split next), routes/agents.py (1174), agent.py (1136), client.ts (1085, domain-module split touches every importer), todoist.py (1023), planner_data.py (1015), thumbnails.ts (998).
 
 ## Tests & Tooling
 

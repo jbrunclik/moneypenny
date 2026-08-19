@@ -172,6 +172,8 @@ Both must pass. Use `make lint-fix` for auto-fixable issues.
 
 **Zero tolerance for flaky tests** - investigate root causes, don't just re-run.
 
+**Check exit codes directly** - never judge `make lint`/`mypy`/`pytest` by piping through `grep`/`tail` in `&&` chains (the pipe masks the exit code; this has shipped broken commits). Redirect to a log and branch on `$?`.
+
 **TDD for bug fixes**: failing test first -> fix -> verify -> full suite.
 
 ## Common Tasks

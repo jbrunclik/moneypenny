@@ -652,7 +652,7 @@ make push-keys        # Generate VAPID keys for Web Push
 # Operations
 make deploy           # Deploy systemd service (full restart)
 make reload           # Graceful reload, zero downtime (backend only)
-make update           # Rebuild frontend + graceful reload
+make update           # Pull latest main + deps + rebuild frontend + graceful reload
 make vacuum           # Reclaim database space
 make backup           # Create a database backup
 make backup-list      # List existing backups
