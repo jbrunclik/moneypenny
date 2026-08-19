@@ -220,8 +220,9 @@ def calculate_and_save_message_cost(
     tool_rounds = usage_info.get("tool_rounds", 0)
     tool_call_count = usage_info.get("tool_call_count", 0)
 
-    # Calculate image generation cost from tool_results
+    # Costs incurred inside tools: image generations + delegate subagent runs
     image_cost = calculate_image_generation_cost_from_tool_results(tool_results)
+    delegate_cost = calculate_delegate_cost_from_tool_results(tool_results)
 
     # Log warning if no usage metadata (should be rare - indicates API issue)
     if input_tokens == 0 and output_tokens == 0:
@@ -241,6 +242,7 @@ def calculate_and_save_message_cost(
         output_tokens,
         image_generation_cost=image_cost,
         cached_input_tokens=cached_input_tokens,
+        tool_llm_cost=delegate_cost,
     )
 
     db.save_message_cost(
@@ -309,5 +311,53 @@ def calculate_image_generation_cost_from_tool_results(
                     "Image generation tool result missing usage_metadata",
                     extra={"tool_result_keys": list(content_data.keys())},
                 )
+
+    return total_cost
+
+
+def calculate_delegate_cost_from_tool_results(
+    tool_results: list[dict[str, Any]],
+) -> float:
+    """Sum the token cost of delegate_task subagent runs in tool_results.
+
+    delegate_task embeds its subagent's usage under a top-level
+    _delegate_usage key in the tool result JSON (priced at the subagent's own
+    model, which may differ from the conversation's).
+
+    Args:
+        tool_results: List of tool result dicts with 'type' and 'content' keys
+
+    Returns:
+        Total cost in USD (0.0 when no delegate runs happened)
+    """
+    from src.utils.costs import calculate_token_cost
+
+    total_cost = 0.0
+
+    for tool_result in tool_results:
+        if not isinstance(tool_result, dict) or tool_result.get("type") != "tool":
+            continue
+
+        content = tool_result.get("content", "")
+        if not content or not isinstance(content, str):
+            continue
+
+        try:
+            content_data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        if not isinstance(content_data, dict):
+            continue
+        usage = content_data.get("_delegate_usage")
+        if not isinstance(usage, dict):
+            continue
+
+        total_cost += calculate_token_cost(
+            str(usage.get("model", "")),
+            int(usage.get("input_tokens", 0)),
+            int(usage.get("output_tokens", 0)),
+            cached_input_tokens=int(usage.get("cached_input_tokens", 0)),
+        )
 
     return total_cost

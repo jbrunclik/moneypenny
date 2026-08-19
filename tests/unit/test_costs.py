@@ -235,3 +235,56 @@ class TestFormatCost:
     def test_format_unknown_currency(self) -> None:
         """Unknown currency should use generic format."""
         assert format_cost(1.5, "XYZ") == "1.5000 XYZ"
+
+
+class TestDelegateCostFromToolResults:
+    """Delegated-subagent token spend must land in the message cost."""
+
+    def test_extracts_delegate_usage(self) -> None:
+        import json
+
+        from src.api.utils import calculate_delegate_cost_from_tool_results
+        from src.utils.costs import calculate_token_cost
+
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {
+                        "result": "digest",
+                        "_delegate_usage": {
+                            "model": "gemini-3.7-flash",
+                            "input_tokens": 1_000_000,
+                            "output_tokens": 100_000,
+                            "cached_input_tokens": 0,
+                        },
+                    }
+                ),
+            }
+        ]
+
+        cost = calculate_delegate_cost_from_tool_results(tool_results)
+
+        expected = calculate_token_cost("gemini-3.7-flash", 1_000_000, 100_000)
+        assert cost == expected
+        assert cost > 0
+
+    def test_no_delegate_usage_is_zero(self) -> None:
+        from src.api.utils import calculate_delegate_cost_from_tool_results
+
+        assert calculate_delegate_cost_from_tool_results([]) == 0.0
+        assert (
+            calculate_delegate_cost_from_tool_results([{"type": "tool", "content": "not json"}])
+            == 0.0
+        )
+        assert (
+            calculate_delegate_cost_from_tool_results([{"type": "tool", "content": '{"a": 1}'}])
+            == 0.0
+        )
+
+    def test_total_cost_includes_tool_llm_cost(self) -> None:
+        from src.utils.costs import calculate_total_cost
+
+        base = calculate_total_cost("gemini-3.7-flash", 1000, 100)
+        with_tool = calculate_total_cost("gemini-3.7-flash", 1000, 100, tool_llm_cost=0.5)
+        assert with_tool == base + 0.5

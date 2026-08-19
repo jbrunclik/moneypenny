@@ -108,6 +108,7 @@ def calculate_total_cost(
     output_tokens: int = 0,
     image_generation_cost: float = 0.0,
     cached_input_tokens: int = 0,
+    tool_llm_cost: float = 0.0,
 ) -> float:
     """Calculate total cost for a message.
 
@@ -117,6 +118,7 @@ def calculate_total_cost(
         output_tokens: Number of output tokens (from API usage_metadata)
         image_generation_cost: Cost for image generation (if any images were generated)
         cached_input_tokens: Subset of input_tokens served from the context cache
+        tool_llm_cost: LLM spend made inside tools (delegate_task subagent runs)
 
     Returns:
         Total cost in USD
@@ -124,7 +126,7 @@ def calculate_total_cost(
     token_cost = calculate_token_cost(
         model_name, input_tokens, output_tokens, cached_input_tokens=cached_input_tokens
     )
-    total = token_cost + image_generation_cost
+    total = token_cost + image_generation_cost + tool_llm_cost
     logger.debug(
         "Cost calculated",
         extra={
