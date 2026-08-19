@@ -38,6 +38,7 @@ User interface patterns and implementations:
 ### General
 
 - **[testing.md](testing.md)** - Test structure (backend and frontend), patterns, E2E server with parallel execution, visual regression tests
+- **[testing/evals.md](testing/evals.md)** - Agent behavior evals: golden cases + LLM judge (`make eval`), when to run, case authoring
 - **[logging.md](logging.md)** - Structured logging (backend JSON format, frontend logger utility), request IDs, logging guidelines
 - **[conventions.md](conventions.md)** - Code quality guidelines, refactoring patterns, file size rules
 

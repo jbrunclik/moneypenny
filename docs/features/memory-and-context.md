@@ -100,6 +100,20 @@ prompt-injection persistence vector. The enforced bounds:
 | `MEMORY_WARNING_THRESHOLD` | 80% of max | Point at which the LLM is told to consolidate |
 | `MEMORY_MAX_OPS_PER_CALL` | 10 | Per-call write budget, bounding a mass rewrite |
 | `MEMORY_SOFT_DELETE_RETENTION_DAYS` | 7 | Recovery window for deleted memories |
+| `MEMORY_INJECT_FULL_MAX` | 60 | Above this count, injection switches to tiered mode |
+| `MEMORY_INJECT_RECENT_COUNT` | 15 | Recently-updated non-core entries injected in tiered mode |
+
+### Tiered Injection + search_memory (Aug 2026)
+
+At or below `MEMORY_INJECT_FULL_MAX` memories, every entry is injected each turn
+(original behavior). Above it, only **core** entries (protected + `preference` +
+`goal` categories) plus the `MEMORY_INJECT_RECENT_COUNT` most recently updated
+others are injected; the prompt states how many are hidden and instructs the
+model to call the **`search_memory`** tool before claiming it doesn't know
+something about the user. `search_memory` matches by substring AND by embedding
+cosine similarity (`MEMORY_SEARCH_MIN_SIMILARITY`), returning ids so
+update/delete work on unlisted entries. This bounds the per-turn token cost of
+a bank approaching the 200-entry cap.
 
 Additional guards:
 
@@ -118,11 +132,26 @@ Memory holds a small set of curated facts. Everything else that was ever discuss
 reachable through search instead, which is what keeps the bank small:
 
 - `search_conversations(query, limit)` - FTS5 keyword search over the user's own history,
-  excluding the current conversation (already in context)
+  excluding the current conversation (already in context), **merged with semantic
+  matches** (embedding cosine over stored message vectors, labelled `(semantic match)`,
+  one per conversation) so paraphrases of past discussions are findable
 - `read_conversation(conversation_id, max_messages)` - read the full exchange behind a match
 
 Both are withheld in anonymous mode. Bounds: `CONVERSATION_SEARCH_MAX_RESULTS`,
 `CONVERSATION_READ_MAX_MESSAGES`, `CONVERSATION_READ_MAX_CHARS_PER_MESSAGE`.
+
+### Embeddings (Aug 2026)
+
+Memories and messages are embedded at write time (`db.add_message` /
+`update_message_content` hook and `manage_memory`) via fire-and-forget daemon
+threads into the `embeddings` table (packed float32 blobs; brute-force cosine -
+family scale needs no vector index). Config: `EMBEDDINGS_ENABLED` (true),
+`EMBEDDING_MODEL` (`gemini-embedding-001`), `EMBEDDING_DIM` (768). Tests and the
+E2E server run with `EMBEDDINGS_ENABLED=false` so no live API calls happen
+outside production. Backfill for pre-existing rows:
+[scripts/backfill_embeddings.py](../../scripts/backfill_embeddings.py). See
+[src/utils/embeddings.py](../../src/utils/embeddings.py) and
+[src/db/models/embeddings.py](../../src/db/models/embeddings.py).
 
 ### Key Files
 

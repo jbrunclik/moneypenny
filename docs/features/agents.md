@@ -152,8 +152,10 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | `garmin_workout` | Read/write Garmin saved workouts (edit sets/reps/weight/rest, swap/add/remove exercises) | Requires user integration |
 | `whatsapp` | WhatsApp notifications | Requires app config + user phone |
 | `manage_memory` | Write to the user's long-term memory | **Must be granted** |
+| `search_memory` | Search stored memories (keyword + semantic) | Requires grant |
 | `search_conversations` | Search the user's past conversations | Requires grant |
 | `read_conversation` | Read one past conversation | Requires grant |
+| `delegate_task` | Context-isolated research subagent (spends tokens) | **Must be granted** |
 
 **Permission settings:**
 - `tool_permissions=null` (default): All available tools enabled

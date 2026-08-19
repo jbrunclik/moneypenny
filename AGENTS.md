@@ -12,6 +12,7 @@ This file contains context for Claude Code to work effectively on this project.
 - **Build**: `make build` (production build)
 - **Lint**: `make lint` (ruff + mypy + eslint)
 - **Test**: `make test-all` (run all tests - backend + frontend)
+- **Evals**: `make eval` (agent behavior evals, live API - run around prompt/tool changes)
 - **Pre-commit**: `make pre-commit` (lint + test-all + security scan)
 - **Setup**: `make setup` (venv + deps)
 - **Sandbox**: `make sandbox-image` (build custom Docker image for code execution)
