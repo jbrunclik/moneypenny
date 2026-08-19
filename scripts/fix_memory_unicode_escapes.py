@@ -36,9 +36,13 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    from src.config import Config
+    # No src.db.models import: constructing a second Database would contend
+    # for the yoyo migration lock against the live app. Raw SQL only.
 
-    conn = sqlite3.connect(Config.DATABASE_PATH)
+    from src.config import Config
+    from src.utils.embeddings import embed_text, pack_vector
+
+    conn = sqlite3.connect(Config.DATABASE_PATH, timeout=30)
     rows = conn.execute(
         r"SELECT id, user_id, content FROM user_memories WHERE content LIKE '%\u%'"
     ).fetchall()
@@ -53,13 +57,23 @@ def main() -> int:
             conn.execute("UPDATE user_memories SET content = ? WHERE id = ?", (fixed, memory_id))
             repaired += 1
             # Re-embed from the repaired text (the old vector encoded escapes)
-            from src.db.models import db
-            from src.utils.embeddings import embed_text, pack_vector
-
             vec = embed_text(fixed)
             if vec is not None:
-                db.upsert_embedding(
-                    user_id, "memory", memory_id, Config.EMBEDDING_MODEL, len(vec), pack_vector(vec)
+                conn.execute(
+                    """INSERT INTO embeddings (id, user_id, kind, ref_id, model, dim, vector, created_at)
+                       VALUES (?, ?, 'memory', ?, ?, ?, ?, ?)
+                       ON CONFLICT(kind, ref_id) DO UPDATE SET
+                           model = excluded.model, dim = excluded.dim,
+                           vector = excluded.vector, created_at = excluded.created_at""",
+                    (
+                        str(uuid.uuid4()),
+                        user_id,
+                        memory_id,
+                        Config.EMBEDDING_MODEL,
+                        len(vec),
+                        pack_vector(vec),
+                        datetime.now().isoformat(),
+                    ),
                 )
 
     if not args.dry_run:
