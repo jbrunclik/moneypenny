@@ -1,0 +1,11 @@
+id: alpine_trip_advice
+description: Longer-form practical advice quality (no specific tool required)
+user: >
+  I'm planning a three-day hiking trip in the Julian Alps in September.
+  What should I pack and what permits do I need?
+expect:
+  rubric: >
+    The answer gives useful, structured packing advice appropriate for a
+    multi-day September alpine hike (layers/rain protection, navigation, water,
+    first aid) and addresses permits/park regulations for the Julian Alps
+    (even if it says none are typically needed for hiking).

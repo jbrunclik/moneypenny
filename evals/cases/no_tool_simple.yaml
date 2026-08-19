@@ -1,0 +1,7 @@
+id: no_tool_simple
+description: Timeless factual question must be answered directly, without web tools
+user: What is the capital of France?
+expect:
+  rubric: The answer states that Paris is the capital of France, concisely.
+  forbidden_tools: [web_search, research, fetch_url, delegate_task]
+  max_tool_rounds: 1

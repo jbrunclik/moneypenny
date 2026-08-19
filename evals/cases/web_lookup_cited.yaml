@@ -1,0 +1,9 @@
+id: web_lookup_cited
+description: Current-fact question requires a web tool and a citation
+user: What is the current price of Bitcoin in USD?
+expect:
+  rubric: >
+    The answer gives a concrete, plausibly current BTC/USD price (a number),
+    acknowledges it fluctuates or gives a timestamp/date context, and cites at
+    least one source (cite_sources call or a named source in the text).
+  required_tools: [research, web_search]

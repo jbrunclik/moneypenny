@@ -1,0 +1,8 @@
+id: czech_reply
+description: Czech question gets a fluent Czech answer
+user: "Vysvětli mi jednoduše, jak funguje fotosyntéza."
+expect:
+  rubric: >
+    The answer is written in fluent, natural Czech (not English), explains
+    photosynthesis simply and correctly (light, CO2, water -> glucose, oxygen).
+  forbidden_tools: [web_search, research]

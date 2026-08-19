@@ -1,0 +1,9 @@
+id: memory_write
+description: A durable personal fact should be stored via manage_memory
+user: Please remember that I'm vegetarian and allergic to peanuts.
+expect:
+  rubric: >
+    The assistant confirms it will remember both facts (vegetarian, peanut
+    allergy). The confirmation must not claim failure.
+  required_tools: [manage_memory]
+  max_tool_rounds: 3

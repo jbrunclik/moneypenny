@@ -1,0 +1,12 @@
+id: code_exec
+description: Numeric computation should run in the sandbox, not be estimated
+user: >
+  Calculate the exact compound interest on 250000 CZK at 4.7% p.a. compounded
+  monthly for 7 years. Give me the final amount to the haléř.
+requires: [code_sandbox]
+expect:
+  rubric: >
+    The final amount is 347171.29 CZK (250000*(1+0.047/12)^84; accept values
+    within 1 CZK) and is presented clearly in CZK.
+  required_tools: [execute_code]
+  max_tool_rounds: 3

@@ -318,6 +318,10 @@ class Config:
     # `or` (not a getenv default): a copied .env.example sets it to "".
     DELEGATE_MODEL: str = os.getenv("DELEGATE_MODEL") or DEFAULT_MODEL
 
+    # Judge model for the eval harness (evals/run.py, `make eval`). Pro by
+    # default: judging quality matters more than judge cost (a few calls/run).
+    EVAL_JUDGE_MODEL: str = os.getenv("EVAL_JUDGE_MODEL") or "gemini-3.1-pro-preview"
+
     # Embeddings for semantic recall (memories + past conversations).
     # Vectors stored in the embeddings table; brute-force cosine search.
     EMBEDDINGS_ENABLED: bool = os.getenv("EMBEDDINGS_ENABLED", "true").lower() == "true"
