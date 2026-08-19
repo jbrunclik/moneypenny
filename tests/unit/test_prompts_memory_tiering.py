@@ -76,3 +76,35 @@ class TestMemoryTiering:
         prompt = get_user_memories_list_prompt("user-1")
 
         assert f"of {total}/" in prompt
+
+
+class TestMemoryUnicode:
+    @patch("src.agent.prompts.db")
+    def test_injected_memories_keep_unicode(self, mock_db) -> None:
+        """Czech characters must not be \\uXXXX-escaped in the prompt.
+
+        The model copies what it sees: ensure_ascii escapes round-tripped
+        into STORED memories via update/consolidation (observed Aug 2026).
+        """
+        memory = _memory(1)
+        memory.content = "Hodinky: stříbrné/titanový tah, zvažuje Seiko"
+        mock_db.list_memories.return_value = [memory]
+
+        prompt = get_user_memories_list_prompt("user-1")
+
+        assert "stříbrné/titanový" in prompt
+        assert "\\u0159" not in prompt
+
+
+class TestDecodeEscapes:
+    def test_decodes_czech_sequences(self) -> None:
+        from scripts.fix_memory_unicode_escapes import decode_escapes
+
+        poisoned = "st\\u0159\\u00edbrn\\u00e9/titanov\\u00fd tah, zva\\u017euje Seiko"
+        assert decode_escapes(poisoned) == "stříbrné/titanový tah, zvažuje Seiko"
+
+    def test_leaves_clean_text_alone(self) -> None:
+        from scripts.fix_memory_unicode_escapes import decode_escapes
+
+        clean = "stříbrné hodinky, C:\\Users\\path is not an escape"
+        assert decode_escapes(clean) == clean

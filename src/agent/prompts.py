@@ -1253,7 +1253,11 @@ def get_user_memories_list_prompt(user_id: str) -> str:
             if mem.protected:
                 entry["protected"] = "true"
             memory_list.append(entry)
-        prompt_parts.append("\n```json\n" + _json.dumps(memory_list, indent=2) + "\n```")
+        # ensure_ascii=False: the model copies what it sees, so \uXXXX-escaped
+        # Czech text round-trips into STORED memories via update/consolidation
+        prompt_parts.append(
+            "\n```json\n" + _json.dumps(memory_list, indent=2, ensure_ascii=False) + "\n```"
+        )
     else:
         prompt_parts.append("\nNo memories stored yet.")
 
@@ -1486,8 +1490,9 @@ def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:
 
         schedule_data["days"].append(day_data)
 
-    # Format as JSON with explanation
-    json_str = json.dumps(schedule_data, indent=2)
+    # Format as JSON with explanation (ensure_ascii=False: Czech event titles
+    # must reach the model as real characters, not \uXXXX escapes)
+    json_str = json.dumps(schedule_data, indent=2, ensure_ascii=False)
     return f"""
 
 # Current Schedule Overview

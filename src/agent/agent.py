@@ -319,7 +319,9 @@ class ChatAgent:
         # Return with metadata block if we have any metadata
         # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing
         if meta_dict:
-            json_str = json.dumps(meta_dict, separators=(",", ":"))
+            # ensure_ascii=False: Czech file names/summaries as real characters
+            # (escapes waste tokens and can be echoed back by the model)
+            json_str = json.dumps(meta_dict, separators=(",", ":"), ensure_ascii=False)
             return f"<!-- MSG_CONTEXT: {json_str} -->\n{content}"
         return content
 
