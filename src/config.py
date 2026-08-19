@@ -362,6 +362,12 @@ class Config:
     # networking disabled, so every library must be baked into the image;
     # runtime pip installs cannot work.
     CODE_SANDBOX_IMAGE: str = os.getenv("CODE_SANDBOX_IMAGE", "ai-chatbot-sandbox:local")
+    # Per-conversation session reuse (sandbox_sessions.py): container + /work
+    # filesystem persist across execute_code calls; pool is per gunicorn worker
+    CODE_SANDBOX_MAX_SESSIONS: int = int(os.getenv("CODE_SANDBOX_MAX_SESSIONS", "2"))
+    CODE_SANDBOX_SESSION_TTL_SECONDS: int = int(
+        os.getenv("CODE_SANDBOX_SESSION_TTL_SECONDS", "900")
+    )
 
     # Autonomous agent settings
     # Timeout for considering an execution "stuck" (used for locking)
