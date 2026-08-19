@@ -318,6 +318,12 @@ class Config:
     # `or` (not a getenv default): a copied .env.example sets it to "".
     DELEGATE_MODEL: str = os.getenv("DELEGATE_MODEL") or DEFAULT_MODEL
 
+    # Embeddings for semantic recall (memories + past conversations).
+    # Vectors stored in the embeddings table; brute-force cosine search.
+    EMBEDDINGS_ENABLED: bool = os.getenv("EMBEDDINGS_ENABLED", "true").lower() == "true"
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL") or "gemini-embedding-001"
+    EMBEDDING_DIM: int = int(os.getenv("EMBEDDING_DIM", "768"))
+
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
     # Tool result size caps (chars) - results land in LLM context
