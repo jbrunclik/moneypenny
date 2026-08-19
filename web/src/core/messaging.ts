@@ -487,6 +487,15 @@ interface StreamingState {
 }
 
 /**
+ * Toggle the uploading state on the optimistic user message so its
+ * attachment chips can indicate the in-flight upload.
+ */
+function setUserMessageUploading(tempUserMessageId: string, uploading: boolean): void {
+  const el = document.querySelector(`.message.user[data-message-id="${tempUserMessageId}"]`);
+  el?.classList.toggle('uploading', uploading);
+}
+
+/**
  * Initialize streaming request state and tracking.
  */
 function initStreamingRequest(
@@ -494,6 +503,12 @@ function initStreamingRequest(
   hasFiles: boolean
 ): { state: StreamingState; requestId: string; abortController: AbortController } {
   const messageEl = addStreamingMessage(convId);
+  // While the multipart body (attachments) uploads, nothing is thinking
+  // server-side yet - keep the assistant bubble hidden until the first
+  // stream event acks that the server has the message
+  if (hasFiles) {
+    messageEl.classList.add('awaiting-upload');
+  }
   const requestId = `stream-${convId}-${Date.now()}`;
   const abortController = new AbortController();
 
@@ -1343,17 +1358,23 @@ async function sendStreamingMessage(
 ): Promise<void> {
   const hasFiles = files && files.length > 0;
   const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
+  if (hasFiles) {
+    setUserMessageUploading(tempUserMessageId, true);
+  }
 
   // Mark for recovery on mobile background/lock; proactively resume on return
   const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
 
   try {
     for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation)) {
-      // Hide upload progress on first event
+      // First event = server has the message. Hide upload progress,
+      // reveal the assistant bubble, clear the user bubble's upload state.
       if (hasFiles && !state.uploadProgressHidden) {
         hideUploadProgress();
         useStore.getState().setUploadProgress(null);
         state.uploadProgressHidden = true;
+        state.messageEl.classList.remove('awaiting-upload');
+        setUserMessageUploading(tempUserMessageId, false);
       }
 
       // Track the journal seq so an interrupted stream can resume from offset
@@ -1452,6 +1473,12 @@ async function sendStreamingMessage(
     }
   } finally {
     cleanupLifecycleListeners();
+    // Safety net: never leave the user bubble pulsing or the assistant
+    // bubble hidden if the request died before the first event
+    if (hasFiles) {
+      setUserMessageUploading(tempUserMessageId, false);
+      state.messageEl.classList.remove('awaiting-upload');
+    }
     // The turn finished (or its failure was surfaced) in this page - only a
     // page that died mid-stream should resume after reload. Per-conversation:
     // other concurrent streams keep their entries.

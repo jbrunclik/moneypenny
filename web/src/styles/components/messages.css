@@ -354,6 +354,28 @@
     gap: var(--space-2);
 }
 
+/* Assistant bubble stays hidden while the user's attachments upload -
+   nothing is thinking server-side until the first stream event arrives
+   (messaging.ts removes the class on server ack) */
+.message.assistant.awaiting-upload {
+    display: none;
+}
+
+/* Attachment chips pulse (opacity only - scroll-safe) while the
+   multipart request body is in flight */
+.message.user.uploading .message-files {
+    animation: upload-pulse 1.2s var(--ease-in-out) infinite;
+}
+
+@keyframes upload-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.55;
+    }
+}
+
 .message-images {
     display: flex;
     flex-wrap: wrap;

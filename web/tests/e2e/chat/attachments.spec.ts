@@ -437,3 +437,75 @@ test.describe('Chat - Video Upload', () => {
     });
   });
 });
+
+test.describe('Chat - Thinking Gated on Upload', () => {
+  // Service-worker-mediated fetches bypass page.route — block the SW
+  test.use({ serviceWorkers: 'block' });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+  });
+
+  /**
+   * The assistant "thinking" bubble must not appear while the user's
+   * attachment is still uploading (the multipart request body is in
+   * flight) — nothing is thinking server-side yet. The user message's
+   * attachment chips carry the uploading state instead; the assistant
+   * bubble appears once the server's first stream event arrives.
+   */
+  test('thinking indicator waits for server ack when sending files', async ({ page }) => {
+    // Hold the streaming request to simulate a slow attachment upload
+    let releaseUpload: () => void = () => {};
+    const uploadGate = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+    await page.route('**/chat/stream', async (route) => {
+      await uploadGate;
+      await route.continue();
+    });
+
+    // Attach an image
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
+      name: 'test-image.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(pngBase64, 'base64'),
+    });
+    await expect(page.locator('#file-preview')).not.toHaveClass(/hidden/, { timeout: 3000 });
+
+    await page.fill('#message-input', 'look at this');
+    await page.click('#send-btn');
+
+    // While the request is held: user bubble shows uploading state,
+    // no assistant thinking bubble is visible
+    await expect(page.locator('.message.user.uploading')).toBeVisible();
+    await expect(page.locator('.message.assistant')).toBeHidden();
+    await expect(page.locator('.thinking-indicator')).toBeHidden();
+
+    // Release the "upload" - assistant response streams in normally
+    releaseUpload();
+    await expect(page.locator('.message.assistant')).toBeVisible({ timeout: 10000 });
+
+    // Uploading state cleared once the server acked
+    await expect(page.locator('.message.user.uploading')).toHaveCount(0);
+  });
+
+  test('text-only send still shows thinking immediately', async ({ page }) => {
+    // Hold the request the same way - WITHOUT files the assistant bubble
+    // should appear right away (no upload phase to wait for)
+    await page.route('**/chat/stream', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await route.continue();
+    });
+
+    await page.fill('#message-input', 'just text');
+    await page.click('#send-btn');
+
+    await expect(page.locator('.message.assistant.streaming')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('.message.user.uploading')).toHaveCount(0);
+  });
+});

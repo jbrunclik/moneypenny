@@ -770,7 +770,10 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await page.waitForSelector('#planner-dashboard');
     await page.waitForTimeout(300);
 
-    await expect(page.locator('.dashboard-header')).toHaveScreenshot('buttons-default.png');
+    // Mask the date line - it renders the real current date (server_time)
+    await expect(page.locator('.dashboard-header')).toHaveScreenshot('buttons-default.png', {
+      mask: [page.locator('.dashboard-date')],
+    });
   });
 
   test('refresh button hover', async ({ page }) => {
@@ -780,7 +783,9 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await page.locator('.planner-refresh-btn').hover();
     await page.waitForTimeout(200);
 
-    await expect(page.locator('.dashboard-header')).toHaveScreenshot('refresh-hover.png');
+    await expect(page.locator('.dashboard-header')).toHaveScreenshot('refresh-hover.png', {
+      mask: [page.locator('.dashboard-date')],
+    });
   });
 
   test('reset button hover', async ({ page }) => {
@@ -790,7 +795,9 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await page.locator('.planner-reset-btn').hover();
     await page.waitForTimeout(200);
 
-    await expect(page.locator('.dashboard-header')).toHaveScreenshot('reset-hover.png');
+    await expect(page.locator('.dashboard-header')).toHaveScreenshot('reset-hover.png', {
+      mask: [page.locator('.dashboard-date')],
+    });
   });
 });
 
@@ -867,7 +874,9 @@ test.describe('Visual: Planner Dashboard - Mobile', () => {
     await page.waitForSelector('.dashboard-actions');
     await page.waitForTimeout(300);
 
-    await expect(page.locator('.dashboard-header')).toHaveScreenshot('mobile-buttons.png');
+    await expect(page.locator('.dashboard-header')).toHaveScreenshot('mobile-buttons.png', {
+      mask: [page.locator('.dashboard-date')],
+    });
   });
 });
 
