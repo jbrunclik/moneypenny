@@ -36,6 +36,11 @@ TRANSIENT_EXCEPTIONS = (
     DeadlineExceeded,  # Google API 504
 )
 
+# Patterns are only matched against the START of the message (see below):
+# exception strings can embed tool/page payloads whose text ("timeout",
+# "connection reset") is data, not an error condition.
+_PATTERN_SCAN_CHARS = 300
+
 # Error messages that indicate transient failures
 TRANSIENT_ERROR_PATTERNS = (
     "rate limit",
@@ -59,12 +64,19 @@ def is_transient_error(error: Exception) -> bool:
     Returns:
         True if the error is transient and retryable
     """
-    # Check exception type
-    if isinstance(error, TRANSIENT_EXCEPTIONS):
-        return True
+    # Walk the cause chain: provider SDKs wrap transient errors in their own
+    # exception types (e.g. ChatGoogleGenerativeAIError around a 429)
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, TRANSIENT_EXCEPTIONS):
+            return True
+        current = current.__cause__ or current.__context__
 
-    # Check error message for patterns
-    error_msg = str(error).lower()
+    # Pattern-match only the start of the message (payloads embedded in
+    # exception strings must not false-positive)
+    error_msg = str(error)[:_PATTERN_SCAN_CHARS].lower()
     return any(pattern in error_msg for pattern in TRANSIENT_ERROR_PATTERNS)
 
 
