@@ -32,6 +32,7 @@ from src.db.models.dataclasses import (
     SearchResult,
     User,
 )
+from src.db.models.embeddings import EmbeddingsMixin
 from src.db.models.helpers import (
     build_cursor,
     check_database_connectivity,
@@ -69,6 +70,7 @@ class Database(
     SettingsMixin,
     AgentMixin,
     KVStoreMixin,
+    EmbeddingsMixin,
     ProgramConversationMixin,
     PushSubscriptionMixin,
     StreamJournalMixin,
