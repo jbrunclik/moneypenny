@@ -15,6 +15,8 @@ import argparse
 import re
 import sqlite3
 import sys
+import uuid
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
