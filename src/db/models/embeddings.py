@@ -89,6 +89,32 @@ class EmbeddingsMixin:
             row = cursor.fetchone()
             return int(row[0]) if row else 0
 
+    def get_message_rows_for_ids(
+        self, user_id: str, message_ids: list[str]
+    ) -> list[tuple[str, str, str, str, str]]:
+        """Resolve message ids to (message_id, conversation_id, content,
+        created_at, conversation_title), scoped to the user's conversations.
+
+        Used to render semantic search hits; ids whose message or conversation
+        no longer exists simply drop out (embeddings may outlive their rows).
+        """
+        if not message_ids:
+            return []
+        placeholders = ",".join("?" for _ in message_ids)
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                f"""SELECT m.id, m.conversation_id, m.content, m.created_at, c.title
+                    FROM messages m
+                    JOIN conversations c ON c.id = m.conversation_id
+                    WHERE c.user_id = ? AND m.id IN ({placeholders})""",  # noqa: S608 - placeholders only
+                (user_id, *message_ids),
+            )
+            rows = cursor.fetchall()
+        by_id = {row[0]: (row[0], row[1], row[2], row[3], row[4]) for row in rows}
+        # Preserve the caller's (similarity-ranked) order
+        return [by_id[message_id] for message_id in message_ids if message_id in by_id]
+
     def delete_embedding(self, kind: str, ref_id: str) -> None:
         """Remove the embedding for (kind, ref_id), if any."""
         with self._pool.get_connection() as conn:

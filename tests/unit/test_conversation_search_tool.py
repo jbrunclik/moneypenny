@@ -163,3 +163,74 @@ class TestReadConversation:
 
         assert "(truncated)" in result
         assert "y" * 500 not in result
+
+
+class TestSemanticConversationSearch:
+    """Embedding-based matches complement FTS keyword matches."""
+
+    def test_semantic_match_found_without_keyword_overlap(
+        self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.agent.tools.conversation_search as module
+        from src.utils.embeddings import pack_vector
+
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+        # Silence the add_message embedding hook (no live API attempts)
+        monkeypatch.setattr(
+            "src.utils.embeddings.embed_and_store_async", lambda *args: None
+        )
+        database, user = search_context
+        conv = _conversation_with_message(
+            database, user, "Pet chat", "Max loves playing fetch in the park"
+        )
+        message = database.get_messages(conv.id)[0]
+        database.upsert_embedding(
+            user.id, "message", message.id, "test-model", 2, pack_vector([1.0, 0.0])
+        )
+        monkeypatch.setattr(module, "embed_text", lambda text: [1.0, 0.1])
+
+        result = str(search_conversations.invoke({"query": "what does my dog enjoy"}))
+
+        assert "Pet chat" in result
+        assert "semantic match" in result
+
+    def test_embed_failure_degrades_to_fts_only(
+        self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.agent.tools.conversation_search as module
+
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+        # Silence the add_message embedding hook (no live API attempts)
+        monkeypatch.setattr(
+            "src.utils.embeddings.embed_and_store_async", lambda *args: None
+        )
+        monkeypatch.setattr(module, "embed_text", lambda text: None)
+        database, user = search_context
+        _conversation_with_message(database, user, "Keyword chat", "contains magicword here")
+
+        result = str(search_conversations.invoke({"query": "magicword"}))
+
+        assert "Keyword chat" in result
+
+    def test_semantic_does_not_duplicate_fts_hit(
+        self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.agent.tools.conversation_search as module
+        from src.utils.embeddings import pack_vector
+
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+        # Silence the add_message embedding hook (no live API attempts)
+        monkeypatch.setattr(
+            "src.utils.embeddings.embed_and_store_async", lambda *args: None
+        )
+        database, user = search_context
+        conv = _conversation_with_message(database, user, "Tiles", "hexagonal tiles decision")
+        message = database.get_messages(conv.id)[0]
+        database.upsert_embedding(
+            user.id, "message", message.id, "test-model", 2, pack_vector([1.0, 0.0])
+        )
+        monkeypatch.setattr(module, "embed_text", lambda text: [1.0, 0.0])
+
+        result = str(search_conversations.invoke({"query": "hexagonal tiles"}))
+
+        assert result.count("Tiles") == 1
