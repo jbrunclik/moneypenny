@@ -95,6 +95,8 @@ class ChatAgent:
         sports_context: dict[str, Any] | None = None,
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
+        enable_context_cache: bool = True,
+        system_prompt_override: str | None = None,
     ) -> None:
         from src.agent.context_cache import get_cached_content_name
 
@@ -109,6 +111,10 @@ class ChatAgent:
         self.sports_context = sports_context
         self.is_language = is_language
         self.language_context = language_context
+        # A custom system prompt (delegate subagents) replaces the standard
+        # prompt assembly entirely and forces uncached mode - the shared cache
+        # profiles all embed the standard static prompt.
+        self.system_prompt_override = system_prompt_override
         # Use provided tools, or get filtered tools based on mode
         if tools is not None:
             active_tools = tools
@@ -126,11 +132,12 @@ class ChatAgent:
 
         # Determine cache profile and get cached content name
         self._cached_content_name: str | None = None
-        cache_profile = self._get_cache_profile()
-        if cache_profile and with_tools and active_tools:
-            self._cached_content_name = get_cached_content_name(
-                cache_profile, model_name, active_tools
-            )
+        if enable_context_cache and system_prompt_override is None:
+            cache_profile = self._get_cache_profile()
+            if cache_profile and with_tools and active_tools:
+                self._cached_content_name = get_cached_content_name(
+                    cache_profile, model_name, active_tools
+                )
 
         logger.debug(
             "Creating ChatAgent",
@@ -349,7 +356,11 @@ class ChatAgent:
         # the (stable) conversation history that follows. In uncached mode the
         # SystemMessage carries everything and stays at position 0.
         dynamic_context_msg: HumanMessage | None = None
-        if self._cached_content_name:
+        if self.system_prompt_override is not None:
+            # Custom prompt (delegate subagents): used verbatim, no dynamic
+            # context assembly
+            messages.append(SystemMessage(content=self.system_prompt_override))
+        elif self._cached_content_name:
             dynamic = get_dynamic_prompt_parts(
                 force_tools=force_tools,
                 user_name=user_name,

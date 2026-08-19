@@ -2423,6 +2423,7 @@ class TestBuildMessagesConversationTitle:
 
         agent = ChatAgent.__new__(ChatAgent)
         agent._cached_content_name = "cache/x" if cached else None
+        agent.system_prompt_override = None
         agent.with_tools = True
         agent.anonymous_mode = False
         agent.is_autonomous = False
@@ -2442,6 +2443,40 @@ class TestBuildMessagesConversationTitle:
         )
         combined = "".join(str(m.content) for m in messages)
         assert "🐍 Python List Sorting" in combined
+
+
+class TestChatAgentOverrides:
+    """enable_context_cache=False and system_prompt_override (delegate subagent)."""
+
+    @staticmethod
+    def _construct(monkeypatch, **kwargs):
+        import src.agent.agent as agent_mod
+        import src.agent.context_cache as cache_mod
+        import src.agent.graph as graph_mod
+
+        def fail_cache_lookup(*args, **kw):
+            raise AssertionError("cache lookup must not run")
+
+        monkeypatch.setattr(cache_mod, "get_cached_content_name", fail_cache_lookup)
+        monkeypatch.setattr(agent_mod, "create_chat_graph", lambda *a, **kw: object())
+        monkeypatch.setattr(graph_mod, "compile_graph", lambda graph: graph)
+        return agent_mod.ChatAgent(model_name="gemini-test", **kwargs)
+
+    def test_cache_opt_out_skips_cache_lookup(self, monkeypatch) -> None:
+        agent = self._construct(monkeypatch, enable_context_cache=False)
+        assert agent._cached_content_name is None
+
+    def test_system_prompt_override_implies_no_cache(self, monkeypatch) -> None:
+        agent = self._construct(monkeypatch, system_prompt_override="You are a test.")
+        assert agent._cached_content_name is None
+
+    def test_system_prompt_override_used_verbatim(self, monkeypatch) -> None:
+        from langchain_core.messages import SystemMessage
+
+        agent = self._construct(monkeypatch, system_prompt_override="You are a test.")
+        messages = agent._build_messages("hi")
+        assert isinstance(messages[0], SystemMessage)
+        assert messages[0].content == "You are a test."
 
 
 class TestInteractiveAgentToolWiring:
