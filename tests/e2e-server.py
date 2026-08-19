@@ -39,6 +39,7 @@ os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-e2e-testing"
 os.environ["ALLOWED_EMAILS"] = "*"  # Allow all emails in E2E tests
 os.environ["LOG_LEVEL"] = "WARNING"  # Reduce noise during E2E tests
+os.environ["EMBEDDINGS_ENABLED"] = "false"  # No live embedding calls from E2E
 os.environ["RATE_LIMITING_ENABLED"] = "false"  # Disable rate limiting for parallel tests
 
 # Template databases are created once at startup with migrations applied
@@ -220,25 +221,15 @@ def create_mock_llm() -> MagicMock:
     return mock
 
 
-def create_mock_ddgs() -> MagicMock:
-    """Create mock DuckDuckGo search."""
-    mock = MagicMock()
-    mock_instance = MagicMock()
-    mock_instance.__enter__ = MagicMock(return_value=mock_instance)
-    mock_instance.__exit__ = MagicMock(return_value=False)
-
-    def mock_text(*args: Any, **kwargs: Any) -> list[dict[str, str]]:
-        return [
-            {
-                "title": "Example Search Result",
-                "href": "https://example.com/result",
-                "body": "This is a mock search result snippet.",
-            }
-        ]
-
-    mock_instance.text = mock_text
-    mock.return_value = mock_instance
-    return mock
+def mock_search_web(query: str, num_results: int) -> list[dict[str, str]]:
+    """Mock the search-provider seam (web_search and research both use it)."""
+    return [
+        {
+            "title": "Example Search Result",
+            "url": "https://example.com/result",
+            "snippet": "This is a mock search result snippet.",
+        }
+    ]
 
 
 def create_mock_httpx() -> MagicMock:
@@ -551,7 +542,8 @@ def main() -> None:
         # Apply external service mocks
         stack.enter_context(patch("src.agent.graph.ChatGoogleGenerativeAI", create_mock_llm()))
         stack.enter_context(patch("src.agent.agent.ChatGoogleGenerativeAI", create_mock_llm()))
-        stack.enter_context(patch("src.agent.tools.web.DDGS", create_mock_ddgs()))
+        stack.enter_context(patch("src.agent.tools.web.search_web", mock_search_web))
+        stack.enter_context(patch("src.agent.tools.research.search_web", mock_search_web))
         stack.enter_context(patch("src.agent.tools.web.httpx.Client", create_mock_httpx()))
         stack.enter_context(
             patch("src.agent.tools.image_generation.genai.Client", create_mock_genai())

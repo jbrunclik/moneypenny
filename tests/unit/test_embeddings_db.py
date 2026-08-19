@@ -54,3 +54,56 @@ class TestEmbeddingsMixin:
         test_database.delete_embedding("memory", "mem-1")
 
         assert test_database.get_embeddings(test_user.id, "memory") == []
+
+
+class TestMessageEmbeddingHook:
+    """add_message / update_message_content schedule background embeddings."""
+
+    def test_add_message_schedules_embedding(
+        self, test_database, test_user, test_conversation, monkeypatch
+    ) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+        calls: list[tuple] = []
+        monkeypatch.setattr(
+            "src.utils.embeddings.embed_and_store_async",
+            lambda *args: calls.append(args),
+        )
+
+        message = test_database.add_message(test_conversation.id, "user", "Hello world")
+
+        assert calls == [(test_user.id, "message", message.id, "Hello world")]
+
+    def test_update_message_content_reembeds(
+        self, test_database, test_user, test_conversation, monkeypatch
+    ) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+        calls: list[tuple] = []
+        monkeypatch.setattr(
+            "src.utils.embeddings.embed_and_store_async",
+            lambda *args: calls.append(args),
+        )
+
+        message = test_database.add_message(test_conversation.id, "assistant", "placeholder")
+        test_database.update_message_content(message.id, "final answer")
+
+        assert calls[-1] == (test_user.id, "message", message.id, "final answer")
+
+    def test_empty_content_not_embedded(
+        self, test_database, test_user, test_conversation, monkeypatch
+    ) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+        calls: list[tuple] = []
+        monkeypatch.setattr(
+            "src.utils.embeddings.embed_and_store_async",
+            lambda *args: calls.append(args),
+        )
+
+        test_database.add_message(test_conversation.id, "assistant", "   ")
+
+        assert calls == []

@@ -21,6 +21,9 @@ os.environ["GEMINI_API_KEY"] = "test-api-key"
 os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["ALLOWED_EMAILS"] = "test@example.com,allowed@example.com"
+# The db.add_message embedding hook must never call the live embedding API
+# from tests; hook tests opt back in via monkeypatch on Config.
+os.environ["EMBEDDINGS_ENABLED"] = "false"
 
 
 # -----------------------------------------------------------------------------

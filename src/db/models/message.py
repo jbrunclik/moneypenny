@@ -179,6 +179,7 @@ class MessageMixin:
         logger.debug(
             "Message added", extra={"message_id": msg_id, "conversation_id": conversation_id}
         )
+        self._schedule_message_embedding(msg_id, conversation_id, content)
         return Message(
             id=msg_id,
             conversation_id=conversation_id,
@@ -190,6 +191,41 @@ class MessageMixin:
             generated_images=generated_images,
             language=language,
         )
+
+    def _schedule_message_embedding(
+        self, message_id: str, conversation_id: str, content: str
+    ) -> None:
+        """Fire-and-forget semantic-recall embedding for a saved message.
+
+        This is the single seam every message write flows through (batch chat,
+        streaming, agents, programs), so hooking here keeps the embedding
+        write-path complete without touching each save site. The embed itself
+        runs on a daemon thread; this only resolves the conversation owner.
+        """
+        from src.config import Config
+
+        if not Config.EMBEDDINGS_ENABLED or not content.strip():
+            return
+        try:
+            with self._pool.get_connection() as conn:
+                row = self._execute_with_timing(
+                    conn,
+                    "SELECT user_id FROM conversations WHERE id = ?",
+                    (conversation_id,),
+                ).fetchone()
+            if not row:
+                return
+            import src.utils.embeddings as embeddings_util
+
+            embeddings_util.embed_and_store_async(row["user_id"], "message", message_id, content)
+        except Exception:
+            # Embedding freshness is best-effort; a failure must never break
+            # the message save
+            logger.warning(
+                "Failed to schedule message embedding",
+                extra={"message_id": message_id},
+                exc_info=True,
+            )
 
     def get_messages(self, conversation_id: str) -> list[Message]:
         """Get all messages for a conversation."""
@@ -599,6 +635,8 @@ class MessageMixin:
 
         if not row:
             return None
+
+        self._schedule_message_embedding(message_id, row["conversation_id"], content)
 
         return Message(
             id=row["id"],

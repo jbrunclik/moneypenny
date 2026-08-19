@@ -296,6 +296,7 @@ class TestSearchMemory:
         from src.agent.tools.memory import search_memory
         from src.utils.embeddings import pack_vector
 
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
         test_database, test_user = memory_context
         memory = test_database.add_memory(test_user.id, "Has a golden retriever named Max", "fact")
         test_database.upsert_embedding(
@@ -313,3 +314,46 @@ class TestSearchMemory:
         result = str(search_memory.invoke({"query": "  "}))
 
         assert "Error" in result
+
+
+class TestMemoryEmbeddingHook:
+    """Memory writes schedule background embeddings; deletes clean them up."""
+
+    def test_add_schedules_embedding(self, memory_context, monkeypatch) -> None:
+        calls: list[tuple] = []
+        monkeypatch.setattr(
+            "src.agent.tools.memory.embed_and_store_async",
+            lambda *args: calls.append(args),
+        )
+        test_database, test_user = memory_context
+
+        result = _invoke([{"action": "add", "content": "Loves hiking", "category": "fact"}])
+
+        memory_id = result.split("id=")[1].split(" ")[0]
+        assert calls == [(test_user.id, "memory", memory_id, "Loves hiking")]
+
+    def test_update_schedules_embedding(self, memory_context, monkeypatch) -> None:
+        calls: list[tuple] = []
+        monkeypatch.setattr(
+            "src.agent.tools.memory.embed_and_store_async",
+            lambda *args: calls.append(args),
+        )
+        test_database, test_user = memory_context
+        memory = test_database.add_memory(test_user.id, "Old fact", "fact")
+
+        _invoke([{"action": "update", "id": memory.id, "content": "New fact"}])
+
+        assert (test_user.id, "memory", memory.id, "New fact") in calls
+
+    def test_delete_removes_embedding(self, memory_context) -> None:
+        from src.utils.embeddings import pack_vector
+
+        test_database, test_user = memory_context
+        memory = test_database.add_memory(test_user.id, "Ephemeral", "context")
+        test_database.upsert_embedding(
+            test_user.id, "memory", memory.id, "test-model", 2, pack_vector([1.0, 0.0])
+        )
+
+        _invoke([{"action": "delete", "id": memory.id}])
+
+        assert test_database.get_embeddings(test_user.id, "memory") == []
