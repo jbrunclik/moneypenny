@@ -69,12 +69,12 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     """Cosine similarity; 0.0 for zero-length or zero vectors."""
     if len(a) != len(b) or not a:
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b, strict=True))
-    norm_a = sum(x * x for x in a) ** 0.5
-    norm_b = sum(y * y for y in b) ** 0.5
+    dot: float = sum(x * y for x, y in zip(a, b, strict=True))
+    norm_a: float = sum(x * x for x in a) ** 0.5
+    norm_b: float = sum(y * y for y in b) ** 0.5
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
-    return float(dot) / (norm_a * norm_b)
+    return dot / (norm_a * norm_b)
 
 
 def top_k_similar(
