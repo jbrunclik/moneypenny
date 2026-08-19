@@ -15,7 +15,9 @@ class Config:
     # Gemini API
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
-    # Available models - each model has a full name and short name for compact display
+    # Available models - each model has a full name and short name for compact display.
+    # Optional per-model key "thinking_level" (e.g. "low"/"high") sets Gemini 3+
+    # native reasoning depth; omit it to use the API default (create_chat_model).
     MODELS = {
         "gemini-3.7-flash": {
             "name": "Gemini 3.7 Flash",

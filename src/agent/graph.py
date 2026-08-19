@@ -103,6 +103,12 @@ def create_chat_model(
         "include_thoughts": include_thoughts,
     }
 
+    # Optional per-model reasoning depth (Gemini 3+ thinking_level). Unset =
+    # API default. Configured via the "thinking_level" key on MODELS entries.
+    thinking_level = Config.MODELS.get(model_name, {}).get("thinking_level")
+    if thinking_level:
+        kwargs["thinking_level"] = thinking_level
+
     if cached_content:
         kwargs["cached_content"] = cached_content
         # Do NOT bind_tools when using cached_content — tools are in the cache

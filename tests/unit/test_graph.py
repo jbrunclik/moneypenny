@@ -418,6 +418,32 @@ class TestGraphStructure:
 # ============ Cached Model Creation Tests ============
 
 
+class TestThinkingLevel:
+    """create_chat_model honors the optional per-model thinking_level knob."""
+
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    def test_passes_thinking_level_when_configured(self, mock_llm_class: MagicMock) -> None:
+        from src.agent.graph import create_chat_model
+
+        with patch.dict(
+            Config.MODELS,
+            {"test-model": {"name": "Test", "thinking_level": "high"}},
+        ):
+            create_chat_model("test-model", with_tools=False)
+
+        call_kwargs = mock_llm_class.call_args[1]
+        assert call_kwargs["thinking_level"] == "high"
+
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    def test_omits_thinking_level_by_default(self, mock_llm_class: MagicMock) -> None:
+        from src.agent.graph import create_chat_model
+
+        create_chat_model("gemini-3.7-flash", with_tools=False)
+
+        call_kwargs = mock_llm_class.call_args[1]
+        assert "thinking_level" not in call_kwargs
+
+
 class TestCachedModelCreation:
     """Tests for create_chat_model with cached_content."""
 
