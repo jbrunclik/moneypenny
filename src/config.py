@@ -314,6 +314,10 @@ class Config:
     RESEARCH_PER_SOURCE_MAX_CHARS = 4000
     RESEARCH_FETCH_WORKERS = 4
 
+    # Model for delegate_task subagents (context-isolated research runs).
+    # `or` (not a getenv default): a copied .env.example sets it to "".
+    DELEGATE_MODEL: str = os.getenv("DELEGATE_MODEL") or DEFAULT_MODEL
+
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
     # Tool result size caps (chars) - results land in LLM context

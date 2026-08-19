@@ -24,6 +24,7 @@ from src.agent.tools.context import (
     set_sports_context,
 )
 from src.agent.tools.conversation_search import read_conversation, search_conversations
+from src.agent.tools.delegate import delegate_task
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.garmin import garmin_connect, is_garmin_available
 from src.agent.tools.garmin_workout import garmin_workout
@@ -87,6 +88,7 @@ def get_available_tools() -> list[Any]:
         fetch_url,
         web_search,
         research,
+        delegate_task,
         generate_image,
         retrieve_file,
         cite_sources,
@@ -259,6 +261,7 @@ _TOOL_MAP: dict[str, Any] = {
     "web_search": web_search,
     "fetch_url": fetch_url,
     "research": research,
+    "delegate_task": delegate_task,
     "browser": browser,
     "generate_image": generate_image,
     "retrieve_file": retrieve_file,
@@ -379,6 +382,7 @@ __all__ = [
     "fetch_url",
     "web_search",
     "research",
+    "delegate_task",
     "browser",
     "generate_image",
     "execute_code",

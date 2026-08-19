@@ -33,6 +33,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Researched",
         "icon": "search",
     },
+    "delegate_task": {
+        "label": "Delegating research",
+        "label_past": "Delegated research",
+        "icon": "sparkles",
+    },
     "browser": {
         "label": "Browsing the web",
         "label_past": "Browsed",
@@ -279,6 +284,8 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
     """
     if tool_name == "research" and tool_args.get("question"):
         return str(tool_args["question"])
+    elif tool_name == "delegate_task" and tool_args.get("task"):
+        return str(tool_args["task"])[:200]
     elif tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):
         parts = [str(tool_args["query"])] if tool_args.get("query") else []
         batched = tool_args.get("queries")
