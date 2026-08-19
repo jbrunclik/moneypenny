@@ -438,6 +438,88 @@ class TestFetchableBinaryTypes:
         assert "image/webp" in FETCHABLE_BINARY_TYPES
 
 
+class TestFetchPageText:
+    """Tests for the reusable fetch_page_text helper (used by research)."""
+
+    @pytest.fixture(autouse=True)
+    def _public_dns(self):
+        """Resolve any hostname to a public IP so SSRF validation passes in tests."""
+        addrinfo = [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0))
+        ]
+        with patch("src.agent.tools.url_safety.socket.getaddrinfo", return_value=addrinfo):
+            yield
+
+    def _client_returning(self, mock_client_class: MagicMock, mock_response: MagicMock) -> None:
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.get.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+    @patch("src.agent.tools.web.httpx.Client")
+    def test_returns_text_for_html(self, mock_client_class: MagicMock) -> None:
+        from src.agent.tools.web import fetch_page_text
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_redirect = False
+        mock_response.text = "<html><body><p>Hello Research</p></body></html>"
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.raise_for_status = MagicMock()
+        self._client_returning(mock_client_class, mock_response)
+
+        text, error = fetch_page_text("https://example.com")
+
+        assert error is None
+        assert text is not None
+        assert "Hello Research" in text
+
+    @patch("src.agent.tools.web.httpx.Client")
+    def test_respects_max_chars(self, mock_client_class: MagicMock) -> None:
+        from src.agent.tools.web import fetch_page_text
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_redirect = False
+        mock_response.text = "<html><body><p>" + "word " * 2000 + "</p></body></html>"
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.raise_for_status = MagicMock()
+        self._client_returning(mock_client_class, mock_response)
+
+        text, error = fetch_page_text("https://example.com", max_chars=500)
+
+        assert error is None
+        assert text is not None
+        assert len(text) < 600  # cap + truncation marker
+
+    def test_returns_error_for_invalid_url(self) -> None:
+        from src.agent.tools.web import fetch_page_text
+
+        text, error = fetch_page_text("ftp://example.com/file")
+
+        assert text is None
+        assert error is not None
+
+    @patch("src.agent.tools.web.httpx.Client")
+    def test_returns_error_for_binary_content(self, mock_client_class: MagicMock) -> None:
+        from src.agent.tools.web import fetch_page_text
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_redirect = False
+        mock_response.headers = {"content-type": "application/pdf"}
+        mock_response.content = b"%PDF-1.4"
+        mock_response.raise_for_status = MagicMock()
+        self._client_returning(mock_client_class, mock_response)
+
+        text, error = fetch_page_text("https://example.com/doc.pdf")
+
+        assert text is None
+        assert error is not None
+        assert "fetch_url" in error  # points the model at the right tool
+
+
 class TestWebSearch:
     """Tests for web_search tool (provider mocked at the search_web seam)."""
 

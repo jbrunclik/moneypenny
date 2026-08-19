@@ -151,37 +151,21 @@ def _get_content_type_category(content_type: str) -> str:
     return "unsupported"
 
 
-@tool
-def fetch_url(url: str) -> str | list[dict[str, Any]]:
-    """Fetch content from a URL - supports web pages, PDFs, and images.
+def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
+    """Fetch a URL with SSRF validation and manual, re-validated redirects.
 
-    Use this tool to:
-    - Read the content of web pages (returns text in markdown format)
-    - Analyze PDF documents (returns the PDF for your analysis)
-    - Analyze images from URLs (returns the image for your analysis)
-
-    For PDFs and images, the binary content is returned directly for you to analyze.
-    You can describe images, extract text from PDFs, answer questions about their content, etc.
-
-    Args:
-        url: The URL to fetch (must start with http:// or https://)
-
-    Returns:
-        For web pages: The text content in markdown format
-        For PDFs/images: Multimodal content for analysis
-        For errors: JSON with error field
+    Returns (response, None) on success or (None, error_message) on failure.
+    The response body is fully loaded before the client closes.
     """
-    logger.info("fetch_url called", extra={"url": url})
     # SSRF protection: validate scheme + that the host doesn't resolve to a
     # private/reserved/metadata address. Redirects are followed manually below
     # so each hop is validated too (a public URL could 30x into a blocked range).
     url_error = validate_public_url(url)
     if url_error:
         logger.warning("Blocked or invalid URL", extra={"url": url, "reason": url_error})
-        return json.dumps({"error": url_error})
+        return None, url_error
 
     try:
-        logger.debug("Fetching URL", extra={"url": url})
         with httpx.Client(
             timeout=float(Config.TOOL_TIMEOUT),
             follow_redirects=False,
@@ -205,129 +189,180 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
                         "Blocked redirect target",
                         extra={"from": current_url, "to": next_url, "reason": redirect_error},
                     )
-                    return json.dumps({"error": f"Blocked redirect: {redirect_error}"})
+                    return None, f"Blocked redirect: {redirect_error}"
                 current_url = next_url
             else:
-                return json.dumps({"error": f"Too many redirects fetching {url}"})
+                return None, f"Too many redirects fetching {url}"
             response.raise_for_status()
-
-            content_type = response.headers.get("content-type", "")
-            content_category = _get_content_type_category(content_type)
-            content_length = len(response.content)
-
-            logger.debug(
-                "URL fetched successfully",
-                extra={
-                    "url": url,
-                    "status_code": response.status_code,
-                    "content_type": content_type,
-                    "content_category": content_category,
-                    "content_length": content_length,
-                },
-            )
-
-            # Handle HTML content - extract text
-            if content_category == "html":
-                extracted_text = _extract_text_from_html(response.text)
-                logger.info(
-                    "HTML content extracted", extra={"url": url, "text_length": len(extracted_text)}
-                )
-                wrapped = wrap_untrusted_content(extracted_text, url)
-                # Hint at browser tool when page likely needs JS rendering (our own
-                # trusted note, kept outside the untrusted-content markers)
-                if len(extracted_text) < 100 and Config.BROWSER_ENABLED:
-                    wrapped += (
-                        "\n\n[Note: This page returned very little text. "
-                        "It may require JavaScript rendering. "
-                        "Use the browser tool for JS-heavy pages.]"
-                    )
-                return wrapped
-
-            # Handle plain text content
-            if content_category == "text":
-                text_content = response.text
-                limit = Config.HTML_TEXT_MAX_LENGTH
-                if len(text_content) > limit:
-                    text_content = text_content[:limit] + "\n\n[Content truncated...]"
-                logger.info(
-                    "Text content fetched", extra={"url": url, "text_length": len(text_content)}
-                )
-                return wrap_untrusted_content(text_content, url)
-
-            # Handle binary content (PDFs, images)
-            if content_category == "binary":
-                # Check file size limit (10MB default)
-                max_size = Config.FETCH_URL_MAX_FILE_SIZE
-                if content_length > max_size:
-                    logger.warning(
-                        "File too large",
-                        extra={"url": url, "size": content_length, "max_size": max_size},
-                    )
-                    return json.dumps(
-                        {
-                            "error": f"File is too large ({content_length // 1024 // 1024}MB). "
-                            f"Maximum allowed size is {max_size // 1024 // 1024}MB."
-                        }
-                    )
-
-                # Get normalized MIME type
-                mime_type = content_type.split(";")[0].strip().lower()
-                # Normalize image/jpg to image/jpeg
-                if mime_type == "image/jpg":
-                    mime_type = "image/jpeg"
-
-                # Encode as base64
-                file_base64 = base64.b64encode(response.content).decode("utf-8")
-
-                # Extract filename from URL for context
-                filename = url.split("/")[-1].split("?")[0] or "file"
-
-                logger.info(
-                    "Binary content fetched",
-                    extra={
-                        "url": url,
-                        "mime_type": mime_type,
-                        "size": content_length,
-                        "file_name": filename,
-                    },
-                )
-
-                # Return multimodal content that the LLM can analyze
-                # This format matches how user-uploaded files are passed to the LLM
-                return [
-                    {
-                        "type": "text",
-                        "text": f"Here is the content from {url} ({filename}, {mime_type}, {content_length} bytes):",
-                    },
-                    {
-                        "type": "image",  # LangChain uses "image" type for both images and PDFs
-                        "base64": file_base64,
-                        "mime_type": mime_type,
-                    },
-                ]
-
-            # Unsupported content type
-            logger.warning(
-                "Unsupported content type", extra={"url": url, "content_type": content_type}
-            )
-            return json.dumps(
-                {
-                    "error": f"Unsupported content type: {content_type}. "
-                    f"Supported types: HTML, plain text, PDF, and common image formats (PNG, JPEG, GIF, WebP)."
-                }
-            )
-
+            return response, None
     except httpx.TimeoutException:
         logger.warning("URL fetch timeout", extra={"url": url})
-        return json.dumps({"error": f"Request to {url} timed out"})
+        return None, f"Request to {url} timed out"
     except httpx.HTTPStatusError as e:
         logger.warning(
             "URL fetch HTTP error", extra={"url": url, "status_code": e.response.status_code}
         )
-        return json.dumps({"error": f"HTTP {e.response.status_code} when fetching {url}"})
+        return None, f"HTTP {e.response.status_code} when fetching {url}"
     except httpx.RequestError as e:
         logger.error("URL fetch request error", extra={"url": url, "error": str(e)}, exc_info=True)
-        return json.dumps({"error": f"Failed to fetch {url}: {e}"})
+        return None, f"Failed to fetch {url}: {e}"
+
+
+def fetch_page_text(url: str, max_chars: int | None = None) -> tuple[str | None, str | None]:
+    """Fetch a URL and return readable page text (for programmatic reuse).
+
+    Unlike the fetch_url tool this handles ONLY textual content; callers that
+    need PDFs/images should use fetch_url's multimodal path.
+
+    Returns (text, None) on success or (None, error_message) on failure.
+    """
+    response, error = _fetch_response(url)
+    if error or response is None:
+        return None, error or f"Failed to fetch {url}"
+
+    content_type = response.headers.get("content-type", "")
+    category = _get_content_type_category(content_type)
+    mime_type = content_type.split(";")[0].strip().lower()
+
+    if category == "html":
+        return _extract_text_from_html(response.text, max_chars), None
+    if category == "text":
+        text = response.text
+        limit = max_chars if max_chars is not None else Config.HTML_TEXT_MAX_LENGTH
+        if len(text) > limit:
+            text = text[:limit] + "\n\n[Content truncated...]"
+        return text.strip(), None
+    if category == "binary":
+        return None, f"binary content ({mime_type}) - use fetch_url to analyze it"
+    return None, f"Unsupported content type: {content_type}"
+
+
+@tool
+def fetch_url(url: str) -> str | list[dict[str, Any]]:
+    """Fetch content from a URL - supports web pages, PDFs, and images.
+
+    Use this tool to:
+    - Read the content of web pages (returns text in markdown format)
+    - Analyze PDF documents (returns the PDF for your analysis)
+    - Analyze images from URLs (returns the image for your analysis)
+
+    For PDFs and images, the binary content is returned directly for you to analyze.
+    You can describe images, extract text from PDFs, answer questions about their content, etc.
+
+    Args:
+        url: The URL to fetch (must start with http:// or https://)
+
+    Returns:
+        For web pages: The text content in markdown format
+        For PDFs/images: Multimodal content for analysis
+        For errors: JSON with error field
+    """
+    logger.info("fetch_url called", extra={"url": url})
+    response, fetch_error = _fetch_response(url)
+    if fetch_error or response is None:
+        return json.dumps({"error": fetch_error or f"Failed to fetch {url}"})
+
+    content_type = response.headers.get("content-type", "")
+    content_category = _get_content_type_category(content_type)
+    content_length = len(response.content)
+
+    logger.debug(
+        "URL fetched successfully",
+        extra={
+            "url": url,
+            "status_code": response.status_code,
+            "content_type": content_type,
+            "content_category": content_category,
+            "content_length": content_length,
+        },
+    )
+
+    # Handle HTML content - extract text
+    if content_category == "html":
+        extracted_text = _extract_text_from_html(response.text)
+        logger.info(
+            "HTML content extracted", extra={"url": url, "text_length": len(extracted_text)}
+        )
+        wrapped = wrap_untrusted_content(extracted_text, url)
+        # Hint at browser tool when page likely needs JS rendering (our own
+        # trusted note, kept outside the untrusted-content markers)
+        if len(extracted_text) < 100 and Config.BROWSER_ENABLED:
+            wrapped += (
+                "\n\n[Note: This page returned very little text. "
+                "It may require JavaScript rendering. "
+                "Use the browser tool for JS-heavy pages.]"
+            )
+        return wrapped
+
+    # Handle plain text content
+    if content_category == "text":
+        text_content = response.text
+        limit = Config.HTML_TEXT_MAX_LENGTH
+        if len(text_content) > limit:
+            text_content = text_content[:limit] + "\n\n[Content truncated...]"
+        logger.info("Text content fetched", extra={"url": url, "text_length": len(text_content)})
+        return wrap_untrusted_content(text_content, url)
+
+    # Handle binary content (PDFs, images)
+    if content_category == "binary":
+        # Check file size limit (10MB default)
+        max_size = Config.FETCH_URL_MAX_FILE_SIZE
+        if content_length > max_size:
+            logger.warning(
+                "File too large",
+                extra={"url": url, "size": content_length, "max_size": max_size},
+            )
+            return json.dumps(
+                {
+                    "error": f"File is too large ({content_length // 1024 // 1024}MB). "
+                    f"Maximum allowed size is {max_size // 1024 // 1024}MB."
+                }
+            )
+
+        # Get normalized MIME type
+        mime_type = content_type.split(";")[0].strip().lower()
+        # Normalize image/jpg to image/jpeg
+        if mime_type == "image/jpg":
+            mime_type = "image/jpeg"
+
+        # Encode as base64
+        file_base64 = base64.b64encode(response.content).decode("utf-8")
+
+        # Extract filename from URL for context
+        filename = url.split("/")[-1].split("?")[0] or "file"
+
+        logger.info(
+            "Binary content fetched",
+            extra={
+                "url": url,
+                "mime_type": mime_type,
+                "size": content_length,
+                "file_name": filename,
+            },
+        )
+
+        # Return multimodal content that the LLM can analyze
+        # This format matches how user-uploaded files are passed to the LLM
+        return [
+            {
+                "type": "text",
+                "text": f"Here is the content from {url} ({filename}, {mime_type}, {content_length} bytes):",
+            },
+            {
+                "type": "image",  # LangChain uses "image" type for both images and PDFs
+                "base64": file_base64,
+                "mime_type": mime_type,
+            },
+        ]
+
+    # Unsupported content type
+    logger.warning("Unsupported content type", extra={"url": url, "content_type": content_type})
+    return json.dumps(
+        {
+            "error": f"Unsupported content type: {content_type}. "
+            f"Supported types: HTML, plain text, PDF, and common image formats (PNG, JPEG, GIF, WebP)."
+        }
+    )
 
 
 _SEARCH_WARNING = (
