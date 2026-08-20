@@ -88,11 +88,15 @@ def research(question: str, queries: list[str] | None = None, max_sources: int =
     current facts needing corroboration). One research call replaces an entire
     search -> fetch -> fetch loop and is much cheaper and faster.
 
+    For PRODUCT/OPTION COMPARISONS: make ONE call with one query per item
+    (e.g. queries=["macbook air 13 m4 specs", "macbook pro 14 m4 specs"]) -
+    the top spec pages for every item come back together in a single round.
+
     Args:
         question: The question you are trying to answer.
         queries: Optional search queries (different phrasings/angles work
-            best). Defaults to the question itself. Capped at the web_search
-            batch limit.
+            best; for comparisons, one query per compared item). Defaults to
+            the question itself. Capped at the web_search batch limit.
         max_sources: How many top pages to read in full (default from config,
             max 8). Snippets of further candidates are included as "unfetched".
 

@@ -311,7 +311,10 @@ class Config:
 
     # Research tool (search + fetch top sources in one tool round)
     RESEARCH_MAX_SOURCES = 5
-    RESEARCH_PER_SOURCE_MAX_CHARS = 4000
+    # 6000 (was 4000): truncated spec/table-heavy pages made the model re-fetch
+    # them individually with fetch_url, doubling rounds (observed in evals);
+    # 8000 measurably slowed turns without helping further
+    RESEARCH_PER_SOURCE_MAX_CHARS = 6000
     RESEARCH_FETCH_WORKERS = 4
 
     # Model for delegate_task subagents (context-isolated research runs).
@@ -467,6 +470,10 @@ class Config:
     # the model to answer with what it has instead of calling more tools. The
     # nudge is soft (the recursion limit is the hard backstop); 0 disables it.
     AGENT_MAX_TOOL_ROUNDS: int = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "6"))
+    # Gentle efficiency reminder injected once at this round count (0 = off).
+    # Fires well before the hard cap so the model consolidates instead of
+    # drip-feeding single tool calls; the cap remains the stop signal.
+    AGENT_TOOL_ROUNDS_SOFT_NUDGE: int = int(os.getenv("AGENT_TOOL_ROUNDS_SOFT_NUDGE", "4"))
 
     # Within one turn, every ToolMessage is re-sent to the LLM on each loop
     # iteration. Once the model has consumed a result (one chat call after the

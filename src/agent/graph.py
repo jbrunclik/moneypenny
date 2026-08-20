@@ -342,6 +342,27 @@ def check_tool_results(
             "messages": [GuidanceMessage(content=cap_content)],
         }
 
+    # Soft efficiency nudge, well before the hard cap: overruns observed in
+    # evals came from drip-feeding single tool calls; a gentle reminder at
+    # this point cuts rounds without forcing a premature answer.
+    soft_nudge = Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE
+    if soft_nudge > 0 and tool_rounds == soft_nudge:
+        GuidanceMessage = HumanMessage if use_cache else SystemMessage
+        nudge_content = (
+            f"You have used {tool_rounds} tool rounds. Be efficient from here: "
+            "consolidate remaining lookups (batch queries, prefer the research "
+            "tool over separate fetches) and aim to answer within the next "
+            "round or two. Call cite_sources TOGETHER with your final answer."
+        )
+        if use_cache:
+            nudge_content = f"[SYSTEM GUIDANCE]\n{nudge_content}\n[/SYSTEM GUIDANCE]"
+        logger.info("Soft round nudge injected", extra={"tool_rounds": tool_rounds})
+        return {
+            "tool_rounds": tool_rounds,
+            "tool_retries": 0,
+            "messages": [GuidanceMessage(content=nudge_content)],
+        }
+
     # Scan latest ToolMessages for errors
     has_error = False
     any_retriable = False

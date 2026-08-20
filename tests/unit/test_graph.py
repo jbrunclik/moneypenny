@@ -335,9 +335,28 @@ class TestToolRoundCap:
     def test_disabled_with_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A cap of 0 never nudges, however many rounds elapse."""
         monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 0)
+        monkeypatch.setattr(Config, "AGENT_TOOL_ROUNDS_SOFT_NUDGE", 0)
         result = check_tool_results(self._success_state(99))
         assert "messages" not in result
         assert result["tool_rounds"] == 100
+
+    def test_soft_nudge_before_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """At the soft-nudge threshold, a gentle efficiency reminder is injected."""
+        monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 6)
+        monkeypatch.setattr(Config, "AGENT_TOOL_ROUNDS_SOFT_NUDGE", 4)
+        result = check_tool_results(self._success_state(3))  # 3 + 1 == nudge
+        assert result["tool_rounds"] == 4
+        guidance = result["messages"][0]
+        assert "efficient" in guidance.content.lower() or "consolidate" in guidance.content.lower()
+        # It's a nudge, not the hard cap message
+        assert "stop calling tools" not in guidance.content.lower()
+
+    def test_soft_nudge_fires_once(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The soft nudge fires only AT the threshold, not on later rounds."""
+        monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 6)
+        monkeypatch.setattr(Config, "AGENT_TOOL_ROUNDS_SOFT_NUDGE", 4)
+        result = check_tool_results(self._success_state(4))  # round 5: between nudge and cap
+        assert "messages" not in result
 
     def test_cached_mode_uses_human_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """In cached mode the nudge is a HumanMessage (SystemMessages get dropped)."""

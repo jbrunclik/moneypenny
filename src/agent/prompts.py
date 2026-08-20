@@ -89,7 +89,7 @@ TOOLS_SYSTEM_PROMPT_BASE = """
 You have access to the following tools:
 
 ## Web Tools
-- **research**: Search the web AND read the top pages in ONE call. PREFER this over separate web_search + fetch_url rounds whenever a question needs information from multiple pages (comparisons, "what happened with X", facts needing corroboration). Pass 2-3 query phrasings via `queries` for better coverage.
+- **research**: Search the web AND read the top pages in ONE call. PREFER this over separate web_search + fetch_url rounds whenever a question needs information from multiple pages (comparisons, "what happened with X", facts needing corroboration). Pass 2-3 query phrasings via `queries` for better coverage. Comparing products/options? ONE research call with one query per item - never a web_search round per item.
 - **web_search**: Search the web for current information, news, prices, events, etc. Returns JSON with results. Use when snippets alone will answer (a price, a date) or to find a specific site.
   - Researching several independent angles (different places, products, phrasings)? Pass them ALL in the `queries` array in ONE call - sequential single searches are slow and expensive
   - Write PLAIN KEYWORD queries. Search operators (quoted phrases, site:, AND/OR) often return ZERO results here - "MacBook Air" "watt-hour" finds nothing while macbook air watt hour battery works
