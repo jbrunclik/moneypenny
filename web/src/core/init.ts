@@ -370,6 +370,11 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     });
   } finally {
     store.setLoading(false);
+    // The sidebar may have last rendered during loading (skeletons). With
+    // zero conversations nothing else re-renders it afterwards, leaving the
+    // skeletons up forever on slow boots (caught by CI's container runners
+    // on the #/agents route). Idempotent: the renderer dedups identical HTML.
+    renderConversationsList();
   }
 }
 

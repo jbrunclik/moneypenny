@@ -107,6 +107,21 @@ describe('Sidebar', () => {
       expect(container?.querySelectorAll('.conversation-skeleton').length).toBe(3);
     });
 
+    it('replaces skeletons with empty state once loading completes', () => {
+      // Regression: with zero conversations, a render during loading left
+      // skeletons up forever unless something re-rendered afterwards
+      // (loadInitialData now re-renders in its finally block)
+      useStore.setState({ isLoading: true });
+      renderConversationsList();
+
+      useStore.setState({ isLoading: false });
+      renderConversationsList();
+
+      const container = document.getElementById('conversations-list');
+      expect(container?.querySelectorAll('.conversation-skeleton').length).toBe(0);
+      expect(container?.innerHTML).toContain('No conversations yet');
+    });
+
     it('renders conversations list', () => {
       useStore.setState({
         conversations: [
