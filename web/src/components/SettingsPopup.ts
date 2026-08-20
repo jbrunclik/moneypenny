@@ -1352,6 +1352,8 @@ export async function checkCalendarOAuthCallback(): Promise<boolean> {
  * Open the settings popup
  */
 export async function openSettingsPopup(): Promise<void> {
+  ensureSettingsPopupInit(); // idempotent - module is lazy-loaded on first open
+
   const popup = getElementById<HTMLDivElement>(POPUP_ID);
   if (!popup) return;
 
@@ -1525,7 +1527,15 @@ export function closeSettingsPopup(): void {
 /**
  * Initialize settings popup and theme system
  */
-export function initSettingsPopup(): void {
+let _settingsInitDone = false;
+
+function ensureSettingsPopupInit(): void {
+  if (_settingsInitDone) return;
+  _settingsInitDone = true;
+  initSettingsPopup();
+}
+
+function initSettingsPopup(): void {
   const popup = getElementById<HTMLDivElement>(POPUP_ID);
   if (!popup) return;
 
@@ -1647,15 +1657,4 @@ export function initSettingsPopup(): void {
   log.debug('Settings popup initialized');
 }
 
-/**
- * Get HTML for settings popup shell
- */
-export function getSettingsPopupHtml(): string {
-  return `
-    <div id="${POPUP_ID}" class="info-popup hidden">
-      <div class="info-popup-content">
-        <!-- Content populated dynamically -->
-      </div>
-    </div>
-  `;
-}
+

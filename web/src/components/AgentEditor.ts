@@ -120,6 +120,8 @@ export function initAgentEditor(): void {
  * Note: When editing, pass an Agent with optional system_prompt if available.
  */
 export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
+  initAgentEditor(); // idempotent - lazy import means no boot-time init
+
   // Fetch user settings to determine available tools (e.g., WhatsApp)
   let userSettings: UserSettings | null = null;
   try {

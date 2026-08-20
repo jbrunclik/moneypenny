@@ -5,7 +5,6 @@
  */
 
 import { escapeHtml } from '../utils/dom';
-import { renderChatHeader } from './ChatHeader';
 import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON } from '../utils/icons';
 import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
 
@@ -546,30 +545,3 @@ function renderExecutionItem(
   return item;
 }
 
-// ============================================================================
-// Agent Conversation Header
-// ============================================================================
-
-/**
- * Create a header for agent conversations (back arrow + robot icon + name + edit).
- * Similar to the sports program header pattern.
- */
-export function renderAgentConversationHeader(
-  agentName: string,
-  onBack: () => void,
-  onEdit: () => void,
-): void {
-  const editBtn = document.createElement('button');
-  editBtn.className = 'btn-icon agent-conv-edit';
-  editBtn.title = 'Edit agent';
-  editBtn.innerHTML = EDIT_ICON;
-  editBtn.addEventListener('click', onEdit);
-
-  renderChatHeader({
-    title: agentName,
-    iconHtml: ROBOT_ICON,
-    extraClass: 'agent-conversation-header',
-    onBack,
-    actions: [editBtn],
-  });
-}

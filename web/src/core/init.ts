@@ -33,12 +33,6 @@ import { initSourcesPopup } from '../components/SourcesPopup';
 import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHistoryPopup';
-import {
-  initSettingsPopup,
-  getSettingsPopupHtml,
-  checkTodoistOAuthCallback,
-  checkCalendarOAuthCallback,
-} from '../components/SettingsPopup';
 import { initVoiceInput } from '../components/VoiceInput';
 import { initScrollToBottom, setBeforeScrollToBottomCallback } from '../components/ScrollToBottom';
 import { initVersionBanner } from '../components/VersionBanner';
@@ -204,8 +198,13 @@ export function renderAppShell(): string {
     <!-- Cost History Popup -->
     ${getCostHistoryPopupHtml()}
 
-    <!-- Settings Popup -->
-    ${getSettingsPopupHtml()}
+    <!-- Settings Popup shell (contents + handlers lazy-load from
+         SettingsPopup.ts on first open - keep the id in sync) -->
+    <div id="settings-popup" class="info-popup hidden">
+      <div class="info-popup-content">
+        <!-- Content populated dynamically -->
+      </div>
+    </div>
 
     <!-- Login overlay -->
     <div id="login-overlay" class="login-overlay hidden">
@@ -415,7 +414,6 @@ export async function init(): Promise<void> {
   initImageGenPopup();
   initMessageCostPopup();
   costHistoryPopup.init();
-  initSettingsPopup();
   initAgents();
   initScrollToBottom();
   // Set up callback to load remaining newer messages before scrolling to bottom
@@ -458,8 +456,17 @@ export async function init(): Promise<void> {
   if (isAuthenticated) {
     hideLoginOverlay();
     // Check for integration OAuth callbacks
-    await checkTodoistOAuthCallback();
-    await checkCalendarOAuthCallback();
+    // OAuth callbacks only matter mid-flow (state keys set when the flow
+    // started); gate the SettingsPopup import on them so boot stays lean.
+    // Key literals must match TODOIST_STATE_KEY / CALENDAR_STATE_KEY there.
+    if (
+      sessionStorage.getItem('todoist-oauth-state') ||
+      sessionStorage.getItem('calendar-oauth-state')
+    ) {
+      const settings = await import('../components/SettingsPopup');
+      await settings.checkTodoistOAuthCallback();
+      await settings.checkCalendarOAuthCallback();
+    }
     await loadInitialData(initialRoute);
   } else {
     showLoginOverlay();

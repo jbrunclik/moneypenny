@@ -9,7 +9,6 @@ import { toast } from '../components/Toast';
 import { openCostHistory } from '../components/CostHistoryPopup';
 import { logout } from '../auth/google';
 import { toggleSidebar } from '../components/Sidebar';
-import { openSettingsPopup } from '../components/SettingsPopup';
 import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
 
@@ -81,7 +80,7 @@ export function setupEventListeners(): void {
     }
     if (target.closest('#settings-btn')) {
       closeUserMenu();
-      openSettingsPopup();
+      void import('../components/SettingsPopup').then((m) => m.openSettingsPopup());
     }
   });
 

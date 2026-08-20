@@ -49,7 +49,7 @@ import {
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
-import { renderAgentConversationHeader } from '../components/CommandCenter';
+import { renderAgentConversationHeader } from '../components/AgentConversationHeader';
 import { renderChatHeader } from '../components/ChatHeader';
 import { ARCHIVE_ICON, DELETE_ICON } from '../utils/icons';
 

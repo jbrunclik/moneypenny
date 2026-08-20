@@ -27,8 +27,6 @@ import {
   setAgentsHash,
 } from '../router/deeplink';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
-import { renderCommandCenter, renderCommandCenterLoading } from '../components/CommandCenter';
-import { initAgentEditor, showAgentEditor } from '../components/AgentEditor';
 import {
   ensureInputAreaVisible,
   focusMessageInput,
@@ -55,7 +53,6 @@ let isRefreshing = false;
  * Call this once during app initialization.
  */
 export function initAgents(): void {
-  initAgentEditor();
 
   // Subscribe to command center data changes to update sidebar badges
   useStore.subscribe(
@@ -134,6 +131,11 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
     log.error('Messages container not found');
     return;
   }
+
+  // Lazy-load the Command Center view (keeps it out of the main chunk)
+  const { renderCommandCenter, renderCommandCenterLoading } = await import(
+    '../components/CommandCenter'
+  );
 
   // Clear messages and show loading state
   clearElement(messagesContainer);
@@ -324,6 +326,7 @@ async function handleAgentRun(agentId: string, agentName: string): Promise<void>
 async function handleNewAgent(): Promise<void> {
   log.debug('New agent button clicked');
 
+  const { showAgentEditor } = await import('../components/AgentEditor');
   const result = await showAgentEditor();
   if (result) {
     log.info('Agent created', { agentId: result.id });
@@ -343,6 +346,7 @@ async function handleNewAgent(): Promise<void> {
 export async function handleAgentEditById(agentId: string): Promise<void> {
   try {
     const fullAgent = await agents.get(agentId);
+    const { showAgentEditor } = await import('../components/AgentEditor');
     const result = await showAgentEditor(fullAgent);
     if (result) {
       log.info('Agent updated', { agentId: result.id });
@@ -361,6 +365,7 @@ async function handleAgentEdit(agent: Agent): Promise<void> {
   // Fetch full agent details including system_prompt
   try {
     const fullAgent = await agents.get(agent.id);
+    const { showAgentEditor } = await import('../components/AgentEditor');
     const result = await showAgentEditor(fullAgent);
     if (result) {
       log.info('Agent updated', { agentId: result.id });

@@ -22,7 +22,6 @@ import { getElementById, clearElement } from '../utils/dom';
 import { WARNING_ICON } from '../utils/icons';
 import { clearConversationHash, setStorageHash } from '../router/deeplink';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
-import { renderKVStorePage, renderKVStoreLoading } from '../components/KVStorePage';
 import type { KVStoreCallbacks } from '../components/KVStorePage';
 import type { Memory } from '../types/api';
 import {
@@ -99,6 +98,9 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
 
   // Clear messages and show loading state
   clearElement(messagesContainer);
+  const { renderKVStorePage, renderKVStoreLoading } = await import(
+    '../components/KVStorePage'
+  );
   messagesContainer.appendChild(renderKVStoreLoading());
 
   closeSidebar();
