@@ -5,6 +5,7 @@ with the LLM, as well as the generate_title function for conversation titles.
 """
 
 import contextvars
+import time
 from collections.abc import Generator, Iterable, Mapping
 from typing import Any, cast
 
@@ -76,6 +77,27 @@ def _tool_telemetry(messages: Iterable[BaseMessage]) -> tuple[int, int]:
         ):
             round_ids.add(m.id or id(m))
     return len(round_ids), tool_execs
+
+
+def _tool_usage_details(messages: Iterable[BaseMessage]) -> tuple[list[str], int]:
+    """(sorted unique tool names, error count) over a turn's ToolMessages.
+
+    Errors use the same structural detection as self-correction
+    (graph._tool_message_error): status=="error" or a JSON error envelope.
+    Feeds the per-turn observability columns on message_costs.
+    """
+    from src.agent.graph import _tool_message_error
+
+    names: set[str] = set()
+    errors = 0
+    for message in messages:
+        if not isinstance(message, ToolMessage):
+            continue
+        if message.name:
+            names.add(message.name)
+        if _tool_message_error(message) is not None:
+            errors += 1
+    return sorted(names), errors
 
 
 class ChatAgent:
@@ -497,7 +519,9 @@ class ChatAgent:
         from src.agent.graph import get_graph_config
 
         config = get_graph_config()
+        turn_started = time.monotonic()
         result = self.graph.invoke(cast(Any, {"messages": messages}), config=config)
+        turn_duration_ms = round((time.monotonic() - turn_started) * 1000)
         result_messages: list[BaseMessage] = result["messages"]
 
         # Extract response (last AI message with actual content)
@@ -545,12 +569,16 @@ class ChatAgent:
                             )
 
         tool_rounds, tool_call_count = _tool_telemetry(result_messages)
+        tools_used, tool_errors = _tool_usage_details(result_messages)
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
             "cached_input_tokens": total_cached_tokens,
             "tool_rounds": tool_rounds,
             "tool_call_count": tool_call_count,
+            "duration_ms": turn_duration_ms,
+            "tools_used": tools_used,
+            "tool_errors": tool_errors,
         }
 
         if total_input_tokens > 0 or total_output_tokens > 0:
@@ -638,6 +666,7 @@ class ChatAgent:
         from src.agent.graph import get_graph_config
 
         config = get_graph_config()
+        turn_started = time.monotonic()
         for event in self.graph.stream(
             cast(Any, {"messages": messages}),
             config=config,
@@ -700,12 +729,16 @@ class ChatAgent:
             )
 
         tool_rounds, tool_call_count = _tool_telemetry(all_messages)
+        tools_used, tool_errors = _tool_usage_details(all_messages)
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
             "cached_input_tokens": total_cached_tokens,
             "tool_rounds": tool_rounds,
             "tool_call_count": tool_call_count,
+            "duration_ms": round((time.monotonic() - turn_started) * 1000),
+            "tools_used": tools_used,
+            "tool_errors": tool_errors,
         }
 
         if total_input_tokens > 0 or total_output_tokens > 0:
@@ -810,6 +843,7 @@ class ChatAgent:
         from src.agent.graph import get_graph_config
 
         config = get_graph_config()
+        turn_started = time.monotonic()
         try:
             for event in self.graph.stream(
                 cast(Any, {"messages": messages}),
@@ -1056,12 +1090,16 @@ class ChatAgent:
             )
 
         tool_rounds, tool_call_count = _tool_telemetry(all_messages)
+        tools_used, tool_errors = _tool_usage_details(all_messages)
         usage_info = {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
             "cached_input_tokens": total_cached_tokens,
             "tool_rounds": tool_rounds,
             "tool_call_count": tool_call_count,
+            "duration_ms": round((time.monotonic() - turn_started) * 1000),
+            "tools_used": tools_used,
+            "tool_errors": tool_errors,
         }
 
         # Final yield with all accumulated data

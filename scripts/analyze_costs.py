@@ -118,6 +118,33 @@ def main() -> None:
         )
     print()
 
+    # ---- Turn metrics (per-turn observability, columns exist since 0050)
+    print("TURN METRICS (rows with duration recorded):")
+    for r in conn.execute(
+        """SELECT CASE WHEN tool_rounds=0 THEN '0 rounds'
+                       WHEN tool_rounds<=2 THEN '1-2 rounds' ELSE '3+ rounds' END grp,
+                  COUNT(*) n, AVG(duration_ms)/1000.0 avg_s, MAX(duration_ms)/1000.0 max_s,
+                  SUM(tool_errors) errs
+           FROM message_costs
+           WHERE created_at >= ? AND duration_ms IS NOT NULL
+           GROUP BY grp ORDER BY grp""",
+        (since,),
+    ):
+        print(
+            f"  {r['grp']:<11} | {r['n']:>5} turns | avg {r['avg_s']:>6.1f}s "
+            f"max {r['max_s']:>6.1f}s | tool errors {r['errs']}"
+        )
+    print("  TOP TOOLS (by turns using them):")
+    for r in conn.execute(
+        """SELECT je.value tool, COUNT(*) n
+           FROM message_costs mc, json_each(mc.tools_used) je
+           WHERE mc.created_at >= ? AND mc.tools_used IS NOT NULL
+           GROUP BY je.value ORDER BY n DESC LIMIT 10""",
+        (since,),
+    ):
+        print(f"    {r['tool']:<24} {r['n']:>5}")
+    print()
+
     # ---- Web search correlation (cited sources as the marker)
     print("WEB SEARCH CORRELATION (messages with cited sources vs without):")
     for r in conn.execute(

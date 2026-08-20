@@ -9,6 +9,7 @@ Contains all methods for message cost tracking including:
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from datetime import datetime
@@ -49,6 +50,9 @@ class CostMixin:
         cached_input_tokens: int = 0,
         tool_rounds: int = 0,
         tool_call_count: int = 0,
+        duration_ms: int | None = None,
+        tool_errors: int = 0,
+        tools_used: list[str] | None = None,
     ) -> None:
         """Save cost information for a message.
 
@@ -64,6 +68,9 @@ class CostMixin:
             cached_input_tokens: Subset of input_tokens served from the context cache (default 0)
             tool_rounds: Distinct LLM responses in the turn that requested tools (default 0)
             tool_call_count: Number of tool executions in the turn (default 0)
+            duration_ms: Wall-clock of the whole agent turn (None if unmeasured)
+            tool_errors: ToolMessages structurally detected as failures
+            tools_used: Unique tool names executed in the turn (stored as JSON)
         """
         cost_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -91,8 +98,9 @@ class CostMixin:
                     id, message_id, conversation_id, user_id, model,
                     input_tokens, output_tokens, cached_input_tokens,
                     tool_rounds, tool_call_count,
-                    cost_usd, image_generation_cost_usd, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    cost_usd, image_generation_cost_usd, created_at,
+                    duration_ms, tool_errors, tools_used
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     cost_id,
                     message_id,
@@ -107,6 +115,9 @@ class CostMixin:
                     cost_usd,
                     image_generation_cost_usd,
                     now,
+                    duration_ms,
+                    tool_errors,
+                    json.dumps(tools_used) if tools_used else None,
                 ),
             )
             conn.commit()

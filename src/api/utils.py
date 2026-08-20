@@ -257,6 +257,9 @@ def calculate_and_save_message_cost(
         cached_input_tokens=cached_input_tokens,
         tool_rounds=tool_rounds,
         tool_call_count=tool_call_count,
+        duration_ms=usage_info.get("duration_ms"),
+        tool_errors=usage_info.get("tool_errors", 0),
+        tools_used=usage_info.get("tools_used"),
     )
 
     logger.info(

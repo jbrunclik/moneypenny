@@ -2510,3 +2510,29 @@ class TestInteractiveAgentToolWiring:
     def test_agent_with_unrestricted_permissions_gets_kv_store(self, monkeypatch) -> None:
         names = self._captured_tool_names(monkeypatch, agent_tools=None)
         assert "kv_store" in names
+
+
+class TestToolUsageDetails:
+    """_tool_usage_details: tool names + error counts for turn metrics."""
+
+    def test_names_and_errors(self) -> None:
+        from langchain_core.messages import ToolMessage
+
+        from src.agent.agent import _tool_usage_details
+
+        msgs = [
+            ToolMessage(content='{"results": []}', tool_call_id="1", name="web_search"),
+            ToolMessage(content='{"error": "boom"}', tool_call_id="2", name="fetch_url"),
+            ToolMessage(content="plain ok", tool_call_id="3", name="web_search"),
+            ToolMessage(content="failed", tool_call_id="4", name="kv_store", status="error"),
+        ]
+
+        names, errors = _tool_usage_details(msgs)
+
+        assert names == ["fetch_url", "kv_store", "web_search"]
+        assert errors == 2
+
+    def test_empty(self) -> None:
+        from src.agent.agent import _tool_usage_details
+
+        assert _tool_usage_details([]) == ([], 0)

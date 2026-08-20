@@ -841,3 +841,50 @@ class TestArchiveOperations:
         """Should return False when archiving a nonexistent conversation."""
         result = test_database.archive_conversation("nonexistent-conv-id", test_user.id)
         assert result is False
+
+
+class TestTurnMetricsColumns:
+    """Per-turn observability columns on message_costs (migration 0050)."""
+
+    def test_save_and_read_turn_metrics(self, test_database, test_user) -> None:
+        conv = test_database.create_conversation(test_user.id, "t", model="gemini-3.7-flash")
+        msg = test_database.add_message(conv.id, "assistant", "hello")
+
+        test_database.save_message_cost(
+            msg.id,
+            conv.id,
+            test_user.id,
+            "gemini-3.7-flash",
+            100,
+            50,
+            0.001,
+            duration_ms=12345,
+            tool_errors=2,
+            tools_used=["fetch_url", "web_search"],
+        )
+
+        with test_database._pool.get_connection() as conn:
+            row = conn.execute(
+                "SELECT duration_ms, tool_errors, tools_used FROM message_costs WHERE message_id = ?",
+                (msg.id,),
+            ).fetchone()
+        assert row[0] == 12345
+        assert row[1] == 2
+        import json
+
+        assert json.loads(row[2]) == ["fetch_url", "web_search"]
+
+    def test_defaults_when_omitted(self, test_database, test_user) -> None:
+        conv = test_database.create_conversation(test_user.id, "t2", model="gemini-3.7-flash")
+        msg = test_database.add_message(conv.id, "assistant", "hello")
+
+        test_database.save_message_cost(
+            msg.id, conv.id, test_user.id, "gemini-3.7-flash", 100, 50, 0.001
+        )
+
+        with test_database._pool.get_connection() as conn:
+            row = conn.execute(
+                "SELECT duration_ms, tool_errors, tools_used FROM message_costs WHERE message_id = ?",
+                (msg.id,),
+            ).fetchone()
+        assert (row[0], row[1], row[2]) == (None, 0, None)
