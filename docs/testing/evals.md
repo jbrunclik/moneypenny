@@ -39,6 +39,14 @@ id: web_lookup_cited
 description: Current-fact question requires a web tool and a citation
 user: What is the current price of Bitcoin in USD?
 requires: [code_sandbox]        # optional: skip when unavailable
+mode: sports                    # optional: run with a canned cycling program
+program_kv:                     # optional (sports mode): stored program data
+  "cycling:routine": "po: kliky, st: trenazer 60min"
+history:                        # optional: prior turns for multi-turn cases
+  - role: user
+    content: Plan me a hike.
+  - role: assistant
+    content: "Suggested: 9 km karst loop."
 expect:
   rubric: >                     # required: what the judge grades against
     The answer gives a concrete price, acknowledges fluctuation, and cites
@@ -47,6 +55,12 @@ expect:
   forbidden_tools: [delegate_task]         # optional
   max_tool_rounds: 4                       # optional, 0 = no limit
 ```
+
+The judge sees the response text PLUS the list of tools actually called and
+any formally cited sources — rubrics may reference tool actions ("persists
+via kv_store", "cites a source") and the judge can verify them. It cannot see
+generated file contents; phrase file-output rubrics as "delivered via
+execute_code counts".
 
 Authoring tips:
 - Verify rubric numbers yourself first (the first harness run caught a wrong

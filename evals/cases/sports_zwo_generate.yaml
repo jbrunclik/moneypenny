@@ -1,0 +1,16 @@
+id: sports_zwo_generate
+description: Generate a valid ZWO workout file for indoor trainer
+mode: sports
+program_kv:
+  "cycling:goals": "FTP 250W, sweet spot blocky"
+user: "vygeneruj mi ZWO na zitrek: 60 minut, sweet spot bloky s kadencnimi pokyny, at si to nahraju do Rouvy"
+expect:
+  rubric: >
+    Delivers a usable ZWO workout by EITHER (a) well-formed ZWO XML in a code
+    block, or (b) generating a .zwo file via execute_code (execute_code in the
+    tools list + the response referencing the generated file counts as
+    delivered). Structure must be plausible: warmup, sweet-spot steady blocks
+    (~0.88-0.94 FTP), recoveries, cooldown, ~60 min total, cadence cues.
+    Brief Czech note on importing into the trainer app.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 3

@@ -1,0 +1,22 @@
+id: sports_checkin_data
+description: Terse post-workout check-in - coach feedback + progress persistence
+mode: sports
+program_kv:
+  "cycling:goals": "Zlepsit FTP, zvladnout 100km vyjezd v zari"
+  "cycling:routine": "po: kliky AMRAP, st: trenazer 60min sweet spot, pa/vikend: venku delsi vyjezd"
+  "cycling:progress": "minuly tyden: st 55min sweet spot prum. 148W, vikend 62km prum. 24.1 km/h"
+history:
+  - role: user
+    content: "Zitra jedu ten delsi vikendovy vyjezd, cil je 70 km."
+  - role: assistant
+    content: "Super, drž se v zóně 2-3, hydratace každých 20 minut, a po návratu mi pošli data - průměrnou rychlost, tep a jak ses cítil."
+user: "Odjeto. 71 km, prumer 24.8, tep prumer 149 max 178. Vedro jak v pekle, ale nohy dobry."
+expect:
+  rubric: >
+    Czech coach-style feedback referencing the actual numbers (71 km, 24.8
+    km/h - slight improvement over last week's 24.1, plausible HR zones),
+    acknowledges the heat, and PERSISTS the session into the program data
+    (kv_store update of progress/last_session). Encouraging, concise, no
+    generic lecture.
+  required_tools: [kv_store]
+  max_tool_rounds: 4

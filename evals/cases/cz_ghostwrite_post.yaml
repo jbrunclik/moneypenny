@@ -1,0 +1,16 @@
+id: cz_ghostwrite_post
+description: Ghost-write a Czech LinkedIn-style post from messy notes
+user: |
+  post prosim na patek: konference o regionalnim skolstvi, panel o digitalizaci,
+  zaznelo ze polovina skol nema IT spravce, reditele delaji IT po vecerech,
+  potreba systemove podpory ne jednorazovych dotaci, dobra diskuze s publikem
+expect:
+  rubric: >
+    Exactly ONE ready-to-publish short Czech post (no variant menus, no
+    bullet-point notes, meta-commentary at most one short line): coherent
+    paragraphs, professional but personal tone, covers the panel topic, the
+    missing-IT-admin problem, and the systemic-support-over-one-off-grants
+    point. Invents NO specific facts (names, numbers, places) beyond the
+    notes. Common marketing loanwords are acceptable.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 1

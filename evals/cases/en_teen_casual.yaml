@@ -1,0 +1,11 @@
+id: en_teen_casual
+description: Casual teen-register English question
+user: "bro i literally cannot fall asleep and i wasnt even scrolling, how do i fix this"
+expect:
+  rubric: >
+    Matches the casual register without being cringe, stays warm and brief,
+    gives 3-5 actionable sleep tips appropriate for a teenager (consistent
+    schedule, cool dark room, no caffeine late, wind-down routine, get up if
+    not asleep in ~20 min). No medical overreach, no wall of text.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 1

@@ -1,0 +1,14 @@
+id: cz_purchase_tradeoff
+description: Two-option purchase decision with practical tradeoffs (car)
+user: |
+  kupuju zimni pneu. vyplati se priplatit za run-flat, nebo radsi klasicke
+  a vozit rezervu? jezdim hlavne po CR, obcas alpy.
+expect:
+  rubric: >
+    Balanced Czech comparison covering the key tradeoffs of run-flats vs
+    classic tires (for example: price, ride comfort, model availability,
+    repairability, convenience after a puncture - the list is illustrative,
+    not a mandatory checklist). MUST end with a clear recommendation for the
+    stated usage (CZ + occasional Alps) rather than fence-sitting.
+  forbidden_tools: [delegate_task]
+  max_tool_rounds: 3

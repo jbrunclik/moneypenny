@@ -1,0 +1,14 @@
+id: sports_swap_days
+description: Elliptical schedule adjustment - routine update in program data
+mode: sports
+program_kv:
+  "cycling:routine": "po: kliky AMRAP, st: trenazer 60min sweet spot, pa: lehky beh 30min"
+user: "muzem prohodit pondelky a stredy? ve stredu chodim ted plavat, tak by se hodil lehci den"
+expect:
+  rubric: >
+    Understands the elliptical request against the stored routine, proposes
+    the swapped schedule in Czech (trenazer -> pondeli, kliky -> streda or a
+    lighter Wednesday alternative given swimming), and UPDATES the stored
+    routine via kv_store. Confirms the new week layout compactly.
+  required_tools: [kv_store]
+  max_tool_rounds: 4

@@ -1,0 +1,14 @@
+id: cz_bike_drivetrain
+description: Expert bike-tech purchase question with compatibility constraints
+user: |
+  mam gravel se shimano grx 1x11 a chtel bych vetsi rozsah na kopce.
+  co koupit - vetsi kazetu nebo mensi prevodnik? a na co si dat pozor
+  ohledne kompatibility?
+expect:
+  rubric: >
+    Technically sound Czech answer: both options explained (smaller chainring
+    = cheaper, whole range shifts easier; bigger cassette needs rear
+    derailleur capacity - GRX RD-RX812 officially up to 42T, bigger needs a
+    cage extender/goatlink and possibly a longer chain). Mentions chain length
+    and 11-speed compatibility. Concrete, no invented incompatible parts.
+  max_tool_rounds: 4

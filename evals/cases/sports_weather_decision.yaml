@@ -1,0 +1,14 @@
+id: sports_weather_decision
+description: Weather-aware indoor/outdoor training decision
+mode: sports
+program_kv:
+  "cycling:routine": "vikend: 3h venku zona 2"
+user: "zitra ma byt pres 33 stupnu. ma vubec smysl jet ty 3 hodiny ven, nebo to mam radsi odjet na trenazeru?"
+expect:
+  rubric: >
+    Decisive Czech answer weighing heat stress against the planned 3h zone-2
+    ride: either adapted outdoor plan (early morning start, shade route,
+    doubled hydration, shorter duration) or a concrete shortened trainer
+    alternative (e.g. 90 min with equivalent load), with a clear
+    recommendation. Mentions heat-adaptation/safety briefly. No fence-sitting.
+  max_tool_rounds: 3

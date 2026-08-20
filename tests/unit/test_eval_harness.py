@@ -91,3 +91,60 @@ class TestDeterministicFailures:
         case = self._case(max_tool_rounds=2)
         assert deterministic_failures(case, set(), tool_rounds=3)
         assert deterministic_failures(case, set(), tool_rounds=2) == []
+
+
+class TestHistorySupport:
+    def test_case_with_history_parses(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "followup.yaml",
+            """
+id: followup
+description: Follow-up question needing prior context
+history:
+  - role: user
+    content: Plan me a weekend hike near Brno.
+  - role: assistant
+    content: "Suggested: Moravian Karst trail, 12 km, Saturday."
+user: A co kdyz bude prset?
+expect:
+  rubric: Answer adapts the previously suggested plan to rain.
+""",
+        )
+
+        cases = load_cases(tmp_path)
+
+        assert cases[0].history == [
+            {"role": "user", "content": "Plan me a weekend hike near Brno."},
+            {"role": "assistant", "content": "Suggested: Moravian Karst trail, 12 km, Saturday."},
+        ]
+
+    def test_history_defaults_empty(self, tmp_path: Path) -> None:
+        _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
+        assert load_cases(tmp_path)[0].history == []
+
+
+class TestSportsMode:
+    def test_sports_case_parses(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "sports.yaml",
+            """
+id: sports_case
+mode: sports
+program_kv:
+  "cycling:routine": "po/st/pa 60min"
+user: Odjeto.
+expect:
+  rubric: Coach feedback.
+""",
+        )
+
+        case = load_cases(tmp_path)[0]
+
+        assert case.mode == "sports"
+        assert case.program_kv == {"cycling:routine": "po/st/pa 60min"}
+
+    def test_mode_defaults_chat(self, tmp_path: Path) -> None:
+        _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
+        assert load_cases(tmp_path)[0].mode == "chat"

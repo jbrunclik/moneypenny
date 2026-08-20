@@ -1,0 +1,19 @@
+id: sports_progression_plan
+description: Week-ahead progression design under equipment constraints
+mode: sports
+program_kv:
+  "cycling:goals": "Silovy zaklad + FTP; progrese KB press na 16 kg"
+  "cycling:routine": "po: KB komplex (swing, press, carry), st: trenazer 60min, pa: kruhy (rows, push-ups)"
+  "cycling:progress": "KB press: max 5x/strana s 12 kg (16 kg zatim nezvednu), swing 2x15 s 16 kg, carry 8 delek/ruka, vis 46 s"
+user: |
+  dojeto, data mas vyse v progressu. citim se po tydnu silnejsi.
+  pojdme rozmyslet progresi na pristi tyden a uprav tabulku.
+expect:
+  rubric: >
+    Czech coaching answer with a concrete next-week table: sensible
+    progressive overload from the stored numbers (e.g. press 5->6x/strana at
+    12 kg, NOT a jump to 16 kg; swings +reps or sets; carry +delky; vis +5-10s),
+    explains the logic briefly, and persists the updated plan via kv_store.
+    No generic filler.
+  required_tools: [kv_store]
+  max_tool_rounds: 4

@@ -1,0 +1,9 @@
+id: cz_memory_write
+description: Czech memory instruction - durable fact storage
+user: "zapamatuj si prosim, ze dcera ma alergii na orechy a ze slavi narozeniny v breznu"
+expect:
+  rubric: >
+    Confirms in Czech that BOTH facts will be remembered (nut allergy,
+    March birthday). The confirmation must not claim failure.
+  required_tools: [manage_memory]
+  max_tool_rounds: 3

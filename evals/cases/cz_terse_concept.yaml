@@ -1,0 +1,11 @@
+id: cz_terse_concept
+description: Single-word terse query - infer intent, explain in Czech
+user: "Enshittifikace?"
+expect:
+  rubric: >
+    Interprets the one-word query as "explain this concept", answers in fluent
+    natural Czech with a clear explanation of platform enshittification
+    (gradual degradation of platforms as they prioritize monetization).
+    No clarifying question needed for such an obvious intent.
+  forbidden_tools: [delegate_task]
+  max_tool_rounds: 2

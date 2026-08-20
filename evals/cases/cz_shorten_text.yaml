@@ -1,0 +1,19 @@
+id: cz_shorten_text
+description: Czech copy-editing - shorten and simplify pasted paragraph
+user: |
+  tohle trochu zkrať a zjednoduš:
+
+  V rámci naší dlouhodobé strategie digitální transformace jsme se rozhodli
+  přistoupit k implementaci nového interního systému pro správu požadavků,
+  který by měl v horizontu následujících měsíců postupně nahradit stávající
+  řešení založené na e-mailové komunikaci, jež se v praxi ukázalo jako
+  nedostatečně transparentní a obtížně škálovatelné vzhledem k rostoucímu
+  počtu zaměstnanců a agend, které je potřeba koordinovat napříč odděleními.
+expect:
+  rubric: >
+    Returns a substantially shorter (at most half the length), simpler Czech
+    version preserving the meaning (new internal request system replacing
+    email-based workflow due to transparency and scaling). Natural Czech,
+    no anglicisms, no added facts, no meta-commentary longer than the edit.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 1

@@ -119,6 +119,41 @@ gain Lite — routing is invisible; the picker keeps Fast/Advanced semantics
   cost per message is measurable with zero new code.
 - Frontend: no change (the cost popup reads stored rows).
 
+## Suitability check (Aug 20, 2026) — PRELIMINARY PASS
+
+The eval suite was first extended from 8 synthetic cases to 30 cases grounded
+in real usage analysis (94% Czech traffic; terse/elliptical/typo-heavy query
+styles; clusters: household advice, Czech copywriting, trips, purchases,
+current events, health/longevity, sports-program coaching incl. kv_store
+persistence, ZWO generation, multi-turn follow-ups). Then both tiers ran the
+full suite:
+
+- **Flash: 27/30** (standing targets: ghost-writing emits variant menus,
+  teen-register too clinical, longevity answer lacks evidence nuance)
+- **Lite: 26/30** — the SAME cases fail (model-family behavior, not tier);
+  longevity actually scored higher on Lite; the 4th miss is the known
+  research round-variance case. All Czech-quality and tool-calling cases
+  (kv_store persistence, memory writes, code exec, web+cite) pass on Lite.
+
+Quality verdict: no per-case regression vs Flash → design D2 (full toolset on
+Lite) stands. Known eval gap: Garmin-dependent flows ("mrkni na data") can't
+run in the harness (no Garmin token for the eval user).
+
+## Latency verdict (Aug 20, 2026) — FAIL, routing PARKED
+
+Requirement (explicit): the agent must get FASTER with a less complex model,
+not slower. Timed head-to-head (8 representative cases × 2 passes each,
+agent-turn wall clock): Flash mean ~10.8 s vs Lite mean ~13.1 s (~20–30%
+slower), with a worse tail (18–25 s outliers; one 32 s with thinking_level
+"low", which did not help — the gap looks like serving-tier latency variance,
+not reasoning overhead).
+
+**Decision: do NOT implement routing now.** Cheaper-but-slower fails the
+requirement. Revisit when a lite tier of the current generation ships
+(3.7-flash-lite or successor) — re-run this suite's quality gate plus the
+timed comparison; both must pass. The eval suite, timing capture, and this
+spec make that re-check a one-command exercise.
+
 ## Quality gate (before any prod enablement)
 
 1. Run the full eval suite with `DEFAULT_MODEL=gemini-3.5-flash-lite`:

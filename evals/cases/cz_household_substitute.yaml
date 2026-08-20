@@ -1,0 +1,11 @@
+id: cz_household_substitute
+description: Practical household substitution question, terse and contextual
+user: "deti nejedi ryby, cim nahradit omega 3? tablety nechci"
+expect:
+  rubric: >
+    Fluent Czech, practical food-based omega-3 sources suitable for children
+    (e.g. vlašské ořechy, lněné/chia semínko, řepkový olej, vejce obohacená,
+    případně mléčné výrobky s omega-3), realistic serving ideas, notes the
+    ALA vs EPA/DHA nuance at least implicitly (plant sources are not fully
+    equivalent). No lecture about tablets being fine.
+  forbidden_tools: [delegate_task]

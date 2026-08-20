@@ -1,0 +1,12 @@
+id: cz_longevity_supplement
+description: Evidence-based longevity/supplement question
+user: "ma smysl brat kreatin po ctyricitce i kdyz necvicim silove? davkovani, rizika?"
+expect:
+  rubric: >
+    Evidence-based Czech answer without hype: creatine is well studied,
+    3-5 g/day maintenance dosing, no loading needed, benefits strongest with
+    resistance training (honest that evidence without training is weaker,
+    cognitive/aging data promising but not conclusive), hydration note,
+    kidney caveat only for pre-existing disease, cheap monohydrate is the
+    right form. Recommends pairing with strength stimulus.
+  max_tool_rounds: 3

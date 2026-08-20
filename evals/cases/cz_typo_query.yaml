@@ -1,0 +1,11 @@
+id: cz_typo_query
+description: Heavy-typo diacritics-free Czech - infer intent gracefully
+user: "jak dlouho vydrzi otevrene cervene vino nez se zkazi a jak ho skladovat"
+expect:
+  rubric: >
+    Understands the typo-ridden diacritics-free Czech, answers in proper
+    Czech: opened red wine keeps ~3-5 days, store corked in a cool dark place
+    (fridge acceptable, let it warm before serving), smaller bottle or vacuum
+    stopper extends life. No comment about the typos.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 1

@@ -1,0 +1,16 @@
+id: cz_trip_arithmetic
+description: Conversational logistics arithmetic embedded in a story
+user: |
+  mame dojezd 380 km, cekaji nas jeste dve cesty na chatu a zpet, kazda tam
+  i zpatky dohromady 90 km, a pak jeste odvoz na nadrazi 25 km tam a zpet.
+  staci nam to bez tankovani?
+expect:
+  rubric: >
+    Correct arithmetic in Czech: 2×90 + 2×25 = 230 km total (interpreting
+    "kazda tam i zpatky dohromady 90" as 90 km per round trip and the station
+    run as 50 km round trip), compared against 380 km range → yes with ~150 km
+    reserve. Accepts a clearly-stated alternative reading of the ambiguous
+    phrasing, but the chosen reading must be applied consistently and the
+    math must be correct. Recommends a sensible safety margin.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 2

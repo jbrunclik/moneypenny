@@ -1,0 +1,10 @@
+id: cz_local_lookup
+description: Local opening-hours lookup - needs fresh web data, Czech
+user: "do kolika ma dneska otevreno zoo praha?"
+expect:
+  rubric: >
+    Answers in Czech with a concrete closing time for Prague Zoo plausibly
+    matching the current season (summer ~21:00, otherwise 16:00-19:00),
+    ideally noting hours vary by season, and cites a source.
+  required_tools: [research, web_search]
+  max_tool_rounds: 4

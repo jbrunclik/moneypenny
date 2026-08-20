@@ -20,6 +20,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,11 @@ User asked: {user}
 
 Assistant answered:
 {response}
+
+Tools the assistant actually called during the turn (tool calls are real
+actions - e.g. kv_store listed here means stored data WAS updated; judge
+persistence/actions by this list, not by the answer text):
+{tools_called}
 
 Sources the assistant formally cited via its citation tool (these are shown to
 the user as source chips below the answer; citing this way COUNTS as citing):
@@ -58,6 +64,12 @@ class EvalCase:
     required_tools: list[str] = field(default_factory=list)  # any-of
     forbidden_tools: list[str] = field(default_factory=list)
     max_tool_rounds: int = 0  # 0 = no limit
+    # Prior turns for multi-turn cases: [{role: user|assistant, content: str}]
+    history: list[dict[str, str]] = field(default_factory=list)
+    # "chat" (default) or "sports" (runs with a canned cycling program context)
+    mode: str = "chat"
+    # Sports mode: stored KV data injected into the program context
+    program_kv: dict[str, str] = field(default_factory=dict)
 
 
 def load_cases(directory: Path) -> list[EvalCase]:
@@ -78,6 +90,12 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 required_tools=list(expect.get("required_tools") or []),
                 forbidden_tools=list(expect.get("forbidden_tools") or []),
                 max_tool_rounds=int(expect.get("max_tool_rounds") or 0),
+                history=[
+                    {"role": str(h["role"]), "content": str(h["content"])}
+                    for h in (data.get("history") or [])
+                ],
+                mode=str(data.get("mode") or "chat"),
+                program_kv={str(k): str(v) for k, v in (data.get("program_kv") or {}).items()},
             )
         )
     return cases
@@ -135,16 +153,42 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
 
     conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
     set_conversation_context(conversation.id, user.id)
+
+    # Sports mode: canned cycling program (mirrors load_sports_context's shape)
+    is_sports = case.mode == "sports"
+    sports_context = None
+    if is_sports:
+        from src.agent.tools import set_sports_context
+
+        sports_context = {
+            "program_name": "Cyklistika",
+            "program_id": "cycling",
+            "kv_data": dict(case.program_kv),
+        }
+        set_sports_context("cycling")
+
     try:
-        agent = ChatAgent(model_name=Config.DEFAULT_MODEL)
+        agent = ChatAgent(
+            model_name=Config.DEFAULT_MODEL,
+            is_sports=is_sports,
+            sports_context=sports_context,
+        )
+        turn_started = time.monotonic()
         response, _tools, usage, result_messages = agent.chat_batch(
             text=case.user,
+            history=case.history or None,
             user_name="Eval User",
             user_id=user.id,
             conversation_id=conversation.id,
+            is_sports=is_sports,
+            sports_context=sports_context,
         )
     finally:
         set_conversation_context(None, None)
+        if is_sports:
+            from src.agent.tools import set_sports_context
+
+            set_sports_context(None)
 
     tools_used = {msg.name for msg in result_messages if isinstance(msg, ToolMessage) and msg.name}
     # cite_sources / set_conversation_title may be extract-only (never executed):
@@ -170,6 +214,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
                     rubric=case.rubric,
                     user=case.user,
                     response=response[:8000],
+                    tools_called=", ".join(sorted(tools_used)) or "none",
                     cited_sources=json.dumps(cited, ensure_ascii=False) if cited else "none",
                 )
             )
@@ -182,6 +227,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "id": case.id,
         "pass": passed,
         "score": score,
+        "duration_s": round(time.monotonic() - turn_started, 1),
         "tool_rounds": tool_rounds,
         "tools_used": sorted(tools_used),
         "input_tokens": usage.get("input_tokens", 0),
@@ -233,7 +279,7 @@ def main() -> int:
             result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
         results.append(result)
         status = "PASS" if result.get("pass") else "FAIL"
-        print(f"{status}  {case.id} score={result.get('score')} rounds={result.get('tool_rounds')}")
+        print(f"{status}  {case.id} score={result.get('score')} rounds={result.get('tool_rounds')} t={result.get('duration_s')}s")
 
     ran = [r for r in results if not r.get("skipped")]
     passed = sum(1 for r in ran if r.get("pass"))

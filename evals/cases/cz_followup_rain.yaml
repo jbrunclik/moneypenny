@@ -1,0 +1,16 @@
+id: cz_followup_rain
+description: Elliptical follow-up that only makes sense with history
+history:
+  - role: user
+    content: "Naplanuj nam sobotni vylet s detmi (8 a 11 let) v okoli Brna, tak do 10 km chuze."
+  - role: assistant
+    content: "Doporučuji okruh Moravským krasem: start u Skalního mlýna, pěšky k propasti Macocha (horní můstek), zpět přes Punkevní jeskyně. Celkem asi 9 km, s dětmi 4-5 hodin. Vstupenky do jeskyní doporučuji rezervovat předem."
+user: "a kdyz bude prset?"
+expect:
+  rubric: >
+    Understands the elliptical follow-up refers to the Saturday trip plan from
+    history and adapts it for rain in Czech: e.g. caves become the main
+    (covered) program, or suggests indoor alternatives near Brno (muzeum,
+    aquapark, VIDA), keeps the kids' ages in mind. Does NOT restart planning
+    from scratch or ask what the user means.
+  max_tool_rounds: 3

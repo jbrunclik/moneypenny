@@ -1,0 +1,16 @@
+id: sports_form_feedback
+description: Exercise form/technique feedback from subjective report
+mode: sports
+program_kv:
+  "cycling:routine": "pa: kruhy - pull-ups, ring rows, ab wheel, push-ups"
+user: |
+  ty pull-ups jsou ted masakr kdyz mam pokrcena kolena a nedoslapuju.
+  naopak ab wheel mi prijde ze mam jeste slusnou rezervu. co s tim?
+expect:
+  rubric: >
+    Concrete Czech technique coaching: for pull-ups a sensible regression or
+    support option (band, negatives, feet-assisted variants) with a cue or
+    two; for ab wheel a concrete progression (larger rollout range, tempo,
+    standing progression later). Adjusts intensity in the right DIRECTION for
+    each exercise (easier pull-ups, harder ab wheel). Practical, no lecture.
+  max_tool_rounds: 6

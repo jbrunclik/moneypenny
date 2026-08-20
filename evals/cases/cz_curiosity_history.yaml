@@ -1,0 +1,10 @@
+id: cz_curiosity_history
+description: Curiosity question - factual knowledge with engaging explanation
+user: "Jak to ze se v Cesku jeste ve 20. stoleti tezilo stribro? Myslel jsem ze doly vytezili uz za Rudolfa II."
+expect:
+  rubric: >
+    Engaging, correct Czech answer: distinguishes medieval/renaissance silver
+    booms (Kutná Hora, Jáchymov) from later mining - deeper deposits, new
+    technology, silver as by-product of polymetallic ores (Příbram's 19th-20th
+    century peak is the ideal example). Corrects the premise gently.
+  max_tool_rounds: 4

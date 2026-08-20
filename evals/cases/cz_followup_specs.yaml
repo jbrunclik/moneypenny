@@ -1,0 +1,15 @@
+id: cz_followup_specs
+description: Product follow-up needing history context + fresh data
+history:
+  - role: user
+    content: "Hledam cyklopocitac do 2000 Kc, hlavne vydrz baterie a citelny displej."
+  - role: assistant
+    content: "V tomto rozpočtu bych zvážil základní GPS modely: doporučuji podívat se na aktuální nabídku - klasické drátové/bezdrátové počítače (výdrž měsíce, ale bez GPS) vs. levné GPS modely (výdrž ~15-20 h na nabití). Pro čitelnost je klíčový segmentový displej bez podsvícení."
+user: "jo a funguji ty gps i bez senzoru na kole?"
+expect:
+  rubric: >
+    Answers the follow-up in context in Czech: yes, GPS cyclocomputers measure
+    speed/distance from GPS alone without wheel/cadence sensors, with the
+    caveats (less accurate instant speed, tunnels/tree cover, no cadence).
+    Concise, stays on the bike-computer topic from history.
+  max_tool_rounds: 3
