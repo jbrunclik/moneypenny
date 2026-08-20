@@ -1,0 +1,11 @@
+id: cz_image_reading
+description: Photo attachment - read practical info from an image (19% of msgs have files)
+user: "kdy tam maji otevreno v sobotu? foto cedule v priloze"
+files: [fixtures/opening_hours_sign.png]
+expect:
+  rubric: >
+    Reads the attached opening-hours sign and answers in Czech that Saturday
+    is 9:00-12:00. Bonus for noting Sunday is closed, but the Saturday time
+    must be exact. No web searching - the answer is in the image.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 1

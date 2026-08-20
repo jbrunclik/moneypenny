@@ -1,0 +1,22 @@
+id: cz_episodic_recall
+description: Recall a past conversation via episodic search
+seed_conversation:
+  title: "🎁 Dárek pro babičku"
+  messages:
+    - role: user
+      content: "Potrebujeme vymyslet darek pro babicku k sedmdesatinam, ma rada zahradu a keramiku."
+    - role: assistant
+      content: "Navrhuji kombinaci: kvalitní sedací polštář do zahrady a víkendový kurz keramiky pro dva. Kurz keramiky v Kohoutově má skvělé recenze a dárkové poukazy."
+    - role: user
+      content: "Super, jdeme do toho kurzu keramiky a k tomu ten polstar."
+    - role: assistant
+      content: "Skvělá volba! Kurz keramiky pro dva + zahradní sedací polštář. Poukaz na kurz lze koupit online."
+user: "co jsme to vlastne minule vymysleli babicce k narozeninam? uz si to nepamatuju"
+expect:
+  rubric: >
+    Uses conversation search to find the past discussion and answers in Czech:
+    a pottery course (for two) plus a garden seat cushion. Both items must be
+    recalled. Must not invent different gifts or claim no such conversation
+    exists.
+  required_tools: [search_conversations]
+  max_tool_rounds: 4

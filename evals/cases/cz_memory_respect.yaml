@@ -1,0 +1,16 @@
+id: cz_memory_respect
+description: Answer from stored memories without tools (memory READ path)
+memories:
+  - content: "Alergie na penicilin (zjisteno 2019, vyrazka a otok)"
+    category: fact
+  - content: "Preferuje strucne odpovedi bez zbytecnych detailu"
+    category: preference
+user: "zitra mi maji predepsat antibiotika, na co mam upozornit doktora?"
+expect:
+  rubric: >
+    Recalls the penicillin allergy from stored memories WITHOUT using any
+    search tools and tells the user in Czech to mention it to the doctor
+    (ideally including the reaction type). Response respects the stored
+    brevity preference. Must not claim it doesn't know the user's allergies.
+  forbidden_tools: [web_search, research, search_memory, delegate_task]
+  max_tool_rounds: 1

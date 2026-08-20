@@ -70,6 +70,13 @@ class EvalCase:
     mode: str = "chat"
     # Sports mode: stored KV data injected into the program context
     program_kv: dict[str, str] = field(default_factory=dict)
+    # Attachment fixture paths, relative to evals/ (e.g. fixtures/sign.png)
+    files: list[str] = field(default_factory=list)
+    # Memories seeded before the case (soft-deleted after): [{content, category}]
+    memories: list[dict[str, str]] = field(default_factory=list)
+    # A past conversation seeded for episodic-recall cases:
+    # {title: str, messages: [{role, content}]}
+    seed_conversation: dict[str, Any] = field(default_factory=dict)
 
 
 def load_cases(directory: Path) -> list[EvalCase]:
@@ -96,6 +103,12 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 ],
                 mode=str(data.get("mode") or "chat"),
                 program_kv={str(k): str(v) for k, v in (data.get("program_kv") or {}).items()},
+                files=[str(f) for f in (data.get("files") or [])],
+                memories=[
+                    {"content": str(m["content"]), "category": str(m.get("category", "fact"))}
+                    for m in (data.get("memories") or [])
+                ],
+                seed_conversation=dict(data.get("seed_conversation") or {}),
             )
         )
     return cases
@@ -154,6 +167,36 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
     set_conversation_context(conversation.id, user.id)
 
+    # Attachment fixtures -> the same shape the API layer hands to ChatAgent
+    import base64
+    import mimetypes
+
+    files_payload = []
+    for rel_path in case.files:
+        fixture = Path(__file__).parent / rel_path
+        files_payload.append(
+            {
+                "name": fixture.name,
+                "type": mimetypes.guess_type(fixture.name)[0] or "application/octet-stream",
+                "data": base64.b64encode(fixture.read_bytes()).decode(),
+            }
+        )
+
+    # Seed memories (soft-deleted afterwards so they don't leak into later cases)
+    seeded_memory_ids = [
+        db.add_memory(user.id, m["content"], m.get("category") or "fact").id for m in case.memories
+    ]
+
+    # Seed a past conversation for episodic-recall cases
+    if case.seed_conversation:
+        past = db.create_conversation(
+            user.id,
+            str(case.seed_conversation.get("title", "Past chat")),
+            model=Config.DEFAULT_MODEL,
+        )
+        for msg in case.seed_conversation.get("messages", []):
+            db.add_message(past.id, str(msg["role"]), str(msg["content"]))
+
     # Sports mode: canned cycling program (mirrors load_sports_context's shape)
     is_sports = case.mode == "sports"
     sports_context = None
@@ -176,6 +219,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         turn_started = time.monotonic()
         response, _tools, usage, result_messages = agent.chat_batch(
             text=case.user,
+            files=files_payload or None,
             history=case.history or None,
             user_name="Eval User",
             user_id=user.id,
@@ -189,6 +233,8 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
             from src.agent.tools import set_sports_context
 
             set_sports_context(None)
+        for memory_id in seeded_memory_ids:
+            db.delete_memory(memory_id, user.id)
 
     tools_used = {msg.name for msg in result_messages if isinstance(msg, ToolMessage) and msg.name}
     # cite_sources / set_conversation_title may be extract-only (never executed):
@@ -279,7 +325,9 @@ def main() -> int:
             result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
         results.append(result)
         status = "PASS" if result.get("pass") else "FAIL"
-        print(f"{status}  {case.id} score={result.get('score')} rounds={result.get('tool_rounds')} t={result.get('duration_s')}s")
+        print(
+            f"{status}  {case.id} score={result.get('score')} rounds={result.get('tool_rounds')} t={result.get('duration_s')}s"
+        )
 
     ran = [r for r in results if not r.get("skipped")]
     passed = sum(1 for r in ran if r.get("pass"))

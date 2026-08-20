@@ -148,3 +148,42 @@ expect:
     def test_mode_defaults_chat(self, tmp_path: Path) -> None:
         _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
         assert load_cases(tmp_path)[0].mode == "chat"
+
+
+class TestFixtureAndSeedFields:
+    def test_files_memories_and_seed_conversation_parse(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "rich.yaml",
+            """
+id: rich
+user: co je na obrazku?
+files: [fixtures/opening_hours_sign.png]
+memories:
+  - content: "Alergie na penicilin"
+    category: fact
+seed_conversation:
+  title: "Dárek pro babičku"
+  messages:
+    - role: user
+      content: "Co koupit babičce?"
+    - role: assistant
+      content: "Navrhuji sedací polštář a kurz keramiky."
+expect:
+  rubric: r
+""",
+        )
+
+        case = load_cases(tmp_path)[0]
+
+        assert case.files == ["fixtures/opening_hours_sign.png"]
+        assert case.memories == [{"content": "Alergie na penicilin", "category": "fact"}]
+        assert case.seed_conversation["title"] == "Dárek pro babičku"
+        assert len(case.seed_conversation["messages"]) == 2
+
+    def test_rich_fields_default_empty(self, tmp_path: Path) -> None:
+        _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
+        case = load_cases(tmp_path)[0]
+        assert case.files == []
+        assert case.memories == []
+        assert case.seed_conversation == {}
