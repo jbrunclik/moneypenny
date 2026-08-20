@@ -328,6 +328,11 @@ test.describe('Visual: Modal Dialogs', () => {
     // Wait for animation to complete
     await page.waitForTimeout(300);
 
+    // Deterministic focus state: whether #message-input keeps focus after
+    // send varies with load timing, and its focus border is inside this
+    // full-viewport shot
+    await page.locator('#message-input').blur();
+
     await expect(page.locator('.modal-container')).toHaveScreenshot('modal-delete-confirmation.png');
   });
 
@@ -360,6 +365,9 @@ test.describe('Visual: Modal Dialogs', () => {
     await page.waitForTimeout(300);
 
     // Take full page screenshot to show modal with overlay
+    // Deterministic focus state (see delete-confirmation test)
+    await page.locator('#message-input').blur();
+
     await expect(page).toHaveScreenshot('modal-with-overlay-fullpage.png', {
       fullPage: true,
     });

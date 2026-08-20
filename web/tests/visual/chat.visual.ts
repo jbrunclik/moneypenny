@@ -92,6 +92,9 @@ test.describe('Visual: Chat Interface', () => {
     await page.focus('#message-input');
     await page.fill('#message-input', 'Typing a message...');
 
+    // Deterministic toolbar state: the model selector races 'Loading...' -> 'Fast'
+    await expect(page.locator('#current-model-name')).toHaveText('Fast');
+
     // The focus frame must wrap the WHOLE card: preview strip + input
     // (regression: the preview kept its grey border while focused)
     await expect(page.locator('.input-wrapper')).toHaveScreenshot(

@@ -873,6 +873,28 @@ test.describe('Visual: Planner Dashboard - Mobile', () => {
   });
 
   test('mobile action buttons layout', async ({ page }) => {
+    // Seed a FIXED date: masking .dashboard-date hides its pixels but not the
+    // layout shift a different-width real date causes to the buttons next to
+    // it - this snapshot broke at midnight when the date string changed width
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [
+            {
+              date: '2024-12-25',
+              day_name: 'Today',
+              events: [],
+              tasks: [],
+            },
+          ],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          server_time: '2024-12-25T10:00:00',
+        },
+      },
+    });
+
     await page.goto('/#/planner');
     await page.waitForSelector('.dashboard-actions');
     await page.waitForTimeout(300);
