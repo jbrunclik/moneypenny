@@ -72,6 +72,33 @@ test.describe('Visual: Chat Interface', () => {
     await expect(page.locator('.input-container')).toHaveScreenshot('input-focused.png');
   });
 
+  test('message input focused with attachment', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Attach a tiny image so the preview strip renders above the input
+    const pngBuffer = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    await page.locator('#file-input').setInputFiles({
+      name: 'test.png',
+      mimeType: 'image/png',
+      buffer: pngBuffer,
+    });
+    await page.waitForSelector('.file-preview:not(.hidden)');
+
+    await page.focus('#message-input');
+    await page.fill('#message-input', 'Typing a message...');
+
+    // The focus frame must wrap the WHOLE card: preview strip + input
+    // (regression: the preview kept its grey border while focused)
+    await expect(page.locator('.input-wrapper')).toHaveScreenshot(
+      'input-focused-with-attachment.png'
+    );
+  });
+
   test('model selector dropdown', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');

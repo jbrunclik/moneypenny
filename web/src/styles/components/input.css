@@ -104,6 +104,13 @@
     border-color: var(--accent);
 }
 
+/* The attachment preview strip is a separate bordered sibling ABOVE the
+   input container (they form one visual card); without this it kept the
+   grey border while the lower half turned indigo on focus */
+.input-wrapper:focus-within .file-preview:not(.hidden) {
+    border-color: var(--accent);
+}
+
 #message-input {
     background: none;
     border: none;
@@ -391,6 +398,7 @@
     background-color: var(--bg-secondary);
 }
 
+.input-area.drag-over .file-preview:not(.hidden),
 .input-area.drag-over .input-container {
     border-color: var(--accent);
     background-color: var(--accent-muted);
