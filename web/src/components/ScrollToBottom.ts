@@ -12,12 +12,24 @@ let isStreamingPaused = false;
 // Returns a promise that resolves when any async work is done
 let onBeforeScrollToBottom: (() => Promise<void>) | null = null;
 
+// Optional callback fired synchronously when the user taps the button
+// (streaming registers this to re-arm follow mode before the scroll starts)
+let onJumpToBottom: (() => void) | null = null;
+
 /**
  * Set a callback that runs before scroll-to-bottom action.
  * Useful for loading remaining messages when in a partial view.
  */
 export function setBeforeScrollToBottomCallback(callback: (() => Promise<void>) | null): void {
   onBeforeScrollToBottom = callback;
+}
+
+/**
+ * Register a synchronous handler for scroll-button taps.
+ * Pass null to unregister.
+ */
+export function setOnJumpToBottom(callback: (() => void) | null): void {
+  onJumpToBottom = callback;
 }
 
 /**
@@ -50,6 +62,9 @@ export function initScrollToBottom(): void {
         // If loading fails, still try to scroll to current bottom
       }
     }
+    // Let interested parties (streaming follow mode) re-arm synchronously
+    // before the smooth scroll starts
+    onJumpToBottom?.();
     scrollToBottom(messagesContainer, true);
   });
 

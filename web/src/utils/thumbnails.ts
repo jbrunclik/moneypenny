@@ -151,6 +151,14 @@ export function markProgrammaticScrollEnd(): void {
 }
 
 /**
+ * Whether a programmatic scroll is currently in flight - scroll listeners
+ * use this to avoid attributing our own scrolls to the user.
+ */
+export function isProgrammaticScrollActive(): boolean {
+    return isProgrammaticScroll;
+}
+
+/**
  * Perform a programmatic scroll to bottom that won't trigger user scroll detection.
  * This is a convenience wrapper that handles the markers automatically.
  * @param element The element to scroll

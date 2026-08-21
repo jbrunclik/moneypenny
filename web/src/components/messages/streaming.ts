@@ -5,8 +5,12 @@
 import { getElementById, scrollToBottom, isScrolledToBottom } from '../../utils/dom';
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
-import { programmaticScrollToBottom } from '../../utils/thumbnails';
-import { checkScrollButtonVisibility, setStreamingPausedIndicator } from '../ScrollToBottom';
+import { isProgrammaticScrollActive, programmaticScrollToBottom } from '../../utils/thumbnails';
+import {
+  checkScrollButtonVisibility,
+  setOnJumpToBottom,
+  setStreamingPausedIndicator,
+} from '../ScrollToBottom';
 import { AI_AVATAR } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
 import {
@@ -145,12 +149,37 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     }
   };
 
-  // Handle scroll events - only used for detecting when user scrolls back to bottom
+  // Track scroll position to detect upward user scrolls that produce no
+  // wheel/touchmove event (scrollbar drag, PageUp/Home/arrow keys)
+  let lastScrollTop = container.scrollTop;
+
+  // Handle scroll events: pause on a real upward scroll while following,
+  // re-enable when the user scrolls back to the bottom
   const scrollHandler = (): void => {
     if (!currentStreamingContext) return;
 
-    // Only check for re-enabling auto-scroll if it's currently disabled
-    if (currentStreamingContext.shouldAutoScroll) return;
+    const scrollTop = container.scrollTop;
+    const previousScrollTop = lastScrollTop;
+    // Ignore iOS rubber-band out-of-bounds values
+    if (scrollTop >= 0) {
+      lastScrollTop = scrollTop;
+    }
+
+    if (currentStreamingContext.shouldAutoScroll) {
+      // Direction-based pause, complementing the wheel/touchmove listeners.
+      // Content growth and our own follow scrolls only move scrollTop DOWN
+      // (or clamp it while staying at the bottom), so an upward move that
+      // isn't programmatic and lands away from the bottom is user intent.
+      const movedUp = scrollTop >= 0 && previousScrollTop >= 0 && scrollTop < previousScrollTop;
+      if (
+        movedUp &&
+        !isProgrammaticScrollActive() &&
+        !isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX)
+      ) {
+        handleUserScroll();
+      }
+      return;
+    }
 
     // Check if at bottom for re-enabling auto-scroll
     const atBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
@@ -186,6 +215,21 @@ function setupStreamingScrollListener(container: HTMLElement): void {
   // Also listen for scroll events to detect when user scrolls back to bottom
   onMessagesScroll('streaming-autoscroll-resume', scrollHandler);
 
+  // Tapping the scroll-to-bottom button re-arms follow mode synchronously.
+  // Leaving it to the position-based resume was fragile: tokens keep growing
+  // scrollHeight during the smooth animation, so "bottom" is a moving target
+  // and the debounced re-attach could miss.
+  setOnJumpToBottom(() => {
+    if (!currentStreamingContext || currentStreamingContext.shouldAutoScroll) return;
+    if (resumeDebounceTimeout) {
+      clearTimeout(resumeDebounceTimeout);
+      resumeDebounceTimeout = undefined;
+    }
+    currentStreamingContext.shouldAutoScroll = true;
+    setStreamingPausedIndicator(false);
+    log.debug('Streaming auto-scroll resumed (scroll button tapped)');
+  });
+
   // Store cleanup function
   currentStreamingContext.scrollListenerCleanup = () => {
     if (resumeDebounceTimeout) {
@@ -194,6 +238,7 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     container.removeEventListener('wheel', handleUserScroll);
     container.removeEventListener('touchmove', handleUserScroll);
     offMessagesScroll('streaming-autoscroll-resume');
+    setOnJumpToBottom(null);
   };
 }
 

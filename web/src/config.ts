@@ -193,8 +193,14 @@ export const INTERSECTION_OBSERVER_ROOT_MARGIN = '50px';
 /** IntersectionObserver threshold for visibility detection */
 export const INTERSECTION_OBSERVER_THRESHOLD = 0.1;
 
-/** Default threshold for isScrolledToBottom check */
-export const SCROLL_BOTTOM_THRESHOLD_PX = 100;
+/**
+ * Default threshold for isScrolledToBottom checks. Kept equal to
+ * SCROLL_USER_DETECTION_THRESHOLD_PX so every "is the user following?"
+ * decision (streaming follow, scroll button, post-send repositioning,
+ * image-load scrolls) agrees - divergent thresholds made the same scroll
+ * position count as "following" in one code path and not in another.
+ */
+export const SCROLL_BOTTOM_THRESHOLD_PX = SCROLL_USER_DETECTION_THRESHOLD_PX;
 
 /**
  * Unified threshold for streaming auto-scroll detection.

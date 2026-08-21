@@ -1,5 +1,7 @@
 // DOM utility functions
 
+import { SCROLL_BOTTOM_THRESHOLD_PX } from '../config';
+
 /**
  * Escape HTML special characters to prevent XSS
  */
@@ -148,7 +150,10 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
 /**
  * Check if element is scrolled to bottom (within threshold)
  */
-export function isScrolledToBottom(element: HTMLElement, threshold = 100): boolean {
+export function isScrolledToBottom(
+  element: HTMLElement,
+  threshold: number = SCROLL_BOTTOM_THRESHOLD_PX
+): boolean {
   return (
     element.scrollHeight - element.scrollTop - element.clientHeight < threshold
   );

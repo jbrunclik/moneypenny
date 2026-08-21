@@ -109,6 +109,10 @@
     gap: var(--space-4);
     position: relative;
     scroll-behavior: auto;
+    /* Scroll anchoring is handled manually (pagination prepend compensation,
+       image-load adjustment). Browser anchoring on top of that double-adjusts
+       and jumps when older messages load - keep exactly one mechanism. */
+    overflow-anchor: none;
 }
 
 /* ============================================
