@@ -209,8 +209,10 @@ async function request<T>(
           { code: 'TIMEOUT', retryable: true, isTimeout: true }
         );
       }
-      // Handle network errors (no response)
-      else if (error instanceof TypeError && error.message.includes('fetch')) {
+      // Handle network errors (no response). fetch rejects with a TypeError
+      // whose message is engine-specific ("Failed to fetch" in Chromium,
+      // "Load failed" in WebKit) - never match on the message text.
+      else if (error instanceof TypeError) {
         lastError = new ApiError(
           'Network error. Please check your connection.',
           0,

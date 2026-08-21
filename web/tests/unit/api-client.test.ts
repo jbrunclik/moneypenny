@@ -824,3 +824,29 @@ describe('connect timeouts', () => {
     await assertion;
   });
 });
+
+describe('network error classification', () => {
+  it('classifies WebKit "Load failed" fetch rejections as network errors', async () => {
+    // WebKit rejects with TypeError("Load failed"), Chrome with
+    // TypeError("Failed to fetch") - matching on the message text made
+    // Safari network errors unclassifiable (breaking send auto-retry)
+    global.fetch = vi.fn(() =>
+      Promise.reject(new TypeError('Load failed'))
+    ) as unknown as typeof fetch;
+
+    const generator = chat.stream('conv-1', 'hello');
+    await expect(generator.next()).rejects.toMatchObject({ isNetworkError: true });
+  });
+
+  it('request() classifies "Load failed" as a network error', async () => {
+    global.fetch = vi.fn(() =>
+      Promise.reject(new TypeError('Load failed'))
+    ) as unknown as typeof fetch;
+
+    // Use a no-retry POST: retryable GETs would (correctly) retry with real
+    // backoff delays and blow the test timeout
+    await expect(chat.sendBatch('conv-1', 'hello')).rejects.toMatchObject({
+      isNetworkError: true,
+    });
+  });
+});

@@ -413,8 +413,10 @@ export const chat = {
         );
       }
       // Classify connection failures like request() does so callers can
-      // distinguish network errors from application errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      // distinguish network errors from application errors. fetch rejects
+      // with a TypeError whose message is engine-specific ("Failed to fetch"
+      // in Chromium, "Load failed" in WebKit) - never match on the message.
+      if (error instanceof TypeError) {
         throw new ApiError(
           'Network error. Please check your connection.',
           0,
