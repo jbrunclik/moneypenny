@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { renderFilePreview, updateSendButtonState } from './MessageInput';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
+import { compressImageFile } from '../utils/image-compression';
 import type { FileUpload, UploadConfig } from '../types/api';
 
 const log = createLogger('file-upload');
@@ -95,29 +96,39 @@ export async function addFilesToPending(files: File[]): Promise<void> {
       continue;
     }
 
-    // Check file size (per-type limit: videos get a larger allowance)
-    const maxSize = maxSizeForType(uploadConfig, file.type);
-    if (file.size > maxSize) {
-      const maxMB = maxSize / (1024 * 1024);
-      toast.warning(`File '${file.name}' exceeds ${maxMB}MB limit`);
-      continue;
-    }
-
-    // Convert to base64
+    // Compress images client-side (full-res photos waste upload, storage and
+    // LLM tokens). Runs before the size check so an oversized photo that
+    // compresses under the limit is still accepted. Falls back to the
+    // original file on any decode/encode problem.
     try {
-      const data = await readFileAsBase64(file);
+      const processed = await compressImageFile(file);
+
+      // Check file size (per-type limit: videos get a larger allowance)
+      const maxSize = maxSizeForType(uploadConfig, processed.type);
+      if (processed.size > maxSize) {
+        const maxMB = maxSize / (1024 * 1024);
+        toast.warning(`File '${file.name}' exceeds ${maxMB}MB limit`);
+        continue;
+      }
+
+      const data = await readFileAsBase64(processed);
       const fileUpload: FileUpload = {
-        name: file.name,
-        type: file.type,
+        name: processed.name,
+        type: processed.type,
         data,
         previewUrl:
-          file.type.startsWith('image/') || file.type.startsWith('video/')
-            ? URL.createObjectURL(file)
+          processed.type.startsWith('image/') || processed.type.startsWith('video/')
+            ? URL.createObjectURL(processed)
             : undefined,
       };
 
       store.addPendingFile(fileUpload);
-      log.debug('File added', { fileName: file.name, fileType: file.type, fileSize: file.size });
+      log.debug('File added', {
+        fileName: processed.name,
+        fileType: processed.type,
+        fileSize: processed.size,
+        originalSize: file.size,
+      });
     } catch (error) {
       log.error('Failed to read file', { error, fileName: file.name });
       toast.error(`Failed to read file '${file.name}'`);

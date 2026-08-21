@@ -509,3 +509,61 @@ test.describe('Chat - Thinking Gated on Upload', () => {
     await expect(page.locator('.message.user.uploading')).toHaveCount(0);
   });
 });
+
+test.describe('Chat - Client-side Image Compression', () => {
+  test('large images are downscaled and re-encoded before upload', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await disableStreaming(page);
+
+    // Generate a large noisy JPEG in the browser (compresses poorly at q1.0,
+    // so the 2048px/q0.85 re-encode must shrink it substantially)
+    const bigJpegBase64 = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 4000;
+      canvas.height = 3000;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#888';
+      ctx.fillRect(0, 0, 4000, 3000);
+      for (let i = 0; i < 5000; i++) {
+        ctx.fillStyle = `hsl(${(i * 37) % 360}, 80%, ${30 + ((i * 13) % 40)}%)`;
+        ctx.fillRect(((i * 761) % 4000), ((i * 977) % 3000), 80, 80);
+      }
+      return canvas.toDataURL('image/jpeg', 1.0).split(',')[1];
+    });
+    const originalChars = bigJpegBase64.length;
+    expect(originalChars).toBeGreaterThan(400_000); // sanity: fixture is big
+
+    // Capture the chat request body to inspect what actually gets uploaded
+    let uploadedFile: { name: string; type: string; data: string } | null = null;
+    await page.route('**/chat/batch', async (route) => {
+      const body = route.request().postDataJSON() as {
+        files?: { name: string; type: string; data: string }[];
+      };
+      uploadedFile = body.files?.[0] ?? null;
+      await route.continue();
+    });
+
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
+      name: 'huge-photo.jpeg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from(bigJpegBase64, 'base64'),
+    });
+
+    await expect(page.locator('#file-preview')).not.toHaveClass(/hidden/, { timeout: 10000 });
+
+    await page.fill('#message-input', 'What is in this photo?');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toBeVisible({ timeout: 20000 });
+
+    expect(uploadedFile).not.toBeNull();
+    // Renamed to .jpg, still a JPEG, and meaningfully smaller than the original
+    expect(uploadedFile!.name).toBe('huge-photo.jpg');
+    expect(uploadedFile!.type).toBe('image/jpeg');
+    expect(uploadedFile!.data.length).toBeLessThan(originalChars * 0.5);
+  });
+});

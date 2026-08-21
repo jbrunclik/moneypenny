@@ -60,6 +60,22 @@ export const OUTBOX_STORAGE_KEY = 'ai-chatbot-send-outbox-v1';
 /** Max total base64 chars of attachments persisted per outbox entry (~1.5MB binary) */
 export const OUTBOX_PERSIST_MAX_FILE_CHARS = 2_000_000;
 
+// =============================================================================
+// Client-side Image Compression
+// =============================================================================
+
+/** Long-edge cap for uploaded images (plenty for LLM vision + thumbnails) */
+export const IMAGE_COMPRESSION_MAX_EDGE_PX = 2048;
+
+/** JPEG re-encode quality for uploaded images */
+export const IMAGE_COMPRESSION_JPEG_QUALITY = 0.85;
+
+/** Images below this size are sent as-is (compression overhead not worth it) */
+export const IMAGE_COMPRESSION_MIN_BYTES = 300 * 1024;
+
+/** Compressed result must save at least this fraction to replace the original */
+export const IMAGE_COMPRESSION_MIN_SAVINGS_RATIO = 0.1;
+
 /** Maximum number of retry attempts for failed requests */
 export const API_MAX_RETRIES = 3;
 
