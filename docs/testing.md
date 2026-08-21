@@ -893,6 +893,14 @@ CI enforces these; a green test run alone does not guarantee a green build.
 
 ## E2E Stability Pitfalls (Aug 2026)
 
+- **E2E always tests the LAST `make build`, not your source**: the e2e
+  server serves the production bundle from `static/assets/`. After any
+  frontend change, run `make build` before Playwright or you'll debug the
+  previous build's behavior (symptom: your new classes/log lines never
+  appear in the browser).
+- **`page.route` interceptions persist across `page.reload()`**: a test
+  that blocks requests and then reloads is still blocked after the reload -
+  `unroute` explicitly when the post-reload phase needs a working network.
 - **Stale e2e server after `make build`**: Playwright reuses a running
   server (`reuseExistingServer`). A server started before a rebuild serves
   the old bundle while `/api/version` etc. reflect old state - kill the

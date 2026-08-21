@@ -298,6 +298,17 @@ Users can paste screenshots directly from the clipboard into the message input (
 - Unit tests: `handlePaste` describe block in [message-input.test.ts](../../web/tests/unit/message-input.test.ts)
 - E2E tests: "Chat - Clipboard Paste" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
 
+## Client-side Image Compression
+
+Images are downscaled and re-encoded at **attach time** (Aug 2026) in [image-compression.ts](../../web/src/utils/image-compression.ts), wired into `addFilesToPending` in [FileUpload.ts](../../web/src/components/FileUpload.ts) — full-resolution phone photos (4–8MB) become a few hundred KB before hitting the server, the blob store, and the LLM.
+
+- Long edge capped at `IMAGE_COMPRESSION_MAX_EDGE_PX` (2048px), JPEG re-encode at `IMAGE_COMPRESSION_JPEG_QUALITY` (0.85). PNG stays PNG when transparency is detected (sampled alpha scan); GIF (animation) and SVG are skipped; files under `IMAGE_COMPRESSION_MIN_BYTES` are sent as-is.
+- **Fail-open**: any decode/encode failure (e.g. HEIC in Chrome, where `createImageBitmap` can't decode it) silently sends the original file.
+- The compressed version is used only when it saves ≥ `IMAGE_COMPRESSION_MIN_SAVINGS_RATIO` (10%); JPEG re-encodes get a matching `.jpg` filename.
+- Compression runs **before** the size-limit check, so an oversized photo that compresses under the limit is accepted.
+- Video compression is deferred (see TODO.md) — videos upload unmodified.
+- Tests: [image-compression.test.ts](../../web/tests/unit/image-compression.test.ts) (decision logic + jsdom fallback), "Client-side Image Compression" in [attachments.spec.ts](../../web/tests/e2e/chat/attachments.spec.ts) (real-browser end-to-end via request-body inspection).
+
 ## Upload Progress
 
 When sending messages with file attachments, upload progress renders as a conic-gradient ring inside the send/stop button. It deliberately does NOT render as an element in the input area's document flow: an earlier strip-above-the-input implementation grew/shrank the input area when it appeared and disappeared, visibly jumping the whole layout twice per send on mobile.

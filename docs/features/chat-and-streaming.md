@@ -226,6 +226,23 @@ Generation always survived a client disconnect (the producer thread plus the cle
 - **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
 - The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [messaging.ts](../../web/src/core/messaging.ts) / [conversation.ts](../../web/src/core/conversation.ts).
 
+### Reliable Sends (Outbox)
+
+A message send used to be pure optimism: a DOM-only bubble, no store entry, nothing surfaced on failure — a send that died with the connection looked delivered and vanished on reload. The send pipeline (Aug 2026) makes delivery explicit:
+
+**Idempotent sends.** The client generates the user message UUID (`crypto.randomUUID()`) and sends it as `client_message_id` in both chat POSTs. The server uses it as the message row ID (`db.add_message(message_id=...)` — no migration needed) and `_dedupe_client_message_id` in [routes/chat.py](../../src/api/routes/chat.py) returns **409 CONFLICT** with the message id when it already exists in the conversation (validation error if it exists elsewhere). Retries therefore can never duplicate a message; a 409 on retry means "it actually landed" and triggers a refetch-reconcile instead of an error.
+
+**Send outbox** ([core/outbox.ts](../../web/src/core/outbox.ts)). Every outgoing message is written to the Zustand store (`status: 'pending'`) and persisted to localStorage before any network I/O. Delivery is confirmed by the **first SSE event** (streaming) or the response (batch) → entry dropped, status cleared. On failure the entry flips to `failed`. Reconciliation (`reconcileOutboxWithServer`, called at every conversation-load site in [conversation.ts](../../web/src/core/conversation.ts)) compares outbox entries against server messages: confirmed → dropped, in-flight in this session → rendered pending, otherwise → rendered failed with retry/discard.
+
+**Failure UX.** Failed bubbles stay in place with inline "Not sent — Retry / Discard" actions ([components/messages/send-state.ts](../../web/src/components/messages/send-state.ts), dispatching `outbox:retry`/`outbox:discard` CustomEvents handled in messaging.ts). Transient failures (network error, connect timeout) get **one silent auto-retry** after `SEND_AUTO_RETRY_DELAY_MS` before surfacing. Attachments over `OUTBOX_PERSIST_MAX_FILE_CHARS` aren't persisted to localStorage — a reload keeps the text but drops the files (`filesDropped`, warned on retry).
+
+**Invariants:**
+
+- The double-send guard (`getActiveRequest`) must run **before** the optimistic render in `sendMessage` — a bubble with no request behind it is exactly the original bug.
+- The initial streaming POST has a **30s connect timeout even with an external AbortController** (`API_CHAT_CONNECT_TIMEOUT_MS` in [client.ts](../../web/src/api/client.ts)); passing a controller used to disable all timeouts.
+- `markSendFailed` no-ops once the outbox entry is confirmed — a mid-stream failure after delivery must not flag the *user* message as unsent (that path belongs to stream recovery above).
+- Image `data-pending` (lightbox gating) keys off `message.status`, not ID shape — there are no `temp-` message IDs anymore (conversations still use `temp-` IDs).
+
 ## Thinking Indicator
 
 During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.
