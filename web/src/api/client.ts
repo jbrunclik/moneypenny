@@ -64,6 +64,7 @@ import {
   type VersionResponse,
 } from '../types/api';
 import {
+  API_CHAT_CONNECT_TIMEOUT_MS,
   API_CHAT_TIMEOUT_MS,
   THUMBNAIL_POLL_INITIAL_DELAY_MS,
   THUMBNAIL_POLL_MAX_DELAY_MS,
@@ -317,10 +318,11 @@ export const chat = {
     forceTools?: string[],
     onUploadProgress?: (progress: number) => void,
     anonymousMode?: boolean,
-    clientLocation?: ClientLocation | null
+    clientLocation?: ClientLocation | null,
+    clientMessageId?: string
   ): Promise<ChatResponse> {
-    // POST - no retry (not idempotent - could duplicate message)
-    // Use longer timeout for chat (image generation, complex tool chains)
+    // POST - no auto-retry here; the caller retries explicitly and the
+    // client_message_id makes that idempotent (server dedupes with 409)
     const url = `/api/conversations/${conversationId}/chat/batch`;
     const body = {
       message,
@@ -328,6 +330,7 @@ export const chat = {
       force_tools: forceTools?.length ? forceTools : undefined,
       anonymous_mode: anonymousMode ?? false,
       client_location: clientLocation ?? undefined,
+      client_message_id: clientMessageId,
     };
 
     // Use XHR with progress callback when files are attached
@@ -353,17 +356,24 @@ export const chat = {
     forceTools?: string[],
     abortController?: AbortController,
     anonymousMode?: boolean,
-    clientLocation?: ClientLocation | null
+    clientLocation?: ClientLocation | null,
+    clientMessageId?: string
   ): AsyncGenerator<StreamEvent> {
     log.debug('Starting stream', { conversationId, messageLength: message.length, fileCount: files?.length ?? 0 });
     const token = getToken();
 
     // Use provided controller or create new one for timeout
     const controller = abortController || new AbortController();
-    // Only set timeout if using internal controller (not user-provided)
-    const fetchTimeoutId = abortController
-      ? null
-      : setTimeout(() => controller.abort(), API_CHAT_TIMEOUT_MS);
+    // The initial POST must respond within the connect timeout even when the
+    // caller owns the controller - otherwise a request that hangs before the
+    // first byte (dead network, dropped connection) never surfaces an error.
+    // A user-provided controller previously disabled ALL timeouts here.
+    let connectTimedOut = false;
+    const connectTimeoutMs = abortController ? API_CHAT_CONNECT_TIMEOUT_MS : API_CHAT_TIMEOUT_MS;
+    const fetchTimeoutId = setTimeout(() => {
+      connectTimedOut = true;
+      controller.abort();
+    }, connectTimeoutMs);
 
     let response: Response;
     try {
@@ -381,23 +391,33 @@ export const chat = {
             force_tools: forceTools?.length ? forceTools : undefined,
             anonymous_mode: anonymousMode ?? false,
             client_location: clientLocation ?? undefined,
+            client_message_id: clientMessageId,
           }),
           signal: controller.signal,
         }
       );
-      if (fetchTimeoutId) clearTimeout(fetchTimeoutId);
+      clearTimeout(fetchTimeoutId);
     } catch (error) {
-      if (fetchTimeoutId) clearTimeout(fetchTimeoutId);
+      clearTimeout(fetchTimeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
-        // If user provided controller, this is a user-initiated abort - re-throw as AbortError
-        if (abortController) {
+        // User-initiated abort (via the provided controller) - re-throw as AbortError
+        if (abortController && !connectTimedOut) {
           throw error;
         }
-        // Otherwise it's a timeout
+        // Otherwise the connect timer fired
         throw new ApiError(
           'Request timed out before streaming started.',
           0,
           { code: 'TIMEOUT', retryable: true, isTimeout: true }
+        );
+      }
+      // Classify connection failures like request() does so callers can
+      // distinguish network errors from application errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new ApiError(
+          'Network error. Please check your connection.',
+          0,
+          { code: 'NETWORK_ERROR', retryable: true, isNetworkError: true }
         );
       }
       throw error;

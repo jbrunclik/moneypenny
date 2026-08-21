@@ -352,3 +352,63 @@ describe('Messages - addMessageToUI', () => {
     expect(observeThumbnailMock).not.toHaveBeenCalled();
   });
 });
+describe('Messages - send status', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div id="app">
+        <div id="messages" class="messages"></div>
+      </div>
+    `;
+    resetStore();
+  });
+
+  function getContainer(): HTMLElement {
+    return document.getElementById('messages')!;
+  }
+
+  it('marks pending user messages with a pending class', () => {
+    const container = getContainer();
+    addMessageToUI({ ...createMessage('m1', 'Hello'), status: 'pending' }, container);
+    const el = container.querySelector('[data-message-id="m1"]')!;
+    expect(el.classList.contains('message--send-pending')).toBe(true);
+    expect(el.querySelector('[data-action="retry-send"]')).toBeNull();
+  });
+
+  it('renders failed messages with retry and discard actions', () => {
+    const container = getContainer();
+    addMessageToUI({ ...createMessage('m1', 'Hello'), status: 'failed' }, container);
+    const el = container.querySelector('[data-message-id="m1"]')!;
+    expect(el.classList.contains('message--send-failed')).toBe(true);
+    expect(el.querySelector('[data-action="retry-send"]')).not.toBeNull();
+    expect(el.querySelector('[data-action="discard-send"]')).not.toBeNull();
+  });
+
+  it('renders delivered messages without send-state chrome', () => {
+    const container = getContainer();
+    addMessageToUI(createMessage('m1', 'Hello'), container);
+    const el = container.querySelector('[data-message-id="m1"]')!;
+    expect(el.classList.contains('message--send-pending')).toBe(false);
+    expect(el.classList.contains('message--send-failed')).toBe(false);
+    expect(el.querySelector('.message-send-status')).toBeNull();
+  });
+
+  it('dispatches outbox:retry with the message id when retry is clicked', () => {
+    const container = getContainer();
+    addMessageToUI({ ...createMessage('m1', 'Hello'), status: 'failed' }, container);
+    const handler = vi.fn();
+    document.addEventListener('outbox:retry', handler as EventListener, { once: true });
+    container.querySelector<HTMLButtonElement>('[data-action="retry-send"]')!.click();
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect((handler.mock.calls[0][0] as CustomEvent).detail.messageId).toBe('m1');
+  });
+
+  it('dispatches outbox:discard with the message id when discard is clicked', () => {
+    const container = getContainer();
+    addMessageToUI({ ...createMessage('m1', 'Hello'), status: 'failed' }, container);
+    const handler = vi.fn();
+    document.addEventListener('outbox:discard', handler as EventListener, { once: true });
+    container.querySelector<HTMLButtonElement>('[data-action="discard-send"]')!.click();
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect((handler.mock.calls[0][0] as CustomEvent).detail.messageId).toBe('m1');
+  });
+});

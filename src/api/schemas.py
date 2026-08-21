@@ -183,6 +183,17 @@ class ChatRequest(BaseModel):
     force_tools: list[str] = Field(default_factory=list)
     anonymous_mode: bool = Field(default=False)
     client_location: ClientLocation | None = Field(default=None)
+    client_message_id: str | None = Field(default=None)
+
+    @field_validator("client_message_id")
+    @classmethod
+    def validate_client_message_id(cls, v: str | None) -> str | None:
+        """Client-generated message IDs become the row's primary key — UUIDs only."""
+        if v is not None and not re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", v
+        ):
+            raise ValueError("client_message_id must be a UUID")
+        return v
 
     @field_validator("force_tools")
     @classmethod

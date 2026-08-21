@@ -181,6 +181,8 @@ interface AppState {
   prependMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
   appendMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
   appendMessage: (convId: string, message: Message) => void;
+  updateMessage: (convId: string, messageId: string, updates: Partial<Message>) => void;
+  removeMessage: (convId: string, messageId: string) => void;
   clearMessages: (convId: string) => void;
   setLoadingOlderMessages: (convId: string, loading: boolean) => void;
   setLoadingNewerMessages: (convId: string, loading: boolean) => void;
@@ -644,6 +646,34 @@ export const useStore = create<AppState>()(
           if (pag) {
             const newPagination = new Map(state.messagesPagination);
             newPagination.set(convId, { ...pag, totalCount: pag.totalCount + 1 });
+            return { messages: newMessages, messagesPagination: newPagination };
+          }
+          return { messages: newMessages };
+        }),
+      updateMessage: (convId, messageId, updates) =>
+        set((state) => {
+          const existing = state.messages.get(convId);
+          if (!existing?.some((m) => m.id === messageId)) return state;
+          const newMessages = new Map(state.messages);
+          newMessages.set(
+            convId,
+            existing.map((m) => (m.id === messageId ? { ...m, ...updates } : m))
+          );
+          return { messages: newMessages };
+        }),
+      removeMessage: (convId, messageId) =>
+        set((state) => {
+          const existing = state.messages.get(convId);
+          if (!existing?.some((m) => m.id === messageId)) return state;
+          const newMessages = new Map(state.messages);
+          newMessages.set(
+            convId,
+            existing.filter((m) => m.id !== messageId)
+          );
+          const pag = state.messagesPagination.get(convId);
+          if (pag) {
+            const newPagination = new Map(state.messagesPagination);
+            newPagination.set(convId, { ...pag, totalCount: Math.max(0, pag.totalCount - 1) });
             return { messages: newMessages, messagesPagination: newPagination };
           }
           return { messages: newMessages };

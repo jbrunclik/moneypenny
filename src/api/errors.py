@@ -161,6 +161,11 @@ def raise_gone_error(message: str) -> NoReturn:
     raise APIError(410, ErrorCode.GONE, message)
 
 
+def raise_conflict_error(message: str, details: dict[str, Any] | None = None) -> NoReturn:
+    """Raise a conflict error (409) for resource state conflicts."""
+    raise APIError(409, ErrorCode.CONFLICT, message, details)
+
+
 def raise_auth_required_error() -> NoReturn:
     """Raise an authentication required error (401)."""
     raise APIError(401, ErrorCode.AUTH_REQUIRED, "Authentication required")

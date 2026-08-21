@@ -58,7 +58,7 @@ import {
   loadAllRemainingNewerMessages,
 } from '../components/messages';
 
-import { sendMessage, handleStopStreaming, abortAllStreamingRequests } from './messaging';
+import { sendMessage, handleStopStreaming, abortAllStreamingRequests, initOutboxHandlers } from './messaging';
 import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
 import { setupTouchGestures } from './gestures';
@@ -411,6 +411,7 @@ export async function init(): Promise<void> {
   initModal();
   initPopupEscapeListener(); // Single Escape key listener for all popups
   initMessageInput(sendMessage, handleStopStreaming);
+  initOutboxHandlers();
   initModelSelector();
   initFileUpload();
   initVoiceInput();

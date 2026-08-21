@@ -930,3 +930,54 @@ describe('Store - Planner', () => {
     });
   });
 });
+
+describe('Store - Message updates', () => {
+  beforeEach(() => {
+    resetStore();
+    useStore.setState({ messages: new Map(), messagesPagination: new Map() });
+  });
+
+  const msg = (id: string, status?: 'pending' | 'failed') => ({
+    id,
+    role: 'user' as const,
+    content: `msg ${id}`,
+    created_at: '2026-08-21T10:00:00.000Z',
+    ...(status ? { status } : {}),
+  });
+
+  describe('updateMessage', () => {
+    it('patches a message in place', () => {
+      const store = useStore.getState();
+      store.appendMessage('c1', msg('m1', 'pending'));
+      store.updateMessage('c1', 'm1', { status: 'failed' });
+      expect(useStore.getState().getMessages('c1')[0].status).toBe('failed');
+    });
+
+    it('clears a field when patched with undefined', () => {
+      const store = useStore.getState();
+      store.appendMessage('c1', msg('m1', 'pending'));
+      store.updateMessage('c1', 'm1', { status: undefined });
+      expect(useStore.getState().getMessages('c1')[0].status).toBeUndefined();
+    });
+
+    it('ignores unknown conversation or message ids', () => {
+      const store = useStore.getState();
+      store.appendMessage('c1', msg('m1'));
+      store.updateMessage('c1', 'nope', { status: 'failed' });
+      store.updateMessage('nope', 'm1', { status: 'failed' });
+      expect(useStore.getState().getMessages('c1')[0].status).toBeUndefined();
+    });
+  });
+
+  describe('removeMessage', () => {
+    it('removes the message from the conversation', () => {
+      const store = useStore.getState();
+      store.appendMessage('c1', msg('m1'));
+      store.appendMessage('c1', msg('m2'));
+      store.removeMessage('c1', 'm1');
+      const messages = useStore.getState().getMessages('c1');
+      expect(messages).toHaveLength(1);
+      expect(messages[0].id).toBe('m2');
+    });
+  });
+});

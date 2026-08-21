@@ -11,7 +11,11 @@ import type { FileMetadata } from '../../types/api';
 /**
  * Render files attached to a message
  */
-export function renderMessageFiles(files: FileMetadata[], messageId: string): HTMLElement {
+export function renderMessageFiles(
+  files: FileMetadata[],
+  messageId: string,
+  pendingUpload = false
+): HTMLElement {
   const container = document.createElement('div');
   container.className = 'message-files';
 
@@ -38,9 +42,9 @@ export function renderMessageFiles(files: FileMetadata[], messageId: string): HT
       img.dataset.messageId = file.messageId || messageId;
       img.dataset.fileIndex = String(file.fileIndex ?? fileIndex);
 
-      // Mark images with temp IDs as pending (lightbox disabled until real ID received)
-      const effectiveMessageId = file.messageId || messageId;
-      if (effectiveMessageId.startsWith('temp-')) {
+      // Unconfirmed sends: the file blob isn't on the server yet, so the
+      // lightbox (which fetches by message ID) must stay disabled
+      if (pendingUpload) {
         img.dataset.pending = 'true';
       }
 
@@ -48,6 +52,14 @@ export function renderMessageFiles(files: FileMetadata[], messageId: string): HT
       // Otherwise, use lazy loading to fetch thumbnail from server
       if (file.previewUrl) {
         img.src = file.previewUrl;
+      } else if (pendingUpload) {
+        // No local preview and not on the server (e.g. failed send restored
+        // after reload): show the filename placeholder, don't fetch
+        imgWrapper.classList.add('loading');
+        const placeholder = document.createElement('span');
+        placeholder.className = 'image-placeholder';
+        placeholder.textContent = file.name;
+        imgWrapper.appendChild(placeholder);
       } else {
         // Add loading state for server-fetched images
         imgWrapper.classList.add('loading');
@@ -75,7 +87,7 @@ export function renderMessageFiles(files: FileMetadata[], messageId: string): HT
       // Click to open lightbox (only if not pending)
       img.addEventListener('click', () => {
         if (img.dataset.pending === 'true') {
-          // Image still has temp ID - lightbox would fail
+          // Message not confirmed by the server yet - lightbox would fail
           return;
         }
         window.dispatchEvent(

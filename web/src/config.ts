@@ -48,6 +48,15 @@ export const API_CHAT_TIMEOUT_MS = 5 * MS_PER_MINUTE;
 /** Timeout for individual stream reads (1 minute, backend sends keepalives every 15s) */
 export const API_STREAM_READ_TIMEOUT_MS = 1 * MS_PER_MINUTE;
 
+/** Timeout for the initial chat POST to respond (before any stream event arrives) */
+export const API_CHAT_CONNECT_TIMEOUT_MS = 30 * MS_PER_SECOND;
+
+/** localStorage key for the send outbox (pending/failed messages awaiting reconciliation) */
+export const OUTBOX_STORAGE_KEY = 'ai-chatbot-send-outbox-v1';
+
+/** Max total base64 chars of attachments persisted per outbox entry (~1.5MB binary) */
+export const OUTBOX_PERSIST_MAX_FILE_CHARS = 2_000_000;
+
 /** Maximum number of retry attempts for failed requests */
 export const API_MAX_RETRIES = 3;
 

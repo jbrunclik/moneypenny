@@ -87,6 +87,8 @@ export interface Message {
   generated_images?: GeneratedImage[];
   language?: string; // ISO 639-1 language code for TTS (e.g., 'en', 'cs')
   created_at: string;
+  /** Client-only send state; never sent by the server (absent = delivered) */
+  status?: 'pending' | 'failed';
 }
 
 // =============================================================================

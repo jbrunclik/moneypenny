@@ -9,6 +9,7 @@ import { agents, conversations, messages } from '../api/client';
 import { toast } from '../components/Toast';
 import { showConfirm, showPrompt } from '../components/Modal';
 import { resumeInflightStreamIfAny } from './messaging';
+import { reconcileOutboxWithServer } from './outbox';
 import {
   renderConversationsList,
   setActiveConversation,
@@ -372,8 +373,12 @@ export async function selectConversation(convId: string): Promise<void> {
     // Safe to hide loader now - this navigation will proceed
     hideConversationLoader();
 
+    // Merge in unconfirmed outbox sends (pending/failed) before storing:
+    // this is what makes a lost send reappear with a retry affordance
+    const mergedMessages = reconcileOutboxWithServer(convId, response.messages);
+
     // Store messages and pagination in the per-conversation Maps
-    store.setMessages(convId, response.messages, response.message_pagination);
+    store.setMessages(convId, mergedMessages, response.message_pagination);
 
     // Anonymous mode is persisted server-side; adopt it so a reload does not
     // silently drop the conversation back to memory-enabled.
@@ -388,7 +393,7 @@ export async function selectConversation(convId: string): Promise<void> {
       model: response.model,
       created_at: response.created_at,
       updated_at: response.updated_at,
-      messages: response.messages,
+      messages: mergedMessages,
       is_agent: response.is_agent,
       agent_id: response.agent_id,
       has_pending_approval: response.has_pending_approval,
@@ -759,8 +764,9 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
       // Safe to hide loader now - this navigation will proceed
       hideConversationLoader();
 
-      // Store messages and pagination
-      store.setMessages(conversationId, response.messages, response.message_pagination);
+      // Merge unconfirmed outbox sends, then store messages and pagination
+      const mergedMessages = reconcileOutboxWithServer(conversationId, response.messages);
+      store.setMessages(conversationId, mergedMessages, response.message_pagination);
 
       const conv: Conversation = {
         id: response.id,
@@ -768,7 +774,7 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         model: response.model,
         created_at: response.created_at,
         updated_at: response.updated_at,
-        messages: response.messages,
+        messages: mergedMessages,
       };
       // Use total message count from pagination for correct sync behavior
       switchToConversation(conv, response.message_pagination.total_count);
@@ -806,13 +812,14 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
       // This is important for sync manager to track it correctly
       // Note: Don't add agent conversations to store - they're handled separately
       // and would be detected as "deleted" by sync since they're not in the sync response
+      const mergedMessages = reconcileOutboxWithServer(conversationId, response.messages);
       const conv: Conversation = {
         id: response.id,
         title: response.title,
         model: response.model,
         created_at: response.created_at,
         updated_at: response.updated_at,
-        messages: response.messages,
+        messages: mergedMessages,
         // Set messageCount from pagination for sync manager
         messageCount: response.message_pagination.total_count,
       };
@@ -820,7 +827,7 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         store.addConversation(conv);
         renderConversationsList();
       }
-      store.setMessages(conversationId, response.messages, response.message_pagination);
+      store.setMessages(conversationId, mergedMessages, response.message_pagination);
 
       // Switch to the conversation
       switchToConversation(conv, response.message_pagination.total_count);

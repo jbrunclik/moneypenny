@@ -27,6 +27,7 @@ from src.agent.tools import (
     set_location_context,
 )
 from src.api.errors import (
+    raise_conflict_error,
     raise_llm_error,
     raise_not_found_error,
     raise_server_error,
@@ -58,6 +59,23 @@ from src.utils.images import (
 from src.utils.logging import get_logger, log_payload_snippet
 
 logger = get_logger(__name__)
+
+
+def _dedupe_client_message_id(conv_id: str, client_message_id: str | None) -> None:
+    """Make sends idempotent: reject a retry whose original POST already landed.
+
+    409 tells the client the message exists (reconcile, don't re-send); a hit in
+    another conversation means an ID collision and is a plain validation error.
+    """
+    if not client_message_id:
+        return
+    existing = db.get_message_by_id(client_message_id)
+    if existing is None:
+        return
+    if existing.conversation_id == conv_id:
+        raise_conflict_error("Message already received", details={"message_id": client_message_id})
+    raise_validation_error("client_message_id is already in use", field="client_message_id")
+
 
 api = APIBlueprint("chat", __name__, url_prefix="/api", tag="Chat")
 
@@ -156,8 +174,13 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             "file_count": len(files) if files else 0,
         },
     )
+    _dedupe_client_message_id(conv_id, data.client_message_id)
     user_msg = db.add_message(
-        conv_id, MessageRole.USER, message_text, files=files if files else None
+        conv_id,
+        MessageRole.USER,
+        message_text,
+        files=files if files else None,
+        message_id=data.client_message_id,
     )
 
     # Queue background thumbnail generation for pending files
@@ -591,8 +614,13 @@ def chat_stream(
             "file_count": len(files) if files else 0,
         },
     )
+    _dedupe_client_message_id(conv_id, data.client_message_id)
     user_msg = db.add_message(
-        conv_id, MessageRole.USER, message_text, files=files if files else None
+        conv_id,
+        MessageRole.USER,
+        message_text,
+        files=files if files else None,
+        message_id=data.client_message_id,
     )
 
     # Queue background thumbnail generation for pending files

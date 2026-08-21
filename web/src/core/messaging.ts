@@ -14,6 +14,7 @@ import {
 } from '../components/Sidebar';
 import {
   addMessageToUI,
+  renderMessages,
   addStreamingMessage,
   updateStreamingMessage,
   finalizeStreamingMessage,
@@ -45,10 +46,20 @@ import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom, programmaticScrollToElementTop } from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
-import type { ClientLocation, Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
+import type { ClientLocation, FileUpload, Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 
 import { isTempConversation, createConversation, updateConversationTitle } from './conversation';
+import {
+  addOutboxEntry,
+  confirmOutboxEntry,
+  getOutboxEntry,
+  markOutboxFailed,
+  markOutboxPending,
+  removeOutboxEntry,
+  reconcileOutboxWithServer,
+} from './outbox';
+import { setMessageSendState } from '../components/messages/send-state';
 import { getClientLocation } from './location';
 import { updateConversationCost, resetForceTools } from './toolbar';
 import { hasPendingApproval } from '../components/messages';
@@ -339,9 +350,18 @@ export async function sendMessage(): Promise<void> {
     }
   }
 
-  // Create user message for UI
+  // Block double-sends in THIS conversation only - other conversations stay
+  // fully usable while this one streams. Must run BEFORE the optimistic
+  // render: a bubble with no request behind it looks sent but never was.
+  if (useStore.getState().getActiveRequest(conv.id)) {
+    toast.info('Please wait for the current response in this conversation to finish.');
+    return;
+  }
+
+  // Create user message for UI. The ID is client-generated and travels to the
+  // server as client_message_id, making retries idempotent (server dedupes).
   const userMessage: Message = {
-    id: `temp-${Date.now()}`,
+    id: crypto.randomUUID(),
     role: 'user',
     content: messageText,
     files: files.map((f, i) => ({
@@ -351,7 +371,26 @@ export async function sendMessage(): Promise<void> {
       previewUrl: f.previewUrl, // Include blob URL for immediate display
     })),
     created_at: new Date().toISOString(),
+    status: 'pending',
   };
+
+  const forceTools = [...store.forceTools];
+  // Use fresh store reference to get anonymous mode (not the stale `store` from the beginning)
+  // This is critical because the conversation ID may have changed from temp-xxx to a real ID
+  const anonymousMode = useStore.getState().getAnonymousMode(conv.id);
+
+  // Track in store + outbox before any network I/O: a send that dies with the
+  // page resurfaces as a failed message instead of silently disappearing
+  useStore.getState().appendMessage(conv.id, userMessage);
+  addOutboxEntry({
+    id: userMessage.id,
+    conversationId: conv.id,
+    content: messageText,
+    files,
+    forceTools,
+    anonymousMode,
+    createdAt: userMessage.created_at,
+  });
 
   // Add to UI immediately and scroll to bottom to show user's message
   const messagesContainer = getElementById<HTMLDivElement>('messages');
@@ -370,65 +409,51 @@ export async function sendMessage(): Promise<void> {
     });
   }
 
-  // Block double-sends in THIS conversation only - other conversations stay
-  // fully usable while this one streams
-  if (useStore.getState().getActiveRequest(conv.id)) {
-    toast.info('Please wait for the current response in this conversation to finish.');
-    return;
-  }
-
   // Clear input and reset force tools (one-shot)
   clearMessageInput();
   clearPendingFiles();
-  const forceTools = [...store.forceTools];
-  // Use fresh store reference to get anonymous mode (not the stale `store` from the beginning)
-  // This is critical because the conversation ID may have changed from temp-xxx to a real ID
-  const anonymousMode = useStore.getState().getAnonymousMode(conv.id);
   resetForceTools();
+
+  await dispatchSend(conv.id, {
+    id: userMessage.id,
+    content: messageText,
+    files,
+    forceTools,
+    anonymousMode,
+  });
+}
+
+/**
+ * Run the actual send (streaming or batch) for a tracked outbox message.
+ * Shared by the initial send and by retries of failed messages.
+ */
+async function dispatchSend(
+  convId: string,
+  entry: {
+    id: string;
+    content: string;
+    files: FileUpload[];
+    forceTools: string[];
+    anonymousMode: boolean;
+  }
+): Promise<void> {
+  markOutboxPending(convId, entry.id);
+  useStore.getState().updateMessage(convId, entry.id, { status: 'pending' });
+  setMessageSendState(entry.id, 'pending');
 
   // Device location (null when sharing is disabled, denied, or times out)
   const clientLocation = await getClientLocation();
 
   try {
-    if (store.streamingEnabled) {
-      await sendStreamingMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode, clientLocation);
+    if (useStore.getState().streamingEnabled) {
+      await sendStreamingMessage(convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation);
     } else {
-      await sendBatchMessage(conv.id, messageText, files, forceTools, userMessage.id, anonymousMode, clientLocation);
+      await sendBatchMessage(convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation);
     }
-    // Clear draft on successful send
-    useStore.getState().clearDraft();
-
     // Note: incrementLocalMessageCount is handled inside sendStreamingMessage (in finally block)
     // and sendBatchMessage (after success) to avoid race conditions with sync
   } catch (error) {
-    log.error('Failed to send message', { error, conversationId: conv.id });
-    hideLoadingIndicator();
-
-    // Save draft for recovery
-    useStore.getState().setDraft(messageText, files);
-
-    // Show appropriate error toast
-    if (error instanceof ApiError) {
-      if (error.isTimeout) {
-        toast.error('Request timed out. Your message has been saved.', {
-          action: { label: 'Retry', onClick: () => retryFromDraft() },
-        });
-      } else if (error.isNetworkError) {
-        toast.error('Network error. Please check your connection.', {
-          action: { label: 'Retry', onClick: () => retryFromDraft() },
-        });
-      } else if (error.retryable) {
-        toast.error('Failed to send message. Please try again.', {
-          action: { label: 'Retry', onClick: () => retryFromDraft() },
-        });
-      } else {
-        toast.error(error.message || 'Failed to send message.');
-      }
-    } else if (error instanceof Error && error.name === 'AbortError') {
-      toast.warning('Request was cancelled.');
-    } else {
-      toast.error('An unexpected error occurred. Please try again.');
-    }
+    await handleSendFailure(convId, entry.id, error);
   } finally {
     if (shouldAutoFocusInput()) {
       focusMessageInput();
@@ -437,29 +462,120 @@ export async function sendMessage(): Promise<void> {
 }
 
 /**
- * Retry sending message from saved draft.
+ * The server confirmed receipt of the user message (first stream event or
+ * batch response): drop the outbox entry and clear the pending state.
  */
-function retryFromDraft(): void {
-  const { draftMessage, draftFiles } = useStore.getState();
-  if (draftMessage || draftFiles.length > 0) {
-    // Restore draft to input
-    const textarea = getElementById<HTMLTextAreaElement>('message-input');
-    if (textarea && draftMessage) {
-      textarea.value = draftMessage;
-      // Trigger input event to update UI
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    // Restore files to pending files
-    draftFiles.forEach((file) => {
-      useStore.getState().addPendingFile(file);
-    });
-    // Clear draft after restoring
-    useStore.getState().clearDraft();
-    // Focus input - user explicitly clicked retry, so it's intentional even on iOS
-    if (shouldAutoFocusInput()) {
-      focusMessageInput();
-    }
+function confirmDelivery(convId: string, messageId: string): void {
+  confirmOutboxEntry(convId, messageId);
+  useStore.getState().updateMessage(convId, messageId, { status: undefined });
+  setMessageSendState(messageId, 'sent');
+}
+
+/**
+ * Mark an unconfirmed send as failed (outbox + store + DOM). No-op when the
+ * message was already confirmed - a mid-stream failure after delivery must
+ * not flag the user message as unsent.
+ */
+function markSendFailed(convId: string, messageId: string): void {
+  if (!getOutboxEntry(convId, messageId)) return;
+  markOutboxFailed(convId, messageId);
+  useStore.getState().updateMessage(convId, messageId, { status: 'failed' });
+  setMessageSendState(messageId, 'failed');
+}
+
+/**
+ * Handle a send failure surfaced to the dispatch level: reconcile 409s
+ * (the original request actually landed), mark real failures, toast.
+ */
+async function handleSendFailure(convId: string, messageId: string, error: unknown): Promise<void> {
+  log.error('Failed to send message', { error, conversationId: convId, messageId });
+  hideLoadingIndicator();
+
+  // 409 CONFLICT: a previous attempt already delivered this message. Confirm
+  // locally and refetch so the assistant response (if any) appears.
+  if (error instanceof ApiError && error.status === 409) {
+    log.info('Send already delivered (409), reconciling', { conversationId: convId, messageId });
+    confirmDelivery(convId, messageId);
+    await refreshConversationMessages(convId);
+    return;
   }
+
+  if (error instanceof Error && error.name === 'AbortError') {
+    markSendFailed(convId, messageId);
+    toast.warning('Request was cancelled.');
+    return;
+  }
+
+  markSendFailed(convId, messageId);
+
+  if (error instanceof ApiError) {
+    if (error.isTimeout) {
+      toast.error('Request timed out. Use Retry on the message to send it again.');
+    } else if (error.isNetworkError) {
+      toast.error('Network error. Please check your connection.');
+    } else {
+      toast.error(error.message || 'Failed to send message.');
+    }
+  } else {
+    toast.error('An unexpected error occurred. Please try again.');
+  }
+}
+
+/**
+ * Refetch a conversation's messages from the server and re-render if it is
+ * still the current conversation. Used after a 409 reconcile.
+ */
+async function refreshConversationMessages(convId: string): Promise<void> {
+  try {
+    const response = await conversations.get(convId);
+    const merged = reconcileOutboxWithServer(convId, response.messages);
+    useStore.getState().setMessages(convId, merged, response.message_pagination);
+    if (useStore.getState().currentConversation?.id === convId) {
+      renderMessages(merged, { hasPendingApproval: response.has_pending_approval });
+    }
+  } catch (refreshError) {
+    log.warn('Failed to refresh conversation after reconcile', { refreshError, conversationId: convId });
+  }
+}
+
+/**
+ * Wire up retry/discard events dispatched by the failed-message affordance.
+ * Called once from init.
+ */
+export function initOutboxHandlers(): void {
+  document.addEventListener('outbox:retry', (e) => {
+    const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
+    void retryFailedMessage(messageId);
+  });
+  document.addEventListener('outbox:discard', (e) => {
+    const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
+    discardFailedMessage(messageId);
+  });
+}
+
+async function retryFailedMessage(messageId: string): Promise<void> {
+  const convId = useStore.getState().currentConversation?.id;
+  if (!convId) return;
+  const entry = getOutboxEntry(convId, messageId);
+  if (!entry) return;
+  if (useStore.getState().getActiveRequest(convId)) {
+    toast.info('Please wait for the current response in this conversation to finish.');
+    return;
+  }
+  log.info('Retrying failed message', { conversationId: convId, messageId });
+  if (entry.filesDropped) {
+    toast.warning('Attachments could not be restored after reload - sending text only.');
+  }
+  await dispatchSend(convId, entry);
+}
+
+function discardFailedMessage(messageId: string): void {
+  const convId = useStore.getState().currentConversation?.id;
+  if (!convId) return;
+  log.info('Discarding failed message', { conversationId: convId, messageId });
+  removeOutboxEntry(convId, messageId);
+  useStore.getState().removeMessage(convId, messageId);
+  document.querySelector(`.message[data-message-id="${messageId}"]`)?.remove();
 }
 
 // ============ Streaming Message ============
@@ -1365,10 +1481,18 @@ async function sendStreamingMessage(
   // Mark for recovery on mobile background/lock; proactively resume on return
   const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
 
+  let deliveryConfirmed = false;
+
   try {
-    for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation)) {
-      // First event = server has the message. Hide upload progress,
-      // reveal the assistant bubble, clear the user bubble's upload state.
+    for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation, tempUserMessageId)) {
+      // First event = server has the message: the send can no longer fail
+      if (!deliveryConfirmed) {
+        deliveryConfirmed = true;
+        confirmDelivery(convId, tempUserMessageId);
+      }
+
+      // Hide upload progress, reveal the assistant bubble, clear the user
+      // bubble's upload state.
       if (hasFiles && !state.uploadProgressHidden) {
         hideUploadProgress();
         useStore.getState().setUploadProgress(null);
@@ -1416,6 +1540,9 @@ async function sendStreamingMessage(
     if (error instanceof Error && error.name === 'AbortError' && !state.resumeViaAbort) {
       log.info('Stream aborted by user', { conversationId: convId });
       state.messageEl.remove();
+      // Stopped before the server confirmed receipt: surface as a failed
+      // send (retry-able); reconciliation resolves it if it actually landed
+      markSendFailed(convId, tempUserMessageId);
       toast.info('Response stopped.');
       // Clear any pending recovery since this was user-initiated
       clearPendingRecovery(convId);
@@ -1466,6 +1593,16 @@ async function sendStreamingMessage(
     } else {
       state.messageEl.remove();
     }
+
+    // 409 means the message actually landed on a previous attempt - always
+    // propagate so the dispatch level reconciles instead of marking failed
+    if (error instanceof ApiError && error.status === 409) {
+      throw error;
+    }
+
+    // Mark unconfirmed sends failed even when the user switched away (the
+    // error is swallowed below) so the outbox doesn't lose track of them
+    markSendFailed(convId, tempUserMessageId);
 
     const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
     if (isCurrentConversation) {
@@ -1531,8 +1668,11 @@ async function sendBatchMessage(
       useStore.getState().setUploadProgress(progress);
     } : undefined;
 
-    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation);
+    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation, tempUserMessageId);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
+
+    // Response received = the user message is persisted server-side
+    confirmDelivery(convId, tempUserMessageId);
 
     // Update user message ID from temp to real ID (for file fetching in lightbox)
     if (response.user_message_id) {
@@ -1639,6 +1779,15 @@ async function sendBatchMessage(
     hideLoadingIndicator();
     hideUploadProgress();
     useStore.getState().setUploadProgress(null);
+
+    // 409 = delivered by a previous attempt; propagate for reconciliation
+    if (error instanceof ApiError && error.status === 409) {
+      throw error;
+    }
+
+    // Track the failure even when the user switched away and the error is
+    // swallowed below
+    markSendFailed(convId, tempUserMessageId);
 
     // Check if conversation is still current before showing errors
     const store = useStore.getState();

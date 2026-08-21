@@ -23,6 +23,7 @@ import { renderConversationsList } from '../Sidebar';
 import { createLogger } from '../../utils/logger';
 import { createMessageActions } from './actions';
 import { renderMessageFiles } from './attachments';
+import { applySendState } from './send-state';
 import { setInputBlockedForApproval } from '../MessageInput';
 import type { RenderMessagesOptions } from './types';
 import type { Message } from '../../types/api';
@@ -372,7 +373,8 @@ export function addMessageToUI(
       content.innerHTML = `<p>${linkedContent}</p>`;
     }
     if (message.files && message.files.length > 0) {
-      const filesContainer = renderMessageFiles(message.files, message.id);
+      // Unconfirmed sends (pending/failed) have no server-side blobs yet
+      const filesContainer = renderMessageFiles(message.files, message.id, !!message.status);
       content.appendChild(filesContainer);
     }
     contentWrapper.appendChild(content);
@@ -389,6 +391,10 @@ export function addMessageToUI(
   );
 
   contentWrapper.appendChild(actions);
+
+  if (message.role === 'user') {
+    applySendState(messageEl, contentWrapper, message.id, message.status);
+  }
 
   messageEl.appendChild(contentWrapper);
   container.appendChild(messageEl);

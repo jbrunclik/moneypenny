@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 from flask.testing import FlaskClient
 
 if TYPE_CHECKING:
-    from src.db.models import Conversation, Database
+    from src.db.models import Conversation, Database, User
 
 
 class TestChatBatch:
@@ -1267,3 +1267,134 @@ class TestChatVideoUpload:
         assert response.status_code == 200
         assert attached["files"][0]["name"] == "clip.mp4"
         assert attached["message_id"]
+
+
+class TestClientMessageId:
+    """Tests for client-supplied message IDs (idempotent sends)."""
+
+    @staticmethod
+    def _mock_batch_agent(mock_agent_class: MagicMock) -> None:
+        mock_agent = MagicMock()
+        mock_agent.chat_batch.return_value = (
+            "Response",
+            [],
+            {"input_tokens": 10, "output_tokens": 5},
+            [],
+        )
+        mock_agent_class.return_value = mock_agent
+
+    def test_batch_saves_user_message_with_client_id(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """User message should be persisted under the client-supplied UUID."""
+        client_id = "0f7b8a3c-2f1d-4e5a-9b6c-8d7e6f5a4b3c"
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+            self._mock_batch_agent(mock_agent_class)
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello", "client_message_id": client_id},
+            )
+
+        assert response.status_code == 200
+        messages = test_database.get_messages(test_conversation.id)
+        assert messages[0].role == "user"
+        assert messages[0].id == client_id
+
+    def test_batch_duplicate_client_id_returns_409(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Retrying a send that already landed must not duplicate the message."""
+        client_id = "1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d"
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+            self._mock_batch_agent(mock_agent_class)
+            first = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello", "client_message_id": client_id},
+            )
+            second = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello", "client_message_id": client_id},
+            )
+
+        assert first.status_code == 200
+        assert second.status_code == 409
+        data = json.loads(second.data)
+        assert data["error"]["code"] == "CONFLICT"
+        assert data["error"]["details"]["message_id"] == client_id
+        user_messages = [
+            m for m in test_database.get_messages(test_conversation.id) if m.role == "user"
+        ]
+        assert len(user_messages) == 1
+
+    def test_stream_duplicate_client_id_returns_409(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """The stream endpoint must dedupe before starting a new stream."""
+        client_id = "2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e"
+        test_database.add_message(test_conversation.id, "user", "Hello", message_id=client_id)
+
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/stream",
+            headers=auth_headers,
+            json={"message": "Hello", "client_message_id": client_id},
+        )
+
+        assert response.status_code == 409
+        data = json.loads(response.data)
+        assert data["error"]["code"] == "CONFLICT"
+        assert data["error"]["details"]["message_id"] == client_id
+
+    def test_client_id_owned_by_other_conversation_rejected(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """An ID already used in a different conversation is a validation error."""
+        client_id = "3c4d5e6f-7a8b-4c3d-8e4f-5a6b7c8d9e0f"
+        other_conv = test_database.create_conversation(
+            user_id=test_user.id, title="Other", model="gemini-3.7-flash"
+        )
+        test_database.add_message(other_conv.id, "user", "Hi", message_id=client_id)
+
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+            self._mock_batch_agent(mock_agent_class)
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello", "client_message_id": client_id},
+            )
+
+        assert response.status_code == 400
+
+    def test_malformed_client_id_rejected(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        """Non-UUID client message IDs are rejected."""
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"message": "Hello", "client_message_id": "not-a-uuid"},
+        )
+
+        assert response.status_code == 400
