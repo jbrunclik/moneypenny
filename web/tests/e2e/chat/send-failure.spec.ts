@@ -93,3 +93,31 @@ test.describe('Chat - Send Failure Handling', () => {
     await expect(page.locator('.message.user')).toHaveCount(0);
   });
 });
+
+test.describe('Chat - Send Auto-Retry', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+  });
+
+  test('transient network failure is retried automatically once', async ({ page }) => {
+    let attempt = 0;
+    await page.route(CHAT_ENDPOINTS, (route) => {
+      attempt++;
+      if (attempt === 1) return route.abort('failed');
+      return route.continue();
+    });
+
+    await page.fill('#message-input', 'Auto retry me');
+    await page.click('#send-btn');
+
+    // Delivered without any manual interaction (one silent retry)
+    await expect(page.locator('.message.assistant')).toContainText('mock response', {
+      timeout: 20000,
+    });
+    await expect(page.locator('.message--send-failed')).toHaveCount(0);
+    await expect(page.locator('.message.user')).toHaveCount(1);
+  });
+});

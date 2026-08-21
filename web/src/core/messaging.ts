@@ -4,6 +4,7 @@
  */
 
 import { useStore } from '../state/store';
+import { SEND_AUTO_RETRY_DELAY_MS } from '../config';
 import { createLogger } from '../utils/logger';
 import { conversations, chat } from '../api/client';
 import { ApiError } from '../api/http';
@@ -461,11 +462,15 @@ async function dispatchSend(
   }
 }
 
+// Sends that already used their single automatic retry (session-only)
+const autoRetriedSends = new Set<string>();
+
 /**
  * The server confirmed receipt of the user message (first stream event or
  * batch response): drop the outbox entry and clear the pending state.
  */
 function confirmDelivery(convId: string, messageId: string): void {
+  autoRetriedSends.delete(messageId);
   confirmOutboxEntry(convId, messageId);
   useStore.getState().updateMessage(convId, messageId, { status: undefined });
   setMessageSendState(messageId, 'sent');
@@ -504,6 +509,20 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
     markSendFailed(convId, messageId);
     toast.warning('Request was cancelled.');
     return;
+  }
+
+  // Transient failures (network drop, connect timeout) get one silent retry
+  // before surfacing - idempotent thanks to the client message ID
+  const isTransient = error instanceof ApiError && (error.isNetworkError || error.isTimeout);
+  if (isTransient && !autoRetriedSends.has(messageId)) {
+    autoRetriedSends.add(messageId);
+    log.info('Auto-retrying send after transient failure', { conversationId: convId, messageId });
+    await new Promise((resolve) => setTimeout(resolve, SEND_AUTO_RETRY_DELAY_MS));
+    const entry = getOutboxEntry(convId, messageId);
+    if (entry) {
+      await dispatchSend(convId, entry);
+      return;
+    }
   }
 
   markSendFailed(convId, messageId);
@@ -563,6 +582,8 @@ async function retryFailedMessage(messageId: string): Promise<void> {
     return;
   }
   log.info('Retrying failed message', { conversationId: convId, messageId });
+  // A manual retry earns a fresh automatic retry on transient failure
+  autoRetriedSends.delete(messageId);
   if (entry.filesDropped) {
     toast.warning('Attachments could not be restored after reload - sending text only.');
   }

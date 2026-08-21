@@ -51,6 +51,9 @@ export const API_STREAM_READ_TIMEOUT_MS = 1 * MS_PER_MINUTE;
 /** Timeout for the initial chat POST to respond (before any stream event arrives) */
 export const API_CHAT_CONNECT_TIMEOUT_MS = 30 * MS_PER_SECOND;
 
+/** Delay before the single automatic retry of a transient send failure */
+export const SEND_AUTO_RETRY_DELAY_MS = 2 * MS_PER_SECOND;
+
 /** localStorage key for the send outbox (pending/failed messages awaiting reconciliation) */
 export const OUTBOX_STORAGE_KEY = 'ai-chatbot-send-outbox-v1';
 
