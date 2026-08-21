@@ -66,6 +66,7 @@ import {
 import {
   API_CHAT_CONNECT_TIMEOUT_MS,
   API_CHAT_TIMEOUT_MS,
+  API_DEFAULT_TIMEOUT_MS,
   THUMBNAIL_POLL_INITIAL_DELAY_MS,
   THUMBNAIL_POLL_MAX_DELAY_MS,
   THUMBNAIL_POLL_MAX_ATTEMPTS,
@@ -446,13 +447,17 @@ export const chat = {
     const token = getToken();
     const controller = abortController || new AbortController();
 
-    const response = await fetch(
+    // Connect timeout: a resume GET that hangs before the first byte would
+    // otherwise stall the whole recovery loop forever (per-read timeouts in
+    // readSseEvents only start once headers arrive)
+    const response = await fetchWithConnectTimeout(
       `/api/conversations/${conversationId}/chat/stream/${messageId}/resume?after_seq=${afterSeq}`,
       {
         method: 'GET',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-        signal: controller.signal,
-      }
+      },
+      API_CHAT_CONNECT_TIMEOUT_MS,
+      controller
     );
 
     if (!response.ok) {
@@ -462,6 +467,40 @@ export const chat = {
     yield* readSseEvents(response, conversationId);
   },
 };
+/**
+ * fetch with a connect timeout: aborts when response HEADERS don't arrive
+ * within timeoutMs. The timer is cleared once headers arrive, so slow bodies
+ * (large files, long-lived streams) are unaffected. A hang before the first
+ * byte otherwise never settles - no error, no result, stuck UI.
+ */
+async function fetchWithConnectTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  externalController?: AbortController
+): Promise<Response> {
+  const controller = externalController ?? new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut && error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('Request timed out.', 0, {
+        code: 'TIMEOUT',
+        retryable: true,
+        isTimeout: true,
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Models endpoint
 export const models = {
   async list(): Promise<ModelsResponse> {
@@ -492,11 +531,14 @@ export const files = {
     let delay = THUMBNAIL_POLL_INITIAL_DELAY_MS;
 
     const fetchWithRetry = async (): Promise<Blob> => {
-      const response = await fetch(
+      // Per-attempt connect timeout - a single hung request would otherwise
+      // freeze the poll loop (the attempt counter never advances)
+      const response = await fetchWithConnectTimeout(
         `/api/messages/${messageId}/files/${fileIndex}/thumbnail`,
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }
+        },
+        API_DEFAULT_TIMEOUT_MS
       );
 
       // Handle 202 Accepted - thumbnail is still being generated
@@ -536,11 +578,13 @@ export const files = {
 
   async fetchFile(messageId: string, fileIndex: number): Promise<Blob> {
     const token = getToken();
-    const response = await fetch(
+    // Connect timeout only - large file bodies may legitimately take longer
+    const response = await fetchWithConnectTimeout(
       `/api/messages/${messageId}/files/${fileIndex}`,
       {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }
+      },
+      API_DEFAULT_TIMEOUT_MS
     );
 
     if (!response.ok) {
@@ -554,7 +598,7 @@ export const files = {
 // Version endpoint (no auth required)
 export const version = {
   async get(): Promise<VersionResponse> {
-    const response = await fetch('/api/version');
+    const response = await fetchWithConnectTimeout('/api/version', {}, API_DEFAULT_TIMEOUT_MS);
     return response.json() as Promise<VersionResponse>;
   },
 };

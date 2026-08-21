@@ -170,6 +170,8 @@ Both must pass. Use `make lint-fix` for auto-fixable issues.
 
 **E2E tests** - always run with timeout: `cd web && timeout 600 npx playwright test`
 
+**E2E tests run against the LAST `make build`, not your source.** The e2e server serves the production bundle from `static/assets/`. After ANY frontend change, `make build` before Playwright — otherwise you're debugging the previous build (symptom: your new classes/log lines never appear in the browser).
+
 **Zero tolerance for flaky tests** - investigate root causes, don't just re-run.
 
 **Check exit codes directly** - never judge `make lint`/`mypy`/`pytest` by piping through `grep`/`tail` in `&&` chains (the pipe masks the exit code; this has shipped broken commits). Redirect to a log and branch on `$?`.

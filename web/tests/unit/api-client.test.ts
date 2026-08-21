@@ -780,3 +780,47 @@ describe('API Client', () => {
     });
   });
 });
+
+describe('connect timeouts', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('resumeStream rejects with a timeout when the fetch never responds', async () => {
+    // A hanging resume GET froze the whole recovery loop forever
+    global.fetch = vi.fn(
+      (_url: unknown, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+          );
+        })
+    ) as unknown as typeof fetch;
+
+    const generator = chat.resumeStream('conv-1', 'msg-1', 0);
+    const pending = generator.next();
+    const assertion = expect(pending).rejects.toMatchObject({ isTimeout: true });
+    await vi.advanceTimersByTimeAsync(31_000);
+    await assertion;
+  });
+
+  it('fetchFile rejects with a timeout when the fetch never responds', async () => {
+    global.fetch = vi.fn(
+      (_url: unknown, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+          );
+        })
+    ) as unknown as typeof fetch;
+
+    const pending = files.fetchFile('msg-1', 0);
+    const assertion = expect(pending).rejects.toMatchObject({ isTimeout: true });
+    await vi.advanceTimersByTimeAsync(31_000);
+    await assertion;
+  });
+});

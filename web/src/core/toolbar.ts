@@ -5,6 +5,7 @@
 
 import { useStore } from '../state/store';
 import { conversations, costs } from '../api/client';
+import { toast } from '../components/Toast';
 import { updateMonthlyCost } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { STREAM_ICON, STREAM_OFF_ICON } from '../utils/icons';
@@ -131,11 +132,22 @@ export function initToolbarButtons(): void {
       const newState = !currentState;
       state.setAnonymousMode(convId, newState);
       updateAnonymousButtonState(anonymousBtn, newState);
-      // Persist so the setting survives a reload. Optimistic: the local toggle
-      // already applied, and the server ORs its stored flag with the per-request
-      // one, so a failed write cannot silently un-anonymise the conversation.
+      // Temp conversations don't exist server-side yet - the flag travels
+      // with the first chat request instead (sendMessage migrates it to the
+      // persisted ID), so there is nothing to persist and the call would 404.
+      if (isTempConversation(convId)) {
+        return;
+      }
+      // Persist so the setting survives a reload. Optimistic, but rolled back
+      // on failure: without the rollback a failed write left the session UI
+      // claiming a state the server never stored (the server ORs its flag, so
+      // the divergence surfaced only when turning anonymous OFF - the UI said
+      // memory-enabled while the server kept the conversation anonymous).
       void conversations.setAnonymousMode(convId, newState).catch((error: unknown) => {
         logger.error('Failed to persist anonymous mode', { error });
+        useStore.getState().setAnonymousMode(convId, currentState);
+        updateAnonymousButtonState(anonymousBtn, currentState);
+        toast.error('Failed to update anonymous mode. Please try again.');
       });
     });
   }

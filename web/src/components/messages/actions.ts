@@ -3,6 +3,7 @@
  */
 
 import { costs } from '../../api/client';
+import { toast } from '../Toast';
 import { createLogger } from '../../utils/logger';
 import {
   SOURCES_ICON,
@@ -110,6 +111,7 @@ function attachCostHandler(actions: HTMLElement, messageId: string): void {
       window.dispatchEvent(new CustomEvent('message-cost:open', { detail: costData }));
     } catch (error) {
       log.warn('Failed to fetch message cost', { error, messageId });
+      toast.error('Failed to load message cost.');
     }
   });
 }

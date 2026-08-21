@@ -243,3 +243,35 @@ test.describe('Chat - Anonymous Mode Initial State', () => {
     await expect(anonymousBtn).not.toHaveClass(/active/);
   });
 });
+
+test.describe('Anonymous Mode - Persist Failure Rollback', () => {
+  test('failed persist rolls the toggle back instead of lying about state', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+
+    // Persist the conversation first (toggle needs a real conversation id)
+    await page.fill('#message-input', 'hello');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // Server rejects the persist
+    await page.route('**/anonymous-mode', (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'SERVER_ERROR', message: 'boom', retryable: true },
+        }),
+      })
+    );
+
+    const anonymousBtn = page.locator('#anonymous-btn');
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+    await anonymousBtn.click();
+
+    // Optimistic flip, then rollback with an error toast once the persist fails
+    await expect(page.locator('.toast-error')).toBeVisible({ timeout: 10000 });
+    await expect(anonymousBtn).not.toHaveClass(/active/);
+  });
+});
