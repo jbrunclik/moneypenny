@@ -69,6 +69,10 @@ test.describe('Visual: Chat Interface', () => {
     // Type some text
     await page.fill('#message-input', 'Typing a message...');
 
+    // The send button enables once app loading settles (disabled = isLoading
+    // || empty input) - wait for the steady state or the snapshot races
+    await expect(page.locator('#send-btn')).toBeEnabled();
+
     await expect(page.locator('.input-container')).toHaveScreenshot('input-focused.png');
   });
 
