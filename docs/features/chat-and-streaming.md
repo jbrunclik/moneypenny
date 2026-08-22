@@ -243,6 +243,19 @@ A message send used to be pure optimism: a DOM-only bubble, no store entry, noth
 - `markSendFailed` no-ops once the outbox entry is confirmed — a mid-stream failure after delivery must not flag the *user* message as unsent (that path belongs to stream recovery above).
 - Image `data-pending` (lightbox gating) keys off `message.status`, not ID shape — there are no `temp-` message IDs anymore (conversations still use `temp-` IDs).
 
+### Auto-Scroll System
+
+The scroll behavior is the most annoyance-sensitive UX area (regressions here hurt daily use more than visual bugs). Key mechanics after the Aug 2026 audit:
+
+- **One follow threshold**: every "is the user following?" decision uses `SCROLL_USER_DETECTION_THRESHOLD_PX` (200px) — `SCROLL_BOTTOM_THRESHOLD_PX` aliases it and `isScrolledToBottom` defaults to it. Don't introduce new distance constants for the same question.
+- **Streaming pause** ([streaming.ts](../../web/src/components/messages/streaming.ts)): wheel/touchmove pause immediately; the scroll handler additionally pauses on **direction** (an upward, non-programmatic move landing away from the bottom) to cover scrollbar drags and keyboard scrolling. Never pause on position alone — streaming growth changes `scrollHeight` and produced false positives historically.
+- **Scroll-button tap re-arms follow synchronously** (`setOnJumpToBottom` hook) — the debounced position-based resume can miss while tokens grow `scrollHeight` during the smooth animation. While paused mid-stream, the button becomes a labeled "New messages" pill.
+- **End-of-turn repositioning is length-conditional** (`RESPONSE_JUMP_MIN_VIEWPORT_RATIO`): responses taller than ~one viewport jump to their top (read-from-start); shorter ones finish at the bottom. The batch path pins the bottom **instantly** — `scrollToBottom`'s smooth animator has no user-interference abort and fights user scrolls for its whole run (unlike `scrollToElementTop`, which aborts on external movement).
+- **`overflow-anchor: none` on `.messages`**: scroll anchoring is manual (pagination prepend compensation + image-load adjustment); browser anchoring on top of it double-adjusted.
+- **Mobile keyboard** ([core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts)): the fixed 100vh layout means keyboards OVERLAY the page. The visualViewport overlap becomes `--keyboard-inset` (shrinks `html/body` height) and the messages view re-pins to the bottom when the user was following. Guards: pinch zoom (`scale !== 1`), no editable element focused, overlaps under `KEYBOARD_INSET_MIN_PX`.
+- **Thinking-trace collapse compensation**: finalizing the trace shrinks content above a reader scrolled below it — `finalizeThinkingIndicator` measures the height delta and restores `scrollTop`.
+- **Don't touch** `scheduleScrollAfterImageLoad` in [thumbnails.ts](../../web/src/utils/thumbnails.ts) without a confirmed bug — it's correct-by-heavy-defense with dedicated regression E2E tests (2-image races in conversation.spec.ts).
+
 ## Thinking Indicator
 
 During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.

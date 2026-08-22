@@ -121,6 +121,19 @@ All links include security attributes:
 
 ---
 
+## Image Lightbox / Gallery
+
+[Lightbox.ts](../../web/src/components/Lightbox.ts) (markup in [init.ts](../../web/src/core/init.ts), styles in popups.css). Opens via `lightbox:open` CustomEvents dispatched from message images; images marked `data-pending` (unconfirmed sends) don't open it.
+
+- **Gallery** = all images of the same message: prev/next arrows + `1 / N` counter, ←/→ keys, swipe on touch (disabled while zoomed). Adjacent images prefetch; blob URLs are cached per session and revoked on close.
+- **Download** reuses the displayed blob with the original filename.
+- **Fullscreen** via the Fullscreen API — feature-detected, button hidden on iPhone Safari (no element fullscreen there).
+- **Zoom**: double-click/double-tap toggles `LIGHTBOX_ZOOM_SCALE` (2.5x) anchored at the pointer; wheel zooms up to `LIGHTBOX_ZOOM_MAX_SCALE` (4x); drag-to-pan with clamped bounds while zoomed.
+- Closing: Escape (central popup handler), backdrop, or non-interactive toolbar area. `loadToken` guards against a slow fetch clobbering a newer navigation.
+- E2E: "Chat - Lightbox Gallery" in [lightbox.spec.ts](../../web/tests/e2e/chat/lightbox.spec.ts) (navigation, counter, download filename, single-image chrome).
+
+---
+
 ## Copy to Clipboard
 
 The app provides copy-to-clipboard functionality at two levels:
