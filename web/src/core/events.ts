@@ -316,7 +316,15 @@ export function setupEventListeners(): void {
       const fileName = (previewLink as HTMLElement).dataset.fileName;
       const fileType = (previewLink as HTMLElement).dataset.fileType;
       if (messageId && fileIndex) {
-        openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
+        // PDFs open in the inline viewer (window.open is pop-up-blocked and
+        // broken in the installed PWA); other documents keep the new tab
+        if (fileType === 'application/pdf') {
+          void import('../components/PdfViewer').then(({ openPdfViewer }) =>
+            openPdfViewer(messageId, parseInt(fileIndex, 10), fileName || 'file.pdf')
+          );
+        } else {
+          openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
+        }
       }
       return;
     }
