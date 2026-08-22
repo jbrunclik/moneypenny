@@ -4,6 +4,8 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Features
 
+- [ ] **Export conversation as Markdown** (Aug 2026 UX batch, deferred) — per-conversation action (action sheet / chat header) that downloads the full history as a .md file: titles, roles, timestamps, code blocks preserved; attachments referenced by filename.
+
 - [ ] **Video uploads — deferred follow-ups** (Jul 2026, see docs/superpowers/specs/2026-07-19-video-upload-design.md):
   - Multipart streaming upload endpoint (approach B in the spec) — revisit if base64 JSON memory spikes or >100MB clips become a real problem
   - Video poster-frame thumbnails (requires ffmpeg on the server)

@@ -4,6 +4,7 @@
  * at a time; backdrop tap and Escape dismiss.
  */
 import { escapeHtml } from '../utils/dom';
+import { hapticTick } from '../utils/haptics';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 
 export interface SheetAction {
@@ -56,6 +57,7 @@ export function showActionSheet(title: string, actions: SheetAction[]): void {
   });
 
   document.body.appendChild(overlay);
+  hapticTick();
 }
 
 // Escape dismisses the sheet (shares the central popup escape stack)

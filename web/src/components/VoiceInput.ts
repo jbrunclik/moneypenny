@@ -3,6 +3,7 @@ import { MICROPHONE_ICON, STOP_ICON } from '../utils/icons';
 import { updateSendButtonState } from './MessageInput';
 import { toast } from './Toast';
 import { isTouchDevice } from '../gestures/swipe';
+import { hapticTick } from '../utils/haptics';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('voice');
@@ -303,6 +304,7 @@ export function initVoiceInput(): void {
 
   recognition.onstart = () => {
     isRecording = true;
+    hapticTick();
     voiceBtn.classList.add('recording');
     voiceBtn.innerHTML = STOP_ICON;
     voiceBtn.setAttribute('aria-pressed', 'true');
@@ -450,6 +452,7 @@ export function initVoiceInput(): void {
  * Reset recording state and button appearance
  */
 function resetRecordingState(voiceBtn: HTMLButtonElement): void {
+  if (isRecording) hapticTick();
   isRecording = false;
   voiceBtn.classList.remove('recording');
   voiceBtn.innerHTML = MICROPHONE_ICON;

@@ -7,6 +7,7 @@ import { createLogger } from '../utils/logger';
 import { files } from '../api/client';
 import { toast } from '../components/Toast';
 import { CHECK_ICON } from '../utils/icons';
+import { hapticTick } from '../utils/haptics';
 
 const log = createLogger('file-actions');
 
@@ -176,6 +177,7 @@ function tableToPlainText(table: HTMLTableElement): string {
  * Show copy success feedback on button.
  */
 function showCopySuccess(button: HTMLButtonElement): void {
+  hapticTick();
   const originalHtml = button.innerHTML;
   button.innerHTML = CHECK_ICON;
   button.classList.add('copied');

@@ -6,6 +6,7 @@
 import { toggleSidebar, closeSidebar } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from '../gestures/swipe';
+import { hapticTick } from '../utils/haptics';
 
 /**
  * Setup touch gestures for mobile devices.
@@ -78,6 +79,7 @@ export function setupTouchGestures(): void {
       } else if (!isOpen && deltaX > SWIPE_THRESHOLD) {
         resetSwipeStates(wrapper as HTMLElement);
         wrapper.classList.add('swiped');
+        hapticTick();
       }
     },
     onSnapBack: (target) => {

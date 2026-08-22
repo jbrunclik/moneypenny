@@ -16,6 +16,7 @@ import {
   pointerMidpoint,
   type Point,
 } from './lightbox-gestures';
+import { hapticTick } from '../utils/haptics';
 import {
   LIGHTBOX_SWIPE_MIN_PX,
   LIGHTBOX_ZOOM_SCALE,
@@ -375,6 +376,7 @@ function initTouchGestures(lightbox: HTMLDivElement, img: HTMLImageElement): voi
         pointerDistance(lastTapPosition, { x: e.clientX, y: e.clientY }) < 40
       ) {
         toggleZoomAt(img, e.clientX, e.clientY);
+        hapticTick();
         lastTouchToggleAt = now;
         lastTapAt = 0;
         lastTapPosition = null;

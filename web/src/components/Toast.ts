@@ -18,6 +18,7 @@
  */
 
 import { useStore, Notification } from '../state/store';
+import { hapticError } from '../utils/haptics';
 import { escapeHtml } from '../utils/dom';
 import { CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
 
@@ -92,6 +93,9 @@ export function showToast(options: {
 }): string {
   const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const duration = options.duration ?? (options.action ? 0 : DEFAULT_DURATION);
+
+  // Errors are rare and important - back them with a haptic buzz
+  if (options.type === 'error') hapticError();
 
   useStore.getState().addNotification({
     id,
