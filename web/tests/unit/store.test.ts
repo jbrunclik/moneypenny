@@ -1015,3 +1015,36 @@ describe('Store - Conversation Drafts', () => {
     expect(useStore.getState().getConversationDraft('temp-1')).toBe('');
   });
 });
+
+describe('Store - truncateMessagesFrom', () => {
+  beforeEach(() => {
+    resetStore();
+    useStore.setState({ messages: new Map(), messagesPagination: new Map() });
+  });
+
+  it('removes the message and everything after it', () => {
+    const store = useStore.getState();
+    const mk = (id: string) => ({
+      id,
+      role: 'user' as const,
+      content: id,
+      created_at: '',
+    });
+    store.setMessages('c1', [mk('m1'), mk('m2'), mk('m3'), mk('m4')], {
+      older_cursor: null,
+      newer_cursor: null,
+      has_older: false,
+      has_newer: false,
+      total_count: 4,
+    });
+    store.truncateMessagesFrom('c1', 'm3');
+    expect(useStore.getState().getMessages('c1').map((m) => m.id)).toEqual(['m1', 'm2']);
+  });
+
+  it('ignores unknown message ids', () => {
+    const store = useStore.getState();
+    store.appendMessage('c1', { id: 'm1', role: 'user', content: 'x', created_at: '' });
+    store.truncateMessagesFrom('c1', 'nope');
+    expect(useStore.getState().getMessages('c1')).toHaveLength(1);
+  });
+});

@@ -91,6 +91,72 @@ class MessageMixin:
             delete_message_blobs(message_id)
             return cursor.rowcount > 0
 
+    def delete_messages_after(
+        self,
+        conversation_id: str,
+        user_id: str,
+        message_id: str,
+        inclusive: bool,
+    ) -> int:
+        """Truncate a conversation's tail: delete every message after
+        `message_id` (and the message itself when `inclusive`).
+
+        The shared primitive behind edit-and-resend and regenerate. Ordering
+        matches insertion (created_at with rowid as tiebreak). Returns the
+        number of deleted messages; 0 when the target message doesn't exist
+        in this conversation or the user doesn't own it.
+        """
+        with self._pool.get_connection() as conn:
+            target = self._execute_with_timing(
+                conn,
+                """
+                SELECT m.rowid AS row_id, m.created_at FROM messages m
+                JOIN conversations c ON m.conversation_id = c.id
+                WHERE m.id = ? AND m.conversation_id = ? AND c.user_id = ?
+                """,
+                (message_id, conversation_id, user_id),
+            ).fetchone()
+            if not target:
+                return 0
+
+            comparison = ">=" if inclusive else ">"
+            doomed = self._execute_with_timing(
+                conn,
+                f"""
+                SELECT id FROM messages
+                WHERE conversation_id = ?
+                  AND (created_at > ? OR (created_at = ? AND rowid {comparison} ?))
+                """,
+                (conversation_id, target["created_at"], target["created_at"], target["row_id"]),
+            ).fetchall()
+            doomed_ids = [row["id"] for row in doomed]
+            if not doomed_ids:
+                return 0
+
+            placeholders = ",".join("?" * len(doomed_ids))
+            self._execute_with_timing(
+                conn,
+                f"DELETE FROM messages WHERE id IN ({placeholders})",
+                tuple(doomed_ids),
+            )
+            conn.commit()
+
+        # Blobs go second: a crash between the deletes leaves harmless
+        # orphaned blobs, never live rows pointing at deleted data
+        for doomed_id in doomed_ids:
+            delete_message_blobs(doomed_id)
+
+        logger.info(
+            "Truncated conversation tail",
+            extra={
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "inclusive": inclusive,
+                "deleted": len(doomed_ids),
+            },
+        )
+        return len(doomed_ids)
+
     def add_message(
         self,
         conversation_id: str,

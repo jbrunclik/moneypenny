@@ -182,6 +182,7 @@ interface AppState {
   appendMessage: (convId: string, message: Message) => void;
   updateMessage: (convId: string, messageId: string, updates: Partial<Message>) => void;
   removeMessage: (convId: string, messageId: string) => void;
+  truncateMessagesFrom: (convId: string, messageId: string) => void;
   clearMessages: (convId: string) => void;
   setLoadingOlderMessages: (convId: string, loading: boolean) => void;
   setLoadingNewerMessages: (convId: string, loading: boolean) => void;
@@ -657,6 +658,25 @@ export const useStore = create<AppState>()(
             convId,
             existing.map((m) => (m.id === messageId ? { ...m, ...updates } : m))
           );
+          return { messages: newMessages };
+        }),
+      truncateMessagesFrom: (convId, messageId) =>
+        set((state) => {
+          const existing = state.messages.get(convId);
+          const index = existing?.findIndex((m) => m.id === messageId) ?? -1;
+          if (!existing || index === -1) return state;
+          const newMessages = new Map(state.messages);
+          newMessages.set(convId, existing.slice(0, index));
+          const pag = state.messagesPagination.get(convId);
+          if (pag) {
+            const newPagination = new Map(state.messagesPagination);
+            const removed = existing.length - index;
+            newPagination.set(convId, {
+              ...pag,
+              totalCount: Math.max(0, pag.totalCount - removed),
+            });
+            return { messages: newMessages, messagesPagination: newPagination };
+          }
           return { messages: newMessages };
         }),
       removeMessage: (convId, messageId) =>

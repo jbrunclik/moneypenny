@@ -718,3 +718,11 @@ export const MAXIMIZE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curre
 export const MINIMIZE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
 </svg>`;
+
+/**
+ * Continue icon (fast-forward - resume a truncated response)
+ */
+export const CONTINUE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polygon points="5 4 15 12 5 20 5 4"/>
+  <line x1="19" y1="5" x2="19" y2="19"/>
+</svg>`;

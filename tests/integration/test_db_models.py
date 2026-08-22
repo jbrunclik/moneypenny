@@ -898,3 +898,50 @@ class TestGetUserByEmail:
 
     def test_returns_none_for_unknown_email(self, test_database) -> None:
         assert test_database.get_user_by_email("nobody@example.com") is None
+
+
+class TestDeleteMessagesAfter:
+    def _seed(self, test_database, test_conversation):
+        ids = []
+        for role, text in [
+            ("user", "q1"),
+            ("assistant", "a1"),
+            ("user", "q2"),
+            ("assistant", "a2"),
+        ]:
+            msg = test_database.add_message(test_conversation.id, role, text)
+            ids.append(msg.id)
+        return ids
+
+    def test_deletes_messages_after_exclusive(
+        self, test_database, test_conversation, test_user
+    ) -> None:
+        ids = self._seed(test_database, test_conversation)
+        deleted = test_database.delete_messages_after(
+            test_conversation.id, test_user.id, ids[1], inclusive=False
+        )
+        assert deleted == 2
+        remaining = [m.id for m in test_database.get_messages(test_conversation.id)]
+        assert remaining == ids[:2]
+
+    def test_deletes_messages_after_inclusive(
+        self, test_database, test_conversation, test_user
+    ) -> None:
+        ids = self._seed(test_database, test_conversation)
+        deleted = test_database.delete_messages_after(
+            test_conversation.id, test_user.id, ids[2], inclusive=True
+        )
+        assert deleted == 2
+        remaining = [m.id for m in test_database.get_messages(test_conversation.id)]
+        assert remaining == ids[:2]
+
+    def test_rejects_foreign_conversation(
+        self, test_database, test_conversation, test_user
+    ) -> None:
+        ids = self._seed(test_database, test_conversation)
+        other = test_database.get_or_create_user("other@example.com", "Other")
+        deleted = test_database.delete_messages_after(
+            test_conversation.id, other.id, ids[0], inclusive=True
+        )
+        assert deleted == 0
+        assert len(test_database.get_messages(test_conversation.id)) == 4

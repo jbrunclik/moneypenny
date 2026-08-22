@@ -242,6 +242,17 @@ export const conversations = {
   /**
    * Persist anonymous mode for a conversation so it survives a page reload.
    */
+  /**
+   * Delete a conversation's tail from a message (inclusive = the message
+   * itself too). Powers edit-and-resend.
+   */
+  async truncate(id: string, messageId: string, inclusive = true): Promise<void> {
+    await request<{ deleted: number }>(`/api/conversations/${id}/truncate`, {
+      method: 'POST',
+      body: JSON.stringify({ message_id: messageId, inclusive }),
+    });
+  },
+
   async setAnonymousMode(id: string, anonymousMode: boolean): Promise<void> {
     // PATCH is idempotent (same update = same result), safe to retry
     await request<{ status: string }>(`/api/conversations/${id}/anonymous-mode`, {
@@ -320,7 +331,8 @@ export const chat = {
     onUploadProgress?: (progress: number) => void,
     anonymousMode?: boolean,
     clientLocation?: ClientLocation | null,
-    clientMessageId?: string
+    clientMessageId?: string,
+    rerunMode?: 'regenerate' | 'continue'
   ): Promise<ChatResponse> {
     // POST - no auto-retry here; the caller retries explicitly and the
     // client_message_id makes that idempotent (server dedupes with 409)
@@ -332,6 +344,7 @@ export const chat = {
       anonymous_mode: anonymousMode ?? false,
       client_location: clientLocation ?? undefined,
       client_message_id: clientMessageId,
+      rerun_mode: rerunMode,
     };
 
     // Use XHR with progress callback when files are attached
@@ -358,7 +371,8 @@ export const chat = {
     abortController?: AbortController,
     anonymousMode?: boolean,
     clientLocation?: ClientLocation | null,
-    clientMessageId?: string
+    clientMessageId?: string,
+    rerunMode?: 'regenerate' | 'continue'
   ): AsyncGenerator<StreamEvent> {
     log.debug('Starting stream', { conversationId, messageLength: message.length, fileCount: files?.length ?? 0 });
     const token = getToken();
@@ -393,6 +407,7 @@ export const chat = {
             anonymous_mode: anonymousMode ?? false,
             client_location: clientLocation ?? undefined,
             client_message_id: clientMessageId,
+            rerun_mode: rerunMode,
           }),
           signal: controller.signal,
         }

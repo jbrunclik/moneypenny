@@ -9,7 +9,10 @@ import {
   SOURCES_ICON,
   SPARKLES_ICON,
   COST_ICON,
+  CONTINUE_ICON,
   DELETE_ICON,
+  EDIT_ICON,
+  REFRESH_ICON,
   SPEAKER_ICON,
   COPY_ICON,
 } from '../../utils/icons';
@@ -143,6 +146,25 @@ function attachSpeakHandler(actions: HTMLElement, messageId: string, language?: 
   });
 }
 
+/**
+ * Regenerate / continue: dispatched as document events so core/messaging can
+ * own the flow without an import cycle (this module is imported by render).
+ */
+function attachRerunHandlers(actions: HTMLElement, messageId: string): void {
+  actions.querySelector('.message-regenerate-btn')?.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('message:regenerate', { detail: { messageId } }));
+  });
+  actions.querySelector('.message-continue-btn')?.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('message:continue', { detail: { messageId } }));
+  });
+}
+
+function attachEditHandler(actions: HTMLElement, messageId: string): void {
+  actions.querySelector('.message-edit-btn')?.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('message:edit', { detail: { messageId } }));
+  });
+}
+
 // ============================================================================
 // Main Function
 // ============================================================================
@@ -166,6 +188,10 @@ export function createMessageActions(
   const hasGeneratedImages = generatedImages && generatedImages.length > 0;
   const showCostButton = role === 'assistant';
   const showSpeakButton = role === 'assistant' && typeof speechSynthesis !== 'undefined';
+  // Rendered on every assistant/user message; CSS reveals them only where
+  // they make sense (regenerate/continue on the LAST assistant message)
+  const showRerunButtons = role === 'assistant';
+  const showEditButton = role === 'user';
 
   // Build HTML. On touch devices the secondary buttons collapse behind
   // the overflow toggle (CSS-controlled); copy is the most-used action
@@ -176,6 +202,9 @@ export function createMessageActions(
     <button class="message-copy-btn" title="Copy message">${COPY_ICON}</button>
     <button class="message-actions-overflow" aria-label="Message actions" aria-expanded="false">⋯</button>
     <span class="message-actions-buttons">
+      ${showRerunButtons ? `<button class="message-regenerate-btn" title="Regenerate response">${REFRESH_ICON}</button>` : ''}
+      ${showRerunButtons ? `<button class="message-continue-btn" title="Continue response">${CONTINUE_ICON}</button>` : ''}
+      ${showEditButton ? `<button class="message-edit-btn" title="Edit and resend">${EDIT_ICON}</button>` : ''}
       ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
       ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
       ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
@@ -186,6 +215,8 @@ export function createMessageActions(
 
   // Attach handlers
   attachDeleteHandler(actions, messageId);
+  if (showRerunButtons) attachRerunHandlers(actions, messageId);
+  if (showEditButton) attachEditHandler(actions, messageId);
   if (hasSources) attachSourcesHandler(actions, sources!);
   if (hasGeneratedImages) attachImagegenHandler(actions, generatedImages!, messageId);
   if (showCostButton) attachCostHandler(actions, messageId);

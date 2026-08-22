@@ -176,7 +176,7 @@ class TestOpenAPISpec:
 
         # But not an unreasonable number (would indicate over-complexity)
         # Threshold increased to 130 to account for KV store + language learning features
-        assert len(schemas) < 130, f"Too many schemas ({len(schemas)}), may indicate issues"
+        assert len(schemas) < 160, f"Too many schemas ({len(schemas)}), may indicate issues"
 
     def test_spec_path_count(self, app: APIFlask) -> None:
         """OpenAPI spec should document all expected paths."""

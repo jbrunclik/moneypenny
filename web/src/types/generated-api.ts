@@ -4511,6 +4511,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/truncate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a conversation's tail from a given message.
+         * @description The shared primitive behind edit-and-resend (inclusive=true: the target
+         *     message and everything after it) and regenerate (inclusive=false via the
+         *     single-message DELETE instead). Blobs of deleted messages are removed;
+         *     cost data is intentionally preserved.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TruncateConversationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/messages": {
         parameters: {
             query?: never;
@@ -6154,6 +6225,11 @@ export interface components {
              * @default null
              */
             archived: boolean | null;
+            /**
+             * Last Message Preview
+             * @default null
+             */
+            last_message_preview: string | null;
         };
         /**
          * ConversationsPaginationResponse
@@ -6211,6 +6287,11 @@ export interface components {
              * @default null
              */
             archived: boolean | null;
+            /**
+             * Last Message Preview
+             * @default null
+             */
+            last_message_preview: string | null;
         };
         /**
          * PlannerResetResponse
@@ -6603,6 +6684,11 @@ export interface components {
             updated_at: string;
             /** Message Count */
             message_count: number;
+            /**
+             * Last Message Preview
+             * @default null
+             */
+            last_message_preview: string | null;
         };
         /**
          * SyncResponse
@@ -7797,6 +7883,14 @@ export interface components {
             messages: {
                 [key: string]: unknown;
             }[];
+        };
+        /**
+         * TruncateConversationResponse
+         * @description Number of messages removed by a truncate.
+         */
+        TruncateConversationResponse: {
+            /** Deleted */
+            deleted: number;
         };
         /**
          * FileMetadataResponse

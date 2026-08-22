@@ -157,6 +157,21 @@ class UpdateConversationRequest(BaseModel):
         return v
 
 
+class TruncateConversationRequest(BaseModel):
+    """Schema for POST /api/conversations/<conv_id>/truncate."""
+
+    message_id: str = Field(..., min_length=1)
+    # inclusive=True deletes the target message too (edit-and-resend);
+    # False deletes only what follows it
+    inclusive: bool = Field(default=True)
+
+
+class TruncateConversationResponse(BaseModel):
+    """Number of messages removed by a truncate."""
+
+    deleted: int
+
+
 # -----------------------------------------------------------------------------
 # Chat Schemas
 # -----------------------------------------------------------------------------
@@ -184,6 +199,10 @@ class ChatRequest(BaseModel):
     anonymous_mode: bool = Field(default=False)
     client_location: ClientLocation | None = Field(default=None)
     client_message_id: str | None = Field(default=None)
+    # Re-run the agent on existing history without adding a user message:
+    # "regenerate" (after the client deleted the last assistant message) or
+    # "continue" (finish a truncated/stopped response)
+    rerun_mode: Literal["regenerate", "continue"] | None = Field(default=None)
 
     @field_validator("client_message_id")
     @classmethod
@@ -219,8 +238,12 @@ class ChatRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_message_or_files(self) -> ChatRequest:
-        """Ensure at least message or files is provided."""
+        """Ensure at least message or files is provided (unless re-running)."""
         message_text = self.message.strip() if self.message else ""
+        if self.rerun_mode:
+            if message_text or self.files:
+                raise ValueError("rerun_mode requests must not include message or files")
+            return self
         if not message_text and not self.files:
             raise ValueError("Message or files required")
         return self

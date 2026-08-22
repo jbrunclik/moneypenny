@@ -4,6 +4,7 @@
 
 import { getElementById, scrollToBottom, isScrolledToBottom } from '../../utils/dom';
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
+import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { isProgrammaticScrollActive, programmaticScrollToBottom } from '../../utils/thumbnails';
 import {
@@ -568,6 +569,10 @@ export function finalizeStreamingMessage(
     );
     contentWrapper.appendChild(actions);
   }
+
+  // The finalized message is now the latest assistant turn - reveal
+  // regenerate/continue on it (and hide them on the previous one)
+  updateLatestAssistantMarker();
 
   // Lock quiz blocks in older messages now that this one is the latest
   lockOlderQuizBlocks();

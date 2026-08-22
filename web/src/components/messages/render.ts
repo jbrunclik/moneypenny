@@ -260,6 +260,7 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   const approvalResolutions = buildApprovalResolutionMap(messages);
 
   messages.forEach((msg) => addMessageToUI(msg, container, approvalResolutions));
+  updateLatestAssistantMarker(container);
 
   // Lock quiz blocks in all messages except the last assistant message
   lockOlderQuizBlocks(container);
@@ -275,6 +276,25 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   // Use server's value if provided, otherwise fall back to message content check
   const pendingApproval = options.hasPendingApproval ?? hasPendingApproval(messages);
   setInputBlockedForApproval(pendingApproval);
+}
+
+/**
+ * Mark the latest assistant message (must also be the conversation's last
+ * message) so regenerate/continue reveal only where a re-run makes sense.
+ * A CSS :last-child rule would be simpler, but WebKit doesn't re-evaluate
+ * it reliably when siblings are appended dynamically.
+ */
+export function updateLatestAssistantMarker(
+  container: HTMLElement | null = getElementById('messages')
+): void {
+  if (!container || container.id !== 'messages') return;
+  container.querySelectorAll('.message--latest-assistant').forEach((el) => {
+    el.classList.remove('message--latest-assistant');
+  });
+  const last = container.lastElementChild;
+  if (last?.classList.contains('message') && last.classList.contains('assistant')) {
+    last.classList.add('message--latest-assistant');
+  }
 }
 
 /**
@@ -398,6 +418,7 @@ export function addMessageToUI(
 
   messageEl.appendChild(contentWrapper);
   container.appendChild(messageEl);
+  updateLatestAssistantMarker(container);
 }
 
 /**

@@ -24,6 +24,8 @@ from src.api.schemas import (
     SearchResultsResponse,
     StatusResponse,
     SyncResponse,
+    TruncateConversationRequest,
+    TruncateConversationResponse,
     UpdateAnonymousModeRequest,
     UpdateConversationRequest,
 )
@@ -575,6 +577,44 @@ def get_message(user: User, message_id: str) -> tuple[dict[str, Any], int]:
 
     logger.debug("Message retrieved", extra={"user_id": user.id, "message_id": message_id})
     return response, 200
+
+
+@api.route("/conversations/<conv_id>/truncate", methods=["POST"])
+@api.output(TruncateConversationResponse)
+@api.doc(responses=[400, 404, 429])
+@rate_limit_conversations
+@require_auth
+@validate_request(TruncateConversationRequest)
+def truncate_conversation(
+    user: User, data: TruncateConversationRequest, conv_id: str
+) -> tuple[dict[str, int], int]:
+    """Delete a conversation's tail from a given message.
+
+    The shared primitive behind edit-and-resend (inclusive=true: the target
+    message and everything after it) and regenerate (inclusive=false via the
+    single-message DELETE instead). Blobs of deleted messages are removed;
+    cost data is intentionally preserved.
+    """
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        raise_not_found_error("Conversation")
+
+    target = db.get_message_by_id(data.message_id)
+    if not target or target.conversation_id != conv_id:
+        raise_not_found_error("Message")
+
+    deleted = db.delete_messages_after(conv_id, user.id, data.message_id, data.inclusive)
+    logger.info(
+        "Conversation truncated",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "message_id": data.message_id,
+            "inclusive": data.inclusive,
+            "deleted": deleted,
+        },
+    )
+    return {"deleted": deleted}, 200
 
 
 @api.route("/messages/<message_id>", methods=["DELETE"])

@@ -214,6 +214,9 @@
 
 /* Action buttons in message */
 .message-copy-btn,
+.message-regenerate-btn,
+.message-continue-btn,
+.message-edit-btn,
 .message-sources-btn,
 .message-imagegen-btn,
 .message-cost-btn,
@@ -232,6 +235,9 @@
 }
 
 .message-copy-btn:hover,
+.message-regenerate-btn:hover,
+.message-continue-btn:hover,
+.message-edit-btn:hover,
 .message-sources-btn:hover,
 .message-imagegen-btn:hover,
 .message-cost-btn:hover,
@@ -266,6 +272,9 @@
 }
 
 .message-copy-btn svg,
+.message-regenerate-btn svg,
+.message-continue-btn svg,
+.message-edit-btn svg,
 .message-sources-btn svg,
 .message-imagegen-btn svg,
 .message-cost-btn svg,
@@ -277,6 +286,20 @@
 
 .message-imagegen-btn {
     padding: var(--space-1) var(--space-2);
+}
+
+/* Regenerate/continue only make sense on the LAST assistant message -
+   re-running an earlier turn would orphan everything after it */
+.message.assistant .message-regenerate-btn,
+.message.assistant .message-continue-btn {
+    display: none;
+}
+
+/* Marker class maintained in JS (render.ts): WebKit fails to re-evaluate
+   :last-child styles when later siblings are appended dynamically */
+.message.assistant.message--latest-assistant .message-regenerate-btn,
+.message.assistant.message--latest-assistant .message-continue-btn {
+    display: flex;
 }
 
 /* ----------------------------------------
@@ -1416,4 +1439,43 @@ a.document-name:hover {
 .message-video-load.expired {
     opacity: 0.6;
     cursor: default;
+}
+
+/* ----------------------------------------
+   Inline Message Edit (edit-and-resend)
+   ---------------------------------------- */
+
+.message-edit-area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    width: 100%;
+    min-width: min(480px, 80vw);
+}
+
+.message-edit-textarea {
+    width: 100%;
+    padding: var(--space-3);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    font: inherit;
+    line-height: var(--line-height-relaxed);
+    resize: vertical;
+}
+
+.message-edit-buttons {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.message-edit-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin-right: auto;
+    order: -1;
 }

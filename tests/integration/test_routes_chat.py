@@ -1398,3 +1398,169 @@ class TestClientMessageId:
         )
 
         assert response.status_code == 400
+
+
+class TestTruncateAndRerun:
+    """Truncate-and-rerun: the shared primitive behind edit, regenerate
+    and continue."""
+
+    @staticmethod
+    def _seed(db, conversation):
+        ids = []
+        for role, text in [
+            ("user", "q1"),
+            ("assistant", "a1"),
+            ("user", "q2"),
+            ("assistant", "a2"),
+        ]:
+            ids.append(db.add_message(conversation.id, role, text).id)
+        return ids
+
+    def test_truncate_inclusive(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        ids = self._seed(test_database, test_conversation)
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/truncate",
+            headers=auth_headers,
+            json={"message_id": ids[2], "inclusive": True},
+        )
+        assert response.status_code == 200
+        assert response.get_json()["deleted"] == 2
+        assert len(test_database.get_messages(test_conversation.id)) == 2
+
+    def test_truncate_unknown_message_404(self, client, auth_headers, test_conversation) -> None:
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/truncate",
+            headers=auth_headers,
+            json={"message_id": "00000000-0000-4000-8000-000000000000", "inclusive": True},
+        )
+        assert response.status_code == 404
+
+    def test_rerun_regenerate_adds_no_user_message(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        """rerun_mode=regenerate re-runs the agent on existing history
+        (after the client deleted the last assistant message) without
+        inserting a new user message."""
+        test_database.add_message(test_conversation.id, "user", "q1")
+
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "Regenerated answer",
+                [],
+                {"input_tokens": 10, "output_tokens": 5},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"rerun_mode": "regenerate"},
+            )
+
+        assert response.status_code == 200
+        messages = test_database.get_messages(test_conversation.id)
+        assert [m.role for m in messages] == ["user", "assistant"]
+        assert messages[-1].content == "Regenerated answer"
+
+    def test_rerun_requires_empty_message(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"rerun_mode": "regenerate", "message": "also text"},
+        )
+        assert response.status_code == 400
+
+    def test_regenerate_requires_user_last(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        """Regenerating right after an assistant message would duplicate
+        answers - the client must delete the assistant message first."""
+        test_database.add_message(test_conversation.id, "user", "q1")
+        test_database.add_message(test_conversation.id, "assistant", "a1")
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"rerun_mode": "regenerate"},
+        )
+        assert response.status_code == 400
+
+    def test_rerun_continue_requires_assistant_last(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"rerun_mode": "continue"},
+        )
+        assert response.status_code == 400
+
+    def test_rerun_continue_appends_new_assistant_message(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        test_database.add_message(test_conversation.id, "assistant", "partial answer")
+
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "the rest of the answer",
+                [],
+                {"input_tokens": 10, "output_tokens": 5},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"rerun_mode": "continue"},
+            )
+            # The transient continue instruction reaches the agent as the message
+            called_message = (
+                mock_agent.chat_batch.call_args.kwargs.get("message")
+                or mock_agent.chat_batch.call_args.args[0]
+            )
+
+        assert response.status_code == 200
+        assert "continue" in called_message.lower()
+        messages = test_database.get_messages(test_conversation.id)
+        assert [m.role for m in messages] == ["user", "assistant", "assistant"]
+
+    def test_rerun_regenerate_streams_without_new_user_message(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+
+        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Regenerated"}
+                yield {
+                    "type": "final",
+                    "content": "Regenerated",
+                    "result_messages": [],
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 5, "output_tokens": 2},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"rerun_mode": "regenerate"},
+            )
+            body = response.data.decode("utf-8")
+
+        assert response.status_code == 200
+        assert "Regenerated" in body
+        messages = test_database.get_messages(test_conversation.id)
+        assert [m.role for m in messages] == ["user", "assistant"]

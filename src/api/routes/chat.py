@@ -46,7 +46,7 @@ from src.api.utils import (
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
-from src.db.models import User, db
+from src.db.models import Message, User, db
 from src.utils.background_thumbnails import (
     mark_files_for_thumbnail_generation,
     queue_pending_thumbnails,
@@ -75,6 +75,37 @@ def _dedupe_client_message_id(conv_id: str, client_message_id: str | None) -> No
     if existing.conversation_id == conv_id:
         raise_conflict_error("Message already received", details={"message_id": client_message_id})
     raise_validation_error("client_message_id is already in use", field="client_message_id")
+
+
+_CONTINUE_INSTRUCTION = (
+    "Continue your previous response from exactly where it left off. "
+    "Do not repeat or summarize content you already wrote - just keep going."
+)
+
+
+def _resolve_rerun(conv_id: str, rerun_mode: str) -> tuple[str, list[Message], Message]:
+    """Inputs for a re-run turn: no new user message is inserted.
+
+    Returns (message_text, history_messages, anchor_msg). anchor_msg is the
+    existing message that stands in for the "current user message" in
+    response payloads/stream events.
+    """
+    existing = db.get_messages(conv_id)
+    if not existing:
+        raise_validation_error("Nothing to re-run in an empty conversation")
+    last = existing[-1]
+    if rerun_mode == "regenerate":
+        if last.role != MessageRole.USER:
+            raise_validation_error(
+                "Regenerate requires the conversation to end with a user message "
+                "(delete the assistant response first)"
+            )
+        return last.content, existing[:-1], last
+    if last.role != MessageRole.ASSISTANT:
+        raise_validation_error(
+            "Nothing to continue - the last message is not an assistant response"
+        )
+    return _CONTINUE_INSTRUCTION, existing, last
 
 
 api = APIBlueprint("chat", __name__, url_prefix="/api", tag="Chat")
@@ -174,28 +205,33 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             "file_count": len(files) if files else 0,
         },
     )
-    _dedupe_client_message_id(conv_id, data.client_message_id)
-    user_msg = db.add_message(
-        conv_id,
-        MessageRole.USER,
-        message_text,
-        files=files if files else None,
-        message_id=data.client_message_id,
-    )
+    if data.rerun_mode:
+        # Re-run on existing history: no new user message is inserted
+        message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
+    else:
+        _dedupe_client_message_id(conv_id, data.client_message_id)
+        user_msg = db.add_message(
+            conv_id,
+            MessageRole.USER,
+            message_text,
+            files=files if files else None,
+            message_id=data.client_message_id,
+        )
 
-    # Queue background thumbnail generation for pending files
-    if files:
-        queue_pending_thumbnails(user_msg.id, files)
-        # Upload videos to the Gemini Files API and annotate files with URIs
-        # (annotations are transient: the message was already saved without them)
-        attach_gemini_file_uris(user_msg.id, files)
+        # Queue background thumbnail generation for pending files
+        if files:
+            queue_pending_thumbnails(user_msg.id, files)
+            # Upload videos to the Gemini Files API and annotate files with URIs
+            # (annotations are transient: the message was already saved without them)
+            attach_gemini_file_uris(user_msg.id, files)
+
+        history_messages = db.get_messages(conv_id)[:-1]  # Exclude the just-added message
 
     # Get conversation history with enrichment (timestamps, file refs, tool summaries)
     # Files are excluded from previous messages to save tokens (only metadata is included)
     from src.agent.history import enrich_history
 
-    messages = db.get_messages(conv_id)
-    history = enrich_history(messages[:-1])  # Exclude the just-added message
+    history = enrich_history(history_messages)
     logger.debug(
         "Starting chat agent",
         extra={
@@ -614,21 +650,26 @@ def chat_stream(
             "file_count": len(files) if files else 0,
         },
     )
-    _dedupe_client_message_id(conv_id, data.client_message_id)
-    user_msg = db.add_message(
-        conv_id,
-        MessageRole.USER,
-        message_text,
-        files=files if files else None,
-        message_id=data.client_message_id,
-    )
+    if data.rerun_mode:
+        # Re-run on existing history: no new user message is inserted
+        message_text, rerun_history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
+    else:
+        rerun_history_messages = None
+        _dedupe_client_message_id(conv_id, data.client_message_id)
+        user_msg = db.add_message(
+            conv_id,
+            MessageRole.USER,
+            message_text,
+            files=files if files else None,
+            message_id=data.client_message_id,
+        )
 
-    # Queue background thumbnail generation for pending files
-    if files:
-        queue_pending_thumbnails(user_msg.id, files)
-        # Upload videos to the Gemini Files API and annotate files with URIs
-        # (annotations are transient: the message was already saved without them)
-        attach_gemini_file_uris(user_msg.id, files)
+        # Queue background thumbnail generation for pending files
+        if files:
+            queue_pending_thumbnails(user_msg.id, files)
+            # Upload videos to the Gemini Files API and annotate files with URIs
+            # (annotations are transient: the message was already saved without them)
+            attach_gemini_file_uris(user_msg.id, files)
 
     # Get conversation history with enrichment (timestamps, file refs, tool summaries)
     # NOTE: We exclude file DATA from history to avoid re-sending large base64 data.
@@ -636,8 +677,11 @@ def chat_stream(
     # can reference historical files using retrieve_file or generate_image tools.
     from src.agent.history import enrich_history
 
-    messages = db.get_messages(conv_id)
-    history = enrich_history(messages[:-1])  # Exclude the just-added message
+    if rerun_history_messages is not None:
+        history = enrich_history(rerun_history_messages)
+    else:
+        messages = db.get_messages(conv_id)
+        history = enrich_history(messages[:-1])  # Exclude the just-added message
     logger.debug(
         "Starting stream chat agent",
         extra={

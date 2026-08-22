@@ -3611,6 +3611,67 @@
         "summary": "Get or create the program conversation."
       }
     },
+    "/api/conversations/{conv_id}/truncate": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TruncateConversationResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Delete a conversation's tail from a given message.",
+        "description": "The shared primitive behind edit-and-resend (inclusive=true: the target\nmessage and everything after it) and regenerate (inclusive=false via the\nsingle-message DELETE instead). Blobs of deleted messages are removed;\ncost data is intentionally preserved."
+      }
+    },
     "/api/conversations/{conv_id}/messages": {
       "get": {
         "parameters": [
@@ -4102,7 +4163,7 @@
       }
     }
   },
-  "openapi": "3.0.3",
+  "openapi": "3.1.0",
   "components": {
     "schemas": {
       "KVNamespacesResponse.KVNamespaceItem": {
@@ -6075,6 +6136,18 @@
             ],
             "default": null,
             "title": "Archived"
+          },
+          "last_message_preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Message Preview"
           }
         },
         "required": [
@@ -6188,6 +6261,18 @@
             ],
             "default": null,
             "title": "Archived"
+          },
+          "last_message_preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Message Preview"
           }
         },
         "required": [
@@ -6867,6 +6952,18 @@
           "message_count": {
             "title": "Message Count",
             "type": "integer"
+          },
+          "last_message_preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Message Preview"
           }
         },
         "required": [
@@ -9155,6 +9252,20 @@
           "messages"
         ],
         "title": "LanguageConversationResponse",
+        "type": "object"
+      },
+      "TruncateConversationResponse": {
+        "description": "Number of messages removed by a truncate.",
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "TruncateConversationResponse",
         "type": "object"
       },
       "MessagesListResponse.FileMetadataResponse": {
