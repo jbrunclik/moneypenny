@@ -888,3 +888,13 @@ class TestTurnMetricsColumns:
                 (msg.id,),
             ).fetchone()
         assert (row[0], row[1], row[2]) == (None, 0, None)
+
+
+class TestGetUserByEmail:
+    def test_returns_existing_user(self, test_database, test_user) -> None:
+        found = test_database.get_user_by_email(test_user.email)
+        assert found is not None
+        assert found.id == test_user.id
+
+    def test_returns_none_for_unknown_email(self, test_database) -> None:
+        assert test_database.get_user_by_email("nobody@example.com") is None

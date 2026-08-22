@@ -159,6 +159,18 @@ class UserMixin:
 
             return self._row_to_user(row)
 
+    def get_user_by_email(self, email: str) -> User | None:
+        """Get a user by email address (None when they never logged in)."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn, "SELECT * FROM users WHERE email = ?", (email,)
+            ).fetchone()
+
+            if not row:
+                return None
+
+            return self._row_to_user(row)
+
     def update_user_custom_instructions(self, user_id: str, instructions: str | None) -> bool:
         """Update a user's custom instructions.
 

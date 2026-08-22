@@ -16,6 +16,7 @@ from src.utils.search_provider import (
     SearchProviderError,
     active_provider,
     get_monthly_usage,
+    period_start,
     search_web,
     usage_key,
 )
@@ -344,3 +345,119 @@ class TestQuoteStrippingRetry:
 
         assert results == []
         assert mock_ddgs.text.call_count == 1
+
+
+class TestBillingPeriods:
+    """Quotas reset per provider billing period, not calendar month."""
+
+    def test_anchor_day_one_uses_calendar_month_key(self) -> None:
+        from datetime import date
+
+        assert period_start(1, date(2026, 8, 22)) == "2026-08"
+
+    def test_day_on_or_after_anchor_starts_this_month(self) -> None:
+        from datetime import date
+
+        assert period_start(22, date(2026, 8, 22)) == "2026-08-22"
+        assert period_start(22, date(2026, 8, 30)) == "2026-08-22"
+
+    def test_day_before_anchor_belongs_to_previous_period(self) -> None:
+        from datetime import date
+
+        assert period_start(22, date(2026, 9, 10)) == "2026-08-22"
+        assert period_start(22, date(2027, 1, 5)) == "2026-12-22"
+
+    def test_anchor_clamped_to_month_length(self) -> None:
+        from datetime import date
+
+        # Anchor 31: February period starts on the 28th (2026 is not a leap year)
+        assert period_start(31, date(2026, 3, 10)) == "2026-02-28"
+
+    def test_usage_key_uses_provider_anchor(self) -> None:
+        with patch.object(Config, "SEARCH_BILLING_DAY_TAVILY", 22):
+            key = usage_key("tavily")
+        assert key.startswith("tavily:")
+        # Anchored providers get a full period-start date, not YYYY-MM
+        assert len(key.split(":", 1)[1]) == 10
+
+
+class TestDegradationAlert:
+    """Falling back to ddgs while paid providers are configured pushes a
+    once-per-day operator alert - otherwise quality degrades silently."""
+
+    @staticmethod
+    def _db_with_store(store: dict[str, str]) -> MagicMock:
+        db = MagicMock()
+        db.kv_get.side_effect = lambda _u, _ns, key: store.get(key)
+        db.kv_set.side_effect = lambda _u, _ns, key, value: store.__setitem__(key, value)
+        db.kv_increment.side_effect = lambda _u, _ns, key, delta=1: store.setdefault(key, "0")
+        operator = MagicMock()
+        operator.id = "op-user-id"
+        db.get_user_by_email.return_value = operator
+        return db
+
+    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider._search_ddgs")
+    def test_ddgs_fallback_with_paid_providers_alerts_operator(
+        self, mock_ddgs: MagicMock, mock_push: MagicMock
+    ) -> None:
+        mock_ddgs.return_value = []
+        usage = {usage_key("brave"): str(Config.SEARCH_QUOTA_BRAVE_MONTHLY)}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                ALLOWED_EMAILS=["op@example.com"],
+            ),
+            patch("src.utils.search_provider.db", self._db_with_store(usage)),
+        ):
+            search_web("q", 3)
+        mock_push.assert_called_once()
+        assert mock_push.call_args[0][0] == "op-user-id"
+
+    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider._search_ddgs")
+    def test_alert_deduped_within_a_day(self, mock_ddgs: MagicMock, mock_push: MagicMock) -> None:
+        mock_ddgs.return_value = []
+        store = {usage_key("brave"): str(Config.SEARCH_QUOTA_BRAVE_MONTHLY)}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                ALLOWED_EMAILS=["op@example.com"],
+            ),
+            patch("src.utils.search_provider.db", self._db_with_store(store)),
+        ):
+            search_web("q", 3)
+            search_web("q2", 3)
+        mock_push.assert_called_once()
+
+    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider._search_ddgs")
+    def test_no_alert_when_no_paid_provider_configured(
+        self, mock_ddgs: MagicMock, mock_push: MagicMock
+    ) -> None:
+        mock_ddgs.return_value = []
+        with (
+            patch.multiple(Config, BRAVE_SEARCH_API_KEY="", TAVILY_API_KEY="", EXA_API_KEY=""),
+            patch("src.utils.search_provider.db", self._db_with_store({})),
+        ):
+            search_web("q", 3)
+        mock_push.assert_not_called()
+
+    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider._search_brave")
+    def test_no_alert_when_paid_provider_serves(
+        self, mock_brave: MagicMock, mock_push: MagicMock
+    ) -> None:
+        mock_brave.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
+        with (
+            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="", EXA_API_KEY=""),
+            patch("src.utils.search_provider.db", self._db_with_store({})),
+        ):
+            search_web("q", 3)
+        mock_push.assert_not_called()

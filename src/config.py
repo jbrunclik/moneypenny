@@ -308,10 +308,21 @@ class Config:
     EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
     # Monthly search quotas per provider plan (searches/month). Stop using a
     # provider at the quota rather than incurring overage/hard errors.
-    SEARCH_QUOTA_BRAVE_MONTHLY = int(os.getenv("SEARCH_QUOTA_BRAVE_MONTHLY", "2000"))
+    # Brave "Search" plan: $5 free credit/month at $5/1k = 1,000 searches
+    SEARCH_QUOTA_BRAVE_MONTHLY = int(os.getenv("SEARCH_QUOTA_BRAVE_MONTHLY", "1000"))
     SEARCH_QUOTA_TAVILY_MONTHLY = int(os.getenv("SEARCH_QUOTA_TAVILY_MONTHLY", "1000"))
-    # Exa free tier is a $10/mo recurring credit at $7/1k searches (~1,400)
-    SEARCH_QUOTA_EXA_MONTHLY = int(os.getenv("SEARCH_QUOTA_EXA_MONTHLY", "1400"))
+    # Exa free tier: $10/mo credit; a search with text snippets bills
+    # $7/1k requests PLUS ~$1/1k content pages per result, so ~1,000 is the
+    # conservative real-world count (a 402 falls through to the next
+    # provider anyway if credits run out sooner)
+    SEARCH_QUOTA_EXA_MONTHLY = int(os.getenv("SEARCH_QUOTA_EXA_MONTHLY", "1000"))
+    # Day of month each provider's billing period starts (1 = calendar
+    # month). As of Aug 2026 Brave, Tavily and Exa ALL reset free credits on
+    # calendar months, so the default fits - the knob exists in case a
+    # provider moves to signup-anniversary cycles.
+    SEARCH_BILLING_DAY_BRAVE = int(os.getenv("SEARCH_BILLING_DAY_BRAVE", "1"))
+    SEARCH_BILLING_DAY_TAVILY = int(os.getenv("SEARCH_BILLING_DAY_TAVILY", "1"))
+    SEARCH_BILLING_DAY_EXA = int(os.getenv("SEARCH_BILLING_DAY_EXA", "1"))
     WEB_SEARCH_DEFAULT_RESULTS = 3
     WEB_SEARCH_MAX_RESULTS = 10
     # Max queries per batched web_search call (the tool encourages the model

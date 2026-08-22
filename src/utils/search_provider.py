@@ -15,9 +15,10 @@ Contract: search_web() returns [{title, url, snippet}] or raises
 SearchProviderError (retriable flag drives the agent's self-correction).
 """
 
+from calendar import monthrange
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date
 
 import httpx
 from ddgs import DDGS
@@ -51,13 +52,40 @@ class SearchProviderError(Exception):
 # ============ Usage accounting ============
 
 
+def period_start(anchor_day: int, today: date) -> str:
+    """Start of the billing period containing `today`, as a usage-key suffix.
+
+    Quotas reset on the provider's billing day (typically the signup
+    anniversary), not on calendar-month boundaries. Anchor day 1 keeps the
+    plain YYYY-MM form (calendar month); other anchors produce the period's
+    start date, clamped to the month length (anchor 31 in February -> 28th).
+    """
+    if anchor_day <= 1:
+        return today.strftime("%Y-%m")
+    year, month = today.year, today.month
+    if today.day < anchor_day:
+        month -= 1
+        if month == 0:
+            year, month = year - 1, 12
+    day = min(anchor_day, monthrange(year, month)[1])
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def _billing_anchor(provider: str) -> int:
+    return {
+        "brave": Config.SEARCH_BILLING_DAY_BRAVE,
+        "tavily": Config.SEARCH_BILLING_DAY_TAVILY,
+        "exa": Config.SEARCH_BILLING_DAY_EXA,
+    }.get(provider, 1)
+
+
 def usage_key(provider: str) -> str:
-    """kv_store key for a provider's current-month usage counter."""
-    return f"{provider}:{datetime.now().strftime('%Y-%m')}"
+    """kv_store key for a provider's current billing-period usage counter."""
+    return f"{provider}:{period_start(_billing_anchor(provider), date.today())}"
 
 
 def get_monthly_usage(provider: str) -> int:
-    """Searches billed to a provider this month (0 when never used)."""
+    """Searches billed to a provider this billing period (0 when never used)."""
     value = db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, usage_key(provider))
     return int(value) if value else 0
 
@@ -120,9 +148,52 @@ def search_web(query: str, num_results: int) -> list[dict[str, str]]:
             )
             last_error = error
             continue
+        _notify_if_degraded(provider.name)
         return results
 
     raise last_error or SearchProviderError("No search provider available", retriable=True)
+
+
+def _notify_if_degraded(served_by: str) -> None:
+    """Alert the operator (once per day) when ddgs serves despite paid
+    providers being configured - otherwise quality degrades silently when
+    quotas run out mid-period. Never breaks the search that triggered it."""
+    if served_by != "ddgs":
+        return
+    try:
+        metered = [p for p in _PROVIDERS if p.monthly_quota() is not None and p.api_key()]
+        if not metered:
+            return  # dev setup without keys - ddgs IS the intended provider
+
+        dedupe_key = f"degraded-alert:{date.today().isoformat()}"
+        if db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, dedupe_key):
+            return
+        db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, dedupe_key, "1")
+
+        exhausted = all(get_monthly_usage(p.name) >= (p.monthly_quota() or 0) for p in metered)
+        reason = "quotas exhausted" if exhausted else "providers failing"
+        logger.warning(
+            "Web search degraded to DuckDuckGo fallback",
+            extra={"reason": reason, "metered_providers": [p.name for p in metered]},
+        )
+
+        if not Config.ALLOWED_EMAILS:
+            return
+        operator = db.get_user_by_email(Config.ALLOWED_EMAILS[0])
+        if operator is None:
+            return
+        # Imported here to avoid a module-load cycle (push imports db/config)
+        from src.utils.push import send_push_to_user
+
+        send_push_to_user(
+            operator.id,
+            "Web search degraded",
+            f"Searches are falling back to DuckDuckGo ({reason}). "
+            "Results will be weaker until quotas reset.",
+            tag="search-degraded",
+        )
+    except Exception:
+        logger.exception("Failed to send search degradation alert")
 
 
 def _search_with_quote_retry(
