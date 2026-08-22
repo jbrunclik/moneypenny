@@ -1,8 +1,12 @@
 /**
  * Unit tests for mobile keyboard viewport pinning (--keyboard-inset).
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { initKeyboardViewportPinning } from '@/core/keyboard-viewport';
+
+// The re-pin path calls element.scrollTo, which jsdom doesn't implement -
+// without the stub the deferred RAF throws an uncaught async exception
+Element.prototype.scrollTo = vi.fn();
 
 class MockVisualViewport extends EventTarget {
   height = 800;
