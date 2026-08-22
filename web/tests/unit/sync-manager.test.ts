@@ -75,8 +75,6 @@ function resetStore() {
     newVersionAvailable: false,
     versionBannerDismissed: false,
     notifications: [],
-    draftMessage: '',
-    draftFiles: [],
   });
 }
 

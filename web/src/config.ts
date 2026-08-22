@@ -54,6 +54,9 @@ export const API_CHAT_CONNECT_TIMEOUT_MS = 30 * MS_PER_SECOND;
 /** Delay before the single automatic retry of a transient send failure */
 export const SEND_AUTO_RETRY_DELAY_MS = 2 * MS_PER_SECOND;
 
+/** Debounce for persisting the composer draft while typing */
+export const DRAFT_SAVE_DEBOUNCE_MS = 300;
+
 /** localStorage key for the send outbox (pending/failed messages awaiting reconciliation) */
 export const OUTBOX_STORAGE_KEY = 'ai-chatbot-send-outbox-v1';
 

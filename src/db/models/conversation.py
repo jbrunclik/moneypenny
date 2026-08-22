@@ -27,6 +27,18 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+_PREVIEW_MAX_CHARS = 120
+
+
+def build_message_preview(content: str | None) -> str | None:
+    """One-line sidebar snippet: whitespace collapsed, truncated with an ellipsis."""
+    if not content:
+        return None
+    collapsed = " ".join(content.split())
+    if len(collapsed) <= _PREVIEW_MAX_CHARS:
+        return collapsed
+    return collapsed[:_PREVIEW_MAX_CHARS] + "\u2026"
+
 
 class ConversationMixin:
     """Mixin providing Conversation-related database operations."""
@@ -266,7 +278,7 @@ class ConversationMixin:
         user_id: str,
         limit: int = 30,
         cursor: str | None = None,
-    ) -> tuple[list[tuple[Conversation, int]], str | None, bool, int]:
+    ) -> tuple[list[tuple[Conversation, int, str | None]], str | None, bool, int]:
         """List conversations for a user with cursor-based pagination and message counts.
 
         Combines pagination with message counting in a single query for efficiency.
@@ -304,7 +316,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ?
@@ -323,7 +338,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ?
@@ -350,14 +368,19 @@ class ConversationMixin:
                 next_cursor = build_cursor(last_row["updated_at"], last_row["id"])
 
             conversations_with_counts = [
-                (self._row_to_conversation(row), int(row["message_count"])) for row in rows
+                (
+                    self._row_to_conversation(row),
+                    int(row["message_count"]),
+                    build_message_preview(row["last_message"]),
+                )
+                for row in rows
             ]
 
             return conversations_with_counts, next_cursor, has_more, total_count
 
     def list_conversations_with_message_count(
         self, user_id: str, include_planning: bool = False
-    ) -> list[tuple[Conversation, int]]:
+    ) -> list[tuple[Conversation, int, str | None]]:
         """List all conversations for a user with message counts.
 
         This method is used for sync operations to detect unread messages.
@@ -377,7 +400,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ?
@@ -389,7 +415,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ?
@@ -403,11 +432,18 @@ class ConversationMixin:
                     (user_id,),
                 ).fetchall()
 
-            return [(self._row_to_conversation(row), int(row["message_count"])) for row in rows]
+            return [
+                (
+                    self._row_to_conversation(row),
+                    int(row["message_count"]),
+                    build_message_preview(row["last_message"]),
+                )
+                for row in rows
+            ]
 
     def get_conversations_updated_since(
         self, user_id: str, since: datetime, include_planning: bool = False
-    ) -> list[tuple[Conversation, int]]:
+    ) -> list[tuple[Conversation, int, str | None]]:
         """Get conversations updated since a given timestamp with message counts.
 
         This method is used for incremental sync operations to fetch only
@@ -428,7 +464,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ? AND c.updated_at > ?
@@ -440,7 +479,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ? AND c.updated_at > ?
@@ -454,7 +496,14 @@ class ConversationMixin:
                     (user_id, since.isoformat()),
                 ).fetchall()
 
-            return [(self._row_to_conversation(row), int(row["message_count"])) for row in rows]
+            return [
+                (
+                    self._row_to_conversation(row),
+                    int(row["message_count"]),
+                    build_message_preview(row["last_message"]),
+                )
+                for row in rows
+            ]
 
     def archive_conversation(self, conv_id: str, user_id: str) -> bool:
         """Archive a conversation (hide from main list)."""
@@ -485,7 +534,7 @@ class ConversationMixin:
         user_id: str,
         limit: int = 30,
         cursor: str | None = None,
-    ) -> tuple[list[tuple[Conversation, int]], str | None, bool, int]:
+    ) -> tuple[list[tuple[Conversation, int, str | None]], str | None, bool, int]:
         """List archived conversations with message counts and pagination.
 
         Same structure as list_conversations_paginated_with_counts but filtering archived = 1.
@@ -504,7 +553,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ? AND c.archived = 1
@@ -518,7 +570,10 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, COUNT(m.id) as message_count
+                              c.is_planning, COUNT(m.id) as message_count,
+                              (SELECT m2.content FROM messages m2
+                               WHERE m2.conversation_id = c.id
+                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
                        WHERE c.user_id = ? AND c.archived = 1
@@ -538,7 +593,12 @@ class ConversationMixin:
                 next_cursor = build_cursor(last_row["updated_at"], last_row["id"])
 
             conversations_with_counts = [
-                (self._row_to_conversation(row), int(row["message_count"])) for row in rows
+                (
+                    self._row_to_conversation(row),
+                    int(row["message_count"]),
+                    build_message_preview(row["last_message"]),
+                )
+                for row in rows
             ]
 
             return conversations_with_counts, next_cursor, has_more, total_count

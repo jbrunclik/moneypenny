@@ -375,6 +375,7 @@ export class SyncManager {
         created_at: serverConv.updated_at, // We don't have created_at in sync response
         updated_at: serverConv.updated_at,
         messageCount: serverConv.message_count,
+        last_message_preview: serverConv.last_message_preview,
         unreadCount: serverConv.message_count, // All messages are unread
         hasExternalUpdate: false,
       });
@@ -444,6 +445,7 @@ export class SyncManager {
           title: serverConv.title,
           updated_at: serverConv.updated_at,
           messageCount: serverConv.message_count,
+          last_message_preview: serverConv.last_message_preview,
           unreadCount,
           hasExternalUpdate,
         });
@@ -499,6 +501,7 @@ export class SyncManager {
           created_at: serverConv.updated_at, // We don't have created_at in sync response
           updated_at: serverConv.updated_at,
           messageCount: serverConv.message_count,
+          last_message_preview: serverConv.last_message_preview,
           unreadCount,
           hasExternalUpdate: false,
         });

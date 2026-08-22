@@ -533,3 +533,42 @@ class TestListArchivedConversations:
         """Should return 401 without authentication."""
         response = client.get("/api/conversations/archived")
         assert response.status_code == 401
+
+
+class TestConversationPreviews:
+    def test_list_includes_last_message_preview(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        """Sidebar previews: each conversation carries a snippet of its newest message."""
+        test_database.add_message(test_conversation.id, "user", "What's for dinner?")
+        test_database.add_message(
+            test_conversation.id, "assistant", "How about goulash?\nIt reheats well."
+        )
+
+        response = client.get("/api/conversations", headers=auth_headers)
+        assert response.status_code == 200
+        conv = next(
+            c for c in response.get_json()["conversations"] if c["id"] == test_conversation.id
+        )
+        # Newest message, newlines collapsed
+        assert conv["last_message_preview"] == "How about goulash? It reheats well."
+
+    def test_preview_is_truncated(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "x" * 500)
+
+        response = client.get("/api/conversations", headers=auth_headers)
+        conv = next(
+            c for c in response.get_json()["conversations"] if c["id"] == test_conversation.id
+        )
+        assert len(conv["last_message_preview"]) <= 121  # 120 + ellipsis
+
+    def test_preview_none_for_empty_conversation(
+        self, client, auth_headers, test_conversation
+    ) -> None:
+        response = client.get("/api/conversations", headers=auth_headers)
+        conv = next(
+            c for c in response.get_json()["conversations"] if c["id"] == test_conversation.id
+        )
+        assert conv["last_message_preview"] is None

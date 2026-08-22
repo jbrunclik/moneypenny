@@ -35,6 +35,7 @@ import {
 import {
   focusMessageInput,
   ensureInputAreaVisible,
+  restoreDraftForConversation,
   shouldAutoFocusInput,
 } from '../components/MessageInput';
 import { renderModelDropdown } from '../components/ModelSelector';
@@ -220,6 +221,9 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   renderMessages(conv.messages || [], {
     hasPendingApproval: conv.has_pending_approval,
   });
+
+  // Restore this conversation's composer draft (typed text survives switches)
+  restoreDraftForConversation(conv.id);
 
   // Agent conversations use the shared chat header with back/edit actions
   if (conv.is_agent && conv.agent_id) {
@@ -512,6 +516,9 @@ export function createConversation(): void {
   renderMessages([]);
   renderModelDropdown();
   closeSidebar();
+
+  // Fresh conversation, fresh (empty) composer draft
+  restoreDraftForConversation(conv.id);
 
   // Ensure input area is visible (defensive fix for race conditions
   // when navigating between agents/planner/conversation views)

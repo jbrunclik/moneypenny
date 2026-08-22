@@ -630,7 +630,7 @@ class TestSyncOperations:
         result = test_database.list_conversations_with_message_count(test_user.id)
 
         assert len(result) == 1
-        conversation, message_count = result[0]
+        conversation, message_count, _preview = result[0]
         assert conversation.id == conv.id
         assert conversation.title == "Empty Chat"
         assert message_count == 0
@@ -702,7 +702,7 @@ class TestSyncOperations:
         result = test_database.get_conversations_updated_since(test_user.id, past_time)
 
         assert len(result) == 1
-        conversation, message_count = result[0]
+        conversation, message_count, _preview = result[0]
         assert conversation.id == conv.id
         assert message_count == 1
 
@@ -810,7 +810,7 @@ class TestArchiveOperations:
         conv_with_counts, _next_cursor, _has_more, total_count = (
             test_database.list_conversations_paginated_with_counts(test_user.id)
         )
-        returned_ids = [c.id for c, _count in conv_with_counts]
+        returned_ids = [c.id for c, _count, _preview in conv_with_counts]
 
         assert active_conv.id in returned_ids
         assert archived_conv.id not in returned_ids
@@ -828,7 +828,7 @@ class TestArchiveOperations:
         archived_with_counts, _next_cursor, _has_more, total_count = (
             test_database.list_archived_conversations_paginated(test_user.id)
         )
-        returned_ids = [c.id for c, _count in archived_with_counts]
+        returned_ids = [c.id for c, _count, _preview in archived_with_counts]
 
         assert archived_conv1.id in returned_ids
         assert archived_conv2.id in returned_ids

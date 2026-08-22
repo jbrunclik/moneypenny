@@ -2,7 +2,7 @@ import { escapeHtml, getElementById, autoResizeTextarea, clearElement } from '..
 import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
-import { MOBILE_BREAKPOINT_PX } from '../config';
+import { DRAFT_SAVE_DEBOUNCE_MS, MOBILE_BREAKPOINT_PX } from '../config';
 import { addFilesToPending } from './FileUpload';
 import { checkScrollButtonVisibility } from './ScrollToBottom';
 import { createLogger } from '../utils/logger';
@@ -74,10 +74,19 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
   // Store stop callback for use in click handler
   stopCallback = onStop || null;
 
-  // Auto-resize on input
+  // Auto-resize on input; persist the draft (debounced) so switching
+  // conversations or reloading never loses typed text
+  let draftSaveTimeout: number | undefined;
   input.addEventListener('input', () => {
     autoResizeTextarea(input);
     updateSendButtonState();
+    if (draftSaveTimeout) clearTimeout(draftSaveTimeout);
+    draftSaveTimeout = window.setTimeout(() => {
+      const convId = useStore.getState().currentConversation?.id;
+      if (convId) {
+        useStore.getState().setConversationDraft(convId, input.value);
+      }
+    }, DRAFT_SAVE_DEBOUNCE_MS);
   });
 
   // Send on Enter (desktop only - mobile users must tap Send button)
@@ -90,6 +99,11 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
       if (!isStopMode && !isBlockedForApproval) {
         onSend();
       }
+    }
+    // Terminal-style history: up-arrow in an empty composer recalls the
+    // last sent message for editing/resending
+    if (e.key === 'ArrowUp' && recallLastSentMessage()) {
+      e.preventDefault();
     }
   });
 
@@ -241,6 +255,42 @@ export function clearMessageInput(): void {
 export function focusMessageInput(): void {
   const input = getElementById<HTMLTextAreaElement>('message-input');
   input?.focus();
+}
+
+/**
+ * Up-arrow history: fill the EMPTY composer with the last user message of
+ * the current conversation (terminal-style recall). Returns whether a
+ * recall happened - callers use it to decide preventDefault.
+ */
+export function recallLastSentMessage(): boolean {
+  const input = getElementById<HTMLTextAreaElement>('message-input');
+  if (!input || input.value !== '') return false;
+
+  const store = useStore.getState();
+  const convId = store.currentConversation?.id;
+  if (!convId) return false;
+  const lastUserMessage = store
+    .getMessages(convId)
+    .filter((m) => m.role === 'user')
+    .at(-1);
+  if (!lastUserMessage?.content) return false;
+
+  input.value = lastUserMessage.content;
+  input.setSelectionRange(input.value.length, input.value.length);
+  autoResizeTextarea(input);
+  updateSendButtonState();
+  return true;
+}
+
+/**
+ * Restore the persisted composer draft for a conversation (on switch-in).
+ */
+export function restoreDraftForConversation(convId: string): void {
+  const input = getElementById<HTMLTextAreaElement>('message-input');
+  if (!input) return;
+  input.value = useStore.getState().getConversationDraft(convId);
+  autoResizeTextarea(input);
+  updateSendButtonState();
 }
 
 /**

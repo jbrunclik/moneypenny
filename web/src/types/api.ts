@@ -61,6 +61,7 @@ export interface Conversation {
   unreadCount?: number; // Number of unread messages from other devices
   hasExternalUpdate?: boolean; // True if conversation was updated externally while viewing
   messageCount?: number; // Total message count from server (for sync calculations)
+  last_message_preview?: string | null; // One-line snippet of the newest message (sidebar)
 }
 
 // =============================================================================
@@ -346,6 +347,7 @@ export interface ConversationSummary {
   model: string;
   updated_at: string;
   message_count: number;
+  last_message_preview?: string | null;
 }
 
 export interface SyncResponse {

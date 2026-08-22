@@ -752,3 +752,50 @@ describe('Upload Progress UI Functions', () => {
     });
   });
 });
+describe('recallLastSentMessage (up-arrow history)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '<textarea id="message-input"></textarea>';
+    useStore.setState({
+      currentConversation: {
+        id: 'c1',
+        title: 'T',
+        model: 'm',
+        created_at: '',
+        updated_at: '',
+      },
+      messages: new Map([
+        [
+          'c1',
+          [
+            { id: '1', role: 'user' as const, content: 'first question', created_at: '' },
+            { id: '2', role: 'assistant' as const, content: 'answer', created_at: '' },
+            { id: '3', role: 'user' as const, content: 'follow-up', created_at: '' },
+          ],
+        ],
+      ]),
+    });
+  });
+
+  it('fills the empty input with the last sent user message', async () => {
+    const { recallLastSentMessage } = await import('@/components/MessageInput');
+    const input = document.getElementById('message-input') as HTMLTextAreaElement;
+    const recalled = recallLastSentMessage();
+    expect(recalled).toBe(true);
+    expect(input.value).toBe('follow-up');
+    expect(input.selectionStart).toBe('follow-up'.length);
+  });
+
+  it('does nothing when the input already has text', async () => {
+    const { recallLastSentMessage } = await import('@/components/MessageInput');
+    const input = document.getElementById('message-input') as HTMLTextAreaElement;
+    input.value = 'typing';
+    expect(recallLastSentMessage()).toBe(false);
+    expect(input.value).toBe('typing');
+  });
+
+  it('does nothing when the conversation has no user messages', async () => {
+    const { recallLastSentMessage } = await import('@/components/MessageInput');
+    useStore.setState({ messages: new Map([['c1', []]]) });
+    expect(recallLastSentMessage()).toBe(false);
+  });
+});

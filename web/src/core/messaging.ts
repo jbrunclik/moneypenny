@@ -61,6 +61,7 @@ import {
   reconcileOutboxWithServer,
 } from './outbox';
 import { setMessageSendState } from '../components/messages/send-state';
+import { notifyTurnFinished } from './attention';
 import { getClientLocation } from './location';
 import { updateConversationCost, resetForceTools } from './toolbar';
 import { hasPendingApproval } from '../components/messages';
@@ -307,6 +308,7 @@ export async function sendMessage(): Promise<void> {
       if (wasAnonymous) {
         store.setAnonymousMode(persistedConv.id, true);
       }
+      store.migrateConversationDraft(tempId, persistedConv.id);
 
       // Update store with real ID
       store.removeConversation(tempId);
@@ -410,9 +412,10 @@ export async function sendMessage(): Promise<void> {
     });
   }
 
-  // Clear input and reset force tools (one-shot)
+  // Clear input, draft and force tools (one-shot)
   clearMessageInput();
   clearPendingFiles();
+  useStore.getState().setConversationDraft(conv.id, '');
   resetForceTools();
 
   await dispatchSend(conv.id, {
@@ -780,6 +783,7 @@ function cleanupStreamingRequest(
 
   if (messageSuccessful) {
     getSyncManager()?.incrementLocalMessageCount(convId, 2);
+    notifyTurnFinished();
   }
 
   getSyncManager()?.setConversationStreaming(convId, false);
@@ -1822,6 +1826,7 @@ async function sendBatchMessage(
     // Update sync manager's local message count (user message + assistant response = 2)
     // This is done here (after success) to ensure the count is updated before any sync
     getSyncManager()?.incrementLocalMessageCount(convId, 2);
+    notifyTurnFinished();
   } catch (error) {
     hideLoadingIndicator();
     hideUploadProgress();

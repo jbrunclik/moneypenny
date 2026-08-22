@@ -543,6 +543,7 @@ class ConversationResponse(BaseModel):
     updated_at: str
     message_count: int | None = None
     archived: bool | None = None
+    last_message_preview: str | None = None
 
 
 class ConversationDetailResponse(BaseModel):
@@ -581,6 +582,7 @@ class SyncConversationResponse(BaseModel):
     model: str
     updated_at: str
     message_count: int
+    last_message_preview: str | None = None
 
 
 class SyncResponse(BaseModel):

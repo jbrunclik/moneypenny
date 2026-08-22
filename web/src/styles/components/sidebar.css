@@ -121,13 +121,27 @@
     background-color: var(--bg-tertiary);
 }
 
+.conversation-text {
+    flex: 1;
+    min-width: 0;
+    transition: margin-right var(--transition-fast);
+}
+
 .conversation-title {
     font-size: var(--font-size-ui);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
-    transition: margin-right var(--transition-fast);
+}
+
+/* One-line snippet of the newest message */
+.conversation-preview {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
 }
 
 /* ----------------------------------------
@@ -186,7 +200,7 @@
 }
 
 /* On hover, make room for 3 action buttons */
-.conversation-item:hover .conversation-title {
+.conversation-item:hover .conversation-text {
     margin-right: 80px;
 }
 
@@ -408,8 +422,8 @@
     flex-shrink: 0;
 }
 
-/* Adjust title margin when badge is present */
-.conversation-item:has(.unread-badge) .conversation-title {
+/* Adjust text-column margin when badge is present */
+.conversation-item:has(.unread-badge) .conversation-text {
     margin-right: var(--space-2);
 }
 

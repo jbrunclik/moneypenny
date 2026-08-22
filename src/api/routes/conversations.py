@@ -159,8 +159,9 @@ def list_conversations(user: User) -> dict[str, Any]:
                 "updated_at": c.updated_at.isoformat(),
                 "message_count": message_count,
                 "archived": c.archived or None,
+                "last_message_preview": preview,
             }
-            for c, message_count in conv_with_counts
+            for c, message_count, preview in conv_with_counts
         ],
         "pagination": {
             "next_cursor": next_cursor,
@@ -276,8 +277,9 @@ def list_archived_conversations(user: User) -> dict[str, Any]:
                 "updated_at": c.updated_at.isoformat(),
                 "message_count": message_count,
                 "archived": True,
+                "last_message_preview": preview,
             }
-            for c, message_count in conv_with_counts
+            for c, message_count, preview in conv_with_counts
         ],
         "pagination": {
             "next_cursor": next_cursor,
@@ -779,8 +781,9 @@ def sync_conversations(user: User) -> dict[str, Any]:
                 "model": conv.model,
                 "updated_at": conv.updated_at.isoformat(),
                 "message_count": message_count,
+                "last_message_preview": preview,
             }
-            for conv, message_count in conv_with_counts
+            for conv, message_count, preview in conv_with_counts
         ],
         "server_time": server_time.isoformat(),
         "is_full_sync": is_full_sync,

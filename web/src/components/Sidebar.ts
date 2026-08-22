@@ -303,10 +303,18 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
     ? `<span class="conversation-time">${escapeHtml(formatRelativeTime(conv.updated_at))}</span>`
     : '';
 
+  // One-line snippet of the newest message (iMessage-style scanability)
+  const preview = conv.last_message_preview
+    ? `<div class="conversation-preview">${escapeHtml(conv.last_message_preview)}</div>`
+    : '';
+
   return `
     <div class="conversation-item-wrapper ${isActive ? 'active' : ''}" data-conv-id="${conv.id}">
       <div class="conversation-item" role="button" tabindex="${isActive ? '0' : '-1'}"${isActive ? ' aria-current="true"' : ''}>
-        <div class="conversation-title">${title}</div>
+        <div class="conversation-text">
+          <div class="conversation-title">${title}</div>
+          ${preview}
+        </div>
         ${unreadBadge}
         ${relativeTime}
         <div class="conversation-actions">

@@ -109,9 +109,8 @@ interface AppState {
   // Notifications (toast messages)
   notifications: Notification[];
 
-  // Draft message (for error recovery)
-  draftMessage: string;
-  draftFiles: FileUpload[];
+  // Per-conversation composer drafts (survive switching and reloads)
+  conversationDrafts: Record<string, string>;
 
   // Search state
   searchQuery: string;
@@ -226,9 +225,10 @@ interface AppState {
   dismissNotification: (id: string) => void;
   clearNotifications: () => void;
 
-  // Actions - Draft
-  setDraft: (message: string, files: FileUpload[]) => void;
-  clearDraft: () => void;
+  // Actions - Drafts
+  setConversationDraft: (convId: string, text: string) => void;
+  getConversationDraft: (convId: string) => string;
+  migrateConversationDraft: (fromId: string, toId: string) => void;
 
   // Actions - Search
   setSearchQuery: (query: string) => void;
@@ -351,8 +351,7 @@ export const useStore = create<AppState>()(
       newVersionAvailable: false,
       versionBannerDismissed: false,
       notifications: [],
-      draftMessage: '',
-      draftFiles: [],
+      conversationDrafts: {},
       searchQuery: '',
       searchResults: [],
       searchTotal: 0,
@@ -435,8 +434,7 @@ export const useStore = create<AppState>()(
           uploadProgress: null,
           pendingFiles: [],
           notifications: [],
-          draftMessage: '',
-          draftFiles: [],
+          conversationDrafts: {},
           searchQuery: '',
           searchResults: [],
           searchTotal: 0,
@@ -787,8 +785,26 @@ export const useStore = create<AppState>()(
       clearNotifications: () => set({ notifications: [] }),
 
       // Draft actions (for error recovery)
-      setDraft: (draftMessage, draftFiles) => set({ draftMessage, draftFiles }),
-      clearDraft: () => set({ draftMessage: '', draftFiles: [] }),
+      setConversationDraft: (convId, text) =>
+        set((state) => {
+          const drafts = { ...state.conversationDrafts };
+          if (text) {
+            drafts[convId] = text;
+          } else {
+            delete drafts[convId];
+          }
+          return { conversationDrafts: drafts };
+        }),
+      getConversationDraft: (convId) => get().conversationDrafts[convId] ?? '',
+      migrateConversationDraft: (fromId, toId) =>
+        set((state) => {
+          const draft = state.conversationDrafts[fromId];
+          if (draft === undefined) return state;
+          const drafts = { ...state.conversationDrafts };
+          delete drafts[fromId];
+          drafts[toId] = draft;
+          return { conversationDrafts: drafts };
+        }),
 
       // Search actions
       setSearchQuery: (searchQuery) => set({ searchQuery }),
@@ -956,9 +972,8 @@ export const useStore = create<AppState>()(
       partialize: (state) => ({
         token: state.token,
         streamingEnabled: state.streamingEnabled,
-        // Persist draft for crash recovery
-        draftMessage: state.draftMessage,
-        draftFiles: state.draftFiles,
+        // Persist composer drafts so they survive reloads
+        conversationDrafts: state.conversationDrafts,
       }),
     }
     )

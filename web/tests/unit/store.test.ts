@@ -135,7 +135,7 @@ describe('Store - Auth', () => {
         total_count: 0,
       });
       store.setActiveRequest('1', { conversationId: '1', type: 'stream' });
-      store.setDraft('secret draft', []);
+      store.setConversationDraft('c-1', 'secret draft');
 
       useStore.getState().logout();
 
@@ -144,7 +144,7 @@ describe('Store - Auth', () => {
       expect(after.messages.size).toBe(0);
       expect(after.messagesPagination.size).toBe(0);
       expect(after.activeRequests.size).toBe(0);
-      expect(after.draftMessage).toBe('');
+      expect(after.conversationDrafts).toEqual({});
       expect(after.archivedConversations).toHaveLength(0);
     });
 
@@ -979,5 +979,39 @@ describe('Store - Message updates', () => {
       expect(messages).toHaveLength(1);
       expect(messages[0].id).toBe('m2');
     });
+  });
+});
+
+describe('Store - Conversation Drafts', () => {
+  beforeEach(() => {
+    resetStore();
+    useStore.setState({ conversationDrafts: {} });
+  });
+
+  it('stores drafts per conversation', () => {
+    const store = useStore.getState();
+    store.setConversationDraft('c1', 'hello');
+    store.setConversationDraft('c2', 'other');
+    expect(useStore.getState().getConversationDraft('c1')).toBe('hello');
+    expect(useStore.getState().getConversationDraft('c2')).toBe('other');
+  });
+
+  it('returns empty string for conversations without a draft', () => {
+    expect(useStore.getState().getConversationDraft('nope')).toBe('');
+  });
+
+  it('setting an empty draft removes the entry', () => {
+    const store = useStore.getState();
+    store.setConversationDraft('c1', 'hello');
+    store.setConversationDraft('c1', '');
+    expect(useStore.getState().conversationDrafts).toEqual({});
+  });
+
+  it('migrates a draft from temp to persisted conversation id', () => {
+    const store = useStore.getState();
+    store.setConversationDraft('temp-1', 'migrating');
+    store.migrateConversationDraft('temp-1', 'real-id');
+    expect(useStore.getState().getConversationDraft('real-id')).toBe('migrating');
+    expect(useStore.getState().getConversationDraft('temp-1')).toBe('');
   });
 });
