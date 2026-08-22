@@ -7,6 +7,7 @@
  * Raw coordinates are sent per-request and never persisted server-side.
  */
 import {
+  LOCATION_ENABLE_RETRY_DELAYS_MS,
   LOCATION_ENABLE_TIMEOUT_MS,
   LOCATION_FIX_TIMEOUT_MS,
   LOCATION_MAX_AGE_MS,
@@ -61,16 +62,7 @@ export type LocationFixResult =
   | { ok: true; fix: ClientLocation }
   | { ok: false; reason: LocationFixFailure };
 
-/**
- * Request a fix for the settings enable flow, reporting WHY it failed so
- * the user can act on it (site permission vs. no positioning vs. slow fix).
- * Uses a generous timeout - the first fix includes the permission prompt
- * and a cold positioning lookup, unlike the send-time fast path.
- */
-export async function requestLocationFix(): Promise<LocationFixResult> {
-  if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
-    return { ok: false, reason: 'unsupported' };
-  }
+function attemptFix(): Promise<LocationFixResult> {
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -91,6 +83,30 @@ export async function requestLocationFix(): Promise<LocationFixResult> {
       { timeout: LOCATION_ENABLE_TIMEOUT_MS, maximumAge: LOCATION_MAX_AGE_MS }
     );
   });
+}
+
+/**
+ * Request a fix for the settings enable flow, reporting WHY it failed so
+ * the user can act on it (site permission vs. no positioning vs. slow fix).
+ * Uses a generous timeout - the first fix includes the permission prompt
+ * and a cold positioning lookup, unlike the send-time fast path.
+ *
+ * POSITION_UNAVAILABLE is retried with spaced attempts: on macOS,
+ * CoreLocation routinely reports kCLErrorLocationUnknown on a cold start
+ * and succeeds seconds later. Denial and timeout are final - denial won't
+ * change and timeout already waited its full window.
+ */
+export async function requestLocationFix(): Promise<LocationFixResult> {
+  if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+    return { ok: false, reason: 'unsupported' };
+  }
+  let result = await attemptFix();
+  for (const delayMs of LOCATION_ENABLE_RETRY_DELAYS_MS) {
+    if (result.ok || result.reason !== 'unavailable') break;
+    await new Promise((r) => setTimeout(r, delayMs));
+    result = await attemptFix();
+  }
+  return result;
 }
 
 /** Test-only: clear the module-level fix cache. */

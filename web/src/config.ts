@@ -108,6 +108,10 @@ export const LOCATION_FIX_TIMEOUT_MS = 3 * MS_PER_SECOND;
 // cold positioning lookup, so it gets far more headroom than send-time fixes
 export const LOCATION_ENABLE_TIMEOUT_MS = 20 * MS_PER_SECOND;
 
+// POSITION_UNAVAILABLE retries during the enable flow (macOS CoreLocation
+// often reports a transient failure on cold start and succeeds moments later)
+export const LOCATION_ENABLE_RETRY_DELAYS_MS = [2 * MS_PER_SECOND, 4 * MS_PER_SECOND];
+
 // =============================================================================
 // Authentication
 // =============================================================================

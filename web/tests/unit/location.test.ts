@@ -103,6 +103,7 @@ describe('location', () => {
   });
 
   it('requestLocationFix distinguishes denial, unavailability and timeout', async () => {
+    vi.useFakeTimers();
     setLocationSharingEnabled(true);
     for (const [code, reason] of [
       [1, 'denied'],
@@ -113,8 +114,45 @@ describe('location', () => {
       mockGeolocation((_success, error) =>
         error?.({ code, message: '' } as GeolocationPositionError)
       );
-      expect(await requestLocationFix()).toEqual({ ok: false, reason });
+      const promise = requestLocationFix();
+      await vi.runAllTimersAsync();
+      expect(await promise).toEqual({ ok: false, reason });
     }
+    vi.useRealTimers();
+  });
+
+  it('retries a transiently unavailable position (macOS CoreLocation cold start)', async () => {
+    vi.useFakeTimers();
+    setLocationSharingEnabled(true);
+    let attempts = 0;
+    mockGeolocation((success, error) => {
+      attempts++;
+      if (attempts < 2) {
+        error?.({ code: 2, message: 'kCLErrorLocationUnknown' } as GeolocationPositionError);
+      } else {
+        success({
+          coords: { latitude: 47.4, longitude: 13.4, accuracy: 40 },
+          timestamp: 1755300000000,
+        } as GeolocationPosition);
+      }
+    });
+    const promise = requestLocationFix();
+    await vi.runAllTimersAsync();
+    const result = await promise;
+    expect(result.ok).toBe(true);
+    expect(attempts).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it('does not retry a denial', async () => {
+    setLocationSharingEnabled(true);
+    let attempts = 0;
+    mockGeolocation((_success, error) => {
+      attempts++;
+      error?.({ code: 1, message: '' } as GeolocationPositionError);
+    });
+    expect(await requestLocationFix()).toEqual({ ok: false, reason: 'denied' });
+    expect(attempts).toBe(1);
   });
 
   it('requestLocationFix reports unsupported when the API is missing', async () => {
