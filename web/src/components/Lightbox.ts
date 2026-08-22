@@ -11,6 +11,12 @@ import { createLogger } from '../utils/logger';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import { MAXIMIZE_ICON, MINIMIZE_ICON } from '../utils/icons';
 import {
+  computePinchScale,
+  pointerDistance,
+  pointerMidpoint,
+  type Point,
+} from './lightbox-gestures';
+import {
   LIGHTBOX_SWIPE_MIN_PX,
   LIGHTBOX_ZOOM_SCALE,
   LIGHTBOX_ZOOM_MAX_SCALE,
@@ -34,9 +40,9 @@ let loadToken = 0;
 let scale = 1;
 let translateX = 0;
 let translateY = 0;
-let panPointerId: number | null = null;
-let panLastX = 0;
-let panLastY = 0;
+// Set when a touch double-tap toggled zoom, so a browser-synthesized
+// dblclick right after doesn't immediately toggle it back
+let lastTouchToggleAt = 0;
 
 function itemKey(item: GalleryItem): string {
   return `${item.messageId}:${item.fileIndex}`;
@@ -98,14 +104,15 @@ export function initLightbox(): void {
     if (e.key === 'ArrowRight') showRelative(1);
   });
 
-  // Double-click / double-tap toggles zoom at the pointer position
+  // Double-click toggles zoom at the pointer position (desktop; touch
+  // double-taps are detected manually below - iOS doesn't reliably fire
+  // dblclick, and touch-action:none suppresses native gestures anyway)
   img.addEventListener('dblclick', (e) => {
     e.preventDefault();
-    if (scale > 1) {
-      resetZoom(img);
-    } else {
-      zoomAt(img, e.clientX, e.clientY, LIGHTBOX_ZOOM_SCALE);
-    }
+    // Some browsers synthesize a dblclick after a touch double-tap the
+    // manual detector already handled - don't toggle straight back
+    if (Date.now() - lastTouchToggleAt < 500) return;
+    toggleZoomAt(img, e.clientX, e.clientY);
   });
 
   // Wheel zoom (desktop)
@@ -126,52 +133,7 @@ export function initLightbox(): void {
     { passive: false }
   );
 
-  // Drag-to-pan while zoomed
-  img.addEventListener('pointerdown', (e) => {
-    if (scale <= 1) return;
-    panPointerId = e.pointerId;
-    panLastX = e.clientX;
-    panLastY = e.clientY;
-    img.setPointerCapture(e.pointerId);
-  });
-  img.addEventListener('pointermove', (e) => {
-    if (panPointerId !== e.pointerId) return;
-    translateX += e.clientX - panLastX;
-    translateY += e.clientY - panLastY;
-    panLastX = e.clientX;
-    panLastY = e.clientY;
-    clampPan(img);
-    applyTransform(img);
-  });
-  const endPan = (e: PointerEvent): void => {
-    if (panPointerId === e.pointerId) panPointerId = null;
-  };
-  img.addEventListener('pointerup', endPan);
-  img.addEventListener('pointercancel', endPan);
-
-  // Swipe navigation (only when not zoomed - zoomed touches pan instead)
-  let touchStartX = 0;
-  let touchStartY = 0;
-  lightbox.addEventListener(
-    'touchstart',
-    (e) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    },
-    { passive: true }
-  );
-  lightbox.addEventListener(
-    'touchend',
-    (e) => {
-      if (scale > 1) return;
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = e.changedTouches[0].clientY - touchStartY;
-      if (Math.abs(dx) > LIGHTBOX_SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        showRelative(dx < 0 ? 1 : -1);
-      }
-    },
-    { passive: true }
-  );
+  initTouchGestures(lightbox, img);
 
   // Listen for custom lightbox:open events
   window.addEventListener('lightbox:open', ((e: CustomEvent) => {
@@ -330,9 +292,130 @@ function resetZoom(img: HTMLImageElement): void {
   scale = 1;
   translateX = 0;
   translateY = 0;
-  panPointerId = null;
   img.style.transform = '';
   img.classList.remove('zoomed');
+}
+
+function toggleZoomAt(img: HTMLImageElement, clientX: number, clientY: number): void {
+  if (scale > 1) {
+    resetZoom(img);
+  } else {
+    zoomAt(img, clientX, clientY, LIGHTBOX_ZOOM_SCALE);
+  }
+}
+
+/**
+ * Touch gestures: pinch zoom (two-pointer distance ratio anchored at the
+ * midpoint), one-finger pan while zoomed, manual double-tap zoom toggle,
+ * and swipe navigation when not zoomed. Pointer events cover pinch/pan/tap;
+ * touch events handle the swipe so it also works starting on the backdrop.
+ */
+function initTouchGestures(lightbox: HTMLDivElement, img: HTMLImageElement): void {
+  const activePointers = new Map<number, Point>();
+  let pinchStartDistance = 0;
+  let pinchStartScale = 1;
+  let gestureHadPinch = false;
+  let downPosition: Point | null = null;
+  let lastTapAt = 0;
+  let lastTapPosition: Point | null = null;
+
+  img.addEventListener('pointerdown', (e) => {
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    img.setPointerCapture(e.pointerId);
+    if (activePointers.size === 1) {
+      downPosition = { x: e.clientX, y: e.clientY };
+    } else if (activePointers.size === 2) {
+      const [a, b] = [...activePointers.values()];
+      pinchStartDistance = pointerDistance(a, b);
+      pinchStartScale = scale;
+      gestureHadPinch = true;
+    }
+  });
+
+  img.addEventListener('pointermove', (e) => {
+    const previous = activePointers.get(e.pointerId);
+    if (!previous) return;
+    const current = { x: e.clientX, y: e.clientY };
+    activePointers.set(e.pointerId, current);
+
+    if (activePointers.size === 2 && pinchStartDistance > 0) {
+      const [a, b] = [...activePointers.values()];
+      const midpoint = pointerMidpoint(a, b);
+      const next = computePinchScale(pinchStartScale, pinchStartDistance, pointerDistance(a, b));
+      if (next <= 1.02) {
+        resetZoom(img);
+      } else {
+        zoomAt(img, midpoint.x, midpoint.y, next);
+      }
+    } else if (activePointers.size === 1 && scale > 1) {
+      translateX += current.x - previous.x;
+      translateY += current.y - previous.y;
+      clampPan(img);
+      applyTransform(img);
+    }
+  });
+
+  const releasePointer = (e: PointerEvent): void => {
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) {
+      pinchStartDistance = 0;
+    }
+    if (activePointers.size > 0) return;
+
+    // Gesture over: detect touch double-taps (iOS doesn't reliably fire
+    // dblclick, and the global viewport meta disables native double-tap)
+    if (e.pointerType === 'touch' && e.type === 'pointerup' && !gestureHadPinch && downPosition) {
+      const movedPx = pointerDistance(downPosition, { x: e.clientX, y: e.clientY });
+      const isTap = movedPx < 10;
+      const now = Date.now();
+      if (
+        isTap &&
+        now - lastTapAt < 300 &&
+        lastTapPosition &&
+        pointerDistance(lastTapPosition, { x: e.clientX, y: e.clientY }) < 40
+      ) {
+        toggleZoomAt(img, e.clientX, e.clientY);
+        lastTouchToggleAt = now;
+        lastTapAt = 0;
+        lastTapPosition = null;
+      } else if (isTap) {
+        lastTapAt = now;
+        lastTapPosition = { x: e.clientX, y: e.clientY };
+      }
+    }
+    gestureHadPinch = false;
+    downPosition = null;
+  };
+  img.addEventListener('pointerup', releasePointer);
+  img.addEventListener('pointercancel', releasePointer);
+
+  // Swipe navigation (only when not zoomed - zoomed touches pan instead)
+  let touchStart: Point | null = null;
+  let touchGestureHadPinch = false;
+  lightbox.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches.length === 1) {
+        touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        touchGestureHadPinch = false;
+      } else {
+        touchGestureHadPinch = true;
+      }
+    },
+    { passive: true }
+  );
+  lightbox.addEventListener(
+    'touchend',
+    (e) => {
+      if (scale > 1 || touchGestureHadPinch || !touchStart || e.touches.length > 0) return;
+      const dx = e.changedTouches[0].clientX - touchStart.x;
+      const dy = e.changedTouches[0].clientY - touchStart.y;
+      if (Math.abs(dx) > LIGHTBOX_SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        showRelative(dx < 0 ? 1 : -1);
+      }
+    },
+    { passive: true }
+  );
 }
 
 function zoomAt(img: HTMLImageElement, clientX: number, clientY: number, newScale: number): void {
