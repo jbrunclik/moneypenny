@@ -25,9 +25,9 @@
     <script type="module" src="http://localhost:5173/src/main.ts"></script>
     {% else %}
     <!-- Production: Built assets -->
-    {% if css_file %}
+    {% for css_file in css_files %}
     <link rel="stylesheet" href="/static/assets/{{ css_file }}">
-    {% endif %}
+    {% endfor %}
     <script type="module" src="/static/assets/{{ js_file }}"></script>
     {% endif %}
 </head>

@@ -6,6 +6,7 @@ import { getElementById, scrollToBottom, isScrolledToBottom } from '../../utils/
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
+import { highlightLiveCodeBlocks } from './live-highlight';
 import { isProgrammaticScrollActive, programmaticScrollToBottom } from '../../utils/thumbnails';
 import {
   checkScrollButtonVisibility,
@@ -476,6 +477,10 @@ export function updateStreamingMessage(
 
   // Render markdown for the accumulated content
   contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
+
+  // Live syntax highlighting: completed blocks come from the per-block
+  // cache; only the still-growing block is re-highlighted
+  highlightLiveCodeBlocks(contentEl as HTMLElement);
 
   // Re-insert thinking indicator at the top
   if (thinkingIndicator) {

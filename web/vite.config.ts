@@ -15,6 +15,16 @@ export default defineConfig(({ command }) => ({
         entryFileNames: '[name]-[hash].js',
         chunkFileNames: '[name]-[hash].js',
         assetFileNames: '[name]-[hash][extname]',
+        // Split the heavyweight render libraries into their own chunks:
+        // their hashes stay stable across app deploys, so returning
+        // clients only re-download the (small) app code
+        advancedChunks: {
+          groups: [
+            { name: 'vendor-katex', test: /node_modules[\\/]katex[\\/]/ },
+            { name: 'vendor-hljs', test: /node_modules[\\/](highlight\.js|@highlightjs)[\\/]/ },
+            { name: 'vendor-markdown', test: /node_modules[\\/](marked|dompurify)[\\/]/ },
+          ],
+        },
       },
     },
   },

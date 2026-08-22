@@ -9,6 +9,7 @@ from flask import Response, render_template, request, send_from_directory
 from src.api.rate_limiting import init_rate_limiting
 from src.api.routes import register_blueprints
 from src.config import Config
+from src.utils.assets import collect_entry_css
 from src.utils.logging import get_logger, set_request_id, setup_logging
 
 # Production CSP (S10). Notes on the non-obvious sources:
@@ -225,7 +226,7 @@ def create_app() -> APIFlask:
     def index() -> str | tuple[str, int]:
         logger.debug("Rendering index page")
         js_file: str | None = None
-        css_file: str | None = None
+        css_files: list[str] = []
 
         # In development mode, always use Vite dev server (ignore manifest)
         dev_mode = Config.is_development()
@@ -237,18 +238,16 @@ def create_app() -> APIFlask:
                 return "Frontend not built. Run 'make build' first.", 500
             main_entry = vite_manifest.get("src/main.ts", {})
             js_file = str(main_entry.get("file")) if main_entry.get("file") else None
-            css_files = main_entry.get("css", [])
-            if isinstance(css_files, list) and css_files:
-                css_file = str(css_files[0])
+            css_files = collect_entry_css(vite_manifest, "src/main.ts")
             logger.debug(
                 "Loaded production assets",
-                extra={"js_file": js_file, "css_file": css_file, "app_version": app_version},
+                extra={"js_file": js_file, "css_files": css_files, "app_version": app_version},
             )
 
         return render_template(
             "index.html",
             js_file=js_file,
-            css_file=css_file,
+            css_files=css_files,
             dev_mode=dev_mode,
             app_version=app_version,
         )
