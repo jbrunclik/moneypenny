@@ -349,14 +349,11 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
         </div>
       </div>
       <div class="conversation-actions-swipe">
-        <button class="conversation-rename-swipe" data-rename-id="${conv.id}" aria-label="Rename">
-          ${EDIT_ICON}
+        <button class="conversation-more-swipe" data-more-id="${conv.id}" aria-label="More actions">
+          ⋯
         </button>
         <button class="conversation-archive-swipe" data-archive-id="${conv.id}" aria-label="Archive">
           ${ARCHIVE_ICON}
-        </button>
-        <button class="conversation-delete-swipe" data-delete-id="${conv.id}" aria-label="Delete">
-          ${DELETE_ICON}
         </button>
       </div>
     </div>
@@ -391,14 +388,11 @@ function renderArchivedConversationItem(conv: Conversation): string {
         </div>
       </div>
       <div class="conversation-actions-swipe">
-        <button class="conversation-rename-swipe" data-rename-id="${conv.id}" aria-label="Rename">
-          ${EDIT_ICON}
+        <button class="conversation-more-swipe" data-more-archived-id="${conv.id}" aria-label="More actions">
+          ⋯
         </button>
         <button class="conversation-unarchive-swipe" data-unarchive-id="${conv.id}" aria-label="Unarchive">
           ${UNARCHIVE_ICON}
-        </button>
-        <button class="conversation-delete-swipe" data-delete-id="${conv.id}" aria-label="Delete">
-          ${DELETE_ICON}
         </button>
       </div>
     </div>

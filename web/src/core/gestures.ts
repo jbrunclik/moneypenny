@@ -21,7 +21,7 @@ export function setupTouchGestures(): void {
 
   // Constants
   const SWIPE_THRESHOLD = 60;
-  const SWIPE_DISTANCE = 240; // 3 buttons x 80px (rename, archive, delete)
+  const SWIPE_DISTANCE = 160; // 2 buttons x 80px (more, archive/unarchive)
   const EDGE_ZONE = 50; // px from left edge to trigger sidebar swipe
 
   // Track active swipe type to prevent conflicts
@@ -37,8 +37,9 @@ export function setupTouchGestures(): void {
         return false;
       }
       // Prevent starting new swipe if clicking action buttons
-      if ((e.target as HTMLElement).closest('.conversation-rename-swipe')) return false;
-      if ((e.target as HTMLElement).closest('.conversation-delete-swipe')) return false;
+      if ((e.target as HTMLElement).closest('.conversation-more-swipe')) return false;
+      if ((e.target as HTMLElement).closest('.conversation-archive-swipe')) return false;
+      if ((e.target as HTMLElement).closest('.conversation-unarchive-swipe')) return false;
       // Note: We set activeSwipeType in onSwipeMove (when actual swiping starts),
       // not here, to avoid blocking sidebar swipes after a tap (non-swipe touch)
       return true;

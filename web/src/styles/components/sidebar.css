@@ -219,10 +219,10 @@
 
     .conversation-actions-swipe {
         position: absolute;
-        right: -240px;
+        right: -160px;
         top: 0;
         bottom: 0;
-        width: 240px;
+        width: 160px;
         display: flex;
         flex-shrink: 0;
         transition: right var(--transition-slow);
@@ -231,6 +231,7 @@
         pointer-events: none;
     }
 
+    .conversation-more-swipe,
     .conversation-rename-swipe,
     .conversation-archive-swipe,
     .conversation-delete-swipe {
@@ -260,6 +261,19 @@
         background-color: var(--error);
     }
 
+    .conversation-more-swipe,
+    .conversation-unarchive-swipe {
+        width: 80px;
+    }
+
+    .conversation-more-swipe {
+        background-color: var(--bg-tertiary);
+        color: var(--text-primary);
+        font-size: var(--font-size-2xl, 1.4rem);
+        border: none;
+        cursor: pointer;
+    }
+
     .conversation-rename-swipe svg,
     .conversation-archive-swipe svg,
     .conversation-delete-swipe svg {
@@ -269,7 +283,7 @@
 
     /* Swiped state */
     .conversation-item-wrapper.swiped .conversation-item {
-        transform: translateX(-240px);
+        transform: translateX(-160px);
         border-radius: var(--radius-sm) 0 0 var(--radius-sm);
     }
 

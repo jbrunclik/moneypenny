@@ -2088,3 +2088,92 @@
 .settings-toggle-spaced {
     margin-top: var(--space-3);
 }
+
+/* ----------------------------------------
+   Action Sheet (conversation actions)
+   ---------------------------------------- */
+
+.action-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: var(--overlay-bg);
+    z-index: var(--z-popup);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.action-sheet {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    width: 100%;
+    max-width: 480px;
+    padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0));
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: popup-in var(--duration-fast) var(--ease-out);
+}
+
+.action-sheet-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    padding: var(--space-2) var(--space-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.action-sheet-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3);
+    min-height: 48px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.action-sheet-item:hover {
+    background-color: var(--bg-hover);
+}
+
+.action-sheet-item.danger {
+    color: var(--error);
+}
+
+.action-sheet-icon {
+    display: inline-flex;
+}
+
+.action-sheet-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.action-sheet-cancel {
+    justify-content: center;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    margin-top: var(--space-1);
+}
+
+/* Desktop: centered like a small menu instead of bottom-anchored */
+@media (min-width: 769px) {
+    .action-sheet-overlay {
+        align-items: center;
+    }
+
+    .action-sheet {
+        border-radius: var(--radius-md);
+        max-width: 360px;
+    }
+}

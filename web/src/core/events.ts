@@ -11,6 +11,9 @@ import { logout } from '../auth/google';
 import { toggleSidebar } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
+import { showActionSheet } from '../components/ActionSheet';
+import { useStore } from '../state/store';
+import { ARCHIVE_ICON, DELETE_ICON, EDIT_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 
 import { createConversation, selectConversation, deleteConversation, renameConversation, archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView, togglePinConversation } from './conversation';
 import { navigateToPlanner } from './planner';
@@ -26,6 +29,47 @@ const log = createLogger('events');
 /**
  * Setup event listeners.
  */
+/**
+ * Bottom sheet with all conversation actions - replaces the crammed
+ * multi-button swipe row on touch devices.
+ */
+function openConversationActionSheet(convId: string, archived: boolean): void {
+  const store = useStore.getState();
+  const conv = archived
+    ? store.archivedConversations.find((c) => c.id === convId)
+    : store.conversations.find((c) => c.id === convId);
+  const title = conv?.title || 'Conversation';
+
+  const actions = archived
+    ? [
+        { label: 'Rename', icon: EDIT_ICON, onSelect: () => renameConversation(convId) },
+        { label: 'Unarchive', icon: UNARCHIVE_ICON, onSelect: () => unarchiveConversation(convId) },
+        {
+          label: 'Delete',
+          icon: DELETE_ICON,
+          danger: true,
+          onSelect: () => deleteConversation(convId),
+        },
+      ]
+    : [
+        {
+          label: conv?.pinned ? 'Unpin' : 'Pin',
+          icon: conv?.pinned ? UNPIN_ICON : PIN_ICON,
+          onSelect: () => void togglePinConversation(convId),
+        },
+        { label: 'Rename', icon: EDIT_ICON, onSelect: () => renameConversation(convId) },
+        { label: 'Archive', icon: ARCHIVE_ICON, onSelect: () => archiveConversation(convId) },
+        {
+          label: 'Delete',
+          icon: DELETE_ICON,
+          danger: true,
+          onSelect: () => deleteConversation(convId),
+        },
+      ];
+
+  showActionSheet(title, actions);
+}
+
 export function setupEventListeners(): void {
   // New chat button
   getElementById('new-chat-btn')?.addEventListener('click', createConversation);
@@ -152,6 +196,18 @@ export function setupEventListeners(): void {
     }
 
     // Handle archive button clicks
+    const moreBtn = (e.target as HTMLElement).closest('[data-more-id], [data-more-archived-id]');
+    if (moreBtn) {
+      e.stopPropagation();
+      const el = moreBtn as HTMLElement;
+      if (el.dataset.moreId) {
+        openConversationActionSheet(el.dataset.moreId, false);
+      } else if (el.dataset.moreArchivedId) {
+        openConversationActionSheet(el.dataset.moreArchivedId, true);
+      }
+      return;
+    }
+
     const pinBtn = (e.target as HTMLElement).closest('[data-pin-id]');
     if (pinBtn) {
       e.stopPropagation();
