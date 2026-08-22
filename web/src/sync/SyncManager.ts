@@ -313,8 +313,11 @@ export class SyncManager {
 
     // Detect deleted conversations (in local but not in server)
     // Skip temp conversations (not yet persisted)
+    // Skip archived conversations too: sync intentionally excludes them, so
+    // a deep-linked archived conversation would otherwise be "deleted" and
+    // kicked out of view seconds after loading
     const deletedIds = store.conversations
-      .filter((c) => !c.id.startsWith('temp-') && !serverIds.has(c.id))
+      .filter((c) => !c.id.startsWith('temp-') && !c.archived && !serverIds.has(c.id))
       .map((c) => c.id);
 
     // Handle deletions

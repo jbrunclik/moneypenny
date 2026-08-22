@@ -374,3 +374,79 @@ test.describe('Deep Linking - Edge Cases', () => {
   });
 });
 
+
+test.describe('Deep link - Archived conversations', () => {
+  test('reloading an archived conversation URL loads it', async ({ page }) => {
+    // Create a conversation with content
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Message before archive');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
+
+    // Capture its URL, then archive it via the API (as the UI would)
+    const url = page.url();
+    const convId = url.split('/conversations/')[1];
+    expect(convId).toBeTruthy();
+    await page.evaluate(async (id) => {
+      const token = JSON.parse(localStorage.getItem('ai-chatbot-storage')!).state.token;
+      await fetch(`/api/conversations/${id}/archive`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }, convId);
+
+    // Reload the deep link - the archived conversation must still open
+    await page.goto(url);
+    await expect(page.locator('.message.user')).toContainText('Message before archive', {
+      timeout: 20000,
+    });
+    await expect(page.locator('.message.assistant')).toBeVisible();
+
+    // And it must not get kicked out by the next sync treating it as deleted
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.message.user')).toContainText('Message before archive');
+  });
+});
+
+test.describe('Deep link - Archive view', () => {
+  test('#/archive opens the archive view directly', async ({ page }) => {
+    await page.goto('/#/archive');
+    await expect(page.locator('.archive-view-header')).toBeVisible({ timeout: 20000 });
+  });
+
+  test('archive view survives a reload', async ({ page }) => {
+    // Enter archive via the UI, then reload - the URL must bring it back
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Need at least one archived conversation for the section link to exist;
+    // create + archive one via the UI-equivalent API calls
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'To be archived');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
+    const convId = page.url().split('/conversations/')[1];
+    await page.evaluate(async (id) => {
+      const token = JSON.parse(localStorage.getItem('ai-chatbot-storage')!).state.token;
+      await fetch(`/api/conversations/${id}/archive`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }, convId);
+
+    await page.goto('/#/archive');
+    await expect(page.locator('.archive-view-header')).toBeVisible({ timeout: 20000 });
+    expect(page.url()).toContain('#/archive');
+
+    await page.reload();
+    await expect(page.locator('.archive-view-header')).toBeVisible({ timeout: 20000 });
+
+    // Opening an archived conversation from the view works and deep-links
+    await page.click('.conversation-item');
+    await expect(page.locator('.message.user')).toContainText('To be archived', {
+      timeout: 20000,
+    });
+  });
+});

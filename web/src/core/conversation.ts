@@ -42,6 +42,7 @@ import { renderModelDropdown } from '../components/ModelSelector';
 import { getElementById } from '../utils/dom';
 import { enableScrollOnImageLoad, setCurrentConversationForBlobs } from '../utils/thumbnails';
 import {
+  setArchiveHash,
   setConversationHash,
   clearConversationHash,
   pushEmptyHash,
@@ -401,6 +402,7 @@ export async function selectConversation(convId: string): Promise<void> {
       is_agent: response.is_agent,
       agent_id: response.agent_id,
       has_pending_approval: response.has_pending_approval,
+      archived: response.archived,
     };
 
     // Mark agent conversation as viewed to reset unread count
@@ -782,6 +784,7 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         created_at: response.created_at,
         updated_at: response.updated_at,
         messages: mergedMessages,
+        archived: response.archived,
       };
       // Use total message count from pagination for correct sync behavior
       switchToConversation(conv, response.message_pagination.total_count);
@@ -827,10 +830,13 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         created_at: response.created_at,
         updated_at: response.updated_at,
         messages: mergedMessages,
+        archived: response.archived,
         // Set messageCount from pagination for sync manager
         messageCount: response.message_pagination.total_count,
       };
-      if (!response.is_agent) {
+      // Agent conversations are managed separately; archived ones must not
+      // appear in the main sidebar list (and sync would treat them oddly)
+      if (!response.is_agent && !response.archived) {
         store.addConversation(conv);
         renderConversationsList();
       }
@@ -855,7 +861,7 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean): void {
+export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean): void {
   log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports, isLanguage });
   const store = useStore.getState();
 
@@ -885,6 +891,12 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
     } else {
       void navigateToSports();
     }
+    return;
+  }
+
+  // Handle archive navigation (back/forward to #/archive)
+  if (isArchive) {
+    navigateToArchive();
     return;
   }
 
@@ -922,6 +934,11 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
   // If we were in language view and navigating away, leave language
   if (store.isLanguageView) {
     leaveLanguageView();
+  }
+
+  // If we were in archive view and navigating away, leave archive
+  if (store.isArchiveView) {
+    leaveArchiveView();
   }
 
   if (!conversationId) {
@@ -1027,6 +1044,7 @@ export async function unarchiveConversation(convId: string): Promise<void> {
 export function navigateToArchive(): void {
   const store = useStore.getState();
   store.setIsArchiveView(true);
+  setArchiveHash();
 
   // Lazy-load archived conversations on first open
   if (store.archivedConversations.length === 0) {
@@ -1045,4 +1063,11 @@ export function leaveArchiveView(): void {
   store.setIsArchiveView(false);
   cleanupArchiveInfiniteScroll();
   renderConversationsList();
+  // Restore the URL: back to the open conversation or home
+  const currentId = store.currentConversation?.id;
+  if (currentId && !isTempConversation(currentId)) {
+    setConversationHash(currentId, { replace: true });
+  } else {
+    clearConversationHash();
+  }
 }

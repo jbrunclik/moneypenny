@@ -66,7 +66,7 @@ import { setupEventListeners } from './events';
 import { setupTouchGestures } from './gestures';
 import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
-import { loadDeepLinkedConversation, handleDeepLinkNavigation, deleteMessage } from './conversation';
+import { loadDeepLinkedConversation, handleDeepLinkNavigation, deleteMessage, navigateToArchive } from './conversation';
 import { navigateToPlanner, leavePlannerView } from './planner';
 import { navigateToSports, navigateToSportsProgram } from './sports';
 import { navigateToLanguage, navigateToLanguageProgram } from './language';
@@ -329,6 +329,8 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       } else {
         await navigateToLanguage();
       }
+    } else if (initialRoute?.isArchive) {
+      navigateToArchive();
     } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {
       await loadDeepLinkedConversation(initialRoute.conversationId);
     }
@@ -522,6 +524,7 @@ export async function init(): Promise<void> {
         isStorage: route.type === 'storage',
         isSports: route.type === 'sports',
         isLanguage: route.type === 'language',
+        isArchive: route.type === 'archive',
       };
       await loadInitialData(initialRoute);
     } catch (error) {
