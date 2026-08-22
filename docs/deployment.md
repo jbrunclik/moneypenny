@@ -77,6 +77,18 @@ Only users with `MEMORY_DEFRAG_THRESHOLD` memories or more are processed (defaul
 
 ## Reverse Proxy (nginx)
 
+**Do not add security headers in nginx that the app already sets.** The Flask
+app sends `Permissions-Policy`, CSP, and the other security headers itself
+(`src/app.py`). If nginx *also* adds a `Permissions-Policy` header (common in
+site hardening templates), browsers receive both and apply the **intersection**
+of the policies - a template default of `geolocation=()` silently kills the
+app's device-location feature in every browser, with only a console
+"permissions policy" violation as the clue. This happened in production
+(Aug 2026): the app's `geolocation=(self)` was intersected away by an nginx
+`add_header Permissions-Policy "geolocation=(), ..."` line. If a shared
+hardening template must stay, carve out this vhost: geolocation and microphone
+need `(self)` (device location and voice input).
+
 If running behind nginx, ensure timeouts and compression are configured:
 
 ```nginx
