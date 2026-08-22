@@ -3,8 +3,10 @@ import { resolve } from 'path';
 
 export default defineConfig(({ command }) => ({
   root: '.',
-  // Only use /static/ base in production builds, not dev server
-  base: command === 'build' ? '/static/' : '/',
+  // Production base must match where the build lands (outDir static/assets):
+  // dynamic-import chunk URLs, CSS preloads and font url()s are all
+  // emitted against this base. '/static/' broke lazy chunks and fonts.
+  base: command === 'build' ? '/static/assets/' : '/',
   build: {
     outDir: '../static/assets',
     emptyOutDir: true,
