@@ -45,6 +45,7 @@ import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import type { TodoistStatus, CalendarStatus, GarminStatus, Calendar, DailyBriefingSettings } from '../types/api';
 import { useStore } from '../state/store';
 import { renderConversationsList } from './Sidebar';
+import { isSidebarPreviewsEnabled, setSidebarPreviewsEnabled } from '../utils/preferences';
 
 const log = createLogger('settings-popup');
 
@@ -629,6 +630,11 @@ function renderContent(
           ${renderColorSchemeOption('dark', MOON_ICON, 'Dark', colorScheme === 'dark')}
           ${renderColorSchemeOption('system', MONITOR_ICON, 'System', colorScheme === 'system')}
         </div>
+        <label class="toggle-label settings-toggle-spaced">
+          <input type="checkbox" id="sidebar-previews-enabled" ${isSidebarPreviewsEnabled() ? 'checked' : ''}>
+          <span class="toggle-switch"></span>
+          <span class="toggle-text">Show message previews in the sidebar</span>
+        </label>
       </div>
 
       <div class="settings-divider"></div>
@@ -1560,6 +1566,10 @@ function initSettingsPopup(): void {
     }
     if (target.id === 'location-sharing-enabled') {
       handleLocationSharingChange(target as HTMLInputElement);
+    }
+    if (target.id === 'sidebar-previews-enabled') {
+      setSidebarPreviewsEnabled((target as HTMLInputElement).checked);
+      renderConversationsList();
     }
   });
 

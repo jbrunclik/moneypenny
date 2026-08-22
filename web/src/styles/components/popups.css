@@ -2083,3 +2083,8 @@
         animation: none;
     }
 }
+
+/* Spacing for toggles that follow another control in the same field */
+.settings-toggle-spaced {
+    margin-top: var(--space-3);
+}

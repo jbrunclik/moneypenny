@@ -718,3 +718,37 @@ describe('Sidebar', () => {
     });
   });
 });
+
+describe('sidebar message previews toggle', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.body.innerHTML = '<div id="conversations-list"></div>';
+    useStore.setState({
+      conversations: [
+        {
+          id: 'c1',
+          title: 'Dinner plans',
+          model: 'm',
+          created_at: '2026-08-22T10:00:00Z',
+          updated_at: '2026-08-22T10:00:00Z',
+          last_message_preview: 'How about goulash?',
+        },
+      ],
+      currentConversation: null,
+    });
+  });
+
+  it('shows previews by default', () => {
+    renderConversationsList();
+    expect(document.querySelector('.conversation-preview')?.textContent).toBe(
+      'How about goulash?'
+    );
+  });
+
+  it('hides previews when the setting is disabled', async () => {
+    const { setSidebarPreviewsEnabled } = await import('@/utils/preferences');
+    setSidebarPreviewsEnabled(false);
+    renderConversationsList();
+    expect(document.querySelector('.conversation-preview')).toBeNull();
+  });
+});

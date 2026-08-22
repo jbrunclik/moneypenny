@@ -1,6 +1,7 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { renderUserAvatarHtml } from '../utils/avatar';
+import { isSidebarPreviewsEnabled } from '../utils/preferences';
 import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
@@ -303,10 +304,12 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
     ? `<span class="conversation-time">${escapeHtml(formatRelativeTime(conv.updated_at))}</span>`
     : '';
 
-  // One-line snippet of the newest message (iMessage-style scanability)
-  const preview = conv.last_message_preview
-    ? `<div class="conversation-preview">${escapeHtml(conv.last_message_preview)}</div>`
-    : '';
+  // One-line snippet of the newest message (iMessage-style scanability);
+  // per-device settings toggle
+  const preview =
+    conv.last_message_preview && isSidebarPreviewsEnabled()
+      ? `<div class="conversation-preview">${escapeHtml(conv.last_message_preview)}</div>`
+      : '';
 
   return `
     <div class="conversation-item-wrapper ${isActive ? 'active' : ''}" data-conv-id="${conv.id}">
