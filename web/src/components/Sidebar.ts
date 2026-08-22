@@ -1,7 +1,7 @@
 import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { renderUserAvatarHtml } from '../utils/avatar';
-import { isSidebarPreviewsEnabled } from '../utils/preferences';
+import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
 import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
@@ -348,16 +348,33 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
           </button>
         </div>
       </div>
-      <div class="conversation-actions-swipe">
-        <button class="conversation-more-swipe" data-more-id="${conv.id}" aria-label="More actions">
-          ⋯
-        </button>
-        <button class="conversation-archive-swipe" data-archive-id="${conv.id}" aria-label="Archive">
-          ${ARCHIVE_ICON}
-        </button>
-      </div>
+      ${renderSwipeActions(conv.id)}
     </div>
   `;
+}
+
+/**
+ * Swipe-revealed action row: ⋯ More plus one quick action. Which quick
+ * action (Archive or Delete) is a per-device preference - some people
+ * delete far more often than they archive. Delete reuses the existing
+ * data-delete-id delegation, so the confirm dialog still applies.
+ */
+export function renderSwipeActions(convId: string): string {
+  const quickAction =
+    getSwipeQuickAction() === 'delete'
+      ? `<button class="conversation-delete-swipe" data-delete-id="${convId}" aria-label="Delete">
+          ${DELETE_ICON}
+        </button>`
+      : `<button class="conversation-archive-swipe" data-archive-id="${convId}" aria-label="Archive">
+          ${ARCHIVE_ICON}
+        </button>`;
+  return `
+      <div class="conversation-actions-swipe">
+        <button class="conversation-more-swipe" data-more-id="${convId}" aria-label="More actions">
+          ⋯
+        </button>
+        ${quickAction}
+      </div>`;
 }
 
 /**

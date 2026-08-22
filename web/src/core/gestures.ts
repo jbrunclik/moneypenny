@@ -39,6 +39,7 @@ export function setupTouchGestures(): void {
       // Prevent starting new swipe if clicking action buttons
       if ((e.target as HTMLElement).closest('.conversation-more-swipe')) return false;
       if ((e.target as HTMLElement).closest('.conversation-archive-swipe')) return false;
+      if ((e.target as HTMLElement).closest('.conversation-delete-swipe')) return false;
       if ((e.target as HTMLElement).closest('.conversation-unarchive-swipe')) return false;
       // Note: We set activeSwipeType in onSwipeMove (when actual swiping starts),
       // not here, to avoid blocking sidebar swipes after a tap (non-swipe touch)

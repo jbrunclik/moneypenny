@@ -6,7 +6,11 @@
  * refreshed at message-send time when older than LOCATION_MAX_AGE_MS.
  * Raw coordinates are sent per-request and never persisted server-side.
  */
-import { LOCATION_FIX_TIMEOUT_MS, LOCATION_MAX_AGE_MS } from '../config';
+import {
+  LOCATION_ENABLE_TIMEOUT_MS,
+  LOCATION_FIX_TIMEOUT_MS,
+  LOCATION_MAX_AGE_MS,
+} from '../config';
 import type { ClientLocation } from '../types/api';
 import { createLogger } from '../utils/logger';
 
@@ -47,6 +51,44 @@ export async function getClientLocation(): Promise<ClientLocation | null> {
         resolve(null);
       },
       { timeout: LOCATION_FIX_TIMEOUT_MS, maximumAge: LOCATION_MAX_AGE_MS }
+    );
+  });
+}
+
+export type LocationFixFailure = 'unsupported' | 'denied' | 'unavailable' | 'timeout';
+
+export type LocationFixResult =
+  | { ok: true; fix: ClientLocation }
+  | { ok: false; reason: LocationFixFailure };
+
+/**
+ * Request a fix for the settings enable flow, reporting WHY it failed so
+ * the user can act on it (site permission vs. no positioning vs. slow fix).
+ * Uses a generous timeout - the first fix includes the permission prompt
+ * and a cold positioning lookup, unlike the send-time fast path.
+ */
+export async function requestLocationFix(): Promise<LocationFixResult> {
+  if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+    return { ok: false, reason: 'unsupported' };
+  }
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        cachedFix = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          accuracy_m: pos.coords.accuracy ?? null,
+          timestamp_ms: pos.timestamp,
+        };
+        resolve({ ok: true, fix: cachedFix });
+      },
+      (err) => {
+        log.debug('Geolocation failed on enable', { code: err.code, message: err.message });
+        const reason: LocationFixFailure =
+          err.code === 1 ? 'denied' : err.code === 3 ? 'timeout' : 'unavailable';
+        resolve({ ok: false, reason });
+      },
+      { timeout: LOCATION_ENABLE_TIMEOUT_MS, maximumAge: LOCATION_MAX_AGE_MS }
     );
   });
 }

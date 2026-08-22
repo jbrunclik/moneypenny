@@ -19,8 +19,8 @@ import {
   MAP_PIN_ICON,
 } from '../utils/icons';
 import {
-  getClientLocation,
   isLocationSharingEnabled,
+  requestLocationFix,
   setLocationSharingEnabled,
 } from '../core/location';
 import { settings, todoist, calendar, garmin } from '../api/client';
@@ -45,7 +45,12 @@ import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import type { TodoistStatus, CalendarStatus, GarminStatus, Calendar, DailyBriefingSettings } from '../types/api';
 import { useStore } from '../state/store';
 import { renderConversationsList } from './Sidebar';
-import { isSidebarPreviewsEnabled, setSidebarPreviewsEnabled } from '../utils/preferences';
+import {
+  isSidebarPreviewsEnabled,
+  setSidebarPreviewsEnabled,
+  getSwipeQuickAction,
+  setSwipeQuickAction,
+} from '../utils/preferences';
 
 const log = createLogger('settings-popup');
 
@@ -550,14 +555,22 @@ function handleLocationSharingChange(checkbox: HTMLInputElement): void {
     toast.success('Location sharing disabled');
     return;
   }
-  void getClientLocation().then((fix) => {
-    if (fix) {
+  void requestLocationFix().then((result) => {
+    if (result.ok) {
       toast.success('Location sharing enabled');
-    } else {
-      toast.error('Location permission denied or unavailable');
-      setLocationSharingEnabled(false);
-      checkbox.checked = false;
+      return;
     }
+    const messages: Record<string, string> = {
+      unsupported: 'This browser does not support location.',
+      denied:
+        'Location permission denied - allow location for this site in your browser settings, then try again.',
+      unavailable:
+        "Your browser couldn't determine a location. Check that location services are enabled for it in system settings.",
+      timeout: 'Timed out waiting for a location fix - try again.',
+    };
+    toast.error(messages[result.reason]);
+    setLocationSharingEnabled(false);
+    checkbox.checked = false;
   });
 }
 
@@ -634,6 +647,11 @@ function renderContent(
           <input type="checkbox" id="sidebar-previews-enabled" ${isSidebarPreviewsEnabled() ? 'checked' : ''}>
           <span class="toggle-switch"></span>
           <span class="toggle-text">Show message previews in the sidebar</span>
+        </label>
+        <label class="toggle-label settings-toggle-spaced">
+          <input type="checkbox" id="swipe-quick-delete" ${getSwipeQuickAction() === 'delete' ? 'checked' : ''}>
+          <span class="toggle-switch"></span>
+          <span class="toggle-text">Swiping a conversation shows Delete instead of Archive</span>
         </label>
       </div>
 
@@ -1569,6 +1587,10 @@ function initSettingsPopup(): void {
     }
     if (target.id === 'sidebar-previews-enabled') {
       setSidebarPreviewsEnabled((target as HTMLInputElement).checked);
+      renderConversationsList();
+    }
+    if (target.id === 'swipe-quick-delete') {
+      setSwipeQuickAction((target as HTMLInputElement).checked ? 'delete' : 'archive');
       renderConversationsList();
     }
   });

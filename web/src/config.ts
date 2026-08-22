@@ -104,6 +104,10 @@ export const LOCATION_MAX_AGE_MS = 5 * MS_PER_MINUTE;
 /** Give up waiting for a GPS fix after this long (send without location) */
 export const LOCATION_FIX_TIMEOUT_MS = 3 * MS_PER_SECOND;
 
+// First fix when enabling the toggle: includes the permission prompt and a
+// cold positioning lookup, so it gets far more headroom than send-time fixes
+export const LOCATION_ENABLE_TIMEOUT_MS = 20 * MS_PER_SECOND;
+
 // =============================================================================
 // Authentication
 // =============================================================================

@@ -7,6 +7,7 @@ import {
   __resetLocationCacheForTests,
   getClientLocation,
   isLocationSharingEnabled,
+  requestLocationFix,
   setLocationSharingEnabled,
 } from '../../src/core/location';
 
@@ -84,6 +85,42 @@ describe('location', () => {
     setLocationSharingEnabled(true);
     vi.stubGlobal('navigator', {});
     expect(await getClientLocation()).toBeNull();
+  });
+
+  it('requestLocationFix reports success and caches the fix', async () => {
+    setLocationSharingEnabled(true);
+    const getPos = mockGeolocation((success) =>
+      success({
+        coords: { latitude: 50.08, longitude: 14.42, accuracy: 15 },
+        timestamp: Date.now(),
+      } as GeolocationPosition)
+    );
+    const result = await requestLocationFix();
+    expect(result.ok).toBe(true);
+    // The enable-time fix is cached: the next send reuses it
+    await getClientLocation();
+    expect(getPos).toHaveBeenCalledTimes(1);
+  });
+
+  it('requestLocationFix distinguishes denial, unavailability and timeout', async () => {
+    setLocationSharingEnabled(true);
+    for (const [code, reason] of [
+      [1, 'denied'],
+      [2, 'unavailable'],
+      [3, 'timeout'],
+    ] as const) {
+      __resetLocationCacheForTests();
+      mockGeolocation((_success, error) =>
+        error?.({ code, message: '' } as GeolocationPositionError)
+      );
+      expect(await requestLocationFix()).toEqual({ ok: false, reason });
+    }
+  });
+
+  it('requestLocationFix reports unsupported when the API is missing', async () => {
+    setLocationSharingEnabled(true);
+    vi.stubGlobal('navigator', {});
+    expect(await requestLocationFix()).toEqual({ ok: false, reason: 'unsupported' });
   });
 
   it('clears the cached fix when sharing is disabled', async () => {
