@@ -158,7 +158,7 @@ export function renderAppShell(): string {
     </main>
 
     <!-- Lightbox -->
-    <div id="lightbox" class="lightbox hidden">
+    <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true" aria-label="Image viewer">
       <div class="lightbox-loader">
         <div class="loading-dots">
           <span></span>
@@ -167,11 +167,31 @@ export function renderAppShell(): string {
         </div>
         <p>Loading image...</p>
       </div>
+      <div class="lightbox-toolbar">
+        <div class="lightbox-meta">
+          <span id="lightbox-counter" class="lightbox-counter"></span>
+          <span id="lightbox-filename" class="lightbox-filename"></span>
+        </div>
+        <div class="lightbox-toolbar-actions">
+          <button class="lightbox-btn lightbox-download" aria-label="Download image">
+            ${DOWNLOAD_ICON}
+          </button>
+          <button class="lightbox-btn lightbox-fullscreen" aria-label="Toggle fullscreen">
+            ${MAXIMIZE_ICON}
+          </button>
+          <button class="lightbox-btn lightbox-close" aria-label="Close">
+            ${CLOSE_ICON}
+          </button>
+        </div>
+      </div>
+      <button class="lightbox-nav lightbox-prev" aria-label="Previous image">
+        ${CHEVRON_LEFT_ICON}
+      </button>
+      <button class="lightbox-nav lightbox-next" aria-label="Next image">
+        ${CHEVRON_RIGHT_ICON}
+      </button>
       <div class="lightbox-container">
-        <button class="lightbox-close" aria-label="Close">
-          ${CLOSE_ICON}
-        </button>
-        <img id="lightbox-img" src="" alt="Full size image">
+        <img id="lightbox-img" src="" alt="Full size image" draggable="false">
       </div>
     </div>
 

@@ -212,3 +212,82 @@ test.describe('Chat - Lightbox', () => {
     expect(hadPendingState).toBe(true);
   });
 });
+
+test.describe('Chat - Lightbox Gallery', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await disableStreaming(page);
+
+    // One message with TWO images = a gallery
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([
+      { name: 'first.png', mimeType: 'image/png', buffer: pngBuffer },
+      { name: 'second.png', mimeType: 'image/png', buffer: pngBuffer },
+    ]);
+    await expect(page.locator('#file-preview')).not.toHaveClass(/hidden/, { timeout: 3000 });
+
+    await page.fill('#message-input', 'Two images');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 20000 });
+    // Wait for delivery confirmation (lightbox is gated until then)
+    await expect(page.locator('.message.user img.message-image[data-pending]')).toHaveCount(0, {
+      timeout: 10000,
+    });
+  });
+
+  test('navigates between images with counter, arrows and keyboard', async ({ page }) => {
+    await page.locator('.message.user img.message-image').first().click();
+    const lightbox = page.locator('#lightbox');
+    await expect(lightbox).not.toHaveClass(/hidden/);
+    await expect(page.locator('#lightbox-counter')).toHaveText('1 / 2');
+    await expect(page.locator('#lightbox-filename')).toHaveText('first.png');
+    await expect(page.locator('.lightbox-prev')).toBeDisabled();
+
+    await page.click('.lightbox-next');
+    await expect(page.locator('#lightbox-counter')).toHaveText('2 / 2');
+    await expect(page.locator('#lightbox-filename')).toHaveText('second.png');
+    await expect(page.locator('.lightbox-next')).toBeDisabled();
+
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#lightbox-counter')).toHaveText('1 / 2');
+
+    await page.keyboard.press('Escape');
+    await expect(lightbox).toHaveClass(/hidden/);
+  });
+
+  test('downloads the current image with its filename', async ({ page }) => {
+    await page.locator('.message.user img.message-image').first().click();
+    await expect(page.locator('#lightbox')).not.toHaveClass(/hidden/);
+    // Wait for the image blob to load (download reuses it)
+    await expect(page.locator('#lightbox')).not.toHaveClass(/loading/);
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('.lightbox-download');
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('first.png');
+  });
+
+  test('single-image messages show no navigation chrome', async ({ page }) => {
+    // Send a second message with one image
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.click('#attach-btn');
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({ name: 'solo.png', mimeType: 'image/png', buffer: pngBuffer });
+    await expect(page.locator('#file-preview')).not.toHaveClass(/hidden/, { timeout: 3000 });
+    await page.fill('#message-input', 'One image');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toHaveCount(2, { timeout: 20000 });
+    const soloImg = page.locator('.message.user img.message-image[alt="solo.png"]');
+    await expect(soloImg).not.toHaveAttribute('data-pending', 'true', { timeout: 10000 });
+
+    await soloImg.click();
+    await expect(page.locator('#lightbox')).not.toHaveClass(/hidden/);
+    await expect(page.locator('#lightbox-counter')).toHaveText('');
+    await expect(page.locator('.lightbox-prev')).toHaveClass(/hidden/);
+    await expect(page.locator('.lightbox-next')).toHaveClass(/hidden/);
+  });
+});
