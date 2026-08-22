@@ -299,9 +299,19 @@ class Config:
     FILE_CACHE_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY  # 1 year
 
     # Web search settings
-    # Brave Search API key ("Search" plan; $5 free credits/mo ~= 1k searches).
-    # Empty = DuckDuckGo fallback via ddgs. See src/utils/search_provider.py.
+    # Providers are tried in priority order (brave -> tavily -> exa -> ddgs);
+    # a provider is skipped when its key is empty or its monthly quota is
+    # used up. DuckDuckGo (ddgs) is the unmetered terminal fallback.
+    # See src/utils/search_provider.py; usage counters live in kv_store.
     BRAVE_SEARCH_API_KEY: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
+    TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
+    EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
+    # Monthly search quotas per provider plan (searches/month). Stop using a
+    # provider at the quota rather than incurring overage/hard errors.
+    SEARCH_QUOTA_BRAVE_MONTHLY = int(os.getenv("SEARCH_QUOTA_BRAVE_MONTHLY", "2000"))
+    SEARCH_QUOTA_TAVILY_MONTHLY = int(os.getenv("SEARCH_QUOTA_TAVILY_MONTHLY", "1000"))
+    # Exa free tier is a $10/mo recurring credit at $7/1k searches (~1,400)
+    SEARCH_QUOTA_EXA_MONTHLY = int(os.getenv("SEARCH_QUOTA_EXA_MONTHLY", "1400"))
     WEB_SEARCH_DEFAULT_RESULTS = 3
     WEB_SEARCH_MAX_RESULTS = 10
     # Max queries per batched web_search call (the tool encourages the model

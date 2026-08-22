@@ -984,3 +984,20 @@ class TestKVClearNamespaceRoute:
         response = client.delete("/api/kv/some-ns")
 
         assert response.status_code == 401
+
+
+class TestKVIncrement:
+    def test_creates_at_delta_when_missing(self, test_database: Database, test_user: User) -> None:
+        result = test_database.kv_increment(test_user.id, "search-usage", "brave:2026-08")
+        assert result == 1
+        assert test_database.kv_get(test_user.id, "search-usage", "brave:2026-08") == "1"
+
+    def test_increments_existing_value(self, test_database: Database, test_user: User) -> None:
+        test_database.kv_set(test_user.id, "search-usage", "brave:2026-08", "41")
+        result = test_database.kv_increment(test_user.id, "search-usage", "brave:2026-08")
+        assert result == 42
+
+    def test_custom_delta(self, test_database: Database, test_user: User) -> None:
+        test_database.kv_increment(test_user.id, "search-usage", "k", delta=10)
+        result = test_database.kv_increment(test_user.id, "search-usage", "k", delta=5)
+        assert result == 15

@@ -74,6 +74,35 @@ class KVStoreMixin:
             )
             conn.commit()
 
+    def kv_increment(self, user_id: str, namespace: str, key: str, delta: int = 1) -> int:
+        """Atomically increment an integer value, creating it at `delta`.
+
+        The arithmetic happens inside the UPSERT so concurrent workers can't
+        lose updates (read-modify-write via kv_get/kv_set would race).
+
+        Returns:
+            The value after the increment.
+        """
+        now = utcnow_naive().isoformat()
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """
+                INSERT INTO kv_store (user_id, namespace, key, value, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, namespace, key)
+                DO UPDATE SET value = CAST(CAST(value AS INTEGER) + ? AS TEXT), updated_at = ?
+                """,
+                (user_id, namespace, key, str(delta), now, now, delta, now),
+            )
+            row = self._execute_with_timing(
+                conn,
+                "SELECT value FROM kv_store WHERE user_id = ? AND namespace = ? AND key = ?",
+                (user_id, namespace, key),
+            ).fetchone()
+            conn.commit()
+            return int(row["value"])
+
     def kv_delete(self, user_id: str, namespace: str, key: str) -> bool:
         """Delete a key.
 

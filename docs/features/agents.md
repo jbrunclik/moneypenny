@@ -138,6 +138,8 @@ Agents are configured with specific tool permissions. Some tools are always avai
 |------|-------------|--------------|
 | `web_search` | Web search queries | Always available |
 | `research` | Composite search + fetch top pages in one round | Always available |
+
+`web_search` and `research` route through a **quota-aware provider chain** ([search_provider.py](../../src/utils/search_provider.py)): Brave → Tavily → Exa → DuckDuckGo (unmetered fallback), skipping providers with no API key or an exhausted monthly quota (`SEARCH_QUOTA_*_MONTHLY` in config). Usage counters persist in `kv_store` under a `__system__` sentinel user, one key per provider+month, incremented atomically on successful (billed) calls only. Backfill/inspect with `python scripts/seed_search_usage.py [provider count]`.
 | `fetch_url` | Fetch content from URLs | Always available |
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |
