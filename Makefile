@@ -326,7 +326,14 @@ update:
 	$(PIP) install -r requirements.txt
 	cd web && npm install && npm run build
 	systemctl --user reload ai-chatbot
-	@echo "Code pulled, dependencies updated, frontend rebuilt, graceful reload triggered."
+	@echo "Reload triggered, waiting for workers to boot (migrations apply on startup)..."
+	@for i in $$(seq 1 24); do \
+		if curl -sf -o /dev/null http://localhost:8000/api/health; then \
+			echo "Deploy healthy."; exit 0; \
+		fi; \
+		sleep 5; \
+	done; \
+	echo "DEPLOY UNHEALTHY after 120s - check: journalctl --user -u ai-chatbot -n 50"; exit 1
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py
