@@ -26,6 +26,7 @@ import {
 import { initMessageInput } from '../components/MessageInput';
 import { initKeyboardViewportPinning } from './keyboard-viewport';
 import { initAttention } from './attention';
+import { initConnectivity } from './connectivity';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { registerServiceWorker, resyncPushSubscription } from './push';
 import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
@@ -466,6 +467,7 @@ export async function init(): Promise<void> {
   initOrientationChangeHandler();
   initKeyboardViewportPinning();
   initAttention();
+  initConnectivity();
   initVersionBanner();
   // Keep an existing push subscription working after reloads; actual
   // permission requests only happen from the Settings toggle

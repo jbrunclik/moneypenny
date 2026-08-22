@@ -1,21 +1,87 @@
 /**
- * Push notification service worker.
+ * Service worker: push notifications + offline app shell.
  *
- * Deliberately minimal: push display + notification click only. No
- * caching/offline logic so it can never break the SPA. Served from
- * /sw.js (Flask route) so its scope covers the whole app.
+ * Caching strategy (deliberately conservative so it can't serve stale UI):
+ * - Navigations (the SPA shell): network-first, cache fallback. Online
+ *   users always get the freshest shell; offline users get the last one.
+ * - /static/assets/* (content-hashed filenames): cache-first. Immutable by
+ *   construction - a new build ships new URLs.
+ * - /api/* and everything else: network only, never cached.
  *
- * Payload shape (see src/utils/push.py):
- *   { title, body, url?, tag? }
+ * Push payload shape (see src/utils/push.py): { title, body, url?, tag? }
  */
 
+const SHELL_CACHE = 'shell-v1';
+const ASSET_CACHE = 'assets-v1';
+
 self.addEventListener('install', () => {
-  // Activate updated workers immediately; there's no cache to migrate
+  // Activate updated workers immediately
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      const keep = new Set([SHELL_CACHE, ASSET_CACHE]);
+      const names = await caches.keys();
+      await Promise.all(names.filter((n) => !keep.has(n)).map((n) => caches.delete(n)));
+      await self.clients.claim();
+    })()
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  // API and auth traffic is never cached
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) return;
+
+  // App shell: network-first with cache fallback
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            const cache = await caches.open(SHELL_CACHE);
+            cache.put('/', response.clone());
+          }
+          return response;
+        } catch {
+          const cached = await caches.match('/', { cacheName: SHELL_CACHE });
+          if (cached) return cached;
+          return new Response(
+            '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">' +
+              '<title>Offline</title><body style="font-family:system-ui;background:#0f0f0f;color:#eee;' +
+              'display:flex;align-items:center;justify-content:center;height:100vh;margin:0">' +
+              '<div style="text-align:center"><h1>You\'re offline</h1>' +
+              '<p>AI Chatbot needs a connection for the first load.</p></div>',
+            { status: 503, headers: { 'Content-Type': 'text/html' } }
+          );
+        }
+      })()
+    );
+    return;
+  }
+
+  // Hashed build assets: cache-first (immutable URLs)
+  if (url.pathname.startsWith('/static/assets/') || url.pathname === '/static/manifest.json') {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(request, { cacheName: ASSET_CACHE });
+        if (cached) return cached;
+        const response = await fetch(request);
+        if (response.ok) {
+          const cache = await caches.open(ASSET_CACHE);
+          cache.put(request, response.clone());
+        }
+        return response;
+      })()
+    );
+  }
 });
 
 self.addEventListener('push', (event) => {

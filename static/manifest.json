@@ -10,12 +10,52 @@
     {
       "src": "/static/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/static/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New chat",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/static/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Planner",
+      "url": "/#/planner",
+      "icons": [
+        {
+          "src": "/static/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Agents",
+      "url": "/#/agents",
+      "icons": [
+        {
+          "src": "/static/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
