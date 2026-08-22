@@ -153,9 +153,7 @@ def list_conversations(user: User) -> dict[str, Any]:
 
     pinned_with_counts = db.list_pinned_conversations(user.id)
 
-    def _conv_payload(
-        c: Any, message_count: int, preview: str | None
-    ) -> dict[str, Any]:
+    def _conv_payload(c: Any, message_count: int, preview: str | None) -> dict[str, Any]:
         return {
             "id": c.id,
             "title": c.title,

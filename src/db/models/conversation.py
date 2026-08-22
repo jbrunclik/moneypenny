@@ -555,9 +555,7 @@ class ConversationMixin:
             conn.commit()
             return cursor.rowcount > 0
 
-    def list_pinned_conversations(
-        self, user_id: str
-    ) -> list[tuple[Conversation, int, str | None]]:
+    def list_pinned_conversations(self, user_id: str) -> list[tuple[Conversation, int, str | None]]:
         """Pinned, non-archived conversations with counts and previews,
         most recently updated first. Small by nature - not paginated."""
         with self._pool.get_connection() as conn:
