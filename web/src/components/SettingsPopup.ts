@@ -651,7 +651,7 @@ function renderContent(
         <label class="toggle-label settings-toggle-spaced">
           <input type="checkbox" id="swipe-quick-delete" ${getSwipeQuickAction() === 'delete' ? 'checked' : ''}>
           <span class="toggle-switch"></span>
-          <span class="toggle-text">Swiping a conversation shows Delete instead of Archive</span>
+          <span class="toggle-text">Swipe to delete instead of archive</span>
         </label>
       </div>
 

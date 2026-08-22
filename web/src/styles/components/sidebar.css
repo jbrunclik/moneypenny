@@ -65,16 +65,35 @@
 }
 
 .conversation-group-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     font-size: var(--font-size-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-muted);
-    padding: var(--space-3) var(--space-3) var(--space-1);
+    /* Extra headroom so groups read as sections, not rows - the two-line
+       previews made plain labels blend into the list */
+    padding: var(--space-4) var(--space-3) var(--space-1);
     position: sticky;
     top: 0;
     background: var(--bg-secondary);
     z-index: 3;
+}
+
+/* Hairline rule filling the rest of the label row: turns the label into
+   an unmistakable separator */
+.conversation-group-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* The first group needs no extra headroom - it sits right under the nav */
+.conversation-group-label:first-child {
+    padding-top: var(--space-2);
 }
 
 .conversation-time {
