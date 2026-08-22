@@ -12,7 +12,7 @@ import { toggleSidebar } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
 
-import { createConversation, selectConversation, deleteConversation, renameConversation, archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView } from './conversation';
+import { createConversation, selectConversation, deleteConversation, renameConversation, archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView, togglePinConversation } from './conversation';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';
@@ -152,6 +152,16 @@ export function setupEventListeners(): void {
     }
 
     // Handle archive button clicks
+    const pinBtn = (e.target as HTMLElement).closest('[data-pin-id]');
+    if (pinBtn) {
+      e.stopPropagation();
+      const id = (pinBtn as HTMLElement).dataset.pinId;
+      if (id) {
+        void togglePinConversation(id);
+      }
+      return;
+    }
+
     const archiveBtn = (e.target as HTMLElement).closest('[data-archive-id]');
     if (archiveBtn) {
       e.stopPropagation();

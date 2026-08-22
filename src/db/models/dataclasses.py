@@ -53,6 +53,7 @@ class Conversation:
     is_agent: bool = False  # Whether this is an autonomous agent's conversation
     agent_id: str | None = None  # Link to autonomous_agents table
     archived: bool = False  # Whether conversation is archived (hidden from main list)
+    pinned: bool = False  # Pinned to the top of the sidebar
     is_sports: bool = False  # Whether this is a sports training conversation
     sports_program: str | None = None  # Program ID (e.g., "pushups")
     is_language: bool = False  # Whether this is a language learning conversation

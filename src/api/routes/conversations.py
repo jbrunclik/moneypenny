@@ -151,19 +151,31 @@ def list_conversations(user: User) -> dict[str, Any]:
         },
     )
 
+    pinned_with_counts = db.list_pinned_conversations(user.id)
+
+    def _conv_payload(
+        c: Any, message_count: int, preview: str | None
+    ) -> dict[str, Any]:
+        return {
+            "id": c.id,
+            "title": c.title,
+            "model": c.model,
+            "created_at": c.created_at.isoformat(),
+            "updated_at": c.updated_at.isoformat(),
+            "message_count": message_count,
+            "archived": c.archived or None,
+            "pinned": c.pinned or None,
+            "last_message_preview": preview,
+        }
+
     return {
         "conversations": [
-            {
-                "id": c.id,
-                "title": c.title,
-                "model": c.model,
-                "created_at": c.created_at.isoformat(),
-                "updated_at": c.updated_at.isoformat(),
-                "message_count": message_count,
-                "archived": c.archived or None,
-                "last_message_preview": preview,
-            }
+            _conv_payload(c, message_count, preview)
             for c, message_count, preview in conv_with_counts
+        ],
+        "pinned_conversations": [
+            _conv_payload(c, message_count, preview)
+            for c, message_count, preview in pinned_with_counts
         ],
         "pagination": {
             "next_cursor": next_cursor,
@@ -516,6 +528,32 @@ def archive_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]
 
     logger.info("Conversation archived", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "archived"}, 200
+
+
+@api.route("/conversations/<conv_id>/pin", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
+@require_auth
+def pin_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
+    """Pin a conversation to the top of the sidebar."""
+    if not db.set_conversation_pinned(conv_id, user.id, True):
+        raise_not_found_error("Conversation")
+    logger.info("Conversation pinned", extra={"user_id": user.id, "conversation_id": conv_id})
+    return {"status": "pinned"}, 200
+
+
+@api.route("/conversations/<conv_id>/unpin", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(responses=[404, 429])
+@rate_limit_conversations
+@require_auth
+def unpin_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
+    """Unpin a conversation."""
+    if not db.set_conversation_pinned(conv_id, user.id, False):
+        raise_not_found_error("Conversation")
+    logger.info("Conversation unpinned", extra={"user_id": user.id, "conversation_id": conv_id})
+    return {"status": "unpinned"}, 200
 
 
 @api.route("/conversations/<conv_id>/unarchive", methods=["POST"])

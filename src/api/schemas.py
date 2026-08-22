@@ -566,6 +566,7 @@ class ConversationResponse(BaseModel):
     updated_at: str
     message_count: int | None = None
     archived: bool | None = None
+    pinned: bool | None = None
     last_message_preview: str | None = None
 
 
@@ -847,9 +848,15 @@ class ConversationsPaginationResponse(BaseModel):
 
 
 class ConversationsListPaginatedResponse(BaseModel):
-    """Paginated list of conversations."""
+    """Paginated list of conversations.
+
+    Pinned conversations ride separately: they are excluded from the
+    paginated portion (pinned-first ordering would break cursor math) and
+    are few by nature.
+    """
 
     conversations: list[ConversationResponse]
+    pinned_conversations: list[ConversationResponse] = Field(default_factory=list)
     pagination: ConversationsPaginationResponse
 
 

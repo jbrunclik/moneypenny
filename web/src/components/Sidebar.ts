@@ -2,7 +2,7 @@ import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { renderUserAvatarHtml } from '../utils/avatar';
 import { isSidebarPreviewsEnabled } from '../utils/preferences';
-import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -224,10 +224,23 @@ export function renderConversationsList(): void {
     return;
   }
 
-  // Render conversations grouped by recency (list arrives sorted by
-  // updated_at desc, so a label is emitted whenever the group changes)
+  // Pinned conversations get their own group at the top; the rest are
+  // grouped by recency (list arrives sorted by updated_at desc, so a label
+  // is emitted whenever the group changes)
+  const pinnedConversations = conversations.filter((c) => c.pinned);
+  const regularConversations = conversations.filter((c) => !c.pinned);
+
+  const pinnedHtml = pinnedConversations.length
+    ? `<div class="conversation-group-label">Pinned</div>` +
+      pinnedConversations
+        .map((conv) =>
+          renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView && !isAgentsView)
+        )
+        .join('')
+    : '';
+
   let lastGroup: string | null = null;
-  const conversationsHtml = conversations
+  const conversationsHtml = pinnedHtml + regularConversations
     .map((conv) => {
       const group = groupForDate(conv.updated_at);
       const label =
@@ -321,6 +334,9 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
         ${unreadBadge}
         ${relativeTime}
         <div class="conversation-actions">
+          <button class="conversation-pin" data-pin-id="${conv.id}" aria-label="${conv.pinned ? 'Unpin' : 'Pin'}" title="${conv.pinned ? 'Unpin' : 'Pin'}">
+            ${conv.pinned ? UNPIN_ICON : PIN_ICON}
+          </button>
           <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
             ${EDIT_ICON}
           </button>

@@ -87,6 +87,10 @@ class ConversationMixin:
         if "archived" in row.keys():
             archived = bool(row["archived"]) if row["archived"] else False
 
+        pinned = False
+        if "pinned" in row.keys():
+            pinned = bool(row["pinned"]) if row["pinned"] else False
+
         is_sports = False
         sports_program = None
         if "is_sports" in row.keys():
@@ -115,6 +119,7 @@ class ConversationMixin:
             is_agent=is_agent,
             agent_id=agent_id,
             archived=archived,
+            pinned=pinned,
             is_sports=is_sports,
             sports_program=sports_program,
             is_language=is_language,
@@ -344,6 +349,7 @@ class ConversationMixin:
                          AND (c.archived = 0 OR c.archived IS NULL)
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
+                         AND (c.pinned = 0 OR c.pinned IS NULL)
                          AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
@@ -366,6 +372,7 @@ class ConversationMixin:
                          AND (c.archived = 0 OR c.archived IS NULL)
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
+                         AND (c.pinned = 0 OR c.pinned IS NULL)
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
                        LIMIT ?""",
@@ -532,6 +539,52 @@ class ConversationMixin:
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    def set_conversation_pinned(self, conv_id: str, user_id: str, pinned: bool) -> bool:
+        """Pin/unpin a conversation (pinned rows show atop the sidebar).
+
+        Deliberately does NOT touch updated_at - pinning is organization,
+        not activity.
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE conversations SET pinned = ? WHERE id = ? AND user_id = ?",
+                (1 if pinned else 0, conv_id, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def list_pinned_conversations(
+        self, user_id: str
+    ) -> list[tuple[Conversation, int, str | None]]:
+        """Pinned, non-archived conversations with counts and previews,
+        most recently updated first. Small by nature - not paginated."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT c.*, COUNT(m.id) as message_count,
+                          (SELECT m2.content FROM messages m2
+                           WHERE m2.conversation_id = c.id
+                           ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
+                   FROM conversations c
+                   LEFT JOIN messages m ON m.conversation_id = c.id
+                   WHERE c.user_id = ? AND c.pinned = 1
+                     AND (c.archived = 0 OR c.archived IS NULL)
+                     AND (c.is_agent = 0 OR c.is_agent IS NULL)
+                     AND (c.is_planning = 0 OR c.is_planning IS NULL)
+                   GROUP BY c.id
+                   ORDER BY c.updated_at DESC, c.id DESC""",
+                (user_id,),
+            ).fetchall()
+            return [
+                (
+                    self._row_to_conversation(row),
+                    int(row["message_count"]),
+                    build_message_preview(row["last_message"]),
+                )
+                for row in rows
+            ]
 
     def unarchive_conversation(self, conv_id: str, user_id: str) -> bool:
         """Unarchive a conversation (restore to main list)."""

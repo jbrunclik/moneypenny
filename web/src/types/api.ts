@@ -57,6 +57,7 @@ export interface Conversation {
   has_pending_approval?: boolean; // True if agent has pending approval request (from server)
   // Archive state
   archived?: boolean; // True if conversation is archived (hidden from main list)
+  pinned?: boolean; // Pinned to the top of the sidebar
   // Sync-related fields
   unreadCount?: number; // Number of unread messages from other devices
   hasExternalUpdate?: boolean; // True if conversation was updated externally while viewing
@@ -228,6 +229,7 @@ export interface MessagesPagination {
 
 export interface ConversationsResponse {
   conversations: Conversation[];
+  pinned_conversations?: Conversation[];
   pagination: ConversationsPagination;
 }
 

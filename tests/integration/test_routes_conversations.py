@@ -572,3 +572,45 @@ class TestConversationPreviews:
             c for c in response.get_json()["conversations"] if c["id"] == test_conversation.id
         )
         assert conv["last_message_preview"] is None
+
+
+class TestPinnedConversations:
+    def _create(self, test_database, test_user, title):
+        return test_database.create_conversation(
+            user_id=test_user.id, title=title, model="gemini-3.7-flash"
+        )
+
+    def test_pin_and_unpin(self, client, auth_headers, test_conversation) -> None:
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/pin", headers=auth_headers
+        )
+        assert response.status_code == 200
+
+        listed = client.get("/api/conversations", headers=auth_headers).get_json()
+        pinned_ids = [c["id"] for c in listed["pinned_conversations"]]
+        assert test_conversation.id in pinned_ids
+        # Pinned conversations are not duplicated in the paginated portion
+        assert test_conversation.id not in [c["id"] for c in listed["conversations"]]
+
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/unpin", headers=auth_headers
+        )
+        assert response.status_code == 200
+        listed = client.get("/api/conversations", headers=auth_headers).get_json()
+        assert listed["pinned_conversations"] == []
+        assert test_conversation.id in [c["id"] for c in listed["conversations"]]
+
+    def test_pinned_carry_previews_and_flag(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "pinned content")
+        client.post(f"/api/conversations/{test_conversation.id}/pin", headers=auth_headers)
+
+        listed = client.get("/api/conversations", headers=auth_headers).get_json()
+        pinned = listed["pinned_conversations"][0]
+        assert pinned["pinned"] is True
+        assert pinned["last_message_preview"] == "pinned content"
+
+    def test_pin_unknown_conversation_404(self, client, auth_headers) -> None:
+        response = client.post("/api/conversations/nope/pin", headers=auth_headers)
+        assert response.status_code == 404

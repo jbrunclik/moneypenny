@@ -54,7 +54,7 @@ import type { Conversation } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 import { renderAgentConversationHeader } from '../components/AgentConversationHeader';
 import { renderChatHeader } from '../components/ChatHeader';
-import { ARCHIVE_ICON, DELETE_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, DELETE_ICON, PIN_ICON, UNPIN_ICON } from '../utils/icons';
 
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { leavePlannerView, navigateToPlanner } from './planner';
@@ -138,6 +138,22 @@ export function markAgentViewedAndRefresh(agentId: string): void {
  * Build the icon action buttons for the regular conversation header.
  */
 function buildChatHeaderActions(convId: string): HTMLElement[] {
+  const conv = useStore.getState().conversations.find((c) => c.id === convId);
+  const pinBtn = document.createElement('button');
+  pinBtn.className = 'btn-icon chat-header-action';
+  pinBtn.setAttribute('aria-label', conv?.pinned ? 'Unpin conversation' : 'Pin conversation');
+  pinBtn.title = conv?.pinned ? 'Unpin conversation' : 'Pin conversation';
+  pinBtn.innerHTML = conv?.pinned ? UNPIN_ICON : PIN_ICON;
+  pinBtn.addEventListener('click', () => {
+    void togglePinConversation(convId).then(() => {
+      // Refresh the header so the icon/tooltip reflect the new state
+      const updated = useStore.getState().conversations.find((c) => c.id === convId);
+      if (updated && useStore.getState().currentConversation?.id === convId) {
+        renderChatHeaderForConversation({ ...updated });
+      }
+    });
+  });
+
   const archiveBtn = document.createElement('button');
   archiveBtn.className = 'btn-icon chat-header-action';
   archiveBtn.setAttribute('aria-label', 'Archive conversation');
@@ -152,7 +168,7 @@ function buildChatHeaderActions(convId: string): HTMLElement[] {
   deleteBtn.innerHTML = DELETE_ICON;
   deleteBtn.addEventListener('click', () => void deleteConversation(convId));
 
-  return [archiveBtn, deleteBtn];
+  return [pinBtn, archiveBtn, deleteBtn];
 }
 
 /**
@@ -979,6 +995,30 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
 /**
  * Archive a conversation (no confirmation needed - it's reversible).
  */
+export async function togglePinConversation(convId: string): Promise<void> {
+  if (isTempConversation(convId)) return;
+
+  const store = useStore.getState();
+  const conv = store.conversations.find((c) => c.id === convId);
+  if (!conv) return;
+
+  const nextPinned = !conv.pinned;
+  try {
+    if (nextPinned) {
+      await conversations.pin(convId);
+    } else {
+      await conversations.unpin(convId);
+    }
+  } catch (error) {
+    log.error('Failed to toggle pin', { error, conversationId: convId });
+    toast.error(nextPinned ? 'Failed to pin conversation.' : 'Failed to unpin conversation.');
+    return;
+  }
+
+  store.updateConversation(convId, { pinned: nextPinned });
+  renderConversationsList();
+}
+
 export async function archiveConversation(convId: string): Promise<void> {
   if (isTempConversation(convId)) return;
 

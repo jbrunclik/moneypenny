@@ -124,12 +124,18 @@ export const conversations = {
     const data = await requestWithRetry<ConversationsResponse>(
       `/api/conversations${query ? `?${query}` : ''}`
     );
-    // Map snake_case message_count to camelCase messageCount
+    // Map snake_case message_count to camelCase messageCount. Pinned
+    // conversations arrive separately (excluded from the paginated portion)
+    // and are merged in front so the store holds one list.
+    const normalize = (conv: Conversation): Conversation => ({
+      ...conv,
+      messageCount: (conv as { message_count?: number }).message_count,
+    });
     return {
-      conversations: data.conversations.map((conv) => ({
-        ...conv,
-        messageCount: (conv as { message_count?: number }).message_count,
-      })),
+      conversations: [
+        ...(data.pinned_conversations ?? []).map(normalize),
+        ...data.conversations.map(normalize),
+      ],
       pagination: data.pagination,
     };
   },
@@ -242,6 +248,20 @@ export const conversations = {
   /**
    * Persist anonymous mode for a conversation so it survives a page reload.
    */
+  async pin(id: string): Promise<void> {
+    await request<{ status: string }>(`/api/conversations/${id}/pin`, {
+      method: 'POST',
+      retry: true,
+    });
+  },
+
+  async unpin(id: string): Promise<void> {
+    await request<{ status: string }>(`/api/conversations/${id}/unpin`, {
+      method: 'POST',
+      retry: true,
+    });
+  },
+
   /**
    * Delete a conversation's tail from a message (inclusive = the message
    * itself too). Powers edit-and-resend.

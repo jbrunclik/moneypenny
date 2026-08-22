@@ -1479,3 +1479,51 @@ test.describe('Scroll to bottom behavior', () => {
     );
   });
 });
+
+test.describe('Pinned conversations', () => {
+  test('pin moves a conversation to the Pinned group and survives reload', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    // Two conversations so grouping is meaningful
+    for (const text of ['First conversation', 'Second conversation']) {
+      await page.click('#new-chat-btn');
+      await page.fill('#message-input', text);
+      await page.click('#send-btn');
+      await page.waitForSelector('.message.assistant', { timeout: 20000 });
+    }
+
+    // Pin the OLDEST conversation (last row in the recency-ordered list)
+    await expect(page.locator('.conversation-item-wrapper')).toHaveCount(2, { timeout: 20000 });
+    const lastRow = page.locator('.conversation-item-wrapper').last();
+    const pinnedId = await lastRow.getAttribute('data-conv-id');
+    await lastRow.hover();
+    await lastRow.locator('[data-pin-id]').click();
+
+    // A Pinned group appears at the top containing that conversation
+    await expect(page.locator('.conversation-group-label').first()).toHaveText('Pinned', {
+      timeout: 10000,
+    });
+    await expect(page.locator('.conversation-item-wrapper').first()).toHaveAttribute(
+      'data-conv-id',
+      pinnedId!
+    );
+
+    // Persisted server-side: survives a reload
+    await page.reload();
+    await page.waitForSelector('.conversation-group-label', { timeout: 20000 });
+    await expect(page.locator('.conversation-group-label').first()).toHaveText('Pinned');
+    await expect(page.locator('.conversation-item-wrapper').first()).toHaveAttribute(
+      'data-conv-id',
+      pinnedId!
+    );
+
+    // Unpin returns it to the regular list
+    const pinnedRow = page.locator('.conversation-item-wrapper').first();
+    await pinnedRow.hover();
+    await pinnedRow.locator('[data-pin-id]').click();
+    await expect(page.locator('.conversation-group-label').first()).not.toHaveText('Pinned', {
+      timeout: 10000,
+    });
+  });
+});
