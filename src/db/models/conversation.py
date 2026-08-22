@@ -8,6 +8,7 @@ Contains all methods for Conversation entity management including:
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import uuid
 from datetime import datetime
@@ -30,11 +31,26 @@ logger = get_logger(__name__)
 _PREVIEW_MAX_CHARS = 120
 
 
+_MD_PATTERNS = (
+    (re.compile(r"```[a-zA-Z0-9_-]*"), " "),  # code fence openers (incl. language)
+    (re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"),  # links/images -> their text
+    (re.compile(r"(\*\*|__|\*|_|`|~~)"), ""),  # emphasis / code markers
+    (re.compile(r"^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+", re.MULTILINE), " "),  # block prefixes
+)
+
+
 def build_message_preview(content: str | None) -> str | None:
-    """One-line sidebar snippet: whitespace collapsed, truncated with an ellipsis."""
+    """One-line sidebar snippet: markdown stripped to plain text, whitespace
+    collapsed, truncated with an ellipsis. Rendering markdown in a one-line
+    preview is pointless - raw markers ("**Vezmi...") just read as noise."""
     if not content:
         return None
-    collapsed = " ".join(content.split())
+    text = content
+    for pattern, replacement in _MD_PATTERNS:
+        text = pattern.sub(replacement, text)
+    collapsed = " ".join(text.split())
+    if not collapsed:
+        return None
     if len(collapsed) <= _PREVIEW_MAX_CHARS:
         return collapsed
     return collapsed[:_PREVIEW_MAX_CHARS] + "\u2026"
