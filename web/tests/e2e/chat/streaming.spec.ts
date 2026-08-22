@@ -8,6 +8,8 @@ import {
   disableStreaming,
   setStreamDelay,
   resetStreamDelay,
+  setMockResponse,
+  clearMockResponse,
 } from './fixtures';
 
 test.describe('Chat - Streaming Mode', () => {
@@ -691,5 +693,59 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
 
     // The streaming-paused indicator should be cleared after streaming ends
     await expect(scrollButton).not.toHaveClass(/streaming-paused/);
+  });
+});
+
+test.describe('Chat - End-of-stream repositioning', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await clearMockResponse(page);
+  });
+
+  test('long responses jump to the top of the message for read-from-start', async ({ page }) => {
+    // Response much taller than the viewport
+    const longResponse = Array.from({ length: 120 }, (_, i) => `Line ${i + 1} of a long answer.`).join('\n\n');
+    await setMockResponse(page, longResponse);
+
+    await page.fill('#message-input', 'Tell me everything');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toContainText('Line 120', { timeout: 20000 });
+
+    // Wait for the double-RAF repositioning to settle
+    await page.waitForTimeout(300);
+
+    const { messageTopDelta } = await page.evaluate(() => {
+      const container = document.getElementById('messages')!;
+      const messageEl = document.querySelector<HTMLElement>('.message.assistant')!;
+      return {
+        messageTopDelta: Math.abs(
+          messageEl.getBoundingClientRect().top - container.getBoundingClientRect().top
+        ),
+      };
+    });
+    // Viewport should sit at (near) the top of the assistant message
+    expect(messageTopDelta).toBeLessThan(120);
+  });
+
+  test('short responses stay at the bottom instead of jumping', async ({ page }) => {
+    await setMockResponse(page, 'Short and sweet.');
+
+    await page.fill('#message-input', 'Quick question');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toContainText('Short and sweet', { timeout: 20000 });
+
+    await page.waitForTimeout(300);
+
+    const distanceFromBottom = await page.evaluate(() => {
+      const container = document.getElementById('messages')!;
+      return container.scrollHeight - container.scrollTop - container.clientHeight;
+    });
+    expect(distanceFromBottom).toBeLessThan(50);
   });
 });

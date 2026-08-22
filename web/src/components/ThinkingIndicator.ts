@@ -21,7 +21,8 @@ import {
   DATABASE_ICON,
   HISTORY_ICON,
 } from '../utils/icons';
-import { escapeHtml } from '../utils/dom';
+import { escapeHtml, isScrolledToBottom } from '../utils/dom';
+import { markProgrammaticScrollEnd, markProgrammaticScrollStart } from '../utils/thumbnails';
 import { renderMarkdown } from '../utils/markdown';
 import type { ThinkingState, ThinkingTraceItem } from '../types/api';
 
@@ -239,6 +240,12 @@ export function finalizeThinkingIndicator(
     }
   }
 
+  // Collapsing the expanded trace shrinks content ABOVE anything the user is
+  // reading further down - without compensation their reading position jumps
+  // up by the collapsed height. Measure before/after and put it back.
+  const scrollContainer = document.getElementById('messages');
+  const heightBefore = container.offsetHeight;
+
   // Create collapsible structure
   container.innerHTML = `
     <button class="thinking-toggle" aria-expanded="false" type="button">
@@ -251,6 +258,24 @@ export function finalizeThinkingIndicator(
       </div>
     </div>
   `;
+
+  if (scrollContainer) {
+    const collapseDelta = heightBefore - container.offsetHeight;
+    const indicatorBottom = container.getBoundingClientRect().bottom;
+    const viewportTop = scrollContainer.getBoundingClientRect().top;
+    // Compensate only when the collapsed area sits fully above the viewport
+    // (the user is reading below it) and they aren't at the bottom anyway
+    // (follow mode / bottom clamping handles that case)
+    if (
+      collapseDelta > 0 &&
+      indicatorBottom < viewportTop &&
+      !isScrolledToBottom(scrollContainer)
+    ) {
+      markProgrammaticScrollStart();
+      scrollContainer.scrollTop -= collapseDelta;
+      markProgrammaticScrollEnd();
+    }
+  }
 
   // Add toggle behavior
   const toggle = container.querySelector('.thinking-toggle');

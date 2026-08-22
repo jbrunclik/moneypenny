@@ -424,12 +424,28 @@
     pointer-events: none;
 }
 
+/* Label shown only while streaming is paused (chevron becomes a pill) */
+.scroll-to-bottom-label {
+    display: none;
+    font-size: var(--font-size-sm);
+    line-height: 1;
+    white-space: nowrap;
+}
+
 /* Streaming paused indicator - highlighted state when user scrolled up during streaming */
 .scroll-to-bottom.streaming-paused {
     background-color: var(--accent);
     border-color: var(--accent);
     color: white;
     animation: scroll-button-pulse 1.5s ease-in-out infinite;
+    /* Morph into a labeled pill: width grows with the label, height stays */
+    width: auto;
+    padding: 0 var(--space-3);
+    gap: var(--space-1);
+}
+
+.scroll-to-bottom.streaming-paused .scroll-to-bottom-label {
+    display: inline;
 }
 
 .scroll-to-bottom.streaming-paused:hover {

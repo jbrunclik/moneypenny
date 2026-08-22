@@ -4,7 +4,7 @@
  */
 
 import { useStore } from '../state/store';
-import { SEND_AUTO_RETRY_DELAY_MS } from '../config';
+import { RESPONSE_JUMP_MIN_VIEWPORT_RATIO, SEND_AUTO_RETRY_DELAY_MS } from '../config';
 import { createLogger } from '../utils/logger';
 import { conversations, chat } from '../api/client';
 import { ApiError } from '../api/http';
@@ -511,12 +511,15 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
     return;
   }
 
-  // Transient failures (network drop, connect timeout) get one silent retry
-  // before surfacing - idempotent thanks to the client message ID
+  // Transient failures (network drop, connect timeout) get one automatic
+  // retry before surfacing - idempotent thanks to the client message ID.
+  // The message stays visually PENDING during the wait (no retry/discard
+  // buttons yet); the toast tells the user what's happening.
   const isTransient = error instanceof ApiError && (error.isNetworkError || error.isTimeout);
   if (isTransient && !autoRetriedSends.has(messageId)) {
     autoRetriedSends.add(messageId);
     log.info('Auto-retrying send after transient failure', { conversationId: convId, messageId });
+    toast.info('Connection problem - retrying...');
     await new Promise((resolve) => setTimeout(resolve, SEND_AUTO_RETRY_DELAY_MS));
     const entry = getOutboxEntry(convId, messageId);
     if (entry) {
@@ -1451,6 +1454,17 @@ async function handleStreamDone(
           return;
         }
 
+        // Only jump to the top of responses taller than the viewport: the
+        // jump exists so long answers can be read from the start, but for a
+        // short answer that's already fully visible it's a jarring leap away
+        // from the bottom the user was just watching
+        if (messageEl.offsetHeight <= clientHeight * RESPONSE_JUMP_MIN_VIEWPORT_RATIO) {
+          log.info('Short response - staying at bottom instead of jumping to top');
+          programmaticScrollToBottom(messagesContainer);
+          checkScrollButtonVisibility();
+          return;
+        }
+
         log.info('Scrolling to top of message (programmatic)');
         // Use instant scroll to avoid timing issues with animations
         programmaticScrollToElementTop(messagesContainer, messageEl, false);
@@ -1621,14 +1635,17 @@ async function sendStreamingMessage(
       throw error;
     }
 
-    // Mark unconfirmed sends failed even when the user switched away (the
-    // error is swallowed below) so the outbox doesn't lose track of them
-    markSendFailed(convId, tempUserMessageId);
-
     const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
     if (isCurrentConversation) {
+      // Propagate: handleSendFailure decides between a silent auto-retry and
+      // the failed state. Marking failed HERE flashed the retry/discard
+      // buttons for the 2s auto-retry window.
       throw error;
     }
+
+    // Swallowed (user switched away): record the failure so the outbox
+    // doesn't lose track of it
+    markSendFailed(convId, tempUserMessageId);
   } finally {
     cleanupLifecycleListeners();
     // Safety net: never leave the user bubble pulsing or the assistant
@@ -1757,7 +1774,16 @@ async function sendBatchMessage(
             `[data-message-id="${assistantMessage.id}"]`
           );
           if (messageEl) {
-            programmaticScrollToElementTop(messagesContainer, messageEl, true);
+            // Short responses that fit the viewport scroll to the bottom
+            // instead of jumping to the message top (see the streaming-done
+            // path for rationale). Instant, not smooth: the smooth animator
+            // has no user-interference abort and would fight a user scroll
+            // for its whole 300-600ms run.
+            if (messageEl.offsetHeight <= messagesContainer.clientHeight * RESPONSE_JUMP_MIN_VIEWPORT_RATIO) {
+              programmaticScrollToBottom(messagesContainer);
+            } else {
+              programmaticScrollToElementTop(messagesContainer, messageEl, true);
+            }
 
             // If message has images to load, trigger observation for visible ones
             if (hasImagesToLoad) {
@@ -1806,19 +1832,18 @@ async function sendBatchMessage(
       throw error;
     }
 
-    // Track the failure even when the user switched away and the error is
-    // swallowed below
-    markSendFailed(convId, tempUserMessageId);
-
     // Check if conversation is still current before showing errors
     const store = useStore.getState();
     const isCurrentConversation = store.currentConversation?.id === convId;
 
     if (!isCurrentConversation) {
-      // User switched conversations - silently handle error, message will be in DB
+      // User switched conversations - swallow the error but record the
+      // failure so the outbox doesn't lose track of it
+      markSendFailed(convId, tempUserMessageId);
       return;
     }
 
+    // Propagate: handleSendFailure decides between auto-retry and failed state
     throw error;
   } finally {
     // Clean up request tracking

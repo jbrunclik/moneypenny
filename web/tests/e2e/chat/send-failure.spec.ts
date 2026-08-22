@@ -29,6 +29,11 @@ test.describe('Chat - Send Failure Handling', () => {
     await page.fill('#message-input', 'Message into the void');
     await page.click('#send-btn');
 
+    // The failed state appears only after the automatic retry also failed -
+    // never during the auto-retry window
+    await page.waitForTimeout(800);
+    await expect(page.locator('.message--send-failed')).toHaveCount(0);
+
     const failedMessage = page.locator('.message.user.message--send-failed');
     await expect(failedMessage).toBeVisible({ timeout: 20000 });
     await expect(failedMessage).toContainText('Message into the void');
@@ -113,7 +118,13 @@ test.describe('Chat - Send Auto-Retry', () => {
     await page.fill('#message-input', 'Auto retry me');
     await page.click('#send-btn');
 
-    // Delivered without any manual interaction (one silent retry)
+    // During the auto-retry window the message must stay PENDING - flashing
+    // the retry/discard buttons before the automatic retry was confusing
+    await page.waitForTimeout(800);
+    await expect(page.locator('.message--send-failed')).toHaveCount(0);
+    await expect(page.locator('.message.user.message--send-pending')).toBeVisible();
+
+    // Delivered without any manual interaction (one automatic retry)
     await expect(page.locator('.message.assistant')).toContainText('mock response', {
       timeout: 20000,
     });

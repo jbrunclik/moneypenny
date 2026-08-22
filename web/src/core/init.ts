@@ -24,6 +24,7 @@ import {
   showConversationLoader,
 } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
+import { initKeyboardViewportPinning } from './keyboard-viewport';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { registerServiceWorker, resyncPushSubscription } from './push';
 import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
@@ -50,7 +51,7 @@ import {
   getLanguageProgramFromHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { ATTACH_ICON, CHEVRON_DOWN_ICON, SLIDERS_ICON, CLOSE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
+import { ATTACH_ICON, CHEVRON_DOWN_ICON, CHEVRON_LEFT_ICON, CHEVRON_RIGHT_ICON, SLIDERS_ICON, CLOSE_ICON, DOWNLOAD_ICON, MAXIMIZE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
 import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -440,6 +441,7 @@ export async function init(): Promise<void> {
     }
   });
   initOrientationChangeHandler();
+  initKeyboardViewportPinning();
   initVersionBanner();
   // Keep an existing push subscription working after reloads; actual
   // permission requests only happen from the Settings toggle

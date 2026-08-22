@@ -11,10 +11,13 @@
     padding: 0;
 }
 
-/* Viewport setup */
+/* Viewport setup. --keyboard-inset (core/keyboard-viewport.ts) shrinks the
+   layout above the on-screen keyboard - without it the keyboard OVERLAYS the
+   fixed-height page and hides the newest messages and the input. */
 html,
 body {
     height: 100vh;
+    height: calc(100vh - var(--keyboard-inset, 0px));
     overflow: hidden;
 }
 

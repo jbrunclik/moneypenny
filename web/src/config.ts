@@ -218,6 +218,31 @@ export const STREAMING_SCROLL_RESUME_DEBOUNCE_MS = 150;
 /** Distance from bottom to show scroll-to-bottom button */
 export const SCROLL_BUTTON_SHOW_THRESHOLD_PX = 200;
 
+/**
+ * A finished response jumps to its top (read-from-the-start) only when taller
+ * than this fraction of the viewport; shorter responses finish at the bottom.
+ */
+export const RESPONSE_JUMP_MIN_VIEWPORT_RATIO = 0.9;
+
+/**
+ * Minimum visualViewport overlap treated as an on-screen keyboard.
+ * Filters out browser chrome show/hide and iOS accessory-bar-only changes.
+ */
+export const KEYBOARD_INSET_MIN_PX = 80;
+
+// =============================================================================
+// Lightbox
+// =============================================================================
+
+/** Minimum horizontal swipe to navigate between lightbox images */
+export const LIGHTBOX_SWIPE_MIN_PX = 50;
+
+/** Zoom level applied by double-click/double-tap in the lightbox */
+export const LIGHTBOX_ZOOM_SCALE = 2.5;
+
+/** Maximum wheel-zoom level in the lightbox */
+export const LIGHTBOX_ZOOM_MAX_SCALE = 4;
+
 // =============================================================================
 // Smooth Scroll Animation
 // =============================================================================

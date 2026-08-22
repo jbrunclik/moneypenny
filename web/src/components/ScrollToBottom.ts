@@ -40,11 +40,17 @@ export function initScrollToBottom(): void {
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (!messagesContainer) return;
 
-  // Create scroll-to-bottom button
+  // Create scroll-to-bottom button. The label renders only in the
+  // streaming-paused state (CSS), turning the chevron into a labeled pill
+  // so new content below is announced, not just hinted at.
   scrollButton = document.createElement('button');
   scrollButton.className = 'scroll-to-bottom hidden';
   scrollButton.setAttribute('aria-label', 'Scroll to bottom');
   scrollButton.innerHTML = CHEVRON_DOWN_ICON;
+  const label = document.createElement('span');
+  label.className = 'scroll-to-bottom-label';
+  label.textContent = 'New messages';
+  scrollButton.appendChild(label);
 
   // Insert button after messages container (inside .main)
   messagesContainer.parentElement?.insertBefore(
