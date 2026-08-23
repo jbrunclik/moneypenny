@@ -316,6 +316,26 @@ const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   ],
 };
 
+/**
+ * Insert a conversation into a list sorted by updated_at DESC.
+ * Uses <= so that conversations with the same timestamp are prepended
+ * (newer first). The sidebar renders the array in order and emits date-group
+ * labels on group changes, so this invariant must hold after every mutation.
+ */
+function insertSortedByUpdatedAt(
+  conversations: Conversation[],
+  conversation: Conversation
+): Conversation[] {
+  const result = [...conversations];
+  const insertIndex = result.findIndex((c) => c.updated_at <= conversation.updated_at);
+  if (insertIndex === -1) {
+    result.push(conversation);
+  } else {
+    result.splice(insertIndex, 0, conversation);
+  }
+  return result;
+}
+
 export const useStore = create<AppState>()(
   subscribeWithSelector(
     persist(
@@ -511,8 +531,17 @@ export const useStore = create<AppState>()(
               // Preserve unreadCount if the new conversation doesn't specify it
               unreadCount: conversation.unreadCount ?? existing.unreadCount,
             };
-            const newConvs = [...state.conversations];
-            newConvs[existingIndex] = merged;
+            // Re-insert at the correct sorted position when the timestamp
+            // changed (e.g. a message bumped updated_at); otherwise keep the
+            // current position to avoid shuffling equal-timestamp neighbors
+            let newConvs: Conversation[];
+            if (merged.updated_at !== existing.updated_at) {
+              newConvs = state.conversations.filter((c) => c.id !== conversation.id);
+              newConvs = insertSortedByUpdatedAt(newConvs, merged);
+            } else {
+              newConvs = [...state.conversations];
+              newConvs[existingIndex] = merged;
+            }
             return {
               conversations: newConvs,
               conversationsPagination: state.conversationsPagination, // Don't increment count
@@ -522,27 +551,10 @@ export const useStore = create<AppState>()(
           // Insert conversation at correct sorted position (by updated_at DESC)
           // This ensures conversations discovered via sync appear in correct order
           // For temp conversations (newly created), always prepend to ensure they appear at top
-          // For other conversations, use <= so that conversations with same timestamp are prepended (newer first)
           const isTempConversation = conversation.id.startsWith('temp-');
-          const newConvs = [...state.conversations];
-
-          if (isTempConversation) {
-            // Newly created conversations should always be at the top
-            newConvs.unshift(conversation);
-          } else {
-            // For conversations from sync, insert at correct sorted position
-            // Use <= so that conversations with same timestamp are prepended (newer first)
-            const insertIndex = newConvs.findIndex(
-              (c) => c.updated_at <= conversation.updated_at
-            );
-            if (insertIndex === -1) {
-              // No conversation is older or equal, append at end
-              newConvs.push(conversation);
-            } else {
-              // Insert before the first older-or-equal conversation
-              newConvs.splice(insertIndex, 0, conversation);
-            }
-          }
+          const newConvs = isTempConversation
+            ? [conversation, ...state.conversations]
+            : insertSortedByUpdatedAt(state.conversations, conversation);
 
           return {
             conversations: newConvs,
@@ -553,15 +565,29 @@ export const useStore = create<AppState>()(
           };
         }),
       updateConversation: (id, updates) =>
-        set((state) => ({
-          conversations: state.conversations.map((c) =>
-            c.id === id ? { ...c, ...updates } : c
-          ),
-          currentConversation:
+        set((state) => {
+          const currentConversation =
             state.currentConversation?.id === id
               ? { ...state.currentConversation, ...updates }
-              : state.currentConversation,
-        })),
+              : state.currentConversation;
+
+          const existing = state.conversations.find((c) => c.id === id);
+          if (!existing) return { currentConversation };
+
+          const merged = { ...existing, ...updates };
+          // A bumped updated_at (message sent, sync poll) changes the
+          // conversation's date group - re-insert at the correct sorted
+          // position so the sidebar's group labels render in order
+          const conversations =
+            merged.updated_at !== existing.updated_at
+              ? insertSortedByUpdatedAt(
+                  state.conversations.filter((c) => c.id !== id),
+                  merged
+                )
+              : state.conversations.map((c) => (c.id === id ? merged : c));
+
+          return { conversations, currentConversation };
+        }),
       removeConversation: (id) =>
         set((state) => ({
           conversations: state.conversations.filter((c) => c.id !== id),

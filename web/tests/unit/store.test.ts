@@ -221,6 +221,26 @@ describe('Store - Conversations', () => {
       expect(convs[1].id).toBe('1');
     });
 
+    it('re-sorts existing conversation when merged with newer updated_at', () => {
+      const oldConv = createConversation('1', 'Old');
+      oldConv.updated_at = '2024-01-01T00:00:00Z';
+      useStore.getState().addConversation(oldConv);
+
+      const newConv = createConversation('2', 'New');
+      newConv.updated_at = '2024-01-05T00:00:00Z';
+      useStore.getState().addConversation(newConv);
+
+      // Re-add the old conversation with a fresh timestamp (e.g. sync merge)
+      const bumped = createConversation('1', 'Old');
+      bumped.updated_at = '2024-01-10T00:00:00Z';
+      useStore.getState().addConversation(bumped);
+
+      const convs = useStore.getState().conversations;
+      expect(convs).toHaveLength(2);
+      expect(convs[0].id).toBe('1'); // Bumped conversation moved to top
+      expect(convs[1].id).toBe('2');
+    });
+
     it('handles conversation with same timestamp (prepends)', () => {
       const conv1 = createConversation('1', 'First');
       conv1.updated_at = '2024-01-01T12:00:00Z';
@@ -272,6 +292,39 @@ describe('Store - Conversations', () => {
       useStore.getState().updateConversation('1', { title: 'Updated' });
 
       expect(useStore.getState().conversations[0].model).toBe('gemini-3-flash-preview');
+    });
+
+    it('moves conversation to correct sorted position when updated_at is bumped', () => {
+      const newest = createConversation('1', 'Newest');
+      newest.updated_at = '2024-01-05T00:00:00Z';
+      const middle = createConversation('2', 'Middle');
+      middle.updated_at = '2024-01-03T00:00:00Z';
+      const oldest = createConversation('3', 'Oldest');
+      oldest.updated_at = '2024-01-01T00:00:00Z';
+      useStore.setState({ conversations: [newest, middle, oldest] });
+
+      // Sync poll bumps the oldest conversation (user sent a message to it)
+      useStore.getState().updateConversation('3', { updated_at: '2024-01-10T00:00:00Z' });
+
+      const convs = useStore.getState().conversations;
+      expect(convs.map((c) => c.id)).toEqual(['3', '1', '2']);
+    });
+
+    it('keeps position when updated_at is unchanged', () => {
+      const newest = createConversation('1', 'Newest');
+      newest.updated_at = '2024-01-05T00:00:00Z';
+      const oldest = createConversation('2', 'Oldest');
+      oldest.updated_at = '2024-01-01T00:00:00Z';
+      useStore.setState({ conversations: [newest, oldest] });
+
+      useStore.getState().updateConversation('2', {
+        title: 'Renamed',
+        updated_at: '2024-01-01T00:00:00Z',
+      });
+
+      const convs = useStore.getState().conversations;
+      expect(convs.map((c) => c.id)).toEqual(['1', '2']);
+      expect(convs[1].title).toBe('Renamed');
     });
   });
 
