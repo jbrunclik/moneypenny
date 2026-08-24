@@ -171,6 +171,7 @@ interface AppState {
   appendConversations: (conversations: Conversation[], pagination: ConversationsPagination) => void;
   addConversation: (conversation: Conversation) => void;
   updateConversation: (id: string, updates: Partial<Conversation>) => void;
+  bumpConversationActivity: (id: string, preview?: string) => void;
   removeConversation: (id: string) => void;
   setCurrentConversation: (conversation: Conversation | null) => void;
   setLoadingMoreConversations: (loading: boolean) => void;
@@ -328,6 +329,25 @@ function insertSortedByUpdatedAt(
 ): Conversation[] {
   const result = [...conversations];
   const insertIndex = result.findIndex((c) => c.updated_at <= conversation.updated_at);
+  if (insertIndex === -1) {
+    result.push(conversation);
+  } else {
+    result.splice(insertIndex, 0, conversation);
+  }
+  return result;
+}
+
+/**
+ * Like insertSortedByUpdatedAt but stable for pagination: an item with a
+ * timestamp equal to existing entries goes AFTER them, preserving the
+ * server's page order instead of reversing it.
+ */
+function appendSortedByUpdatedAt(
+  conversations: Conversation[],
+  conversation: Conversation
+): Conversation[] {
+  const result = [...conversations];
+  const insertIndex = result.findIndex((c) => c.updated_at < conversation.updated_at);
   if (insertIndex === -1) {
     result.push(conversation);
   } else {
@@ -508,8 +528,11 @@ export const useStore = create<AppState>()(
           const existingIds = new Set(state.conversations.map((c) => c.id));
           const filtered = newConversations.filter((c) => !existingIds.has(c.id));
 
+          // Pages usually arrive older-than-tail, but a locally re-sorted head
+          // (optimistic bumps) can break that assumption - merge-insert to
+          // keep the sorted-by-updated_at-desc invariant
           return {
-            conversations: [...state.conversations, ...filtered],
+            conversations: filtered.reduce(appendSortedByUpdatedAt, state.conversations),
             conversationsPagination: {
               nextCursor: pagination.next_cursor,
               hasMore: pagination.has_more,
@@ -588,6 +611,18 @@ export const useStore = create<AppState>()(
 
           return { conversations, currentConversation };
         }),
+      // Optimistic sidebar bump on user activity (message send): moves the
+      // conversation to the top with a fresh timestamp instead of waiting up
+      // to a full sync-poll interval for the server's updated_at
+      bumpConversationActivity: (id, preview) => {
+        const updates: Partial<Conversation> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (preview) {
+          updates.last_message_preview = preview;
+        }
+        get().updateConversation(id, updates);
+      },
       removeConversation: (id) =>
         set((state) => ({
           conversations: state.conversations.filter((c) => c.id !== id),
@@ -936,7 +971,7 @@ export const useStore = create<AppState>()(
           const existingIds = new Set(state.archivedConversations.map((c) => c.id));
           const filtered = newConversations.filter((c) => !existingIds.has(c.id));
           return {
-            archivedConversations: [...state.archivedConversations, ...filtered],
+            archivedConversations: filtered.reduce(appendSortedByUpdatedAt, state.archivedConversations),
             archivedPagination: {
               nextCursor: pagination.next_cursor,
               hasMore: pagination.has_more,
@@ -955,7 +990,7 @@ export const useStore = create<AppState>()(
         })),
       addArchivedConversation: (conversation) =>
         set((state) => ({
-          archivedConversations: [conversation, ...state.archivedConversations],
+          archivedConversations: insertSortedByUpdatedAt(state.archivedConversations, conversation),
           archivedPagination: {
             ...state.archivedPagination,
             totalCount: state.archivedPagination.totalCount + 1,

@@ -14,6 +14,7 @@ import {
   renderUserInfo,
   cleanupInfiniteScroll,
   loadArchivedConversations,
+  initSidebarTimeRefresh,
 } from '../components/Sidebar';
 import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
@@ -302,6 +303,10 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     renderConversationsList();
     renderUserInfo();
     renderModelDropdown();
+
+    // Keep relative-time labels and date-group headers fresh even when no
+    // sync poll returns changed data
+    initSidebarTimeRefresh();
 
     // Load archive count in background (non-blocking) to show archive section
     loadArchivedConversations().catch(() => {

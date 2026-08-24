@@ -1,15 +1,16 @@
 /**
  * Component tests for Sidebar
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
 import {
   renderConversationsList,
   renderUserInfo,
-  updateConversationTitle,
   setActiveConversation,
   toggleSidebar,
   closeSidebar,
+  initSidebarTimeRefresh,
+  cleanupSidebarTimeRefresh,
 } from '@/components/Sidebar';
 import type { Conversation, User } from '@/types/api';
 
@@ -599,27 +600,44 @@ describe('Sidebar', () => {
     });
   });
 
-  describe('updateConversationTitle', () => {
-    beforeEach(() => {
-      useStore.setState({
-        conversations: [createConversation('1', 'Original Title')],
-      });
+  describe('initSidebarTimeRefresh', () => {
+    afterEach(() => {
+      cleanupSidebarTimeRefresh();
+      vi.useRealTimers();
+    });
+
+    it('refreshes stale relative-time labels periodically', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-06-01T12:00:00Z'));
+
+      const conv = createConversation('1', 'Test');
+      conv.updated_at = '2024-06-01T11:59:30.000Z'; // 30s ago -> "now"
+      useStore.setState({ conversations: [conv] });
       renderConversationsList();
+      expect(document.querySelector('.conversation-time')?.textContent?.trim()).toBe('now');
+
+      initSidebarTimeRefresh();
+      // After 5 minutes the label must have aged even though no store
+      // change or sync poll triggered a re-render
+      vi.advanceTimersByTime(5 * 60 * 1000);
+
+      expect(document.querySelector('.conversation-time')?.textContent?.trim()).toBe('5m');
     });
 
-    it('updates title in DOM', () => {
-      updateConversationTitle('1', 'New Title');
+    it('does not refresh while the tab is hidden', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-06-01T12:00:00Z'));
 
-      const titleEl = document.querySelector('.conversation-title');
-      expect(titleEl?.textContent).toBe('New Title');
-    });
+      const conv = createConversation('1', 'Test');
+      conv.updated_at = '2024-06-01T11:59:30.000Z';
+      useStore.setState({ conversations: [conv] });
+      renderConversationsList();
 
-    it('does nothing for non-existent conversation', () => {
-      updateConversationTitle('nonexistent', 'New Title');
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+      initSidebarTimeRefresh();
+      vi.advanceTimersByTime(5 * 60 * 1000);
 
-      // Should not throw
-      const titleEl = document.querySelector('.conversation-title');
-      expect(titleEl?.textContent).toBe('Original Title');
+      expect(document.querySelector('.conversation-time')?.textContent?.trim()).toBe('now');
     });
   });
 

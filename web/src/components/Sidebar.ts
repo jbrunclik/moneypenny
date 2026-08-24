@@ -16,6 +16,7 @@ import {
   CONVERSATION_ITEM_HEIGHT_PX,
   CONVERSATIONS_MIN_PAGE_SIZE,
   VIEWPORT_BUFFER_MULTIPLIER,
+  SIDEBAR_TIME_REFRESH_INTERVAL_MS,
 } from '../config';
 
 const log = createLogger('sidebar');
@@ -173,7 +174,13 @@ export function renderConversationsList(): void {
     return;
   }
 
-  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, isSportsView, isLanguageView, commandCenterData } = useStore.getState();
+  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, isSportsView, isLanguageView, isStorageView, commandCenterData } = useStore.getState();
+
+  // A conversation row is highlighted only in the plain chat view - special
+  // views (planner, agents, sports, language, storage) set currentConversation
+  // to their own conversation, which must not re-highlight a list row on
+  // re-render
+  const inSpecialView = isPlannerView || isAgentsView || isSportsView || isLanguageView || isStorageView;
 
   // Build navigation entries row (planner + agents + sports + language side by side)
   const showPlanner = shouldShowPlanner(user);
@@ -234,7 +241,7 @@ export function renderConversationsList(): void {
     ? `<div class="conversation-group-label">Pinned</div>` +
       pinnedConversations
         .map((conv) =>
-          renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView && !isAgentsView)
+          renderConversationItem(conv, conv.id === currentConversation?.id && !inSpecialView)
         )
         .join('')
     : '';
@@ -250,7 +257,7 @@ export function renderConversationsList(): void {
       lastGroup = group;
       return (
         label +
-        renderConversationItem(conv, conv.id === currentConversation?.id && !isPlannerView && !isAgentsView)
+        renderConversationItem(conv, conv.id === currentConversation?.id && !inSpecialView)
       );
     })
     .join('');
@@ -492,18 +499,31 @@ export async function updateMonthlyCost(): Promise<void> {
   }
 }
 
+// Timer that keeps relative-time labels ("2m", "3h") and date-group headers
+// fresh: they are computed at render time and would otherwise only update
+// when a sync poll returns changed data
+let timeRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
 /**
- * Update conversation title in sidebar
+ * Periodically re-render the conversations list so relative times and date
+ * groups stay accurate. Gated on tab visibility; the string-compare render
+ * cache makes ticks free when no label actually changed.
  */
-export function updateConversationTitle(convId: string, title: string): void {
-  const wrapper = document.querySelector<HTMLDivElement>(
-    `.conversation-item-wrapper[data-conv-id="${convId}"]`
-  );
-  if (wrapper) {
-    const titleEl = wrapper.querySelector<HTMLDivElement>('.conversation-title');
-    if (titleEl) {
-      titleEl.textContent = title;
-    }
+export function initSidebarTimeRefresh(): void {
+  if (timeRefreshInterval) return;
+  timeRefreshInterval = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    renderConversationsList();
+  }, SIDEBAR_TIME_REFRESH_INTERVAL_MS);
+}
+
+/**
+ * Stop the relative-time refresh timer (tests / teardown).
+ */
+export function cleanupSidebarTimeRefresh(): void {
+  if (timeRefreshInterval) {
+    clearInterval(timeRefreshInterval);
+    timeRefreshInterval = null;
   }
 }
 

@@ -286,7 +286,11 @@ export async function sendMessage(): Promise<void> {
     try {
       await conversations.unarchive(conv.id);
       store.removeArchivedConversation(conv.id);
-      store.updateConversation(conv.id, { archived: false });
+      // addConversation, not updateConversation: a deep-linked archived
+      // conversation is never in store.conversations, so an update would
+      // no-op and the conversation would vanish from the sidebar until the
+      // next sync poll re-discovers it (addConversation merges if present)
+      store.addConversation({ ...conv, archived: false });
       conv = { ...conv, archived: false };
       store.setCurrentConversation(conv);
       renderConversationsList();
@@ -395,6 +399,12 @@ export async function sendMessage(): Promise<void> {
     anonymousMode,
     createdAt: userMessage.created_at,
   });
+
+  // Optimistically bump the sidebar entry so the conversation moves to the
+  // top ("Today") with the new preview immediately, instead of staying in
+  // its old date group until the next sync poll returns the server timestamp
+  useStore.getState().bumpConversationActivity(conv.id, messageText);
+  renderConversationsList();
 
   // Add to UI immediately and scroll to bottom to show user's message
   const messagesContainer = getElementById<HTMLDivElement>('messages');

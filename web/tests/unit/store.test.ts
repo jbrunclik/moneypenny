@@ -310,6 +310,33 @@ describe('Store - Conversations', () => {
       expect(convs.map((c) => c.id)).toEqual(['3', '1', '2']);
     });
 
+    it('bumpConversationActivity moves conversation to top with fresh timestamp and preview', () => {
+      const newest = createConversation('1', 'Newest');
+      newest.updated_at = '2024-01-05T00:00:00Z';
+      const oldest = createConversation('2', 'Oldest');
+      oldest.updated_at = '2024-01-01T00:00:00Z';
+      oldest.last_message_preview = 'old preview';
+      useStore.setState({ conversations: [newest, oldest] });
+
+      const before = new Date().toISOString();
+      useStore.getState().bumpConversationActivity('2', 'hello there');
+
+      const convs = useStore.getState().conversations;
+      expect(convs.map((c) => c.id)).toEqual(['2', '1']);
+      expect(convs[0].updated_at >= before).toBe(true);
+      expect(convs[0].last_message_preview).toBe('hello there');
+    });
+
+    it('bumpConversationActivity keeps existing preview when none is given', () => {
+      const conv = createConversation('1', 'Test');
+      conv.last_message_preview = 'existing preview';
+      useStore.setState({ conversations: [conv] });
+
+      useStore.getState().bumpConversationActivity('1');
+
+      expect(useStore.getState().conversations[0].last_message_preview).toBe('existing preview');
+    });
+
     it('keeps position when updated_at is unchanged', () => {
       const newest = createConversation('1', 'Newest');
       newest.updated_at = '2024-01-05T00:00:00Z';
@@ -413,6 +440,23 @@ describe('Store - Conversations', () => {
 
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(1);
+    });
+
+    it('inserts a paginated conversation newer than the tail at its sorted position', () => {
+      const head = createConversation('1', 'Head');
+      head.updated_at = '2024-01-10T00:00:00Z';
+      const tail = createConversation('2', 'Tail');
+      tail.updated_at = '2024-01-01T00:00:00Z';
+      useStore.getState().setConversations([head, tail], createPagination(true, 10));
+
+      // Page item that is newer than the current tail (e.g. after a head
+      // re-sort shifted timestamps) must not be blindly appended
+      const middle = createConversation('3', 'Middle');
+      middle.updated_at = '2024-01-05T00:00:00Z';
+      useStore.getState().appendConversations([middle], createPagination(false, 10));
+
+      const convs = useStore.getState().conversations;
+      expect(convs.map((c) => c.id)).toEqual(['1', '3', '2']);
     });
   });
 });
@@ -697,6 +741,21 @@ describe('Store - Archive', () => {
       expect(pagination.nextCursor).toBeNull();
       expect(pagination.isLoadingMore).toBe(false);
     });
+
+    it('inserts a paginated archived conversation newer than the tail at its sorted position', () => {
+      const head = createConversation('1', 'Head');
+      head.updated_at = '2024-01-10T00:00:00Z';
+      const tail = createConversation('2', 'Tail');
+      tail.updated_at = '2024-01-01T00:00:00Z';
+      useStore.getState().setArchivedConversations([head, tail], createPagination(true, 3));
+
+      const middle = createConversation('3', 'Middle');
+      middle.updated_at = '2024-01-05T00:00:00Z';
+      useStore.getState().appendArchivedConversations([middle], createPagination(false, 3));
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived.map((c) => c.id)).toEqual(['1', '3', '2']);
+    });
   });
 
   describe('removeArchivedConversation', () => {
@@ -762,6 +821,20 @@ describe('Store - Archive', () => {
       const archived = useStore.getState().archivedConversations;
       expect(archived).toHaveLength(1);
       expect(archived[0].id).toBe('1');
+    });
+
+    it('inserts an old conversation at its sorted position, not at the top', () => {
+      const recent = createConversation('1', 'Recently Archived');
+      recent.updated_at = '2024-06-01T00:00:00Z';
+      useStore.getState().setArchivedConversations([recent], createPagination(false, 1));
+
+      // Archiving a months-old conversation must not put it above newer items
+      const old = createConversation('2', 'Old Conversation');
+      old.updated_at = '2024-01-01T00:00:00Z';
+      useStore.getState().addArchivedConversation(old);
+
+      const archived = useStore.getState().archivedConversations;
+      expect(archived.map((c) => c.id)).toEqual(['1', '2']);
     });
   });
 
