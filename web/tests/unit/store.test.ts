@@ -318,12 +318,16 @@ describe('Store - Conversations', () => {
       oldest.last_message_preview = 'old preview';
       useStore.setState({ conversations: [newest, oldest] });
 
-      const before = new Date().toISOString();
+      // Fake timers: comparing against toISOString() would mix UTC "Z"
+      // format with the bump's local-naive format and break in UTC CI
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2024, 5, 15, 10, 0, 0));
       useStore.getState().bumpConversationActivity('2', 'hello there');
+      vi.useRealTimers();
 
       const convs = useStore.getState().conversations;
       expect(convs.map((c) => c.id)).toEqual(['2', '1']);
-      expect(convs[0].updated_at >= before).toBe(true);
+      expect(convs[0].updated_at.startsWith('2024-06-15T10:00:00')).toBe(true);
       expect(convs[0].last_message_preview).toBe('hello there');
     });
 
