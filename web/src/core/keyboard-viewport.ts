@@ -35,12 +35,20 @@ export function initKeyboardViewportPinning(): void {
     // Pinch zoom also shrinks the visual viewport - never treat it as a
     // keyboard. Same for shrinks with no editable element focused
     // (rotations, browser chrome show/hide).
+    // The overlap deliberately does NOT include viewport.offsetTop: pan
+    // position churns per pixel while the user drags (welcome screen has
+    // no inner scroll container, so drags pan the visual viewport), and an
+    // offsetTop-dependent inset reflows the whole page mid-gesture - the
+    // "extremely laggy scrolling with keyboard open" bug. Keyboard
+    // GEOMETRY (innerHeight - height) is stable during pans; the focus-pan
+    // that offsetTop used to compensate is reset below via scrollTo(0,0).
     const keyboardLikely = viewport.scale === 1 && isEditableElement(document.activeElement);
     const overlap = keyboardLikely
-      ? Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))
+      ? Math.max(0, Math.round(window.innerHeight - viewport.height))
       : 0;
     const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
     if (inset === currentInset) return;
+    const keyboardJustOpened = currentInset === 0 && inset > 0;
 
     // Capture follow state BEFORE the layout shrinks (afterwards the
     // distance-from-bottom already includes the lost height)
@@ -58,15 +66,19 @@ export function initKeyboardViewportPinning(): void {
         // up - WebKit then draws the caret at the stale pan position,
         // visibly outside the input. Reset the pan (the shrunk layout no
         // longer needs it) and re-assert the selection to force a redraw.
-        window.scrollTo(0, 0);
-        const active = document.activeElement;
-        if (
-          active instanceof HTMLTextAreaElement ||
-          (active instanceof HTMLInputElement && typeof active.selectionStart === 'number')
-        ) {
-          const { selectionStart, selectionEnd } = active;
-          if (selectionStart !== null && selectionEnd !== null) {
-            active.setSelectionRange(selectionStart, selectionEnd);
+        // Only on the OPEN transition - re-running on later geometry
+        // fluctuations would fight in-progress user gestures.
+        if (keyboardJustOpened) {
+          window.scrollTo(0, 0);
+          const active = document.activeElement;
+          if (
+            active instanceof HTMLTextAreaElement ||
+            (active instanceof HTMLInputElement && typeof active.selectionStart === 'number')
+          ) {
+            const { selectionStart, selectionEnd } = active;
+            if (selectionStart !== null && selectionEnd !== null) {
+              active.setSelectionRange(selectionStart, selectionEnd);
+            }
           }
         }
 

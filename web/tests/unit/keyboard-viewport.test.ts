@@ -85,6 +85,54 @@ describe('keyboard viewport pinning', () => {
     scrollToSpy.mockRestore();
   });
 
+  it('does not thrash layout when the user pans with the keyboard open', async () => {
+    // Welcome-screen lag: with no inner scroll container, drags pan the
+    // visual viewport (offsetTop churns per pixel). The inset must depend
+    // only on keyboard GEOMETRY (height), never on the pan position -
+    // otherwise every pan pixel reflows the whole page mid-gesture.
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+    await nextFrame();
+    expect(getInset()).toBe('300px');
+    const scrollToCallsAfterOpen = scrollToSpy.mock.calls.length;
+
+    const setPropertySpy = vi.spyOn(document.documentElement.style, 'setProperty');
+    for (let offset = 1; offset <= 30; offset++) {
+      viewport.offsetTop = offset;
+      viewport.dispatchEvent(new Event('scroll'));
+    }
+    await nextFrame();
+    await nextFrame();
+
+    expect(getInset()).toBe('300px'); // unchanged by panning
+    expect(setPropertySpy).not.toHaveBeenCalled(); // zero mid-gesture reflows
+    expect(scrollToSpy.mock.calls.length).toBe(scrollToCallsAfterOpen); // no pan fighting
+    scrollToSpy.mockRestore();
+  });
+
+  it('runs the caret nudge only on the keyboard-open transition', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+    await nextFrame();
+    expect(scrollToSpy).toHaveBeenCalledTimes(1);
+
+    // Keyboard geometry fluctuation while open (accessory bar toggle)
+    viewport.height = 540;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+    await nextFrame();
+
+    expect(getInset()).toBe('260px'); // inset tracks geometry
+    expect(scrollToSpy).toHaveBeenCalledTimes(1); // but no re-nudge
+    scrollToSpy.mockRestore();
+  });
+
   it('ignores pinch zoom (scale != 1)', () => {
     textarea.focus();
     viewport.scale = 2;
@@ -113,11 +161,14 @@ describe('keyboard viewport pinning', () => {
     expect(getInset()).toBe('0px');
   });
 
-  it('accounts for visual viewport panning (offsetTop)', () => {
+  it('derives the inset from keyboard geometry alone, ignoring pan offset', () => {
+    // offsetTop deliberately does NOT participate: pan-dependent insets
+    // reflow the page per pan pixel (welcome-screen lag). The focus-pan
+    // is reset via scrollTo(0,0) on the open transition instead.
     textarea.focus();
     viewport.height = 500;
     viewport.offsetTop = 100;
     viewport.dispatchEvent(new Event('resize'));
-    expect(getInset()).toBe('200px');
+    expect(getInset()).toBe('300px');
   });
 });
