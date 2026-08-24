@@ -1,9 +1,10 @@
 import { getElementById } from '../utils/dom';
 import { useStore } from '../state/store';
 import { renderFilePreview, updateSendButtonState } from './MessageInput';
-import { toast } from './Toast';
+import { toast, showToast, dismissToast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { compressImageFile } from '../utils/image-compression';
+import { transcodeVideoFile } from '../utils/video-transcode';
 import type { FileUpload, UploadConfig } from '../types/api';
 
 const log = createLogger('file-upload');
@@ -20,6 +21,42 @@ const EXTENSION_MIME_FALLBACKS: Record<string, string> = {
   heic: 'image/heic',
   heif: 'image/heif',
 };
+
+/**
+ * Transcode a large video with a persistent progress toast. The toast is
+ * pure feedback - the transcode itself fails open to the original file.
+ */
+function formatMB(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function transcodeVideoWithToast(file: File): Promise<File> {
+  let toastId: string | null = null;
+  try {
+    const result = await transcodeVideoFile(file, (fraction) => {
+      // Create the toast lazily on first progress (small/unsupported
+      // videos resolve without ever reporting), then patch the message
+      // in place - dismiss+recreate would flicker on every tick
+      if (!toastId) {
+        toastId = showToast({ type: 'info', message: 'Compressing video…', duration: 0 });
+      }
+      const messageEl = document.querySelector(
+        `[data-toast-id="${toastId}"] .toast-message`
+      );
+      if (messageEl) {
+        messageEl.textContent = `Compressing video… ${Math.round(fraction * 100)}%`;
+      }
+    });
+    // Make the outcome visible - the progress toast disappears quickly
+    // and console logs are impractical on mobile
+    if (result !== file) {
+      toast.success(`Video compressed: ${formatMB(file.size)} → ${formatMB(result.size)}`);
+    }
+    return result;
+  } finally {
+    if (toastId) dismissToast(toastId);
+  }
+}
 
 /**
  * Resolve a file's MIME type, falling back to the extension when the
@@ -129,7 +166,14 @@ export async function addFilesToPending(files: File[]): Promise<void> {
     // compresses under the limit is still accepted. Falls back to the
     // original file on any decode/encode problem.
     try {
-      const processed = await compressImageFile(file);
+      let processed = await compressImageFile(file);
+
+      // Large videos: transcode to ~720p H.264 MP4 so uploads survive slow
+      // connections. Fail-open (returns the original when unsupported);
+      // small videos are skipped inside transcodeVideoFile
+      if (processed.type.startsWith('video/')) {
+        processed = await transcodeVideoWithToast(processed);
+      }
 
       // Check file size (per-type limit: videos get a larger allowance)
       const maxSize = maxSizeForType(uploadConfig, processed.type);

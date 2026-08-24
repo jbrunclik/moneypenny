@@ -25,6 +25,9 @@ export default defineConfig(({ command }) => ({
             { name: 'vendor-katex', test: /node_modules[\\/]katex[\\/]/ },
             { name: 'vendor-hljs', test: /node_modules[\\/](highlight\.js|@highlightjs)[\\/]/ },
             { name: 'vendor-markdown', test: /node_modules[\\/](marked|dompurify)[\\/]/ },
+            // Lazy-loaded via dynamic import in utils/video-transcode.ts -
+            // fetched only when a large video transcode actually starts
+            { name: 'vendor-mediabunny', test: /node_modules[\\/]mediabunny[\\/]/ },
           ],
         },
       },

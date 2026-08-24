@@ -304,6 +304,19 @@ export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;
 export const SIDEBAR_TIME_REFRESH_INTERVAL_MS = 1 * MS_PER_MINUTE;
 
 // =============================================================================
+// Client-side Video Transcoding (upload-size reduction on slow connections)
+// =============================================================================
+
+/** Videos smaller than this upload as-is - transcoding isn't worth the battery */
+export const VIDEO_TRANSCODE_MIN_SIZE_BYTES = 8 * 1024 * 1024;
+
+/** Longest output dimension; sources are downscaled to fit (aspect preserved) */
+export const VIDEO_TRANSCODE_MAX_DIMENSION_PX = 1280;
+
+/** Abort a stuck transcode and upload the original after this long */
+export const VIDEO_TRANSCODE_TIMEOUT_MS = 2 * MS_PER_MINUTE;
+
+// =============================================================================
 // Stream Recovery Configuration
 // =============================================================================
 
