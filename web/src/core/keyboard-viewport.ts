@@ -25,6 +25,47 @@ function isEditableElement(el: Element | null): boolean {
   );
 }
 
+/** True when some ancestor of the touch target can actually scroll. */
+function touchCanScrollSomewhere(target: EventTarget | null): boolean {
+  let el = target instanceof Element ? target : null;
+  while (el && el !== document.documentElement) {
+    if (el.scrollHeight > el.clientHeight) {
+      const overflowY = getComputedStyle(el).overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll') return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
+// With the keyboard open, iOS pans the VISUAL viewport within the still-
+// full-height layout viewport - our shrunk page leaves a keyboard-sized
+// pan range, so drags on non-scrollable screens (welcome screen) bounce
+// the whole page. Prevent touchmoves nothing can consume while the inset
+// is active. passive:false is required to be allowed to preventDefault.
+const panGuard = (e: TouchEvent | Event): void => {
+  if (!e.cancelable) return;
+  // Never interfere with drags inside form controls (text selection,
+  // native textarea scrolling)
+  if (e.target instanceof Element && isEditableElement(e.target.closest('textarea, input'))) {
+    return;
+  }
+  if (touchCanScrollSomewhere(e.target)) return;
+  e.preventDefault();
+};
+
+let panGuardInstalled = false;
+
+function setPanGuard(active: boolean): void {
+  if (active === panGuardInstalled) return;
+  panGuardInstalled = active;
+  if (active) {
+    document.addEventListener('touchmove', panGuard, { passive: false });
+  } else {
+    document.removeEventListener('touchmove', panGuard);
+  }
+}
+
 export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
@@ -57,6 +98,7 @@ export function initKeyboardViewportPinning(): void {
 
     currentInset = inset;
     document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);
+    setPanGuard(inset > 0);
     log.debug('Keyboard inset changed', { inset, wasAtBottom });
 
     if (inset > 0) {

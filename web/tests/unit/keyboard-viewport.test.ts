@@ -161,6 +161,55 @@ describe('keyboard viewport pinning', () => {
     expect(getInset()).toBe('0px');
   });
 
+  it('blocks viewport-panning touchmoves while the keyboard is open', async () => {
+    // iOS pans the visual viewport within the full-height layout viewport
+    // when the keyboard is open - on the welcome screen (nothing scrollable)
+    // that pan rubber-bands the whole page ("jumping"). Touchmoves that no
+    // scrollable element can consume must be prevented while inset > 0.
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+
+    const welcome = document.createElement('div');
+    document.body.appendChild(welcome);
+    const evt = new Event('touchmove', { bubbles: true, cancelable: true });
+    welcome.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(true);
+  });
+
+  it('allows touchmoves inside a scrollable messages container', async () => {
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+
+    const messages = document.getElementById('messages') as HTMLDivElement;
+    messages.style.overflowY = 'auto';
+    Object.defineProperty(messages, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(messages, 'clientHeight', { value: 400, configurable: true });
+    const inner = document.createElement('div');
+    messages.appendChild(inner);
+
+    const evt = new Event('touchmove', { bubbles: true, cancelable: true });
+    inner.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(false);
+  });
+
+  it('stops blocking touchmoves once the keyboard closes', async () => {
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+    viewport.height = 800;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+
+    const evt = new Event('touchmove', { bubbles: true, cancelable: true });
+    document.body.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(false);
+  });
+
   it('derives the inset from keyboard geometry alone, ignoring pan offset', () => {
     // offsetTop deliberately does NOT participate: pan-dependent insets
     // reflow the page per pan pixel (welcome-screen lag). The focus-pan
