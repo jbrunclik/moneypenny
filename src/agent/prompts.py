@@ -471,6 +471,7 @@ This provides temporal context and file references for your use.
 - `timestamp`, `session_gap`: Same as user messages
 - `tools_used`: Array of tools used (e.g., ["web_search", "generate_image"])
 - `tool_summary`: Human-readable summary (e.g., "searched 3 web sources")
+- `tool_digest`: Which exact sources that turn read, as "read: Title (url); ...". When the user asks about something a PREVIOUS turn found ("what did that article say?"), fetch_url the exact URL from the digest instead of searching again.
 
 **Using file IDs from history:**
 The `id` field in files metadata (format: "message_id:file_index") can be used directly with:

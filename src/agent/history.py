@@ -30,6 +30,7 @@ class MessageMetadata(TypedDict, total=False):
     files: list[FileMetadata] | None  # With message_id for direct access
     tools_used: list[str] | None  # ["web_search", "generate_image"]
     tool_summary: str | None  # "searched 3 sources, generated 1 image"
+    tool_digest: str | None  # "read: Title (url); ..." - enables precise re-fetch
 
 
 class EnrichedMessage(TypedDict):
@@ -183,6 +184,51 @@ def infer_tools_used(
     return tools
 
 
+_TOOL_DIGEST_MAX_CHARS = 300
+_TOOL_DIGEST_TITLE_MAX_CHARS = 48
+
+
+def format_tool_digest(sources: list[dict[str, str]] | None) -> str | None:
+    """Compact digest of which sources an assistant turn actually read.
+
+    Prior turns' raw tool results are discarded after the turn; without the
+    URLs the model can only re-SEARCH when asked "what did that article
+    say?". The digest lists title + URL per source so a follow-up needs at
+    most one precise fetch_url. Deterministic (derived from persisted
+    sources) so the history prefix stays byte-stable for caching. The text
+    is embedded in an HTML-comment MSG_CONTEXT marker, so '-->' must never
+    appear in it.
+
+    Returns:
+        "read: Title (url); Title2 (url2); +N more" capped at 300 chars,
+        or None when the turn had no sources.
+    """
+    if not sources:
+        return None
+
+    entries: list[str] = []
+    used = len("read: ")
+    for i, source in enumerate(sources):
+        title = (source.get("title") or "").replace("-->", "").strip()
+        url = (source.get("url") or "").replace("-->", "").strip()
+        if not url:
+            continue
+        if len(title) > _TOOL_DIGEST_TITLE_MAX_CHARS:
+            title = title[: _TOOL_DIGEST_TITLE_MAX_CHARS - 1] + "…"
+        entry = f"{title} ({url})" if title else url
+        # "; " separator + room for a "; +N more" tail
+        if used + len(entry) + 2 > _TOOL_DIGEST_MAX_CHARS - 12:
+            remaining = len(sources) - i
+            entries.append(f"+{remaining} more")
+            break
+        entries.append(entry)
+        used += len(entry) + 2
+
+    if not entries:
+        return None
+    return "read: " + "; ".join(entries)
+
+
 def format_tool_summary(
     sources: list[dict[str, str]] | None, generated_images: list[dict[str, str]] | None
 ) -> str | None:
@@ -260,6 +306,10 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
             tool_summary = format_tool_summary(msg.sources, msg.generated_images)
             if tool_summary:
                 metadata["tool_summary"] = tool_summary
+
+            tool_digest = format_tool_digest(msg.sources)
+            if tool_digest:
+                metadata["tool_digest"] = tool_digest
 
         enriched.append(
             {

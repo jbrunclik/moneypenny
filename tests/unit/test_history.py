@@ -359,6 +359,60 @@ class TestEnrichHistory:
         # byte-stable across turns (preserves Gemini implicit prefix caching)
         assert "relative_time" not in result[0]["metadata"]
 
+    def test_assistant_message_gets_tool_digest_from_sources(self) -> None:
+        """Prior turns' tool results are discarded, so the digest (which
+        exact articles were read, with URLs) is the model's only way to
+        re-fetch precisely instead of re-searching."""
+        msg = self._make_message(
+            "msg-1",
+            MessageRole.ASSISTANT,
+            "Here is what I found.",
+            datetime(2024, 6, 15, 14, 30, 0),
+        )
+        msg.sources = [
+            {"title": "Alpine Route Guide", "url": "https://example.com/alpine"},
+            {"title": "Weather Archive", "url": "https://example.com/weather"},
+        ]
+        result = enrich_history([msg])
+
+        digest = result[0]["metadata"].get("tool_digest")
+        assert digest is not None
+        assert "Alpine Route Guide" in digest
+        assert "https://example.com/alpine" in digest
+        assert len(digest) <= 300
+
+    def test_tool_digest_caps_length_and_sanitizes(self) -> None:
+        """Digest must stay compact and must never contain '-->' (it is
+        embedded in an HTML-comment MSG_CONTEXT marker)."""
+        msg = self._make_message(
+            "msg-1",
+            MessageRole.ASSISTANT,
+            "Answer",
+            datetime(2024, 6, 15, 14, 30, 0),
+        )
+        msg.sources = [
+            {
+                "title": f"A very --> long title number {i} " + "x" * 80,
+                "url": f"https://example.com/{i}",
+            }
+            for i in range(10)
+        ]
+        result = enrich_history([msg])
+
+        digest = result[0]["metadata"]["tool_digest"]
+        assert len(digest) <= 300
+        assert "-->" not in digest
+
+    def test_no_tool_digest_without_sources(self) -> None:
+        msg = self._make_message(
+            "msg-1",
+            MessageRole.ASSISTANT,
+            "Plain answer",
+            datetime(2024, 6, 15, 14, 30, 0),
+        )
+        result = enrich_history([msg])
+        assert result[0]["metadata"].get("tool_digest") is None
+
     def test_session_gap_detection(self) -> None:
         """Should detect session gaps between messages."""
         msg1 = self._make_message(

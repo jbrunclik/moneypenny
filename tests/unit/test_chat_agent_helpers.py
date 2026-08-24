@@ -2536,3 +2536,38 @@ class TestToolUsageDetails:
         from src.agent.agent import _tool_usage_details
 
         assert _tool_usage_details([]) == ([], 0)
+
+
+class TestMsgContextToolDigest:
+    """tool_digest must reach the model via the REAL formatter (the mirror
+    helper above would pass even if production dropped the field)."""
+
+    def _format(self, msg: dict) -> str:
+        from typing import Any, cast
+
+        from src.agent.agent import ChatAgent
+
+        # The method never touches self - call it unbound
+        return ChatAgent._format_message_with_metadata(cast(Any, None), msg)
+
+    def test_tool_digest_included_in_msg_context(self) -> None:
+        msg = {
+            "role": "assistant",
+            "content": "Found it.",
+            "metadata": {
+                "timestamp": "2024-06-15 14:30 CET",
+                "tool_digest": "read: Alpine Guide (https://example.com/a)",
+            },
+        }
+        result = self._format(msg)
+
+        assert result.startswith("<!-- MSG_CONTEXT:")
+        assert '"tool_digest":"read: Alpine Guide (https://example.com/a)"' in result
+
+    def test_no_digest_key_when_absent(self) -> None:
+        msg = {
+            "role": "assistant",
+            "content": "Plain.",
+            "metadata": {"timestamp": "2024-06-15 14:30 CET"},
+        }
+        assert "tool_digest" not in self._format(msg)

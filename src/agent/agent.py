@@ -337,6 +337,12 @@ class ChatAgent:
             meta_dict["tools_used"] = metadata["tools_used"]
         if metadata.get("tool_summary"):
             meta_dict["tool_summary"] = metadata["tool_summary"]
+        # Which exact sources the turn read (title + URL) - lets follow-ups
+        # like "what did that article say?" re-fetch precisely instead of
+        # re-running searches. Derived from persisted sources, so the
+        # serialized bytes are stable across turns (prefix-cache safe).
+        if metadata.get("tool_digest"):
+            meta_dict["tool_digest"] = metadata["tool_digest"]
 
         # Return with metadata block if we have any metadata
         # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing
