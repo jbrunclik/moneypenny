@@ -33,10 +33,17 @@ test.describe('Mobile - iPhone', () => {
     await page.click('#menu-btn');
     await expect(page.locator('#sidebar')).toHaveClass(/open/);
 
-    // Click overlay - use force:true because webkit reports the sidebar intercepts
-    // pointer events even though the overlay is visually on top
+    // Click the overlay in the dimmed strip RIGHT of the sidebar (what a
+    // real user taps). Clicking the overlay's center is flaky on webkit:
+    // the sidebar covers the center point, and force:true still hit-tests
+    // to the topmost element - during the slide-in transition the click
+    // could land on the sidebar and close nothing.
     const overlay = page.locator('.sidebar-overlay');
-    await overlay.click({ force: true });
+    const viewport = page.viewportSize();
+    await overlay.click({
+      force: true,
+      position: { x: (viewport?.width ?? 390) - 10, y: 200 },
+    });
 
     // Sidebar should be closed
     await expect(page.locator('#sidebar')).not.toHaveClass(/open/);
