@@ -19,6 +19,25 @@ MIME_TYPE_ALIASES: dict[str, set[str]] = {
     "image/jpeg": {"image/jpeg"},
     "image/gif": {"image/gif"},
     "image/webp": {"image/webp", "application/octet-stream"},
+    # HEIC/HEIF (iPhone photos) - browsers declare image/heic or image/heif
+    # interchangeably; libmagic reports the heif family (and -sequence for
+    # bursts/live photos), so both claimed types accept the whole family
+    # (octet-stream: older libmagic builds don't know the HEIF container,
+    # same precedent as webp above)
+    "image/heic": {
+        "image/heic",
+        "image/heif",
+        "image/heic-sequence",
+        "image/heif-sequence",
+        "application/octet-stream",
+    },
+    "image/heif": {
+        "image/heic",
+        "image/heif",
+        "image/heic-sequence",
+        "image/heif-sequence",
+        "application/octet-stream",
+    },
     # PDF
     "application/pdf": {"application/pdf"},
     # Videos - libmagic detects container formats; .mov sometimes reads as mp4 family

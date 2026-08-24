@@ -306,6 +306,8 @@ const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
     'image/jpeg',
     'image/gif',
     'image/webp',
+    'image/heic',
+    'image/heif',
     'application/pdf',
     'text/plain',
     'text/markdown',

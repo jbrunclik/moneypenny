@@ -13,6 +13,26 @@ export function maxSizeForType(config: UploadConfig, mimeType: string): number {
   return mimeType.startsWith('video/') ? config.maxVideoFileSize : config.maxFileSize;
 }
 
+// Extensions whose MIME type browsers often fail to report (empty or
+// octet-stream) - notably HEIC from Windows/Linux pickers and some
+// Android browsers, where the extension is the only signal
+const EXTENSION_MIME_FALLBACKS: Record<string, string> = {
+  heic: 'image/heic',
+  heif: 'image/heif',
+};
+
+/**
+ * Resolve a file's MIME type, falling back to the extension when the
+ * browser reports none. A concrete declared type is always trusted.
+ */
+export function resolveFileType(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream') {
+    return file.type;
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  return EXTENSION_MIME_FALLBACKS[ext] ?? file.type;
+}
+
 /**
  * Initialize file upload handlers
  */
@@ -83,11 +103,19 @@ export async function addFilesToPending(files: File[]): Promise<void> {
   const store = useStore.getState();
   const { uploadConfig, pendingFiles } = store;
 
-  for (const file of files) {
+  for (let file of files) {
     // Check total file count
     if (pendingFiles.length >= uploadConfig.maxFilesPerMessage) {
       toast.warning(`Maximum ${uploadConfig.maxFilesPerMessage} files per message`);
       break;
+    }
+
+    // Resolve missing/generic MIME types by extension (e.g. HEIC from
+    // Windows pickers arrives as octet-stream); re-wrap so the corrected
+    // type flows through compression, size checks and the upload payload
+    const resolvedType = resolveFileType(file);
+    if (resolvedType !== file.type) {
+      file = new File([file], file.name, { type: resolvedType });
     }
 
     // Check file type

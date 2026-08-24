@@ -52,6 +52,17 @@ def create_webp_bytes(width: int = 10, height: int = 10) -> bytes:
     return buffer.getvalue()
 
 
+def create_heic_bytes(width: int = 10, height: int = 10) -> bytes:
+    """Create a minimal HEIC image as bytes (requires pillow-heif)."""
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+    img = Image.new("RGB", (width, height), color="purple")
+    buffer = io.BytesIO()
+    img.save(buffer, format="HEIF")
+    return buffer.getvalue()
+
+
 # Minimal PDF bytes (PDF 1.0 header + minimal structure)
 MINIMAL_PDF_BYTES = b"""%PDF-1.0
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
@@ -99,6 +110,30 @@ class TestVerifyFileTypeByMagic:
         is_valid, error = verify_file_type_by_magic(webp_data, "image/webp", "test.webp")
         assert is_valid is True
         assert error == ""
+
+    def test_valid_heic_image(self) -> None:
+        """Should accept valid HEIC regardless of whether the browser
+        declares image/heic or image/heif (libmagic reports the heif
+        family for both)."""
+        heic_data = create_heic_bytes()
+        for claimed in ("image/heic", "image/heif"):
+            is_valid, error = verify_file_type_by_magic(heic_data, claimed, "test.heic")
+            assert is_valid is True, f"{claimed}: {error}"
+            assert error == ""
+
+    def test_spoofed_heic_is_actually_jpeg(self) -> None:
+        """Should reject a JPEG claiming to be HEIC."""
+        jpeg_data = create_jpeg_bytes()
+        is_valid, error = verify_file_type_by_magic(jpeg_data, "image/heic", "fake.heic")
+        assert is_valid is False
+        assert "does not match" in error
+
+    def test_heic_allowed_in_config(self) -> None:
+        """HEIC/HEIF must be uploadable by default. Asserts on the default
+        (a local .env may override ALLOWED_FILE_TYPES at import time)."""
+        defaults = set(Config.DEFAULT_ALLOWED_FILE_TYPES.split(","))
+        assert "image/heic" in defaults
+        assert "image/heif" in defaults
 
     def test_valid_pdf(self) -> None:
         """Should accept valid PDF with correct MIME type."""

@@ -25,6 +25,7 @@ from src.db.blob_store import get_blob_store
 from src.db.models import User, db, make_blob_key, make_thumbnail_key
 from src.utils.background_thumbnails import generate_and_save_thumbnail
 from src.utils.file_retention import is_file_expired, retention_note
+from src.utils.images import transcode_image_for_browser
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -342,6 +343,9 @@ def get_message_file(
     blob_result = blob_store.get(blob_key)
     if blob_result:
         binary_data, mime_type = blob_result
+        # HEIC/HEIF originals are transcoded to JPEG - browsers other than
+        # Safari cannot render them in <img> (lightbox full-size view)
+        binary_data, mime_type = transcode_image_for_browser(binary_data, mime_type)
         logger.debug(
             "Returning file from blob store",
             extra={
@@ -364,6 +368,7 @@ def get_message_file(
     if file_data:
         try:
             binary_data = base64.b64decode(file_data)
+            binary_data, file_type = transcode_image_for_browser(binary_data, file_type)
             logger.debug(
                 "Returning legacy file",
                 extra={

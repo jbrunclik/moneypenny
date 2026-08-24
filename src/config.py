@@ -236,11 +236,13 @@ class Config:
     IMAGE_RETENTION_DAYS: int = int(os.getenv("IMAGE_RETENTION_DAYS", "30"))
     FILE_RETENTION_DAYS: int = int(os.getenv("FILE_RETENTION_DAYS", "30"))  # PDFs, text, etc.
     MAX_FILES_PER_MESSAGE: int = int(os.getenv("MAX_FILES_PER_MESSAGE", "10"))
+    DEFAULT_ALLOWED_FILE_TYPES: str = (
+        "image/png,image/jpeg,image/gif,image/webp,image/heic,image/heif,"
+        "application/pdf,text/plain,text/markdown,application/json,text/csv,"
+        "video/mp4,video/quicktime,video/webm"
+    )
     ALLOWED_FILE_TYPES: set[str] = set(
-        os.getenv(
-            "ALLOWED_FILE_TYPES",
-            "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,text/csv,video/mp4,video/quicktime,video/webm",
-        ).split(",")
+        os.getenv("ALLOWED_FILE_TYPES", DEFAULT_ALLOWED_FILE_TYPES).split(",")
     )
 
     # Image thumbnail settings

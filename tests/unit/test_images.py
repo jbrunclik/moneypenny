@@ -3,6 +3,9 @@
 import base64
 import io
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 from PIL import Image
 
@@ -12,6 +15,7 @@ from src.utils.images import (
     extract_generated_images_from_tool_results,
     generate_thumbnail,
     process_image_files,
+    transcode_image_for_browser,
 )
 
 
@@ -28,6 +32,40 @@ class TestGenerateThumbnail:
         img = Image.open(io.BytesIO(decoded))
         assert img.size[0] <= Config.THUMBNAIL_MAX_SIZE[0]
         assert img.size[1] <= Config.THUMBNAIL_MAX_SIZE[1]
+
+    def test_generates_thumbnail_from_heic(self, tmp_path: Path) -> None:
+        """HEIC uploads (iPhone photos) must produce a browser-renderable
+        thumbnail. Runs in a clean subprocess so the test proves that
+        importing the production module registers the HEIF opener - a
+        register call inside this test process would mask a missing one."""
+        import pillow_heif
+
+        pillow_heif.register_heif_opener()
+        img = Image.new("RGB", (600, 400), color="purple")
+        buffer = io.BytesIO()
+        img.save(buffer, format="HEIF")
+        heic_file = tmp_path / "sample.heic.b64"
+        heic_file.write_text(base64.b64encode(buffer.getvalue()).decode())
+
+        script = (
+            "import base64, io, sys\n"
+            "from src.utils.images import generate_thumbnail\n"
+            "from PIL import Image\n"
+            f"data = open({str(heic_file)!r}).read()\n"
+            "thumb = generate_thumbnail(data, 'image/heic')\n"
+            "assert thumb is not None, 'thumbnail generation failed for HEIC'\n"
+            "img = Image.open(io.BytesIO(base64.b64decode(thumb)))\n"
+            "assert img.format in ('JPEG', 'PNG', 'WEBP'), f'bad format {img.format}'\n"
+            "print('OK')\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            cwd=str(Path(__file__).resolve().parents[2]),
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "OK" in result.stdout
 
     def test_scales_down_large_image(self, large_png_base64: str) -> None:
         """Large images should be scaled down to fit max size."""
@@ -83,6 +121,48 @@ class TestGenerateThumbnail:
         decoded = base64.b64decode(thumbnail)
         img = Image.open(io.BytesIO(decoded))
         assert img.format in ("JPEG", "MPO")
+
+
+class TestTranscodeImageForBrowser:
+    """Tests for transcode_image_for_browser - HEIC originals must be
+    served to browsers as JPEG (Chrome/Firefox cannot render HEIC)."""
+
+    def _heic_bytes(self) -> bytes:
+        import pillow_heif
+
+        pillow_heif.register_heif_opener()
+        img = Image.new("RGB", (50, 40), color="orange")
+        buffer = io.BytesIO()
+        img.save(buffer, format="HEIF")
+        return buffer.getvalue()
+
+    def test_transcodes_heic_to_jpeg(self) -> None:
+        data, mime = transcode_image_for_browser(self._heic_bytes(), "image/heic")
+
+        assert mime == "image/jpeg"
+        img = Image.open(io.BytesIO(data))
+        assert img.format == "JPEG"
+        assert img.size == (50, 40)  # full size, not a thumbnail
+
+    def test_transcodes_heif_to_jpeg(self) -> None:
+        data, mime = transcode_image_for_browser(self._heic_bytes(), "image/heif")
+        assert mime == "image/jpeg"
+
+    def test_passes_through_browser_native_formats(self) -> None:
+        png = io.BytesIO()
+        Image.new("RGB", (10, 10)).save(png, format="PNG")
+        original = png.getvalue()
+
+        data, mime = transcode_image_for_browser(original, "image/png")
+
+        assert data is original
+        assert mime == "image/png"
+
+    def test_fails_open_on_corrupt_data(self) -> None:
+        """Corrupt HEIC must serve the original bytes rather than 500."""
+        data, mime = transcode_image_for_browser(b"not an image", "image/heic")
+        assert data == b"not an image"
+        assert mime == "image/heic"
 
 
 class TestProcessImageFiles:

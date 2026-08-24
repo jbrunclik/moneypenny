@@ -6,11 +6,15 @@ import io
 import json
 from typing import Any
 
+import pillow_heif
 from PIL import Image, UnidentifiedImageError
 
 from src.api.schemas import ThumbnailStatus
 from src.config import Config
 from src.utils.logging import get_logger
+
+# PIL cannot open HEIC/HEIF (iPhone photos) without this plugin
+pillow_heif.register_heif_opener()
 
 logger = get_logger(__name__)
 
@@ -91,6 +95,38 @@ def generate_thumbnail(
             exc_info=True,
         )
         return None
+
+
+# Image formats browsers cannot render natively - served transcoded
+BROWSER_UNSUPPORTED_IMAGE_TYPES: set[str] = {"image/heic", "image/heif"}
+
+
+def transcode_image_for_browser(binary_data: bytes, mime_type: str) -> tuple[bytes, str]:
+    """Transcode browser-unsupported image formats (HEIC/HEIF) to JPEG.
+
+    Used when serving full-size originals to <img> tags - Chrome and
+    Firefox cannot decode HEIC. Browser-native formats pass through
+    untouched. Fails open to the original bytes on decode errors.
+
+    Returns:
+        (bytes, mime_type) to serve.
+    """
+    if mime_type not in BROWSER_UNSUPPORTED_IMAGE_TYPES:
+        return binary_data, mime_type
+
+    try:
+        img: Image.Image = Image.open(io.BytesIO(binary_data))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=90)
+        return output.getvalue(), "image/jpeg"
+    except (UnidentifiedImageError, OSError) as e:
+        logger.error(
+            "Failed to transcode image for browser, serving original",
+            extra={"mime_type": mime_type, "error": str(e)},
+        )
+        return binary_data, mime_type
 
 
 def process_image_files_sync(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
