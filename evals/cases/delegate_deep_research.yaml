@@ -1,0 +1,18 @@
+id: delegate_deep_research
+description: Verification-heavy multi-source comparison should be delegated to a subagent
+user: >
+  This needs proper digging, so hand it off to a background researcher and
+  give me the digest: compare the Fenix 8 and the Suunto Race 2 for
+  trail-ultra training - verified battery life in multiband GPS mode, offline
+  maps quality, and open-water swim tracking. I want corroborated real-world
+  findings from several independent reviews, not spec-sheet numbers.
+expect:
+  rubric: >
+    The assistant used delegation for the deep research (rather than running
+    many search rounds inline) and the answer presents a structured comparison
+    of the two watches covering battery (multiband), maps, and swim tracking,
+    with findings attributed to sources rather than invented. Precise numbers
+    may vary; what matters is corroborated, sourced claims and a clear
+    recommendation trade-off.
+  required_tools: [delegate_task]
+  max_tool_rounds: 4
