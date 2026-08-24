@@ -4,6 +4,26 @@ Scheduled maintenance jobs, reverse proxy configuration, and log management
 for a systemd-based deployment. See the README's Deployment section for the
 initial install and zero-downtime update flow.
 
+## Python Interpreter (uv-managed, no apt)
+
+Prod Python is a project-managed standalone CPython installed via
+[uv](https://docs.astral.sh/uv/) — no root, no custom apt repos, pinned by
+`.python-version` in the repo root:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh   # one-time, user-local
+~/.local/bin/uv python install 3.14
+~/.local/bin/uv venv .venv --seed --python 3.14   # --seed keeps pip (Makefile uses it)
+.venv/bin/pip install -r requirements.txt
+systemctl --user restart ai-chatbot
+```
+
+Upgrading Python later = the same steps with a new version (keep the old
+venv as `.venv-<ver>-bak` until the new one proves healthy). The systemd
+unit references `.venv/bin/gunicorn`, so no unit changes are needed.
+Migrated Aug 24 2026 (3.13.5 system Python → uv CPython 3.14.2, aligning
+with `requires-python >= 3.14`).
+
 ## .env Changes Require a Full Restart (Not Reload)
 
 The systemd unit loads `.env` via `EnvironmentFile=`, which is read only at
