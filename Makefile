@@ -321,10 +321,12 @@ reload:
 	@echo "Graceful reload triggered. Workers will restart after finishing current requests."
 
 # Full update with dependencies rebuild and graceful reload
+# npm ci, not npm install: install mutates package-lock.json on version
+# drift, and the dirty lockfile then blocks the next git pull --ff-only
 update:
 	git pull --ff-only
 	$(PIP) install -r requirements.txt
-	cd web && npm install && npm run build
+	cd web && npm ci && npm run build
 	systemctl --user reload ai-chatbot
 	@echo "Reload triggered, waiting for workers to boot (migrations apply on startup)..."
 	@for i in $$(seq 1 24); do \
