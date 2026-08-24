@@ -26,6 +26,15 @@ const EXTENSION_MIME_FALLBACKS: Record<string, string> = {
  * Transcode a large video with a persistent progress toast. The toast is
  * pure feedback - the transcode itself fails open to the original file.
  */
+/**
+ * A video is only worth transcoding when the server will accept the
+ * transcoder's output type (video/mp4) - otherwise the "optimized"
+ * upload is guaranteed to be rejected.
+ */
+export function shouldTranscodeVideo(mimeType: string, allowedTypes: string[]): boolean {
+  return mimeType.startsWith('video/') && allowedTypes.includes('video/mp4');
+}
+
 function formatMB(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -171,7 +180,7 @@ export async function addFilesToPending(files: File[]): Promise<void> {
       // Large videos: transcode to ~720p H.264 MP4 so uploads survive slow
       // connections. Fail-open (returns the original when unsupported);
       // small videos are skipped inside transcodeVideoFile
-      if (processed.type.startsWith('video/')) {
+      if (shouldTranscodeVideo(processed.type, uploadConfig.allowedFileTypes)) {
         processed = await transcodeVideoWithToast(processed);
       }
 

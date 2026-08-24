@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { maxSizeForType, resolveFileType } from '../../src/components/FileUpload';
+import { maxSizeForType, resolveFileType, shouldTranscodeVideo } from '../../src/components/FileUpload';
 import type { UploadConfig } from '../../src/types/api';
 
 const config: UploadConfig = {
@@ -18,6 +18,23 @@ describe('maxSizeForType', () => {
   it('returns default limit for non-video types', () => {
     expect(maxSizeForType(config, 'image/png')).toBe(20 * 1024 * 1024);
     expect(maxSizeForType(config, 'application/pdf')).toBe(20 * 1024 * 1024);
+  });
+});
+
+describe('shouldTranscodeVideo', () => {
+  it('transcodes videos when the server accepts the mp4 output', () => {
+    expect(shouldTranscodeVideo('video/quicktime', ['video/quicktime', 'video/mp4'])).toBe(true);
+    expect(shouldTranscodeVideo('video/mp4', ['video/mp4'])).toBe(true);
+  });
+
+  it('never transcodes when video/mp4 is not server-allowed', () => {
+    // The transcoder outputs mp4 - producing it when the server rejects
+    // it guarantees a failed send (observed in prod: quicktime-only list)
+    expect(shouldTranscodeVideo('video/quicktime', ['video/quicktime'])).toBe(false);
+  });
+
+  it('ignores non-video files', () => {
+    expect(shouldTranscodeVideo('image/png', ['video/mp4'])).toBe(false);
   });
 });
 
