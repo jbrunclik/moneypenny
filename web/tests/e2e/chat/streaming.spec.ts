@@ -361,6 +361,47 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
   });
 });
 
+test.describe('Chat - Mid-run Steering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+  });
+
+  test('sending while streaming interjects instead of blocking', async ({ page, request }) => {
+    // Slow the stream so the turn is reliably still running when we steer
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+
+    await page.fill('#message-input', 'First question - long response please');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+
+    // Send steering text mid-stream: must POST to the interject route
+    const interjectRequest = page.waitForRequest(
+      (req) => req.url().includes('/chat/interject') && req.method() === 'POST',
+      { timeout: 10000 }
+    );
+    await page.fill('#message-input', 'Actually focus on the 2025 season');
+    await page.click('#send-btn');
+    await interjectRequest;
+
+    // The steering text renders as a user bubble immediately
+    await expect(
+      page.locator('.message.user', { hasText: 'Actually focus on the 2025 season' })
+    ).toBeVisible();
+
+    // The original turn keeps streaming to completion
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 20000 });
+
+    // The steering message survives a reload (persisted server-side)
+    await page.reload();
+    await expect(
+      page.locator('.message.user', { hasText: 'Actually focus on the 2025 season' })
+    ).toBeVisible({ timeout: 10000 });
+  });
+});
+
 test.describe('Chat - Stop Streaming', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

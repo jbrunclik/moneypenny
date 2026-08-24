@@ -28,6 +28,7 @@ from src.agent.content import extract_text_content, strip_full_result_from_tool_
 from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import get_available_tools
+from src.agent.tools.context import get_conversation_context
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
 from src.config import Config
 from src.utils.logging import get_logger
@@ -316,6 +317,37 @@ def check_tool_results(
     # context, so unbounded rounds multiply input-token cost.
     tool_rounds = state.get("tool_rounds", 0) + 1
     max_rounds = Config.AGENT_MAX_TOOL_ROUNDS
+
+    # Mid-run steering: the user may have sent guidance while this turn was
+    # running (stored cross-worker in kv_store by the interject route).
+    # Checked FIRST so steering is never swallowed by the round-cap or
+    # nudge early-returns below - redirecting the work takes priority over
+    # telling the model to wrap up.
+    conv_id, user_id = get_conversation_context()
+    if conv_id and user_id:
+        from src.agent import interjection
+
+        steer_text = interjection.pop_interjection(user_id, conv_id)
+        if steer_text:
+            logger.info(
+                "Interjection injected between tool rounds",
+                extra={"conversation_id": conv_id, "tool_rounds": tool_rounds},
+            )
+            GuidanceMessage = HumanMessage if use_cache else SystemMessage
+            steer_content = (
+                "[USER INTERJECTION] The user just sent this while you were "
+                f'working: "{steer_text}"\n'
+                "Adjust course immediately: incorporate this guidance into the "
+                "current task, drop work it makes irrelevant, and acknowledge "
+                "the change in your final answer."
+            )
+            if use_cache:
+                steer_content = f"[SYSTEM GUIDANCE]\n{steer_content}\n[/SYSTEM GUIDANCE]"
+            return {
+                "tool_rounds": tool_rounds,
+                "tool_retries": state.get("tool_retries", 0),
+                "messages": [GuidanceMessage(content=steer_content)],
+            }
 
     # Soft round cap: once hit, stop gathering and answer with what we have.
     # Fires on every subsequent round too (tool_rounds stays >= cap), so the

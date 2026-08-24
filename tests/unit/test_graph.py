@@ -169,6 +169,85 @@ class TestShouldContinue:
 # ============ check_tool_results Tests ============
 
 
+class TestInterjectionInjection:
+    """Mid-run steering: a pending interjection must be injected as guidance
+    between tool rounds, before any other nudge logic."""
+
+    def _state_with_clean_round(self) -> AgentState:
+        return {
+            "messages": [
+                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
+                ToolMessage(content='{"results": []}', tool_call_id="1"),
+            ],
+            "tool_retries": 0,
+            "tool_rounds": 0,
+        }
+
+    def test_injects_pending_interjection(self) -> None:
+        with (
+            patch(
+                "src.agent.graph.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch(
+                "src.agent.interjection.pop_interjection",
+                return_value="Stop - I meant the 2025 model, not 2024",
+            ) as pop,
+        ):
+            result = check_tool_results(self._state_with_clean_round())
+
+        pop.assert_called_once_with("user-1", "conv-1")
+        guidance = result["messages"][0]
+        assert isinstance(guidance, SystemMessage)
+        assert "USER INTERJECTION" in guidance.content
+        assert "2025 model" in guidance.content
+        assert result["tool_rounds"] == 1
+
+    def test_interjection_beats_round_cap(self) -> None:
+        """Steering must not be swallowed by the round-cap early return."""
+        state = self._state_with_clean_round()
+        state["tool_rounds"] = 99
+        with (
+            patch(
+                "src.agent.graph.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch(
+                "src.agent.interjection.pop_interjection",
+                return_value="change of plan",
+            ),
+        ):
+            result = check_tool_results(state)
+
+        assert "USER INTERJECTION" in result["messages"][0].content
+
+    def test_no_interjection_no_change(self) -> None:
+        with (
+            patch(
+                "src.agent.graph.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch("src.agent.interjection.pop_interjection", return_value=None),
+        ):
+            result = check_tool_results(self._state_with_clean_round())
+
+        assert result.get("messages", []) == []
+
+    def test_cached_mode_uses_human_message_with_wrapper(self) -> None:
+        with (
+            patch(
+                "src.agent.graph.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch("src.agent.interjection.pop_interjection", return_value="steer"),
+        ):
+            result = check_tool_results(self._state_with_clean_round(), use_cache=True)
+
+        guidance = result["messages"][0]
+        assert isinstance(guidance, HumanMessage)
+        assert guidance.content.startswith("[SYSTEM GUIDANCE]")
+
+
 class TestCheckToolResults:
     """Tests for check_tool_results self-correction node."""
 

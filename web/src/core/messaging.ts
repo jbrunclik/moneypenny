@@ -234,6 +234,44 @@ function updateLocalThinkingState(
 /**
  * Send a message.
  */
+/**
+ * Mid-run steering: send guidance into a turn that is currently streaming.
+ * The server injects it between the agent's tool rounds and also persists
+ * it as a regular user message, so it shows up in history either way.
+ */
+async function interjectIntoActiveTurn(convId: string, messageText: string): Promise<void> {
+  try {
+    await conversations.interject(convId, messageText);
+  } catch (error) {
+    log.error('Failed to send interjection', { error, conversationId: convId });
+    toast.error('Failed to steer the response. Please wait for it to finish.');
+    return;
+  }
+
+  // Render the steering text as a normal user bubble right away
+  const userMessage: Message = {
+    id: crypto.randomUUID(),
+    role: 'user',
+    content: messageText,
+    created_at: new Date().toISOString(),
+  };
+  useStore.getState().appendMessage(convId, userMessage);
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  if (messagesContainer) {
+    addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
+    programmaticScrollToBottom(messagesContainer);
+  }
+
+  // The route persisted one user message - keep sync counts in step so no
+  // false unread badge appears for this conversation
+  getSyncManager()?.incrementLocalMessageCount(convId, 1);
+
+  clearMessageInput();
+  useStore.getState().setConversationDraft(convId, '');
+  toast.info('Steering the current response…');
+  log.info('Interjection sent', { conversationId: convId, length: messageText.length });
+}
+
 export async function sendMessage(): Promise<void> {
   // Stop voice recording if active (prevents text from being re-added after send)
   stopVoiceRecording();
@@ -358,11 +396,17 @@ export async function sendMessage(): Promise<void> {
     }
   }
 
-  // Block double-sends in THIS conversation only - other conversations stay
-  // fully usable while this one streams. Must run BEFORE the optimistic
+  // Sending while THIS conversation streams = mid-run steering: the text is
+  // injected into the running turn between tool rounds (and persisted to
+  // history) instead of queueing a new turn. Attachments can't steer - keep
+  // the old blocking behavior for them. Must run BEFORE the optimistic
   // render: a bubble with no request behind it looks sent but never was.
   if (useStore.getState().getActiveRequest(conv.id)) {
-    toast.info('Please wait for the current response in this conversation to finish.');
+    if (files.length > 0) {
+      toast.info('Please wait for the current response before sending attachments.');
+      return;
+    }
+    await interjectIntoActiveTurn(conv.id, messageText);
     return;
   }
 

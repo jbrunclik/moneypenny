@@ -20,6 +20,7 @@ from src.agent.executor import AgentContext, clear_agent_context, set_agent_cont
 
 # Agent context imports for interactive agent conversations
 from src.agent.gemini_files import attach_gemini_file_uris
+from src.agent.interjection import clear_interjection, save_interjection
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
@@ -38,7 +39,13 @@ from src.api.helpers.program_context import load_language_context as _load_langu
 from src.api.helpers.program_context import load_sports_context as _load_sports_context
 from src.api.rate_limiting import rate_limit_chat
 from src.api.routes.calendar import _get_valid_calendar_access_token
-from src.api.schemas import ChatBatchResponse, ChatRequest, MessageRole
+from src.api.schemas import (
+    ChatBatchResponse,
+    ChatRequest,
+    InterjectRequest,
+    MessageRole,
+    StatusResponse,
+)
 from src.api.utils import (
     build_chat_response,
     calculate_and_save_message_cost,
@@ -696,6 +703,9 @@ def chat_stream(
     # Generate a unique request ID for capturing full tool results
     stream_request_id = str(uuid.uuid4())
 
+    # A stale interjection from a previous turn must never steer this one
+    clear_interjection(user.id, conv_id)
+
     # Create the stream generator with all necessary context
     generator = create_stream_generator(
         user=user,
@@ -718,6 +728,42 @@ def chat_stream(
             "X-Accel-Buffering": "no",  # Disable nginx buffering
         },
     )
+
+
+@api.route("/conversations/<conv_id>/chat/interject", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(
+    summary="Steer a turn that is currently generating",
+    description=(
+        "Mid-run steering: stores guidance that the agent picks up between "
+        "tool rounds of the in-flight turn (cross-worker via kv_store). The "
+        "text is also persisted as a regular user message so future turns "
+        "see it in history. Best-effort: if the turn finishes before the "
+        "next tool round, the guidance still lands in history."
+    ),
+    responses=[400, 401, 404],
+)
+@rate_limit_chat
+@require_auth
+@validate_request(InterjectRequest)
+def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str, str]:
+    """Inject user guidance into a running multi-round turn."""
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        raise_not_found_error("Conversation")
+
+    text = data.message.strip()
+    # Persist as a visible user message FIRST - even if the running turn
+    # never consumes the steering (already answering), the guidance is in
+    # history for the next turn
+    db.add_message(conv_id, MessageRole.USER, text)
+    save_interjection(user.id, conv_id, text)
+
+    logger.info(
+        "Interjection accepted",
+        extra={"user_id": user.id, "conversation_id": conv_id, "length": len(text)},
+    )
+    return {"status": "interjected"}
 
 
 @api.route("/conversations/<conv_id>/chat/stream/<message_id>/resume", methods=["GET"])

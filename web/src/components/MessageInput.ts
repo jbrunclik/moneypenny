@@ -128,8 +128,10 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
         state.activeRequests.get(currentConvId)?.type === 'stream';
       return { activeStream, currentConvId };
     },
-    ({ activeStream }) => {
-      updateSendButtonMode(activeStream);
+    () => {
+      // Recompute mode from stream state AND composer content - typed text
+      // keeps the button in Send (steering) mode even while streaming
+      updateSendButtonState();
     },
     {
       equalityFn: (a, b) => a.activeStream === b.activeStream && a.currentConvId === b.currentConvId,
@@ -318,13 +320,24 @@ export function hideInputArea(): void {
   }
 }
 
+/** Whether the CURRENT conversation has an active streaming request. */
+function hasActiveStreamForCurrentConversation(): boolean {
+  const state = useStore.getState();
+  const currentConvId = state.currentConversation?.id;
+  return (
+    currentConvId !== undefined && state.activeRequests.get(currentConvId)?.type === 'stream'
+  );
+}
+
 /**
- * Update send button enabled state (only applies in send mode, not stop mode)
+ * Single driver for the send button's mode + enabled state.
+ *
+ * While the current conversation streams, the button is Stop only while
+ * the composer is EMPTY - typing flips it back to Send, which routes to
+ * mid-run steering (sendMessage's interject path). Attachments don't
+ * steer, so pending files keep the button in Stop mode.
  */
 export function updateSendButtonState(): void {
-  // Don't update enabled state while in stop mode - stop button is always enabled
-  if (isStopMode) return;
-
   // Don't enable if blocked for approval
   if (isBlockedForApproval) return;
 
@@ -337,7 +350,13 @@ export function updateSendButtonState(): void {
   const hasContent = (input?.value.trim().length ?? 0) > 0;
   const hasFiles = pendingFiles.length > 0;
 
-  sendBtn.disabled = isLoading || (!hasContent && !hasFiles);
+  const effectiveStop = hasActiveStreamForCurrentConversation() && !hasContent;
+  if (effectiveStop !== isStopMode) {
+    updateSendButtonMode(effectiveStop);
+  }
+  if (!effectiveStop) {
+    sendBtn.disabled = isLoading || (!hasContent && !hasFiles);
+  }
 }
 
 /**

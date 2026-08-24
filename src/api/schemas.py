@@ -186,6 +186,16 @@ class ClientLocation(BaseModel):
     timestamp_ms: int | None = Field(default=None, ge=0)
 
 
+class InterjectRequest(BaseModel):
+    """Schema for POST /api/conversations/<conv_id>/chat/interject.
+
+    Mid-run steering: guidance for a turn that is currently streaming,
+    injected between the agent's tool rounds.
+    """
+
+    message: str = Field(..., min_length=1, max_length=4000)
+
+
 class ChatRequest(BaseModel):
     """Schema for POST /api/conversations/<conv_id>/chat/batch and /chat/stream.
 
