@@ -76,3 +76,4 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
   - Local-env hazard found en route (likely unrelated but nasty): a leaked/manual server on 8001 + `reuseExistingServer` + a rebuild = the old in-memory Vite manifest points at deleted hashed assets -> mass spec failures. If a weird local E2E failure wave appears, check `lsof -iTCP:8001` first.
 
 
+- [ ] **Webkit archived-deeplink flake (watch)** - `deeplink.spec.ts:379` "reloading an archived conversation URL loads it" failed twice on Aug 24 2026 (once locally under parallel-workflow CPU load, once in CI run 32778768767), passed in every other run incl. the immediate rerun. No fix attempted yet - if it recurs, pull the trace from the failed run artifacts before theorizing (same protocol as the search-spec flake above).
