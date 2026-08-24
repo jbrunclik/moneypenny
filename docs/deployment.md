@@ -4,6 +4,23 @@ Scheduled maintenance jobs, reverse proxy configuration, and log management
 for a systemd-based deployment. See the README's Deployment section for the
 initial install and zero-downtime update flow.
 
+## .env Changes Require a Full Restart (Not Reload)
+
+The systemd unit loads `.env` via `EnvironmentFile=`, which is read only at
+service **start**. `systemctl --user reload` (what `make update` uses) sends
+HUP - gunicorn re-forks workers but the master's environment stays frozen,
+and `load_dotenv()` does not override variables systemd already set. So
+`.env` edits silently do nothing until:
+
+```bash
+systemctl --user restart ai-chatbot
+```
+
+(Aug 2026 incident: ALLOWED_FILE_TYPES additions were invisible through
+several deploys; uploads kept failing with the stale allow-list until a
+restart. Verify what the live process actually sees with:
+`cat /proc/$(systemctl --user show ai-chatbot -p MainPID --value)/environ | tr '\0' '\n' | grep VAR_NAME`.)
+
 ## Database Vacuum
 
 A weekly systemd timer is automatically configured to run VACUUM on both SQLite databases (main database and blob storage). This reclaims disk space from deleted records and optimizes database performance.
