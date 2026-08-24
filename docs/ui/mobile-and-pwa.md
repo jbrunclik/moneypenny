@@ -104,6 +104,21 @@ element.addEventListener('touchcancel', handleCancel); // ← Essential!
 
 iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens, causing the cursor to appear below the input initially. The fix uses the `visualViewport` API to detect when the keyboard opens (viewport height shrinks) and scrolls the input area into view.
 
+**Keyboard-inset rules learned the hard way (Aug 2026, `core/keyboard-viewport.ts`):**
+
+- **Never derive layout from `visualViewport.offsetTop`** (pan position). On
+  screens with no inner scroll container (welcome screen), drags pan the
+  visual viewport per pixel — a pan-dependent `--keyboard-inset` reflows the
+  whole page mid-gesture and scrolling becomes extremely laggy. Derive the
+  inset from keyboard GEOMETRY only (`innerHeight - viewport.height`);
+  `visualViewport` scroll events must be layout-free early-returns.
+- **Standalone caret ghost**: iOS pans the layout viewport to reveal a focused
+  bottom input BEFORE the inset shrinks the page; WebKit then draws the caret
+  at the stale pan position, visibly outside the input. Fix: on the
+  keyboard-OPEN transition only, `window.scrollTo(0, 0)` + re-assert the
+  selection range to force a caret redraw. Never re-run this on later inset
+  fluctuations — it fights in-progress user gestures.
+
 See `isIOSPWA()` in [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts):
 
 ```typescript
