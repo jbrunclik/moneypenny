@@ -581,6 +581,10 @@ export function removeConversationFromUI(convId: string): void {
     renderMessages([]);
     updateChatTitle('AI Chatbot');
     renderChatHeader(null);
+    // The mobile cost chip lives in the persistent mobile header (not the
+    // re-rendered chat header) - clear it or the deleted conversation's
+    // cost lingers on the welcome screen
+    void updateConversationCost(null);
     // Clear the hash since conversation no longer exists
     clearConversationHash();
   }

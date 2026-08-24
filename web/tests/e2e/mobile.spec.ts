@@ -7,6 +7,32 @@ import { test, expect } from '../global-setup';
 test.describe('Mobile - iPhone', () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
+  test('deleting the current conversation clears the mobile cost chip', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+
+    // Create a conversation with recorded cost (new-chat lives in the sidebar)
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Hello cost chip');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
+
+    const chip = page.locator('#conversation-cost-mobile');
+    await expect(chip).not.toHaveText('', { timeout: 10000 });
+
+    // Delete the conversation from the sidebar
+    await page.click('#menu-btn');
+    await page.locator('.conversation-item-wrapper').first().hover();
+    page.once('dialog', (d) => void d.accept());
+    await page.locator('[data-delete-id]').first().click({ force: true });
+    await page.locator('.modal-confirm, .btn-danger').first().click();
+
+    // Back on the welcome screen the stale cost must be gone
+    await page.waitForSelector('.welcome-message', { timeout: 10000 });
+    await expect(chip).toHaveText('');
+  });
+
   test('sidebar is hidden by default', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#sidebar');
