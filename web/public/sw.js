@@ -104,12 +104,19 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
+      // Nudge every open app window to sync right away - without this,
+      // in-app badges and threads stay stale until the next poll tick
+      // even though the push already announced the change
+      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of wins) {
+        client.postMessage({ type: 'push-received' });
+      }
+
       // Suppress when a focused window is already viewing the target
       // route - the user is looking at the answer right now
       const hashIndex = url.indexOf('#');
       const targetHash = hashIndex >= 0 ? url.slice(hashIndex) : null;
       if (targetHash) {
-        const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         const viewingTarget = wins.some((client) => {
           try {
             return client.focused && new URL(client.url).hash === targetHash;

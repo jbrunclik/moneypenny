@@ -85,6 +85,16 @@ function setupWorkerMessageListener(): void {
 
   navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
     const data = event.data as { type?: string; url?: string } | null;
+
+    // A push arrived while the app is open (e.g. an agent finished):
+    // sync immediately so in-app badges and threads update now instead
+    // of on the next poll tick
+    if (data?.type === 'push-received') {
+      log.debug('Push received while app open, syncing');
+      getSyncManager()?.incrementalSync();
+      return;
+    }
+
     if (data?.type !== 'push-navigate' || !data.url) return;
 
     const hashIndex = data.url.indexOf('#');
