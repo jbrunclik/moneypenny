@@ -50,6 +50,41 @@ describe('keyboard viewport pinning', () => {
     expect(getInset()).toBe('');
   });
 
+  it('resets the stale layout-viewport pan and redraws the caret on inset', async () => {
+    // Standalone-PWA caret bug: iOS pans the layout viewport to reveal a
+    // focused bottom input; our height shrink then reflows content up but
+    // WebKit keeps drawing the caret at the stale pan position (outside
+    // the input). Reset the pan and re-assert the selection to force a
+    // caret redraw.
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    textarea.value = 'hello';
+    textarea.focus();
+    textarea.setSelectionRange(3, 3);
+    const selectionSpy = vi.spyOn(textarea, 'setSelectionRange');
+
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+    await nextFrame();
+
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+    // Caret redraw nudge preserves the existing caret position
+    expect(selectionSpy).toHaveBeenCalledWith(3, 3);
+    scrollToSpy.mockRestore();
+  });
+
+  it('does not touch scroll or selection when no inset applies', async () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    textarea.focus();
+    viewport.height = 760; // below threshold - no inset
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+    await nextFrame();
+
+    expect(scrollToSpy).not.toHaveBeenCalled();
+    scrollToSpy.mockRestore();
+  });
+
   it('ignores pinch zoom (scale != 1)', () => {
     textarea.focus();
     viewport.scale = 2;

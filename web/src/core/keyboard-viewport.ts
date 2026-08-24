@@ -51,11 +51,30 @@ export function initKeyboardViewportPinning(): void {
     document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);
     log.debug('Keyboard inset changed', { inset, wasAtBottom });
 
-    if (container && inset > 0 && wasAtBottom) {
-      // Let the layout settle, then keep the newest content above the keyboard
+    if (inset > 0) {
       requestAnimationFrame(() => {
-        programmaticScrollToBottom(container);
-        checkScrollButtonVisibility();
+        // Standalone-PWA caret bug: iOS pans the layout viewport to reveal
+        // a focused bottom input BEFORE our height shrink reflows content
+        // up - WebKit then draws the caret at the stale pan position,
+        // visibly outside the input. Reset the pan (the shrunk layout no
+        // longer needs it) and re-assert the selection to force a redraw.
+        window.scrollTo(0, 0);
+        const active = document.activeElement;
+        if (
+          active instanceof HTMLTextAreaElement ||
+          (active instanceof HTMLInputElement && typeof active.selectionStart === 'number')
+        ) {
+          const { selectionStart, selectionEnd } = active;
+          if (selectionStart !== null && selectionEnd !== null) {
+            active.setSelectionRange(selectionStart, selectionEnd);
+          }
+        }
+
+        if (container && wasAtBottom) {
+          // Layout has settled - keep the newest content above the keyboard
+          programmaticScrollToBottom(container);
+          checkScrollButtonVisibility();
+        }
       });
     }
   };
