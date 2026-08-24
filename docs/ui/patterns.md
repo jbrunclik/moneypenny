@@ -125,6 +125,27 @@ Multiple feature entries share a flex row in the sidebar:
 - **Active state**: `accent-muted` background via `.active` class
 - **Hover**: `bg-hover` background
 
+### Sidebar Conversation List Invariants
+
+The sidebar renders `store.conversations` in array order and derives date-group
+labels ("Today", "Yesterday") from adjacent-item transitions, so the array MUST
+stay sorted by `updated_at` desc after every mutation (Aug 2026 bug class):
+
+- Never update `updated_at` in place — go through the store helpers
+  (`insertSortedByUpdatedAt` for activity/adds, `appendSortedByUpdatedAt` for
+  pagination, which keeps server page order on equal timestamps).
+  `updateConversation` re-sorts automatically when `updated_at` changes.
+- User-visible activity (message send) must bump optimistically via
+  `bumpConversationActivity(id, preview)` — waiting for the sync poll leaves
+  the row parked in its old date group for up to 60s.
+- Relative-time labels are computed at render time; `initSidebarTimeRefresh()`
+  (visibility-gated, 60s) keeps them fresh. The F3 string-compare cache makes
+  no-op renders free — never patch sidebar DOM directly, always re-render
+  through `renderConversationsList()`.
+- Any change that alters what the sidebar shows right after a send (previews,
+  timestamps) changes EVERY screenshot containing the sidebar — regenerate
+  both Linux (dispatch workflow) and Darwin (local) visual baselines.
+
 ### Deep Links
 
 All features use hash-based routing (`#/feature` and `#/feature/{id}`):
