@@ -20,7 +20,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
   - Cross-device read-state suppression if stale notifications annoy: grace-delay sends ~30-60s and skip when the message was viewed anywhere (agents have last_viewed_at; regular conversations would need a viewed ping + column)
 - [ ] **Daily Briefing follow-ups** - Core shipped (Jun 2026: opt-in toggle + delivery time in Settings, backed by a system-managed agent). Remaining ideas: evening review variant (second time slot), richer default prompt iteration based on real briefings.
 - [ ] **Personal knowledge base** - Persistent user documents searchable across conversations. SQLite FTS5 over extracted text + the embeddings table (shipped Aug 2026, `kind` column extends naturally to `document`) covers both keyword and semantic search.
-- [ ] **Thinking mode toggle** - Backend plumbing shipped Aug 2026 (optional `thinking_level` key on `Config.MODELS` entries → Gemini 3+ native reasoning). Remaining: per-request override + long-press UI like the voice-language selector.
 - [ ] **Conversation sharing** - Public links for sharing conversations.
 - [ ] **Keyboard shortcuts** for common actions.
 - [ ] **Voice conversation mode** - Speech-to-text in, text-to-speech out.
