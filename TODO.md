@@ -26,10 +26,6 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 - [ ] **Oura integration** for planner health data.
 - [ ] **Tool result caching** - In-memory TTL cache for repeated tool calls within a conversation.
 
-## Autonomous Agents
-
-- [ ] **Multi-step workflows** for agents.
-
 ## Planner Dashboard
 
 - [ ] **Two-column layout** - Events left, tasks right; task completion via Todoist API; open-in-Calendar links.
