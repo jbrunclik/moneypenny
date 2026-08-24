@@ -10,7 +10,11 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('message-input');
 
 // Track whether we're in stop mode (for click handler)
-let isStopMode = false;
+// null = presentation not yet applied: the first updateSendButtonState()
+// must ALWAYS stamp icon/class/title on the button (the old code did this
+// unconditionally via the store subscription's fireImmediately; a
+// change-only guard left the button bare until the first stream)
+let isStopMode: boolean | null = null;
 
 // Track whether input is blocked for pending approval
 let isBlockedForApproval = false;
