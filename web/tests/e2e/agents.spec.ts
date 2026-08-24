@@ -563,6 +563,34 @@ test.describe('Agents - Header', () => {
   });
 });
 
+test.describe('Agents - Deep Link Mark Viewed', () => {
+  test('deep-linking to an agent conversation marks it viewed', async ({ page }) => {
+    // Seed an agent (reuses the approval seed - it creates a full agent
+    // conversation; the approval itself is irrelevant here)
+    const seedResponse = await page.request.post('/test/seed-agent-with-approval', {
+      data: { name: 'Briefing Agent' },
+    });
+    expect(seedResponse.ok()).toBe(true);
+    const seedData = await seedResponse.json();
+    const agentId = seedData.agent_id;
+    const conversationId = seedData.conversation_id;
+
+    // Simulate a push-notification tap: cold open directly on the
+    // conversation hash (routes through loadDeepLinkedConversation,
+    // NOT selectConversation)
+    const markViewedRequest = page.waitForRequest(
+      (req) => req.url().includes(`/api/agents/${agentId}/mark-viewed`) && req.method() === 'POST',
+      { timeout: 10000 }
+    );
+    await page.goto(`/#/conversations/${conversationId}`);
+    await page.waitForSelector('.message', { timeout: 10000 });
+
+    // The server-side last_viewed_at reset is what clears the unread badge
+    // on OTHER devices - it must fire on this path too
+    await markViewedRequest;
+  });
+});
+
 test.describe('Agents - Pending Approval Input Blocking', () => {
   test('blocks message input when conversation has pending approval', async ({ page }) => {
     // Seed an agent with a pending approval

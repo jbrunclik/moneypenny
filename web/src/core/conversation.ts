@@ -135,6 +135,24 @@ export function markAgentViewedAndRefresh(agentId: string): void {
 }
 
 /**
+ * Agent bookkeeping shared by every path that opens a conversation
+ * (selectConversation AND the deep-link loader used by push-notification
+ * taps): track the agent for sync and reset the server-side unread state.
+ * Skipping this on any open path leaves last_viewed_at stale, so the
+ * unread badge persists on every device.
+ */
+function trackViewedAgentConversation(
+  response: { is_agent?: boolean; agent_id?: string | null; message_pagination: { total_count: number } }
+): void {
+  if (response.is_agent && response.agent_id) {
+    getSyncManager()?.setViewedAgent(response.agent_id, response.message_pagination.total_count);
+    markAgentViewedAndRefresh(response.agent_id);
+  } else {
+    getSyncManager()?.setViewedAgent(null);
+  }
+}
+
+/**
  * Build the icon action buttons for the regular conversation header.
  */
 function buildChatHeaderActions(convId: string): HTMLElement[] {
@@ -423,14 +441,7 @@ export async function selectConversation(convId: string): Promise<void> {
 
     // Mark agent conversation as viewed to reset unread count
     // Also track the agent for sync purposes
-    if (response.is_agent && response.agent_id) {
-      // Track agent for sync manager to detect external updates
-      getSyncManager()?.setViewedAgent(response.agent_id, response.message_pagination.total_count);
-      markAgentViewedAndRefresh(response.agent_id);
-    } else {
-      // Not an agent conversation - clear any tracked agent
-      getSyncManager()?.setViewedAgent(null);
-    }
+    trackViewedAgentConversation(response);
 
     // Pass total message count from pagination for correct sync behavior
     switchToConversation(conv, response.message_pagination.total_count);
@@ -800,8 +811,12 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         created_at: response.created_at,
         updated_at: response.updated_at,
         messages: mergedMessages,
+        is_agent: response.is_agent,
+        agent_id: response.agent_id,
+        has_pending_approval: response.has_pending_approval,
         archived: response.archived,
       };
+      trackViewedAgentConversation(response);
       // Use total message count from pagination for correct sync behavior
       switchToConversation(conv, response.message_pagination.total_count);
     } catch (error) {
@@ -846,6 +861,9 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         created_at: response.created_at,
         updated_at: response.updated_at,
         messages: mergedMessages,
+        is_agent: response.is_agent,
+        agent_id: response.agent_id,
+        has_pending_approval: response.has_pending_approval,
         archived: response.archived,
         // Set messageCount from pagination for sync manager
         messageCount: response.message_pagination.total_count,
@@ -856,6 +874,7 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
         store.addConversation(conv);
         renderConversationsList();
       }
+      trackViewedAgentConversation(response);
       store.setMessages(conversationId, mergedMessages, response.message_pagination);
 
       // Switch to the conversation
