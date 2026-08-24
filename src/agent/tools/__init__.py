@@ -79,6 +79,29 @@ _ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
     "read_conversation",
 }
 
+# Tools withheld in program conversations (sports/language): their
+# declarations cost ~7-10k tokens and are re-sent every tool round, but a
+# fitness or language program never uses them. Regular chat keeps everything.
+# NOTE: changing these sets changes the content hash of the corresponding
+# context-cache profile - the old cache is recreated once (harmless drift).
+_SPORTS_EXCLUDED_TOOLS = {
+    "todoist",
+    "whatsapp",
+    "google_calendar",
+    "generate_image",
+    "execute_code",
+    "search_places",
+    "save_place",
+    "delete_place",
+    "list_places",
+    "get_route",
+}
+
+_LANGUAGE_EXCLUDED_TOOLS = _SPORTS_EXCLUDED_TOOLS | {
+    "garmin_connect",
+    "garmin_workout",
+}
+
 
 def get_available_tools() -> list[Any]:
     """Get the list of available tools, including execute_code if Docker is available.
@@ -235,6 +258,10 @@ def get_tools_for_request(
     available = get_available_tools()
     if anonymous_mode:
         tools = [t for t in available if t.name not in _ANONYMOUS_EXCLUDED_TOOLS]
+    elif is_sports:
+        tools = [t for t in available if t.name not in _SPORTS_EXCLUDED_TOOLS]
+    elif is_language:
+        tools = [t for t in available if t.name not in _LANGUAGE_EXCLUDED_TOOLS]
     else:
         tools = available
 

@@ -2418,6 +2418,44 @@ class TestGetToolsForRequest:
         tools = get_tools_for_request()
         assert tools == get_available_tools()
 
+    def test_sports_mode_excludes_irrelevant_tools(self) -> None:
+        """Sports conversations must not carry todoist/whatsapp/calendar/
+        places/image-gen/code declarations - ~7k tokens re-sent every tool
+        round for tools a fitness program never uses."""
+        from src.agent.tools import _SPORTS_EXCLUDED_TOOLS
+
+        tool_names = {t.name for t in get_tools_for_request(is_sports=True)}
+        assert not _SPORTS_EXCLUDED_TOOLS & tool_names
+        # Core sports tools must survive
+        assert "kv_store" in tool_names
+        assert "web_search" in tool_names
+        assert "manage_memory" in tool_names
+
+    def test_sports_mode_keeps_garmin_tools(self) -> None:
+        """Garmin tools are the core of the sports feature - never excluded.
+        (Only asserted via the exclusion set: garmin availability depends on
+        integration config, so presence cannot be asserted directly.)"""
+        from src.agent.tools import _SPORTS_EXCLUDED_TOOLS
+
+        assert "garmin_connect" not in _SPORTS_EXCLUDED_TOOLS
+        assert "garmin_workout" not in _SPORTS_EXCLUDED_TOOLS
+
+    def test_language_mode_excludes_irrelevant_tools(self) -> None:
+        """Language conversations additionally drop the garmin pair."""
+        from src.agent.tools import _LANGUAGE_EXCLUDED_TOOLS
+
+        tool_names = {t.name for t in get_tools_for_request(is_language=True)}
+        assert not _LANGUAGE_EXCLUDED_TOOLS & tool_names
+        assert "garmin_connect" in _LANGUAGE_EXCLUDED_TOOLS
+        assert "kv_store" in tool_names
+        assert "web_search" in tool_names
+
+    def test_regular_chat_keeps_all_tools(self) -> None:
+        """Subsetting applies only to program conversations."""
+        tool_names = {t.name for t in get_tools_for_request()}
+        available = {t.name for t in get_available_tools()}
+        assert tool_names == available
+
     def test_agent_permissions_always_include_kv_store(self) -> None:
         """Interactive agent turns must get kv_store, matching get_tools_for_agent."""
         tools = get_tools_for_request(agent_tool_permissions=["web_search"])

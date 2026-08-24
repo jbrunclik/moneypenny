@@ -239,12 +239,15 @@ def fetch_page_text(url: str, max_chars: int | None = None) -> tuple[str | None,
 
 @tool
 def fetch_url(url: str) -> str | list[dict[str, Any]]:
-    """Fetch content from a URL - supports web pages, PDFs, and images.
+    """Fetch content from a KNOWN URL - web pages, PDFs, and images.
 
     Use this tool to:
-    - Read the content of web pages (returns text in markdown format)
+    - Read a page whose URL you already have (from the user or conversation)
     - Analyze PDF documents (returns the PDF for your analysis)
     - Analyze images from URLs (returns the image for your analysis)
+
+    Do NOT use this to open web_search results - for find-and-read tasks
+    call `research` instead, which searches and reads in one round.
 
     For PDFs and images, the binary content is returned directly for you to analyze.
     You can describe images, extract text from PDFs, answer questions about their content, etc.
@@ -398,16 +401,18 @@ def web_search(
     queries: list[str] | None = None,
     num_results: int | None = None,
 ) -> str:
-    """Search the web using DuckDuckGo. Supports multiple queries in ONE call.
+    """Quick web lookup for answers that SNIPPETS alone can settle - a price,
+    a date, an address, one specific fact, or finding a site's URL.
 
-    Use this tool to find current information, news, prices, or any other
-    information that might not be in your training data. After searching,
-    you can use fetch_url to read specific pages.
+    NOT for reading pages: if answering requires opening any result, or
+    comparing options, or corroborating across sources, use the `research`
+    tool instead - it searches AND reads the top pages in one round.
+    Do NOT chain web_search -> fetch_url or run web_search across multiple
+    rounds; every extra round re-sends the whole conversation.
 
-    IMPORTANT: When you need to research several independent angles (different
-    places, products, phrasings), pass them ALL in `queries` in a single call
-    instead of searching one-by-one across turns - sequential search rounds
-    re-send the whole conversation each time and are slow and expensive.
+    IMPORTANT: When you need several independent angles (different places,
+    products, phrasings), pass them ALL in `queries` in a single call
+    instead of searching one-by-one across rounds.
 
     Args:
         query: A single search query
