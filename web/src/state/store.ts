@@ -338,6 +338,23 @@ function insertSortedByUpdatedAt(
 }
 
 /**
+ * Current time in the backend's timestamp format: datetime.now().isoformat()
+ * - LOCAL time, no timezone suffix (e.g. "2026-08-24T12:34:56.789").
+ * Conversation ordering uses lexicographic string comparison, so client-
+ * generated timestamps MUST match this format: a UTC toISOString() ("...Z")
+ * would sort ~tz-offset hours behind fresh server timestamps and optimistic
+ * bumps would undo themselves on the next sync.
+ */
+function localIsoNow(): string {
+  const d = new Date();
+  const pad = (n: number, w = 2) => String(n).padStart(w, '0');
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`
+  );
+}
+
+/**
  * Like insertSortedByUpdatedAt but stable for pagination: an item with a
  * timestamp equal to existing entries goes AFTER them, preserving the
  * server's page order instead of reversing it.
@@ -616,7 +633,7 @@ export const useStore = create<AppState>()(
       // to a full sync-poll interval for the server's updated_at
       bumpConversationActivity: (id, preview) => {
         const updates: Partial<Conversation> = {
-          updated_at: new Date().toISOString(),
+          updated_at: localIsoNow(),
         };
         if (preview) {
           updates.last_message_preview = preview;

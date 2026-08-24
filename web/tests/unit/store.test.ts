@@ -1,7 +1,7 @@
 /**
  * Unit tests for Zustand store
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
 import type { Conversation, ConversationsPagination, User, FileUpload, Model } from '@/types/api';
 
@@ -325,6 +325,24 @@ describe('Store - Conversations', () => {
       expect(convs.map((c) => c.id)).toEqual(['2', '1']);
       expect(convs[0].updated_at >= before).toBe(true);
       expect(convs[0].last_message_preview).toBe('hello there');
+    });
+
+    it('bumpConversationActivity writes server-format timestamps (local-naive, no Z)', () => {
+      // The backend stores datetime.now().isoformat() - LOCAL time with no
+      // timezone suffix. The sidebar sorts by lexicographic string compare,
+      // so a UTC "Z" timestamp from the client would sort ~tz-offset hours
+      // behind server timestamps and the bump would undo itself on the
+      // next sync (observed: E2E conversation-switch failure in UTC+2)
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2024, 5, 15, 14, 30, 45, 123)); // local time
+
+      useStore.setState({ conversations: [createConversation('1', 'Test')] });
+      useStore.getState().bumpConversationActivity('1');
+
+      const stamp = useStore.getState().conversations[0].updated_at;
+      expect(stamp.startsWith('2024-06-15T14:30:45')).toBe(true);
+      expect(stamp.includes('Z')).toBe(false);
+      vi.useRealTimers();
     });
 
     it('bumpConversationActivity keeps existing preview when none is given', () => {

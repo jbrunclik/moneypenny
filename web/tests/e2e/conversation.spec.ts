@@ -638,7 +638,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Long conversation message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     // Get the messages container
@@ -685,7 +685,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 4; i++) {
       await page.fill('#message-input', `Test message number ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     // Reload the page to test initial load scroll behavior
@@ -710,13 +710,13 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 3; i++) {
       await page.fill('#message-input', `Initial message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     // Send one more message
     await page.fill('#message-input', 'New message at the end');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=3', { timeout: 20000 });
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=3', { timeout: 20000 });
 
     // The new message should be visible
     const newMessage = page.locator('.message.user >> text=New message at the end');
@@ -733,7 +733,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message number ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     const messagesContainer = page.locator('#messages');
@@ -782,7 +782,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     // Create a simple 1x1 pixel PNG image for testing
@@ -806,7 +806,7 @@ test.describe('Scroll to bottom behavior', () => {
     // Send the message with the image
     await page.fill('#message-input', 'Message with image');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=5', { timeout: 20000 });
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=5', { timeout: 20000 });
 
     const messagesContainer = page.locator('#messages');
 
@@ -892,7 +892,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 10; i++) {
       await page.fill('#message-input', `Message ${i + 1} - adding more content to ensure the conversation is scrollable`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     // Add a message with an image
@@ -911,7 +911,7 @@ test.describe('Scroll to bottom behavior', () => {
     await page.waitForSelector('.file-preview', { timeout: 5000 });
     await page.fill('#message-input', 'Message with image');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant >> nth=10', { timeout: 20000 });
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=10', { timeout: 20000 });
 
     const messagesContainer = page.locator('#messages');
 
@@ -1163,7 +1163,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message ${i + 1} - this is a longer message to create more scrollable content`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     // Use proper 400x400 test images (not 1x1) to ensure scrolling is actually needed
@@ -1419,7 +1419,7 @@ test.describe('Scroll to bottom behavior', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill('#message-input', `Message ${i + 1} with some content`);
       await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
 
     const messagesContainer = page.locator('#messages');
