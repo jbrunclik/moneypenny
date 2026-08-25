@@ -25,7 +25,7 @@ import {
   showConversationLoader,
 } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
-import { initKeyboardViewportPinning } from './keyboard-viewport';
+import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
@@ -471,6 +471,7 @@ export async function init(): Promise<void> {
   });
   initOrientationChangeHandler();
   initKeyboardViewportPinning();
+  initKbDebugToggle();
   initAttention();
   initConnectivity();
   initVersionBanner();

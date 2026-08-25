@@ -77,8 +77,40 @@ function setPanGuard(active: boolean): void {
 let debugEl: HTMLDivElement | null = null;
 let debugEventLog: string[] = [];
 
+function kbDebugEnabled(): boolean {
+  // ?kbdebug=1 in a browser tab; PWAs launch from a fixed start_url, so
+  // the flag also persists via localStorage (toggled by 5 quick taps on
+  // the chat title - see initKbDebugToggle)
+  return location.search.includes('kbdebug') || localStorage.getItem('kbdebug') === '1';
+}
+
+/** 5 quick taps on the chat title toggle the overlay (PWA has no URL bar). */
+export function initKbDebugToggle(): void {
+  let taps = 0;
+  let lastTap = 0;
+  document.addEventListener('click', (e) => {
+    if (!(e.target instanceof Element) || !e.target.closest('#chat-title, .chat-header-title')) {
+      return;
+    }
+    const now = Date.now();
+    taps = now - lastTap < 600 ? taps + 1 : 1;
+    lastTap = now;
+    if (taps >= 5) {
+      taps = 0;
+      const next = localStorage.getItem('kbdebug') === '1' ? '0' : '1';
+      localStorage.setItem('kbdebug', next);
+      if (next === '0' && debugEl) {
+        debugEl.remove();
+        debugEl = null;
+      } else {
+        kbDebug('enabled', {});
+      }
+    }
+  });
+}
+
 function kbDebug(event: string, data: Record<string, unknown>): void {
-  if (!location.search.includes('kbdebug')) return;
+  if (!kbDebugEnabled()) return;
   if (!debugEl) {
     debugEl = document.createElement('div');
     debugEl.style.cssText =
@@ -96,6 +128,32 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `winY=${window.scrollY} docST=${document.scrollingElement?.scrollTop} ` +
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight} [kb3]\n` +
     debugEventLog.join('\n');
+}
+
+// Safety net for missed close events: standalone PWAs resize innerHeight
+// and the visualViewport non-atomically, and dismissing the keyboard via
+// its own dismiss key fires no blur - if the final event is dropped, the
+// inset sticks and the app floats above a dead band. Poll only while the
+// keyboard is considered open; the poller re-runs the same update() and
+// disarms itself the moment the inset clears.
+const SETTLE_POLL_MS = 300;
+let settlePoller: ReturnType<typeof setInterval> | null = null;
+let settleUpdate: (() => void) | null = null;
+
+function setSettlePoller(active: boolean): void {
+  if (active && !settlePoller) {
+    settlePoller = setInterval(() => settleUpdate?.(), SETTLE_POLL_MS);
+  } else if (!active && settlePoller) {
+    clearInterval(settlePoller);
+    settlePoller = null;
+  }
+}
+
+/** Reset module state (tests re-init per case; prod inits once). */
+export function cleanupKeyboardViewportPinning(): void {
+  setSettlePoller(false);
+  setPanGuard(false);
+  settleUpdate = null;
 }
 
 export function initKeyboardViewportPinning(): void {
@@ -150,6 +208,7 @@ export function initKeyboardViewportPinning(): void {
     currentInset = inset;
     document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);
     setPanGuard(inset > 0);
+    setSettlePoller(inset > 0);
     log.debug('Keyboard inset changed', { inset, wasAtBottom });
 
     if (inset > 0) {
@@ -183,6 +242,10 @@ export function initKeyboardViewportPinning(): void {
       });
     }
   };
+
+  // The settle poller re-runs this instance's update while the keyboard
+  // is considered open (armed inside update via setSettlePoller)
+  settleUpdate = update;
 
   // Initial --app-vh so the first paint already uses the real viewport
   update();

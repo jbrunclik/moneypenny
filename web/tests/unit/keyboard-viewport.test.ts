@@ -2,7 +2,10 @@
  * Unit tests for mobile keyboard viewport pinning (--keyboard-inset).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { initKeyboardViewportPinning } from '@/core/keyboard-viewport';
+import {
+  cleanupKeyboardViewportPinning,
+  initKeyboardViewportPinning,
+} from '@/core/keyboard-viewport';
 
 // The re-pin path calls element.scrollTo, which jsdom doesn't implement -
 // without the stub the deferred RAF throws an uncaught async exception
@@ -25,6 +28,11 @@ function getInset(): string {
 describe('keyboard viewport pinning', () => {
   let viewport: MockVisualViewport;
   let textarea: HTMLTextAreaElement;
+
+  afterEach(() => {
+    cleanupKeyboardViewportPinning();
+    vi.useRealTimers();
+  });
 
   beforeEach(() => {
     document.body.innerHTML = '<div id="messages"></div><textarea id="message-input"></textarea>';
@@ -248,6 +256,29 @@ describe('keyboard viewport pinning', () => {
     const evt2 = new Event('touchmove', { bubbles: true, cancelable: true });
     document.body.dispatchEvent(evt2);
     expect(evt2.defaultPrevented).toBe(true);
+  });
+
+  it('clears a stale inset via the settle poller when close events are missed', async () => {
+    // Standalone PWAs resize innerHeight and visualViewport non-atomically
+    // and can miss the final close event entirely (keyboard dismissed via
+    // its own dismiss key = no blur). A poller active only while inset > 0
+    // must clear the stale offset without any event.
+    vi.useFakeTimers();
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    expect(getInset()).toBe('300px');
+    // Drain pending rAF re-checks (focus handlers) while the keyboard is
+    // still open, so only the poller can observe the change below
+    await vi.advanceTimersByTimeAsync(50);
+    expect(getInset()).toBe('300px');
+
+    // Keyboard silently closes: geometry restored, NO events fire
+    viewport.height = 800;
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(getInset()).toBe('0px');
+    vi.useRealTimers();
   });
 
   it('stops blocking touchmoves once the keyboard closes', async () => {
