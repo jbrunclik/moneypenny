@@ -88,7 +88,7 @@ export function renderAppShell(): string {
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-brand">
-          <img class="sidebar-logo" src="/static/icon-192.png" alt="" width="24" height="24">
+          <img class="sidebar-logo" src="/static/icon-192.png" alt="" width="28" height="28">
           <h1>${APP_NAME}</h1>
         </div>
         <button id="new-chat-btn" class="btn btn-primary">${PLUS_ICON} New Chat</button>
