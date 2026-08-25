@@ -302,8 +302,20 @@ export function initKeyboardViewportPinning(): void {
   // is considered open (armed inside update via setSettlePoller)
   settleUpdate = update;
 
-  // Initial --app-vh so the first paint already uses the real viewport
+  // Initial --app-vh so the first paint already uses the real viewport.
+  // Standalone geometry SETTLES LATE on cold launch (even the 100vh probe
+  // reads the short value for the first moments, and no event fires while
+  // the app sits idle) - re-measure a few times after launch and on
+  // lifecycle transitions; update() is change-detected so extra calls are
+  // free.
   update();
+  for (const delay of [150, 500, 1500, 3000]) {
+    setTimeout(update, delay);
+  }
+  window.addEventListener('pageshow', update);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestAnimationFrame(update);
+  });
   // Rotation / browser-chrome changes resize the window without
   // necessarily firing visualViewport events in every browser
   window.addEventListener('resize', () => {
