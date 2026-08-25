@@ -1,30 +1,29 @@
 ---
-description: Feature implementation workflow - plan, implement, test, review
+description: Feature workflow - superpowers brainstorming + TDD, then review/docs
 ---
 
-Implement a new feature. The feature to implement: $ARGUMENTS
+Implement a new feature: $ARGUMENTS
 
-Follow this workflow:
+The superpowers process skills are the backbone now — this command wires them
+to the project's conventions.
 
-1. **Plan**: Enter plan mode to explore the codebase and design the approach.
-   - Search for existing patterns related to this feature
-   - Identify files that need to change
-   - Consider edge cases and error handling
-   - Present the plan for approval
+1. **Design first (gated).** Invoke the `superpowers:brainstorming` skill BEFORE
+   writing any code. It classifies the work (spike / bounded / architectural)
+   and stops for your approval. Don't skip to code.
 
-2. **Implement**: After plan approval, implement the feature.
-   - Follow existing patterns in the codebase
-   - Keep functions small (<50 lines)
-   - Add type hints (Python) / strict TypeScript types
-   - Use constants from `config.{ts,py}` and `constants.{ts,py}`
+2. **Implement with TDD.** Invoke `superpowers:test-driven-development`. Follow
+   existing patterns; functions <50 lines; type hints (Python) / strict TS;
+   pull magic values from `config.{ts,py}` and `constants.{ts,py}`.
 
-3. **Test**: Add tests for the new functionality.
-   - Backend unit tests in `tests/unit/`
-   - Integration tests in `tests/integration/` for new API endpoints
-   - E2E tests in `web/tests/e2e/` for significant UI changes
+3. **Test.** Backend unit → `tests/unit/`, integration → `tests/integration/`,
+   UI → `web/tests/e2e/`. E2E runs the last `make build`, so rebuild before
+   Playwright. Visual change? see `/regen-baselines`.
 
-4. **Review**: Use the `code-reviewer` agent to review the implementation.
+4. **Review.** Run the `code-reviewer` agent after significant changes.
 
-5. **Documentation**: Use the `docs-updater` agent to update documentation.
+5. **Docs.** Run the `docs-updater` agent. Keep infra details (hostnames,
+   server topology) OUT of repo docs — that knowledge lives in private memory.
 
-6. **Pre-commit**: Use the `pre-commit` agent to verify everything passes.
+6. **Finish.** `superpowers:verification-before-completion`, then the
+   `pre-commit` agent (skip it only if in-session lint + tests already passed
+   green).

@@ -1,33 +1,22 @@
 ---
-description: TDD bug fix workflow - reproduce, test, fix, verify
+description: Bug-fix workflow - systematic-debugging + TDD (failing test first)
 ---
 
-Fix a bug using the TDD approach. The bug to fix: $ARGUMENTS
+Fix a bug: $ARGUMENTS
 
-Follow this workflow strictly:
+1. **Root cause first (no fixes yet).** Invoke `superpowers:systematic-debugging`.
+   Read the error fully, reproduce it, trace the bad value to its source. Do NOT
+   propose a fix before the root cause is understood — symptom patches regress.
 
-1. **Understand the bug**: Read the relevant code to understand the root cause. If the user provided a description, analyze it. If not, ask for details.
+2. **Failing test first.** Invoke `superpowers:test-driven-development`. Write a
+   test that reproduces the bug and watch it fail for the *expected* reason:
+   - backend logic → `tests/unit/`
+   - API behavior → `tests/integration/`
+   - UI → `web/tests/e2e/` (rebuild first; E2E runs the last `make build`)
 
-2. **Write a failing test**: Create a test that reproduces the bug.
-   - Unit test in `tests/unit/` for backend logic bugs
-   - Integration test in `tests/integration/` for API bugs
-   - E2E test in `web/tests/e2e/` for UI bugs
-   - Follow patterns in `tests/conftest.py` for fixtures and mocks
+3. **Minimal fix.** Smallest change that makes the test pass. No "while I'm here."
 
-3. **Run the test**: Confirm it fails with the expected error.
-   ```bash
-   make test  # or specific test file
-   ```
+4. **Verify.** Test passes; full suite green (`make test-all`); no new warnings.
 
-4. **Implement the fix**: Make the minimal change needed.
-
-5. **Run the test again**: Confirm it passes.
-
-6. **Run the full test suite**: Ensure no regressions.
-   ```bash
-   make test-all
-   ```
-
-7. **Code review**: Use the `code-reviewer` agent to review your fix.
-
-8. **Pre-commit check**: Use the `pre-commit` agent to verify everything passes.
+5. **Pre-commit.** Run the `pre-commit` agent unless lint + tests already ran
+   green in-session.

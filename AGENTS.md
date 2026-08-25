@@ -26,7 +26,7 @@ This file contains context for Claude Code to work effectively on this project.
 
 Follow this development cycle for all non-trivial changes:
 
-1. **Plan** - Enter plan mode for features, use `/fix-bug` for TDD bug fixes, use `/new-feature` for feature workflows
+1. **Plan** - Use `superpowers:brainstorming` (via `/new-feature`) for features, `/fix-bug` for TDD bug fixes
 2. **Implement** - Write code following project conventions
 3. **Review** - Use `code-reviewer` agent proactively after significant changes
 4. **Pre-commit** - MUST use `pre-commit` agent before every commit
@@ -47,8 +47,13 @@ Follow this development cycle for all non-trivial changes:
 
 ### Available Commands (`.claude/commands/`)
 
-- `/fix-bug` - TDD bug fix workflow (test first, then fix)
-- `/new-feature` - Feature implementation workflow (plan, implement, test, review)
+- `/new-feature` - Feature workflow: defers to `superpowers:brainstorming` (design + approval) then TDD, review, docs
+- `/fix-bug` - Bug-fix workflow: defers to `superpowers:systematic-debugging` (root cause first) + TDD (failing test first)
+- `/regen-baselines` - Regenerate Linux visual-regression baselines via the CI dispatch workflow and commit them (use after any intentional UI change)
+
+The `superpowers` process skills (brainstorming, test-driven-development,
+systematic-debugging, verification-before-completion) are the backbone; the
+commands wire them to this project's conventions.
 
 ### Hooks
 
