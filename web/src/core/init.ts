@@ -27,6 +27,7 @@ import {
 import { initMessageInput } from '../components/MessageInput';
 import { APP_NAME } from '../config';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
+import { initComposerHeight } from './composer-height';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
@@ -475,6 +476,7 @@ export async function init(): Promise<void> {
   });
   initOrientationChangeHandler();
   initKeyboardViewportPinning();
+  initComposerHeight();
   initKbDebugToggle();
   initAttention();
   initConnectivity();
