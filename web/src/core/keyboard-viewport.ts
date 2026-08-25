@@ -89,7 +89,7 @@ export function initKbDebugToggle(): void {
   let taps = 0;
   let lastTap = 0;
   document.addEventListener('click', (e) => {
-    if (!(e.target instanceof Element) || !e.target.closest('#chat-title, .chat-header-title')) {
+    if (!(e.target instanceof Element) || !e.target.closest('#current-chat-title, .chat-header')) {
       return;
     }
     const now = Date.now();
