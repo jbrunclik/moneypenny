@@ -93,6 +93,8 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
   debugEl.textContent =
     `inH=${window.innerHeight} vvH=${vv?.height?.toFixed(0)} vvTop=${vv?.offsetTop?.toFixed(0)} ` +
     `scale=${vv?.scale} active=${document.activeElement?.tagName}\n` +
+    `winY=${window.scrollY} docST=${document.scrollingElement?.scrollTop} ` +
+    `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight} [kb3]\n` +
     debugEventLog.join('\n');
 }
 

@@ -223,7 +223,7 @@ def create_app() -> APIFlask:
     app.config["APP_VERSION"] = app_version
 
     @app.route("/")
-    def index() -> str | tuple[str, int]:
+    def index() -> Response | tuple[str, int]:
         logger.debug("Rendering index page")
         js_file: str | None = None
         css_files: list[str] = []
@@ -244,13 +244,22 @@ def create_app() -> APIFlask:
                 extra={"js_file": js_file, "css_files": css_files, "app_version": app_version},
             )
 
-        return render_template(
-            "index.html",
-            js_file=js_file,
-            css_files=css_files,
-            dev_mode=dev_mode,
-            app_version=app_version,
+        # no-cache, NOT immutable: without an explicit Cache-Control, iOS
+        # Safari heuristically caches the HTML and keeps referencing OLD
+        # hashed bundles for hours after a deploy (bit us repeatedly during
+        # mobile-fix iteration, Aug 2026). Assets themselves are hashed and
+        # safe to cache; the HTML that names them must always revalidate.
+        response = Response(
+            render_template(
+                "index.html",
+                js_file=js_file,
+                css_files=css_files,
+                dev_mode=dev_mode,
+                app_version=app_version,
+            )
         )
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.route("/sw.js")
     def service_worker() -> Response:
