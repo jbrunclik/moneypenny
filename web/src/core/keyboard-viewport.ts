@@ -11,7 +11,11 @@
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
-import { KEYBOARD_DEFINITE_SHRINK_PX, KEYBOARD_INSET_MIN_PX } from '../config';
+import {
+  KEYBOARD_DEFINITE_SHRINK_PX,
+  KEYBOARD_INSET_MIN_PX,
+  KEYBOARD_STANDALONE_ACCESSORY_PX,
+} from '../config';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('keyboard-viewport');
@@ -181,7 +185,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb7]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb8]\n` +
     debugEventLog.join('\n');
 }
 
@@ -310,7 +314,12 @@ export function initKeyboardViewportPinning(): void {
       viewport.scale === 1 &&
       (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
     const overlap = keyboardLikely ? shrink : 0;
-    const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
+    // Standalone: the visual viewport excludes only the keyboard - iOS's
+    // floating input-assistant pill hovers over page content unreported
+    // and would cover the composer's bottom edge (Safari tabs exclude it)
+    const accessory =
+      overlap > 0 && isStandaloneDisplay() ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
+    const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap + accessory : 0;
     kbDebug('update', {
       shrink,
       keyboardLikely,

@@ -241,6 +241,16 @@ export const RESPONSE_JUMP_MIN_VIEWPORT_RATIO = 0.9;
  */
 export const KEYBOARD_INSET_MIN_PX = 80;
 
+/**
+ * Height of iOS's floating input-assistant pill (prev/next/done) above the
+ * keyboard. In STANDALONE PWAs the visual viewport excludes only the
+ * keyboard itself - the pill hovers over page content unreported (Safari
+ * browser tabs exclude both). Added to the keyboard inset in standalone so
+ * the composer clears the pill. Device-measured (iPhone, iOS 26, Aug 2026):
+ * pill occupies ~[483..526] with keyboard top at 533.
+ */
+export const KEYBOARD_STANDALONE_ACCESSORY_PX = 50;
+
 // =============================================================================
 // Lightbox
 // =============================================================================

@@ -189,6 +189,19 @@ describe('keyboard viewport pinning', () => {
     expect(getInset()).toBe('');
   });
 
+  it('adds the accessory-pill height to the inset in standalone display', () => {
+    // Standalone PWAs: the visual viewport excludes only the keyboard;
+    // iOS's floating input-assistant pill hovers over the composer
+    // unreported and must be cleared via a constant.
+    Object.defineProperty(navigator, 'standalone', { value: true, configurable: true });
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    const inset = getInset();
+    Object.defineProperty(navigator, 'standalone', { value: undefined, configurable: true });
+    expect(inset).toBe('350px'); // 300 keyboard + 50 accessory pill
+  });
+
   it('clears the inset when focus leaves the input', async () => {
     textarea.focus();
     viewport.height = 500;
