@@ -88,11 +88,21 @@ function kbDebugEnabled(): boolean {
 export function initKbDebugToggle(): void {
   let taps = 0;
   let lastTap = 0;
-  document.addEventListener('click', (e) => {
-    if (!(e.target instanceof Element) || !e.target.closest('#current-chat-title, .chat-header')) {
+  let lastTouchTs = 0;
+  const onTap = (e: Event): void => {
+    if (
+      !(e.target instanceof Element) ||
+      !e.target.closest('#current-chat-title, .mobile-header, .chat-header')
+    ) {
       return;
     }
     const now = Date.now();
+    // A touch tap fires touchend AND a synthesized click - count it once
+    if (e.type === 'touchend') {
+      lastTouchTs = now;
+    } else if (now - lastTouchTs < 500) {
+      return;
+    }
     taps = now - lastTap < 600 ? taps + 1 : 1;
     lastTap = now;
     if (taps >= 5) {
@@ -106,7 +116,12 @@ export function initKbDebugToggle(): void {
         kbDebug('enabled', {});
       }
     }
-  });
+  };
+  // touchend, not only click: iOS does NOT deliver document-level click
+  // events for taps on non-interactive elements (the same quirk that
+  // forbids inline onclick in this codebase)
+  document.addEventListener('touchend', onTap);
+  document.addEventListener('click', onTap);
 }
 
 function kbDebug(event: string, data: Record<string, unknown>): void {
