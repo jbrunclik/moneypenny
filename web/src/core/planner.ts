@@ -29,7 +29,7 @@ import {
 } from '../router/deeplink';
 import type { Conversation } from '../types/api';
 import { createDashboardElement, createDashboardLoadingElement } from '../components/PlannerDashboard';
-import { PLANNER_DASHBOARD_CACHE_MS } from '../config';
+import { APP_NAME, PLANNER_DASHBOARD_CACHE_MS } from '../config';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
 
 import {
@@ -275,7 +275,7 @@ export function leavePlannerView(): void {
   store.setCurrentConversation(null);
 
   // Reset the header title
-  updateChatTitle('AI Chatbot');
+  updateChatTitle(APP_NAME);
 
   // Clear stale UI state from planner
   renderModelDropdown(); // Reset to default model display

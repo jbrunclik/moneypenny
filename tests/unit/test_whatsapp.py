@@ -530,6 +530,7 @@ class TestWhatsAppTool:
         mock_config.WHATSAPP_ACCESS_TOKEN = "token"
         mock_config.WHATSAPP_TEMPLATE_NAME = "agent_notification"
         mock_config.WHATSAPP_MAX_MESSAGE_LENGTH = 4096
+        mock_config.APP_NAME = "Moneypenny"
         mock_context.return_value = ("conv123", "user456")
         mock_get_phone.return_value = "+1234567890"
         mock_send_template.return_value = {"messages": [{"id": "msg789"}]}
@@ -543,7 +544,7 @@ class TestWhatsAppTool:
         # Verify template name and agent name were passed
         call_args = mock_send_template.call_args
         assert call_args[0][1] == "agent_notification"  # template name
-        assert call_args[0][2] == "AI Chatbot"  # default agent name
+        assert call_args[0][2] == "Moneypenny"  # default agent name (Config.APP_NAME)
 
 
 class TestIsWhatsAppAvailable:

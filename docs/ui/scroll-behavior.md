@@ -1,6 +1,6 @@
 # Scroll Behavior
 
-Scroll behavior in the AI Chatbot is complex and carefully designed to handle multiple scenarios while providing a smooth user experience. This document covers all scroll-related functionality including automatic scrolling, user interruption, image loading, pagination, and streaming.
+Scroll behavior in the Moneypenny is complex and carefully designed to handle multiple scenarios while providing a smooth user experience. This document covers all scroll-related functionality including automatic scrolling, user interruption, image loading, pagination, and streaming.
 
 ## Table of Contents
 

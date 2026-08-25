@@ -1,4 +1,4 @@
-# AI Chatbot - Claude Context
+# Moneypenny - Claude Context
 
 This file contains context for Claude Code to work effectively on this project.
 

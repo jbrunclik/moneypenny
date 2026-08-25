@@ -1,9 +1,9 @@
-# Systemd user service for AI Chatbot currency rate updates
+# Systemd user service for Moneypenny currency rate updates
 # Install to: ~/.config/systemd/user/ai-chatbot-currency.service
 # This service is triggered by ai-chatbot-currency.timer
 
 [Unit]
-Description=AI Chatbot - Update currency exchange rates
+Description=Moneypenny - Update currency exchange rates
 After=network-online.target
 Wants=network-online.target
 

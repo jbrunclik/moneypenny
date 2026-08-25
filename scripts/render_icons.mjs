@@ -17,6 +17,10 @@ const outputs = [
   ['static/icon-192.png', 192],
   ['static/icon-512.png', 512],
   ['static/icon-512-maskable.png', 512],
+  // Reference exports (not served) - kept in assets/ so the source of the
+  // mark travels with the SVG; regenerated here to never drift from it.
+  ['assets/icon-300.png', 300],
+  ['assets/icon-512.png', 512],
 ];
 
 const browser = await chromium.launch();

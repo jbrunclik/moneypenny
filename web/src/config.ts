@@ -1,5 +1,5 @@
 /**
- * Centralized configuration for the AI Chatbot frontend.
+ * Centralized configuration for the Moneypenny frontend.
  *
  * This file contains developer-configurable values like timeouts, thresholds,
  * and feature settings. For true constants (unit conversions), see constants.ts.
@@ -492,6 +492,9 @@ export const STORAGE_CACHE_MS = 5 * MS_PER_MINUTE;
 
 /** Default conversation title for new conversations */
 export const DEFAULT_CONVERSATION_TITLE = 'New Conversation';
+
+/** Product name, shown in the header/sidebar when no conversation is active. */
+export const APP_NAME = 'Moneypenny';
 
 // =============================================================================
 // Logging

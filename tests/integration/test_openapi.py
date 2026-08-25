@@ -22,7 +22,7 @@ class TestOpenAPISpec:
         assert "openapi" in spec
         assert spec["openapi"].startswith("3.")
         assert "info" in spec
-        assert spec["info"]["title"] == "AI Chatbot API"
+        assert spec["info"]["title"] == "Moneypenny API"
         assert spec["info"]["version"] == "1.0.0"
         assert "paths" in spec
         assert "components" in spec

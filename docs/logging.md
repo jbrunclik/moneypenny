@@ -1,6 +1,6 @@
 # Logging
 
-The AI Chatbot uses structured JSON logging across both backend and frontend for easy integration with log aggregation systems like Loki. All logs include contextual information and request IDs for correlation.
+Moneypenny uses structured JSON logging across both backend and frontend for easy integration with log aggregation systems like Loki. All logs include contextual information and request IDs for correlation.
 
 ## Table of Contents
 

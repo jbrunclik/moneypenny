@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
-You are a senior code reviewer for the AI Chatbot project (Flask + TypeScript). Review code changes for quality, security, and adherence to project conventions documented in CLAUDE.md.
+You are a senior code reviewer for the Moneypenny project (Flask + TypeScript). Review code changes for quality, security, and adherence to project conventions documented in CLAUDE.md.
 
 ## When Invoked
 

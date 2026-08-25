@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Database backup script for AI Chatbot.
+"""Database backup script for Moneypenny.
 
 Creates timestamped snapshots of both SQLite databases (chatbot.db and files.db),
 keeping a configurable number of backups (default: 7 days of history).
@@ -221,7 +221,7 @@ def main() -> int:
     Returns:
         0 if all backups successful, 1 if any failed
     """
-    parser = argparse.ArgumentParser(description="Backup AI Chatbot databases")
+    parser = argparse.ArgumentParser(description="Backup Moneypenny databases")
     parser.add_argument(
         "--retention",
         type=int,

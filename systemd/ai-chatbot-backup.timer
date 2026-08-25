@@ -1,10 +1,10 @@
-# Systemd timer for AI Chatbot database backup
+# Systemd timer for Moneypenny database backup
 # Install to: ~/.config/systemd/user/ai-chatbot-backup.timer
 # Enable with: systemctl --user enable ai-chatbot-backup.timer
 # Check status: systemctl --user list-timers
 
 [Unit]
-Description=Daily backup of AI Chatbot databases
+Description=Daily backup of Moneypenny databases
 
 [Timer]
 # Run daily at 2:00 AM (before vacuum which runs at 3:00 AM on Sundays)

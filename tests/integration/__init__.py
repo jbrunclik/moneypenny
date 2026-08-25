@@ -1,1 +1,1 @@
-"""Integration tests for AI Chatbot backend."""
+"""Integration tests for Moneypenny backend."""

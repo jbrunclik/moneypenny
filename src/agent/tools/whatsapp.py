@@ -487,7 +487,7 @@ def whatsapp(
         formatted_message, was_truncated = _format_agent_message(message, conversation_url)
 
         # Send template message (required for business-initiated conversations)
-        agent_name = get_agent_name() or "AI Chatbot"
+        agent_name = get_agent_name() or Config.APP_NAME
         response = _send_template_message(
             recipient_phone,
             Config.WHATSAPP_TEMPLATE_NAME,

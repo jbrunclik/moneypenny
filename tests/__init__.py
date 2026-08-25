@@ -1,1 +1,1 @@
-"""Test suite for AI Chatbot backend."""
+"""Test suite for Moneypenny backend."""

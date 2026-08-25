@@ -339,7 +339,7 @@ curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/message
     "messaging_product": "whatsapp",
     "to": "1234567890",
     "type": "text",
-    "text": {"body": "Hello from AI Chatbot!"}
+    "text": {"body": "Hello from Moneypenny!"}
   }'
 ```
 

@@ -1,4 +1,4 @@
-# Systemd timer for AI Chatbot memory defragmentation
+# Systemd timer for Moneypenny memory defragmentation
 # Install to: ~/.config/systemd/user/ai-chatbot-memory-defrag.timer
 # Enable with: systemctl --user enable ai-chatbot-memory-defrag.timer
 # Check status: systemctl --user list-timers

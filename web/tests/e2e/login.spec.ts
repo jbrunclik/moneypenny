@@ -53,7 +53,7 @@ test.describe('Login Screen', () => {
 
     // Check heading
     const heading = loginBox.locator('h2');
-    await expect(heading).toHaveText('AI Chatbot');
+    await expect(heading).toHaveText('Moneypenny');
 
     // Check subtitle
     const subtitle = loginBox.locator('p');

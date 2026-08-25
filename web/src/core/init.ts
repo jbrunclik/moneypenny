@@ -25,6 +25,7 @@ import {
   showConversationLoader,
 } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
+import { APP_NAME } from '../config';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
@@ -86,7 +87,7 @@ export function renderAppShell(): string {
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <h1>AI Chatbot</h1>
+        <h1>${APP_NAME}</h1>
         <button id="new-chat-btn" class="btn btn-primary">${PLUS_ICON} New Chat</button>
       </div>
       <div id="search-container" class="search-container"></div>
@@ -100,7 +101,7 @@ export function renderAppShell(): string {
     <main class="main">
       <header class="mobile-header">
         <button id="menu-btn" class="btn-icon">${MENU_ICON}</button>
-        <span id="current-chat-title">AI Chatbot</span>
+        <span id="current-chat-title">${APP_NAME}</span>
         <span id="conversation-cost-mobile" class="chat-header-cost"></span>
       </header>
 
@@ -234,7 +235,7 @@ export function renderAppShell(): string {
     <div id="login-overlay" class="login-overlay hidden">
       <div class="login-box">
         <img class="login-logo" src="/static/icon-192.png" alt="" width="64" height="64">
-        <h2>AI Chatbot</h2>
+        <h2>${APP_NAME}</h2>
         <p>Sign in to continue</p>
         <div id="google-login-btn" class="google-btn-container"></div>
         <a href="/privacy" class="login-privacy-link" target="_blank">Privacy Policy</a>
@@ -349,7 +350,7 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       onCurrentConversationDeleted: () => {
         store.setCurrentConversation(null);
         renderMessages([]);
-        updateChatTitle('AI Chatbot');
+        updateChatTitle(APP_NAME);
         // Clear the hash since conversation no longer exists
         clearConversationHash();
       },

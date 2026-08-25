@@ -1,6 +1,6 @@
 # Code Conventions
 
-Detailed code quality guidelines and patterns for the AI Chatbot project. See [AGENTS.md](../AGENTS.md) for the summary rules.
+Detailed code quality guidelines and patterns for the Moneypenny project. See [AGENTS.md](../AGENTS.md) for the summary rules.
 
 ## Code Quality Guidelines
 

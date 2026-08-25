@@ -1,6 +1,6 @@
 /**
  * Background-attention signals: when a turn finishes while the tab/app is
- * hidden, prefix the tab title with a counter ("(2) AI Chatbot") and set
+ * hidden, prefix the tab title with a counter ("(2) Moneypenny") and set
  * the PWA app badge (installed iOS/Android home-screen icon). Both clear
  * the moment the user returns - without this there is no ambient signal
  * that an answer is ready after switching tabs or apps.

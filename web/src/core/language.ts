@@ -33,7 +33,7 @@ import {
   renderLanguageProgramHeader,
   createLanguageLoadingElement,
 } from '../components/LanguageDashboard';
-import { LANGUAGE_PROGRAMS_CACHE_MS } from '../config';
+import { APP_NAME, LANGUAGE_PROGRAMS_CACHE_MS } from '../config';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
 import {
   ensureInputAreaVisible,
@@ -336,7 +336,7 @@ export function leaveLanguageView(): void {
   clearConversationHash();
   store.setCurrentConversation(null);
 
-  updateChatTitle('AI Chatbot');
+  updateChatTitle(APP_NAME);
   renderModelDropdown();
   updateConversationCost(null);
   renderChatHeader(null);

@@ -1,9 +1,9 @@
-# Systemd user service for AI Chatbot memory defragmentation
+# Systemd user service for Moneypenny memory defragmentation
 # Install to: ~/.config/systemd/user/ai-chatbot-memory-defrag.service
 # This service is triggered by ai-chatbot-memory-defrag.timer
 
 [Unit]
-Description=AI Chatbot - Defragment user memories
+Description=Moneypenny - Defragment user memories
 After=network-online.target
 Wants=network-online.target
 

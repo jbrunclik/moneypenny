@@ -1,4 +1,4 @@
-# AI Chatbot - TODO
+# Moneypenny - TODO
 
 Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = round 3) kept for traceability. Completed work lives in git history.
 

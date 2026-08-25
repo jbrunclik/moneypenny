@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""File retention cleanup script for AI Chatbot.
+"""File retention cleanup script for Moneypenny.
 
 Deletes expired attachment blobs from blob storage (videos older than
 VIDEO_RETENTION_DAYS, images older than IMAGE_RETENTION_DAYS, other files

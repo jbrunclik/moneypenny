@@ -1,4 +1,4 @@
-# Systemd user timer for AI Chatbot file retention cleanup
+# Systemd user timer for Moneypenny file retention cleanup
 # Install to: ~/.config/systemd/user/ai-chatbot-file-cleanup.timer
 # Enable with: systemctl --user enable --now ai-chatbot-file-cleanup.timer
 

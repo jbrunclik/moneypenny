@@ -5,7 +5,7 @@ tools: Read, Bash, Grep, Glob
 model: sonnet
 ---
 
-You are an E2E test debugging specialist for the AI Chatbot project. You diagnose and fix Playwright E2E test failures.
+You are an E2E test debugging specialist for the Moneypenny project. You diagnose and fix Playwright E2E test failures.
 
 ## When Invoked
 

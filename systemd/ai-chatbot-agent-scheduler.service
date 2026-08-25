@@ -1,9 +1,9 @@
-# Systemd user service for AI Chatbot agent scheduler
+# Systemd user service for Moneypenny agent scheduler
 # Install to: ~/.config/systemd/user/ai-chatbot-agent-scheduler.service
 # This service is triggered by ai-chatbot-agent-scheduler.timer
 
 [Unit]
-Description=AI Chatbot - Autonomous agent scheduler
+Description=Moneypenny - Autonomous agent scheduler
 After=network.target
 
 [Service]

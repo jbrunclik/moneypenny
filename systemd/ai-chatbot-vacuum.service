@@ -1,9 +1,9 @@
-# Systemd user service for AI Chatbot database vacuum
+# Systemd user service for Moneypenny database vacuum
 # Install to: ~/.config/systemd/user/ai-chatbot-vacuum.service
 # This service is triggered by ai-chatbot-vacuum.timer
 
 [Unit]
-Description=AI Chatbot - Database vacuum (reclaim space and optimize)
+Description=Moneypenny - Database vacuum (reclaim space and optimize)
 After=network.target
 
 [Service]

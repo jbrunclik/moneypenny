@@ -51,6 +51,7 @@ import {
 } from '../router/deeplink';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
+import { APP_NAME } from '../config';
 import { getSyncManager } from '../sync/SyncManager';
 import { renderAgentConversationHeader } from '../components/AgentConversationHeader';
 import { renderChatHeader } from '../components/ChatHeader';
@@ -579,7 +580,7 @@ export function removeConversationFromUI(convId: string): void {
   if (store.currentConversation?.id === convId) {
     store.setCurrentConversation(null);
     renderMessages([]);
-    updateChatTitle('AI Chatbot');
+    updateChatTitle(APP_NAME);
     renderChatHeader(null);
     // The mobile cost chip lives in the persistent mobile header (not the
     // re-rendered chat header) - clear it or the deleted conversation's
@@ -987,7 +988,7 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
     if (currentConv && !store.getActiveRequest(currentConv.id)) {
       store.setCurrentConversation(null);
       renderMessages([]);
-      updateChatTitle('AI Chatbot');
+      updateChatTitle(APP_NAME);
       setActiveConversation('');
       renderConversationsList();
       if (shouldAutoFocusInput()) {
@@ -1060,7 +1061,7 @@ export async function archiveConversation(convId: string): Promise<void> {
     if (store.currentConversation?.id === convId) {
       store.setCurrentConversation(null);
       renderMessages([]);
-      updateChatTitle('AI Chatbot');
+      updateChatTitle(APP_NAME);
       renderChatHeader(null);
       clearConversationHash();
     }

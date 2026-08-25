@@ -720,7 +720,7 @@ document.addEventListener('click', (e) => {
     border-color: var(--text-muted);
 }
 ```
-- [ ] **Step 5: Update E2E strings** — `sync.spec.ts:211` `text=Welcome to AI Chatbot` -> `text=What can I help with?`. Grep for other occurrences: `grep -rn "Welcome to AI Chatbot\|Start a conversation" web/tests web/src`. `.welcome-message` selectors stay valid.
+- [ ] **Step 5: Update E2E strings** — `sync.spec.ts:211` `text=Welcome to Moneypenny` -> `text=What can I help with?`. Grep for other occurrences: `grep -rn "Welcome to Moneypenny\|Start a conversation" web/tests web/src`. `.welcome-message` selectors stay valid.
 - [ ] **Step 6:** vitest + E2E + visual re-baseline. Commit `feat(ui): welcome empty state with suggested prompts (drops Gemini mention)`.
 
 ### Task 9: Mobile message-actions collapse

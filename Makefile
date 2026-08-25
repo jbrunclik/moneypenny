@@ -16,7 +16,7 @@ endif
 NPM := npm
 
 help:
-	@echo "AI Chatbot - Available targets:"
+	@echo "Moneypenny - Available targets:"
 	@echo ""
 	@echo "  setup                 Create venv and install dependencies"
 	@echo "  sandbox-image         Build custom Docker image for code sandbox"

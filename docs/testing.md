@@ -1,6 +1,6 @@
 # Testing
 
-The AI Chatbot has comprehensive test coverage across both backend and frontend, including unit tests, integration tests, end-to-end tests, and visual regression tests.
+Moneypenny has comprehensive test coverage across both backend and frontend, including unit tests, integration tests, end-to-end tests, and visual regression tests.
 
 ## Table of Contents
 

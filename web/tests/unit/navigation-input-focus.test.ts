@@ -104,6 +104,7 @@ vi.mock('@/config', () => ({
   PLANNER_DASHBOARD_CACHE_MS: 60000,
   COMMAND_CENTER_CACHE_MS: 60000,
   MOBILE_BREAKPOINT_PX: 768,
+  APP_NAME: 'Moneypenny',
 }));
 
 vi.mock('@/components/CommandCenter', () => ({

@@ -1,1 +1,1 @@
-"""Test fixtures for AI Chatbot tests."""
+"""Test fixtures for Moneypenny tests."""

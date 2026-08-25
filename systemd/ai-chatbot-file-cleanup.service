@@ -1,9 +1,9 @@
-# Systemd user service for AI Chatbot file retention cleanup
+# Systemd user service for Moneypenny file retention cleanup
 # Install to: ~/.config/systemd/user/ai-chatbot-file-cleanup.service
 # This service is triggered by ai-chatbot-file-cleanup.timer
 
 [Unit]
-Description=AI Chatbot - File retention cleanup (expired attachments)
+Description=Moneypenny - File retention cleanup (expired attachments)
 After=network.target
 
 [Service]

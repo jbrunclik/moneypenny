@@ -1,6 +1,6 @@
-# AI Chatbot Documentation
+# Moneypenny Documentation
 
-This directory contains detailed documentation for the AI Chatbot project, organized by feature area and concern.
+This directory contains detailed documentation for the Moneypenny project, organized by feature area and concern.
 
 ## Documentation Structure
 

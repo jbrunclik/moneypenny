@@ -38,7 +38,7 @@ import { renderChatHeader } from '../components/ChatHeader';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
-import { COMMAND_CENTER_CACHE_MS } from '../config';
+import { APP_NAME, COMMAND_CENTER_CACHE_MS } from '../config';
 
 const log = createLogger('agents');
 
@@ -409,7 +409,7 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
     store.setCurrentConversation(null);
 
     // Reset the header title
-    updateChatTitle('AI Chatbot');
+    updateChatTitle(APP_NAME);
 
     // Clear stale UI state
     renderModelDropdown();

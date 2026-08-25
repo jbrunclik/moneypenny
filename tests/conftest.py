@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for AI Chatbot tests."""
+"""Shared pytest fixtures for Moneypenny tests."""
 
 import os
 import tempfile

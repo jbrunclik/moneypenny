@@ -1,10 +1,10 @@
-# Systemd timer for AI Chatbot database vacuum
+# Systemd timer for Moneypenny database vacuum
 # Install to: ~/.config/systemd/user/ai-chatbot-vacuum.timer
 # Enable with: systemctl --user enable ai-chatbot-vacuum.timer
 # Check status: systemctl --user list-timers
 
 [Unit]
-Description=Weekly vacuum of AI Chatbot databases
+Description=Weekly vacuum of Moneypenny databases
 
 [Timer]
 # Run weekly on Sunday at 3:00 AM

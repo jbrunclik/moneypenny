@@ -5,7 +5,7 @@ tools: Read, Edit, Grep, Glob, Bash
 model: sonnet
 ---
 
-You are a documentation specialist for the AI Chatbot project. Your job is to keep documentation in sync with code changes.
+You are a documentation specialist for the Moneypenny project. Your job is to keep documentation in sync with code changes.
 
 ## When Invoked
 

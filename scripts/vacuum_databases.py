@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Database vacuum script for AI Chatbot.
+"""Database vacuum script for Moneypenny.
 
 Runs SQLite VACUUM on both the main database (chatbot.db) and blob storage (files.db)
 to reclaim space and optimize performance.

@@ -1,1 +1,1 @@
-"""Mock helpers for AI Chatbot tests."""
+"""Mock helpers for Moneypenny tests."""

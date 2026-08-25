@@ -67,7 +67,7 @@ def create_app() -> APIFlask:
         static_folder="../static",
         static_url_path="/static",
         template_folder="templates",
-        title="AI Chatbot API",
+        title=f"{Config.APP_NAME} API",
         version="1.0.0",
         spec_path="/api/openapi.json",
         docs_path="/api/docs",
@@ -79,6 +79,11 @@ def create_app() -> APIFlask:
 
     # Set max request size to prevent DoS attacks
     app.config["MAX_CONTENT_LENGTH"] = Config.MAX_REQUEST_SIZE
+
+    # Expose the product name to all Jinja templates (index, privacy).
+    @app.context_processor
+    def inject_app_name() -> dict[str, str]:
+        return {"app_name": Config.APP_NAME}
 
     # Honor X-Forwarded-* from the trusted reverse proxy so remote_addr is
     # the real client IP (rate limiting keys on it) and is_secure reflects
@@ -323,7 +328,7 @@ def main() -> None:
 
     app = create_app()
     logger.info(
-        "Starting AI Chatbot",
+        f"Starting {Config.APP_NAME}",
         extra={
             "port": Config.PORT,
             "environment": Config.FLASK_ENV,

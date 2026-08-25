@@ -91,7 +91,7 @@ New `ChatHeader` component rendered at the top of `.main` for conversation views
 
 ### Empty state
 
-Replaces "Welcome to AI Chatbot / Start a conversation with Gemini AI":
+Replaces "Welcome to Moneypenny / Start a conversation with Gemini AI":
 
 - Display-face headline: "What can I help with?" (EN; UI language is out of scope for this overhaul).
 - 3-4 static suggested-prompt chips (e.g. "Summarize a link", "Plan my week", "Practice Italian", "Check my training readiness") — clicking fills the composer and focuses it. Static list, no personalization (YAGNI).

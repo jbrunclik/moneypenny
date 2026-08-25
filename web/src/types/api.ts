@@ -1,5 +1,5 @@
 /**
- * API types for the AI Chatbot frontend.
+ * API types for the Moneypenny frontend.
  *
  * This file defines types for API communication. While we have auto-generated
  * types from the OpenAPI spec (in generated-api.ts), we keep manual types here

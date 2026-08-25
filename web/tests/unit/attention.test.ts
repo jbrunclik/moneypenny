@@ -15,7 +15,7 @@ describe('attention signals', () => {
 
   beforeEach(() => {
     _resetAttention();
-    document.title = 'AI Chatbot';
+    document.title = 'Moneypenny';
     setHidden(false);
     setBadge = vi.fn().mockResolvedValue(undefined);
     clearBadge = vi.fn().mockResolvedValue(undefined);
@@ -27,7 +27,7 @@ describe('attention signals', () => {
   it('prefixes the title and sets the app badge when hidden', () => {
     setHidden(true);
     notifyTurnFinished();
-    expect(document.title).toBe('(1) AI Chatbot');
+    expect(document.title).toBe('(1) Moneypenny');
     expect(setBadge).toHaveBeenCalledWith(1);
   });
 
@@ -35,13 +35,13 @@ describe('attention signals', () => {
     setHidden(true);
     notifyTurnFinished();
     notifyTurnFinished();
-    expect(document.title).toBe('(2) AI Chatbot');
+    expect(document.title).toBe('(2) Moneypenny');
     expect(setBadge).toHaveBeenLastCalledWith(2);
   });
 
   it('does nothing while the tab is visible', () => {
     notifyTurnFinished();
-    expect(document.title).toBe('AI Chatbot');
+    expect(document.title).toBe('Moneypenny');
     expect(setBadge).not.toHaveBeenCalled();
   });
 
@@ -50,7 +50,7 @@ describe('attention signals', () => {
     notifyTurnFinished();
     setHidden(false);
     document.dispatchEvent(new Event('visibilitychange'));
-    expect(document.title).toBe('AI Chatbot');
+    expect(document.title).toBe('Moneypenny');
     expect(clearBadge).toHaveBeenCalled();
   });
 });

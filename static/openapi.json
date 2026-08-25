@@ -1,6 +1,6 @@
 {
   "info": {
-    "title": "AI Chatbot API",
+    "title": "Moneypenny API",
     "version": "1.0.0"
   },
   "tags": [
@@ -2846,6 +2846,56 @@
         "summary": "Get cost for a specific message."
       }
     },
+    "/api/conversations/{conv_id}/pin": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Pin a conversation to the top of the sidebar."
+      }
+    },
     "/auth/calendar/selected-calendars": {
       "get": {
         "parameters": [],
@@ -3125,6 +3175,56 @@
           "Sports"
         ],
         "summary": "Delete a program and its conversation."
+      }
+    },
+    "/api/conversations/{conv_id}/unpin": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Unpin a conversation."
       }
     },
     "/api/agents/{agent_id}/mark-viewed": {
@@ -3985,6 +4085,67 @@
         ],
         "summary": "Turn anonymous mode on or off for a conversation.",
         "description": "Persisted server-side so the setting survives a page reload - it used to be\nclient-only state, which meant a \"private\" conversation quietly became\nmemory-enabled after a refresh."
+      }
+    },
+    "/api/conversations/{conv_id}/chat/interject": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Steer a turn that is currently generating",
+        "description": "Mid-run steering: stores guidance that the agent picks up between tool rounds of the in-flight turn (cross-worker via kv_store). The text is also persisted as a regular user message so future turns see it in history. Best-effort: if the turn finishes before the next tool round, the guidance still lands in history."
       }
     },
     "/api/messages/{message_id}/files/{file_index}": {
@@ -6137,6 +6298,18 @@
             "default": null,
             "title": "Archived"
           },
+          "pinned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pinned"
+          },
           "last_message_preview": {
             "anyOf": [
               {
@@ -6195,13 +6368,20 @@
         "type": "object"
       },
       "ConversationsListPaginatedResponse": {
-        "description": "Paginated list of conversations.",
+        "description": "Paginated list of conversations.\n\nPinned conversations ride separately: they are excluded from the\npaginated portion (pinned-first ordering would break cursor math) and\nare few by nature.",
         "properties": {
           "conversations": {
             "items": {
               "$ref": "#/components/schemas/ConversationsListPaginatedResponse.ConversationResponse"
             },
             "title": "Conversations",
+            "type": "array"
+          },
+          "pinned_conversations": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationsListPaginatedResponse.ConversationResponse"
+            },
+            "title": "Pinned Conversations",
             "type": "array"
           },
           "pagination": {
@@ -6261,6 +6441,18 @@
             ],
             "default": null,
             "title": "Archived"
+          },
+          "pinned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pinned"
           },
           "last_message_preview": {
             "anyOf": [

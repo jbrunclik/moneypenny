@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Memory defragmentation script for AI Chatbot.
+"""Memory defragmentation script for Moneypenny.
 
 Uses an LLM to consolidate, deduplicate, and clean up user memories.
 Runs nightly via systemd timer to keep memory banks efficient.

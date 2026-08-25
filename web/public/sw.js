@@ -58,7 +58,7 @@ self.addEventListener('fetch', (event) => {
               '<title>Offline</title><body style="font-family:system-ui;background:#0f0f0f;color:#eee;' +
               'display:flex;align-items:center;justify-content:center;height:100vh;margin:0">' +
               '<div style="text-align:center"><h1>You\'re offline</h1>' +
-              '<p>AI Chatbot needs a connection for the first load.</p></div>',
+              '<p>Moneypenny needs a connection for the first load.</p></div>',
             { status: 503, headers: { 'Content-Type': 'text/html' } }
           );
         }
@@ -89,10 +89,10 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: 'AI Chatbot', body: event.data ? event.data.text() : '' };
+    payload = { title: 'Moneypenny', body: event.data ? event.data.text() : '' };
   }
 
-  const title = payload.title || 'AI Chatbot';
+  const title = payload.title || 'Moneypenny';
   const url = payload.url || '/';
   const options = {
     body: payload.body || '',

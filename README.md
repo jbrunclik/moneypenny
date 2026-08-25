@@ -1,4 +1,4 @@
-# AI Chatbot
+# Moneypenny
 
 [![CI](https://github.com/jbrunclik/ai-chatbot/actions/workflows/test.yml/badge.svg)](https://github.com/jbrunclik/ai-chatbot/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

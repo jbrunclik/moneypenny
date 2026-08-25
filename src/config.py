@@ -12,6 +12,9 @@ class Config:
     # Base paths
     BASE_DIR = Path(__file__).parent.parent
 
+    # Product name (UI header, PWA manifest, API title, WhatsApp sender name).
+    APP_NAME = "Moneypenny"
+
     # Gemini API
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 

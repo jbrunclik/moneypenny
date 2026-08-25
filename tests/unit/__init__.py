@@ -1,1 +1,1 @@
-"""Unit tests for AI Chatbot backend."""
+"""Unit tests for Moneypenny backend."""

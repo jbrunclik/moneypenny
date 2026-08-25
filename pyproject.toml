@@ -1,7 +1,7 @@
 [project]
 name = "ai-chatbot"
 version = "0.1.0"
-description = "Personal AI chatbot using Google Gemini APIs"
+description = "Moneypenny - personal AI assistant using Google Gemini APIs"
 requires-python = ">=3.14"
 dependencies = [
     "flask>=3.0",

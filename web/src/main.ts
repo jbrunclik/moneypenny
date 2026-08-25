@@ -1,5 +1,5 @@
 /**
- * Main entry point for the AI Chatbot frontend.
+ * Main entry point for the Moneypenny frontend.
  *
  * This file has been refactored into focused modules in web/src/core/:
  * - init.ts: App initialization, login overlay, theme

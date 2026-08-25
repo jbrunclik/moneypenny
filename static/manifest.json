@@ -1,6 +1,6 @@
 {
-  "name": "AI Chatbot",
-  "short_name": "AI Chat",
+  "name": "Moneypenny",
+  "short_name": "Moneypenny",
   "description": "Personal AI assistant",
   "start_url": "/",
   "display": "standalone",

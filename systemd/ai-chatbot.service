@@ -1,11 +1,11 @@
-# Systemd user service for AI Chatbot
+# Systemd user service for Moneypenny
 # Install to: ~/.config/systemd/user/ai-chatbot.service
 # Enable with: systemctl --user enable ai-chatbot
 # Start with: systemctl --user start ai-chatbot
 # View logs: journalctl --user -u ai-chatbot -f
 
 [Unit]
-Description=AI Chatbot - Personal Gemini-powered assistant
+Description=Moneypenny - Personal Gemini-powered assistant
 After=network.target
 
 [Service]

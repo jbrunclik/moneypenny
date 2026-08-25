@@ -1,4 +1,4 @@
-# Systemd timer for AI Chatbot agent scheduler
+# Systemd timer for Moneypenny agent scheduler
 # Install to: ~/.config/systemd/user/ai-chatbot-agent-scheduler.timer
 # Enable with: systemctl --user enable ai-chatbot-agent-scheduler.timer
 # Check status: systemctl --user list-timers

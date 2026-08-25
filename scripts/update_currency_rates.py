@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Currency rate update script for AI Chatbot.
+"""Currency rate update script for Moneypenny.
 
 Fetches current USD exchange rates from a free API and saves them to the database.
 The application loads rates from the database at runtime.
