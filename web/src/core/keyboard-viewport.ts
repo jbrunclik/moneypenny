@@ -177,6 +177,33 @@ function setSettlePoller(active: boolean): void {
   }
 }
 
+/**
+ * The real usable viewport height. Every native measure lies in exactly
+ * one environment (observed on device, Aug 2026):
+ * - Safari browser: innerHeight is truthful (654 with chrome expanded);
+ *   100vh lies (largest viewport, 743).
+ * - Standalone PWA (black-translucent): 100vh is truthful (874, the full
+ *   webview); innerHeight lies (874 minus the status bar = 812), leaving
+ *   a permanent dead band at the bottom when trusted.
+ * So: standalone reads a 100vh probe; browsers read innerHeight.
+ */
+function trueViewportHeight(): number {
+  const isStandalone =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    (typeof window.matchMedia === 'function' &&
+      window.matchMedia('(display-mode: standalone)').matches);
+  if (!isStandalone) return window.innerHeight;
+  let probe = document.getElementById('vh-probe');
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.id = 'vh-probe';
+    probe.style.cssText =
+      'position:fixed;top:0;left:0;width:1px;height:100vh;visibility:hidden;pointer-events:none;';
+    document.body.appendChild(probe);
+  }
+  return probe.offsetHeight || window.innerHeight;
+}
+
 /** Reset module state (tests re-init per case; prod inits once). */
 export function cleanupKeyboardViewportPinning(): void {
   setSettlePoller(false);
@@ -220,7 +247,7 @@ export function initKeyboardViewportPinning(): void {
     // measure the inset is computed against - one source of truth. Set
     // BEFORE the inset early-return so rotations/chrome changes that do
     // not move the inset still resize the app.
-    const appVh = `${window.innerHeight}px`;
+    const appVh = `${trueViewportHeight()}px`;
     if (document.documentElement.style.getPropertyValue('--app-vh') !== appVh) {
       document.documentElement.style.setProperty('--app-vh', appVh);
     }

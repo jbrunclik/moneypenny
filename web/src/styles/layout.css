@@ -10,8 +10,15 @@
 #app {
     display: flex;
     position: fixed;
-    inset: 0;
-    bottom: var(--keyboard-inset, 0px);
+    top: 0;
+    left: 0;
+    right: 0;
+    /* Height from the top, NOT bottom-anchoring: in standalone PWAs the
+       fixed-positioning viewport is innerHeight-sized, which under-reports
+       by the status bar (WebKit bug) - bottom:0 would strand the composer
+       62pt above the real screen bottom. --app-vh carries the environment-
+       corrected true height (see trueViewportHeight()). */
+    height: calc(var(--app-vh, 100vh) - var(--keyboard-inset, 0px));
     overflow: hidden;
 }
 
