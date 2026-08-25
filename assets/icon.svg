@@ -1,41 +1,67 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <!--
-    App icon source of truth. The mark is the family bot reduced to its most
-    recognizable element: two glowing eyes on deep indigo. The right eye is
-    slightly shorter (a knowing half-blink) - that asymmetry is the icon's
-    signature; keep it. Eyes stay inside the center 60% so the same art
-    survives the maskable safe zone. Rasterized to static/icon-*.png by
-    scripts/render_icons.mjs (Playwright).
+    App icon source of truth ("11g3 warm-deep", chosen Aug 2026 after the
+    icon brainstorm). The family bot as a calm, friendly face: two liquid-
+    glass eyes (right a touch shorter - the knowing look) and a gentle
+    smile under one top light source - rim lights, diffused speculars and
+    contact shadows make the features read as physical glass, not cartoon.
+    Deep desaturated indigo keeps it adult; the expression keeps it family.
+    Features stay inside the center ~80% so the same art survives the
+    maskable safe zone. Rasterized by scripts/render_icons.mjs (Playwright).
   -->
   <defs>
-    <radialGradient id="bg" cx="50%" cy="32%" r="90%">
-      <stop offset="0%" stop-color="#312e81"/>
-      <stop offset="55%" stop-color="#1e1b4b"/>
-      <stop offset="100%" stop-color="#11102e"/>
-    </radialGradient>
-    <linearGradient id="eye" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#c7d2fe"/>
-      <stop offset="60%" stop-color="#818cf8"/>
-      <stop offset="100%" stop-color="#6366f1"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#332e7f"/>
+      <stop offset="52%" stop-color="#211d52"/>
+      <stop offset="100%" stop-color="#100e29"/>
     </linearGradient>
-    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="22" result="blur"/>
+    <radialGradient id="bloom" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#5f59c4" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#5f59c4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="72%">
+      <stop offset="70%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.22"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#eef1ff" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#c3ccfb" stop-opacity="0.92"/>
+      <stop offset="100%" stop-color="#959af0" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="30%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+    <filter id="drop" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="11"/>
     </filter>
   </defs>
 
   <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#bloom)"/>
 
-  <!-- halo behind the eyes -->
-  <g filter="url(#glow)" opacity="0.55">
-    <rect x="140" y="176" width="100" height="160" rx="50" fill="#818cf8"/>
-    <rect x="272" y="196" width="100" height="140" rx="50" fill="#818cf8"/>
+  <!-- contact shadows seat the glass on the background -->
+  <g filter="url(#drop)" opacity="0.3" fill="#0c0a28">
+    <rect x="148" y="160" width="88" height="150" rx="44"/>
+    <rect x="280" y="172" width="88" height="138" rx="44"/>
+    <path d="M198 380 q58 34 116 0 l-7 12 q-51 26 -102 0 z"/>
   </g>
 
-  <!-- eyes: left open, right in a slight knowing blink -->
-  <rect x="140" y="176" width="100" height="160" rx="50" fill="url(#eye)"/>
-  <rect x="272" y="196" width="100" height="140" rx="50" fill="url(#eye)"/>
+  <!-- glass eyes: right slightly shorter (the knowing look) -->
+  <rect x="144" y="148" width="88" height="150" rx="44" fill="url(#glass)"/>
+  <rect x="276" y="160" width="88" height="138" rx="44" fill="url(#glass)"/>
+  <rect x="149" y="153" width="78" height="140" rx="39" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <rect x="281" y="165" width="78" height="128" rx="39" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <ellipse cx="174" cy="182" rx="17" ry="11" fill="#fff" opacity="0.7" filter="url(#soft)"/>
+  <ellipse cx="306" cy="194" rx="15" ry="10" fill="#fff" opacity="0.65" filter="url(#soft)"/>
 
-  <!-- catchlights -->
-  <circle cx="172" cy="214" r="16" fill="#eef2ff" opacity="0.9"/>
-  <circle cx="304" cy="232" r="14" fill="#eef2ff" opacity="0.85"/>
+  <!-- gentle glass smile -->
+  <path d="M198 374 q58 34 116 0" stroke="url(#glass)" stroke-width="26" stroke-linecap="round" fill="none"/>
+  <path d="M201 373 q55 30 110 0" stroke="url(#rim)" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.7"/>
+
+  <rect width="512" height="512" fill="url(#vignette)"/>
 </svg>
