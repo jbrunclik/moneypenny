@@ -204,6 +204,20 @@ function trueViewportHeight(): number {
   return probe.offsetHeight || window.innerHeight;
 }
 
+/** Resolved env(safe-area-inset-bottom) in px, via a probe element. */
+function safeAreaBottom(): number {
+  let probe = document.getElementById('sab-probe');
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.id = 'sab-probe';
+    probe.style.cssText =
+      'position:fixed;visibility:hidden;pointer-events:none;' +
+      'height:env(safe-area-inset-bottom,0px);width:1px;';
+    document.body.appendChild(probe);
+  }
+  return probe.offsetHeight;
+}
+
 /** Reset module state (tests re-init per case; prod inits once). */
 export function cleanupKeyboardViewportPinning(): void {
   setSettlePoller(false);
@@ -236,7 +250,15 @@ export function initKeyboardViewportPinning(): void {
     const keyboardLikely =
       viewport.scale === 1 &&
       (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
-    const overlap = keyboardLikely ? shrink : 0;
+    let overlap = keyboardLikely ? shrink : 0;
+    // Standalone: the keyboard also covers the home-indicator zone, which
+    // the innerHeight-vs-visualViewport delta does not include (both live
+    // in a frame that excludes it) - without adding the safe-area-bottom
+    // the composer clips under the keyboard by exactly that strip
+    // (observed ~34pt on device). In browsers safe-area-bottom is 0.
+    if (overlap > 0) {
+      overlap += safeAreaBottom();
+    }
     const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
     kbDebug('update', { shrink, keyboardLikely, inset, currentInset });
 
