@@ -2,11 +2,16 @@
    Layout - App Shell Structure
    ============================================ */
 
-/* App container - fills viewport */
+/* App container - fills viewport. position:fixed sizes against the LAYOUT
+   viewport, ignoring html/body heights entirely - so the keyboard inset
+   must be applied HERE, not (only) on body: without the bottom offset the
+   composer sits at the layout-viewport bottom, i.e. under the keyboard
+   (six debugging rounds on real iOS, Aug 2026). */
 #app {
     display: flex;
     position: fixed;
     inset: 0;
+    bottom: var(--keyboard-inset, 0px);
     overflow: hidden;
 }
 
