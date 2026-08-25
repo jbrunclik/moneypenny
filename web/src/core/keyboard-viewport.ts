@@ -137,11 +137,24 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
   const vv = window.visualViewport;
   debugEventLog.push(`${event} ${JSON.stringify(data)}`);
   debugEventLog = debugEventLog.slice(-6);
+  // Resolved safe-area insets are only readable via a probe element
+  let saProbe = document.getElementById('kbdebug-sa-probe');
+  if (!saProbe) {
+    saProbe = document.createElement('div');
+    saProbe.id = 'kbdebug-sa-probe';
+    saProbe.style.cssText =
+      'position:fixed;visibility:hidden;height:env(safe-area-inset-bottom,0px);' +
+      'width:env(safe-area-inset-top,0px);pointer-events:none;';
+    document.body.appendChild(saProbe);
+  }
   debugEl.textContent =
     `inH=${window.innerHeight} vvH=${vv?.height?.toFixed(0)} vvTop=${vv?.offsetTop?.toFixed(0)} ` +
     `scale=${vv?.scale} active=${document.activeElement?.tagName}\n` +
     `winY=${window.scrollY} docST=${document.scrollingElement?.scrollTop} ` +
-    `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight} [kb3]\n` +
+    `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
+    `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
+    `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb4]\n` +
     debugEventLog.join('\n');
 }
 
