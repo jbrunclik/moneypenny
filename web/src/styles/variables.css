@@ -108,6 +108,21 @@
     --overlay-bg: rgba(0, 0, 0, 0.55);
     --lightbox-bg: rgba(0, 0, 0, 0.95);
 
+    /* ----------------------------------------
+       Liquid glass materials (iOS 26-style)
+       Translucent surfaces for floating chrome (sidebar, modals, menus,
+       composer, header). Applied in components/glass.css, gated by
+       @supports + prefers-reduced-transparency so unsupported or
+       transparency-averse setups keep the solid --bg-secondary fallback.
+       Alpha kept >= 0.7 so text contrast holds over busy content.
+       ---------------------------------------- */
+    --glass-blur: 20px;
+    --glass-bg: rgba(26, 26, 26, 0.72);           /* chrome over content */
+    --glass-bg-strong: rgba(18, 18, 18, 0.85);    /* modals: more opaque, focused */
+    --glass-border: rgba(255, 255, 255, 0.09);    /* hairline edge */
+    --glass-highlight: rgba(255, 255, 255, 0.10); /* top specular line (inset) */
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+
     /* Code blocks */
     --code-bg: var(--bg-tertiary);
     --code-inline-bg: rgba(0, 0, 0, 0.3);
@@ -268,6 +283,13 @@
 
     /* Overlay/backdrop for light theme */
     --overlay-bg: rgba(0, 0, 0, 0.45);
+
+    /* Liquid glass materials (light theme) */
+    --glass-bg: rgba(255, 255, 255, 0.66);
+    --glass-bg-strong: rgba(255, 255, 255, 0.82);
+    --glass-border: rgba(0, 0, 0, 0.07);
+    --glass-highlight: rgba(255, 255, 255, 0.75);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
 
     /* Scrollbar - needs explicit gray, tertiary bg is near-invisible on white */
     --scrollbar-thumb: #d1d5db;

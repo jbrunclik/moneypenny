@@ -1,0 +1,54 @@
+/* ============================================
+   Liquid Glass Materials (iOS 26-style)
+   ============================================
+
+   Centralized so the whole app shares ONE material and ONE perf/fallback
+   guard. This file only UPGRADES chrome surfaces to translucent glass; the
+   solid --bg-* backgrounds set in each component stay the fallback. Imported
+   last in main.css so these rules win where the guards pass.
+
+   Guards (both must hold, else solid fallback):
+   - @supports backdrop-filter: the effect is possible at all.
+   - prefers-reduced-transparency: no-preference: the user hasn't asked for
+     opaque UI (accessibility).
+
+   Reduced motion is respected app-wide already; glass is static (no motion),
+   so nothing extra is needed there.
+*/
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    @media (prefers-reduced-transparency: no-preference) {
+        /* Shared material: translucent surface + blur with a touch of
+           saturation (iOS vibrancy) + hairline edge + top specular line. */
+        .sidebar,
+        .mobile-header,
+        .input-container,
+        .model-dropdown,
+        .modal,
+        .info-popup-content,
+        .action-sheet {
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            background-color: var(--glass-bg);
+            border-color: var(--glass-border);
+        }
+
+        /* Full-height / bottom chrome: specular top edge, no drop shadow
+           (a downward shadow reads wrong on a side panel or a bottom bar). */
+        .sidebar,
+        .mobile-header,
+        .input-container {
+            box-shadow: inset 0 1px 0 var(--glass-highlight);
+        }
+
+        /* Genuinely floating panels: more opaque for reading focus, plus a
+           real drop shadow so they lift off the content behind them. */
+        .model-dropdown,
+        .modal,
+        .info-popup-content,
+        .action-sheet {
+            background-color: var(--glass-bg-strong);
+            box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+        }
+    }
+}

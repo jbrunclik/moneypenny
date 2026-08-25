@@ -42,3 +42,7 @@
 @import './components/language.css';
 @import './components/quiz.css';
 @import './components/pdf-viewer.css';
+
+/* Liquid glass materials - imported last so it upgrades chrome surfaces
+   (sidebar, header, composer, modals, menus) over their solid defaults */
+@import './components/glass.css';
