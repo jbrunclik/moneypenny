@@ -18,6 +18,13 @@ html,
 body {
     height: 100vh;
     height: calc(100vh - var(--keyboard-inset, 0px));
+    /* dvh, not vh: in iOS Safari 100vh is the LARGEST viewport (URL bar
+       collapsed, ~743pt) while the keyboard inset is measured against the
+       CURRENT innerHeight (~654pt with chrome expanded). Mixing them left
+       the page taller than the visible area and the composer hidden below
+       the fold with no way to scroll to it (overflow is hidden). dvh
+       tracks the same dynamic viewport innerHeight does. */
+    height: calc(100dvh - var(--keyboard-inset, 0px));
     overflow: hidden;
 }
 
