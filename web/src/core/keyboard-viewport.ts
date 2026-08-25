@@ -126,6 +126,19 @@ export function initKeyboardViewportPinning(): void {
     const overlap = keyboardLikely ? shrink : 0;
     const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
     kbDebug('update', { shrink, keyboardLikely, inset, currentInset });
+
+    // --app-vh: the layout height CSS cannot know reliably. 100vh is the
+    // LARGEST viewport in Safari; 100dvh tracks chrome inconsistently once
+    // the keyboard collapses the URL bar, and misbehaves in standalone
+    // PWAs. innerHeight is the real layout viewport everywhere AND the
+    // measure the inset is computed against - one source of truth. Set
+    // BEFORE the inset early-return so rotations/chrome changes that do
+    // not move the inset still resize the app.
+    const appVh = `${window.innerHeight}px`;
+    if (document.documentElement.style.getPropertyValue('--app-vh') !== appVh) {
+      document.documentElement.style.setProperty('--app-vh', appVh);
+    }
+
     if (inset === currentInset) return;
     const keyboardJustOpened = currentInset === 0 && inset > 0;
 
@@ -171,6 +184,14 @@ export function initKeyboardViewportPinning(): void {
     }
   };
 
+  // Initial --app-vh so the first paint already uses the real viewport
+  update();
+  // Rotation / browser-chrome changes resize the window without
+  // necessarily firing visualViewport events in every browser
+  window.addEventListener('resize', () => {
+    kbDebug('winresize', {});
+    update();
+  });
   viewport.addEventListener('resize', () => {
     kbDebug('resize', {});
     update();
