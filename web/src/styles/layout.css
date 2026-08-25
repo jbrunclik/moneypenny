@@ -148,6 +148,15 @@
     overflow-anchor: none;
 }
 
+/* Chat convention: when the conversation is shorter than the viewport,
+   bottom-align it so the last message hugs the composer instead of floating
+   at the top with a big gap (very visible with the keyboard open). margin-top
+   collapses to 0 the moment content overflows, so scrolling and pagination
+   are unaffected. The welcome screen is excluded - it centers itself. */
+.messages > :first-child:not(.welcome-message) {
+    margin-top: auto;
+}
+
 /* ============================================
    Input Area
    ============================================ */
@@ -233,6 +242,8 @@
        re-publishes the shrunk height, so the list padding follows.) */
     :root.kb-open .input-area {
         padding-top: var(--space-2);
-        padding-bottom: var(--space-2);
+        /* Tighten the composer's bottom gap so the space below it (to the
+           iOS accessory pill) roughly matches the pill-to-keyboard gap. */
+        padding-bottom: var(--space-1);
     }
 }
