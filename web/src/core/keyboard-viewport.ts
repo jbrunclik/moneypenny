@@ -181,7 +181,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb6]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb7]\n` +
     debugEventLog.join('\n');
 }
 
