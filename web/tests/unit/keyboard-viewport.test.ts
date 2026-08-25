@@ -202,6 +202,21 @@ describe('keyboard viewport pinning', () => {
     expect(inset).toBe('350px'); // 300 keyboard + 50 accessory pill
   });
 
+  it('toggles the kb-open root class with the inset', async () => {
+    // CSS uses :root.kb-open to reclaim padding that is pointless while
+    // the keyboard covers it (home-indicator inset under the composer)
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    expect(document.documentElement.classList.contains('kb-open')).toBe(true);
+
+    viewport.height = 800;
+    textarea.blur();
+    document.dispatchEvent(new Event('focusout'));
+    await nextFrame();
+    expect(document.documentElement.classList.contains('kb-open')).toBe(false);
+  });
+
   it('clears the inset when focus leaves the input', async () => {
     textarea.focus();
     viewport.height = 500;

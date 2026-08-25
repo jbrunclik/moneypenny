@@ -185,7 +185,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb8]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb9]\n` +
     debugEventLog.join('\n');
 }
 
@@ -264,6 +264,7 @@ export function cleanupKeyboardViewportPinning(): void {
   setSettlePoller(false);
   setPanGuard(false);
   settleUpdate = null;
+  document.documentElement.classList.remove('kb-open');
 }
 
 export function initKeyboardViewportPinning(): void {
@@ -369,6 +370,9 @@ export function initKeyboardViewportPinning(): void {
 
     currentInset = inset;
     document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);
+    // CSS hook for space reclaim while the keyboard covers the bottom
+    // (e.g. the home-indicator padding under the composer is pointless)
+    document.documentElement.classList.toggle('kb-open', inset > 0);
     setPanGuard(inset > 0);
     setSettlePoller(inset > 0);
     log.debug('Keyboard inset changed', { inset, wasAtBottom });
