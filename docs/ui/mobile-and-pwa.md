@@ -104,6 +104,27 @@ element.addEventListener('touchcancel', handleCancel); // ← Essential!
 
 iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens, causing the cursor to appear below the input initially. The fix uses the `visualViewport` API to detect when the keyboard opens (viewport height shrinks) and scrolls the input area into view.
 
+**The Aug 25 2026 six-round keyboard saga - definitive rules:**
+
+- **Apply the inset where fixed positioning lives.** `#app` is
+  `position: fixed; inset: 0` - it sizes against the LAYOUT VIEWPORT and
+  ignores html/body heights entirely. Three rounds of body-height fixes
+  (vh → dvh → JS-driven) changed nothing because the composer lived at the
+  bottom of the fixed container. The inset belongs on `#app` (`bottom:
+  var(--keyboard-inset)`).
+- **No CSS viewport unit tells the truth on iOS.** `100vh` = largest
+  viewport (URL bar collapsed); `100dvh` misbehaves in standalone PWAs and
+  tracks collapsed-chrome geometry once the keyboard shrinks the URL bar.
+  `window.innerHeight` is the real layout viewport everywhere - exported
+  as `--app-vh` by `core/keyboard-viewport.ts`.
+- **Debug on-device with `?kbdebug=1`** - a fixed overlay showing
+  innerHeight / visualViewport / scroll offsets / body height and the last
+  6 detection events. One screenshot beats hours of speculation; it
+  pinpointed all three layered root causes.
+- **Mind HTML cache staleness during mobile iteration**: the index page
+  must send `Cache-Control: no-cache` (see docs/deployment.md) or Safari
+  serves hours-old bundles and every fix "doesn't work".
+
 **Keyboard-inset rules learned the hard way (Aug 2026, `core/keyboard-viewport.ts`):**
 
 - **Never derive layout from `visualViewport.offsetTop`** (pan position). On
