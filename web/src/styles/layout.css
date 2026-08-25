@@ -42,10 +42,23 @@
     flex-shrink: 0;
 }
 
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+.sidebar-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
 .sidebar-header h1 {
     font-size: var(--font-size-ui);
     font-weight: 600;
-    margin-bottom: var(--space-2);
 }
 
 .sidebar-footer {
