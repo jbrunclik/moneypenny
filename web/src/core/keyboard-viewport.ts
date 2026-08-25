@@ -175,7 +175,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb4]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb5]\n` +
     debugEventLog.join('\n');
 }
 
@@ -292,7 +292,14 @@ export function initKeyboardViewportPinning(): void {
       (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
     const overlap = keyboardLikely ? shrink : 0;
     const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
-    kbDebug('update', { shrink, keyboardLikely, inset, currentInset });
+    kbDebug('update', {
+      shrink,
+      keyboardLikely,
+      inset,
+      currentInset,
+      winY: Math.round(window.scrollY),
+      vvTop: Math.round(viewport.offsetTop),
+    });
 
     // --app-vh: the layout height CSS cannot know reliably. 100vh is the
     // LARGEST viewport in Safari; 100dvh tracks chrome inconsistently once
@@ -401,6 +408,18 @@ export function initKeyboardViewportPinning(): void {
     kbDebug('vvscroll', {});
     update();
   });
+  // The focus reveal-pan can also be a WINDOW scroll (Safari, device-
+  // verified): without this listener the pan is invisible to update() -
+  // the stale-pan recovery never triggers and the debug overlay stays
+  // stranded off-screen at its pre-pan position.
+  window.addEventListener(
+    'scroll',
+    () => {
+      kbDebug('winscroll', { winY: Math.round(window.scrollY) });
+      update();
+    },
+    { passive: true }
+  );
   // Keyboard dismissal doesn't reliably fire a resize on iOS - re-check
   // after focus leaves the input (RAF so activeElement is already updated).
   // Symmetrically re-check on focusin: the resize can precede focus, in
