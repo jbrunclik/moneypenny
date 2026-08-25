@@ -191,11 +191,7 @@ function setSettlePoller(active: boolean): void {
  * So: standalone reads a 100vh probe; browsers read innerHeight.
  */
 function trueViewportHeight(): number {
-  const isStandalone =
-    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
-    (typeof window.matchMedia === 'function' &&
-      window.matchMedia('(display-mode: standalone)').matches);
-  if (!isStandalone) return window.innerHeight;
+  if (!isStandaloneDisplay()) return window.innerHeight;
   let probe = document.getElementById('vh-probe');
   if (!probe) {
     probe = document.createElement('div');
@@ -207,15 +203,23 @@ function trueViewportHeight(): number {
   return probe.offsetHeight || window.innerHeight;
 }
 
-/** Resolved env(safe-area-inset-bottom) in px, via a probe element. */
-function safeAreaBottom(): number {
-  let probe = document.getElementById('sab-probe');
+function isStandaloneDisplay(): boolean {
+  return (
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    (typeof window.matchMedia === 'function' &&
+      window.matchMedia('(display-mode: standalone)').matches)
+  );
+}
+
+/** Resolved env(safe-area-inset-top) in px, via a probe element. */
+function safeAreaTop(): number {
+  let probe = document.getElementById('sat-probe');
   if (!probe) {
     probe = document.createElement('div');
-    probe.id = 'sab-probe';
+    probe.id = 'sat-probe';
     probe.style.cssText =
       'position:fixed;visibility:hidden;pointer-events:none;' +
-      'height:env(safe-area-inset-bottom,0px);width:1px;';
+      'height:env(safe-area-inset-top,0px);width:1px;';
     document.body.appendChild(probe);
   }
   return probe.offsetHeight;
@@ -245,7 +249,17 @@ export function initKeyboardViewportPinning(): void {
     // "extremely laggy scrolling with keyboard open" bug. Keyboard
     // GEOMETRY (innerHeight - height) is stable during pans; the focus-pan
     // that offsetTop used to compensate is reset below via scrollTo(0,0).
-    const shrink = Math.max(0, Math.round(window.innerHeight - viewport.height));
+    // Keyboard extent, measured per environment (device-verified Aug 2026):
+    // - Browser: innerHeight stays put while the visual viewport shrinks,
+    //   so the delta is the keyboard.
+    // - Standalone PWA: innerHeight ITSELF shrinks with the keyboard (the
+    //   vv delta is 0), and it under-reports the visible area by exactly
+    //   the status-bar inset while the keyboard is open. The keyboard is
+    //   the true height (100vh probe) minus (innerHeight + saT); the saT
+    //   term also absorbs the pre-settle launch lie (874-812-62 = 0).
+    const shrink = isStandaloneDisplay()
+      ? Math.max(0, Math.round(trueViewportHeight() - window.innerHeight - safeAreaTop()))
+      : Math.max(0, Math.round(window.innerHeight - viewport.height));
     // Editable-focused is the normal signal, but iOS can fire the resize
     // BEFORE focus lands - a shrink this large is unambiguously a keyboard
     // regardless (browser chrome is far smaller), and missing it leaves
@@ -253,15 +267,7 @@ export function initKeyboardViewportPinning(): void {
     const keyboardLikely =
       viewport.scale === 1 &&
       (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
-    let overlap = keyboardLikely ? shrink : 0;
-    // Standalone: the keyboard also covers the home-indicator zone, which
-    // the innerHeight-vs-visualViewport delta does not include (both live
-    // in a frame that excludes it) - without adding the safe-area-bottom
-    // the composer clips under the keyboard by exactly that strip
-    // (observed ~34pt on device). In browsers safe-area-bottom is 0.
-    if (overlap > 0) {
-      overlap += safeAreaBottom();
-    }
+    const overlap = keyboardLikely ? shrink : 0;
     const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
     kbDebug('update', { shrink, keyboardLikely, inset, currentInset });
 
