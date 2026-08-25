@@ -98,6 +98,7 @@ export function setupTouchGestures(): void {
 
   // Sidebar edge swipe - swipe from left edge to open, swipe left to close
   let sidebarSwipeStartX = 0;
+  let sidebarSwipeStartY = 0;
   let sidebarSwipeCurrentX = 0;
   let isSidebarSwiping = false;
   const sidebarWidth = 280; // matches CSS --sidebar-width
@@ -127,6 +128,7 @@ export function setupTouchGestures(): void {
 
     if (shouldStartSwipe) {
       sidebarSwipeStartX = startX;
+      sidebarSwipeStartY = e.touches[0].clientY;
       sidebarSwipeCurrentX = startX;
       isSidebarSwiping = false;
       activeSwipeType = 'sidebar';
@@ -143,14 +145,23 @@ export function setupTouchGestures(): void {
 
     sidebarSwipeCurrentX = e.touches[0].clientX;
     const deltaX = sidebarSwipeCurrentX - sidebarSwipeStartX;
+    const deltaY = e.touches[0].clientY - sidebarSwipeStartY;
     const isSidebarOpen = sidebar.classList.contains('open');
 
-    // Determine if this is a horizontal swipe
-    if (!isSidebarSwiping && Math.abs(deltaX) > 10) {
+    // Commit to a horizontal swipe only when it clearly dominates the
+    // vertical component - otherwise a vertical scroll started in the edge
+    // zone would be hijacked.
+    if (!isSidebarSwiping && Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
       isSidebarSwiping = true;
     }
 
     if (isSidebarSwiping) {
+      // Claim the gesture: preventDefault suppresses iOS Safari's native
+      // left-edge swipe-back (which otherwise navigates history mid-swipe,
+      // landing on a new/previous conversation) and any native scroll.
+      // Requires the listener to be passive:false (see registration below).
+      if (e.cancelable) e.preventDefault();
+
       let translateX: number;
 
       if (isSidebarOpen) {
@@ -197,15 +208,17 @@ export function setupTouchGestures(): void {
     activeSwipeType = 'none';
   };
 
-  // Attach sidebar swipe to main area (for edge swipe to open)
+  // Attach sidebar swipe to main area (for edge swipe to open).
+  // touchmove is passive:false so it can preventDefault the edge swipe and
+  // suppress Safari's native swipe-back (see handleSidebarTouchMove).
   main.addEventListener('touchstart', handleSidebarTouchStart, { passive: true });
-  main.addEventListener('touchmove', handleSidebarTouchMove, { passive: true });
+  main.addEventListener('touchmove', handleSidebarTouchMove, { passive: false });
   main.addEventListener('touchend', handleSidebarTouchEnd, { passive: true });
   main.addEventListener('touchcancel', handleSidebarTouchCancel, { passive: true });
 
   // Attach to sidebar itself (for swipe left to close)
   sidebar.addEventListener('touchstart', handleSidebarTouchStart, { passive: true });
-  sidebar.addEventListener('touchmove', handleSidebarTouchMove, { passive: true });
+  sidebar.addEventListener('touchmove', handleSidebarTouchMove, { passive: false });
   sidebar.addEventListener('touchend', handleSidebarTouchEnd, { passive: true });
   sidebar.addEventListener('touchcancel', handleSidebarTouchCancel, { passive: true });
 
