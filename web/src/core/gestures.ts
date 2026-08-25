@@ -147,21 +147,33 @@ export function setupTouchGestures(): void {
     const deltaX = sidebarSwipeCurrentX - sidebarSwipeStartX;
     const deltaY = e.touches[0].clientY - sidebarSwipeStartY;
     const isSidebarOpen = sidebar.classList.contains('open');
+    const clearlyVertical = Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10;
 
-    // Commit to a horizontal swipe only when it clearly dominates the
-    // vertical component - otherwise a vertical scroll started in the edge
-    // zone would be hijacked.
-    if (!isSidebarSwiping && Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
+    // Edge-OPEN gesture (sidebar closed => the touch started in the left edge
+    // zone, gated in touchstart): iOS Safari's native swipe-back commits
+    // within the first few px, BEFORE a 10px horizontal threshold could claim
+    // the gesture - so from the very-left edge the page navigated back. Bail
+    // to native scrolling only once the drag is clearly vertical; otherwise
+    // treat every move as the open-swipe and suppress the back-swipe below.
+    if (!isSidebarOpen && !isSidebarSwiping && clearlyVertical) {
+      activeSwipeType = 'none';
+      return;
+    }
+
+    if (!isSidebarSwiping && Math.abs(deltaX) > 10 && Math.abs(deltaX) >= Math.abs(deltaY)) {
       isSidebarSwiping = true;
     }
 
-    if (isSidebarSwiping) {
-      // Claim the gesture: preventDefault suppresses iOS Safari's native
-      // left-edge swipe-back (which otherwise navigates history mid-swipe,
-      // landing on a new/previous conversation) and any native scroll.
-      // Requires the listener to be passive:false (see registration below).
-      if (e.cancelable) e.preventDefault();
+    // Suppress Safari's native left-edge swipe-back (and native scroll):
+    // - edge-open: from the FIRST move (until proven vertical above), so the
+    //   very-edge case can't sneak a back-navigation in before the threshold;
+    // - close: once the drag is clearly horizontal.
+    // Requires the listener to be passive:false (see registration below).
+    if ((!isSidebarOpen || isSidebarSwiping) && e.cancelable) {
+      e.preventDefault();
+    }
 
+    if (isSidebarSwiping) {
       let translateX: number;
 
       if (isSidebarOpen) {
