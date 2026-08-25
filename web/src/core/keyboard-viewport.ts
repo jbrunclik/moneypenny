@@ -71,6 +71,31 @@ function setPanGuard(active: boolean): void {
   }
 }
 
+// Diagnostic overlay for real-device debugging (?kbdebug=1): the keyboard
+// inset has failed on iOS in ways that resist local reproduction - this
+// shows every input to the decision so a user screenshot pinpoints it.
+let debugEl: HTMLDivElement | null = null;
+let debugEventLog: string[] = [];
+
+function kbDebug(event: string, data: Record<string, unknown>): void {
+  if (!location.search.includes('kbdebug')) return;
+  if (!debugEl) {
+    debugEl = document.createElement('div');
+    debugEl.style.cssText =
+      'position:fixed;top:60px;left:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);' +
+      'color:#7fff7f;font:11px/1.5 monospace;padding:8px;border-radius:8px;pointer-events:none;' +
+      'white-space:pre-wrap;';
+    document.body.appendChild(debugEl);
+  }
+  const vv = window.visualViewport;
+  debugEventLog.push(`${event} ${JSON.stringify(data)}`);
+  debugEventLog = debugEventLog.slice(-6);
+  debugEl.textContent =
+    `inH=${window.innerHeight} vvH=${vv?.height?.toFixed(0)} vvTop=${vv?.offsetTop?.toFixed(0)} ` +
+    `scale=${vv?.scale} active=${document.activeElement?.tagName}\n` +
+    debugEventLog.join('\n');
+}
+
 export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
@@ -98,6 +123,7 @@ export function initKeyboardViewportPinning(): void {
       (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
     const overlap = keyboardLikely ? shrink : 0;
     const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
+    kbDebug('update', { shrink, keyboardLikely, inset, currentInset });
     if (inset === currentInset) return;
     const keyboardJustOpened = currentInset === 0 && inset > 0;
 
@@ -143,9 +169,15 @@ export function initKeyboardViewportPinning(): void {
     }
   };
 
-  viewport.addEventListener('resize', update);
+  viewport.addEventListener('resize', () => {
+    kbDebug('resize', {});
+    update();
+  });
   // iOS pans the visual viewport when focusing inputs - offsetTop changes
-  viewport.addEventListener('scroll', update);
+  viewport.addEventListener('scroll', () => {
+    kbDebug('vvscroll', {});
+    update();
+  });
   // Keyboard dismissal doesn't reliably fire a resize on iOS - re-check
   // after focus leaves the input (RAF so activeElement is already updated).
   // Symmetrically re-check on focusin: the resize can precede focus, in
