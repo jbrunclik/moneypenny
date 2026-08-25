@@ -133,7 +133,17 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   inset.** iOS's floating prev/next/done pill hovers ~50pt above the
   keyboard OVER page content and is excluded from the visual viewport in
   Safari tabs but INCLUDED in standalone - no API reports it; it covered
-  the composer's bottom edge.
+  the composer's bottom edge. If a device shows a small overlap/gap right
+  at the composer bottom, this constant is the dial (pill size may vary by
+  device class/iOS version; iPad renders a full-width bar instead).
+- **Reclaim padding while typing via `:root.kb-open`** (toggled by
+  keyboard-viewport.ts with the inset). The keyboard + pill take 391pt of
+  an 874pt screen; the home indicator sits BELOW the keyboard, so the
+  composer's safe-area-bottom padding (34pt) is dead space exactly when
+  room is scarcest - dropped while the keyboard is open (~38pt more
+  message area). Further dials if "space above the keyboard is tiny"
+  comes up again: compact/hidden header while typing (~90-118pt),
+  disabling the predictive-text row (costs autocorrect).
 - **`interactive-widget=resizes-content` in the viewport meta is a no-op
   on this iOS version** (ICB stayed 654 in Safari with the keyboard open) -
   kept because it's the correct platform hint where supported and harmless

@@ -295,6 +295,29 @@ Chat tests are split into focused modules in `web/tests/e2e/chat/`:
 - `conversation-switch.spec.ts` - Switching conversations during requests
 - And more (see directory structure above)
 
+#### Known transient failure signature (starved runner)
+
+There is one recurring E2E failure pattern that is NOT a code regression
+(observed 4x on CI + locally through Aug 2026): a **batch of unrelated
+tests failing together, most timing out at exactly the 30s test timeout or
+a 20s `waitForSelector`**, including trivial tests (e.g. "rejects empty
+name") — while the same commit passes locally and adjacent commits with a
+superset of the changes pass on CI. Cause: the runner/mock-server being
+starved under full-suite load; timing-sensitive scroll tests fail first.
+
+How to tell it apart from a real regression (zero-tolerance still applies):
+1. The failing set is broad and unrelated to the diff (a real regression
+   fails a focused cluster).
+2. Failures are timeouts waiting for mock-server responses, not assertion
+   mismatches — check WHERE it died (`--log-failed`): before the feature
+   assertion = infrastructure, at the assertion = investigate the code.
+3. Re-run the failing test with `--repeat-each=3` in isolation; the
+   transient passes deterministically.
+4. A superset commit passing CI clears the suspect change.
+
+If the pattern recurs frequently, the fix direction is runner resourcing
+(e.g. sharding the E2E job), not test code.
+
 ### Planner Tests
 
 The Planner feature has comprehensive E2E and visual test coverage in [../../web/tests/e2e/planner.spec.ts](../../web/tests/e2e/planner.spec.ts) and [../../web/tests/visual/planner.visual.ts](../../web/tests/visual/planner.visual.ts).
