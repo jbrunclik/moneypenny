@@ -119,6 +119,10 @@
     --glass-blur: 20px;
     --glass-bg: rgba(26, 26, 26, 0.72);           /* chrome over content */
     --glass-bg-strong: rgba(18, 18, 18, 0.85);    /* modals: more opaque, focused */
+    --glass-bg-opaque: rgba(26, 26, 26, 0.9);     /* sliding panels: frost WITHOUT
+                                                     live blur - backdrop-filter on a
+                                                     transform-animated fixed element
+                                                     ghosts on iOS (sidebar) */
     --glass-border: rgba(255, 255, 255, 0.09);    /* hairline edge */
     --glass-highlight: rgba(255, 255, 255, 0.10); /* top specular line (inset) */
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
@@ -287,6 +291,7 @@
     /* Liquid glass materials (light theme) */
     --glass-bg: rgba(255, 255, 255, 0.66);
     --glass-bg-strong: rgba(255, 255, 255, 0.82);
+    --glass-bg-opaque: rgba(255, 255, 255, 0.9);
     --glass-border: rgba(0, 0, 0, 0.07);
     --glass-highlight: rgba(255, 255, 255, 0.75);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
