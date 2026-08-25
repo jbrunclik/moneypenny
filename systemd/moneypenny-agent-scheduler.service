@@ -1,6 +1,6 @@
 # Systemd user service for Moneypenny agent scheduler
-# Install to: ~/.config/systemd/user/ai-chatbot-agent-scheduler.service
-# This service is triggered by ai-chatbot-agent-scheduler.timer
+# Install to: ~/.config/systemd/user/moneypenny-agent-scheduler.service
+# This service is triggered by moneypenny-agent-scheduler.timer
 
 [Unit]
 Description=Moneypenny - Autonomous agent scheduler
@@ -8,12 +8,12 @@ After=network.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/src/ai-chatbot
-ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/run_agent_scheduler.py
-Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/src/moneypenny
+ExecStart=%h/src/moneypenny/.venv/bin/python scripts/run_agent_scheduler.py
+Environment=PATH=%h/src/moneypenny/.venv/bin:/usr/local/bin:/usr/bin:/bin
 
 # Load environment from .env file (for database paths, API keys)
-EnvironmentFile=%h/src/ai-chatbot/.env
+EnvironmentFile=%h/src/moneypenny/.env
 
 # Security hardening
 NoNewPrivileges=true

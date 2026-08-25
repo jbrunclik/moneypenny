@@ -78,7 +78,7 @@ sandbox-image:
 	@echo "Building custom code sandbox Docker image..."
 	@echo ""
 	@# Build new image
-	docker build -t ai-chatbot-sandbox:local docker/code-sandbox/
+	docker build -t moneypenny-sandbox:local docker/code-sandbox/
 	@echo ""
 	@# Remove dangling images (old layers that are no longer used)
 	@if docker images -f "dangling=true" -q 2>/dev/null | grep -q .; then \
@@ -86,10 +86,10 @@ sandbox-image:
 		docker images -f "dangling=true" -q | xargs -r docker rmi 2>/dev/null || true; \
 		echo ""; \
 	fi
-	@echo "✓ Sandbox image built: ai-chatbot-sandbox:local"
+	@echo "✓ Sandbox image built: moneypenny-sandbox:local"
 	@echo ""
 	@echo "Update your .env file with:"
-	@echo "  CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local"
+	@echo "  CODE_SANDBOX_IMAGE=moneypenny-sandbox:local"
 
 # Install Playwright and Chromium browser for the browser automation tool
 browser-setup:
@@ -284,40 +284,40 @@ clean:
 
 deploy:
 	@mkdir -p ~/.config/systemd/user
-	cp -f systemd/ai-chatbot.service ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-vacuum.service ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-vacuum.timer ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-currency.service ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-currency.timer ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-backup.service ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-backup.timer ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-memory-defrag.service ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-memory-defrag.timer ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-agent-scheduler.service ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-agent-scheduler.timer ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-file-cleanup.service ~/.config/systemd/user/
-	cp -f systemd/ai-chatbot-file-cleanup.timer ~/.config/systemd/user/
+	cp -f systemd/moneypenny.service ~/.config/systemd/user/
+	cp -f systemd/moneypenny-vacuum.service ~/.config/systemd/user/
+	cp -f systemd/moneypenny-vacuum.timer ~/.config/systemd/user/
+	cp -f systemd/moneypenny-currency.service ~/.config/systemd/user/
+	cp -f systemd/moneypenny-currency.timer ~/.config/systemd/user/
+	cp -f systemd/moneypenny-backup.service ~/.config/systemd/user/
+	cp -f systemd/moneypenny-backup.timer ~/.config/systemd/user/
+	cp -f systemd/moneypenny-memory-defrag.service ~/.config/systemd/user/
+	cp -f systemd/moneypenny-memory-defrag.timer ~/.config/systemd/user/
+	cp -f systemd/moneypenny-agent-scheduler.service ~/.config/systemd/user/
+	cp -f systemd/moneypenny-agent-scheduler.timer ~/.config/systemd/user/
+	cp -f systemd/moneypenny-file-cleanup.service ~/.config/systemd/user/
+	cp -f systemd/moneypenny-file-cleanup.timer ~/.config/systemd/user/
 	systemctl --user daemon-reload
-	systemctl --user enable ai-chatbot
-	systemctl --user enable ai-chatbot-vacuum.timer
-	systemctl --user enable ai-chatbot-currency.timer
-	systemctl --user enable ai-chatbot-backup.timer
-	systemctl --user enable ai-chatbot-memory-defrag.timer
-	systemctl --user enable ai-chatbot-agent-scheduler.timer
-	systemctl --user enable ai-chatbot-file-cleanup.timer
-	systemctl --user start ai-chatbot-vacuum.timer
-	systemctl --user start ai-chatbot-currency.timer
-	systemctl --user start ai-chatbot-backup.timer
-	systemctl --user start ai-chatbot-memory-defrag.timer
-	systemctl --user start ai-chatbot-agent-scheduler.timer
-	systemctl --user start ai-chatbot-file-cleanup.timer
-	systemctl --user restart ai-chatbot
-	@echo "Deployed. View logs with: journalctl --user -u ai-chatbot -f"
+	systemctl --user enable moneypenny
+	systemctl --user enable moneypenny-vacuum.timer
+	systemctl --user enable moneypenny-currency.timer
+	systemctl --user enable moneypenny-backup.timer
+	systemctl --user enable moneypenny-memory-defrag.timer
+	systemctl --user enable moneypenny-agent-scheduler.timer
+	systemctl --user enable moneypenny-file-cleanup.timer
+	systemctl --user start moneypenny-vacuum.timer
+	systemctl --user start moneypenny-currency.timer
+	systemctl --user start moneypenny-backup.timer
+	systemctl --user start moneypenny-memory-defrag.timer
+	systemctl --user start moneypenny-agent-scheduler.timer
+	systemctl --user start moneypenny-file-cleanup.timer
+	systemctl --user restart moneypenny
+	@echo "Deployed. View logs with: journalctl --user -u moneypenny -f"
 	@echo "Timers enabled. Check with: systemctl --user list-timers"
 
 # Graceful reload - zero downtime for code changes (does NOT rebuild frontend)
 reload:
-	systemctl --user reload ai-chatbot
+	systemctl --user reload moneypenny
 	@echo "Graceful reload triggered. Workers will restart after finishing current requests."
 
 # Full update with dependencies rebuild and graceful reload
@@ -327,7 +327,7 @@ update:
 	git pull --ff-only
 	$(PIP) install -r requirements.txt
 	cd web && npm ci && npm run build
-	systemctl --user reload ai-chatbot
+	systemctl --user reload moneypenny
 	@echo "Reload triggered, waiting for workers to boot (migrations apply on startup)..."
 	@for i in $$(seq 1 24); do \
 		if curl -sf -o /dev/null http://localhost:8000/api/health; then \
@@ -335,7 +335,7 @@ update:
 		fi; \
 		sleep 5; \
 	done; \
-	echo "DEPLOY UNHEALTHY after 120s - check: journalctl --user -u ai-chatbot -n 50"; exit 1
+	echo "DEPLOY UNHEALTHY after 120s - check: journalctl --user -u moneypenny -n 50"; exit 1
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py

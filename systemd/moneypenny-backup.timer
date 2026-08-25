@@ -1,6 +1,6 @@
 # Systemd timer for Moneypenny database backup
-# Install to: ~/.config/systemd/user/ai-chatbot-backup.timer
-# Enable with: systemctl --user enable ai-chatbot-backup.timer
+# Install to: ~/.config/systemd/user/moneypenny-backup.timer
+# Enable with: systemctl --user enable moneypenny-backup.timer
 # Check status: systemctl --user list-timers
 
 [Unit]

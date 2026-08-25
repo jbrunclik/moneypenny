@@ -67,7 +67,7 @@ Durable engineering knowledge — architecture, conventions, feature internals, 
 ## Project Structure
 
 ```
-ai-chatbot/
+moneypenny/
 ├── src/                          # Flask backend
 │   ├── app.py                    # Flask entry point (+ /privacy route for Google OAuth verification)
 │   ├── config.py                 # Environment config

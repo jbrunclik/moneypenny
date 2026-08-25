@@ -1,6 +1,6 @@
 # Systemd user service for Moneypenny file retention cleanup
-# Install to: ~/.config/systemd/user/ai-chatbot-file-cleanup.service
-# This service is triggered by ai-chatbot-file-cleanup.timer
+# Install to: ~/.config/systemd/user/moneypenny-file-cleanup.service
+# This service is triggered by moneypenny-file-cleanup.timer
 
 [Unit]
 Description=Moneypenny - File retention cleanup (expired attachments)
@@ -8,12 +8,12 @@ After=network.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/src/ai-chatbot
-ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/cleanup_files.py
-Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/src/moneypenny
+ExecStart=%h/src/moneypenny/.venv/bin/python scripts/cleanup_files.py
+Environment=PATH=%h/src/moneypenny/.venv/bin:/usr/local/bin:/usr/bin:/bin
 
 # Load environment from .env file (for database paths and retention windows)
-EnvironmentFile=%h/src/ai-chatbot/.env
+EnvironmentFile=%h/src/moneypenny/.env
 
 # Security hardening
 NoNewPrivileges=true

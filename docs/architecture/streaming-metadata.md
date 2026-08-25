@@ -77,7 +77,7 @@ MALFORMED_METADATA_START_PATTERN = re.compile(
 
 3. **Check server logs** for the streaming session:
    ```
-   grep "METADATA" /var/log/ai-chatbot/app.log | grep "chunk"
+   grep "METADATA" /var/log/moneypenny/app.log | grep "chunk"
    ```
    Look for:
    - `"Response metadata at start of output"` warning

@@ -1,6 +1,6 @@
 # Systemd user service for Moneypenny memory defragmentation
-# Install to: ~/.config/systemd/user/ai-chatbot-memory-defrag.service
-# This service is triggered by ai-chatbot-memory-defrag.timer
+# Install to: ~/.config/systemd/user/moneypenny-memory-defrag.service
+# This service is triggered by moneypenny-memory-defrag.timer
 
 [Unit]
 Description=Moneypenny - Defragment user memories
@@ -9,12 +9,12 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/src/ai-chatbot
-ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/defragment_memories.py
-Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/src/moneypenny
+ExecStart=%h/src/moneypenny/.venv/bin/python scripts/defragment_memories.py
+Environment=PATH=%h/src/moneypenny/.venv/bin:/usr/local/bin:/usr/bin:/bin
 
 # Load environment from .env file (for API keys, database paths)
-EnvironmentFile=%h/src/ai-chatbot/.env
+EnvironmentFile=%h/src/moneypenny/.env
 
 # Security hardening
 NoNewPrivileges=true

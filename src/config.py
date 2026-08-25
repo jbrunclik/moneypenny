@@ -425,7 +425,7 @@ class Config:
     # libraries - see docker/code-sandbox/Dockerfile). The sandbox runs with
     # networking disabled, so every library must be baked into the image;
     # runtime pip installs cannot work.
-    CODE_SANDBOX_IMAGE: str = os.getenv("CODE_SANDBOX_IMAGE", "ai-chatbot-sandbox:local")
+    CODE_SANDBOX_IMAGE: str = os.getenv("CODE_SANDBOX_IMAGE", "moneypenny-sandbox:local")
     # Per-conversation session reuse (sandbox_sessions.py): container + /work
     # filesystem persist across execute_code calls; pool is per gunicorn worker
     CODE_SANDBOX_MAX_SESSIONS: int = int(os.getenv("CODE_SANDBOX_MAX_SESSIONS", "2"))

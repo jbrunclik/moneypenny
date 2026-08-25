@@ -1,6 +1,6 @@
 # Moneypenny
 
-[![CI](https://github.com/jbrunclik/ai-chatbot/actions/workflows/test.yml/badge.svg)](https://github.com/jbrunclik/ai-chatbot/actions/workflows/test.yml)
+[![CI](https://github.com/jbrunclik/moneypenny/actions/workflows/test.yml/badge.svg)](https://github.com/jbrunclik/moneypenny/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A personal, self-hosted AI assistant built on Google Gemini. Chat is the entry point,
@@ -167,8 +167,8 @@ Built for a household of a few users, deployed on a single box.
 
 ```bash
 # Clone the repository
-git clone https://github.com/jbrunclik/ai-chatbot.git
-cd ai-chatbot
+git clone https://github.com/jbrunclik/moneypenny.git
+cd moneypenny
 
 # Setup virtual environment and install dependencies
 make setup
@@ -357,7 +357,7 @@ make deploy
 sudo loginctl enable-linger $USER
 
 # View logs
-journalctl --user -u ai-chatbot -f
+journalctl --user -u moneypenny -f
 ```
 
 The systemd service automatically runs `npm install && npm run build` before starting Gunicorn.
@@ -399,7 +399,7 @@ streaming and journald log management are documented alongside them in
 ## Project Structure
 
 ```
-ai-chatbot/
+moneypenny/
 ├── src/                          # Flask backend
 │   ├── app.py                    # Entry point, Vite manifest loading, /privacy, /sw.js
 │   ├── config.py                 # All environment configuration and model definitions

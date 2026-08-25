@@ -1,6 +1,6 @@
 # Systemd timer for Moneypenny database vacuum
-# Install to: ~/.config/systemd/user/ai-chatbot-vacuum.timer
-# Enable with: systemctl --user enable ai-chatbot-vacuum.timer
+# Install to: ~/.config/systemd/user/moneypenny-vacuum.timer
+# Enable with: systemctl --user enable moneypenny-vacuum.timer
 # Check status: systemctl --user list-timers
 
 [Unit]

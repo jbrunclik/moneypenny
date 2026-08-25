@@ -1,6 +1,6 @@
 # Systemd user service for Moneypenny database vacuum
-# Install to: ~/.config/systemd/user/ai-chatbot-vacuum.service
-# This service is triggered by ai-chatbot-vacuum.timer
+# Install to: ~/.config/systemd/user/moneypenny-vacuum.service
+# This service is triggered by moneypenny-vacuum.timer
 
 [Unit]
 Description=Moneypenny - Database vacuum (reclaim space and optimize)
@@ -8,12 +8,12 @@ After=network.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/src/ai-chatbot
-ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/vacuum_databases.py
-Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/src/moneypenny
+ExecStart=%h/src/moneypenny/.venv/bin/python scripts/vacuum_databases.py
+Environment=PATH=%h/src/moneypenny/.venv/bin:/usr/local/bin:/usr/bin:/bin
 
 # Load environment from .env file (for database paths)
-EnvironmentFile=%h/src/ai-chatbot/.env
+EnvironmentFile=%h/src/moneypenny/.env
 
 # Security hardening
 NoNewPrivileges=true

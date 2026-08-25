@@ -7,7 +7,7 @@ from message age, so callers (history labeling, retrieve_file, file routes)
 stay truthful even before the physical sweep has run.
 
 The sweep itself runs via systemd timer in production
-(ai-chatbot-file-cleanup.timer -> scripts/cleanup_files.py) and via the dev
+(moneypenny-file-cleanup.timer -> scripts/cleanup_files.py) and via the dev
 scheduler loop in development.
 
 Message timestamps are naive local datetimes; compare with datetime.now().

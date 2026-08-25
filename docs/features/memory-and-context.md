@@ -217,7 +217,7 @@ make defrag-memories -- --dry-run # Preview changes without applying
 
 **Key files:**
 - [defragment_memories.py](../../scripts/defragment_memories.py) - the job
-- [ai-chatbot-memory-defrag.service](../../systemd/ai-chatbot-memory-defrag.service) / [.timer](../../systemd/ai-chatbot-memory-defrag.timer)
+- [moneypenny-memory-defrag.service](../../systemd/moneypenny-memory-defrag.service) / [.timer](../../systemd/moneypenny-memory-defrag.timer)
 - Unit tests: [test_defragment_memories.py](../../tests/unit/test_defragment_memories.py)
 
 ---

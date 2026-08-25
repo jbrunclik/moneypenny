@@ -1,6 +1,6 @@
 # Systemd timer for Moneypenny currency rate updates
-# Install to: ~/.config/systemd/user/ai-chatbot-currency.timer
-# Enable with: systemctl --user enable ai-chatbot-currency.timer
+# Install to: ~/.config/systemd/user/moneypenny-currency.timer
+# Enable with: systemctl --user enable moneypenny-currency.timer
 # Check status: systemctl --user list-timers
 
 [Unit]

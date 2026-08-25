@@ -1,6 +1,6 @@
 # Systemd user service for Moneypenny currency rate updates
-# Install to: ~/.config/systemd/user/ai-chatbot-currency.service
-# This service is triggered by ai-chatbot-currency.timer
+# Install to: ~/.config/systemd/user/moneypenny-currency.service
+# This service is triggered by moneypenny-currency.timer
 
 [Unit]
 Description=Moneypenny - Update currency exchange rates
@@ -9,12 +9,12 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/src/ai-chatbot
-ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/update_currency_rates.py
-Environment=PATH=%h/src/ai-chatbot/.venv/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/src/moneypenny
+ExecStart=%h/src/moneypenny/.venv/bin/python scripts/update_currency_rates.py
+Environment=PATH=%h/src/moneypenny/.venv/bin:/usr/local/bin:/usr/bin:/bin
 
 # Load environment from .env file (for database paths)
-EnvironmentFile=%h/src/ai-chatbot/.env
+EnvironmentFile=%h/src/moneypenny/.env
 
 # Security hardening
 NoNewPrivileges=true

@@ -255,7 +255,7 @@ class ContextCacheManager:
                     system_instruction=prompt,
                     tools=genai_tools,
                     ttl=f"{ttl_seconds}s",
-                    display_name=f"ai-chatbot-{profile.value}",
+                    display_name=f"moneypenny-{profile.value}",
                 ),
             )
 

@@ -32,5 +32,5 @@ RUN pip install --no-cache-dir \
     pytz
 
 # Add labels to identify our custom image and enable cleanup of old versions
-LABEL ai-chatbot.sandbox=true \
-      ai-chatbot.version=1.0
+LABEL moneypenny.sandbox=true \
+      moneypenny.version=1.0

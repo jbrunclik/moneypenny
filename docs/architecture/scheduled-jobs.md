@@ -43,16 +43,16 @@ Timers are installed and started by `make deploy`. Check status and logs:
 
 ```bash
 systemctl --user list-timers            # See all timers and next-run times
-journalctl --user -u ai-chatbot-backup  # View one job's logs
+journalctl --user -u moneypenny-backup  # View one job's logs
 ```
 
 Service units run oneshot scripts via the project virtualenv:
 
 ```ini
-# systemd/ai-chatbot-<job>.service
+# systemd/moneypenny-<job>.service
 [Service]
 Type=oneshot
-ExecStart=%h/src/ai-chatbot/.venv/bin/python scripts/<script>.py
+ExecStart=%h/src/moneypenny/.venv/bin/python scripts/<script>.py
 ```
 
 Timers use `OnCalendar` for the schedule, `Persistent=true` for downtime catch-up, and
@@ -89,8 +89,8 @@ cleanup). Backup, vacuum, currency, and memory-defrag run only from timers in pr
    with a `main()` entry point. If it is a daily/idempotent job, guard the work with a
    kv-store last-run stamp so it can be safely re-invoked.
 2. **Add a systemd pair** in [`systemd/`](../../systemd/):
-   - `ai-chatbot-my-job.service` — `Type=oneshot`, `ExecStart=` the script via the venv.
-   - `ai-chatbot-my-job.timer` — `OnCalendar=` the schedule, `Persistent=true`, and a
+   - `moneypenny-my-job.service` — `Type=oneshot`, `ExecStart=` the script via the venv.
+   - `moneypenny-my-job.timer` — `OnCalendar=` the schedule, `Persistent=true`, and a
      `RandomizedDelaySec` if it runs at a fixed time.
 3. **Wire it into `make deploy`** — copy the `.service`/`.timer`, then `enable` and
    `start` the timer (follow the existing entries in the [`Makefile`](../../Makefile)).
@@ -101,7 +101,7 @@ cleanup). Backup, vacuum, currency, and memory-defrag run only from timers in pr
 
 ## Current Scheduled Jobs
 
-All units live in [`systemd/`](../../systemd/) with the `ai-chatbot-<name>` prefix. Times
+All units live in [`systemd/`](../../systemd/) with the `moneypenny-<name>` prefix. Times
 are the configured `OnCalendar` value (before any `RandomizedDelaySec`).
 
 | Job | Schedule | Script | Dev parity |

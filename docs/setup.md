@@ -17,7 +17,7 @@ The code execution feature allows the AI to run Python code in a secure, isolate
 make sandbox-image
 ```
 
-This creates `ai-chatbot-sandbox:local` with pre-installed fonts and Python libraries for faster execution.
+This creates `moneypenny-sandbox:local` with pre-installed fonts and Python libraries for faster execution.
 
 **Local Development (macOS/Linux):**
 ```bash
@@ -44,7 +44,7 @@ ls -la /var/run/docker.sock
 sudo systemctl restart docker
 
 # 4. Restart your application service:
-systemctl --user restart ai-chatbot
+systemctl --user restart moneypenny
 ```
 
 **Disabling Code Execution:**

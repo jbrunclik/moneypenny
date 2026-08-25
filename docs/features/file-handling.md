@@ -146,7 +146,7 @@ For optimal performance, the app uses a custom Docker image with pre-installed d
 make sandbox-image
 ```
 
-This builds `ai-chatbot-sandbox:local` with:
+This builds `moneypenny-sandbox:local` with:
 - DejaVu fonts for Unicode support in PDF generation (fpdf2)
 - All Python libraries pre-installed (numpy, pandas, matplotlib, etc.)
 - Compiler tools (gcc, g++) for native extensions
@@ -158,7 +158,7 @@ This builds `ai-chatbot-sandbox:local` with:
 
 **Automatic cleanup:**
 - `make sandbox-image` removes old image versions to prevent bloat
-- Each build replaces the previous `ai-chatbot-sandbox:local` image
+- Each build replaces the previous `moneypenny-sandbox:local` image
 
 ### Security Constraints
 
@@ -177,7 +177,7 @@ This builds `ai-chatbot-sandbox:local` with:
 
 ```bash
 CODE_SANDBOX_ENABLED=true                    # Enable/disable (default: true)
-CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local  # Custom Docker image (required)
+CODE_SANDBOX_IMAGE=moneypenny-sandbox:local  # Custom Docker image (required)
 CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
 CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
 CODE_SANDBOX_CPU_LIMIT=1.0                   # CPU limit (1.0 = 1 core)
@@ -201,7 +201,7 @@ make setup
 make sandbox-image
 
 # Update .env
-CODE_SANDBOX_IMAGE=ai-chatbot-sandbox:local
+CODE_SANDBOX_IMAGE=moneypenny-sandbox:local
 
 # On updates (if Dockerfile changed)
 make sandbox-image
@@ -461,7 +461,7 @@ Users can upload short videos (iPhone/Android camera or library) and consult the
 
 Attachments are not permanent storage: **videos are kept 7 days, images and all other files 30 days** (`VIDEO_RETENTION_DAYS` / `IMAGE_RETENTION_DAYS` / `FILE_RETENTION_DAYS`). Implemented in [file_retention.py](../../src/utils/file_retention.py):
 
-- **Production**: the `ai-chatbot-file-cleanup` systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) daily at 02:30 (installed by `make deploy`), consistent with the other scheduled jobs (backup, vacuum, defrag, currency, agent scheduler).
+- **Production**: the `moneypenny-file-cleanup` systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) daily at 02:30 (installed by `make deploy`), consistent with the other scheduled jobs (backup, vacuum, defrag, currency, agent scheduler).
 - **Development**: the dev scheduler loop calls `run_file_cleanup_if_due()` (at most one sweep per day, tracked via a `kv_store` stamp under `_system`/`file_cleanup`).
 - The sweep deletes full-size blobs and stale Gemini URI cache entries. **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
 - Expiry is *age-derived* everywhere, so behavior is correct even before the sweep runs: history metadata marks files `"expired": true`, `retrieve_file` returns a clear "cleaned up" error, and the file endpoint returns **410 Gone** (`ErrorCode.GONE`).

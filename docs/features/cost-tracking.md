@@ -144,7 +144,7 @@ Currency exchange rates are stored in the database (`app_settings` table) and up
 - Fetches rates from [open.er-api.com](https://open.er-api.com) (free, no API key required)
 - Updates rates for USD, CZK, EUR, GBP
 - Automatically enabled when running `make deploy`
-- View logs: `journalctl --user -u ai-chatbot-currency`
+- View logs: `journalctl --user -u moneypenny-currency`
 
 ### Manual Update
 
@@ -212,8 +212,8 @@ STREAM_CLEANUP_WAIT_DELAY = 1.0      # Delay before checking if message was save
 ### Systemd
 
 - [update_currency_rates.py](../../scripts/update_currency_rates.py) - Python script that fetches and saves rates
-- [ai-chatbot-currency.service](../../systemd/ai-chatbot-currency.service) - Systemd service (oneshot)
-- [ai-chatbot-currency.timer](../../systemd/ai-chatbot-currency.timer) - Daily timer
+- [moneypenny-currency.service](../../systemd/moneypenny-currency.service) - Systemd service (oneshot)
+- [moneypenny-currency.timer](../../systemd/moneypenny-currency.timer) - Daily timer
 
 ## API Endpoints
 

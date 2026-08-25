@@ -237,7 +237,7 @@ SQLite databases can accumulate unused space over time as data is deleted. The V
 - Vacuums both `chatbot.db` (main database) and `files.db` (blob storage)
 - Automatically enabled when running `make deploy`
 - Check timer status: `systemctl --user list-timers`
-- View vacuum logs: `journalctl --user -u ai-chatbot-vacuum`
+- View vacuum logs: `journalctl --user -u moneypenny-vacuum`
 
 ### Manual Vacuum
 
@@ -254,8 +254,8 @@ make vacuum  # Run vacuum immediately
 ### Key Files
 
 - [vacuum_databases.py](../../scripts/vacuum_databases.py) - Python script that runs VACUUM on both databases
-- [ai-chatbot-vacuum.service](../../systemd/ai-chatbot-vacuum.service) - Systemd service (oneshot)
-- [ai-chatbot-vacuum.timer](../../systemd/ai-chatbot-vacuum.timer) - Systemd timer (weekly)
+- [moneypenny-vacuum.service](../../systemd/moneypenny-vacuum.service) - Systemd service (oneshot)
+- [moneypenny-vacuum.timer](../../systemd/moneypenny-vacuum.timer) - Systemd timer (weekly)
 
 ---
 
@@ -270,7 +270,7 @@ Daily automated backups create timestamped snapshots of both SQLite databases, k
 - Uses SQLite's online backup API for consistent snapshots even while the database is in use
 - Automatically enabled when running `make deploy`
 - Check timer status: `systemctl --user list-timers`
-- View backup logs: `journalctl --user -u ai-chatbot-backup`
+- View backup logs: `journalctl --user -u moneypenny-backup`
 
 ### Manual Backup
 
@@ -293,8 +293,8 @@ Backups are stored in `backups/{database_name}/` directories alongside the datab
 ### Key Files
 
 - [backup_databases.py](../../scripts/backup_databases.py) - Python script for backup and cleanup
-- [ai-chatbot-backup.service](../../systemd/ai-chatbot-backup.service) - Systemd service (oneshot)
-- [ai-chatbot-backup.timer](../../systemd/ai-chatbot-backup.timer) - Systemd timer (daily)
+- [moneypenny-backup.service](../../systemd/moneypenny-backup.service) - Systemd service (oneshot)
+- [moneypenny-backup.timer](../../systemd/moneypenny-backup.timer) - Systemd timer (daily)
 
 ### Testing
 

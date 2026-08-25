@@ -15,7 +15,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh   # one-time, user-local
 ~/.local/bin/uv python install 3.14
 ~/.local/bin/uv venv .venv --seed --python 3.14   # --seed keeps pip (Makefile uses it)
 .venv/bin/pip install -r requirements.txt
-systemctl --user restart ai-chatbot
+systemctl --user restart moneypenny
 ```
 
 Upgrading Python later = the same steps with a new version (keep the old
@@ -33,13 +33,13 @@ and `load_dotenv()` does not override variables systemd already set. So
 `.env` edits silently do nothing until:
 
 ```bash
-systemctl --user restart ai-chatbot
+systemctl --user restart moneypenny
 ```
 
 (Aug 2026 incident: ALLOWED_FILE_TYPES additions were invisible through
 several deploys; uploads kept failing with the stale allow-list until a
 restart. Verify what the live process actually sees with:
-`cat /proc/$(systemctl --user show ai-chatbot -p MainPID --value)/environ | tr '\0' '\n' | grep VAR_NAME`.)
+`cat /proc/$(systemctl --user show moneypenny -p MainPID --value)/environ | tr '\0' '\n' | grep VAR_NAME`.)
 
 ## Database Vacuum
 
@@ -50,7 +50,7 @@ A weekly systemd timer is automatically configured to run VACUUM on both SQLite 
 systemctl --user list-timers
 
 # View vacuum logs
-journalctl --user -u ai-chatbot-vacuum
+journalctl --user -u moneypenny-vacuum
 
 # Run vacuum manually
 make vacuum
@@ -62,7 +62,7 @@ A daily systemd timer updates currency exchange rates from a free API (no API ke
 
 ```bash
 # View currency update logs
-journalctl --user -u ai-chatbot-currency
+journalctl --user -u moneypenny-currency
 
 # Run update manually
 make update-currency
@@ -77,7 +77,7 @@ A daily systemd timer creates timestamped snapshots of both SQLite databases (ma
 systemctl --user list-timers
 
 # View backup logs
-journalctl --user -u ai-chatbot-backup
+journalctl --user -u moneypenny-backup
 
 # Create backup manually
 make backup
@@ -101,7 +101,7 @@ recoverable until the retention window expires.
 
 ```bash
 # View defrag logs
-journalctl --user -u ai-chatbot-memory-defrag
+journalctl --user -u moneypenny-memory-defrag
 
 # Run defragmentation manually
 make defrag-memories
@@ -164,13 +164,13 @@ The app uses SSE keepalive heartbeats (configurable via `SSE_KEEPALIVE_INTERVAL`
 
 The systemd service file includes log rate limiting to prevent disk space issues, especially when using `LOG_LEVEL=DEBUG`. The default settings allow ~333 log messages per second.
 
-**Service-level limits** (configured in `ai-chatbot.service`):
+**Service-level limits** (configured in `moneypenny.service`):
 - `LogRateLimitIntervalSec=30`: Time window for rate limiting
 - `LogRateLimitBurst=10000`: Maximum messages per interval
 
 **Global journald limits** (optional, requires root):
 
-To configure system-wide journald limits, create or edit `/etc/systemd/journald.conf.d/ai-chatbot.conf`:
+To configure system-wide journald limits, create or edit `/etc/systemd/journald.conf.d/moneypenny.conf`:
 
 ```ini
 [Journal]
@@ -198,7 +198,7 @@ sudo systemctl restart systemd-journald
 journalctl --user --disk-usage
 
 # Check service-specific log size
-journalctl --user -u ai-chatbot --disk-usage
+journalctl --user -u moneypenny --disk-usage
 
 # Clean old logs (keeps last 7 days)
 journalctl --user --vacuum-time=7d

@@ -58,3 +58,6 @@ Thumbs.db
 tests/e2e-test-*.db*
 tests/e2e-template*.db*
 evals/results/
+
+# Local env backups (may contain secrets - never commit)
+.env.backup*

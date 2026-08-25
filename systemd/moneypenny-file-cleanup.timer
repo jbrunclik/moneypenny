@@ -1,6 +1,6 @@
 # Systemd user timer for Moneypenny file retention cleanup
-# Install to: ~/.config/systemd/user/ai-chatbot-file-cleanup.timer
-# Enable with: systemctl --user enable --now ai-chatbot-file-cleanup.timer
+# Install to: ~/.config/systemd/user/moneypenny-file-cleanup.timer
+# Enable with: systemctl --user enable --now moneypenny-file-cleanup.timer
 
 [Unit]
 Description=Daily cleanup of expired attachments (videos 7d, images/files 30d)
