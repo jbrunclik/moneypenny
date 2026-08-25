@@ -249,8 +249,14 @@ function safeAreaTop(): number {
   return probe.offsetHeight;
 }
 
+// Aborts all listeners of the previous init - re-initializing (tests do,
+// prod doesn't) must not leave stale update closures reacting to events
+let initAbort: AbortController | null = null;
+
 /** Reset module state (tests re-init per case; prod inits once). */
 export function cleanupKeyboardViewportPinning(): void {
+  initAbort?.abort();
+  initAbort = null;
   setSettlePoller(false);
   setPanGuard(false);
   settleUpdate = null;
@@ -260,10 +266,17 @@ export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
   installTouchTracking();
+  initAbort?.abort();
+  initAbort = new AbortController();
+  const signal = initAbort.signal;
 
   let currentInset = 0;
 
   const update = (): void => {
+    // Queued rAFs/timeouts can outlive this init (tests re-init; the
+    // AbortController removes listeners but cannot cancel callbacks that
+    // were already scheduled) - a stale closure must never touch the DOM
+    if (signal.aborted) return;
     // Pinch zoom also shrinks the visual viewport - never treat it as a
     // keyboard. Same for shrinks with no editable element focused
     // (rotations, browser chrome show/hide).
@@ -319,18 +332,20 @@ export function initKeyboardViewportPinning(): void {
       document.documentElement.style.setProperty('--app-vh', appVh);
     }
 
-    // Stale focus-pan recovery: iOS re-pans the window AFTER the one-shot
-    // keyboard-open scrollTo(0,0) below (Safari, device-verified) - the
-    // shrunk app then sits above a dead band with the composer stranded at
-    // the top of the screen, and nothing corrects it because the inset is
-    // already right. With the inset applied the whole layout fits above
-    // the keyboard, so a window scroll is NEVER useful - reset it whenever
-    // the keyboard is open and no finger is down (poller ticks every 300ms).
-    if (inset > 0 && inset === currentInset && !touchActive) {
+    // Stale focus-scroll recovery: the window is NEVER legitimately
+    // scrolled in this app (html/body are overflow:hidden; all scrolling
+    // happens inside #messages) - but iOS scrolls it anyway for its focus
+    // caret-reveal, computed against the PRE-resize geometry, and never
+    // re-clamps afterwards (device-verified: winY=291 stranded with the
+    // keyboard open even under interactive-widget=resizes-content, where
+    // the inset correctly stays 0 - so this must NOT be gated on inset).
+    // Reset whenever no finger is down; the winscroll listener triggers
+    // this update the moment the stray scroll happens.
+    if (!touchActive && !(currentInset === 0 && inset > 0)) {
       const scrolled =
         window.scrollY > 0 || (document.scrollingElement?.scrollTop ?? 0) > 0;
       if (scrolled) {
-        kbDebug('panreset', { winY: window.scrollY });
+        kbDebug('panreset', { winY: Math.round(window.scrollY) });
         window.scrollTo(0, 0);
       }
     }
@@ -395,25 +410,41 @@ export function initKeyboardViewportPinning(): void {
   for (const delay of [150, 500, 1500, 3000]) {
     setTimeout(update, delay);
   }
-  window.addEventListener('pageshow', update);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') requestAnimationFrame(update);
-  });
+  window.addEventListener('pageshow', update, { signal });
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.visibilityState === 'visible') requestAnimationFrame(update);
+    },
+    { signal }
+  );
   // Rotation / browser-chrome changes resize the window without
   // necessarily firing visualViewport events in every browser
-  window.addEventListener('resize', () => {
-    kbDebug('winresize', {});
-    update();
-  });
-  viewport.addEventListener('resize', () => {
-    kbDebug('resize', {});
-    update();
-  });
+  window.addEventListener(
+    'resize',
+    () => {
+      kbDebug('winresize', {});
+      update();
+    },
+    { signal }
+  );
+  viewport.addEventListener(
+    'resize',
+    () => {
+      kbDebug('resize', {});
+      update();
+    },
+    { signal }
+  );
   // iOS pans the visual viewport when focusing inputs - offsetTop changes
-  viewport.addEventListener('scroll', () => {
-    kbDebug('vvscroll', {});
-    update();
-  });
+  viewport.addEventListener(
+    'scroll',
+    () => {
+      kbDebug('vvscroll', {});
+      update();
+    },
+    { signal }
+  );
   // The focus reveal-pan can also be a WINDOW scroll (Safari, device-
   // verified): without this listener the pan is invisible to update() -
   // the stale-pan recovery never triggers and the debug overlay stays
@@ -424,12 +455,12 @@ export function initKeyboardViewportPinning(): void {
       kbDebug('winscroll', { winY: Math.round(window.scrollY) });
       update();
     },
-    { passive: true }
+    { passive: true, signal }
   );
   // Keyboard dismissal doesn't reliably fire a resize on iOS - re-check
   // after focus leaves the input (RAF so activeElement is already updated).
   // Symmetrically re-check on focusin: the resize can precede focus, in
   // which case the resize-time update saw no editable and skipped.
-  document.addEventListener('focusout', () => requestAnimationFrame(update));
-  document.addEventListener('focusin', () => requestAnimationFrame(update));
+  document.addEventListener('focusout', () => requestAnimationFrame(update), { signal });
+  document.addEventListener('focusin', () => requestAnimationFrame(update), { signal });
 }

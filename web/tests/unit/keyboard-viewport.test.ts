@@ -306,6 +306,22 @@ describe('keyboard viewport pinning', () => {
     vi.useRealTimers();
   });
 
+  it('resets a stale window scroll even when no inset applies', async () => {
+    // With interactive-widget=resizes-content the platform shrinks the
+    // layout itself (inset stays 0), but iOS still fires its caret-reveal
+    // scroll against the PRE-resize geometry and never re-clamps it. The
+    // window is never legitimately scrolled (html/body overflow hidden) -
+    // the recovery must not be gated on inset > 0.
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    textarea.focus();
+    Object.defineProperty(window, 'scrollY', { value: 291, configurable: true });
+    window.dispatchEvent(new Event('scroll'));
+
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+    scrollToSpy.mockRestore();
+  });
+
   it('never resets the pan while a touch is in progress', async () => {
     // Resetting mid-drag would yank the page out from under the user's
     // finger (the recovery-drag escape hatch exists for the same reason)
