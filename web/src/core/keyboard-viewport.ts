@@ -11,7 +11,7 @@
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
-import { KEYBOARD_INSET_MIN_PX } from '../config';
+import { KEYBOARD_DEFINITE_SHRINK_PX, KEYBOARD_INSET_MIN_PX } from '../config';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('keyboard-viewport');
@@ -88,10 +88,15 @@ export function initKeyboardViewportPinning(): void {
     // "extremely laggy scrolling with keyboard open" bug. Keyboard
     // GEOMETRY (innerHeight - height) is stable during pans; the focus-pan
     // that offsetTop used to compensate is reset below via scrollTo(0,0).
-    const keyboardLikely = viewport.scale === 1 && isEditableElement(document.activeElement);
-    const overlap = keyboardLikely
-      ? Math.max(0, Math.round(window.innerHeight - viewport.height))
-      : 0;
+    const shrink = Math.max(0, Math.round(window.innerHeight - viewport.height));
+    // Editable-focused is the normal signal, but iOS can fire the resize
+    // BEFORE focus lands - a shrink this large is unambiguously a keyboard
+    // regardless (browser chrome is far smaller), and missing it leaves
+    // the composer hidden behind the keyboard
+    const keyboardLikely =
+      viewport.scale === 1 &&
+      (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
+    const overlap = keyboardLikely ? shrink : 0;
     const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap : 0;
     if (inset === currentInset) return;
     const keyboardJustOpened = currentInset === 0 && inset > 0;
@@ -142,6 +147,9 @@ export function initKeyboardViewportPinning(): void {
   // iOS pans the visual viewport when focusing inputs - offsetTop changes
   viewport.addEventListener('scroll', update);
   // Keyboard dismissal doesn't reliably fire a resize on iOS - re-check
-  // after focus leaves the input (RAF so activeElement is already updated)
+  // after focus leaves the input (RAF so activeElement is already updated).
+  // Symmetrically re-check on focusin: the resize can precede focus, in
+  // which case the resize-time update saw no editable and skipped.
   document.addEventListener('focusout', () => requestAnimationFrame(update));
+  document.addEventListener('focusin', () => requestAnimationFrame(update));
 }

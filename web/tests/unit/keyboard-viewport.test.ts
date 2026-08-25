@@ -133,6 +133,36 @@ describe('keyboard viewport pinning', () => {
     scrollToSpy.mockRestore();
   });
 
+  it('applies the inset when resize fires before focus lands (focusin re-check)', async () => {
+    // iOS can fire the viewport resize BEFORE document.activeElement is
+    // the textarea - an AMBIGUOUS shrink (below the definite threshold)
+    // is then ignored, and nothing re-triggers. focusin must re-check.
+    viewport.height = 680; // 120px - above inset min, below definite
+    viewport.dispatchEvent(new Event('resize')); // no editable focused yet
+    expect(getInset()).toBe('');
+
+    textarea.focus();
+    document.dispatchEvent(new Event('focusin'));
+    await nextFrame();
+
+    expect(getInset()).toBe('120px');
+  });
+
+  it('treats a large shrink as keyboard even without a focused editable', () => {
+    // A 300px shrink is unambiguously a keyboard - browser chrome
+    // show/hide is far smaller. Without this, a focus-detection miss
+    // leaves the composer hidden behind the keyboard.
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    expect(getInset()).toBe('300px');
+  });
+
+  it('still ignores small shrinks without a focused editable', () => {
+    viewport.height = 690; // 110px - could be browser chrome
+    viewport.dispatchEvent(new Event('resize'));
+    expect(getInset()).toBe('');
+  });
+
   it('ignores pinch zoom (scale != 1)', () => {
     textarea.focus();
     viewport.scale = 2;
@@ -141,9 +171,12 @@ describe('keyboard viewport pinning', () => {
     expect(getInset()).toBe('');
   });
 
-  it('ignores shrinks when no editable element is focused', () => {
+  it('ignores ambiguous shrinks when no editable element is focused', () => {
+    // Below KEYBOARD_DEFINITE_SHRINK_PX a shrink could be browser chrome -
+    // without a focused editable it is ignored. (Large shrinks are treated
+    // as keyboard regardless; see the definite-shrink test.)
     textarea.blur();
-    viewport.height = 500;
+    viewport.height = 690; // 110px shrink - ambiguous
     viewport.dispatchEvent(new Event('resize'));
     expect(getInset()).toBe('');
   });

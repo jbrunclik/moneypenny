@@ -303,6 +303,10 @@ export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;
 /** Interval for refreshing relative-time labels in the sidebar (1 minute) */
 export const SIDEBAR_TIME_REFRESH_INTERVAL_MS = 1 * MS_PER_MINUTE;
 
+/** Viewport shrink at or above this is unambiguously a keyboard, even when
+ * focus detection misses (iOS can resize before focus lands) */
+export const KEYBOARD_DEFINITE_SHRINK_PX = 150;
+
 // =============================================================================
 // Client-side Video Transcoding (upload-size reduction on slow connections)
 // =============================================================================
