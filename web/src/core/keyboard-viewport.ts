@@ -156,8 +156,14 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
   // Keep the overlay inside the VISUAL viewport - keyboard-open pans move
   // fixed elements out of view exactly when the numbers matter most
   debugEl.style.top = `${Math.round((vv?.offsetTop ?? 0) + window.scrollY + 60)}px`;
-  debugEventLog.push(`${event} ${JSON.stringify(data)}`);
-  debugEventLog = debugEventLog.slice(-6);
+  // Dedupe consecutive identical lines: the settle poller emits an update
+  // every 300ms while the keyboard is open, flushing the interesting
+  // transition events out of the log window
+  const line = `${event} ${JSON.stringify(data)}`;
+  if (debugEventLog[debugEventLog.length - 1] !== line) {
+    debugEventLog.push(line);
+    debugEventLog = debugEventLog.slice(-12);
+  }
   // Resolved safe-area insets are only readable via a probe element
   let saProbe = document.getElementById('kbdebug-sa-probe');
   if (!saProbe) {
@@ -175,7 +181,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb5]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb6]\n` +
     debugEventLog.join('\n');
 }
 

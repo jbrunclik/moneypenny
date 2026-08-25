@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- interactive-widget=resizes-content (iOS Safari 18.4+): the on-screen
+         keyboard shrinks the LAYOUT viewport itself, so no visual-viewport
+         pan range exists - iOS cannot strand the page scrolled behind the
+         keyboard (there is NO JS API to reset a visual-viewport pan; this is
+         the only reliable fix). keyboard-viewport.ts remains the fallback
+         for engines without support, where its computed inset stays >0. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>AI Chatbot</title>
 
     <!-- PWA / iOS Home Screen -->
