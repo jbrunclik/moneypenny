@@ -135,6 +135,9 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     document.body.appendChild(debugEl);
   }
   const vv = window.visualViewport;
+  // Keep the overlay inside the VISUAL viewport - keyboard-open pans move
+  // fixed elements out of view exactly when the numbers matter most
+  debugEl.style.top = `${Math.round((vv?.offsetTop ?? 0) + window.scrollY + 60)}px`;
   debugEventLog.push(`${event} ${JSON.stringify(data)}`);
   debugEventLog = debugEventLog.slice(-6);
   // Resolved safe-area insets are only readable via a probe element
