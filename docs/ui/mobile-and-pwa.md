@@ -104,26 +104,60 @@ element.addEventListener('touchcancel', handleCancel); // ← Essential!
 
 iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens, causing the cursor to appear below the input initially. The fix uses the `visualViewport` API to detect when the keyboard opens (viewport height shrinks) and scrolls the input area into view.
 
-**The Aug 25 2026 six-round keyboard saga - definitive rules:**
+**The Aug 2026 ten-round keyboard saga - definitive rules:**
 
 - **Apply the inset where fixed positioning lives.** `#app` is
-  `position: fixed; inset: 0` - it sizes against the LAYOUT VIEWPORT and
-  ignores html/body heights entirely. Three rounds of body-height fixes
+  `position: fixed` - it sizes against the LAYOUT VIEWPORT and ignores
+  html/body heights entirely. Three rounds of body-height fixes
   (vh → dvh → JS-driven) changed nothing because the composer lived at the
-  bottom of the fixed container. The inset belongs on `#app` (`bottom:
-  var(--keyboard-inset)`).
-- **No CSS viewport unit tells the truth on iOS.** `100vh` = largest
-  viewport (URL bar collapsed); `100dvh` misbehaves in standalone PWAs and
-  tracks collapsed-chrome geometry once the keyboard shrinks the URL bar.
-  `window.innerHeight` is the real layout viewport everywhere - exported
-  as `--app-vh` by `core/keyboard-viewport.ts`.
-- **Debug on-device with `?kbdebug=1`** - a fixed overlay showing
-  innerHeight / visualViewport / scroll offsets / body height and the last
-  6 detection events. One screenshot beats hours of speculation; it
-  pinpointed all three layered root causes.
+  bottom of the fixed container. The inset belongs on `#app`
+  (`height: calc(var(--app-vh) - var(--keyboard-inset))`, top-anchored).
+- **No native height measure tells the truth in every environment**
+  (all device-verified, iPhone iOS 26, screen 874pt, saT=62, saB=34):
+
+  | Measure | Safari tab | Standalone PWA |
+  |---|---|---|
+  | `100vh` | LIES (largest viewport, 743) | truthful (full webview, 874) |
+  | `innerHeight` | truthful (654 chrome expanded) | LIES at rest (874-saT=812) and **OSCILLATES 471↔812 while the keyboard is open** |
+  | `visualViewport.height` | truthful (363 kb open) | truthful per-state (471 kb open) but **excludes only the keyboard, NOT the floating input-assistant pill** |
+  | `env(safe-area-inset-top)` | 0 | 62 |
+
+  Hence `trueViewportHeight()` = 100vh probe in standalone / `innerHeight`
+  in browser (exported as `--app-vh`), and ONE keyboard formula everywhere:
+  `shrink = trueViewportHeight() - visualViewport.height - safeAreaTop()`
+  (standalone kb: 874-471-62=341; Safari kb: 654-363-0=291; all rest
+  states: 0). Never build an inset from `innerHeight` - the standalone
+  oscillation makes it flap 341→0→341 mid-focus, which collapses the
+  layout and DISMISSES the keyboard.
+- **Standalone only: add `KEYBOARD_STANDALONE_ACCESSORY_PX` (50) to the
+  inset.** iOS's floating prev/next/done pill hovers ~50pt above the
+  keyboard OVER page content and is excluded from the visual viewport in
+  Safari tabs but INCLUDED in standalone - no API reports it; it covered
+  the composer's bottom edge.
+- **`interactive-widget=resizes-content` in the viewport meta is a no-op
+  on this iOS version** (ICB stayed 654 in Safari with the keyboard open) -
+  kept because it's the correct platform hint where supported and harmless
+  where not. Do NOT assume it replaces the inset machinery.
+- **The stray focus scroll must be reverted, and it needs a `window`
+  scroll listener.** iOS scrolls the WINDOW for its caret reveal using
+  pre-shrink geometry and never re-clamps (stranded `winY=291/341`,
+  composer pinned at screen top over a dead band). The window is never
+  legitimately scrolled in this app (html/body overflow hidden) - any
+  persistent `winY > 0` is reset whenever no finger is down
+  (`touchstart/touchend` tracking). visualViewport events do NOT fire for
+  window scrolls; without `window.addEventListener('scroll', ...)` the
+  strand is invisible to the update loop.
+- **Debug on-device with `?kbdebug=1`** (browser) or **5 quick taps on the
+  chat title** (PWA; persists via localStorage) - overlay shows all
+  geometry inputs + the last 12 detection events (consecutive duplicates
+  deduped, or the 300ms settle poller flushes the interesting
+  transitions). Bump the `[kbN]` marker whenever iterating - it identifies
+  which bundle a user screenshot is running, which resolved several
+  "fix doesn't work" rounds that were actually stale tabs.
 - **Mind HTML cache staleness during mobile iteration**: the index page
   must send `Cache-Control: no-cache` (see docs/deployment.md) or Safari
-  serves hours-old bundles and every fix "doesn't work".
+  serves hours-old bundles - and an already-open tab keeps the old bundle
+  until reloaded regardless.
 
 **Keyboard-inset rules learned the hard way (Aug 2026, `core/keyboard-viewport.ts`):**
 
@@ -131,7 +165,7 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   screens with no inner scroll container (welcome screen), drags pan the
   visual viewport per pixel — a pan-dependent `--keyboard-inset` reflows the
   whole page mid-gesture and scrolling becomes extremely laggy. Derive the
-  inset from keyboard GEOMETRY only (`innerHeight - viewport.height`);
+  inset from keyboard GEOMETRY only (the unified formula above);
   `visualViewport` scroll events must be layout-free early-returns.
 - **Standalone caret ghost**: iOS pans the layout viewport to reveal a focused
   bottom input BEFORE the inset shrinks the page; WebKit then draws the caret
