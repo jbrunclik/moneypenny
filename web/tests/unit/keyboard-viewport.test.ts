@@ -281,6 +281,56 @@ describe('keyboard viewport pinning', () => {
     vi.useRealTimers();
   });
 
+  it('auto-resets a stale focus pan while the keyboard stays open', async () => {
+    // Safari strands the page: iOS re-pans the window AFTER our one-shot
+    // keyboard-open scrollTo(0,0), and later updates early-return on
+    // "inset unchanged" - the shrunk app sits above a dead band forever.
+    // The settle poller must detect scrollY > 0 with the keyboard open
+    // and scroll back.
+    vi.useFakeTimers();
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await vi.advanceTimersByTimeAsync(50); // drain the open-transition rAF
+    const callsAfterOpen = scrollToSpy.mock.calls.length;
+
+    // iOS re-pans the window after our nudge - no event fires
+    Object.defineProperty(window, 'scrollY', { value: 300, configurable: true });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(scrollToSpy.mock.calls.length).toBeGreaterThan(callsAfterOpen);
+    expect(scrollToSpy).toHaveBeenLastCalledWith(0, 0);
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+    scrollToSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('never resets the pan while a touch is in progress', async () => {
+    // Resetting mid-drag would yank the page out from under the user's
+    // finger (the recovery-drag escape hatch exists for the same reason)
+    vi.useFakeTimers();
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await vi.advanceTimersByTimeAsync(50);
+    const callsAfterOpen = scrollToSpy.mock.calls.length;
+
+    document.body.dispatchEvent(new Event('touchstart', { bubbles: true }));
+    Object.defineProperty(window, 'scrollY', { value: 300, configurable: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(scrollToSpy.mock.calls.length).toBe(callsAfterOpen);
+
+    // Touch lifts - the next poll may correct it
+    document.body.dispatchEvent(new Event('touchend', { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(scrollToSpy.mock.calls.length).toBeGreaterThan(callsAfterOpen);
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+    scrollToSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
   it('stops blocking touchmoves once the keyboard closes', async () => {
     textarea.focus();
     viewport.height = 500;

@@ -61,6 +61,24 @@ const panGuard = (e: TouchEvent | Event): void => {
 
 let panGuardInstalled = false;
 
+// Whether a finger is currently down - the stale-pan auto-reset must never
+// yank the page mid-gesture (same reason as the recovery-drag escape hatch)
+let touchActive = false;
+let touchTrackingInstalled = false;
+
+function installTouchTracking(): void {
+  if (touchTrackingInstalled) return;
+  touchTrackingInstalled = true;
+  document.addEventListener('touchstart', () => {
+    touchActive = true;
+  }, { passive: true });
+  const onTouchEnd = (e: Event): void => {
+    touchActive = ((e as TouchEvent).touches?.length ?? 0) > 0;
+  };
+  document.addEventListener('touchend', onTouchEnd, { passive: true });
+  document.addEventListener('touchcancel', onTouchEnd, { passive: true });
+}
+
 function setPanGuard(active: boolean): void {
   if (active === panGuardInstalled) return;
   panGuardInstalled = active;
@@ -235,6 +253,7 @@ export function cleanupKeyboardViewportPinning(): void {
 export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
+  installTouchTracking();
 
   let currentInset = 0;
 
@@ -247,19 +266,23 @@ export function initKeyboardViewportPinning(): void {
     // no inner scroll container, so drags pan the visual viewport), and an
     // offsetTop-dependent inset reflows the whole page mid-gesture - the
     // "extremely laggy scrolling with keyboard open" bug. Keyboard
-    // GEOMETRY (innerHeight - height) is stable during pans; the focus-pan
-    // that offsetTop used to compensate is reset below via scrollTo(0,0).
-    // Keyboard extent, measured per environment (device-verified Aug 2026):
-    // - Browser: innerHeight stays put while the visual viewport shrinks,
-    //   so the delta is the keyboard.
-    // - Standalone PWA: innerHeight ITSELF shrinks with the keyboard (the
-    //   vv delta is 0), and it under-reports the visible area by exactly
-    //   the status-bar inset while the keyboard is open. The keyboard is
-    //   the true height (100vh probe) minus (innerHeight + saT); the saT
-    //   term also absorbs the pre-settle launch lie (874-812-62 = 0).
-    const shrink = isStandaloneDisplay()
-      ? Math.max(0, Math.round(trueViewportHeight() - window.innerHeight - safeAreaTop()))
-      : Math.max(0, Math.round(window.innerHeight - viewport.height));
+    // GEOMETRY (the height terms below) is stable during pans; the
+    // focus-pan itself is handled by the stale-pan recovery further down.
+    // Keyboard extent - ONE formula for every environment, using only
+    // measures that are stable per-state (device-verified across all six
+    // captured states, Aug 2026): innerHeight is NOT among them - in
+    // standalone it oscillates between 471 and 812 while the keyboard is
+    // open (non-atomic resize), which made any innerHeight-based inset
+    // flap and collapse the layout mid-focus (keyboard vanished).
+    //   trueViewportHeight() - visualViewport.height - safeAreaTop()
+    // - standalone keyboard: 874 - 471 - 62 = 341  (both captures)
+    // - standalone rest (settled/pre-settle): 874-874-62 / 874-812-62 -> 0
+    // - Safari keyboard: 654 - 363 - 0 = 291 (saT is 0 in browser tabs)
+    // - Safari rest: 0
+    const shrink = Math.max(
+      0,
+      Math.round(trueViewportHeight() - viewport.height - safeAreaTop())
+    );
     // Editable-focused is the normal signal, but iOS can fire the resize
     // BEFORE focus lands - a shrink this large is unambiguously a keyboard
     // regardless (browser chrome is far smaller), and missing it leaves
@@ -281,6 +304,22 @@ export function initKeyboardViewportPinning(): void {
     const appVh = `${trueViewportHeight()}px`;
     if (document.documentElement.style.getPropertyValue('--app-vh') !== appVh) {
       document.documentElement.style.setProperty('--app-vh', appVh);
+    }
+
+    // Stale focus-pan recovery: iOS re-pans the window AFTER the one-shot
+    // keyboard-open scrollTo(0,0) below (Safari, device-verified) - the
+    // shrunk app then sits above a dead band with the composer stranded at
+    // the top of the screen, and nothing corrects it because the inset is
+    // already right. With the inset applied the whole layout fits above
+    // the keyboard, so a window scroll is NEVER useful - reset it whenever
+    // the keyboard is open and no finger is down (poller ticks every 300ms).
+    if (inset > 0 && inset === currentInset && !touchActive) {
+      const scrolled =
+        window.scrollY > 0 || (document.scrollingElement?.scrollTop ?? 0) > 0;
+      if (scrolled) {
+        kbDebug('panreset', { winY: window.scrollY });
+        window.scrollTo(0, 0);
+      }
     }
 
     if (inset === currentInset) return;
