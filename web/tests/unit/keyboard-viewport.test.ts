@@ -196,6 +196,27 @@ describe('keyboard viewport pinning', () => {
     expect(evt.defaultPrevented).toBe(false);
   });
 
+  it('never blocks touchmoves while the viewport is panned (recovery gesture)', async () => {
+    // A pan can still happen via exempted targets (drags starting on the
+    // textarea bypass the guard for text selection). Once panned, the
+    // recovery drag usually starts on empty space - blocking it strands
+    // the page in the panned state ("impossible to scroll back down").
+    textarea.focus();
+    viewport.height = 500;
+    viewport.dispatchEvent(new Event('resize'));
+    await nextFrame();
+
+    viewport.offsetTop = 120; // viewport currently panned
+    const evt = new Event('touchmove', { bubbles: true, cancelable: true });
+    document.body.dispatchEvent(evt);
+    expect(evt.defaultPrevented).toBe(false);
+
+    viewport.offsetTop = 0; // back to rest - guard active again
+    const evt2 = new Event('touchmove', { bubbles: true, cancelable: true });
+    document.body.dispatchEvent(evt2);
+    expect(evt2.defaultPrevented).toBe(true);
+  });
+
   it('stops blocking touchmoves once the keyboard closes', async () => {
     textarea.focus();
     viewport.height = 500;

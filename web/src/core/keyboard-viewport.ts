@@ -45,6 +45,11 @@ function touchCanScrollSomewhere(target: EventTarget | null): boolean {
 // is active. passive:false is required to be allowed to preventDefault.
 const panGuard = (e: TouchEvent | Event): void => {
   if (!e.cancelable) return;
+  // Escape hatch: if the viewport is ALREADY panned (a pan can slip in
+  // via exempted targets, e.g. drags starting on the textarea), never
+  // block - otherwise the recovery drag on empty space is prevented and
+  // the page is stranded in the panned state
+  if ((window.visualViewport?.offsetTop ?? 0) > 0) return;
   // Never interfere with drags inside form controls (text selection,
   // native textarea scrolling)
   if (e.target instanceof Element && isEditableElement(e.target.closest('textarea, input'))) {
