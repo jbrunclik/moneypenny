@@ -80,7 +80,10 @@
     display: none;
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    /* Lighter scrim so the chat content behind the open sidebar isn't dimmed
+       to near-black - the frosted sidebar needs something to read through for
+       the translucency to be noticeable. */
+    background-color: rgba(0, 0, 0, 0.28);
     z-index: var(--z-overlay);
 }
 

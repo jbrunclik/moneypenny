@@ -127,13 +127,11 @@
        content: the surface must be LIGHTER than what's behind it (iOS
        dark-mode technique), else dark-on-dark blends into a solid bar. */
     --glass-bg-header: rgba(60, 60, 64, 0.55);
-    /* Sidebar frost: the sidebar keeps its blur ON at ALL times - toggling it
-       off for the slide made the see-through content snap sharp->frosted (a
-       visible "jump"), so there is no toggle and nothing to snap. Kept
-       genuinely translucent so content reads through the frost; the constant
-       blur softens the slide enough that it doesn't need to hide behind
-       opacity. */
-    --glass-bg-sidebar: rgba(28, 28, 32, 0.60);
+    /* Sidebar frost (dark): blur stays ON at all times (toggling it snapped the
+       see-through content sharp->frosted). A lighter, more see-through tint so
+       the frost reads as a distinct glass layer over the (now less-dimmed) chat
+       content rather than a near-black solid. */
+    --glass-bg-sidebar: rgba(40, 40, 46, 0.5);
     --glass-border: rgba(255, 255, 255, 0.09);    /* hairline edge */
     --glass-highlight: rgba(255, 255, 255, 0.10); /* top specular line (inset) */
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
