@@ -185,7 +185,14 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb10]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb11]\n` +
+    (() => {
+      const m = document.getElementById('messages');
+      const cph = getComputedStyle(document.documentElement).getPropertyValue('--composer-height').trim();
+      const padB = m ? getComputedStyle(m).paddingBottom : '?';
+      const distFromBottom = m ? Math.round(m.scrollHeight - m.scrollTop - m.clientHeight) : -1;
+      return `msgST=${m?.scrollTop.toFixed(0)} msgSH=${m?.scrollHeight} msgCH=${m?.clientHeight} distBottom=${distFromBottom} cph=${cph} padB=${padB}\n`;
+    })() +
     debugEventLog.join('\n');
 }
 
