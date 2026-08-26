@@ -19,6 +19,11 @@ import { isProgrammaticScrollActive } from '../utils/thumbnails';
 const REVEAL_NEAR_TOP_PX = 72;
 // Ignore sub-pixel jitter / momentum wobble so the header doesn't flicker.
 const DIRECTION_THRESHOLD_PX = 8;
+// Don't reveal in the bottom rubber-band zone: flinging to the bottom bounces
+// back a few px, which reads as a scroll-up and popped the header in abruptly.
+// At the bottom you're reading the latest content anyway, so stay hidden until
+// a deliberate scroll-up moves out of this zone.
+const BOTTOM_BOUNCE_ZONE_PX = 56;
 
 let lastScrollTop = 0;
 
@@ -48,10 +53,14 @@ export function initHeaderAutoHide(): void {
     const delta = top - lastScrollTop;
     if (Math.abs(delta) < DIRECTION_THRESHOLD_PX) return;
 
+    const distanceFromBottom = container.scrollHeight - top - container.clientHeight;
+
     if (top <= REVEAL_NEAR_TOP_PX) {
-      setHidden(false);
-    } else {
-      setHidden(delta > 0); // hide on the way down, reveal on the way up
+      setHidden(false); // always show near the top
+    } else if (delta > 0) {
+      setHidden(true); // scrolling down → hide
+    } else if (distanceFromBottom > BOTTOM_BOUNCE_ZONE_PX) {
+      setHidden(false); // deliberate scroll-up (not the bottom bounce) → reveal
     }
     lastScrollTop = top;
   });
