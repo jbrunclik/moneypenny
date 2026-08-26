@@ -681,24 +681,39 @@ export function closeSidebar(): void {
 let sidebarSlidingTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * Mark the sidebar as sliding for the duration of a transform animation, so
- * glass.css drops the backdrop-filter (blur on a transform-animated fixed
- * element ghosts on iOS). Also used by the swipe gesture (core/gestures.ts).
+ * End a sidebar drag: keep the backdrop-filter disabled (via .sliding) until
+ * the snap/settle transition finishes, then restore the frost. Used by the
+ * swipe gesture (core/gestures.ts). The .sliding class is added at drag start
+ * there; here we remove it precisely when the transform transition ends, so
+ * the blur returns the instant the panel settles - no fixed-timer lag.
+ *
+ * The tap-toggle path deliberately does NOT disable the blur: a single CSS
+ * transform transition composites cleanly (the iOS ghost was the per-frame
+ * drag), so tap-open keeps the frost throughout and shows no delay.
  */
 export function markSidebarSliding(sidebar: HTMLElement): void {
   sidebar.classList.add('sliding');
   if (sidebarSlidingTimer) clearTimeout(sidebarSlidingTimer);
-  // Slightly longer than --transition-slow so the blur returns only once the
-  // panel is fully settled.
-  sidebarSlidingTimer = setTimeout(() => sidebar.classList.remove('sliding'), 400);
+  const clear = (): void => {
+    sidebar.removeEventListener('transitionend', onEnd);
+    if (sidebarSlidingTimer) {
+      clearTimeout(sidebarSlidingTimer);
+      sidebarSlidingTimer = null;
+    }
+    sidebar.classList.remove('sliding');
+  };
+  const onEnd = (e: TransitionEvent): void => {
+    if (e.propertyName === 'transform') clear();
+  };
+  sidebar.addEventListener('transitionend', onEnd);
+  // Fallback if no transition runs (e.g. released already fully open/closed)
+  sidebarSlidingTimer = setTimeout(clear, 350);
 }
 
 function updateSidebarVisibility(): void {
   const sidebar = getElementById<HTMLElement>('sidebar');
   const app = getElementById<HTMLDivElement>('app');
   if (!sidebar || !app) return;
-
-  markSidebarSliding(sidebar);
 
   const { isSidebarOpen } = useStore.getState();
 
