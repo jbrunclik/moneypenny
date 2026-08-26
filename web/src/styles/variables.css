@@ -123,6 +123,10 @@
     --glass-bg: rgba(24, 24, 24, 0.58);           /* chrome over content - content
                                                      genuinely reads through it */
     --glass-bg-strong: rgba(18, 18, 18, 0.74);    /* modals: more opaque, focused */
+    --glass-bg-menu: rgba(28, 28, 32, 0.95);      /* dropdown menus: near-opaque -
+                                                     they sit right over the
+                                                     translucent composer and must
+                                                     stay legible */
     /* Header glass reads as a distinct FROSTED layer over the near-black
        content: the surface must be LIGHTER than what's behind it (iOS
        dark-mode technique), else dark-on-dark blends into a solid bar. */
@@ -306,6 +310,7 @@
        pure-white content, and a firmer hairline + highlight for definition. */
     --glass-bg: rgba(247, 248, 251, 0.78);
     --glass-bg-strong: rgba(250, 251, 253, 0.9);
+    --glass-bg-menu: rgba(252, 252, 253, 0.96);
     --glass-bg-header: rgba(245, 246, 249, 0.8);
     /* Opaque, clean solid panel. A translucent light frost over the mobile
        overlay's DARK scrim reads as a gray wash (mud), not glass - dark works

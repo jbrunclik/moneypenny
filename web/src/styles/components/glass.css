@@ -66,6 +66,13 @@
         box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
     }
 
+    /* The model dropdown opens directly over the (translucent) composer, so
+       the strong material still let text bleed through. Near-opaque menu
+       material keeps it legible. */
+    .model-dropdown {
+        background-color: var(--glass-bg-menu);
+    }
+
     /* Sidebar: frosted glass with the blur ON at ALL times - during the slide
        AND at rest. Earlier we dropped the blur for the slide (to dodge the iOS
        transform-animated-backdrop ghost) and restored it on settle, but that

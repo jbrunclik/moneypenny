@@ -55,6 +55,7 @@ import { APP_NAME } from '../config';
 import { getSyncManager } from '../sync/SyncManager';
 import { renderAgentConversationHeader } from '../components/AgentConversationHeader';
 import { renderChatHeader } from '../components/ChatHeader';
+import { revealHeader } from './header-autohide';
 import { ARCHIVE_ICON, DELETE_ICON, PIN_ICON, UNPIN_ICON } from '../utils/icons';
 
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
@@ -346,6 +347,10 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
  */
 export async function selectConversation(convId: string): Promise<void> {
   const store = useStore.getState();
+
+  // A new conversation always opens with the header visible (it may have been
+  // auto-hidden by scrolling in the previous one).
+  revealHeader();
 
   // Get navigation token to detect if user navigates to planner/agents during load
   // This supplements pendingConversationId which only tracks conversation-to-conversation
