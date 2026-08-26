@@ -747,8 +747,16 @@ test.describe('Scroll to bottom behavior', () => {
     await page.waitForSelector('.message.user', { timeout: 10000 });
 
     const messagesContainer = page.locator('#messages');
-    // Let the initial scroll-to-bottom settle before scrolling up.
-    await page.waitForTimeout(500);
+    // Wait for the initial load scroll-to-bottom to actually SETTLE before
+    // scrolling up - a fixed timeout races with a slow CI load, and a late
+    // load-scroll then fights the scroll-up (deterministic > sleep).
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('messages');
+        return !!el && el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+      },
+      { timeout: 5000 }
+    );
 
     // Get max scroll position (bottom)
     const maxScroll = await messagesContainer.evaluate(
