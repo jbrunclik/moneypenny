@@ -143,18 +143,26 @@
    mobile header, tighter mobile padding) live in the mobile media query.
    ---------------------------------------- */
 
-/* Drop the per-message avatar + its gap - role is clear from alignment and
-   the user bubble. Reclaims ~48px of width per message. */
+/* Keep a COMPACT avatar as the role marker (removing it entirely erased the
+   user/assistant distinction) but drop the bubble - so the avatar column is
+   the only extra width, and it's smaller + tighter than before. */
 .message-avatar {
-    display: none;
+    width: 28px;
+    height: 28px;
+    margin-top: var(--space-1);
+}
+
+.message-avatar svg {
+    width: 18px;
+    height: 18px;
 }
 
 .message {
-    gap: 0;
+    gap: var(--space-2-5);
 }
 
 /* Assistant replies run full-width like a document: no bubble background, no
-   inset padding. The single biggest horizontal + vertical content win. */
+   inset padding. The distinction comes from the avatar + the user bubble. */
 .message.assistant .message-content {
     background-color: transparent;
     padding: 0;

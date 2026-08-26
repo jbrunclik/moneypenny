@@ -152,8 +152,10 @@
    bottom-align it so the last message hugs the composer instead of floating
    at the top with a big gap (very visible with the keyboard open). margin-top
    collapses to 0 the moment content overflows, so scrolling and pagination
-   are unaffected. The welcome screen is excluded - it centers itself. */
-.messages > :first-child:not(.welcome-message) {
+   are unaffected. Scoped to a real chat message as the first child - the
+   Sports/Agents/Planner/Language dashboards ALSO render into #messages and
+   must NOT be bottom-aligned (they top-align like a normal page). */
+.messages > .message:first-child {
     margin-top: auto;
 }
 

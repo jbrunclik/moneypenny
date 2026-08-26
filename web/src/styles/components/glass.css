@@ -2,78 +2,91 @@
    Liquid Glass Materials (iOS 26-style)
    ============================================
 
-   Centralized so the whole app shares ONE material and ONE perf/fallback
-   guard. This file only UPGRADES chrome surfaces to translucent glass; the
-   solid --bg-* backgrounds set in each component stay the fallback. Imported
-   last in main.css so these rules win where the guards pass.
+   Centralized so the whole app shares ONE material. This file UPGRADES chrome
+   surfaces to translucent glass; the solid --bg-* backgrounds set in each
+   component are the fallback. Imported last in main.css.
 
-   Guards (both must hold, else solid fallback):
-   - @supports backdrop-filter: the effect is possible at all.
-   - prefers-reduced-transparency: no-preference: the user hasn't asked for
-     opaque UI (accessibility).
-
-   Reduced motion is respected app-wide already; glass is static (no motion),
-   so nothing extra is needed there.
+   Guarding: glass is applied by DEFAULT inside @supports(backdrop-filter).
+   Accessibility (reduced transparency) is honored by a SEPARATE opt-OUT block
+   at the bottom. NOTE: do NOT gate the glass behind
+   `@media (prefers-reduced-transparency: no-preference)` - that media feature
+   is unsupported on older Safari, where the query fails to match and silently
+   disables ALL glass. Opt-out-on-`reduce` degrades safely everywhere.
 */
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    @media (prefers-reduced-transparency: no-preference) {
-        /* Shared material: translucent surface + blur with a touch of
-           saturation (iOS vibrancy) + hairline edge + top specular line.
-           NOTE: the sidebar is deliberately absent - it slides via transform,
-           and backdrop-filter on a transform-animated fixed element ghosts on
-           iOS (a crisp doubled panel mid-swipe). It gets a no-blur frost below. */
-        .mobile-header,
-        .input-container,
-        .model-dropdown,
-        .modal,
-        .info-popup-content,
-        .action-sheet,
-        .toast,
-        .scroll-to-bottom {
-            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-            background-color: var(--glass-bg);
-            border-color: var(--glass-border);
-        }
+    /* Shared material: translucent surface + blur with a touch of saturation
+       (iOS vibrancy) + hairline edge + top specular line. NOTE: the sidebar
+       is deliberately absent - it slides via transform, and backdrop-filter on
+       a transform-animated fixed element ghosts on iOS. It gets a no-blur
+       frost below. */
+    .mobile-header,
+    .input-container,
+    .model-dropdown,
+    .modal,
+    .info-popup-content,
+    .action-sheet,
+    .toast,
+    .scroll-to-bottom {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+        backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+        background-color: var(--glass-bg);
+        border-color: var(--glass-border);
+    }
 
-        /* Bottom/top chrome: specular top edge, no drop shadow (a downward
-           shadow reads wrong on a bar). */
-        .mobile-header,
-        .input-container {
-            box-shadow: inset 0 1px 0 var(--glass-highlight);
-        }
+    /* Bottom/top chrome: specular top edge, no drop shadow (a downward shadow
+       reads wrong on a bar). */
+    .mobile-header,
+    .input-container {
+        box-shadow: inset 0 1px 0 var(--glass-highlight);
+    }
 
-        /* The header spans the full width over scrolling content, so push it
-           further than the shared material: more see-through + heavier blur so
-           content clearly reads through it (the title stays legible over the
-           strong blur). A soft hairline bottom edge sells the glass. */
-        .mobile-header {
-            background-color: var(--glass-bg-header);
-            -webkit-backdrop-filter: blur(32px) saturate(200%);
-            backdrop-filter: blur(32px) saturate(200%);
-            border-bottom: 1px solid var(--glass-border);
-        }
+    /* The header spans the full width over scrolling content, so push it
+       further than the shared material: a LIGHTER frosted surface (must be
+       lighter than the near-black content or dark-on-dark blends to solid) +
+       heavier blur so content reads through. */
+    .mobile-header {
+        background-color: var(--glass-bg-header);
+        -webkit-backdrop-filter: blur(32px) saturate(200%);
+        backdrop-filter: blur(32px) saturate(200%);
+        border-bottom: 1px solid var(--glass-border);
+    }
 
-        /* Genuinely floating panels: more opaque for reading focus, plus a
-           real drop shadow so they lift off the content behind them. */
-        .model-dropdown,
-        .modal,
-        .info-popup-content,
-        .action-sheet,
-        .toast,
-        .scroll-to-bottom {
-            background-color: var(--glass-bg-strong);
-            box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
-        }
+    /* Genuinely floating panels: more opaque for reading focus, plus a real
+       drop shadow so they lift off the content behind them. */
+    .model-dropdown,
+    .modal,
+    .info-popup-content,
+    .action-sheet,
+    .toast,
+    .scroll-to-bottom {
+        background-color: var(--glass-bg-strong);
+        box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+    }
 
-        /* Sidebar: frosted, mostly-opaque glass with NO backdrop-filter, so it
-           slides cleanly (no iOS transform+blur ghosting). Reads as glass at
-           rest; the faint translucency sits over the dark overlay scrim anyway. */
-        .sidebar {
-            background-color: var(--glass-bg-opaque);
-            border-color: var(--glass-border);
-            box-shadow: inset 0 1px 0 var(--glass-highlight);
-        }
+    /* Sidebar: frosted, mostly-opaque glass with NO backdrop-filter, so it
+       slides cleanly (no iOS transform+blur ghosting). */
+    .sidebar {
+        background-color: var(--glass-bg-opaque);
+        border-color: var(--glass-border);
+        box-shadow: inset 0 1px 0 var(--glass-highlight);
+    }
+}
+
+/* Accessibility opt-OUT: only when the user explicitly asks for reduced
+   transparency do we drop back to solid surfaces. */
+@media (prefers-reduced-transparency: reduce) {
+    .mobile-header,
+    .input-container,
+    .model-dropdown,
+    .modal,
+    .info-popup-content,
+    .action-sheet,
+    .toast,
+    .scroll-to-bottom,
+    .sidebar {
+        background-color: var(--bg-secondary);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
     }
 }
