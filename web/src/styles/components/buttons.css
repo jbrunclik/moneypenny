@@ -470,12 +470,11 @@
     transform: scale(0.97);
 }
 
-/* Mobile: the composer floats over the message list, so the sticky
-   scroll-to-bottom button must ride above it. In buttons.css (imported
-   after layout.css) so this wins the same-specificity tie over the base
-   rule. --composer-height is the visible pill footprint (composer-height.ts). */
-@media (max-width: 768px) {
-    .scroll-to-bottom {
-        bottom: calc(var(--composer-height, 72px) + var(--space-2));
-    }
+/* The composer floats over the message list on BOTH mobile and desktop, so
+   the sticky scroll-to-bottom button must ride above it at every width. In
+   buttons.css (imported after layout.css) so this wins the same-specificity
+   tie over the base rule. --composer-height is the visible pill footprint
+   (composer-height.ts); the fallback covers the pre-JS first paint. */
+.scroll-to-bottom {
+    bottom: calc(var(--composer-height, 120px) + var(--space-2));
 }

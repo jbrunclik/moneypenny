@@ -321,4 +321,6 @@
     .main:has(.input-area:not(.hidden)) .messages {
         padding-bottom: calc(var(--composer-height, 140px) + var(--space-4));
     }
+    /* NB: the scroll-to-bottom lift lives in buttons.css (imported after this
+       file) so it wins the cascade over that button's base position. */
 }

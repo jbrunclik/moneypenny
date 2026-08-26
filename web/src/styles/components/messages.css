@@ -188,6 +188,43 @@
     }
 }
 
+/* Desktop: float the role avatar into the column's SIDE GUTTER so the message
+   content (tool pills, text, the user bubble) fills the full column and lines
+   up edge-to-edge with the composer, instead of being indented by an avatar
+   column. The message column and the composer share one width - the reading
+   measure, or whatever's left after reserving the gutters on a narrow window -
+   so both sit on the same edges and there's always a slot for the avatar. */
+@media (min-width: 769px) {
+    .message,
+    .message-loading,
+    .input-wrapper {
+        max-width: min(var(--message-max-width), 100% - 2 * 52px);
+    }
+
+    .message,
+    .message-loading {
+        position: relative;
+        /* Avatar is absolute now - no flex gap to reserve. */
+        gap: 0;
+    }
+
+    .message-avatar {
+        position: absolute;
+        top: var(--space-1);
+        margin-top: 0;
+    }
+
+    /* Assistant marker sits in the left gutter; user marker in the right. */
+    .message.assistant .message-avatar,
+    .message-loading .message-avatar {
+        left: calc(-1 * (28px + var(--space-3)));
+    }
+
+    .message.user .message-avatar {
+        right: calc(-1 * (28px + var(--space-3)));
+    }
+}
+
 /* ----------------------------------------
    Message Actions (timestamp + buttons)
    ---------------------------------------- */
