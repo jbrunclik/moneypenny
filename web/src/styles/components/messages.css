@@ -133,32 +133,42 @@
 .message.user .message-content-wrapper {
     flex: 0 1 auto;
     align-items: flex-end;
-    max-width: min(70%, calc(100% - 48px));
+    /* No avatar column to reserve anymore - a clean fraction of the width */
+    max-width: 70%;
 }
 
 /* ----------------------------------------
-   Mobile density (maximize displayed content)
+   Density (maximize content) - applied UNIFORMLY on desktop + mobile so the
+   two stay consistent (per steering). Only platform-specific bits (floating
+   mobile header, tighter mobile padding) live in the mobile media query.
    ---------------------------------------- */
+
+/* Drop the per-message avatar + its gap - role is clear from alignment and
+   the user bubble. Reclaims ~48px of width per message. */
+.message-avatar {
+    display: none;
+}
+
+.message {
+    gap: 0;
+}
+
+/* Assistant replies run full-width like a document: no bubble background, no
+   inset padding. The single biggest horizontal + vertical content win. */
+.message.assistant .message-content {
+    background-color: transparent;
+    padding: 0;
+}
+
+/* Footer hugs the message (no bubble separating them now) as an ambient,
+   low-emphasis row. */
+.message-content-wrapper {
+    gap: var(--space-1);
+}
+
 @media (max-width: 768px) {
-    /* Drop the 32px per-message avatar + its 16px gap - role is clear from
-       alignment and the user bubble. Reclaims ~48px of width per message. */
-    .message-avatar {
-        display: none;
-    }
-
-    .message {
-        gap: 0;
-    }
-
-    /* Assistant replies run full-width like a document: no bubble background,
-       no inset padding. The single biggest horizontal + vertical content win. */
-    .message.assistant .message-content {
-        background-color: transparent;
-        padding: 0;
-    }
-
-    /* User messages keep their bubble (right-aligned); no avatar column to
-       reserve, so allow a touch more width. */
+    /* User messages keep their right-aligned bubble; a touch more width on
+       the narrow screen. */
     .message.user .message-content-wrapper {
         max-width: 85%;
     }

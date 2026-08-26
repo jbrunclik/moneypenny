@@ -210,12 +210,24 @@
     .messages {
         /* Tighter side padding + inter-message gap on mobile for density */
         padding: var(--space-3);
+        /* Header clearance is a SPACER (::before), not padding-top: WebKit
+           clips scrolled content at the padding-top edge, so content never
+           enters the header region and the glass has nothing to blur. A
+           spacer is scrollable content, so messages DO pass under the header
+           through the blur. (padding-bottom IS scrollable, so the composer
+           keeps using it.) */
+        padding-top: 0;
         gap: var(--space-3);
-        /* Clear the floating header (its height incl. the status-bar inset) */
-        padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0) + var(--space-3));
         /* Clear the floating composer (live pill footprint from
            composer-height.ts; fallback covers the pre-JS first paint) */
         padding-bottom: calc(var(--composer-height, 72px) + var(--space-3));
+    }
+
+    .messages::before {
+        content: '';
+        display: block;
+        flex-shrink: 0;
+        height: calc(var(--header-height) + env(safe-area-inset-top, 0));
     }
 
     .input-area {

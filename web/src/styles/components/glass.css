@@ -44,6 +44,17 @@
             box-shadow: inset 0 1px 0 var(--glass-highlight);
         }
 
+        /* The header spans the full width over scrolling content, so push it
+           further than the shared material: more see-through + heavier blur so
+           content clearly reads through it (the title stays legible over the
+           strong blur). A soft hairline bottom edge sells the glass. */
+        .mobile-header {
+            background-color: var(--glass-bg-header);
+            -webkit-backdrop-filter: blur(32px) saturate(200%);
+            backdrop-filter: blur(32px) saturate(200%);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
         /* Genuinely floating panels: more opaque for reading focus, plus a
            real drop shadow so they lift off the content behind them. */
         .model-dropdown,

@@ -120,6 +120,7 @@
     --glass-bg: rgba(24, 24, 24, 0.58);           /* chrome over content - content
                                                      genuinely reads through it */
     --glass-bg-strong: rgba(18, 18, 18, 0.74);    /* modals: more opaque, focused */
+    --glass-bg-header: rgba(22, 22, 22, 0.42);    /* header: extra see-through */
     --glass-bg-opaque: rgba(26, 26, 26, 0.88);    /* sliding panels: frost WITHOUT
                                                      live blur - backdrop-filter on a
                                                      transform-animated fixed element
@@ -292,6 +293,7 @@
     /* Liquid glass materials (light theme) */
     --glass-bg: rgba(255, 255, 255, 0.58);
     --glass-bg-strong: rgba(255, 255, 255, 0.74);
+    --glass-bg-header: rgba(255, 255, 255, 0.5);
     --glass-bg-opaque: rgba(255, 255, 255, 0.88);
     --glass-border: rgba(0, 0, 0, 0.07);
     --glass-highlight: rgba(255, 255, 255, 0.75);
