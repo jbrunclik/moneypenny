@@ -728,22 +728,27 @@ test.describe('Scroll to bottom behavior', () => {
   });
 
   test('does not hijack scroll when user scrolls up to view history', async ({ page }) => {
-    // Create a conversation with several messages
-    await page.click('#new-chat-btn');
-    for (let i = 0; i < 5; i++) {
-      // Long messages so the list reliably overflows the tall (1024px) E2E
-      // viewport with the compact message density - otherwise there's nothing
-      // to scroll up through.
-      await page.fill(
-        '#message-input',
-        `Message number ${i + 1}. ` +
-          'This is a longer line of text to build up vertical height. '.repeat(12)
-      );
-      await page.click('#send-btn');
-      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
+    // Seed a scrollable conversation, but keep it within ONE page (<= the
+    // 50-message backend page size) so scrolling to the top doesn't trigger
+    // load-older pagination - which legitimately shifts the scroll to keep the
+    // viewport stable and would look like a hijack. 20 pairs (40 messages)
+    // reliably overflow the tall (1024px) E2E viewport at the compact density.
+    const messages = [];
+    for (let i = 0; i < 20; i++) {
+      messages.push({ role: 'user', content: `Message ${i + 1}` });
+      messages.push({ role: 'assistant', content: `Response ${i + 1} with a little content.` });
     }
+    await page.request.post('/test/seed', {
+      data: { conversations: [{ title: 'History Scroll Test', messages }] },
+    });
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.locator('.conversation-item-wrapper').first().click();
+    await page.waitForSelector('.message.user', { timeout: 10000 });
 
     const messagesContainer = page.locator('#messages');
+    // Let the initial scroll-to-bottom settle before scrolling up.
+    await page.waitForTimeout(500);
 
     // Get max scroll position (bottom)
     const maxScroll = await messagesContainer.evaluate(

@@ -758,8 +758,13 @@ test.describe('Chat - End-of-stream repositioning', () => {
   });
 
   test('long responses jump to the top of the message for read-from-start', async ({ page }) => {
-    // Response much taller than the viewport
-    const longResponse = Array.from({ length: 120 }, (_, i) => `Line ${i + 1} of a long answer.`).join('\n\n');
+    // Response much taller than the viewport. Mock streaming collapses the
+    // paragraph breaks, so the text wraps to ~1 line per sentence - use enough
+    // sentences to clear the (tall, 1024px) E2E viewport with margin.
+    const longResponse = Array.from(
+      { length: 400 },
+      (_, i) => `Line ${i + 1} of a long answer.`
+    ).join('\n\n');
     await setMockResponse(page, longResponse);
 
     await page.fill('#message-input', 'Tell me everything');
