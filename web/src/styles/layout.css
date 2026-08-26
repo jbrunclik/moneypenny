@@ -208,12 +208,14 @@
     }
 
     .messages {
-        padding: var(--space-4);
+        /* Tighter side padding + inter-message gap on mobile for density */
+        padding: var(--space-3);
+        gap: var(--space-3);
         /* Clear the floating header (its height incl. the status-bar inset) */
-        padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0) + var(--space-4));
-        /* Clear the floating composer (live height from composer-height.ts;
-           fallback covers the pre-JS first paint) */
-        padding-bottom: calc(var(--composer-height, 72px) + var(--space-4));
+        padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0) + var(--space-3));
+        /* Clear the floating composer (live pill footprint from
+           composer-height.ts; fallback covers the pre-JS first paint) */
+        padding-bottom: calc(var(--composer-height, 72px) + var(--space-3));
     }
 
     .input-area {
@@ -228,11 +230,6 @@
            background at the very bottom. The blur lives ONLY on the pill
            (.input-container in glass.css) - one blur layer, not two. */
         background: linear-gradient(to top, var(--bg-primary) 32%, transparent);
-    }
-
-    /* Sticky scroll-to-bottom must ride above the floating composer */
-    .scroll-to-bottom {
-        bottom: calc(var(--composer-height, 72px) + var(--space-2));
     }
 
     /* Keyboard open (kb-open set by core/keyboard-viewport.ts): the home

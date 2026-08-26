@@ -469,3 +469,13 @@
 :is(.btn-primary, .btn-send, .btn-stop, .btn-new-agent, .sports-add-btn, .language-add-btn):active {
     transform: scale(0.97);
 }
+
+/* Mobile: the composer floats over the message list, so the sticky
+   scroll-to-bottom button must ride above it. In buttons.css (imported
+   after layout.css) so this wins the same-specificity tie over the base
+   rule. --composer-height is the visible pill footprint (composer-height.ts). */
+@media (max-width: 768px) {
+    .scroll-to-bottom {
+        bottom: calc(var(--composer-height, 72px) + var(--space-2));
+    }
+}

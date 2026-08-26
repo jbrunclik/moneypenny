@@ -116,10 +116,11 @@
        transparency-averse setups keep the solid --bg-secondary fallback.
        Alpha kept >= 0.7 so text contrast holds over busy content.
        ---------------------------------------- */
-    --glass-blur: 20px;
-    --glass-bg: rgba(26, 26, 26, 0.72);           /* chrome over content */
-    --glass-bg-strong: rgba(18, 18, 18, 0.85);    /* modals: more opaque, focused */
-    --glass-bg-opaque: rgba(26, 26, 26, 0.9);     /* sliding panels: frost WITHOUT
+    --glass-blur: 26px;
+    --glass-bg: rgba(24, 24, 24, 0.58);           /* chrome over content - content
+                                                     genuinely reads through it */
+    --glass-bg-strong: rgba(18, 18, 18, 0.74);    /* modals: more opaque, focused */
+    --glass-bg-opaque: rgba(26, 26, 26, 0.88);    /* sliding panels: frost WITHOUT
                                                      live blur - backdrop-filter on a
                                                      transform-animated fixed element
                                                      ghosts on iOS (sidebar) */
@@ -289,9 +290,9 @@
     --overlay-bg: rgba(0, 0, 0, 0.45);
 
     /* Liquid glass materials (light theme) */
-    --glass-bg: rgba(255, 255, 255, 0.66);
-    --glass-bg-strong: rgba(255, 255, 255, 0.82);
-    --glass-bg-opaque: rgba(255, 255, 255, 0.9);
+    --glass-bg: rgba(255, 255, 255, 0.58);
+    --glass-bg-strong: rgba(255, 255, 255, 0.74);
+    --glass-bg-opaque: rgba(255, 255, 255, 0.88);
     --glass-border: rgba(0, 0, 0, 0.07);
     --glass-highlight: rgba(255, 255, 255, 0.75);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
