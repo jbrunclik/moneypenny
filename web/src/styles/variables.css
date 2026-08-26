@@ -128,12 +128,13 @@
                                                      live blur - backdrop-filter on a
                                                      transform-animated fixed element
                                                      ghosts on iOS (sidebar) */
-    /* Sidebar frost: more opaque than the chrome material. The sidebar keeps
-       its blur ON at ALL times (toggling it off for the slide made the
-       see-through content snap sharp->frosted - a visible "jump"). A higher
-       opacity means only a little content reads through, so the constant blur
-       can't ghost noticeably during the transform-animated slide. */
-    --glass-bg-sidebar: rgba(24, 24, 26, 0.80);
+    /* Sidebar frost: the sidebar keeps its blur ON at ALL times - toggling it
+       off for the slide made the see-through content snap sharp->frosted (a
+       visible "jump"), so there is no toggle and nothing to snap. Kept
+       genuinely translucent so content reads through the frost; the constant
+       blur softens the slide enough that it doesn't need to hide behind
+       opacity. */
+    --glass-bg-sidebar: rgba(28, 28, 32, 0.60);
     --glass-border: rgba(255, 255, 255, 0.09);    /* hairline edge */
     --glass-highlight: rgba(255, 255, 255, 0.10); /* top specular line (inset) */
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
@@ -304,7 +305,7 @@
     --glass-bg-strong: rgba(255, 255, 255, 0.74);
     --glass-bg-header: rgba(255, 255, 255, 0.5);
     --glass-bg-opaque: rgba(255, 255, 255, 0.88);
-    --glass-bg-sidebar: rgba(250, 250, 252, 0.80);
+    --glass-bg-sidebar: rgba(250, 250, 252, 0.62);
     --glass-border: rgba(0, 0, 0, 0.07);
     --glass-highlight: rgba(255, 255, 255, 0.75);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
