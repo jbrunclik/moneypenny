@@ -3,7 +3,7 @@
  * Handles touch gestures and swipe handling for mobile.
  */
 
-import { toggleSidebar, closeSidebar } from '../components/Sidebar';
+import { toggleSidebar, closeSidebar, markSidebarSliding } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from '../gestures/swipe';
 import { hapticTick } from '../utils/haptics';
@@ -162,6 +162,10 @@ export function setupTouchGestures(): void {
 
     if (!isSidebarSwiping && Math.abs(deltaX) > 10 && Math.abs(deltaX) >= Math.abs(deltaY)) {
       isSidebarSwiping = true;
+      // Disable the sidebar's backdrop-filter for the whole drag (blur on a
+      // transform-animated fixed element ghosts on iOS). touchend re-arms the
+      // settle timer for the snap animation.
+      sidebar.classList.add('sliding');
     }
 
     // Suppress Safari's native left-edge swipe-back (and native scroll):
@@ -199,6 +203,8 @@ export function setupTouchGestures(): void {
     sidebar.style.transition = '';
 
     if (isSidebarSwiping) {
+      // Keep the blur off through the snap/settle animation, then restore it.
+      markSidebarSliding(sidebar);
       if (isSidebarOpen && deltaX < -SWIPE_THRESHOLD) {
         // Close sidebar
         closeSidebar();
@@ -216,6 +222,7 @@ export function setupTouchGestures(): void {
   const handleSidebarTouchCancel = (): void => {
     sidebar.style.transform = '';
     sidebar.style.transition = '';
+    if (isSidebarSwiping) markSidebarSliding(sidebar);
     isSidebarSwiping = false;
     activeSwipeType = 'none';
   };

@@ -678,10 +678,27 @@ export function closeSidebar(): void {
 /**
  * Update sidebar visibility based on state
  */
+let sidebarSlidingTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Mark the sidebar as sliding for the duration of a transform animation, so
+ * glass.css drops the backdrop-filter (blur on a transform-animated fixed
+ * element ghosts on iOS). Also used by the swipe gesture (core/gestures.ts).
+ */
+export function markSidebarSliding(sidebar: HTMLElement): void {
+  sidebar.classList.add('sliding');
+  if (sidebarSlidingTimer) clearTimeout(sidebarSlidingTimer);
+  // Slightly longer than --transition-slow so the blur returns only once the
+  // panel is fully settled.
+  sidebarSlidingTimer = setTimeout(() => sidebar.classList.remove('sliding'), 400);
+}
+
 function updateSidebarVisibility(): void {
   const sidebar = getElementById<HTMLElement>('sidebar');
   const app = getElementById<HTMLDivElement>('app');
   if (!sidebar || !app) return;
+
+  markSidebarSliding(sidebar);
 
   const { isSidebarOpen } = useStore.getState();
 
