@@ -328,6 +328,17 @@ class Config:
     SEARCH_BILLING_DAY_BRAVE = int(os.getenv("SEARCH_BILLING_DAY_BRAVE", "1"))
     SEARCH_BILLING_DAY_TAVILY = int(os.getenv("SEARCH_BILLING_DAY_TAVILY", "1"))
     SEARCH_BILLING_DAY_EXA = int(os.getenv("SEARCH_BILLING_DAY_EXA", "1"))
+    # Circuit breaker: our usage counters bill on success only, so they
+    # undercount a provider's real spend and can keep routing to a provider
+    # that's actually out of credits. After this many consecutive failures a
+    # metered provider is skipped for the rest of its billing period (the
+    # breaker key is period-scoped, so it auto-clears when credits reset).
+    SEARCH_BREAKER_THRESHOLD = int(os.getenv("SEARCH_BREAKER_THRESHOLD", "3"))
+    # Exhaustion is the common case and self-heals at period rollover, so the
+    # half-open probe is deliberately slow (once a day): it only exists to
+    # recover a rare transient multi-hour outage of a provider that still has
+    # quota, without burning a failed call every few minutes for a whole month.
+    SEARCH_BREAKER_PROBE_SECONDS = int(os.getenv("SEARCH_BREAKER_PROBE_SECONDS", "86400"))
     WEB_SEARCH_DEFAULT_RESULTS = 3
     WEB_SEARCH_MAX_RESULTS = 10
     # Max queries per batched web_search call (the tool encourages the model

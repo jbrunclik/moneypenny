@@ -15,6 +15,8 @@ Contract: search_web() returns [{title, url, snippet}] or raises
 SearchProviderError (retriable flag drives the agent's self-correction).
 """
 
+import json
+import time
 from calendar import monthrange
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -95,6 +97,73 @@ def _record_use(provider: str) -> None:
     logger.debug("Search billed", extra={"provider": provider, "monthly_usage": used})
 
 
+# ============ Circuit breaker ============
+#
+# Usage counters bill on success only, so they undercount a provider's real
+# spend (Brave counts requests we timed out on or got errors from; we don't).
+# That drift lets the router keep sending to a provider that's actually out of
+# credits. The breaker trips on consecutive failures instead of relying on the
+# counter, and is period-scoped so it clears automatically when credits reset.
+
+
+def breaker_key(provider: str) -> str:
+    """kv_store key for a provider's breaker state this billing period.
+
+    Shares the usage counter's period suffix, so a trip clears exactly when
+    the provider's quota resets.
+    """
+    return f"breaker:{provider}:{period_start(_billing_anchor(provider), date.today())}"
+
+
+def _now() -> float:
+    """Epoch seconds - a seam so tests can control the breaker clock without
+    patching the global time.time (which also drives date.today())."""
+    return time.time()
+
+
+def _breaker_state(provider: str) -> tuple[int, float]:
+    """(consecutive failures, epoch of the last failure); (0, 0.0) when clear."""
+    raw = db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
+    if not raw:
+        return 0, 0.0
+    try:
+        data = json.loads(raw)
+        return int(data.get("fails", 0)), float(data.get("last", 0.0))
+    except (ValueError, TypeError):
+        return 0, 0.0
+
+
+def _breaker_tripped(provider: str) -> bool:
+    """Whether the provider should be skipped right now.
+
+    Tripped once failures reach the threshold, EXCEPT for a single half-open
+    probe allowed once the probe interval has elapsed since the last failure -
+    so a transient (non-exhaustion) outage recovers within a day instead of
+    staying down until the billing period rolls over.
+    """
+    fails, last = _breaker_state(provider)
+    if fails < Config.SEARCH_BREAKER_THRESHOLD:
+        return False
+    return _now() - last < Config.SEARCH_BREAKER_PROBE_SECONDS
+
+
+def _record_breaker_failure(provider: str) -> None:
+    fails, _ = _breaker_state(provider)
+    payload = json.dumps({"fails": fails + 1, "last": _now()})
+    db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider), payload)
+    logger.debug(
+        "Search breaker failure recorded", extra={"provider": provider, "fails": fails + 1}
+    )
+
+
+def _reset_breaker(provider: str) -> None:
+    """Clear the breaker after a success (no-op when already clear)."""
+    fails, _ = _breaker_state(provider)
+    if fails:
+        db.kv_delete(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
+        logger.info("Search breaker reset after success", extra={"provider": provider})
+
+
 # ============ Router ============
 
 
@@ -110,6 +179,8 @@ def _provider_available(provider: _Provider) -> bool:
     if provider.monthly_quota() is None:
         return True  # ddgs: always available, needs no key
     if not provider.api_key():
+        return False
+    if _breaker_tripped(provider.name):
         return False
     quota = provider.monthly_quota()
     return quota is None or get_monthly_usage(provider.name) < quota
@@ -139,6 +210,7 @@ def search_web(query: str, num_results: int) -> list[dict[str, str]]:
     for provider in _PROVIDERS:
         if not _provider_available(provider):
             continue
+        metered = provider.monthly_quota() is not None
         try:
             results = _search_with_quote_retry(provider, query, num_results)
         except SearchProviderError as error:
@@ -146,8 +218,14 @@ def search_web(query: str, num_results: int) -> list[dict[str, str]]:
                 "Search provider failed, trying next",
                 extra={"provider": provider.name, "error": str(error)},
             )
+            # Breaker only guards metered providers; ddgs is the terminal
+            # fallback with nowhere to fail over to.
+            if metered:
+                _record_breaker_failure(provider.name)
             last_error = error
             continue
+        if metered:
+            _reset_breaker(provider.name)
         _notify_if_degraded(provider.name)
         return results
 

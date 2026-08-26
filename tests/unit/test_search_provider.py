@@ -6,6 +6,7 @@ failing provider falls through to the next one. Usage counters live in
 kv_store under a system sentinel user.
 """
 
+import json
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -15,11 +16,31 @@ from src.config import Config
 from src.utils.search_provider import (
     SearchProviderError,
     active_provider,
+    breaker_key,
     get_monthly_usage,
     period_start,
     search_web,
     usage_key,
 )
+
+
+def _stateful_db(store: dict[str, str] | None = None) -> MagicMock:
+    """kv_store-shaped mock backed by a real dict (get/set/delete/increment).
+
+    Persists across multiple search_web() calls so breaker state accumulates.
+    """
+    backing = store if store is not None else {}
+    db = MagicMock()
+    db.kv_get.side_effect = lambda _u, _ns, key: backing.get(key)
+    db.kv_set.side_effect = lambda _u, _ns, key, value: backing.__setitem__(key, value)
+
+    def _incr(_u: str, _ns: str, key: str, delta: int = 1) -> int:
+        backing[key] = str(int(backing.get(key, "0")) + delta)
+        return int(backing[key])
+
+    db.kv_increment.side_effect = _incr
+    db.kv_delete.side_effect = lambda _u, _ns, key: backing.pop(key, None) is not None
+    return db
 
 
 def _fake_db(usage: dict[str, int] | None = None) -> MagicMock:
@@ -461,3 +482,131 @@ class TestDegradationAlert:
         ):
             search_web("q", 3)
         mock_push.assert_not_called()
+
+
+class TestCircuitBreaker:
+    """After N consecutive failures a metered provider is skipped for the rest
+    of the billing period, so our success-only usage counter undercounting the
+    provider's real spend doesn't keep routing to an exhausted provider. The
+    breaker key is period-scoped (auto-clears when credits reset); a once-a-day
+    half-open probe recovers a merely-transient (non-exhaustion) outage."""
+
+    _PROBE = 86400  # 1 day, matches the Config default
+
+    def test_breaker_key_includes_provider_and_period(self) -> None:
+        key = breaker_key("brave")
+        assert key.startswith("breaker:brave:")
+        # Shares the usage counter's period suffix so it resets with the quota
+        assert key.rsplit(":", 1)[1] == usage_key("brave").split(":", 1)[1]
+
+    @patch("src.utils.search_provider._search_tavily")
+    @patch("src.utils.search_provider._search_brave")
+    def test_trips_after_threshold_consecutive_failures(
+        self, mock_brave: MagicMock, mock_tavily: MagicMock
+    ) -> None:
+        mock_brave.side_effect = SearchProviderError("brave down", retriable=True)
+        mock_tavily.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                SEARCH_BREAKER_THRESHOLD=3,
+            ),
+            patch("src.utils.search_provider.db", _stateful_db()),
+        ):
+            for _ in range(3):
+                search_web("q", 3)  # brave fails, tavily serves; failures accrue
+            assert mock_brave.call_count == 3
+            mock_brave.reset_mock()
+            mock_tavily.reset_mock()
+            search_web("q", 3)  # breaker now tripped -> brave skipped entirely
+        mock_brave.assert_not_called()
+        mock_tavily.assert_called_once()
+
+    @patch("src.utils.search_provider._search_tavily")
+    @patch("src.utils.search_provider._search_brave")
+    def test_skips_provider_while_tripped(
+        self, mock_brave: MagicMock, mock_tavily: MagicMock
+    ) -> None:
+        mock_tavily.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
+        store = {breaker_key("brave"): json.dumps({"fails": 3, "last": 1_000_000.0})}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                SEARCH_BREAKER_THRESHOLD=3,
+                SEARCH_BREAKER_PROBE_SECONDS=self._PROBE,
+            ),
+            patch("src.utils.search_provider.db", _stateful_db(store)),
+            # 100s after the last failure: well within the 1-day probe window
+            patch("src.utils.search_provider._now", return_value=1_000_100.0),
+        ):
+            search_web("q", 3)
+        mock_brave.assert_not_called()
+        mock_tavily.assert_called_once()
+
+    @patch("src.utils.search_provider._search_brave")
+    def test_half_open_probe_after_a_day(self, mock_brave: MagicMock) -> None:
+        mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
+        store = {breaker_key("brave"): json.dumps({"fails": 3, "last": 1_000_000.0})}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                SEARCH_BREAKER_THRESHOLD=3,
+                SEARCH_BREAKER_PROBE_SECONDS=self._PROBE,
+            ),
+            patch("src.utils.search_provider.db", _stateful_db(store)),
+            # A day and change later -> one probe is allowed through
+            patch("src.utils.search_provider._now", return_value=1_000_000.0 + self._PROBE + 1),
+        ):
+            results = search_web("q", 3)
+        mock_brave.assert_called_once()
+        assert results[0]["url"] == "https://a.example"
+
+    @patch("src.utils.search_provider._search_brave")
+    def test_success_resets_the_breaker(self, mock_brave: MagicMock) -> None:
+        mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
+        # Below threshold (a couple of blips), then a success clears the counter
+        store = {breaker_key("brave"): json.dumps({"fails": 2, "last": 1_000_000.0})}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                SEARCH_BREAKER_THRESHOLD=3,
+            ),
+            patch("src.utils.search_provider.db", _stateful_db(store)),
+        ):
+            search_web("q", 3)
+        assert breaker_key("brave") not in store
+
+    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.utils.search_provider._search_brave")
+    def test_unmetered_ddgs_failure_records_no_breaker(
+        self, mock_brave: MagicMock, mock_ddgs: MagicMock
+    ) -> None:
+        mock_brave.side_effect = SearchProviderError("brave down")
+        mock_ddgs.side_effect = SearchProviderError("ddgs down")
+        store: dict[str, str] = {}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                SEARCH_BREAKER_THRESHOLD=3,
+            ),
+            patch("src.utils.search_provider.db", _stateful_db(store)),
+        ):
+            with pytest.raises(SearchProviderError):
+                search_web("q", 3)
+        assert breaker_key("brave") in store  # metered provider recorded a failure
+        assert breaker_key("ddgs") not in store  # unmetered terminal fallback did not
