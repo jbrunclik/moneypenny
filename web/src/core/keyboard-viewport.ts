@@ -185,13 +185,20 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb11]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb12]\n` +
     (() => {
       const m = document.getElementById('messages');
+      const ia = document.querySelector('.input-area');
+      const pill = document.getElementById('input-container');
       const cph = getComputedStyle(document.documentElement).getPropertyValue('--composer-height').trim();
       const padB = m ? getComputedStyle(m).paddingBottom : '?';
-      const distFromBottom = m ? Math.round(m.scrollHeight - m.scrollTop - m.clientHeight) : -1;
-      return `msgST=${m?.scrollTop.toFixed(0)} msgSH=${m?.scrollHeight} msgCH=${m?.clientHeight} distBottom=${distFromBottom} cph=${cph} padB=${padB}\n`;
+      const dist = m ? Math.round(m.scrollHeight - m.scrollTop - m.clientHeight) : -1;
+      const r = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
+      const mr = r(m), iar = r(ia), pr = r(pill);
+      return (
+        `msgST=${m?.scrollTop.toFixed(0)} msgSH=${m?.scrollHeight} msgCH=${m?.clientHeight} distBottom=${dist} cph=${cph} padB=${padB}\n` +
+        `msgBot=${mr?.bottom.toFixed(0)} iaTop=${iar?.top.toFixed(0)} iaBot=${iar?.bottom.toFixed(0)} pillTop=${pr?.top.toFixed(0)} pillBot=${pr?.bottom.toFixed(0)}\n`
+      );
     })() +
     debugEventLog.join('\n');
 }
