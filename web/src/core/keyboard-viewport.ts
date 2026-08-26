@@ -185,7 +185,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb12]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb13]\n` +
     (() => {
       const m = document.getElementById('messages');
       const ia = document.querySelector('.input-area');
@@ -195,9 +195,17 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
       const dist = m ? Math.round(m.scrollHeight - m.scrollTop - m.clientHeight) : -1;
       const r = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
       const mr = r(m), iar = r(ia), pr = r(pill);
+      const reduceT = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
+      const bfOk =
+        typeof CSS !== 'undefined' &&
+        (CSS.supports?.('backdrop-filter', 'blur(1px)') ||
+          CSS.supports?.('-webkit-backdrop-filter', 'blur(1px)'));
+      const hdr = document.querySelector('.mobile-header');
+      const hdrBg = hdr ? getComputedStyle(hdr).backgroundColor : '?';
       return (
         `msgST=${m?.scrollTop.toFixed(0)} msgSH=${m?.scrollHeight} msgCH=${m?.clientHeight} distBottom=${dist} cph=${cph} padB=${padB}\n` +
-        `msgBot=${mr?.bottom.toFixed(0)} iaTop=${iar?.top.toFixed(0)} iaBot=${iar?.bottom.toFixed(0)} pillTop=${pr?.top.toFixed(0)} pillBot=${pr?.bottom.toFixed(0)}\n`
+        `msgBot=${mr?.bottom.toFixed(0)} iaTop=${iar?.top.toFixed(0)} iaBot=${iar?.bottom.toFixed(0)} pillTop=${pr?.top.toFixed(0)} pillBot=${pr?.bottom.toFixed(0)}\n` +
+        `reduceTransparency=${reduceT} backdropOk=${bfOk} hdrBg=${hdrBg}\n`
       );
     })() +
     debugEventLog.join('\n');
