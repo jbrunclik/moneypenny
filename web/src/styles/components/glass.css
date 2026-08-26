@@ -64,29 +64,21 @@
         box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
     }
 
-    /* Sidebar: real frosted blur when static (a bare translucent panel shows
-       SHARP bleed-through, which reads as busy, not glass). It slides via
-       transform, and backdrop-filter on a transform-animated fixed element
-       ghosts on iOS - so the blur is dropped to a solid frost ONLY during the
-       slide (.sliding, toggled in JS around the animation). */
+    /* Sidebar: frosted glass with the blur ON at ALL times - during the slide
+       AND at rest. Earlier we dropped the blur for the slide (to dodge the iOS
+       transform-animated-backdrop ghost) and restored it on settle, but that
+       toggle made the see-through content snap sharp->frosted - a visible
+       "jump" the moment the panel came to rest. Constant blur has no toggle,
+       so nothing snaps. The ghost is instead held off by a HIGHER opacity
+       (--glass-bg-sidebar): little enough content reads through that a
+       momentary doubling during the ~300ms slide isn't noticeable.
+       No saturate(): keeps the material flat and predictable over any content. */
     .sidebar {
-        background-color: var(--glass-bg);
-        /* No saturate() here: the sidebar swaps blur on/off around the slide,
-           and saturate makes the on/off states look different enough to read
-           as a tint JUMP. Blur-only keeps the two states visually close. */
+        background-color: var(--glass-bg-sidebar);
         -webkit-backdrop-filter: blur(24px);
         backdrop-filter: blur(24px);
         border-color: var(--glass-border);
         box-shadow: inset 0 1px 0 var(--glass-highlight);
-    }
-
-    /* During the slide ONLY the blur is dropped - the background opacity/tint
-       stay identical to the static state, so settling shows just a subtle
-       sharpen->frost, never an opacity or tint jump. (Sharp bleed during the
-       fast slide is imperceptible.) */
-    .sidebar.sliding {
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
     }
 }
 
