@@ -120,7 +120,10 @@
     --glass-bg: rgba(24, 24, 24, 0.58);           /* chrome over content - content
                                                      genuinely reads through it */
     --glass-bg-strong: rgba(18, 18, 18, 0.74);    /* modals: more opaque, focused */
-    --glass-bg-header: rgba(22, 22, 22, 0.42);    /* header: extra see-through */
+    /* Header glass reads as a distinct FROSTED layer over the near-black
+       content: the surface must be LIGHTER than what's behind it (iOS
+       dark-mode technique), else dark-on-dark blends into a solid bar. */
+    --glass-bg-header: rgba(60, 60, 64, 0.55);
     --glass-bg-opaque: rgba(26, 26, 26, 0.88);    /* sliding panels: frost WITHOUT
                                                      live blur - backdrop-filter on a
                                                      transform-animated fixed element

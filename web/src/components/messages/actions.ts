@@ -198,10 +198,10 @@ export function createMessageActions(
   // so it stays always visible next to the toggle. On desktop the
   // overflow toggle is hidden and everything reveals on hover as before.
   actions.innerHTML = `
-    ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
     <button class="message-copy-btn" title="Copy message">${COPY_ICON}</button>
     <button class="message-actions-overflow" aria-label="Message actions" aria-expanded="false">⋯</button>
     <span class="message-actions-buttons">
+      ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
       ${showRerunButtons ? `<button class="message-regenerate-btn" title="Regenerate response">${REFRESH_ICON}</button>` : ''}
       ${showRerunButtons ? `<button class="message-continue-btn" title="Continue response">${CONTINUE_ICON}</button>` : ''}
       ${showEditButton ? `<button class="message-edit-btn" title="Edit and resend">${EDIT_ICON}</button>` : ''}
