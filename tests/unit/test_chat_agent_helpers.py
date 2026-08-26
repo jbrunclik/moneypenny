@@ -1,5 +1,7 @@
 """Unit tests for helper functions in src/agent/ modules."""
 
+from unittest.mock import patch
+
 from src.agent.content import (
     clean_tool_call_json,
     detect_response_language,
@@ -18,6 +20,7 @@ from src.agent.prompts import (
 )
 from src.agent.tool_display import (
     _format_calendar_detail,
+    _format_memory_detail,
     _format_todoist_detail,
 )
 from src.agent.tool_display import (
@@ -2571,3 +2574,97 @@ class TestMsgContextToolDigest:
             "metadata": {"timestamp": "2024-06-15 14:30 CET"},
         }
         assert "tool_digest" not in self._format(msg)
+
+
+class TestMemoryDiffDetail:
+    """manage_memory pills show which entry changed and how (a compact diff).
+
+    The detail is extracted at tool_start (pre-execution), so the DB still
+    holds the OLD content - fetched via _fetch_memory_content, which tests
+    patch to avoid real DB/context.
+    """
+
+    def test_add_shows_new_content_snippet(self) -> None:
+        # add has no prior content, so no lookup is needed
+        result = _extract_tool_detail(
+            "manage_memory", {"operations": [{"action": "add", "content": "Runs marathons"}]}
+        )
+        assert result == "remembered: Runs marathons"
+
+    def test_update_shows_old_to_new_diff(self) -> None:
+        with patch(
+            "src.agent.tool_display._fetch_memory_content", return_value="Drinks oat milk lattes"
+        ):
+            result = _extract_tool_detail(
+                "manage_memory",
+                {
+                    "operations": [
+                        {"action": "update", "id": "m1", "content": "Switched to black coffee"}
+                    ]
+                },
+            )
+        assert result == "updated: Drinks oat milk lattes → Switched to black coffee"
+
+    def test_update_without_old_falls_back_to_new(self) -> None:
+        with patch("src.agent.tool_display._fetch_memory_content", return_value=None):
+            result = _extract_tool_detail(
+                "manage_memory",
+                {"operations": [{"action": "update", "id": "gone", "content": "New value"}]},
+            )
+        assert result == "updated: New value"
+
+    def test_delete_shows_what_was_forgotten(self) -> None:
+        with patch(
+            "src.agent.tool_display._fetch_memory_content", return_value="Used to work at Acme"
+        ):
+            result = _extract_tool_detail(
+                "manage_memory", {"operations": [{"action": "delete", "id": "m9"}]}
+            )
+        assert result == "forgot: Used to work at Acme"
+
+    def test_delete_without_old_content_shows_bare_verb(self) -> None:
+        with patch("src.agent.tool_display._fetch_memory_content", return_value=None):
+            result = _extract_tool_detail(
+                "manage_memory", {"operations": [{"action": "delete", "id": "m9"}]}
+            )
+        assert result == "forgot"
+
+    def test_caps_at_two_entries_with_more_suffix(self) -> None:
+        ops = [
+            {"action": "add", "content": "Alpha"},
+            {"action": "add", "content": "Beta"},
+            {"action": "add", "content": "Gamma"},
+        ]
+        result = _extract_tool_detail("manage_memory", {"operations": ops})
+        assert result == "remembered: Alpha; remembered: Beta (+1 more)"
+
+    def test_long_snippets_are_truncated(self) -> None:
+        with patch("src.agent.tool_display._fetch_memory_content", return_value="O" * 60):
+            result = _format_memory_detail(
+                {"operations": [{"action": "update", "id": "m1", "content": "N" * 60}]}
+            )
+        # each side of the diff is truncated to 35 chars (34 + ellipsis)
+        assert result == f"updated: {'O' * 34}… → {'N' * 34}…"
+
+    def test_non_list_operations_returns_default(self) -> None:
+        assert _format_memory_detail({"operations": "nope"}) == "updated memory"
+
+
+class TestSearchAndReadDetails:
+    """search_memory shows its query; read_conversation shows the title."""
+
+    def test_search_memory_extracts_query(self) -> None:
+        result = _extract_tool_detail("search_memory", {"query": "coffee preferences"})
+        assert result == "coffee preferences"
+
+    def test_read_conversation_shows_title(self) -> None:
+        with patch(
+            "src.agent.tool_display._fetch_conversation_title", return_value="Trip planning"
+        ):
+            result = _extract_tool_detail("read_conversation", {"conversation_id": "c1"})
+        assert result == "Trip planning"
+
+    def test_read_conversation_without_title_returns_none(self) -> None:
+        with patch("src.agent.tool_display._fetch_conversation_title", return_value=None):
+            result = _extract_tool_detail("read_conversation", {"conversation_id": "c1"})
+        assert result is None

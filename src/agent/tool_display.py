@@ -122,7 +122,9 @@ _detail_tools = {
     "execute_code",
     "todoist",
     "manage_memory",
+    "search_memory",
     "search_conversations",
+    "read_conversation",
 }
 if _GOOGLE_CALENDAR_CONFIGURED:
     _detail_tools.add("google_calendar")
@@ -253,26 +255,95 @@ def _format_calendar_detail(tool_args: dict[str, Any]) -> str:
     return action
 
 
+def _snippet(text: str, limit: int) -> str:
+    """First line of `text`, truncated to `limit` chars with an ellipsis."""
+    line = text.strip().split("\n", 1)[0]
+    return line[: limit - 1] + "…" if len(line) > limit else line
+
+
+def _fetch_memory_content(memory_id: str) -> str | None:
+    """Current content of a memory, for a pre-execution diff.
+
+    extract_tool_detail runs at tool_start, before the write executes, so the
+    DB still holds the OLD content here. Best-effort: returns None when there
+    is no user context or the lookup fails, so the pill degrades gracefully.
+    """
+    if not memory_id:
+        return None
+    try:
+        from src.agent.tools.context import get_conversation_context
+        from src.db.models import db
+
+        _, user_id = get_conversation_context()
+        if not user_id:
+            return None
+        memory = db.get_memory(memory_id, user_id)
+        return memory.content if memory else None
+    except Exception:  # noqa: S110 - display nicety; never break the pill
+        return None
+
+
+def _format_memory_op(op: dict[str, Any]) -> str | None:
+    """One memory operation as 'verb: what changed' (a compact diff)."""
+    action = str(op.get("action"))
+    new_content = str(op.get("content") or "").strip()
+    if action == "add":
+        return f"remembered: {_snippet(new_content, 55)}" if new_content else "remembered"
+    if action == "update":
+        old = _fetch_memory_content(str(op.get("id") or "").strip())
+        if old and new_content:
+            return f"updated: {_snippet(old, 35)} → {_snippet(new_content, 35)}"
+        if new_content:
+            return f"updated: {_snippet(new_content, 55)}"
+        return "updated"
+    if action == "delete":
+        old = _fetch_memory_content(str(op.get("id") or "").strip())
+        return f"forgot: {_snippet(old, 55)}" if old else "forgot"
+    return None
+
+
 def _format_memory_detail(tool_args: dict[str, Any]) -> str:
-    """Summarize memory operations, e.g. "remembered 2, updated 1"."""
+    """Summarize memory operations as a diff, e.g.
+    "updated: oat milk lattes → black coffee; remembered: Has two kids".
+
+    Shows up to two entries verbatim, then "(+N more)" to keep the pill compact.
+    """
     operations = tool_args.get("operations")
     if not isinstance(operations, list):
         return "updated memory"
 
-    verbs = {"add": "remembered", "update": "updated", "delete": "forgot"}
-    counts: dict[str, int] = {}
+    parts: list[str] = []
     for op in operations:
-        if not isinstance(op, dict):
-            continue
-        verb = verbs.get(str(op.get("action")))
-        if verb:
-            counts[verb] = counts.get(verb, 0) + 1
+        if isinstance(op, dict):
+            label = _format_memory_op(op)
+            if label:
+                parts.append(label)
 
-    if not counts:
+    if not parts:
         return "updated memory"
+    if len(parts) <= 2:
+        return "; ".join(parts)
+    return f"{'; '.join(parts[:2])} (+{len(parts) - 2} more)"
 
-    # Stable order so the same batch always reads the same way
-    return ", ".join(f"{verb} {count}" for verb, count in sorted(counts.items()))
+
+def _fetch_conversation_title(conversation_id: str) -> str | None:
+    """Title of a past conversation, for the read_conversation pill.
+
+    Best-effort: None when there is no user context or the lookup fails.
+    """
+    if not conversation_id:
+        return None
+    try:
+        from src.agent.tools.context import get_conversation_context
+        from src.db.models import db
+
+        _, user_id = get_conversation_context()
+        if not user_id:
+            return None
+        conversation = db.get_conversation(conversation_id, user_id)
+        return conversation.title if conversation else None
+    except Exception:  # noqa: S110 - display nicety; never break the pill
+        return None
 
 
 def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:
@@ -318,8 +389,12 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
         return _format_calendar_detail(tool_args)
     elif tool_name == "manage_memory" and "operations" in tool_args:
         return _format_memory_detail(tool_args)
+    elif tool_name == "search_memory" and tool_args.get("query"):
+        return str(tool_args["query"])
     elif tool_name == "search_conversations" and tool_args.get("query"):
         return str(tool_args["query"])
+    elif tool_name == "read_conversation" and tool_args.get("conversation_id"):
+        return _fetch_conversation_title(str(tool_args["conversation_id"]).strip())
     return None
 
 
