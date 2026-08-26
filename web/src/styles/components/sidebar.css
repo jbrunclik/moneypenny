@@ -78,7 +78,13 @@
     padding: var(--space-4) var(--space-3) var(--space-1);
     position: sticky;
     top: 0;
-    background: var(--bg-secondary);
+    /* Match the frosted sidebar exactly (same material), not an opaque
+       --bg-secondary - over the dimmed mobile overlay the opaque label was
+       BRIGHTER than the frost and popped as a white band. The backdrop blur
+       keeps items legibly masked as they scroll under the sticky label. */
+    background: var(--glass-bg-sidebar);
+    -webkit-backdrop-filter: blur(var(--glass-blur-sidebar));
+    backdrop-filter: blur(var(--glass-blur-sidebar));
     z-index: 3;
 }
 
