@@ -71,14 +71,20 @@
        slide (.sliding, toggled in JS around the animation). */
     .sidebar {
         background-color: var(--glass-bg);
-        -webkit-backdrop-filter: blur(24px) saturate(180%);
-        backdrop-filter: blur(24px) saturate(180%);
+        /* No saturate() here: the sidebar swaps blur on/off around the slide,
+           and saturate makes the on/off states look different enough to read
+           as a tint JUMP. Blur-only keeps the two states visually close. */
+        -webkit-backdrop-filter: blur(24px);
+        backdrop-filter: blur(24px);
         border-color: var(--glass-border);
         box-shadow: inset 0 1px 0 var(--glass-highlight);
     }
 
+    /* During the slide ONLY the blur is dropped - the background opacity/tint
+       stay identical to the static state, so settling shows just a subtle
+       sharpen->frost, never an opacity or tint jump. (Sharp bleed during the
+       fast slide is imperceptible.) */
     .sidebar.sliding {
-        background-color: var(--glass-bg-opaque);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }
