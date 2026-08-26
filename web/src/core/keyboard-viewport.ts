@@ -185,7 +185,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb9]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb10]\n` +
     debugEventLog.join('\n');
 }
 
@@ -406,6 +406,22 @@ export function initKeyboardViewportPinning(): void {
           checkScrollButtonVisibility();
         }
       });
+
+      // The kb-open padding change (setSettlePoller/toggle above) and the
+      // composer-height ResizeObserver both reflow the list AFTER the rAF
+      // above, growing padding-bottom and un-pinning a bottom-scrolled list -
+      // the newest message drifts up, leaving a gap above the composer with
+      // the keyboard open. Re-assert the bottom across the settle window (the
+      // user won't have scrolled away in the first moments after focusing).
+      if (keyboardJustOpened && container && wasAtBottom) {
+        for (const delay of [150, 350, 600]) {
+          setTimeout(() => {
+            if (signal.aborted) return;
+            programmaticScrollToBottom(container);
+            checkScrollButtonVisibility();
+          }, delay);
+        }
+      }
     }
   };
 
