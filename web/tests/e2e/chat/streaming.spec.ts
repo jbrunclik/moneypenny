@@ -14,6 +14,12 @@ import {
 
 test.describe('Chat - Streaming Mode', () => {
   test.beforeEach(async ({ page }) => {
+    // Reset shared mock state up front so a custom response / stream delay left
+    // by an earlier test can't leak in (tests that need custom values set them
+    // after this).
+    await clearMockResponse(page);
+    await resetStreamDelay(page);
+
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
     await page.click('#new-chat-btn');
