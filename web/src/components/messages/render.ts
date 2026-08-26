@@ -298,6 +298,38 @@ export function updateLatestAssistantMarker(
 }
 
 /**
+ * Remove the message with `messageId` and every message after it from the DOM,
+ * leaving earlier turns untouched.
+ *
+ * Used by edit-and-resend: the tail is dropped so the edited text can be
+ * re-sent. We do targeted DOM surgery rather than a full re-render from the
+ * store, because the in-session store only holds user messages (streamed
+ * assistant replies are rendered to the DOM but never appended to it) - so
+ * re-rendering from it would wipe every assistant bubble until a reload.
+ */
+export function removeRenderedMessagesFrom(
+  messageId: string,
+  container: HTMLElement | null = getElementById('messages')
+): void {
+  if (!container) return;
+  const target = container.querySelector<HTMLElement>(
+    `.message[data-message-id="${messageId}"]`
+  );
+  if (!target) return;
+
+  let sibling = target.nextElementSibling;
+  while (sibling) {
+    const next = sibling.nextElementSibling;
+    sibling.remove();
+    sibling = next;
+  }
+  target.remove();
+
+  updateLatestAssistantMarker(container);
+  checkScrollButtonVisibility();
+}
+
+/**
  * Add a single message to the UI
  * @param message - The message to add
  * @param container - The container element

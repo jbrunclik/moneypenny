@@ -16,6 +16,7 @@ import {
 import {
   addMessageToUI,
   renderMessages,
+  removeRenderedMessagesFrom,
   addStreamingMessage,
   updateStreamingMessage,
   finalizeStreamingMessage,
@@ -728,7 +729,11 @@ async function submitMessageEdit(convId: string, messageId: string, newText: str
     return;
   }
   useStore.getState().truncateMessagesFrom(convId, messageId);
-  renderMessages(useStore.getState().getMessages(convId));
+  // Remove the edited message and its tail from the DOM directly. A full
+  // re-render from the store would wipe every streamed assistant bubble - they
+  // are rendered to the DOM but never appended to the in-session store - so the
+  // conversation appeared to lose all agent replies until reload.
+  removeRenderedMessagesFrom(messageId);
 
   // Re-send through the normal pipeline (outbox, retry, streaming) by
   // placing the edited text in the composer and sending

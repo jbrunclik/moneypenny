@@ -47,7 +47,7 @@ vi.mock('@/utils/thumbnails', async (importOriginal) => {
 });
 
 // Import after mocks are set up
-import { renderMessages, addMessageToUI } from '@/components/messages';
+import { renderMessages, addMessageToUI, removeRenderedMessagesFrom } from '@/components/messages';
 import {
   enableScrollOnImageLoad,
   disableScrollOnImageLoad,
@@ -410,5 +410,58 @@ describe('Messages - send status', () => {
     container.querySelector<HTMLButtonElement>('[data-action="discard-send"]')!.click();
     expect(handler).toHaveBeenCalledTimes(1);
     expect((handler.mock.calls[0][0] as CustomEvent).detail.messageId).toBe('m1');
+  });
+});
+
+describe('Messages - removeRenderedMessagesFrom (edit truncation)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div id="app">
+        <div id="messages" class="messages"></div>
+      </div>
+    `;
+    resetStore();
+  });
+
+  it('removes the target message and everything after, keeping prior messages', () => {
+    // Regression: editing the last message used to re-render from a store that
+    // never received the streamed assistant messages, wiping ALL assistant
+    // bubbles (even prior ones) until reload. Truncating the DOM directly keeps
+    // the earlier turns intact.
+    const container = document.getElementById('messages')!;
+    renderMessages([
+      createMessage('u1', 'first', 'user'),
+      createMessage('a1', 'answer one', 'assistant'),
+      createMessage('u2', 'edit me', 'user'),
+      createMessage('a2', 'answer two', 'assistant'),
+    ]);
+
+    removeRenderedMessagesFrom('u2', container);
+
+    const ids = Array.from(container.querySelectorAll('.message')).map((el) =>
+      el.getAttribute('data-message-id')
+    );
+    expect(ids).toEqual(['u1', 'a1']);
+  });
+
+  it('is a no-op when the message is not present', () => {
+    const container = document.getElementById('messages')!;
+    renderMessages([createMessage('u1', 'first', 'user')]);
+    removeRenderedMessagesFrom('nope', container);
+    expect(container.querySelectorAll('.message').length).toBe(1);
+  });
+
+  it('re-marks the new last assistant message after truncation', () => {
+    const container = document.getElementById('messages')!;
+    renderMessages([
+      createMessage('u1', 'first', 'user'),
+      createMessage('a1', 'answer one', 'assistant'),
+      createMessage('u2', 'edit me', 'user'),
+    ]);
+
+    removeRenderedMessagesFrom('u2', container);
+
+    const marked = container.querySelector('.message--latest-assistant');
+    expect(marked?.getAttribute('data-message-id')).toBe('a1');
   });
 });
