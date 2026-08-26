@@ -176,7 +176,10 @@
     right: var(--space-3);
 }
 
-.conversation-item:hover .conversation-actions {
+.conversation-item:hover .conversation-actions,
+/* Reveal on keyboard focus too - otherwise Tab lands on invisible-but-
+   focusable action buttons (a focus ring floating over nothing). */
+.conversation-item-wrapper:focus-within .conversation-actions {
     opacity: 1;
 }
 
@@ -288,7 +291,7 @@
     .conversation-more-swipe {
         background-color: var(--bg-tertiary);
         color: var(--text-primary);
-        font-size: var(--font-size-2xl, 1.4rem);
+        font-size: var(--font-size-2xl);
         border: none;
         cursor: pointer;
     }

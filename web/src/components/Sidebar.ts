@@ -678,38 +678,6 @@ export function closeSidebar(): void {
 /**
  * Update sidebar visibility based on state
  */
-let sidebarSlidingTimer: ReturnType<typeof setTimeout> | null = null;
-
-/**
- * End a sidebar drag: keep the backdrop-filter disabled (via .sliding) until
- * the snap/settle transition finishes, then restore the frost. Used by the
- * swipe gesture (core/gestures.ts). The .sliding class is added at drag start
- * there; here we remove it precisely when the transform transition ends, so
- * the blur returns the instant the panel settles - no fixed-timer lag.
- *
- * The tap-toggle path deliberately does NOT disable the blur: a single CSS
- * transform transition composites cleanly (the iOS ghost was the per-frame
- * drag), so tap-open keeps the frost throughout and shows no delay.
- */
-export function markSidebarSliding(sidebar: HTMLElement): void {
-  sidebar.classList.add('sliding');
-  if (sidebarSlidingTimer) clearTimeout(sidebarSlidingTimer);
-  const clear = (): void => {
-    sidebar.removeEventListener('transitionend', onEnd);
-    if (sidebarSlidingTimer) {
-      clearTimeout(sidebarSlidingTimer);
-      sidebarSlidingTimer = null;
-    }
-    sidebar.classList.remove('sliding');
-  };
-  const onEnd = (e: TransitionEvent): void => {
-    if (e.propertyName === 'transform') clear();
-  };
-  sidebar.addEventListener('transitionend', onEnd);
-  // Fallback if no transition runs (e.g. released already fully open/closed)
-  sidebarSlidingTimer = setTimeout(clear, 350);
-}
-
 function updateSidebarVisibility(): void {
   const sidebar = getElementById<HTMLElement>('sidebar');
   const app = getElementById<HTMLDivElement>('app');

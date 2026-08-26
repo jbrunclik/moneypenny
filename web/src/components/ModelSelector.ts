@@ -202,8 +202,10 @@ export function renderModelDropdown(): void {
            data-model-id="${model.id}"
            data-short-name="${escapeHtml(model.short_name)}">
         <span class="model-option-text">
-          <span class="model-name">${escapeHtml(model.name)}</span>
-          ${model.description ? `<span class="model-option-desc">${escapeHtml(model.description)}</span>` : ''}
+          <span class="model-name">${escapeHtml(model.short_name)}</span>
+          <span class="model-option-desc">${escapeHtml(
+            model.description ? `${model.name} · ${model.description}` : model.name
+          )}</span>
         </span>
         ${model.id === currentModelId ? `<span class="model-check">${CHECK_ICON}</span>` : ''}
       </div>

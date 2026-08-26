@@ -56,7 +56,22 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
     const commit = opts.onRenameCommit;
     title.classList.add('renameable');
     title.title = 'Rename conversation';
+    // Expose the rename affordance to keyboard + assistive tech (it was
+    // mouse-only): a focusable button that also responds to Enter/Space.
+    title.setAttribute('role', 'button');
+    title.setAttribute('tabindex', '0');
+    title.setAttribute('aria-label', `Rename conversation: ${opts.title}`);
     title.addEventListener('click', () => startInlineRename(title, commit));
+    title.addEventListener('keydown', (e) => {
+      // Only act on the title itself - ignore keys bubbling up from the inline
+      // rename <input> (its own Enter handler already commits + removes it;
+      // re-triggering here would immediately re-open an empty rename).
+      if (e.target !== title) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        startInlineRename(title, commit);
+      }
+    });
   }
   header.appendChild(title);
 

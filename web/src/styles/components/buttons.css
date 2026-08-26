@@ -470,6 +470,43 @@
     transform: scale(0.97);
 }
 
+/* Icon buttons get a slightly stronger press-scale (they're small) so a tap
+   registers on touch, where there's no hover state to confirm the press.
+   Previously these had hover states but no active state - taps felt dead. */
+:is(
+    .btn-icon,
+    .btn-toolbar,
+    .btn-voice,
+    .message-copy-btn,
+    .message-regenerate-btn,
+    .message-continue-btn,
+    .message-edit-btn,
+    .message-sources-btn,
+    .message-imagegen-btn,
+    .message-cost-btn,
+    .message-speak-btn,
+    .message-delete-btn,
+    .message-actions-overflow,
+    .conversation-rename,
+    .conversation-archive,
+    .conversation-delete
+):active {
+    transform: scale(0.9);
+}
+
+/* Disabled icon buttons: dim and drop the pointer affordance, and neutralize
+   hover so a disabled control never looks interactive (they previously had no
+   :disabled styling and looked identical to enabled ones). */
+:is(.btn-icon, .btn-toolbar, .btn-voice):disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+:is(.btn-icon, .btn-toolbar, .btn-voice):disabled:hover {
+    background: none;
+    color: var(--text-muted);
+}
+
 /* The composer floats over the message list on BOTH mobile and desktop, so
    the sticky scroll-to-bottom button must ride above it at every width. In
    buttons.css (imported after layout.css) so this wins the same-specificity
@@ -477,4 +514,20 @@
    (composer-height.ts); the fallback covers the pre-JS first paint. */
 .scroll-to-bottom {
     bottom: calc(var(--composer-height, 120px) + var(--space-2));
+}
+
+/* Touch: composer controls meet the 40px touch-target minimum. On the desktop
+   (hover) layout they stay compact - a mouse doesn't need the padding. */
+@media (hover: none) {
+    .btn-toolbar,
+    .btn-voice {
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    .btn-send,
+    .btn-stop {
+        width: 40px;
+        height: 40px;
+    }
 }
