@@ -113,6 +113,16 @@ let scrollTimeout: number | undefined;
 // This prevents race conditions where layout changes from image loading trigger the scroll listener
 let isSchedulingScroll = false;
 
+// Deepest scroll position (from the top) the user has followed to while image-
+// load scroll mode is armed - the bottom they were pinned to. If the current
+// position later drops well below this, the user has GENUINELY scrolled up (a
+// bottom image loading never lowers scrollTop), so a scheduled scroll must not
+// yank them back. Tracked continuously in the scroll listener so it doesn't
+// depend on catching one exact "armed" moment.
+let maxScrollTopWhileArmed = 0;
+// How far below that counts as a deliberate scroll-up (vs a layout jitter).
+const SCROLL_GENUINE_UP_PX = 40;
+
 // Track user scroll to disable auto-scroll when user is browsing history
 let userScrollListener: (() => void) | null = null;
 
@@ -227,6 +237,9 @@ export function enableScrollOnImageLoad(): void {
         pendingImageLoads = 0;
         deferImageObservation = false;
         isSchedulingScroll = false; // Reset scheduling flag
+        // Seed the "deepest followed position" from the current scroll; the
+        // listener keeps it in sync as the app pins to the growing bottom.
+        maxScrollTopWhileArmed = getElementById<HTMLDivElement>('messages')?.scrollTop ?? 0;
         if (scrollTimeout) {
             cancelAnimationFrame(scrollTimeout);
             scrollTimeout = undefined;
@@ -635,6 +648,13 @@ function setupUserScrollListener(): void {
         // previousScrollTopForImageLoad would still be 0, and scrolling to 0 wouldn't be detected as "up".
         previousScrollTopForImageLoad = currentScrollTop;
 
+        // Track the deepest position followed while armed (incl. our own scrolls
+        // to the growing bottom), so the image-load scheduler can tell a genuine
+        // scroll-up from a jitter regardless of when it fires.
+        if (shouldScrollOnImageLoad && currentScrollTop > maxScrollTopWhileArmed) {
+            maxScrollTopWhileArmed = currentScrollTop;
+        }
+
         // Ignore programmatic scrolls for the disable decision (but we still updated the position above)
         if (isProgrammaticScroll) {
             return;
@@ -796,8 +816,20 @@ function scheduleScrollAfterImageLoad(): void {
                         scrollTimeout = undefined;
                         return;
                     } else if (!isAtBottom && isSchedulingScroll) {
-                        // We're scheduling a scroll but user appears to have scrolled away
-                        // This is likely a false positive from layout changes - ignore it
+                        // We're scheduling a scroll but the user appears scrolled away.
+                        // Normally that's a false positive from image-load layout shifts
+                        // (which move an ABOVE-fold image and nudge scrollTop) - so we'd
+                        // ignore it and scroll. But if scrollTop has dropped well below
+                        // where scrolling was armed, the user has GENUINELY scrolled up
+                        // (a bottom image loading never lowers scrollTop). Respect that
+                        // and don't yank them back to the bottom.
+                        if (messagesContainer.scrollTop < maxScrollTopWhileArmed - SCROLL_GENUINE_UP_PX) {
+                            safelyDisableScrollOnImageLoad('user genuinely scrolled up during scroll scheduling');
+                            isSchedulingScroll = false;
+                            scrollTimeout = undefined;
+                            return;
+                        }
+                        // else: likely a layout-shift false positive - ignore and scroll.
                     }
 
                     // Mark this as a programmatic scroll so we don't disable on our own scroll
