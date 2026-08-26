@@ -258,3 +258,67 @@
         padding-bottom: var(--space-1);
     }
 }
+
+/* ============================================
+   Desktop: unified liquid glass (consistent with mobile)
+   ============================================
+
+   Same float-under language as the mobile layout, so the app reads like one
+   product across screens and like a native macOS window on desktop: a frosted
+   scroll-under toolbar at the top and a floating composer at the bottom, with
+   the message column scrolling BENEATH both and showing through the blur.
+
+   Chrome is positioned absolute inside the position:relative .main; the list
+   is inset with a scrollable top spacer + a bottom pad so the newest content
+   clears both bars. Both bars are conditionally rendered (the agents/data
+   views hide them, the welcome screen hides the toolbar), so :has() gates each
+   inset on the chrome actually being shown - no dead gap when it isn't. */
+@media (min-width: 769px) {
+    /* Scroll-under toolbar (frosted material + hairline come from glass.css). */
+    .chat-header:not(.hidden) {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 5;
+    }
+
+    /* Floating composer: a transparent bar with a soft upward fade so the
+       column dissolves into the background behind the pill. The blur lives
+       only on the pill (.input-container, glass.css) - one blur layer. */
+    .input-area {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 5;
+        background: linear-gradient(to top, var(--bg-primary) 42%, transparent);
+        padding-bottom: var(--space-5);
+    }
+
+    /* The list scrolls UNDER both bars. Clearance is a scrollable spacer +
+       padding-bottom, never padding-top: WebKit clips scrolled content at the
+       padding-top edge, so content would never reach under the toolbar for the
+       blur to catch it. */
+    .messages {
+        padding-top: 0;
+    }
+
+    .messages::before {
+        content: '';
+        display: block;
+        flex-shrink: 0;
+        /* Default top breathing room when no toolbar is shown (welcome). */
+        height: var(--space-6);
+    }
+
+    /* Toolbar shown: spacer grows to clear it (52px inner + a hair of gap). */
+    .main:has(.chat-header:not(.hidden)) .messages::before {
+        height: 56px;
+    }
+
+    /* Composer shown: clear the live pill footprint (composer-height.ts). */
+    .main:has(.input-area:not(.hidden)) .messages {
+        padding-bottom: calc(var(--composer-height, 140px) + var(--space-4));
+    }
+}

@@ -45,11 +45,13 @@
        further than the shared material: a LIGHTER frosted surface (must be
        lighter than the near-black content or dark-on-dark blends to solid) +
        heavier blur so content reads through. */
-    .mobile-header {
+    .mobile-header,
+    .chat-header {
         background-color: var(--glass-bg-header);
         -webkit-backdrop-filter: blur(32px) saturate(200%);
         backdrop-filter: blur(32px) saturate(200%);
         border-bottom: 1px solid var(--glass-border);
+        box-shadow: inset 0 1px 0 var(--glass-highlight);
     }
 
     /* Genuinely floating panels: more opaque for reading focus, plus a real
@@ -86,6 +88,7 @@
    transparency do we drop back to solid surfaces. */
 @media (prefers-reduced-transparency: reduce) {
     .mobile-header,
+    .chat-header,
     .input-container,
     .model-dropdown,
     .modal,
