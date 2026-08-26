@@ -14,11 +14,14 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('composer-height');
 
 let observer: ResizeObserver | null = null;
+let abort: AbortController | null = null;
 
 /** Reset for tests (prod initializes once). */
 export function cleanupComposerHeight(): void {
   observer?.disconnect();
   observer = null;
+  abort?.abort();
+  abort = null;
   document.documentElement.style.removeProperty('--composer-height');
 }
 
@@ -62,5 +65,26 @@ export function initComposerHeight(): void {
   if (typeof ResizeObserver === 'function') {
     observer = new ResizeObserver(publish);
     observer.observe(inputArea);
+  }
+
+  // The footprint depends on the pill's POSITION within the box, which
+  // shifts across several reflows during a keyboard open/close while the
+  // box size may not change (so the ResizeObserver misses the settled
+  // state - the var froze at a mid-transition value). Re-measure across the
+  // settle window on every viewport resize (keyboard transitions).
+  abort = new AbortController();
+  const vv = window.visualViewport;
+  if (vv) {
+    vv.addEventListener(
+      'resize',
+      () => {
+        for (const delay of [0, 150, 350, 600]) {
+          setTimeout(() => {
+            if (!abort?.signal.aborted) publish();
+          }, delay);
+        }
+      },
+      { signal: abort.signal }
+    );
   }
 }
