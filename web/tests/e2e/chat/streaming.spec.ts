@@ -606,7 +606,11 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill(
         '#message-input',
-        `Setup message ${i + 1} with some extra text to make it longer`
+        // Long enough that a handful of messages overflow the tall (1024px)
+        // E2E viewport even with the compact message density - the list must
+        // be scrollable for this test's premise to hold.
+        `Setup message ${i + 1}. ` +
+          'This is a longer line of text to build up vertical height. '.repeat(12)
       );
       await page.click('#send-btn');
       await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });
@@ -677,7 +681,11 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     for (let i = 0; i < 5; i++) {
       await page.fill(
         '#message-input',
-        `Setup message ${i + 1} with some extra text to make it longer`
+        // Long enough that a handful of messages overflow the tall (1024px)
+        // E2E viewport even with the compact message density - the list must
+        // be scrollable for this test's premise to hold.
+        `Setup message ${i + 1}. ` +
+          'This is a longer line of text to build up vertical height. '.repeat(12)
       );
       await page.click('#send-btn');
       await page.waitForSelector(`.message.assistant >> nth=${i}`, { timeout: 20000 });

@@ -731,7 +731,14 @@ test.describe('Scroll to bottom behavior', () => {
     // Create a conversation with several messages
     await page.click('#new-chat-btn');
     for (let i = 0; i < 5; i++) {
-      await page.fill('#message-input', `Message number ${i + 1}`);
+      // Long messages so the list reliably overflows the tall (1024px) E2E
+      // viewport with the compact message density - otherwise there's nothing
+      // to scroll up through.
+      await page.fill(
+        '#message-input',
+        `Message number ${i + 1}. ` +
+          'This is a longer line of text to build up vertical height. '.repeat(12)
+      );
       await page.click('#send-btn');
       await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
