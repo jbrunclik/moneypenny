@@ -309,11 +309,12 @@
     --glass-bg: rgba(247, 248, 251, 0.78);
     --glass-bg-strong: rgba(250, 251, 253, 0.9);
     --glass-bg-header: rgba(245, 246, 249, 0.8);
-    /* Opaque in light mode: a translucent frost over the dimmed mobile overlay
-       reads as muddy/washed and never matched the opaque sticky labels (white
-       bands). A clean solid panel (== --bg-secondary) lets items + labels
-       blend perfectly. Dark keeps its translucent glass. */
-    --glass-bg-sidebar: rgb(248, 249, 251);
+    /* Translucent frost like dark - the earlier "ugly" light sidebar was the
+       opaque sticky-label bands, not the translucency itself. Now that the
+       labels are transparent (they blend into the frost), the sidebar can read
+       through again. A touch more opaque than dark so it stays clean over the
+       dimmed mobile overlay rather than muddy. */
+    --glass-bg-sidebar: rgba(246, 248, 251, 0.7);
     --glass-border: rgba(0, 0, 0, 0.1);
     --glass-highlight: rgba(255, 255, 255, 0.9);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);

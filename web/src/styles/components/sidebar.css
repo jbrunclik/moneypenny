@@ -78,24 +78,14 @@
     padding: var(--space-4) var(--space-3) var(--space-1);
     position: sticky;
     top: 0;
-    /* Transparent background + backdrop blur only. The blur masks items as they
-       scroll under the sticky label, but with NO tint of its own there's
-       nothing to form a lighter/darker box against the frosted sidebar - an
-       opaque bg didn't match the translucent dark frost (faint contour) and a
-       tinted frost double-tinted into a lighter band. Transparent blends in
-       both themes (shows the frosted sidebar in dark, the solid panel in
-       light) while still frosting anything that scrolls beneath it. */
+    /* Transparent - the label must not paint its own surface. Both sidebars are
+       translucent frost; an opaque label is lighter than the frost (a box), and
+       a tinted or blurred label either double-tints or the blur lightens the
+       region into a contour. Transparent has nothing to form a box, so it blends
+       into the frost. Trade: items briefly show under the sticky label while
+       scrolling, which is preferable to a permanent box at rest. */
     background: transparent;
     z-index: 3;
-}
-
-/* Light mode's sidebar is a solid panel (== --bg-secondary), so an opaque
-   label matches it exactly - clean blend AND it masks items scrolling under
-   the sticky header. In dark the sidebar is translucent frost, where any
-   opaque/tinted/blurred label reads as a box, so the label stays transparent
-   there (blends at rest; brief item overlap while scrolling is the trade). */
-[data-theme='light'] .conversation-group-label {
-    background: var(--bg-secondary);
 }
 
 /* Hairline rule filling the rest of the label row: turns the label into
