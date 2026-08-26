@@ -299,13 +299,19 @@
     /* Overlay/backdrop for light theme */
     --overlay-bg: rgba(0, 0, 0, 0.45);
 
-    /* Liquid glass materials (light theme) */
-    --glass-bg: rgba(255, 255, 255, 0.58);
-    --glass-bg-strong: rgba(255, 255, 255, 0.74);
-    --glass-bg-header: rgba(255, 255, 255, 0.5);
-    --glass-bg-sidebar: rgba(250, 250, 252, 0.62);
-    --glass-border: rgba(0, 0, 0, 0.07);
-    --glass-highlight: rgba(255, 255, 255, 0.75);
+    /* Liquid glass materials (light theme).
+       The dark theme reads well because its frost is LIGHTER than the near-
+       black content; in light mode a near-white frost over white content had
+       no contrast - chrome vanished and scrolled-under text smeared. So the
+       light frost is more opaque (reads as a clean frosted panel, not washed
+       transparency) with a slightly cool off-white tint to separate it from
+       pure-white content, and a firmer hairline + highlight for definition. */
+    --glass-bg: rgba(247, 248, 251, 0.78);
+    --glass-bg-strong: rgba(250, 251, 253, 0.9);
+    --glass-bg-header: rgba(245, 246, 249, 0.8);
+    --glass-bg-sidebar: rgba(244, 246, 250, 0.82);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --glass-highlight: rgba(255, 255, 255, 0.9);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
 
     /* Scrollbar - needs explicit gray, tertiary bg is near-invisible on white */

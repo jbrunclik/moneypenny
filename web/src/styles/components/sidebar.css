@@ -124,7 +124,13 @@
     align-items: center;
     -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
     touch-action: pan-y;
-    background-color: var(--bg-secondary);
+    /* Transparent at rest so items blend into the (now translucent) frosted
+       sidebar instead of reading as opaque cards - the opaque --bg-secondary
+       popped as bright cards in light mode, where the frost is darker than the
+       item. The swipe actions live fully off-screen (right:-160px) and only
+       slide in AFTER release, so they never sit behind the item - no masking
+       background is needed. Hover/active still paint their own background. */
+    background-color: transparent;
     position: relative;
     z-index: 2;
     width: 100%;
