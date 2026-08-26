@@ -98,6 +98,9 @@ class ContextCacheManager:
         self._caches: dict[str, CacheEntry] = {}
         self._client: Any | None = None
         self._lock = threading.Lock()
+        # cache_keys with a background creation currently in flight - prevents a
+        # thundering herd of concurrent create() calls for the same cache.
+        self._creating: set[str] = set()
 
     def _get_client(self) -> Any:
         """Lazy-initialize the google.genai Client."""
@@ -163,28 +166,66 @@ class ContextCacheManager:
                     )
                     return shared.cache_name
 
-                # Need to create a new cache
-                cache_name = self._create_cache(profile, model_name, prompt, tools)
-                if cache_name:
-                    ttl = Config.CONTEXT_CACHE_TTL_SECONDS
-                    new_entry = CacheEntry(
-                        cache_name=cache_name,
-                        content_hash=content_hash,
-                        created_at=now,
-                        expires_at=now + ttl,
-                    )
-                    self._caches[cache_key] = new_entry
-                    self._store_shared_entry(cache_key, new_entry)
+                # Cold miss: build the cache in the BACKGROUND so this request
+                # isn't blocked on caches.create() - a multi-hundred-ms-to-second
+                # API call that otherwise stalls the first token, since this runs
+                # in ChatAgent.__init__ before the first streamed event. This one
+                # request falls back to the uncached path; subsequent requests
+                # pick up the warm cache. The guard ensures only one build runs
+                # per cache_key (no thundering herd of concurrent create()s).
+                if cache_key not in self._creating:
+                    self._creating.add(cache_key)
+                    threading.Thread(
+                        target=self._create_and_store,
+                        args=(profile, model_name, prompt, tools, cache_key, content_hash),
+                        name=f"ctx-cache-{cache_key[:24]}",
+                        daemon=True,
+                    ).start()
                     logger.info(
-                        "context_cache created",
-                        extra={"cache_key": cache_key, "cache_name": cache_name},
+                        "context_cache building in background", extra={"cache_key": cache_key}
                     )
-                    return cache_name
-
                 return None
         except Exception:
             logger.warning("Context cache get_or_create failed", exc_info=True)
             return None
+
+    def _create_and_store(
+        self,
+        profile: CacheProfile,
+        model_name: str,
+        prompt: str,
+        tools: list[Any],
+        cache_key: str,
+        content_hash: str,
+    ) -> None:
+        """Create the cache off the hot path and publish it (in-process + DB).
+
+        Runs in a daemon thread. Does NOT hold the manager lock during the slow
+        caches.create() call, so concurrent lookups aren't blocked; the lock is
+        taken only for the quick dict/set updates.
+        """
+        try:
+            cache_name = self._create_cache(profile, model_name, prompt, tools)
+            if not cache_name:
+                return
+            now = time.time()
+            ttl = Config.CONTEXT_CACHE_TTL_SECONDS
+            entry = CacheEntry(
+                cache_name=cache_name,
+                content_hash=content_hash,
+                created_at=now,
+                expires_at=now + ttl,
+            )
+            with self._lock:
+                self._caches[cache_key] = entry
+            self._store_shared_entry(cache_key, entry)
+            logger.info(
+                "context_cache created",
+                extra={"cache_key": cache_key, "cache_name": cache_name},
+            )
+        finally:
+            with self._lock:
+                self._creating.discard(cache_key)
 
     def _load_shared_entry(
         self, cache_key: str, content_hash: str, min_expires_at: float

@@ -45,6 +45,23 @@ def mock_shared_registry() -> Generator[MagicMock]:
         yield mock_db
 
 
+def _wait_for_build(
+    manager: object, cache_key: str = "standard:gemini-3-flash-preview", timeout: float = 2.0
+) -> None:
+    """Wait for the background cache build (spawned by get_or_create) to finish.
+
+    Cache creation is now non-blocking: the first get_or_create returns None and
+    builds in a daemon thread. Tests wait for that build to publish before
+    asserting on the warmed cache.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with manager._lock:  # type: ignore[attr-defined]
+            if cache_key not in manager._creating:  # type: ignore[attr-defined]
+                return
+        time.sleep(0.005)
+
+
 # ============ CacheProfile Tests ============
 
 
@@ -303,8 +320,7 @@ class TestContextCacheManager:
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
 
         manager = ContextCacheManager()
-        mock_result = MagicMock()
-        mock_result.name = "cachedContents/abc123"
+        tool = self._make_mock_tool()
 
         with (
             patch.object(manager, "_create_cache", return_value="cachedContents/abc123"),
@@ -313,11 +329,14 @@ class TestContextCacheManager:
                 return_value="static prompt",
             ),
         ):
-            result = manager.get_or_create(
-                CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
-            )
+            # First call falls back to uncached (None) and builds in the background.
+            result = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+            assert result is None
+            _wait_for_build(manager)
+            # Once the build publishes, subsequent calls get the warm cache.
+            result2 = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
 
-        assert result == "cachedContents/abc123"
+        assert result2 == "cachedContents/abc123"
 
     @patch("src.agent.context_cache.Config")
     def test_cache_hit_no_api_call(self, mock_config: MagicMock) -> None:
@@ -338,13 +357,15 @@ class TestContextCacheManager:
                 return_value="static prompt",
             ),
         ):
-            # First call creates
+            # First call triggers a background build and falls back to uncached
             result1 = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
-            # Second call hits cache
+            _wait_for_build(manager)
+            # Second call hits the now-warm cache
             result2 = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
 
-        assert result1 == result2
-        assert mock_create.call_count == 1  # Only called once
+        assert result1 is None
+        assert result2 == "cachedContents/abc123"
+        assert mock_create.call_count == 1  # Only built once
 
     @patch("src.agent.context_cache.Config")
     def test_content_hash_change_triggers_new_cache(self, mock_config: MagicMock) -> None:
@@ -372,10 +393,16 @@ class TestContextCacheManager:
             ),
         ):
             result1 = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+            _wait_for_build(manager)
+            # Second call sees a different content hash -> drift -> rebuild.
             result2 = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+            _wait_for_build(manager)
 
-        assert result1 != result2
-        assert call_count == 2
+        assert result1 is None and result2 is None
+        assert call_count == 2  # two distinct background builds (v1, then v2)
+        assert (
+            manager._caches["standard:gemini-3-flash-preview"].cache_name == "cachedContents/cache2"
+        )
 
     @patch("src.agent.context_cache.Config")
     def test_expired_cache_triggers_renewal(self, mock_config: MagicMock) -> None:
@@ -403,9 +430,13 @@ class TestContextCacheManager:
                 return_value="static prompt",
             ),
         ):
+            # About-to-expire entry isn't a hit -> triggers a background rebuild.
             result = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+            assert result is None
+            _wait_for_build(manager)
+            result2 = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
 
-        assert result == "cachedContents/renewed"
+        assert result2 == "cachedContents/renewed"
 
     @patch("src.agent.context_cache.Config")
     def test_creation_failure_returns_none(self, mock_config: MagicMock) -> None:
@@ -486,8 +517,17 @@ class TestContextCacheManager:
             for t in threads:
                 t.join()
 
-        assert not errors
-        assert all(r == "cachedContents/thread-safe" for r in results)
+            # Cold miss: every concurrent caller serves uncached (None) while a
+            # single background build runs - no thundering herd of create()s.
+            assert not errors
+            assert all(r is None for r in results)
+            _wait_for_build(manager)
+            assert create_count == 1
+
+            # Subsequent call picks up the warm cache the build published.
+            warm = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+
+        assert warm == "cachedContents/thread-safe"
 
 
 # ============ Cross-Worker Shared Registry Tests ============
@@ -555,11 +595,17 @@ class TestSharedCacheRegistry:
                 return_value="static prompt",
             ),
         ):
+            # Stale DB entry isn't adopted -> cold miss -> background build.
             result = manager.get_or_create(
                 CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
             )
+            assert result is None
+            _wait_for_build(manager)
+            warm = manager.get_or_create(
+                CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
+            )
 
-        assert result == "cachedContents/fresh"
+        assert warm == "cachedContents/fresh"
 
     @patch("src.agent.context_cache.Config")
     def test_created_cache_is_published_to_registry(
@@ -581,8 +627,9 @@ class TestSharedCacheRegistry:
             result = manager.get_or_create(
                 CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
             )
+            assert result is None
+            _wait_for_build(manager)
 
-        assert result == "cachedContents/new"
         mock_shared_registry.store_context_cache_entry.assert_called_once()
         args = mock_shared_registry.store_context_cache_entry.call_args.args
         assert args[0] == "standard:gemini-3-flash-preview"
@@ -608,11 +655,18 @@ class TestSharedCacheRegistry:
                 return_value="static prompt",
             ),
         ):
+            # DB lookup fails -> cold miss -> background build; the failing DB
+            # store is swallowed and the in-process cache still warms.
             result = manager.get_or_create(
                 CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
             )
+            assert result is None
+            _wait_for_build(manager)
+            warm = manager.get_or_create(
+                CacheProfile.STANDARD, "gemini-3-flash-preview", [self._make_mock_tool()]
+            )
 
-        assert result == "cachedContents/local"
+        assert warm == "cachedContents/local"
 
 
 # ============ Context Cache DB Mixin Tests ============
