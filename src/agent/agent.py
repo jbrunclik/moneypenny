@@ -25,7 +25,7 @@ from src.agent.content import (
     extract_thinking_and_text,
 )
 from src.agent.context_cache import CacheProfile
-from src.agent.graph import CHAT_NODE_NAME, create_chat_graph
+from src.agent.graph import CHAT_NODE_NAME
 from src.agent.prompts import get_system_prompt
 from src.agent.tool_display import TOOL_METADATA, extract_tool_detail
 from src.agent.tools import get_tools_for_request
@@ -174,17 +174,18 @@ class ChatAgent:
                 "cached": self._cached_content_name is not None,
             },
         )
-        from src.agent.graph import compile_graph
+        from src.agent.graph import get_compiled_graph
 
-        self.graph = compile_graph(
-            create_chat_graph(
-                model_name,
-                with_tools=with_tools,
-                include_thoughts=include_thoughts,
-                tools=active_tools,
-                is_autonomous=is_autonomous,
-                cached_content=self._cached_content_name,
-            )
+        # Memoized by build signature - the compiled graph is stateless and a
+        # pure function of these args, so it is reused across requests instead
+        # of recompiled on every ChatAgent construction (hot path).
+        self.graph = get_compiled_graph(
+            model_name,
+            with_tools=with_tools,
+            include_thoughts=include_thoughts,
+            tools=active_tools,
+            is_autonomous=is_autonomous,
+            cached_content=self._cached_content_name,
         )
 
     def _get_cache_profile(self) -> CacheProfile | None:

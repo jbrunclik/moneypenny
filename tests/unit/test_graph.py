@@ -980,3 +980,90 @@ class TestNonRetriableToolErrors:
         result = check_tool_results(state)
         guidance = result["messages"][0]
         assert "different approach" in guidance.content.lower()
+
+
+class TestCompiledGraphCache:
+    """get_compiled_graph memoizes compiled graphs by build signature, so the
+    hot path (ChatAgent.__init__) doesn't rebuild + recompile the graph on
+    every request. The compiled graph is stateless and safe to share."""
+
+    @staticmethod
+    def _tool(name: str) -> MagicMock:
+        t = MagicMock()
+        t.name = name  # `name` is a reserved Mock kwarg; set it explicitly
+        return t
+
+    @pytest.fixture(autouse=True)
+    def _isolate_cache(self) -> Any:
+        from src.agent.graph import clear_graph_cache
+
+        clear_graph_cache()
+        yield
+        clear_graph_cache()
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_same_signature_returns_cached_instance(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        from src.agent.graph import get_compiled_graph
+
+        tools = [self._tool("web_search")]
+        g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
+        g2 = get_compiled_graph("m", tools=tools, cached_content="c1")
+        assert g1 is g2
+        assert mock_create.call_count == 1
+        assert mock_compile.call_count == 1
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_different_cached_content_rebuilds(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        from src.agent.graph import get_compiled_graph
+
+        tools = [self._tool("web_search")]
+        g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
+        g2 = get_compiled_graph("m", tools=tools, cached_content="c2")
+        assert g1 is not g2
+        assert mock_compile.call_count == 2
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_different_tool_set_rebuilds(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        from src.agent.graph import get_compiled_graph
+
+        g1 = get_compiled_graph("m", tools=[self._tool("web_search")], cached_content="c1")
+        g2 = get_compiled_graph("m", tools=[self._tool("fetch_url")], cached_content="c1")
+        assert g1 is not g2
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_tool_order_does_not_matter(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        from src.agent.graph import get_compiled_graph
+
+        a, b = self._tool("a"), self._tool("b")
+        g1 = get_compiled_graph("m", tools=[a, b], cached_content="c1")
+        g2 = get_compiled_graph("m", tools=[b, a], cached_content="c1")
+        assert g1 is g2  # signature is order-independent (sorted names)
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_lru_evicts_oldest(
+        self, mock_create: MagicMock, mock_compile: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.agent.graph import get_compiled_graph
+
+        monkeypatch.setattr(Config, "AGENT_GRAPH_CACHE_SIZE", 2)
+        tools = [self._tool("web_search")]
+        first = get_compiled_graph("m", tools=tools, cached_content="c1")
+        get_compiled_graph("m", tools=tools, cached_content="c2")
+        get_compiled_graph("m", tools=tools, cached_content="c3")  # evicts c1
+        builds_before = mock_compile.call_count
+        again = get_compiled_graph("m", tools=tools, cached_content="c1")
+        assert again is not first  # c1 was evicted and rebuilt fresh
+        assert mock_compile.call_count == builds_before + 1

@@ -2458,8 +2458,9 @@ class TestChatAgentOverrides:
             raise AssertionError("cache lookup must not run")
 
         monkeypatch.setattr(cache_mod, "get_cached_content_name", fail_cache_lookup)
-        monkeypatch.setattr(agent_mod, "create_chat_graph", lambda *a, **kw: object())
-        monkeypatch.setattr(graph_mod, "compile_graph", lambda graph: graph)
+        # ChatAgent now builds via the memoized get_compiled_graph; stub it so
+        # construction skips real (slow) graph compilation.
+        monkeypatch.setattr(graph_mod, "get_compiled_graph", lambda *a, **kw: object())
         return agent_mod.ChatAgent(model_name="gemini-test", **kwargs)
 
     def test_cache_opt_out_skips_cache_lookup(self, monkeypatch) -> None:
@@ -2489,12 +2490,11 @@ class TestInteractiveAgentToolWiring:
 
         captured: dict[str, list] = {}
 
-        def fake_create_chat_graph(model_name, **kwargs):
+        def fake_get_compiled_graph(model_name, **kwargs):
             captured["tools"] = kwargs.get("tools") or []
             return object()
 
-        monkeypatch.setattr(agent_mod, "create_chat_graph", fake_create_chat_graph)
-        monkeypatch.setattr(graph_mod, "compile_graph", lambda graph: graph)
+        monkeypatch.setattr(graph_mod, "get_compiled_graph", fake_get_compiled_graph)
 
         agent_mod.ChatAgent(
             model_name="gemini-test",
