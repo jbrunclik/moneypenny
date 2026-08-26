@@ -32,9 +32,16 @@ export function initComposerHeight(): void {
     const messages = getElementById<HTMLDivElement>('messages');
     const wasAtBottom = messages ? isScrolledToBottom(messages) : false;
 
-    // getBoundingClientRect().height includes padding/border - the full
-    // footprint the list must clear. Round to avoid sub-pixel thrash.
-    const h = Math.round(inputArea.getBoundingClientRect().height);
+    // The list only needs to clear the VISIBLE composer pill, not the full
+    // .input-area box - that box has a transparent gradient scrim / padding
+    // above the pill (content is meant to fade THROUGH it), so measuring the
+    // whole box over-clears and leaves a gap above the pill (device-verified:
+    // cph=149 vs a ~87px visible pill). Measure from the pill's top edge to
+    // the box bottom (= the viewport bottom, since .input-area is bottom:0).
+    const pill = inputArea.querySelector<HTMLElement>('.input-container') ?? inputArea;
+    const h = Math.round(
+      inputArea.getBoundingClientRect().bottom - pill.getBoundingClientRect().top
+    );
     const next = `${h}px`;
     if (document.documentElement.style.getPropertyValue('--composer-height') !== next) {
       document.documentElement.style.setProperty('--composer-height', next);
