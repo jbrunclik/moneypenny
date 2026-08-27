@@ -181,11 +181,6 @@
         max-width: 85%;
     }
 
-    /* The "new messages" banner sticks to the list top - push it below the
-       floating glass header so it isn't hidden behind it. */
-    .new-messages-banner {
-        top: calc(var(--header-height) + env(safe-area-inset-top, 0));
-    }
 }
 
 /* Desktop: float the role avatar into the column's SIDE GUTTER so the message
@@ -1142,7 +1137,13 @@ a.document-name:hover {
     font-size: var(--font-size-sm);
     font-weight: 500;
     position: sticky;
-    top: 0;
+    /* Stick BELOW the floating glass header (both mobile and the desktop
+       float-under toolbar are --header-height tall) plus the iOS status-bar
+       inset - otherwise the banner pins to the list top, which sits under the
+       header, and overlaps the status bar. This lives on the base rule (not a
+       mobile-only override) because a later same-specificity `top: 0` here
+       would otherwise win the cascade and re-break it. */
+    top: calc(var(--header-height) + env(safe-area-inset-top, 0));
     z-index: 5;
     border-radius: var(--radius-md);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
