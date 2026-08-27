@@ -54,6 +54,8 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Reliability
 
+- [ ] **In-session store drifts from the DOM (assistant messages never appended)** (Aug 2026) - completed assistant replies (streaming + batch) render to the DOM via `addMessageToUI` but are never `appendMessage`d to the Zustand store, so mid-session `getMessages()` holds only user messages + whatever was server-loaded. Any consumer that re-renders from the store mid-session wipes every assistant bubble until a reload refetches. Shipped a surgical fix for the one current consumer (edit-and-resend now truncates the DOM directly via `removeRenderedMessagesFrom` instead of re-rendering from the store — commit 400dce4), but the latent gap remains for future `getMessages` callers. Proper fix: `appendMessage` the finished assistant message on completion (`messaging.ts` batch path ~L1904 `sendBatchMessage`, plus the streaming `finalizeStreamingMessage` path) so the store is authoritative. Touches the hot completion paths — guard against double-append (the recovery path `stream-recovery.ts:534` already appends, and `appendMessage` doesn't dedupe by id → make it idempotent or guard), and confirm no store subscriber re-renders the list on the change (rendering is imperative today, so it shouldn't).
+
 - [ ] **Context-cache 403 blip** - observed once (Aug 19 2026, locally): a freshly created Gemini context cache returned PERMISSION_DENIED when used seconds after creation, then worked minutes later; prod logs show zero occurrences over 3 days of hourly rotations. If it recurs: add a one-shot uncached-fallback retry when an invoke with `cached_content` 403s (`chat_node`/`create_chat_model` seam).
 
 ## Code Quality
