@@ -22,6 +22,25 @@
     overflow: hidden;
 }
 
+/* Persistent status-bar backdrop (standalone PWA on notched devices). A thin
+   opaque strip over the iOS status-bar inset so that when the auto-hide header
+   slides fully away, scrolled message content passes BEHIND it instead of
+   colliding with the clock/signal icons - the role the browser's own chrome
+   plays. Zero-height (invisible) where there is no top inset, so it is a no-op
+   on desktop and non-notched devices. Sits above content but below the sidebar
+   overlay and modals. */
+#app::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0);
+    background: var(--bg-primary);
+    z-index: 6;
+    pointer-events: none;
+}
+
 /* ============================================
    Sidebar
    ============================================ */
@@ -213,20 +232,14 @@
         transition: transform var(--transition-slow) var(--ease-out);
     }
 
-    /* Auto-hide: slid up while the user scrolls down through a conversation
-       (core/header-autohide.ts toggles .header-hidden on :root), revealed
-       again on scroll-up.
-
-       Slide up by only --header-height, NOT the full 100%: the header's total
-       height is --header-height + the status-bar (safe-area-inset-top) inset,
-       so this hides the title/menu/actions row while leaving the top safe-area
-       strip of the header's frosted background in place. That strip keeps
-       covering the iOS status bar, so scrolled content never collides with the
-       clock/signal icons (the exact issue that got the first attempt reverted).
-       On devices with no top inset (safe-area 0) this equals translateY(-100%),
-       so the header still hides fully - no wasted strip. */
+    /* Auto-hide: slid fully up while the user scrolls down through a
+       conversation (core/header-autohide.ts toggles .header-hidden on :root),
+       revealed again on scroll-up. The header disappears completely, like a
+       browser's toolbar; the status bar stays clean because a persistent
+       backdrop (#app::before) covers the safe-area strip so scrolled content
+       never collides with the clock/signal icons. */
     :root.header-hidden .mobile-header {
-        transform: translateY(calc(-1 * var(--header-height)));
+        transform: translateY(-100%);
     }
 
     .messages {
