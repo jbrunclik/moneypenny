@@ -229,6 +229,13 @@
     --header-height: 56px;
     --input-height: 60px;
     --message-max-width: 800px;
+    /* Side gutter reserved on desktop for the role avatar, which floats into
+       it absolutely. MUST exceed the avatar's footprint (28px marker + 12px
+       gap = 40px) or the avatar clips at the container's overflow edge. Used
+       by BOTH the normal message width cap and the table-widened bubble - keep
+       them sharing this so they can't drift apart (a table bubble that
+       reserved less than this clipped the avatar with the sidebar open). */
+    --message-gutter: 52px;
 
     /* ----------------------------------------
        Transitions

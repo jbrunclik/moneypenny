@@ -198,7 +198,7 @@
     .message,
     .message-loading,
     .input-wrapper {
-        max-width: min(var(--message-max-width), 100% - 2 * 52px);
+        max-width: min(var(--message-max-width), 100% - 2 * var(--message-gutter));
     }
 
     .message,
@@ -838,8 +838,14 @@ a.document-name:hover {
 @media (min-width: 1200px) {
     .message.assistant:has(.table-wrapper) {
         width: fit-content;
-        min-width: var(--message-max-width);
-        max-width: min(calc(100vw - var(--sidebar-width) - 2 * var(--space-8)), 1600px);
+        /* Reserve the SAME avatar gutter as normal messages (relative to the
+           message list, so it tracks the sidebar), or the widened table bubble
+           overruns the gutter and clips the avatar. Both bounds stay within
+           the gutter-safe width; min-width no longer forces past it on a
+           narrow window. Capped at 1600px so tables don't sprawl on huge
+           monitors. */
+        min-width: min(var(--message-max-width), 100% - 2 * var(--message-gutter));
+        max-width: min(calc(100% - 2 * var(--message-gutter)), 1600px);
     }
 
     .message.assistant .table-wrapper table {
