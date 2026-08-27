@@ -210,6 +210,23 @@
         left: 0;
         right: 0;
         z-index: 5;
+        transition: transform var(--transition-slow) var(--ease-out);
+    }
+
+    /* Auto-hide: slid up while the user scrolls down through a conversation
+       (core/header-autohide.ts toggles .header-hidden on :root), revealed
+       again on scroll-up.
+
+       Slide up by only --header-height, NOT the full 100%: the header's total
+       height is --header-height + the status-bar (safe-area-inset-top) inset,
+       so this hides the title/menu/actions row while leaving the top safe-area
+       strip of the header's frosted background in place. That strip keeps
+       covering the iOS status bar, so scrolled content never collides with the
+       clock/signal icons (the exact issue that got the first attempt reverted).
+       On devices with no top inset (safe-area 0) this equals translateY(-100%),
+       so the header still hides fully - no wasted strip. */
+    :root.header-hidden .mobile-header {
+        transform: translateY(calc(-1 * var(--header-height)));
     }
 
     .messages {

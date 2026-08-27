@@ -41,6 +41,7 @@ import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHistoryPopup';
 import { initVoiceInput } from '../components/VoiceInput';
 import { initScrollToBottom, setBeforeScrollToBottomCallback } from '../components/ScrollToBottom';
+import { initHeaderAutoHide } from './header-autohide';
 import { initVersionBanner } from '../components/VersionBanner';
 import { getElementById, clearElement } from '../utils/dom';
 import { initializeTheme } from '../utils/theme';
@@ -457,6 +458,7 @@ export async function init(): Promise<void> {
   costHistoryPopup.init();
   initAgents();
   initScrollToBottom();
+  initHeaderAutoHide();
   // Set up callback to load remaining newer messages before scrolling to bottom
   // This ensures clicking scroll-to-bottom in a partial view (after search navigation)
   // loads all missing messages first, so the user sees the actual latest messages
