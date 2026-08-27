@@ -326,6 +326,12 @@ reload:
 update:
 	git pull --ff-only
 	$(PIP) install -r requirements.txt
+	# Keep the agent browser tool's Chromium in lockstep with the playwright
+	# package: a version bump changes the required build, and pip install alone
+	# leaves the old binary stale (the tool then fails with "run playwright
+	# install"). No-op download when already current; no --with-deps (unattended,
+	# no sudo - system libs come from the one-time `make browser-setup`).
+	$(PYTHON) -m playwright install chromium
 	cd web && npm ci && npm run build
 	systemctl --user reload moneypenny
 	@echo "Reload triggered, waiting for workers to boot (migrations apply on startup)..."
