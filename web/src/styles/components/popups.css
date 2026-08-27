@@ -337,6 +337,21 @@
         border-bottom-right-radius: 0;
         margin-bottom: env(safe-area-inset-bottom, 0);
     }
+
+    /* Keyboard open (iOS): the fixed bottom-sheet otherwise sits BEHIND the
+       keyboard, trapping a focused field (e.g. Custom Instructions) so it can't
+       be seen or edited. Lift the sheet above the keyboard (--keyboard-inset,
+       set by core/keyboard-viewport.ts) and let it grow to fill the space
+       above it, so its scrollable body can reach the focused field. The
+       home-indicator inset is dead space under the keyboard - drop it. */
+    :root.kb-open .info-popup {
+        padding-bottom: calc(var(--space-2) + var(--keyboard-inset, 0px));
+    }
+
+    :root.kb-open .info-popup-content {
+        max-height: calc(var(--app-vh, 100vh) - var(--keyboard-inset, 0px) - var(--space-6));
+        margin-bottom: 0;
+    }
 }
 
 /* ----------------------------------------
