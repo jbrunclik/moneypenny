@@ -45,6 +45,12 @@ export default defineConfig({
     },
     {
       name: 'webkit',
+      // Webkit load-flakes under full-suite contention (8 concurrent contexts):
+      // rare, load-correlated failures that recover on rerun (see the search-spec
+      // and archived-deeplink flakes in TODO.md). One extra retry beyond the
+      // global 2 keeps a stray webkit flake from falsely reddening CI without
+      // taxing the green path - retries only run on failure. Chromium stays at 2.
+      retries: process.env.CI ? 3 : 0,
       use: {
         ...devices['Desktop Safari'],
         // Increase viewport height to reduce whitespace in visual tests
