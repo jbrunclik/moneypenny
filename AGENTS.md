@@ -4,7 +4,9 @@ This file contains context for Claude Code to work effectively on this project.
 
 > **Note**: `CLAUDE.md` is a symlink to this file (`AGENTS.md`). Both names point to the same content.
 
-**For detailed documentation, see the [docs/](docs/) directory.**
+**For detailed documentation, see the [docs/](docs/) directory.** Area-specific
+conventions live in [.claude/rules/](.claude/rules/) and load automatically when you
+work on matching files (API, agent, frontend, migrations, programs, tests).
 
 ## Quick Reference
 
@@ -57,11 +59,8 @@ commands wire them to this project's conventions.
 
 ### Hooks
 
-A `PostToolUse` hook auto-formats files after every Edit/Write:
-- Python files: `ruff format` + `ruff check --fix`
-- TypeScript files: `eslint --fix`
-
-This eliminates manual formatting cycles. See `.claude/hooks/auto-format.sh`.
+- **`PostToolUse`** auto-formats files after every Edit/Write (Python: `ruff format` + `ruff check --fix`; TypeScript: `eslint --fix`). See `.claude/hooks/auto-format.sh`.
+- **`PreToolUse`** blocks hand-edits to generated files (`web/src/types/generated-api.ts`, `static/openapi.json`). See `.claude/hooks/block-generated.sh`.
 
 ### Project Knowledge & Docs
 
@@ -71,47 +70,22 @@ Durable engineering knowledge — architecture, conventions, feature internals, 
 
 ## Project Structure
 
-```
-moneypenny/
-├── src/                          # Flask backend
-│   ├── app.py                    # Flask entry point (+ /privacy route for Google OAuth verification)
-│   ├── config.py                 # Environment config
-│   ├── auth/                     # Authentication (JWT, Google, Todoist, Calendar OAuth)
-│   ├── api/                      # REST endpoints, validation, errors
-│   │   └── routes/               # 18 modules, ~100 endpoints (organized by feature)
-│   ├── agent/                    # LangGraph agent with Gemini + tools
-│   │   └── tools/                # web_search, fetch_url, browser, generate_image, execute_code, todoist, places/routing, etc.
-│   ├── db/                       # SQLite: User, Conversation, Message, sports columns
-│   │   └── models/               # Split by entity
-│   ├── templates/                # Jinja2 templates (index.html, privacy.html)
-│   └── utils/                    # Images, costs, logging, files
-├── web/                          # Vite + TypeScript frontend
-│   └── src/
-│       ├── main.ts               # Entry point (delegates to core/)
-│       ├── core/                  # 12 core modules (conversation, messaging, sports, etc.)
-│       ├── components/            # UI modules (messages/, etc.)
-│       ├── types/                 # TypeScript interfaces
-│       ├── api/client.ts          # Typed fetch wrapper
-│       ├── state/store.ts         # Zustand store
-│       ├── utils/                 # DOM, markdown, icons, logger
-│       └── styles/                # CSS (modular structure)
-├── tests/                        # Backend tests (unit, integration)
-├── web/tests/                    # Frontend tests (unit, component, E2E, visual)
-├── migrations/                   # Database migrations (yoyo, 47 migrations)
-├── docs/                         # Detailed documentation
-└── .claude/                      # Claude Code config (agents, commands, hooks)
-```
+- `src/` — Flask backend: `api/routes/` (REST endpoints by feature), `agent/` (LangGraph agent + `tools/`), `db/models/`, `auth/`, `utils/`, `config.py`.
+- `web/src/` — Vite + TypeScript frontend: `core/`, `components/`, `state/store.ts` (Zustand), `api/client.ts`, `types/`, `styles/`.
+- `tests/` + `web/tests/` — backend and frontend tests (unit, integration, E2E, visual).
+- `migrations/` — yoyo DB migrations. `docs/` — detailed docs. `.claude/` — agents, commands, hooks, rules.
+
+Detailed per-area conventions load by path from `.claude/rules/`; deeper reference lives in `docs/`.
 
 ## Key Files
 
 - [config.py](src/config.py) - All env vars, model definitions
 - [routes/](src/api/routes/) - API endpoints by feature (see [api-design.md](docs/architecture/api-design.md))
 - [schemas.py](src/api/schemas.py) - Pydantic request/response schemas
-- [agent/](src/agent/) - LangGraph agent: [agent.py](src/agent/agent.py), [graph.py](src/agent/graph.py) (planning, self-correction, checkpointing), [prompts.py](src/agent/prompts.py), [content.py](src/agent/content.py), [history.py](src/agent/history.py)
+- [agent/](src/agent/) - LangGraph agent: [agent.py](src/agent/agent.py), [graph.py](src/agent/graph.py), [prompts.py](src/agent/prompts.py), [content.py](src/agent/content.py), [history.py](src/agent/history.py)
 - [tools/](src/agent/tools/) - Agent tools (including [browser.py](src/agent/tools/browser.py) for Playwright-based browsing)
 - [models/](src/db/models/) - Database models and operations
 - [core/](web/src/core/) - Frontend core modules
-- [messages/](web/src/components/messages/) - Message display components
 - [store.ts](web/src/state/store.ts) - Zustand state management
 
 ## Development Workflow
@@ -142,10 +116,6 @@ make build  # Outputs to static/assets/
 - **Developer-configurable values**: `config.{ts,py}`
 - Use `SCREAMING_SNAKE_CASE` with units in the name (`_MS`, `_SECONDS`, `_PX`, `_BYTES`)
 
-### Enums for Categorical Values
-
-Use enums for fixed sets of options. Backend: `str, Enum` in [schemas.py](src/api/schemas.py). Frontend: `as const` pattern in [api.ts](web/src/types/api.ts).
-
 ### Code Quality Rules
 
 - Functions: <50 lines ideal, <100 lines max
@@ -154,13 +124,10 @@ Use enums for fixed sets of options. Backend: `str, Enum` in [schemas.py](src/ap
 - No backward compatibility re-exports when splitting files
 - See [docs/conventions.md](docs/conventions.md) for detailed patterns and examples
 
-### Frontend Patterns
-
-- **State management**: [Zustand](https://github.com/pmndrs/zustand) (not Redux or custom)
-- **Event delegation**: For dynamic content (not inline `onclick` - iOS Safari issues)
-- **DOM**: `textContent` for plain text, `clearElement()` from [dom.ts](web/src/utils/dom.ts)
-- **Icons**: Centralized in [icons.ts](web/src/utils/icons.ts)
-- **Named constants**: `DEFAULT_CONVERSATION_TITLE` from [api.ts](web/src/types/api.ts)
+### Add new environment variables
+1. Add to [config.py](src/config.py) with a sensible default
+2. **Update [.env.example](.env.example)**
+3. Document in the relevant `docs/features/` file
 
 ## Pre-Commit Checklist
 
@@ -173,56 +140,15 @@ make test   # Run all backend tests
 
 Both must pass. Use `make lint-fix` for auto-fixable issues.
 
-**E2E tests** - always run with timeout: `cd web && timeout 600 npx playwright test`
-
-**E2E tests run against the LAST `make build`, not your source.** The e2e server serves the production bundle from `static/assets/`. After ANY frontend change, `make build` before Playwright — otherwise you're debugging the previous build (symptom: your new classes/log lines never appear in the browser).
-
-**Zero tolerance for flaky tests** - investigate root causes, don't just re-run.
-
 **Check exit codes directly** - never judge `make lint`/`mypy`/`pytest` by piping through `grep`/`tail` in `&&` chains (the pipe masks the exit code; this has shipped broken commits). Redirect to a log and branch on `$?`.
 
 **TDD for bug fixes**: failing test first -> fix -> verify -> full suite.
 
-## Common Tasks
-
-### Add a new API endpoint
-Use the `api-endpoint` agent, or manually add to the appropriate module in [src/api/routes/](src/api/routes/). Use `@api.output()` for response schema.
-
-### Add a new tool to the agent
-Create file in [tools/](src/agent/tools/), add `@tool` decorator, register in [tools/__init__.py](src/agent/tools/__init__.py). See [docs/features/agents.md](docs/features/agents.md#adding-a-new-tool).
-
-### Add a database migration
-Use the `migration-creator` agent, or create file in [migrations/](migrations/) following `NNNN_description.py` pattern.
-
-### Enable the browser tool
-Run `make browser-setup` to install Playwright and Chromium. The tool is enabled by default (`BROWSER_ENABLED=true`). Set `BROWSER_ENABLED=false` in `.env` to disable. See [docs/features/agents.md](docs/features/agents.md) for configuration options.
-
-### Change available models
-Edit [config.py](src/config.py) `MODELS` dict.
-
-### Add a new UI component
-1. Create TypeScript file in `web/src/components/`
-2. Export init function and render functions
-3. Import and wire in `main.ts`
-
-### Add new environment variables
-1. Add to [config.py](src/config.py) with a sensible default
-2. **Update [.env.example](.env.example)**
-3. Document in the relevant `docs/features/` file
-
-## Program-Based Features (Sports, Language)
-
-Sports and Language share the same architecture: each "program" is a dedicated conversation (`is_sports`/`is_language` flag + program slug) with a specialized system prompt and `kv_store` persistence. The pattern:
-- **Backend**: `routes/{feature}.py` (5 CRUD+reset endpoints), `models/{feature}.py` (DB mixin), `prompts.py` (system prompt + KV formatting)
-- **Frontend**: `core/{feature}.ts` (navigation + CRUD), `components/{Feature}Dashboard.ts` (UI + modal), `styles/components/{feature}.css`
-- **Language-specific**: `QuizBlock.ts` renders interactive quizzes from ` ```quiz ` fenced code blocks (MC, fill-blank, translate, batch types). All evaluation is done by the LLM — the client only collects and sends answers.
-
-See [docs/features/language-learning.md](docs/features/language-learning.md) for detailed language feature docs.
-
----
+(E2E and visual-regression specifics load from [.claude/rules/testing.md](.claude/rules/testing.md) when you touch test files.)
 
 ## Related Files
 
+- [.claude/rules/](.claude/rules/) - Path-scoped conventions (API, agent, frontend, migrations, programs, tests)
 - [docs/README.md](docs/README.md) - Documentation index
 - [docs/conventions.md](docs/conventions.md) - Detailed code quality patterns and file size guidelines
 - [TODO.md](TODO.md) - Memory bank for planned work

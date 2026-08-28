@@ -148,7 +148,7 @@ NOTE: the e2e webServer needs Python + the venv inside the container — if that
 - [ ] **Step 1:** Full capture matrix review; fix stragglers.
 - [ ] **Step 2:** `make lint && make test-all`; both baseline sets updated if stragglers changed pixels.
 - [ ] **Step 3:** Docs touch-up (components.md: planner/login/toast patterns now on-system; testing.md final state). Commit `docs(ui): round-2 polish documentation`.
-- [ ] **Step 4:** Push + deploy to prod (`git pull && make update`), verify health + bundle parity.
+- [ ] **Step 4:** Push + deploy to the server (`git pull && make update`), verify health + bundle parity.
 
 ## Self-review notes
 
