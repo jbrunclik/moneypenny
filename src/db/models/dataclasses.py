@@ -33,6 +33,10 @@ class User:
     whatsapp_phone: str | None = None
     garmin_token: str | None = None
     garmin_connected_at: datetime | None = None
+    rouvy_email: str | None = None
+    rouvy_password: str | None = None
+    rouvy_session: str | None = None
+    rouvy_connected_at: datetime | None = None
     daily_briefing_agent_id: str | None = None
     # Primary response language (English name, e.g. "Czech"); None = auto
     preferred_language: str | None = None

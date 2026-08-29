@@ -99,6 +99,20 @@ class UserMixin:
                 if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]
                 else None
             ),
+            rouvy_email=(
+                decrypt_token(row["rouvy_email"]) if "rouvy_email" in row.keys() else None
+            ),
+            rouvy_password=(
+                decrypt_token(row["rouvy_password"]) if "rouvy_password" in row.keys() else None
+            ),
+            rouvy_session=(
+                decrypt_token(row["rouvy_session"]) if "rouvy_session" in row.keys() else None
+            ),
+            rouvy_connected_at=(
+                datetime.fromisoformat(row["rouvy_connected_at"])
+                if "rouvy_connected_at" in row.keys() and row["rouvy_connected_at"]
+                else None
+            ),
             daily_briefing_agent_id=(
                 row["daily_briefing_agent_id"] if "daily_briefing_agent_id" in row.keys() else None
             ),
@@ -568,3 +582,55 @@ class UserMixin:
                 extra={"user_id": user_id},
             )
         return updated
+
+    def update_user_rouvy_credentials(
+        self,
+        user_id: str,
+        email: str | None,
+        password: str | None,
+        session: str | None,
+    ) -> bool:
+        """Store (or clear) a user's Rouvy credentials + session cookie blob.
+
+        email/password/session are encrypted at rest. Passing all-None clears
+        the credentials and disconnects the integration. ``rouvy_connected_at``
+        is set when a session is stored, cleared otherwise.
+
+        Unlike Garmin, the password IS persisted (encrypted): Rouvy sessions are
+        short-lived and re-login (headless) needs the credentials to refresh.
+        """
+        connected_at = datetime.now().isoformat() if session else None
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET rouvy_email = ?, rouvy_password = ?, "
+                "rouvy_session = ?, rouvy_connected_at = ? WHERE id = ?",
+                (
+                    encrypt_token(email),
+                    encrypt_token(password),
+                    encrypt_token(session),
+                    connected_at,
+                    user_id,
+                ),
+            )
+            conn.commit()
+            updated = cursor.rowcount > 0
+        if updated:
+            logger.info(
+                "User Rouvy %s",
+                "connected" if session else "disconnected",
+                extra={"user_id": user_id},
+            )
+        return updated
+
+    def update_user_rouvy_session(self, user_id: str, session: str | None) -> bool:
+        """Update only the stored Rouvy session cookie blob (used on refresh)."""
+        connected_at = datetime.now().isoformat() if session else None
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE users SET rouvy_session = ?, rouvy_connected_at = ? WHERE id = ?",
+                (encrypt_token(session), connected_at, user_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
