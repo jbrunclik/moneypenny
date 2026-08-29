@@ -7,6 +7,7 @@ from typing import Any
 
 # Import tools from submodules
 from src.agent.tools.agent_kv import kv_store
+from src.agent.tools.attachment import create_file
 from src.agent.tools.browser import browser, is_browser_available
 from src.agent.tools.code_execution import execute_code, is_code_sandbox_available
 from src.agent.tools.context import (
@@ -115,6 +116,7 @@ def get_available_tools() -> list[Any]:
         delegate_task,
         generate_image,
         retrieve_file,
+        create_file,
         cite_sources,
         set_conversation_title,
         manage_memory,
@@ -221,6 +223,7 @@ def get_tools_for_request(
             web_search,
             research,
             retrieve_file,
+            create_file,
             cite_sources,
             kv_store,
         ]
@@ -294,6 +297,7 @@ _TOOL_MAP: dict[str, Any] = {
     "browser": browser,
     "generate_image": generate_image,
     "retrieve_file": retrieve_file,
+    "create_file": create_file,
     "execute_code": execute_code,
     "todoist": todoist,
     "google_calendar": google_calendar,
@@ -336,7 +340,14 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
     # long-term memory, which is injected into every later conversation. Agents
     # that genuinely need it must list it in tool_permissions (or run with
     # unrestricted permissions), and the tool re-checks that at call time.
-    tools: list[Any] = [fetch_url, web_search, research, retrieve_file, cite_sources]
+    tools: list[Any] = [
+        fetch_url,
+        web_search,
+        research,
+        retrieve_file,
+        create_file,
+        cite_sources,
+    ]
 
     # Add request_approval for sensitive actions
     tools.append(request_approval)
@@ -417,6 +428,7 @@ __all__ = [
     "generate_image",
     "execute_code",
     "retrieve_file",
+    "create_file",
     "todoist",
     "google_calendar",
     "garmin_connect",

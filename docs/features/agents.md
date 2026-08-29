@@ -143,6 +143,7 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | `fetch_url` | Fetch content from URLs | Always available |
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |
+| `create_file` | Attach an LLM-authored text file (ZWO/CSV/ICS/GPX/…) for download — no code execution | Always available |
 | `request_approval` | Request user approval | Always available |
 | `trigger_agent` | Trigger another agent | Always available |
 | `kv_store` | Per-user key-value storage | Always available |
