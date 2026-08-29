@@ -20,6 +20,9 @@ TOKEN_COLUMNS = (
     "google_calendar_access_token",
     "google_calendar_refresh_token",
     "garmin_token",
+    "rouvy_email",
+    "rouvy_password",
+    "rouvy_session",
 )
 
 

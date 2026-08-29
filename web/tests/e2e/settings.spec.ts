@@ -58,7 +58,8 @@ test.describe('Settings', () => {
     await expect(integrationLabels.nth(0)).toHaveText('Todoist Integration');
     await expect(integrationLabels.nth(1)).toHaveText('Google Calendar Integration');
     await expect(integrationLabels.nth(2)).toHaveText('Garmin Connect');
-    await expect(integrationLabels.nth(3)).toHaveText('Location');
+    await expect(integrationLabels.nth(3)).toHaveText('Rouvy');
+    await expect(integrationLabels.nth(4)).toHaveText('Location');
 
     // Notifications tab
     await popup.locator('[data-settings-tab="notifications"]').click();

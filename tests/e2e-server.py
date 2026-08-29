@@ -1294,6 +1294,17 @@ def main() -> None:
                     }
                 )
 
+            # Intercept /auth/rouvy/status (disconnected by default in E2E)
+            if request.path == "/auth/rouvy/status" and request.method == "GET":
+                rouvy_connected = MOCK_CONFIG.get("rouvy_connected", False)
+                return jsonify(
+                    {
+                        "connected": rouvy_connected,
+                        "connected_at": datetime.now().isoformat() if rouvy_connected else None,
+                        "needs_reconnect": MOCK_CONFIG.get("rouvy_needs_reconnect", False),
+                    }
+                )
+
             # Intercept /api/agents/command-center for agents testing
             if request.path == "/api/agents/command-center" and request.method == "GET":
                 if MOCK_CONFIG.get("agents_command_center"):
