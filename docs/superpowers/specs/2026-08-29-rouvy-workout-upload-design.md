@@ -47,21 +47,28 @@ uploading throwaway ZWOs (which parsed correctly — duration, TSS, power target
 editing one, and deleting both (account left clean). All data endpoints are
 React-Router single-fetch `.data` routes authenticated by the session cookie.
 
+All `.data` endpoints authenticate with the `.rouvy.com` session cookies alone
+(no CSRF/single-fetch header). Responses are **turbo-stream** (`content-type:
+text/x-script`), a flat JSON array — parse defensively (regex for the field of
+interest works; e.g. `"workoutId",(\d+)`), not `json.loads` of an object.
+**Task 1 confirmed all of the below end to end via httpx (headless login →
+create → list → delete), with the test account left clean.**
+
 - **Create (upload):** `POST https://riders.rouvy.com/resources/workout-upload.data`
-  - `multipart/form-data`, file field name **`workout`**.
+  - `multipart/form-data`, file field name is **`file`** (NOT `workout` — the
+    `<input name="workout">` is remapped to `file` on submit; sending `workout`
+    returns HTTP 200 with a turbo-stream error and creates nothing).
   - Accepts `.zwo`, `.erg`, `.mrc`.
-  - On success creates a workout (Private by default) and returns its id; the
-    portal then refetches `GET /workouts.data`.
-- **List:** `GET https://riders.rouvy.com/workouts.data`. Note: the user's own
-  created workouts surface under the **Created collection**
-  (`/workouts/collections/created`), *not* the main `/workouts` landing (which
-  shows Rouvy's catalog) — the `list` action must read the created collection.
+  - Success response contains `"error"` = null and `"workoutId",<id>`; the new
+    workout is Private by default.
+- **List:** `GET https://riders.rouvy.com/workouts/collections/created.data` —
+  the user's own created workouts. (The main `/workouts.data` returns Rouvy's
+  full catalog, ~300 KB; the Created collection is the right, small source.)
 - **Get detail:** `GET https://riders.rouvy.com/workouts/{id}.data`.
-- **Delete:** a `.data` form action on the workout route (in-page confirm dialog),
-  confirmed working. Exact URL not captured (it fires during the post-delete
-  redirect, which rotates the network log) — it is clearly a `/workouts/{id}`
-  route action or a `/resources/*` endpoint; **capture the exact URL in one
-  devtools pass during implementation.**
+- **Delete:** `POST https://riders.rouvy.com/workouts/{id}.data` with a
+  `application/x-www-form-urlencoded` body **`id=<id>`** (confirmed). A `200`
+  redirect-to-`/workouts` follows on success. (Sending `intent=delete` returns
+  500 — the action expects `id`.)
 - **Edit (not used):** `/workouts/{id}/edit` is a full builder that posts internal
   structured JSON — deliberately not mapped (see Non-goals; `update` =
   delete+create).

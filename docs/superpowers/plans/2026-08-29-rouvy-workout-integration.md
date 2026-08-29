@@ -21,7 +21,9 @@
 
 ---
 
-### Task 1: De-risk spike — validate headless login + httpx replay, capture delete endpoint
+### Task 1: De-risk spike — validate headless login + httpx replay, capture delete endpoint ✅ DONE
+
+**COMPLETED 2026-08-29 — gate passed.** Headless Playwright login works (reCAPTCHA did not block; submit via Enter, not a named button). httpx replays all CRUD with cookies only (no special headers). Cracked contract now baked into the spec's "Confirmed API facts" and Task 5 code: create field is **`file`**; create response is turbo-stream with `"workoutId",<id>`; delete is `POST /workouts/{id}.data` body `id=<id>`; list is the Created-collection `.data`. Test account left clean. Executors: **start at Task 2.** (The steps below are retained as the record of what was validated.)
 
 **This task gates the whole plan.** It is throwaway validation, not shipped code. It confirms the two riskiest assumptions before we build: (a) a *headless* Playwright login gets usable cookies past the invisible reCAPTCHA + cookie banner, and (b) `httpx` can replay create + delete with just those cookies (or determines the extra headers needed). It also captures the exact delete endpoint.
 
@@ -568,19 +570,19 @@ def test_not_connected_raises():
 
 @patch("src.agent.tools.rouvy._client_request")
 def test_create_posts_multipart(mock_req):
-    mock_req.return_value = _resp(text='{"id":123}')
+    mock_req.return_value = _resp(text='[{"_1":2},"data",{"_3":-5},"error","workoutId",123]')
     out = rc.rouvy_create(FakeUser(), "<workout_file/>", "My Ride", "desc")
     method, url, kwargs, jar = mock_req.call_args[0]  # _client_request(method, url, kwargs, jar)
     assert method == "POST"
     assert url.endswith("/resources/workout-upload.data")
-    assert "workout" in kwargs["files"]
+    assert "file" in kwargs["files"]  # field name is `file`, not `workout`
     assert out["workout_url"].endswith("/workouts/123")
 
 @patch("src.agent.tools.rouvy._client_request")
 def test_expired_triggers_refresh_and_retry(mock_req):
     # First call looks expired (login HTML), second (after refresh) succeeds.
     mock_req.side_effect = [_resp(status=200, text="<!doctype html><title>Sign In</title>", ctype="text/html"),
-                            _resp(text='{"id":9}')]
+                            _resp(text='"error","workoutId",9')]
     with patch("src.agent.tools.rouvy.rouvy_auth.login", return_value="[]") as login, \
          patch("src.agent.tools.rouvy.db.update_user_rouvy_session") as save:
         out = rc.rouvy_create(FakeUser(), "<x/>", "n")
@@ -696,48 +698,25 @@ def _parse_created_id(resp: httpx.Response) -> int:
     """Extract the new workout id from a create response (single-fetch payload)."""
     # React-Router single-fetch returns a turbo-stream-ish JSON; the id may be
     # nested. Parse defensively; Task 1 confirms the exact shape.
-    text = resp.text
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        import re
+    # Turbo-stream (text/x-script) flat array; success looks like
+    #   [...,"error",<null-ref>,"workoutId",4183941]
+    import re
 
-        m = re.search(r'"(?:id|workoutId)"\s*:\s*(\d+)', text)
-        if not m:
-            raise ValueError("could not parse created workout id from Rouvy response")
-        return int(m.group(1))
-    # Walk for the first int id.
-    try:
-        return _find_id(data)
-    except ValueError as e:
-        raise ValueError("could not parse created workout id from Rouvy response") from e
-
-
-def _find_id(obj: Any) -> int:
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if k in ("id", "workoutId") and isinstance(v, int):
-                return v
-        for v in obj.values():
-            try:
-                return _find_id(v)
-            except ValueError:
-                continue
-    if isinstance(obj, list):
-        for v in obj:
-            try:
-                return _find_id(v)
-            except ValueError:
-                continue
-    raise ValueError("no id found")
+    m = re.search(r'"workoutId"\s*,\s*(\d+)', resp.text)
+    if not m:
+        raise ValueError("could not parse created workout id from Rouvy response")
+    return int(m.group(1))
 
 
 def rouvy_create(user: User, content: str, name: str, description: str | None = None) -> dict[str, Any]:
-    """Upload a workout (ZWO/ERG/MRC text) → returns {id, workout_url}."""
+    """Upload a workout (ZWO/ERG/MRC text) → returns {id, workout_url}.
+
+    Task 1 confirmed the multipart field name is `file` (not `workout`).
+    """
     filename = f"{name[:60] or 'workout'}.zwo"
     resp = _authed_request(
         user, "POST", f"{_base()}/resources/workout-upload.data",
-        files={"workout": (filename, content, "application/xml")},
+        files={"file": (filename, content, "application/xml")},
     )
     resp.raise_for_status()
     wid = _parse_created_id(resp)
@@ -745,10 +724,9 @@ def rouvy_create(user: User, content: str, name: str, description: str | None = 
 
 
 def rouvy_delete(user: User, workout_id: int) -> dict[str, Any]:
-    """Delete a workout. Endpoint/body confirmed in Task 1."""
-    # Task 1 fills in the exact method/url/body; placeholder shape below.
+    """Delete a workout: POST /workouts/{id}.data with urlencoded body id=<id>."""
     resp = _authed_request(user, "POST", f"{_base()}/workouts/{workout_id}.data",
-                           data={"intent": "delete"})
+                           data={"id": str(workout_id)})
     resp.raise_for_status()
     return {"deleted": True, "id": workout_id}
 
@@ -767,29 +745,21 @@ def rouvy_list(user: User) -> list[dict[str, Any]]:
 
 
 def _parse_workout_list(resp: httpx.Response) -> list[dict[str, Any]]:
-    """Extract [{id, name, duration}] from the created-collection payload.
+    """Extract [{id, name}] from the created-collection turbo-stream payload.
 
-    Exact JSON path confirmed in Task 1; parse defensively.
+    The payload interleaves values as a flat array; created workouts appear as
+    a stringified id immediately followed by the name string, e.g.
+    `...,"4183941","ZZ PROBE4 - delete me",...`. Match that pair. Task 1 captured
+    this shape; add a fixture parse test from a real captured payload in Step 1.
     """
-    try:
-        data = json.loads(resp.text)
-    except json.JSONDecodeError:
-        return []
+    import re
+
     out: list[dict[str, Any]] = []
-
-    def walk(o: Any) -> None:
-        if isinstance(o, dict):
-            if "id" in o and ("name" in o or "title" in o):
-                out.append({"id": o.get("id"), "name": o.get("name") or o.get("title"),
-                            "duration": o.get("duration")})
-            for v in o.values():
-                walk(v)
-        elif isinstance(o, list):
-            for v in o:
-                walk(v)
-
-    walk(data)
-    return out
+    for wid, wname in re.findall(r'"(\d{5,})"\s*,\s*"([^"]+)"', resp.text):
+        out.append({"id": int(wid), "name": wname})
+    # De-dup by id, preserving order.
+    seen: set[int] = set()
+    return [w for w in out if not (w["id"] in seen or seen.add(w["id"]))]
 
 
 def rouvy_update(user: User, workout_id: int, content: str, name: str,
