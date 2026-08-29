@@ -654,6 +654,13 @@ class Config:
     # Garmin Connect Integration (no API keys needed — uses garth session tokens)
     GARMIN_API_TIMEOUT: int = int(os.getenv("GARMIN_API_TIMEOUT", "15"))
 
+    # Rouvy Integration (no API keys — headless login captures a session cookie,
+    # reused for httpx CRUD; password stored encrypted for auto-refresh).
+    ROUVY_ACCOUNT_URL: str = os.getenv("ROUVY_ACCOUNT_URL", "https://account.rouvy.com")
+    ROUVY_RIDERS_URL: str = os.getenv("ROUVY_RIDERS_URL", "https://riders.rouvy.com")
+    ROUVY_LOGIN_TIMEOUT_MS: int = int(os.getenv("ROUVY_LOGIN_TIMEOUT_MS", "45000"))
+    ROUVY_HTTP_TIMEOUT: int = int(os.getenv("ROUVY_HTTP_TIMEOUT", "30"))
+
     # Encryption at rest for OAuth/Garmin tokens (Fernet). Generate with:
     # make token-key. Unset = tokens stored in plaintext (see
     # src/utils/token_crypto.py for the safe rollout order).
