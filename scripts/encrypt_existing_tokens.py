@@ -39,13 +39,22 @@ def encrypt_tokens_in_connection(conn) -> int:  # noqa: ANN001 - sqlite3/yoyo co
         return 0
 
     cursor = conn.cursor()
-    columns = ", ".join(TOKEN_COLUMNS)
+    # Only touch columns that already exist: this routine is shared with
+    # migration 0042, which runs BEFORE later migrations add newer token columns
+    # (e.g. the rouvy_* columns from 0052). Filtering keeps 0042 from selecting a
+    # column that does not exist yet, while the manual script (run on a fully
+    # migrated DB) still covers everything.
+    existing = {row[1] for row in cursor.execute("PRAGMA table_info(users)")}
+    active_columns = tuple(c for c in TOKEN_COLUMNS if c in existing)
+    if not active_columns:
+        return 0
+    columns = ", ".join(active_columns)
     rows = cursor.execute(f"SELECT id, {columns} FROM users").fetchall()  # noqa: S608 - constant columns
 
     encrypted = 0
     for row in rows:
         user_id = row[0]
-        for index, column in enumerate(TOKEN_COLUMNS, start=1):
+        for index, column in enumerate(active_columns, start=1):
             value = row[index]
             if value and not value.startswith(ENCRYPTED_PREFIX):
                 cursor.execute(
