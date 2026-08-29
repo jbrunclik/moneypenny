@@ -14,6 +14,7 @@ Feature-specific documentation covering user-facing functionality:
 - **[search.md](features/search.md)** - Full-text search with SQLite FTS5, O(1) message navigation
 - **[sync.md](features/sync.md)** - Real-time synchronization across devices/tabs with timestamp-based polling
 - **[integrations.md](features/integrations.md)** - Todoist, Google Calendar, and Garmin Connect integrations with full API coverage
+- **[rouvy.md](features/rouvy.md)** - Rouvy indoor-cycling workout CRUD (headless login + cookie-authed httpx; upload agent-authored ZWO)
 - **[location.md](features/location.md)** - Places search and routing (Mapy.com), device location sharing, saved places, location-aware prompt context and briefing
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
 - **[cost-tracking.md](features/cost-tracking.md)** - Token usage tracking, image generation costs, currency rates, monthly aggregation

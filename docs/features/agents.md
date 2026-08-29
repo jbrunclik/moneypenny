@@ -153,6 +153,7 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | `google_calendar` | Calendar events | Requires user integration |
 | `garmin_connect` | Read-only Garmin health/activity data | Requires user integration |
 | `garmin_workout` | Read/write Garmin saved workouts (edit sets/reps/weight/rest, swap/add/remove exercises) | Requires user integration |
+| `rouvy_workout` | CRUD over the user's Rouvy cycling workouts (upload ZWO, list, get, delete; update = delete+create) | Requires browser + user Rouvy connect |
 | `whatsapp` | WhatsApp notifications | Requires app config + user phone |
 | `manage_memory` | Write to the user's long-term memory | **Must be granted** |
 | `search_memory` | Search stored memories (keyword + semantic) | Requires grant |
