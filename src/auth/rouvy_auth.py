@@ -70,7 +70,8 @@ def login(email: str, password: str) -> str:
         raise RouvyAuthError("Rouvy login timed out. Please try again.")
     if "error" in result:
         _raise_typed_error(result["error"])
-    return result["cookies"]
+    cookies: str = result["cookies"]
+    return cookies
 
 
 def _login_sync(email: str, password: str) -> str:

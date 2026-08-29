@@ -15,11 +15,14 @@ Endpoint contract (confirmed by recon, cookies-only auth, turbo-stream responses
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
 import httpx
+from langchain_core.tools import tool
 
+from src.agent.tools.browser import is_browser_available
 from src.auth import rouvy_auth
 from src.config import Config
 from src.db.models import User, db
@@ -162,3 +165,94 @@ def rouvy_update(
     """
     rouvy_delete(user, workout_id)
     return rouvy_create(user, content, name, description)
+
+
+def is_rouvy_available() -> bool:
+    """Rouvy needs Chromium for (re)login, so it is gated on the browser."""
+    return Config.BROWSER_ENABLED and is_browser_available()
+
+
+def _resolve_user() -> User | None:
+    """Resolve the current request's user (same seam garmin.py uses)."""
+    from src.agent.tools.context import get_conversation_context
+
+    _, user_id = get_conversation_context()
+    if not user_id:
+        return None
+    return db.get_user_by_id(user_id)
+
+
+@tool
+def rouvy_workout(
+    action: str,
+    workout_id: int | None = None,
+    content: str | None = None,
+    name: str | None = None,
+    description: str | None = None,
+) -> str:
+    """Manage the user's Rouvy cycling workouts (Rouvy is an indoor cycling app).
+
+    Actions:
+    - "list": list the user's created Rouvy workouts (id + name).
+    - "get": fetch one workout's details (needs workout_id).
+    - "create": upload a workout you authored (needs content = the full ZWO XML,
+      and name; optional description). Returns the Rouvy workout URL.
+    - "update": REPLACE a workout (needs workout_id, content, name). Implemented
+      as delete + create, so the workout's id and URL CHANGE — always give the
+      user the new URL from the result.
+    - "delete": remove a workout (needs workout_id).
+
+    The user must have connected Rouvy in Settings first.
+    """
+    user = _resolve_user()
+    if user is None or not user.rouvy_session:
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Rouvy is not connected. Ask the user to connect Rouvy in Settings first.",
+                "retriable": False,
+            }
+        )
+    try:
+        if action == "list":
+            return json.dumps({"success": True, "workouts": rouvy_list(user)})
+        if action == "get":
+            if not workout_id:
+                return json.dumps({"success": False, "error": "get needs workout_id."})
+            return json.dumps({"success": True, "workout": rouvy_get(user, int(workout_id))})
+        if action == "create":
+            if not content or not name:
+                return json.dumps({"success": False, "error": "create needs content and name."})
+            return json.dumps({"success": True, **rouvy_create(user, content, name, description)})
+        if action == "update":
+            if not workout_id or not content or not name:
+                return json.dumps(
+                    {"success": False, "error": "update needs workout_id, content, name."}
+                )
+            res = rouvy_update(user, int(workout_id), content, name, description)
+            return json.dumps({"success": True, "note": "workout id/URL changed", **res})
+        if action == "delete":
+            if not workout_id:
+                return json.dumps({"success": False, "error": "delete needs workout_id."})
+            return json.dumps({"success": True, **rouvy_delete(user, int(workout_id))})
+        return json.dumps({"success": False, "error": f"Unknown action: {action}"})
+    except RouvyNotConnected:
+        return json.dumps(
+            {"success": False, "error": "Rouvy is not connected.", "retriable": False}
+        )
+    except RouvySessionExpired:
+        return json.dumps(
+            {
+                "success": False,
+                "error": (
+                    "Rouvy session expired and automatic refresh failed. "
+                    "Please reconnect in Settings."
+                ),
+                "retriable": False,
+            }
+        )
+    except Exception as e:  # noqa: BLE001 - tool must return, not raise
+        logger.error("rouvy_workout failed", extra={"action": action, "error": str(e)})
+        return json.dumps(
+            {"success": False, "error": f"Rouvy request failed: {e}", "retriable": True}
+        )

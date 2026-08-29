@@ -51,6 +51,7 @@ from src.agent.tools.planner import (
 )
 from src.agent.tools.request_approval import ApprovalRequestedException, request_approval
 from src.agent.tools.research import research
+from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
 from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
@@ -158,6 +159,11 @@ def get_available_tools() -> list[Any]:
         tools.append(garmin_workout)
         logger.debug("garmin_connect + garmin_workout tools added to available tools")
 
+    # Add Rouvy tool if the browser (Chromium, needed for login) is available
+    if is_rouvy_available():
+        tools.append(rouvy_workout)
+        logger.debug("rouvy_workout tool added to available tools")
+
     # Add WhatsApp tool if configured
     if is_whatsapp_available():
         tools.append(whatsapp)
@@ -244,6 +250,8 @@ def get_tools_for_request(
                         not Config.BROWSER_ENABLED or not is_browser_available()
                     ):
                         continue
+                    if tool_name == "rouvy_workout" and not is_rouvy_available():
+                        continue
                     if (
                         tool_name in ("garmin_connect", "garmin_workout")
                         and not is_garmin_available()
@@ -303,6 +311,7 @@ _TOOL_MAP: dict[str, Any] = {
     "google_calendar": google_calendar,
     "garmin_connect": garmin_connect,
     "garmin_workout": garmin_workout,
+    "rouvy_workout": rouvy_workout,
     "trigger_agent": trigger_agent,
     "whatsapp": whatsapp,
     "cite_sources": cite_sources,
@@ -381,6 +390,8 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
                         not Config.BROWSER_ENABLED or not is_browser_available()
                     ):
                         continue
+                    if tool_name == "rouvy_workout" and not is_rouvy_available():
+                        continue
                     # WhatsApp requires both app config AND user phone number
                     if tool_name == "whatsapp" and not _is_whatsapp_available_for_user(
                         agent.user_id
@@ -396,6 +407,8 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
         if is_garmin_available():
             tools.append(garmin_connect)
             tools.append(garmin_workout)
+        if is_rouvy_available():
+            tools.append(rouvy_workout)
         # WhatsApp requires both app config AND user phone number
         if _is_whatsapp_available_for_user(agent.user_id):
             tools.append(whatsapp)
@@ -433,6 +446,7 @@ __all__ = [
     "google_calendar",
     "garmin_connect",
     "garmin_workout",
+    "rouvy_workout",
     "refresh_planner_dashboard",
     "trigger_agent",
     "request_approval",
