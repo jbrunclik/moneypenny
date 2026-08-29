@@ -28,7 +28,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 _EMAIL_SELECTOR = "input[type=email], input[name=email]"
-_PASSWORD_SELECTOR = "input[type=password]"
+_PASSWORD_SELECTOR = "input[type=password]"  # noqa: S105 - a CSS selector, not a secret
 
 # Extra wall-clock margin over ROUVY_LOGIN_TIMEOUT_MS for the thread join, so the
 # join outlives Playwright's own internal timeout before we declare a hang.
@@ -94,7 +94,7 @@ def _login_sync(email: str, password: str) -> str:
             try:
                 page.get_by_role("button", name="Use necessary cookies only").click(timeout=6000)
             except Exception:
-                pass
+                logger.debug("Rouvy cookie banner not present or already dismissed")
             # Email-first flow: fill email, Enter -> password page, fill, Enter.
             page.fill(_EMAIL_SELECTOR, email)
             page.press(_EMAIL_SELECTOR, "Enter")
