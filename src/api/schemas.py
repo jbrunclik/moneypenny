@@ -114,6 +114,19 @@ class GarminMfaRequest(BaseModel):
     mfa_code: str = Field(..., min_length=1, description="MFA verification code")
 
 
+class RouvyConnectRequest(BaseModel):
+    """Schema for POST /auth/rouvy/connect - headless login with email/password.
+
+    Unlike Garmin, the password is stored (Fernet-encrypted) so the short-lived
+    session cookie can be auto-refreshed via headless login.
+    """
+
+    email: str = Field(..., min_length=1, description="Rouvy account email")
+    password: str = Field(
+        ..., min_length=1, description="Rouvy account password (encrypted at rest)"
+    )
+
+
 class GoogleCalendarConnectRequest(BaseModel):
     """Schema for POST /auth/calendar/connect - Exchange OAuth code for token."""
 
@@ -426,6 +439,20 @@ class GarminStatusResponse(BaseModel):
     needs_reconnect: bool = Field(
         False, description="True if session has expired and user must reconnect"
     )
+
+
+class RouvyConnectResponse(BaseModel):
+    """Response from a Rouvy connect attempt."""
+
+    connected: bool = Field(..., description="Whether connection succeeded")
+
+
+class RouvyStatusResponse(BaseModel):
+    """Response containing Rouvy connection status."""
+
+    connected: bool = Field(..., description="Whether Rouvy is connected")
+    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    needs_reconnect: bool = Field(False, description="True if the stored session looks unusable")
 
 
 class GoogleCalendarAuthUrlResponse(BaseModel):

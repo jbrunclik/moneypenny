@@ -145,6 +145,7 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
             "planner",
             "programs",
             "push",
+            "rouvy",
             "settings",
             "todoist",
         ]

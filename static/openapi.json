@@ -17,6 +17,9 @@
       "name": "Garmin"
     },
     {
+      "name": "Rouvy"
+    },
+    {
       "name": "System"
     },
     {
@@ -686,6 +689,37 @@
         "description": "Returns the planner conversation state for real-time synchronization.\nThis allows the frontend to detect:\n- New messages added in another tab/device\n- Planner reset in another tab\n- Planner deletion\n\nReturns:\n- conversation: Planner conversation state (id, updated_at, message_count, last_reset)\nor null if no planner exists\n- server_time: Server timestamp for clock-skew-proof comparisons"
       }
     },
+    "/auth/rouvy/status": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouvyStatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Rouvy"
+        ],
+        "summary": "Report Rouvy connection status."
+      }
+    },
     "/api/config/upload": {
       "get": {
         "parameters": [],
@@ -840,6 +874,47 @@
         ],
         "summary": "Get current Garmin connection status.",
         "description": "Returns whether Garmin is connected. If connected, validates the\nstored tokens and reports needs_reconnect=True if expired."
+      }
+    },
+    "/auth/rouvy/connect": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouvyConnectResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Rouvy"
+        ],
+        "summary": "Connect Rouvy: headless login, then store session + encrypted credentials."
       }
     },
     "/auth/todoist/status": {
@@ -1203,6 +1278,37 @@
           "Calendar"
         ],
         "summary": "Connect Google Calendar via OAuth."
+      }
+    },
+    "/auth/rouvy/disconnect": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Rouvy"
+        ],
+        "summary": "Disconnect Rouvy by clearing stored credentials + session."
       }
     },
     "/api/users/me/settings": {
@@ -6215,6 +6321,40 @@
         "title": "PlannerSyncResponse",
         "type": "object"
       },
+      "RouvyStatusResponse": {
+        "description": "Response containing Rouvy connection status.",
+        "properties": {
+          "connected": {
+            "description": "Whether Rouvy is connected",
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "connected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ISO timestamp when connected",
+            "title": "Connected At"
+          },
+          "needs_reconnect": {
+            "default": false,
+            "description": "True if the stored session looks unusable",
+            "title": "Needs Reconnect",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "connected"
+        ],
+        "title": "RouvyStatusResponse",
+        "type": "object"
+      },
       "UploadConfigResponse": {
         "description": "File upload configuration.",
         "properties": {
@@ -6526,6 +6666,21 @@
           "connected"
         ],
         "title": "GarminStatusResponse",
+        "type": "object"
+      },
+      "RouvyConnectResponse": {
+        "description": "Response from a Rouvy connect attempt.",
+        "properties": {
+          "connected": {
+            "description": "Whether connection succeeded",
+            "title": "Connected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "connected"
+        ],
+        "title": "RouvyConnectResponse",
         "type": "object"
       },
       "TodoistStatusResponse": {

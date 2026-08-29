@@ -1003,6 +1003,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/rouvy/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report Rouvy connection status. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RouvyStatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config/upload": {
         parameters: {
             query?: never;
@@ -1229,6 +1274,60 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/rouvy/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Connect Rouvy: headless login, then store session + encrypted credentials. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RouvyConnectResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1721,6 +1820,51 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/rouvy/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disconnect Rouvy by clearing stored credentials + session. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -3640,6 +3784,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pin a conversation to the top of the sidebar. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/calendar/selected-calendars": {
         parameters: {
             query?: never;
@@ -3954,6 +4154,62 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/unpin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unpin a conversation. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4970,6 +5226,74 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/chat/interject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Steer a turn that is currently generating
+         * @description Mid-run steering: stores guidance that the agent picks up between tool rounds of the in-flight turn (cross-worker via kv_store). The text is also persisted as a regular user message so future turns see it in history. Best-effort: if the turn finishes before the next tool round, the guidance still lands in history.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/messages/{message_id}/files/{file_index}": {
@@ -6175,6 +6499,29 @@ export interface components {
             server_time: string;
         };
         /**
+         * RouvyStatusResponse
+         * @description Response containing Rouvy connection status.
+         */
+        RouvyStatusResponse: {
+            /**
+             * Connected
+             * @description Whether Rouvy is connected
+             */
+            connected: boolean;
+            /**
+             * Connected At
+             * @description ISO timestamp when connected
+             * @default null
+             */
+            connected_at: string | null;
+            /**
+             * Needs Reconnect
+             * @description True if the stored session looks unusable
+             * @default false
+             */
+            needs_reconnect: boolean;
+        };
+        /**
          * UploadConfigResponse
          * @description File upload configuration.
          */
@@ -6226,6 +6573,11 @@ export interface components {
              */
             archived: boolean | null;
             /**
+             * Pinned
+             * @default null
+             */
+            pinned: boolean | null;
+            /**
              * Last Message Preview
              * @default null
              */
@@ -6256,10 +6608,16 @@ export interface components {
         /**
          * ConversationsListPaginatedResponse
          * @description Paginated list of conversations.
+         *
+         *     Pinned conversations ride separately: they are excluded from the
+         *     paginated portion (pinned-first ordering would break cursor math) and
+         *     are few by nature.
          */
         ConversationsListPaginatedResponse: {
             /** Conversations */
             conversations: components["schemas"]["ConversationsListPaginatedResponse.ConversationResponse"][];
+            /** Pinned Conversations */
+            pinned_conversations?: components["schemas"]["ConversationsListPaginatedResponse.ConversationResponse"][];
             pagination: components["schemas"]["ConversationsListPaginatedResponse.ConversationsPaginationResponse"];
         };
         /**
@@ -6287,6 +6645,11 @@ export interface components {
              * @default null
              */
             archived: boolean | null;
+            /**
+             * Pinned
+             * @default null
+             */
+            pinned: boolean | null;
             /**
              * Last Message Preview
              * @default null
@@ -6331,6 +6694,17 @@ export interface components {
              * @default false
              */
             needs_reconnect: boolean;
+        };
+        /**
+         * RouvyConnectResponse
+         * @description Response from a Rouvy connect attempt.
+         */
+        RouvyConnectResponse: {
+            /**
+             * Connected
+             * @description Whether connection succeeded
+             */
+            connected: boolean;
         };
         /**
          * TodoistStatusResponse

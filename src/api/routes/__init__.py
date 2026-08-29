@@ -40,6 +40,7 @@ from src.api.routes import (
     memory,
     planner,
     push,
+    rouvy,
     settings,
     sports,
     system,
@@ -67,6 +68,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(todoist.auth)
     app.register_blueprint(calendar.auth)
     app.register_blueprint(garmin.auth)
+    app.register_blueprint(rouvy.auth)
 
     # Register API blueprints (under /api prefix)
     app.register_blueprint(system.api)
