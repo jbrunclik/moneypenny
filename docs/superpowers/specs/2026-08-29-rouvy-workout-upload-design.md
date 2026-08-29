@@ -1,4 +1,4 @@
-# Rouvy Workout Upload Integration — Design
+# Rouvy Workout Integration (CRUD) — Design
 
 - **Date:** 2026-08-29
 - **Status:** Approved (design); implementation pending
@@ -18,29 +18,53 @@ flow, mirroring the structure of the existing Garmin integration.
 
 ## Goals
 
-- A `rouvy_upload_workout` agent tool the sports agent can call to push a
-  workout (ZWO/ERG/MRC text) into the user's Rouvy account.
+- A `rouvy_workout` agent tool (action-dispatch, mirroring `garmin_connect`)
+  giving the sports agent full CRUD over the user's *created* Rouvy workouts:
+  - `list` — the user's created workouts (id, name, duration).
+  - `get` — one workout's details.
+  - `create` — upload a workout the agent authored (ZWO text).
+  - `update` — implemented as delete-then-create (see below); the workout id /
+    URL changes as a result.
+  - `delete` — remove a created workout.
 - Per-user connect/disconnect in Settings, mirroring the Garmin section.
-- Automated session refresh so uploads keep working without frequent manual
+- Automated session refresh so calls keep working without frequent manual
   reconnects.
 
 ## Non-goals (YAGNI for v1)
 
 - Scheduling a workout onto a specific calendar date.
-- Listing / editing / deleting Rouvy workouts.
+- **Native in-place edit.** Rouvy's edit UI is a full structured-workout builder
+  that posts its own internal segment JSON (not ZWO); replicating that model is
+  disproportionate. `update` is therefore delete-then-create — documented in the
+  tool so the agent (and user) know the id/URL changes.
 - `.erg` / `.mrc` generation or conversion (the agent authors ZWO directly).
 - Any use of official Rouvy B2B API tokens.
 
 ## Confirmed API facts (from live recon, 2026-08-29)
 
-Established by logging into the production portal, uploading a throwaway ZWO
-(which parsed correctly — duration, TSS, power targets), and deleting it.
+Established across two recon sessions: logging into the production portal,
+uploading throwaway ZWOs (which parsed correctly — duration, TSS, power targets),
+editing one, and deleting both (account left clean). All data endpoints are
+React-Router single-fetch `.data` routes authenticated by the session cookie.
 
-- **Upload endpoint:** `POST https://riders.rouvy.com/resources/workout-upload.data`
+- **Create (upload):** `POST https://riders.rouvy.com/resources/workout-upload.data`
   - `multipart/form-data`, file field name **`workout`**.
   - Accepts `.zwo`, `.erg`, `.mrc`.
   - On success creates a workout (Private by default) and returns its id; the
     portal then refetches `GET /workouts.data`.
+- **List:** `GET https://riders.rouvy.com/workouts.data`. Note: the user's own
+  created workouts surface under the **Created collection**
+  (`/workouts/collections/created`), *not* the main `/workouts` landing (which
+  shows Rouvy's catalog) — the `list` action must read the created collection.
+- **Get detail:** `GET https://riders.rouvy.com/workouts/{id}.data`.
+- **Delete:** a `.data` form action on the workout route (in-page confirm dialog),
+  confirmed working. Exact URL not captured (it fires during the post-delete
+  redirect, which rotates the network log) — it is clearly a `/workouts/{id}`
+  route action or a `/resources/*` endpoint; **capture the exact URL in one
+  devtools pass during implementation.**
+- **Edit (not used):** `/workouts/{id}/edit` is a full builder that posts internal
+  structured JSON — deliberately not mapped (see Non-goals; `update` =
+  delete+create).
 - **Auth:** session **cookies** scoped to `.rouvy.com`, obtained from the
   identity provider `account.rouvy.com` via an email-first flow:
   `POST /sign-in` (email) → `POST /login` (password) → redirect to
@@ -76,7 +100,7 @@ Established by logging into the production portal, uploading a throwaway ZWO
 |---|---|---|
 | Auth/session module | `src/auth/rouvy_auth.py` | Headless Playwright login → extract cookies (`context.cookies()`) → serialize JSON blob. Owns its own Playwright lifecycle on a dedicated thread. Classifies login failures. |
 | DB fields | migration `00NN_add_rouvy_fields.py`, `src/db/models/user.py`, `src/db/models/dataclasses.py` | `users.rouvy_email`, `rouvy_password`, `rouvy_session` (all Fernet), `rouvy_connected_at`. Decrypt on hydration in `User.from_row`. |
-| Upload client + tool | `src/agent/tools/rouvy.py` | `httpx` multipart POST to the upload endpoint with stored cookies; expired→refresh→retry-once. Exposes `rouvy_upload_workout` `@tool`. |
+| Rouvy client + tool | `src/agent/tools/rouvy.py` | `httpx`-based CRUD client (list/get/create/delete) against the `.data` endpoints with stored cookies; each call does expired→refresh→retry-once. Exposes `rouvy_workout` `@tool` with an `action` dispatcher (`list`/`get`/`create`/`update`/`delete`), `update` = delete+create. |
 | Connect API | `src/api/routes/rouvy.py`, `src/api/schemas.py` | `POST /auth/rouvy/connect`, `GET /auth/rouvy/status`, `POST /auth/rouvy/disconnect`. No MFA (Rouvy has none). |
 | Settings UI | `web/src/components/SettingsPopup.ts`, `web/src/api/client.ts` | "Rouvy" section: email/password + Connect/Disconnect, mirroring `renderGarminSection`. |
 | Tool registration & gating | `src/agent/tools/__init__.py` | `is_rouvy_available()`, add to `get_available_tools`/`_TOOL_MAP`, keep **out** of `_SPORTS_EXCLUDED_TOOLS`. |
@@ -109,22 +133,27 @@ columns on hydration, matching the Garmin pattern. Write path: a
    `rouvy_connected_at=now`; return `{connected:true}`.
 4. Failure → classify, store nothing, return `{connected:false, error}`.
 
-### Upload (agent tool, per request)
+### CRUD (agent tool, per request)
 
-1. Agent authors the ZWO and calls
-   `rouvy_upload_workout(content, name, description?)`.
-2. Load `user.rouvy_session`. Absent → `{error:"not connected — connect Rouvy in
+The agent calls `rouvy_workout(action, ...)`. Every action:
+1. Loads `user.rouvy_session`. Absent → `{error:"not connected — connect Rouvy in
    Settings", retriable:false}`.
-3. `httpx` multipart POST to the upload endpoint (field `workout` = filename +
-   content), cookies attached.
-4. Success → parse created id → `{success:true, workout_url}`.
-5. Expired (401 / redirect to sign-in / login-HTML instead of `.data`) →
-   `rouvy_auth.login()` with stored creds → re-persist cookies → retry POST once.
-6. Re-login fails → `{error:"session expired and refresh failed — please
-   reconnect in Settings", retriable:false}`.
+2. Issues the `httpx` request below with cookies attached.
+3. On expired session (401 / redirect to sign-in / login-HTML instead of `.data`)
+   → `rouvy_auth.login()` with stored creds → re-persist cookies → retry **once**.
+   Re-login fails → `{error:"session expired and refresh failed — please reconnect
+   in Settings", retriable:false}`.
+
+| action | request | returns |
+|---|---|---|
+| `list` | GET created-collection `.data` | `[{id, name, duration}]` |
+| `get` | GET `/workouts/{id}.data` | workout detail |
+| `create(content, name, description?)` | multipart POST `/resources/workout-upload.data` (field `workout`) | `{id, workout_url}` |
+| `delete(id)` | POST the delete `.data` action | `{deleted:true}` |
+| `update(id, content, name, description?)` | `delete(id)` then `create(...)` | `{id, workout_url}` + note that the id changed |
 
 No cross-worker in-memory cache (matches the multi-gunicorn-worker constraint):
-each upload reads cookies from the DB; refresh writes them back.
+each call reads cookies from the DB; refresh writes them back.
 
 ## Login worker
 
@@ -163,25 +192,31 @@ because this path enters credentials. Headless; launch args reuse the existing
 - **Unit (no network — the bulk):**
   - Cookie serialize/deserialize round-trip.
   - Login error-classification from mocked page states (Playwright mocked).
-  - Upload client with mocked `httpx`: asserts field name `workout`, URL,
-    cookies attached, success parsing, **and the expired→refresh→retry path**.
+  - CRUD client with mocked `httpx`: `create` asserts field name `workout`, URL,
+    cookies attached, success parsing; `list`/`get`/`delete` assert URL + parse;
+    `update` asserts it deletes then creates; **the expired→refresh→retry path**
+    exercised on at least one action.
+  - Tool dispatch: each `action` routes to the right client call; bad/missing
+    args handled.
   - Tool gating: `is_rouvy_available`, per-user not-connected behavior, presence
     in sports toolset & `_TOOL_MAP`, absence from `_SPORTS_EXCLUDED_TOOLS`.
   - DB encrypt/decrypt round-trip + `from_row` hydration.
   - Routes: connect stores creds (login mocked), status, disconnect clears.
 - **No live-Rouvy calls in CI** — everything mocked.
 - **One manual real verification** during the build (using local `.tmp` creds
-  while they exist): real connect + real upload + delete, like the recon, to
-  confirm the `httpx` replay works past any CSRF/single-fetch header
-  requirement.
+  while they exist): real connect + full CRUD cycle (create → list → get →
+  update → delete), like the recon, to confirm the `httpx` replay works past any
+  CSRF/single-fetch header requirement and to capture the exact delete endpoint.
 
 ## Open risks
 
-1. **httpx replay of `/resources/workout-upload.data`.** The endpoint is a
-   React-Router single-fetch action; it may require headers beyond cookies
-   (e.g. a client-minted CSRF token). **Mitigation:** validate this first, before
-   building the full tool. If httpx cannot replay it, fall back to driving the
-   upload through Playwright (navigate → set file input → submit).
+1. **httpx replay of the `.data` endpoints.** They are React-Router single-fetch
+   actions; they may require headers beyond cookies (e.g. a client-minted CSRF
+   token, or a `Content-Type`/route-id header for single-fetch). **Mitigation:**
+   validate this first with `create` + `delete`, before building the full tool.
+   If httpx cannot replay them, fall back to driving those actions through
+   Playwright (navigate → set file input / confirm → submit). This is also where
+   the exact delete-action URL gets captured.
 2. **Headless reCAPTCHA on refresh.** A headless/datacenter login may be scored
    low and blocked, breaking automated refresh. **Mitigation:** the design
    degrades gracefully to manual reconnect; hardening (persistent profile /
