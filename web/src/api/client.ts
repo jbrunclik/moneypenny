@@ -853,6 +853,32 @@ export const garmin = {
   },
 };
 
+// Rouvy endpoints (no MFA — Rouvy's login flow has none)
+export interface RouvyStatus {
+  connected: boolean;
+  connected_at: string | null;
+  needs_reconnect: boolean;
+}
+
+export const rouvy = {
+  async connect(email: string, password: string): Promise<{ connected: boolean }> {
+    return request<{ connected: boolean }>('/auth/rouvy/connect', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  async disconnect(): Promise<void> {
+    await request<{ status: string }>('/auth/rouvy/disconnect', {
+      method: 'POST',
+    });
+  },
+
+  async getStatus(): Promise<RouvyStatus> {
+    return requestWithRetry<RouvyStatus>('/auth/rouvy/status');
+  },
+};
+
 // Search endpoints
 export const search = {
   /**

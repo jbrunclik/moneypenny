@@ -23,7 +23,7 @@ import {
   requestLocationFix,
   setLocationSharingEnabled,
 } from '../core/location';
-import { settings, todoist, calendar, garmin } from '../api/client';
+import { settings, todoist, calendar, garmin, rouvy, type RouvyStatus } from '../api/client';
 import { ApiError } from '../api/http';
 import {
   type PushState,
@@ -131,6 +131,10 @@ let garminMfaRequired = false;
  * success, cancel, or any settled outcome.
  */
 let garminPendingCredentials: { email: string; password: string } | null = null;
+
+/** Current Rouvy connection status */
+
+let rouvyStatus: RouvyStatus | null = null;
 
 /**
  * Render color scheme option
@@ -446,6 +450,73 @@ function renderGarminSection(status: GarminStatus | null, mfaRequired: boolean):
 }
 
 /**
+ * Render Rouvy section (no MFA — Rouvy's login flow has none)
+ */
+function renderRouvySection(status: RouvyStatus | null): string {
+  if (status === null) {
+    return `<div class="settings-rouvy-loading">Loading Rouvy status...</div>`;
+  }
+
+  if (status.connected && status.needs_reconnect) {
+    return `
+      <div class="settings-rouvy-needs-reconnect">
+        <span class="settings-rouvy-status">
+          <span class="settings-rouvy-icon warning">${WARNING_ICON}</span>
+          Rouvy session expired
+        </span>
+        <p class="settings-helper">Your Rouvy session has expired. Please reconnect with your credentials.</p>
+        <div class="settings-rouvy-actions">
+          <button type="button" class="btn btn-primary btn-sm settings-rouvy-show-login">
+            Reconnect
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm settings-rouvy-disconnect">
+            Disconnect
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (status.connected) {
+    return `
+      <div class="settings-rouvy-connected">
+        <span class="settings-rouvy-status">
+          <span class="settings-rouvy-icon connected">${CHECK_ICON}</span>
+          Connected
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm settings-rouvy-disconnect">
+          Disconnect
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="settings-rouvy-disconnected">
+      <p class="settings-helper">Connect your Rouvy account so the coach can upload workouts directly.</p>
+      <div class="settings-rouvy-login-form">
+        <input
+          type="email"
+          class="settings-input settings-rouvy-email"
+          placeholder="Rouvy email"
+          autocomplete="email"
+        />
+        <input
+          type="password"
+          class="settings-input settings-rouvy-password"
+          placeholder="Rouvy password"
+          autocomplete="current-password"
+        />
+        <p class="settings-helper settings-helper-muted">Your password is stored encrypted so the session can be refreshed automatically.</p>
+        <button type="button" class="btn btn-primary settings-rouvy-connect">
+          Connect Rouvy
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Render the popup content
  */
 /**
@@ -618,6 +689,7 @@ function renderContent(
   calendarSt: CalendarStatus | null,
   garminSt: GarminStatus | null = null,
   garminMfa: boolean = false,
+  rouvySt: RouvyStatus | null = null,
 ): string {
   const charCount = instructions.length;
   const charCountClass = charCount > CHAR_LIMIT ? 'error' : charCount > CHAR_LIMIT * 0.9 ? 'warning' : '';
@@ -700,6 +772,16 @@ function renderContent(
           Garmin Connect
         </label>
         ${renderGarminSection(garminSt, garminMfa)}
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <div class="settings-field" data-section="rouvy">
+        <label class="settings-label settings-label-with-icon">
+          <span class="settings-label-icon">${ACTIVITY_ICON}</span>
+          Rouvy
+        </label>
+        ${renderRouvySection(rouvySt)}
       </div>
 
       <div class="settings-divider"></div>
@@ -1137,6 +1219,72 @@ function updateGarminSection(): void {
 }
 
 /**
+ * Handle Rouvy connect button click - headless login on the backend.
+ */
+async function handleRouvyConnect(): Promise<void> {
+  const emailInput = document.querySelector<HTMLInputElement>('.settings-rouvy-email');
+  const passwordInput = document.querySelector<HTMLInputElement>('.settings-rouvy-password');
+  const email = emailInput?.value.trim() ?? '';
+  const password = passwordInput?.value ?? '';
+  if (!email || !password) {
+    toast.error('Enter your Rouvy email and password');
+    return;
+  }
+
+  const submitBtn = document.querySelector<HTMLButtonElement>('.settings-rouvy-connect');
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    log.debug('Connecting to Rouvy');
+    await rouvy.connect(email, password);
+    rouvyStatus = { connected: true, connected_at: new Date().toISOString(), needs_reconnect: false };
+    updateRouvySection();
+    toast.success('Rouvy connected');
+    log.info('Rouvy connected');
+  } catch (error) {
+    log.error('Failed to connect Rouvy', { error });
+    toast.error(error instanceof Error ? error.message : 'Failed to connect Rouvy');
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+/**
+ * Handle Rouvy disconnect button click.
+ */
+async function handleRouvyDisconnect(): Promise<void> {
+  try {
+    log.debug('Disconnecting Rouvy');
+    await rouvy.disconnect();
+    rouvyStatus = { connected: false, connected_at: null, needs_reconnect: false };
+    updateRouvySection();
+    toast.success('Rouvy disconnected');
+    log.info('Rouvy disconnected');
+  } catch (error) {
+    log.error('Failed to disconnect Rouvy', { error });
+    toast.error('Failed to disconnect Rouvy');
+  }
+}
+
+/**
+ * Update Rouvy section in the popup
+ */
+function updateRouvySection(): void {
+  const popup = getElementById<HTMLDivElement>(POPUP_ID);
+  if (!popup) return;
+
+  const field = popup.querySelector('.settings-field[data-section="rouvy"]');
+  if (!field) return;
+
+  field.innerHTML = `
+    <label class="settings-label settings-label-with-icon">
+      <span class="settings-label-icon">${ACTIVITY_ICON}</span>
+      Rouvy
+    </label>
+    ${renderRouvySection(rouvyStatus)}
+  `;
+}
+
+/**
  * Handle checkbox change - update selected list and re-render
  */
 function handleCalendarCheckboxChange(): void {
@@ -1408,7 +1556,7 @@ export async function openSettingsPopup(): Promise<void> {
   try {
     log.debug('Fetching settings and Todoist status');
 
-    const [settingsData, todoistData, calendarData, garminData, pushStateData] = await Promise.all([
+    const [settingsData, todoistData, calendarData, garminData, rouvyData, pushStateData] = await Promise.all([
       settings.get(),
       todoist.getStatus().catch((err) => {
         log.warn('Failed to fetch Todoist status', { error: err });
@@ -1420,6 +1568,10 @@ export async function openSettingsPopup(): Promise<void> {
       }),
       garmin.getStatus().catch((err) => {
         log.warn('Failed to fetch Garmin status', { error: err });
+        return null;
+      }),
+      rouvy.getStatus().catch((err) => {
+        log.warn('Failed to fetch Rouvy status', { error: err });
         return null;
       }),
       getPushState().catch((err) => {
@@ -1436,6 +1588,7 @@ export async function openSettingsPopup(): Promise<void> {
     todoistStatus = todoistData;
     calendarStatus = calendarData;
     garminStatus = garminData;
+    rouvyStatus = rouvyData;
     pushState = pushStateData;
     garminMfaRequired = false;
     garminPendingCredentials = null;
@@ -1451,7 +1604,7 @@ export async function openSettingsPopup(): Promise<void> {
     // Update popup body
     const body = popup.querySelector('.info-popup-body');
     if (body) {
-      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus, calendarStatus, garminStatus, garminMfaRequired)}</div>`;
+      body.outerHTML = `<div class="info-popup-body">${renderContent(currentInstructions, currentColorScheme, todoistStatus, calendarStatus, garminStatus, garminMfaRequired, rouvyStatus)}</div>`;
     }
 
     // If calendar is connected, fetch available calendars and selected calendars
@@ -1665,6 +1818,22 @@ function initSettingsPopup(): void {
       garminMfaRequired = false;
       garminStatus = { connected: false, connected_at: null, needs_reconnect: false };
       updateGarminSection();
+    }
+
+    // Rouvy connect button
+    if (target.classList.contains('settings-rouvy-connect')) {
+      handleRouvyConnect();
+    }
+
+    // Rouvy show login form (reconnect)
+    if (target.classList.contains('settings-rouvy-show-login')) {
+      rouvyStatus = { connected: false, connected_at: null, needs_reconnect: false };
+      updateRouvySection();
+    }
+
+    // Rouvy disconnect button
+    if (target.classList.contains('settings-rouvy-disconnect')) {
+      handleRouvyDisconnect();
     }
   });
 

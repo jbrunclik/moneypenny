@@ -1894,7 +1894,8 @@
 }
 
 /* Garmin Connect integration section */
-.settings-garmin-loading {
+.settings-garmin-loading,
+.settings-rouvy-loading {
     padding: var(--space-3);
     color: var(--text-muted);
     font-size: var(--font-size-sm);
@@ -1903,7 +1904,9 @@
 
 .settings-garmin-disconnected,
 .settings-garmin-needs-reconnect,
-.settings-garmin-mfa {
+.settings-garmin-mfa,
+.settings-rouvy-disconnected,
+.settings-rouvy-needs-reconnect {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -1913,17 +1916,20 @@
     border-radius: var(--radius-sm);
 }
 
-.settings-garmin-needs-reconnect {
+.settings-garmin-needs-reconnect,
+.settings-rouvy-needs-reconnect {
     border-color: var(--warning);
 }
 
-.settings-garmin-login-form {
+.settings-garmin-login-form,
+.settings-rouvy-login-form {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
 }
 
-.settings-garmin-connected {
+.settings-garmin-connected,
+.settings-rouvy-connected {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1934,7 +1940,8 @@
     border-radius: var(--radius-sm);
 }
 
-.settings-garmin-status {
+.settings-garmin-status,
+.settings-rouvy-status {
     display: flex;
     align-items: center;
     gap: var(--space-2);
@@ -1942,7 +1949,8 @@
     font-weight: 600;
 }
 
-.settings-garmin-icon {
+.settings-garmin-icon,
+.settings-rouvy-icon {
     width: 16px;
     height: 16px;
     display: flex;
@@ -1950,47 +1958,57 @@
     justify-content: center;
 }
 
-.settings-garmin-icon.connected {
+.settings-garmin-icon.connected,
+.settings-rouvy-icon.connected {
     color: var(--success);
 }
 
-.settings-garmin-icon.warning {
+.settings-garmin-icon.warning,
+.settings-rouvy-icon.warning {
     color: var(--warning);
 }
 
-.settings-garmin-icon svg {
+.settings-garmin-icon svg,
+.settings-rouvy-icon svg {
     width: 100%;
     height: 100%;
 }
 
-.settings-garmin-actions {
+.settings-garmin-actions,
+.settings-rouvy-actions {
     display: flex;
     gap: var(--space-2);
 }
 
 .settings-garmin-connect,
-.settings-garmin-disconnect {
+.settings-garmin-disconnect,
+.settings-rouvy-connect,
+.settings-rouvy-disconnect {
     white-space: nowrap;
 }
 
-/* Mobile: stack Garmin connected state */
+/* Mobile: stack Garmin/Rouvy connected state */
 @media (max-width: 480px) {
-    .settings-garmin-connected {
+    .settings-garmin-connected,
+    .settings-rouvy-connected {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--space-2);
     }
 
-    .settings-garmin-disconnect {
+    .settings-garmin-disconnect,
+    .settings-rouvy-disconnect {
         width: 100%;
     }
 
-    .settings-garmin-actions {
+    .settings-garmin-actions,
+    .settings-rouvy-actions {
         flex-direction: column;
         width: 100%;
     }
 
-    .settings-garmin-actions .btn {
+    .settings-garmin-actions .btn,
+    .settings-rouvy-actions .btn {
         width: 100%;
     }
 }
