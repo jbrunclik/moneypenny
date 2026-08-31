@@ -14,21 +14,11 @@
 .conversations-list {
     flex: 1;
     overflow-y: auto;
-    /* NO top padding. A sticky child can't be positioned outside its
-       containing block (this list's CONTENT box), so any padding-top leaves a
-       strip at the top of the scroll port that the pinned date heading can
-       never cover - rows scroll through it in the open and appear to slice the
-       heading. The first heading's own padding-top carries the headroom
-       instead (--space-4 == the old 8px padding + 8px label padding). */
-    padding: 0 var(--space-2) var(--space-2);
+    padding: var(--space-2);
     -webkit-overflow-scrolling: touch;
 }
 
-/* The list's top padding moved onto its children (see .conversations-list),
-   so the states that relied on it restore their own headroom: the date
-   headings already carry --space-4, these two do not. */
 .conversations-empty {
-    margin-top: var(--space-2);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -55,10 +45,6 @@
     background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.4s ease-in-out infinite;
-}
-
-.conversation-skeleton:first-child {
-    margin-top: var(--space-3);
 }
 
 @keyframes skeleton-shimmer {
@@ -90,16 +76,16 @@
     /* Extra headroom so groups read as sections, not rows - the two-line
        previews made plain labels blend into the list */
     padding: var(--space-4) var(--space-3) var(--space-1);
-    position: sticky;
-    top: 0;
-    /* MUST be opaque: the label pins to the top of the scroll port while its
-       group's rows scroll beneath it, so anything see-through lets those rows
-       read straight through the label (they showed through its tall top
-       padding as a garbled overlap). This solid is the no-glass fallback
-       color; glass.css swaps it for the frost-matched --glass-bg-sidebar-solid
-       wherever the sidebar is actually frosted. */
-    background: var(--bg-secondary);
-    z-index: 3;
+    /* NOT sticky, and deliberately no background. Pinning the label would make
+       rows scroll underneath it, which only looks right if the label is opaque
+       - and no fixed color can stay hidden on this sidebar, because the dark
+       frost is 50% tint + 50% of whatever chat content sits behind the panel.
+       Measured on a phone: the frost reads rgb(25,25,28) over an empty chat and
+       rgb(38,38,41) over a text-heavy one, so an opaque label showed up as a
+       lighter/darker rectangle (its fill is inset from the sidebar edges, so
+       both vertical edges are visible). Scrolling the label away with the list
+       needs no fill at all, so there is nothing to mismatch. See
+       docs/ui/patterns.md. */
 }
 
 /* Hairline rule filling the rest of the label row: turns the label into
@@ -109,6 +95,11 @@
     flex: 1;
     height: 1px;
     background: var(--border);
+}
+
+/* The first group needs no extra headroom - it sits right under the nav */
+.conversation-group-label:first-child {
+    padding-top: var(--space-2);
 }
 
 .conversation-time {

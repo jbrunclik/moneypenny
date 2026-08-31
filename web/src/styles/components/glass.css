@@ -89,15 +89,6 @@
         border-color: var(--glass-border);
         box-shadow: inset 0 1px 0 var(--glass-highlight);
     }
-
-    /* Sticky date headings inside the frosted sidebar. They can't be
-       translucent (rows scrolling under them would read through) and they
-       can't carry their own backdrop-filter (it would blur the sidebar's own
-       list content into a smear behind the text), so they get the opaque twin
-       of the sidebar frost instead. */
-    .conversation-group-label {
-        background: var(--glass-bg-sidebar-solid);
-    }
 }
 
 /* Accessibility opt-OUT: only when the user explicitly asks for reduced
@@ -112,8 +103,7 @@
     .action-sheet,
     .toast,
     .scroll-to-bottom,
-    .sidebar,
-    .conversation-group-label {
+    .sidebar {
         background-color: var(--bg-secondary);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;

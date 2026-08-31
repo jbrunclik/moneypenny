@@ -44,28 +44,37 @@ When drilling into a specific item's conversation/detail view, add a sticky head
 
 **Reference**: `createSportsProgramHeader()` (sports), `createAgentConversationHeader()` (agents)
 
-### Sticky Elements Inside a Glass Panel
+### Don't Make Anything Sticky Inside a Glass Panel
 
-A `position: sticky` element must be **opaque** — rows scroll underneath it, and a
-see-through header lets them read straight through (the sidebar's date headings
-shipped `background: transparent` in dark mode and the pinned "Today" rendered on
-top of the row passing beneath it).
+A `position: sticky` element makes content scroll *underneath* it, which only
+reads correctly if the element is **opaque**. On a translucent glass surface it
+cannot be:
 
-Inside a translucent glass surface that is not straightforward, because:
+- **Transparent** — the rows underneath read straight through it. The sidebar's
+  date headings shipped this way and the pinned "TODAY" rendered on top of the
+  row passing beneath it.
+- **A fixed opaque color** — it cannot track the surface. `--glass-bg-sidebar` is
+  50% tint + 50% of whatever sits behind the panel, so the composite moves with
+  the content: measured `rgb(25,25,28)` over an empty chat and `rgb(38,38,41)`
+  over a text-heavy one. Any single color is a visible rectangle somewhere — and
+  because the fill is inset from the panel's edges, both of its vertical edges
+  show.
+- **Its own `backdrop-filter`** — its backdrop is the panel's own list content,
+  so the blur smears the rows into a contour.
 
-- **Reusing the panel's own `--glass-bg-*` token double-tints** — the tint stacks
-  on the already-frosted panel and the sticky element reads as a lighter box.
-- **Giving it its own `backdrop-filter` smears** — its backdrop is the panel's own
-  list content, so the blur turns the rows behind it into a contour.
+There is also a geometry trap: a sticky child can't be positioned outside its
+containing block, so **any `padding-top` on the scroll container** leaves a strip
+at the top of the scroll port the sticky element can never cover, with rows
+scrolling through it in the open.
 
-Use the panel's frost **pre-composited over what sits behind it** as a solid:
-`--glass-bg-sidebar-solid` is `--glass-bg-sidebar` over `--bg-primary`. Set the
-plain `--bg-*` fallback in the component and swap to the solid inside the
-`@supports` block in `glass.css`, alongside the panel itself — and add the element
-to the `prefers-reduced-transparency: reduce` opt-out list so it falls back with
-everything else.
+So: inside a glass panel, let section headings scroll away with the list. They
+need no fill, so nothing can mismatch. If a heading genuinely must stay visible,
+put it in its own strip *outside* the scrolling element so no rows ever pass
+behind it — don't reach for `position: sticky`.
 
-**Reference**: `.conversation-group-label` in `sidebar.css` + `glass.css`
+Sticky is fine on the **opaque** surfaces above (`var(--bg-secondary)`).
+
+**Reference**: `.conversation-group-label` in `sidebar.css`
 
 ## Cards
 

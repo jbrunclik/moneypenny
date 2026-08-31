@@ -136,16 +136,6 @@
        the frost reads as a distinct glass layer over the (now less-dimmed) chat
        content rather than a near-black solid. */
     --glass-bg-sidebar: rgba(40, 40, 46, 0.5);
-    /* Opaque twin of --glass-bg-sidebar, for sticky elements INSIDE the
-       sidebar (the conversation date headings). They must be opaque or rows
-       scrolling under them read straight through, but they can't reuse the
-       translucent tint (it would stack over the already-frosted panel and
-       double-tint) nor carry their own backdrop-filter (that blurs the
-       sidebar's own list content into a smear). So: the frost pre-composited
-       over what sits behind it - rgba(40,40,46,.5) over --bg-primary #0f0f0f.
-       Exact on desktop; within a level or two on mobile, where the panel
-       floats over the scrimmed chat instead. */
-    --glass-bg-sidebar-solid: #1b1b1e;
     --glass-border: rgba(255, 255, 255, 0.09);    /* hairline edge */
     --glass-highlight: rgba(255, 255, 255, 0.10); /* top specular line (inset) */
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
@@ -334,8 +324,6 @@
        only because dark-frost-over-dark-content reads as glass. So light gets a
        clean solid sidebar; dark keeps the translucent frost. */
     --glass-bg-sidebar: rgb(248, 249, 251);
-    /* Already opaque in light, so the sticky-label twin is the same color. */
-    --glass-bg-sidebar-solid: var(--glass-bg-sidebar);
     --glass-border: rgba(0, 0, 0, 0.1);
     --glass-highlight: rgba(255, 255, 255, 0.9);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);

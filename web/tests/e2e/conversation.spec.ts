@@ -1500,6 +1500,28 @@ test.describe('Scroll to bottom behavior', () => {
   });
 });
 
+test.describe('Conversation group labels', () => {
+  // The date headings must NOT be position:sticky. Pinning them makes rows
+  // scroll underneath, which only looks right if the heading is opaque - and no
+  // fixed color hides on the frosted sidebar, whose tint is half whatever chat
+  // content sits behind the panel. An opaque heading showed up as a rectangle.
+  test('date headings are not pinned', async ({ page, request }) => {
+    await request.post('/test/seed', {
+      data: { conversations: [{ title: 'Grouped conversation' }] },
+    });
+
+    await page.goto('/');
+    await page.waitForSelector('.conversation-group-label', { timeout: 20000 });
+
+    const position = await page
+      .locator('.conversation-group-label')
+      .first()
+      .evaluate((el) => getComputedStyle(el).position);
+
+    expect(position).toBe('static');
+  });
+});
+
 test.describe('Pinned conversations', () => {
   test('pin moves a conversation to the Pinned group and survives reload', async ({ page }) => {
     await page.goto('/');
@@ -1545,62 +1567,5 @@ test.describe('Pinned conversations', () => {
     await expect(page.locator('.conversation-group-label').first()).not.toHaveText('Pinned', {
       timeout: 10000,
     });
-  });
-});
-
-test.describe('Conversation group labels', () => {
-  // The date headings are position:sticky, so rows scroll UNDER them. A
-  // see-through heading lets those rows read straight through it - the dark
-  // theme shipped `background: transparent` and the pinned "Today" heading
-  // rendered on top of the row passing beneath it. Opacity is the invariant.
-  for (const scheme of ['dark', 'light'] as const) {
-    test(`sticky group label is opaque (${scheme})`, async ({ page, request }) => {
-      await request.post('/test/seed', {
-        data: { conversations: [{ title: 'Grouped conversation' }] },
-      });
-      await page.addInitScript((s) => {
-        localStorage.setItem('ai-chatbot-color-scheme', s);
-      }, scheme);
-
-      await page.goto('/');
-      await page.waitForSelector('.conversation-group-label', { timeout: 20000 });
-
-      const alpha = await page.locator('.conversation-group-label').first().evaluate((el) => {
-        const bg = getComputedStyle(el).backgroundColor;
-        const match = bg.match(/rgba?\(([^)]+)\)/);
-        if (!match) return null;
-        const parts = match[1].split(',').map((p) => parseFloat(p));
-        return parts.length > 3 ? parts[3] : 1;
-      });
-
-      expect(alpha).toBe(1);
-    });
-  }
-
-  // A sticky child can't be positioned outside its containing block, so a
-  // padding-top on .conversations-list leaves a strip at the top of the scroll
-  // port that the pinned heading can never cover - rows scroll through it in
-  // the open and visually slice the heading.
-  test('pinned group label sits flush with the top of the scroll port', async ({
-    page,
-    request,
-  }) => {
-    const conversations = Array.from({ length: 20 }, (_, i) => ({
-      title: `Grouped conversation ${i + 1}`,
-      messages: [{ role: 'assistant', content: `Preview ${i + 1}` }],
-    }));
-    await request.post('/test/seed', { data: { conversations } });
-
-    await page.goto('/');
-    await page.waitForSelector('.conversation-group-label', { timeout: 20000 });
-
-    const gap = await page.evaluate(() => {
-      const list = document.querySelector('.conversations-list') as HTMLElement;
-      const label = document.querySelector('.conversation-group-label') as HTMLElement;
-      list.scrollTop = 200;
-      return label.getBoundingClientRect().top - list.getBoundingClientRect().top;
-    });
-
-    expect(gap).toBe(0);
   });
 });
