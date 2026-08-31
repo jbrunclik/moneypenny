@@ -44,6 +44,29 @@ When drilling into a specific item's conversation/detail view, add a sticky head
 
 **Reference**: `createSportsProgramHeader()` (sports), `createAgentConversationHeader()` (agents)
 
+### Sticky Elements Inside a Glass Panel
+
+A `position: sticky` element must be **opaque** — rows scroll underneath it, and a
+see-through header lets them read straight through (the sidebar's date headings
+shipped `background: transparent` in dark mode and the pinned "Today" rendered on
+top of the row passing beneath it).
+
+Inside a translucent glass surface that is not straightforward, because:
+
+- **Reusing the panel's own `--glass-bg-*` token double-tints** — the tint stacks
+  on the already-frosted panel and the sticky element reads as a lighter box.
+- **Giving it its own `backdrop-filter` smears** — its backdrop is the panel's own
+  list content, so the blur turns the rows behind it into a contour.
+
+Use the panel's frost **pre-composited over what sits behind it** as a solid:
+`--glass-bg-sidebar-solid` is `--glass-bg-sidebar` over `--bg-primary`. Set the
+plain `--bg-*` fallback in the component and swap to the solid inside the
+`@supports` block in `glass.css`, alongside the panel itself — and add the element
+to the `prefers-reduced-transparency: reduce` opt-out list so it falls back with
+everything else.
+
+**Reference**: `.conversation-group-label` in `sidebar.css` + `glass.css`
+
 ## Cards
 
 ### Feature Cards (Program Cards, Agent Cards)

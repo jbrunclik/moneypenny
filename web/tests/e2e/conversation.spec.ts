@@ -1547,3 +1547,33 @@ test.describe('Pinned conversations', () => {
     });
   });
 });
+
+test.describe('Conversation group labels', () => {
+  // The date headings are position:sticky, so rows scroll UNDER them. A
+  // see-through heading lets those rows read straight through it - the dark
+  // theme shipped `background: transparent` and the pinned "Today" heading
+  // rendered on top of the row passing beneath it. Opacity is the invariant.
+  for (const scheme of ['dark', 'light'] as const) {
+    test(`sticky group label is opaque (${scheme})`, async ({ page, request }) => {
+      await request.post('/test/seed', {
+        data: { conversations: [{ title: 'Grouped conversation' }] },
+      });
+      await page.addInitScript((s) => {
+        localStorage.setItem('ai-chatbot-color-scheme', s);
+      }, scheme);
+
+      await page.goto('/');
+      await page.waitForSelector('.conversation-group-label', { timeout: 20000 });
+
+      const alpha = await page.locator('.conversation-group-label').first().evaluate((el) => {
+        const bg = getComputedStyle(el).backgroundColor;
+        const match = bg.match(/rgba?\(([^)]+)\)/);
+        if (!match) return null;
+        const parts = match[1].split(',').map((p) => parseFloat(p));
+        return parts.length > 3 ? parts[3] : 1;
+      });
+
+      expect(alpha).toBe(1);
+    });
+  }
+});
