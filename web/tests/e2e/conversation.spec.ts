@@ -1576,4 +1576,31 @@ test.describe('Conversation group labels', () => {
       expect(alpha).toBe(1);
     });
   }
+
+  // A sticky child can't be positioned outside its containing block, so a
+  // padding-top on .conversations-list leaves a strip at the top of the scroll
+  // port that the pinned heading can never cover - rows scroll through it in
+  // the open and visually slice the heading.
+  test('pinned group label sits flush with the top of the scroll port', async ({
+    page,
+    request,
+  }) => {
+    const conversations = Array.from({ length: 20 }, (_, i) => ({
+      title: `Grouped conversation ${i + 1}`,
+      messages: [{ role: 'assistant', content: `Preview ${i + 1}` }],
+    }));
+    await request.post('/test/seed', { data: { conversations } });
+
+    await page.goto('/');
+    await page.waitForSelector('.conversation-group-label', { timeout: 20000 });
+
+    const gap = await page.evaluate(() => {
+      const list = document.querySelector('.conversations-list') as HTMLElement;
+      const label = document.querySelector('.conversation-group-label') as HTMLElement;
+      list.scrollTop = 200;
+      return label.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    });
+
+    expect(gap).toBe(0);
+  });
 });

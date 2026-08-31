@@ -14,11 +14,21 @@
 .conversations-list {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-2);
+    /* NO top padding. A sticky child can't be positioned outside its
+       containing block (this list's CONTENT box), so any padding-top leaves a
+       strip at the top of the scroll port that the pinned date heading can
+       never cover - rows scroll through it in the open and appear to slice the
+       heading. The first heading's own padding-top carries the headroom
+       instead (--space-4 == the old 8px padding + 8px label padding). */
+    padding: 0 var(--space-2) var(--space-2);
     -webkit-overflow-scrolling: touch;
 }
 
+/* The list's top padding moved onto its children (see .conversations-list),
+   so the states that relied on it restore their own headroom: the date
+   headings already carry --space-4, these two do not. */
 .conversations-empty {
+    margin-top: var(--space-2);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -45,6 +55,10 @@
     background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.conversation-skeleton:first-child {
+    margin-top: var(--space-3);
 }
 
 @keyframes skeleton-shimmer {
@@ -95,11 +109,6 @@
     flex: 1;
     height: 1px;
     background: var(--border);
-}
-
-/* The first group needs no extra headroom - it sits right under the nav */
-.conversation-group-label:first-child {
-    padding-top: var(--space-2);
 }
 
 .conversation-time {
