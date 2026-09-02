@@ -2,6 +2,7 @@
  * Visual regression tests for Planner feature
  */
 import { test, expect, waitForSidebarSettled } from '../global-setup';
+import type { Page } from '@playwright/test';
 
 test.describe('Visual: Planner Sidebar Entry', () => {
   test('planner entry default state', async ({ page }) => {
@@ -768,18 +769,36 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await expect(page.locator('.dashboard-day').first()).toHaveScreenshot('all-day-event.png');
   });
 
+  // The header's width follows the date line's text, so a masked but real
+  // current date still changes the screenshot size from day to day. Pin
+  // server_time so these three header shots are deterministic.
+  async function setFixedDateDashboard(page: Page): Promise<void> {
+    await page.request.post('/test/set-planner-dashboard', {
+      data: {
+        dashboard: {
+          days: [],
+          overdue_tasks: [],
+          todoist_connected: true,
+          calendar_connected: true,
+          server_time: '2024-12-25T10:00:00',
+        },
+      },
+    });
+  }
+
   test('action buttons default state', async ({ page }) => {
+    await setFixedDateDashboard(page);
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
     await page.waitForTimeout(300);
 
-    // Mask the date line - it renders the real current date (server_time)
     await expect(page.locator('.dashboard-header')).toHaveScreenshot('buttons-default.png', {
       mask: [page.locator('.dashboard-date')],
     });
   });
 
   test('refresh button hover', async ({ page }) => {
+    await setFixedDateDashboard(page);
     await page.goto('/#/planner');
     await page.waitForSelector('.planner-refresh-btn');
 
@@ -792,6 +811,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
   });
 
   test('reset button hover', async ({ page }) => {
+    await setFixedDateDashboard(page);
     await page.goto('/#/planner');
     await page.waitForSelector('.planner-reset-btn');
 
