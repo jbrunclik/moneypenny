@@ -82,7 +82,7 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
   const placeholderConv: Conversation = {
     id: 'language-loading',
     title: 'Language Learning',
-    model: 'gemini-3.7-flash',
+    model: 'gemini-3.8-flash',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     messages: [],

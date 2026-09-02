@@ -16,8 +16,8 @@ class TestGetModelPricing:
     """Tests for get_model_pricing function."""
 
     def test_flash_model_pricing(self) -> None:
-        """Test pricing for gemini-3.7-flash model."""
-        pricing = get_model_pricing("gemini-3.7-flash")
+        """Test pricing for gemini-3.8-flash model."""
+        pricing = get_model_pricing("gemini-3.8-flash")
         assert pricing["input"] == 0.75
         assert pricing["output"] == 3.75
 
@@ -36,7 +36,7 @@ class TestGetModelPricing:
     def test_unknown_model_falls_back_to_flash(self) -> None:
         """Unknown models should fall back to flash pricing."""
         pricing = get_model_pricing("unknown-model-xyz")
-        flash_pricing = get_model_pricing("gemini-3.7-flash")
+        flash_pricing = get_model_pricing("gemini-3.8-flash")
         assert pricing == flash_pricing
 
 
@@ -46,7 +46,7 @@ class TestCalculateTokenCost:
     def test_flash_model_cost_one_million_tokens(self) -> None:
         """Calculate cost for 1M input + 1M output tokens on flash."""
         # 1M input at $0.75 + 1M output at $3.75 = $4.50
-        cost = calculate_token_cost("gemini-3.7-flash", 1_000_000, 1_000_000)
+        cost = calculate_token_cost("gemini-3.8-flash", 1_000_000, 1_000_000)
         assert cost == pytest.approx(4.50)
 
     def test_pro_model_cost_one_million_tokens(self) -> None:
@@ -57,52 +57,52 @@ class TestCalculateTokenCost:
 
     def test_zero_tokens_zero_cost(self) -> None:
         """Zero tokens should result in zero cost."""
-        cost = calculate_token_cost("gemini-3.7-flash", 0, 0)
+        cost = calculate_token_cost("gemini-3.8-flash", 0, 0)
         assert cost == 0.0
 
     def test_realistic_conversation_cost(self) -> None:
         """Test cost for a typical conversation (5000 input + 1000 output)."""
-        cost = calculate_token_cost("gemini-3.7-flash", 5000, 1000)
+        cost = calculate_token_cost("gemini-3.8-flash", 5000, 1000)
         expected = (5000 / 1_000_000 * 0.75) + (1000 / 1_000_000 * 3.75)
         assert cost == pytest.approx(expected)
 
     def test_input_only(self) -> None:
         """Test cost with only input tokens."""
-        cost = calculate_token_cost("gemini-3.7-flash", 10000, 0)
+        cost = calculate_token_cost("gemini-3.8-flash", 10000, 0)
         expected = 10000 / 1_000_000 * 0.75
         assert cost == pytest.approx(expected)
 
     def test_output_only(self) -> None:
         """Test cost with only output tokens."""
-        cost = calculate_token_cost("gemini-3.7-flash", 0, 10000)
+        cost = calculate_token_cost("gemini-3.8-flash", 0, 10000)
         expected = 10000 / 1_000_000 * 3.75
         assert cost == pytest.approx(expected)
 
     def test_cached_tokens_billed_at_discount(self) -> None:
         """Cached input tokens bill at the cached_input rate, the rest at full rate."""
         # 1M input of which 400k cached: 600k * $0.75 + 400k * $0.075 = $0.48
-        cost = calculate_token_cost("gemini-3.7-flash", 1_000_000, 0, cached_input_tokens=400_000)
+        cost = calculate_token_cost("gemini-3.8-flash", 1_000_000, 0, cached_input_tokens=400_000)
         assert cost == pytest.approx(0.6 * 0.75 + 0.4 * 0.075)
 
     def test_fully_cached_input(self) -> None:
         """All input cached: entire input bills at the cached rate."""
-        cost = calculate_token_cost("gemini-3.7-flash", 1_000_000, 0, cached_input_tokens=1_000_000)
+        cost = calculate_token_cost("gemini-3.8-flash", 1_000_000, 0, cached_input_tokens=1_000_000)
         assert cost == pytest.approx(0.075)
 
     def test_cached_tokens_clamped_to_input(self) -> None:
         """cache_read larger than input_tokens must not produce negative uncached cost."""
-        cost = calculate_token_cost("gemini-3.7-flash", 1_000_000, 0, cached_input_tokens=2_000_000)
+        cost = calculate_token_cost("gemini-3.8-flash", 1_000_000, 0, cached_input_tokens=2_000_000)
         assert cost == pytest.approx(0.075)
 
     def test_negative_cached_tokens_ignored(self) -> None:
         """Negative cache_read (malformed metadata) is treated as zero."""
-        cost = calculate_token_cost("gemini-3.7-flash", 1_000_000, 0, cached_input_tokens=-5)
+        cost = calculate_token_cost("gemini-3.8-flash", 1_000_000, 0, cached_input_tokens=-5)
         assert cost == pytest.approx(0.75)
 
     def test_zero_cached_matches_legacy_behavior(self) -> None:
         """Default cached_input_tokens=0 gives the same cost as before the feature."""
-        assert calculate_token_cost("gemini-3.7-flash", 5000, 1000) == pytest.approx(
-            calculate_token_cost("gemini-3.7-flash", 5000, 1000, cached_input_tokens=0)
+        assert calculate_token_cost("gemini-3.8-flash", 5000, 1000) == pytest.approx(
+            calculate_token_cost("gemini-3.8-flash", 5000, 1000, cached_input_tokens=0)
         )
 
 
@@ -140,33 +140,33 @@ class TestCalculateTotalCost:
 
     def test_tokens_only(self) -> None:
         """Test total cost with only tokens (no image generation)."""
-        cost = calculate_total_cost("gemini-3.7-flash", 5000, 1000)
-        expected = calculate_token_cost("gemini-3.7-flash", 5000, 1000)
+        cost = calculate_total_cost("gemini-3.8-flash", 5000, 1000)
+        expected = calculate_token_cost("gemini-3.8-flash", 5000, 1000)
         assert cost == pytest.approx(expected)
 
     def test_with_image_generation(self) -> None:
         """Test total cost including image generation."""
         image_cost = 0.05
         cost = calculate_total_cost(
-            "gemini-3.7-flash", 5000, 1000, image_generation_cost=image_cost
+            "gemini-3.8-flash", 5000, 1000, image_generation_cost=image_cost
         )
-        token_cost = calculate_token_cost("gemini-3.7-flash", 5000, 1000)
+        token_cost = calculate_token_cost("gemini-3.8-flash", 5000, 1000)
         assert cost == pytest.approx(token_cost + image_cost)
 
     def test_zero_tokens_with_image_cost(self) -> None:
         """Test cost with only image generation (no tokens)."""
         image_cost = 0.10
-        cost = calculate_total_cost("gemini-3.7-flash", 0, 0, image_generation_cost=image_cost)
+        cost = calculate_total_cost("gemini-3.8-flash", 0, 0, image_generation_cost=image_cost)
         assert cost == pytest.approx(image_cost)
 
     def test_cached_tokens_passed_through(self) -> None:
         """calculate_total_cost forwards cached_input_tokens to the token pricing."""
-        cost = calculate_total_cost("gemini-3.7-flash", 100_000, 1000, cached_input_tokens=80_000)
+        cost = calculate_total_cost("gemini-3.8-flash", 100_000, 1000, cached_input_tokens=80_000)
         expected = calculate_token_cost(
-            "gemini-3.7-flash", 100_000, 1000, cached_input_tokens=80_000
+            "gemini-3.8-flash", 100_000, 1000, cached_input_tokens=80_000
         )
         assert cost == pytest.approx(expected)
-        assert cost < calculate_total_cost("gemini-3.7-flash", 100_000, 1000)
+        assert cost < calculate_total_cost("gemini-3.8-flash", 100_000, 1000)
 
 
 class TestConvertCurrency:
@@ -253,7 +253,7 @@ class TestDelegateCostFromToolResults:
                     {
                         "result": "digest",
                         "_delegate_usage": {
-                            "model": "gemini-3.7-flash",
+                            "model": "gemini-3.8-flash",
                             "input_tokens": 1_000_000,
                             "output_tokens": 100_000,
                             "cached_input_tokens": 0,
@@ -265,7 +265,7 @@ class TestDelegateCostFromToolResults:
 
         cost = calculate_delegate_cost_from_tool_results(tool_results)
 
-        expected = calculate_token_cost("gemini-3.7-flash", 1_000_000, 100_000)
+        expected = calculate_token_cost("gemini-3.8-flash", 1_000_000, 100_000)
         assert cost == expected
         assert cost > 0
 
@@ -285,6 +285,6 @@ class TestDelegateCostFromToolResults:
     def test_total_cost_includes_tool_llm_cost(self) -> None:
         from src.utils.costs import calculate_total_cost
 
-        base = calculate_total_cost("gemini-3.7-flash", 1000, 100)
-        with_tool = calculate_total_cost("gemini-3.7-flash", 1000, 100, tool_llm_cost=0.5)
+        base = calculate_total_cost("gemini-3.8-flash", 1000, 100)
+        with_tool = calculate_total_cost("gemini-3.8-flash", 1000, 100, tool_llm_cost=0.5)
         assert with_tool == base + 0.5

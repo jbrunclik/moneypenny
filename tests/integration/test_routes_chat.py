@@ -1370,7 +1370,7 @@ class TestClientMessageId:
         """An ID already used in a different conversation is a validation error."""
         client_id = "3c4d5e6f-7a8b-4c3d-8e4f-5a6b7c8d9e0f"
         other_conv = test_database.create_conversation(
-            user_id=test_user.id, title="Other", model="gemini-3.7-flash"
+            user_id=test_user.id, title="Other", model="gemini-3.8-flash"
         )
         test_database.add_message(other_conv.id, "user", "Hi", message_id=client_id)
 

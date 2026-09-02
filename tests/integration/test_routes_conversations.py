@@ -83,13 +83,13 @@ class TestCreateConversation:
         response = client.post(
             "/api/conversations",
             headers=auth_headers,
-            json={"model": "gemini-3.7-flash"},
+            json={"model": "gemini-3.8-flash"},
         )
 
         assert response.status_code == 201
         data = json.loads(response.data)
         assert "id" in data
-        assert data["model"] == "gemini-3.7-flash"
+        assert data["model"] == "gemini-3.8-flash"
         assert "title" in data
 
     def test_creates_with_default_model(
@@ -577,7 +577,7 @@ class TestConversationPreviews:
 class TestPinnedConversations:
     def _create(self, test_database, test_user, title):
         return test_database.create_conversation(
-            user_id=test_user.id, title=title, model="gemini-3.7-flash"
+            user_id=test_user.id, title=title, model="gemini-3.8-flash"
         )
 
     def test_pin_and_unpin(self, client, auth_headers, test_conversation) -> None:

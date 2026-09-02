@@ -22,8 +22,8 @@ class Config:
     # Optional per-model key "thinking_level" (e.g. "low"/"high") sets Gemini 3+
     # native reasoning depth; omit it to use the API default (create_chat_model).
     MODELS = {
-        "gemini-3.7-flash": {
-            "name": "Gemini 3.7 Flash",
+        "gemini-3.8-flash": {
+            "name": "Gemini 3.8 Flash",
             "short_name": "Fast",
             "description": "Quick answers for everyday questions",
         },
@@ -33,7 +33,7 @@ class Config:
             "description": "Deeper reasoning for complex tasks",
         },
     }
-    DEFAULT_MODEL = "gemini-3.7-flash"
+    DEFAULT_MODEL = "gemini-3.8-flash"
 
     # Image generation model
     IMAGE_GENERATION_MODEL = "gemini-3-pro-image-preview"
@@ -132,19 +132,25 @@ class Config:
         os.getenv("COST_HISTORY_MAX_MONTHS", "120")
     )  # Max 10 years of history (120 months)
 
-    # Gemini pricing (per million tokens) - as of August 2026
+    # Gemini pricing (per million tokens) - as of September 2026
     # These should be updated when Google changes pricing
     # cached_input = rate for tokens served from the context cache
     # (usage_metadata.input_token_details.cache_read). Cache storage cost is
     # not attributed per message - caches are shared across workers with
     # short TTLs, so it is negligible.
     MODEL_PRICING = {
-        "gemini-3.7-flash": {
+        "gemini-3.8-flash": {
             # Introductory pricing through Dec 31, 2026; doubles to
             # $1.50 / $0.15 / $7.50 on Jan 1, 2027
             "input": 0.75,  # $0.75 per million input tokens
             "cached_input": 0.075,
             "output": 3.75,  # $3.75 per million output tokens
+        },
+        "gemini-3.7-flash": {
+            # Same introductory schedule as 3.8 Flash (historical)
+            "input": 0.75,  # $0.75 per million input tokens (historical)
+            "cached_input": 0.075,
+            "output": 3.75,  # $3.75 per million output tokens (historical)
         },
         "gemini-3.6-flash": {
             "input": 1.50,  # $1.50 per million input tokens (historical)
@@ -279,7 +285,7 @@ class Config:
     }
 
     # Title generation settings
-    TITLE_GENERATION_MODEL = "gemini-3.7-flash"
+    TITLE_GENERATION_MODEL = "gemini-3.8-flash"
     TITLE_GENERATION_TEMPERATURE = 0.7
     TITLE_MAX_LENGTH = 62  # Extra 2 chars for emoji + space prefix
     TITLE_TRUNCATE_LENGTH = 59  # Leaves room for "..."
@@ -287,7 +293,7 @@ class Config:
     TITLE_FALLBACK_LENGTH = 50  # Length for fallback title from user message
 
     # AI assist settings (cron parsing, prompt enhancement)
-    AI_ASSIST_MODEL = "gemini-3.7-flash"
+    AI_ASSIST_MODEL = "gemini-3.8-flash"
     AI_ASSIST_TIMEOUT_SECONDS = 15  # Minimum allowed by Gemini API is 10s
 
     # LLM settings

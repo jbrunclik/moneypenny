@@ -536,7 +536,7 @@ class TestThinkingLevel:
     def test_omits_thinking_level_by_default(self, mock_llm_class: MagicMock) -> None:
         from src.agent.graph import create_chat_model
 
-        create_chat_model("gemini-3.7-flash", with_tools=False)
+        create_chat_model("gemini-3.8-flash", with_tools=False)
 
         call_kwargs = mock_llm_class.call_args[1]
         assert "thinking_level" not in call_kwargs

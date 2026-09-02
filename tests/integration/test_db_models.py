@@ -446,7 +446,7 @@ class TestCostOperations:
             message_id=msg.id,
             conversation_id=test_conversation.id,
             user_id=test_user.id,
-            model="gemini-3.7-flash",
+            model="gemini-3.8-flash",
             input_tokens=100_000,
             output_tokens=2_000,
             cost_usd=0.06,
@@ -463,7 +463,7 @@ class TestCostOperations:
             message_id=msg2.id,
             conversation_id=test_conversation.id,
             user_id=test_user.id,
-            model="gemini-3.7-flash",
+            model="gemini-3.8-flash",
             input_tokens=100,
             output_tokens=50,
             cost_usd=0.001,
@@ -485,7 +485,7 @@ class TestCostOperations:
             message_id=msg.id,
             conversation_id=test_conversation.id,
             user_id=test_user.id,
-            model="gemini-3.7-flash",
+            model="gemini-3.8-flash",
             input_tokens=300_000,
             output_tokens=4_000,
             cost_usd=0.45,
@@ -504,7 +504,7 @@ class TestCostOperations:
             message_id=msg2.id,
             conversation_id=test_conversation.id,
             user_id=test_user.id,
-            model="gemini-3.7-flash",
+            model="gemini-3.8-flash",
             input_tokens=100,
             output_tokens=50,
             cost_usd=0.001,
@@ -847,14 +847,14 @@ class TestTurnMetricsColumns:
     """Per-turn observability columns on message_costs (migration 0050)."""
 
     def test_save_and_read_turn_metrics(self, test_database, test_user) -> None:
-        conv = test_database.create_conversation(test_user.id, "t", model="gemini-3.7-flash")
+        conv = test_database.create_conversation(test_user.id, "t", model="gemini-3.8-flash")
         msg = test_database.add_message(conv.id, "assistant", "hello")
 
         test_database.save_message_cost(
             msg.id,
             conv.id,
             test_user.id,
-            "gemini-3.7-flash",
+            "gemini-3.8-flash",
             100,
             50,
             0.001,
@@ -875,11 +875,11 @@ class TestTurnMetricsColumns:
         assert json.loads(row[2]) == ["fetch_url", "web_search"]
 
     def test_defaults_when_omitted(self, test_database, test_user) -> None:
-        conv = test_database.create_conversation(test_user.id, "t2", model="gemini-3.7-flash")
+        conv = test_database.create_conversation(test_user.id, "t2", model="gemini-3.8-flash")
         msg = test_database.add_message(conv.id, "assistant", "hello")
 
         test_database.save_message_cost(
-            msg.id, conv.id, test_user.id, "gemini-3.7-flash", 100, 50, 0.001
+            msg.id, conv.id, test_user.id, "gemini-3.8-flash", 100, 50, 0.001
         )
 
         with test_database._pool.get_connection() as conn:
