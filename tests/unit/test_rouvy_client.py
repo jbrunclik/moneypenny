@@ -74,6 +74,17 @@ def test_list_parses_created_collection(mock_req):
 
 
 @patch("src.agent.tools.rouvy._client_request")
+def test_list_ignores_firebase_env_ids(mock_req):
+    # The payload also carries the app ENV; the 12-digit messaging sender id
+    # followed by the next env key must not be mistaken for a workout.
+    mock_req.return_value = _resp(
+        text='"id","4184531","Sweet Spot",3660,'
+        '"FIREBASE_MESSAGING_SENDER_ID","219456523004","FIREBASE_PROJECT_ID","vt-prod"'
+    )
+    assert rc.rouvy_list(FakeUser()) == [{"id": 4184531, "name": "Sweet Spot"}]
+
+
+@patch("src.agent.tools.rouvy._client_request")
 def test_expired_triggers_refresh_and_retry(mock_req):
     mock_req.side_effect = [
         _resp(status=200, text="<!doctype html><title>Sign In</title>", ctype="text/html"),

@@ -130,11 +130,13 @@ def _parse_workout_list(resp: httpx.Response) -> list[dict[str, Any]]:
 
     The payload interleaves values; created workouts appear as a stringified id
     immediately followed by the name string, e.g.
-    `...,"4183941","ZZ PROBE4 - delete me",...`.
+    `...,"4183941","ZZ PROBE4 - delete me",...`. Workout ids are 7 digits today;
+    the cap at 10 keeps the 12-digit Firebase sender id in the embedded app ENV
+    (`"219456523004","FIREBASE_PROJECT_ID"`) from being mistaken for one.
     """
     out: list[dict[str, Any]] = []
     seen: set[int] = set()
-    for wid, wname in re.findall(r'"(\d{5,})"\s*,\s*"([^"]+)"', resp.text):
+    for wid, wname in re.findall(r'"(\d{5,10})"\s*,\s*"([^"]+)"', resp.text):
         i = int(wid)
         if i not in seen:
             seen.add(i)
