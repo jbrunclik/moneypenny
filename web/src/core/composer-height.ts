@@ -46,7 +46,8 @@ export function initComposerHeight(): void {
       inputArea.getBoundingClientRect().bottom - pill.getBoundingClientRect().top
     );
     const next = `${h}px`;
-    if (document.documentElement.style.getPropertyValue('--composer-height') !== next) {
+    const prev = document.documentElement.style.getPropertyValue('--composer-height');
+    if (prev !== next) {
       document.documentElement.style.setProperty('--composer-height', next);
       log.debug('Composer height changed', { height: h });
 
@@ -54,8 +55,12 @@ export function initComposerHeight(): void {
       // (initial measure after load, keyboard-open padding change, multi-line
       // input) pushes the newest message UP, un-pinning a bottom-scrolled
       // list and leaving a gap above the composer. Re-pin if we were
-      // following the conversation.
-      if (wasAtBottom && messages) {
+      // following the conversation. Shrinking never un-pins, and the biggest
+      // shrink is the composer being HIDDEN by a non-chat view (Storage,
+      // Agents): re-pinning there raced the view's own render and dropped
+      // the user at the bottom of a page that had just scrolled to the top.
+      const grew = h > (parseInt(prev, 10) || 0);
+      if (grew && wasAtBottom && messages) {
         requestAnimationFrame(() => programmaticScrollToBottom(messages));
       }
     }

@@ -318,6 +318,32 @@ How to tell it apart from a real regression (zero-tolerance still applies):
 If the pattern recurs frequently, the fix direction is runner resourcing
 (e.g. sharding the E2E job), not test code.
 
+#### Visual flakes are state races, not pixel noise
+
+When a visual test passes only on retry, diff the `expected`/`actual`
+attachments in the Playwright report: the difference is almost always a
+whole UI element in a different state, and the fix belongs in the app or
+the test's setup, never in the baseline. Root-caused examples (Sep 2026):
+
+- **Storage page mobile: header hidden vs visible.** `navigateToStorage`
+  hides the composer; the composer `ResizeObserver` saw a bottom-pinned
+  (empty) list and re-pinned it in a `requestAnimationFrame`, racing the
+  page's own render + `scrollTop = 0`. Fix: re-pin only when the composer
+  GROWS (`composer-height.ts`), and `programmaticScrollToBottom` no longer
+  opens a "programmatic" window when nothing needs scrolling.
+- **Send button disabled / new conversation missing from the sidebar.**
+  Tests click New Chat as soon as `#new-chat-btn` exists, i.e. while
+  `loadInitialData` still has `isLoading` set: the send-button check ran
+  during loading and was never re-run, and the initial conversation list
+  overwrote the local `temp-*` conversation. Both are handled in
+  `loadInitialData` now.
+- **Alert modal 1px bottom-edge shift** (CI only, unreproducible locally):
+  bounded with `maxDiffPixels: 512` - a real regression moves thousands.
+
+The Linux baseline regeneration artifact (`/regen-baselines`) captures
+whatever state the run happened to land in, so it can carry unrelated
+drift; commit only the snapshots your change actually touched.
+
 ### Planner Tests
 
 The Planner feature has comprehensive E2E and visual test coverage in [../../web/tests/e2e/planner.spec.ts](../../web/tests/e2e/planner.spec.ts) and [../../web/tests/visual/planner.visual.ts](../../web/tests/visual/planner.visual.ts).

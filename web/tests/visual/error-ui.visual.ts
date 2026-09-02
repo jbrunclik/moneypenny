@@ -195,7 +195,11 @@ test.describe('Visual: Modal Dialogs', () => {
 
     await page.waitForTimeout(300);
 
-    await expect(page.locator('.modal-container')).toHaveScreenshot('modal-alert.png');
+    // The modal's bottom edge occasionally lands 1px lower on CI runners
+    // (~360px of a 1280x1024 frame); a real regression moves thousands.
+    await expect(page.locator('.modal-container')).toHaveScreenshot('modal-alert.png', {
+      maxDiffPixels: 512,
+    });
   });
 
   test('confirm modal', async ({ page }) => {

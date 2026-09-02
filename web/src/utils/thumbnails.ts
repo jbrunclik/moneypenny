@@ -175,6 +175,14 @@ export function isProgrammaticScrollActive(): boolean {
  * @param smooth Whether to use smooth scrolling
  */
 export function programmaticScrollToBottom(element: HTMLElement, smooth = false): void {
+    // Already pinned: scrollTo() is a no-op and fires no scroll event, so
+    // don't open a "programmatic" window - it would only swallow a genuine
+    // user scroll that lands inside it (e.g. the composer hiding on the
+    // Storage page re-pinned an empty list right before the user scrolled,
+    // and the auto-hide header ignored that scroll).
+    if (element.scrollHeight - element.scrollTop - element.clientHeight < 1) {
+        return;
+    }
     markProgrammaticScrollStart();
     scrollToBottom(element, smooth);
 

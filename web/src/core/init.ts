@@ -24,7 +24,7 @@ import {
   initOrientationChangeHandler,
   showConversationLoader,
 } from '../components/messages';
-import { initMessageInput } from '../components/MessageInput';
+import { initMessageInput, updateSendButtonState } from '../components/MessageInput';
 import { APP_NAME } from '../config';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
@@ -71,7 +71,13 @@ import { setupEventListeners } from './events';
 import { setupTouchGestures } from './gestures';
 import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
-import { loadDeepLinkedConversation, handleDeepLinkNavigation, deleteMessage, navigateToArchive } from './conversation';
+import {
+  loadDeepLinkedConversation,
+  handleDeepLinkNavigation,
+  deleteMessage,
+  navigateToArchive,
+  isTempConversation,
+} from './conversation';
 import { navigateToPlanner, leavePlannerView } from './planner';
 import { navigateToSports, navigateToSportsProgram } from './sports';
 import { navigateToLanguage, navigateToLanguageProgram } from './language';
@@ -287,6 +293,13 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     ]);
 
     store.setConversations(convResult.conversations, convResult.pagination);
+    // "New Chat" clicked while this fetch was in flight created a local-only
+    // conversation the server list can't know about - don't drop it from the
+    // sidebar (it persists on the first message)
+    const current = useStore.getState().currentConversation;
+    if (current && isTempConversation(current.id)) {
+      store.addConversation(current);
+    }
     store.setModels(modelsData.models, modelsData.default);
     store.setUploadConfig(uploadConfig);
 
@@ -406,6 +419,10 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     });
   } finally {
     store.setLoading(false);
+    // Text typed (or a file attached) during boot evaluated the send button
+    // while isLoading was true and nothing re-runs the check afterwards -
+    // the button stayed disabled until the next keystroke
+    updateSendButtonState();
     // The sidebar may have last rendered during loading (skeletons). With
     // zero conversations nothing else re-renders it afterwards, leaving the
     // skeletons up forever on slow boots (caught by CI's container runners
