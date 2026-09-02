@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Mapping
 from typing import Any, NoReturn
 
 from src.config import Config
@@ -48,6 +49,32 @@ def cookies_to_jar(session_json: str) -> dict[str, str]:
     if not isinstance(cookies, list):
         return {}
     return {c["name"]: c["value"] for c in cookies if "name" in c and "value" in c}
+
+
+def merge_cookie_values(session_json: str, updates: Mapping[str, str]) -> str:
+    """Return the stored cookie blob with rotated cookie values applied.
+
+    Rouvy rotates ``rouvy_session`` (it wraps a 1h Firebase id token) via
+    Set-Cookie on ordinary requests; persisting the rotation keeps the session
+    alive without a full re-login. Existing entries keep their attributes,
+    unknown cookies are appended.
+    """
+    try:
+        cookies = json.loads(session_json)
+    except (json.JSONDecodeError, TypeError):
+        cookies = []
+    if not isinstance(cookies, list):
+        cookies = []
+    seen: set[str] = set()
+    for c in cookies:
+        name = c.get("name")
+        if name in updates:
+            c["value"] = updates[name]
+            seen.add(name)
+    for name, value in updates.items():
+        if name not in seen:
+            cookies.append({"name": name, "value": value, "domain": ".rouvy.com"})
+    return json.dumps(cookies)
 
 
 def login(email: str, password: str) -> str:

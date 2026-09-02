@@ -15,13 +15,24 @@ class FakeUser:
     rouvy_session = json.dumps([{"name": "s", "value": "v", "domain": ".rouvy.com"}])
 
 
-def _resp(status=200, text='[{"_1":2}]', ctype="text/x-script"):
+def _resp(status=200, text='[{"_1":2}]', ctype="text/x-script", cookies=None):
     r = MagicMock()
     r.status_code = status
     r.text = text
     r.headers = {"content-type": ctype}
+    r.cookies = cookies or {}
     r.raise_for_status = MagicMock()
     return r
+
+
+# What Rouvy returns when the Firebase id token inside rouvy_session has expired:
+# it refreshes the token, sets a new cookie and redirects to the SAME url
+# instead of running the loader/action (React Router single-fetch redirect).
+_REFRESH_REDIRECT = (
+    '[{"_1":2,"_3":4,"_5":6,"_7":8,"_9":8},"redirect",'
+    '"https://riders.rouvy.com/resources/workout-upload","status",302,'
+    '"revalidate",true,"reload",false,"replace"]'
+)
 
 
 def test_not_connected_raises():
@@ -96,3 +107,54 @@ def test_update_is_delete_then_create(mock_create, mock_delete):
     mock_delete.assert_called_once()
     mock_create.assert_called_once()
     assert out["id"] == 5
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_refresh_redirect_retries_with_rotated_cookie_and_persists(mock_req):
+    mock_req.side_effect = [
+        _resp(status=202, text=_REFRESH_REDIRECT, cookies={"rouvy_session": "fresh"}),
+        _resp(text='"error","workoutId",77'),
+    ]
+    user = FakeUser()
+    user.rouvy_session = json.dumps(
+        [{"name": "rouvy_session", "value": "stale", "domain": ".rouvy.com"}]
+    )
+    with (
+        patch("src.agent.tools.rouvy.rouvy_auth.login") as login,
+        patch("src.agent.tools.rouvy.db.update_user_rouvy_session") as save,
+    ):
+        out = rc.rouvy_create(user, "<x/>", "n")
+    assert out["id"] == 77
+    assert not login.called  # a token refresh is not a dead session
+    assert mock_req.call_count == 2
+    retry_jar = mock_req.call_args_list[1][0][3]
+    assert retry_jar["rouvy_session"] == "fresh"
+    save.assert_called_once()
+    saved_user_id, saved_session = save.call_args[0]
+    assert saved_user_id == "u1"
+    assert rc.rouvy_auth.cookies_to_jar(saved_session)["rouvy_session"] == "fresh"
+    assert rc.rouvy_auth.cookies_to_jar(user.rouvy_session)["rouvy_session"] == "fresh"
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_refresh_redirect_on_list_retries(mock_req):
+    mock_req.side_effect = [
+        _resp(status=202, text=_REFRESH_REDIRECT, cookies={"rouvy_session": "fresh"}),
+        _resp(text='x,"4183941","ZZ Ride",6'),
+    ]
+    with patch("src.agent.tools.rouvy.db.update_user_rouvy_session"):
+        out = rc.rouvy_list(FakeUser())
+    assert out == [{"id": 4183941, "name": "ZZ Ride"}]
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_plain_turbo_redirect_without_cookie_is_not_retried(mock_req):
+    # A successful delete answers with a redirect too, but rotates no cookie.
+    mock_req.return_value = _resp(
+        status=202, text='[{"_1":2},"redirect","/workouts","status",302,"replace"]'
+    )
+    with patch("src.agent.tools.rouvy.db.update_user_rouvy_session") as save:
+        out = rc.rouvy_delete(FakeUser(), 5)
+    assert out == {"deleted": True, "id": 5}
+    assert mock_req.call_count == 1
+    assert not save.called

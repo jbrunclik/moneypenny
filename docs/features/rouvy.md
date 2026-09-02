@@ -24,6 +24,17 @@ replicates the authenticated web flow, mirroring the Garmin integration.
   client re-logs-in with the stored credentials, re-persists the cookie, and retries
   once; if refresh fails (e.g. reCAPTCHA blocks a headless login), the user is told
   to reconnect.
+- **Token rotation (pitfall):** `rouvy_session` wraps a **1-hour Firebase id
+  token** plus a refresh token. Once the id token has expired, Rouvy does *not*
+  401 — it refreshes the token server-side, rotates the cookie via `Set-Cookie`,
+  and answers with a turbo-stream **redirect to the same URL** (HTTP 202,
+  `"redirect",<same url>,"status",302`) instead of running the loader/action.
+  The client must persist the rotated cookie and retry once
+  (`_persist_rotated_cookies` / `_is_refresh_redirect`); before this was handled
+  (Sep 2026) every call made more than an hour after connect silently failed:
+  `list` parsed to `[]` and `create` raised "could not parse created workout id".
+  A successful **delete** also answers with a redirect (to `/workouts`) but rotates
+  no cookie — the cookie rotation is the distinguishing signal.
 
 ### Confirmed endpoint contract
 

@@ -5,6 +5,11 @@ riders.rouvy.com React-Router `.data` endpoints via httpx. On an expired session
 it re-logs-in headlessly with the stored credentials, re-persists the cookie,
 and retries once. Playwright is only used for (re)login, never for CRUD.
 
+Session refresh: ``rouvy_session`` wraps a 1h Firebase id token. Once it has
+expired, Rouvy refreshes it server-side, rotates the cookie via Set-Cookie and
+answers with a turbo-stream redirect to the SAME url instead of running the
+loader/action. We persist the rotated cookie and retry the request once.
+
 Endpoint contract (confirmed by recon, cookies-only auth, turbo-stream responses):
 - create: POST /resources/workout-upload.data, multipart field `file`
           -> response contains `"workoutId",<id>` (error null on success)
@@ -39,6 +44,9 @@ class RouvySessionExpired(Exception):
     """Session expired and automated refresh failed — user must reconnect."""
 
 
+_SESSION_COOKIE = "rouvy_session"  # noqa: S105 - a cookie name, not a secret
+
+
 def _base() -> str:
     return Config.ROUVY_RIDERS_URL
 
@@ -63,12 +71,31 @@ def _looks_expired(resp: httpx.Response) -> bool:
     return False
 
 
+def _is_refresh_redirect(resp: httpx.Response) -> bool:
+    """Token-refresh response: rotated session cookie + turbo-stream redirect body."""
+    return bool(resp.cookies.get(_SESSION_COOKIE)) and '"redirect"' in resp.text[:400]
+
+
+def _persist_rotated_cookies(user: User, resp: httpx.Response) -> dict[str, str] | None:
+    """Persist cookies Rouvy rotated on this response; return the new jar (or None)."""
+    updates = {name: value for name, value in resp.cookies.items() if value}
+    if not updates.get(_SESSION_COOKIE) or not user.rouvy_session:
+        return None
+    new_session = rouvy_auth.merge_cookie_values(user.rouvy_session, updates)
+    db.update_user_rouvy_session(user.id, new_session)
+    user.rouvy_session = new_session
+    return rouvy_auth.cookies_to_jar(new_session)
+
+
 def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.Response:
-    """Issue a request, refreshing the session once on expiry."""
+    """Issue a request, retrying once on token rotation and re-logging-in once on expiry."""
     if not user.rouvy_session:
         raise RouvyNotConnected()
     jar = rouvy_auth.cookies_to_jar(user.rouvy_session)
     resp = _client_request(method, url, kwargs, jar)
+    rotated_jar = _persist_rotated_cookies(user, resp)
+    if rotated_jar is not None and _is_refresh_redirect(resp):
+        resp = _client_request(method, url, kwargs, rotated_jar)
     if not _looks_expired(resp):
         return resp
     # Refresh: re-login with stored creds, persist, retry once.

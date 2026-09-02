@@ -23,6 +23,29 @@ def test_cookies_to_jar_bad_input():
     assert rouvy_auth.cookies_to_jar("{}") == {}
 
 
+def test_merge_cookie_values_updates_and_appends():
+    session = json.dumps(
+        [
+            {"name": "rouvy_session", "value": "old", "domain": ".rouvy.com", "httpOnly": True},
+            {"name": "locale", "value": "en", "domain": ".rouvy.com"},
+        ]
+    )
+    out = json.loads(
+        rouvy_auth.merge_cookie_values(session, {"rouvy_session": "new", "GAESA": "aff"})
+    )
+    by_name = {c["name"]: c for c in out}
+    assert by_name["rouvy_session"]["value"] == "new"
+    assert by_name["rouvy_session"]["httpOnly"] is True  # other attrs preserved
+    assert by_name["locale"]["value"] == "en"
+    assert by_name["GAESA"]["value"] == "aff"
+    assert len(out) == 3
+
+
+def test_merge_cookie_values_bad_input():
+    out = json.loads(rouvy_auth.merge_cookie_values("not json", {"rouvy_session": "x"}))
+    assert out == [{"name": "rouvy_session", "value": "x", "domain": ".rouvy.com"}]
+
+
 def test_login_success(monkeypatch):
     fake = [{"name": "rouvy_session", "value": "xyz", "domain": ".rouvy.com"}]
     monkeypatch.setattr(rouvy_auth, "_login_sync", lambda e, p: json.dumps(fake))
