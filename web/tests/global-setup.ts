@@ -20,6 +20,26 @@ export const test = base.extend<{
     await context.setExtraHTTPHeaders({
       'X-Test-Execution-Id': testExecutionId,
     });
+    // The web fonts ship as unicode-range subsets with font-display: swap, so
+    // a face only starts loading the first time text uses it. A visual test
+    // that injects a popup with the first display-font heading on the page
+    // raced that load and captured the fallback font (settings popup / alert
+    // modal headings). Start the loads at page load so document.fonts.ready
+    // - which toHaveScreenshot waits for - already covers them.
+    await context.addInitScript(() => {
+      window.addEventListener('load', () => {
+        const faces = [
+          '400 1em "Inter Variable"',
+          '500 1em "Inter Variable"',
+          '600 1em "Inter Variable"',
+          '700 1em "Inter Variable"',
+          '600 1em "Bricolage Grotesque Variable"',
+          '700 1em "Bricolage Grotesque Variable"',
+        ];
+        // "Kč" pulls the latin-ext subset the sidebar cost label needs too
+        for (const face of faces) void document.fonts.load(face, 'Kč');
+      });
+    });
     await use(context);
   },
 

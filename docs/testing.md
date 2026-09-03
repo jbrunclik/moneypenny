@@ -372,6 +372,25 @@ by guessing):
   viewport", waits for the stream to end, and polls the position.
 - **One-shot reads of async state** - `localStorage` journal cleanup read
   once right after the final render; use `expect.poll`.
+- **Lazy web-font subsets** - both fonts ship as `unicode-range` subsets
+  with `font-display: swap`, so a face starts loading the first time text
+  uses it. A visual test injecting the first display-font heading captured
+  the fallback font. The shared fixture (`global-setup.ts`) now kicks off
+  `document.fonts.load()` for the faces at page load.
+- **Composer stealing focus from a modal** - a send that was still settling
+  re-focused `#message-input` behind an open delete confirmation (focus ring
+  in the snapshot). `focusMessageInput` now no-ops while a modal is open.
+- **Check-then-act on a loader** - the sidebar load-more test waited for
+  the loader, then counted its dots in a second call. Hold the request with
+  `page.route` (and the sync request, which delivers every conversation at
+  boot) so the loading state is observable; note `page.route` cannot see
+  requests that pass through the service worker on WebKit - that describe
+  uses `test.use({ serviceWorkers: 'block' })`.
+- **Runner CPU starvation, not the mock server** - the e2e-server's SLOW
+  log showed `/test/reset` taking up to 12s on the webkit runner at only
+  4-10 server threads (a reset is ~6ms in isolation; even `GET /` took
+  3.8s). Four webkit contexts saturate a 2-vCPU runner. WebKit now runs as
+  two shards of three workers.
 
 ### Planner Tests
 

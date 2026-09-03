@@ -132,6 +132,11 @@ test.describe('Conversations Pagination', () => {
 });
 
 test.describe('Conversations Pagination - Load More', () => {
+  // page.route() cannot intercept requests that pass through a service
+  // worker on WebKit (the app's SW has a fetch listener, even though it lets
+  // /api/ through untouched), and the loader test below holds a request.
+  test.use({ serviceWorkers: 'block' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
@@ -248,6 +253,28 @@ test.describe('Conversations Pagination - Load More', () => {
       data: { conversations },
     });
 
+    // Hold the load-more request so the loading state is deterministically
+    // observable. Without this the mock answered fast enough that the loader
+    // was sometimes gone between "is it there?" and "does it have dots?".
+    // The sync manager's full sync also delivers every conversation at boot
+    // (no pagination) and would fill the list before the scroll - hold it too.
+    // Installed before the reload so it catches either request however early
+    // it fires.
+    let releaseLoadMore: () => void = () => {};
+    const loadMoreHeld = new Promise<void>((resolve) => {
+      releaseLoadMore = resolve;
+    });
+    await page.route('**/api/conversations/sync*', async (route) => {
+      await loadMoreHeld;
+      await route.continue();
+    });
+    await page.route('**/api/conversations?*', async (route) => {
+      if (new URL(route.request().url()).searchParams.has('cursor')) {
+        await loadMoreHeld;
+      }
+      await route.continue();
+    });
+
     // Reload to see seeded conversations
     await page.reload();
     await page.waitForSelector('#new-chat-btn');
@@ -258,29 +285,15 @@ test.describe('Conversations Pagination - Load More', () => {
       el.scrollTop = el.scrollHeight;
     });
 
-    // Wait for scroll handler to trigger and loader to appear
-    // The loader should appear when isLoadingMore becomes true
+    // The loader appears when isLoadingMore becomes true, with three dots
     const loadMore = page.locator('.conversations-load-more.loading');
-    try {
-      // Wait up to 2 seconds for loader to appear
-      await loadMore.waitFor({ timeout: 2000, state: 'visible' });
-    } catch {
-      // Loader might not appear if API call completes too fast, that's okay
-      // The structure is tested in component tests
-    }
+    await expect(loadMore).toBeVisible();
+    await expect(loadMore.locator('.loading-dots span')).toHaveCount(3);
 
-    // If loader appeared, verify it has loading dots
-    const loadMoreCount = await loadMore.count();
-    if (loadMoreCount > 0) {
-      const loadingDots = loadMore.locator('.loading-dots');
-      const dotsCount = await loadingDots.count();
-      expect(dotsCount).toBeGreaterThan(0);
-
-      // Verify loading dots have 3 spans
-      const dots = loadingDots.first();
-      const spans = dots.locator('span');
-      await expect(spans).toHaveCount(3);
-    }
+    // Let the page load through; the loader goes away and the rest arrives
+    releaseLoadMore();
+    await expect(loadMore).toHaveCount(0);
+    await expect(page.locator('.conversation-item-wrapper')).toHaveCount(numConversations);
   });
 });
 

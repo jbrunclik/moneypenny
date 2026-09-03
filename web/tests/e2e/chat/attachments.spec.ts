@@ -144,19 +144,15 @@ test.describe('Chat - Image Loading Scroll', () => {
 
     const messagesContainer = page.locator('#messages');
 
-    // Wait for initial scroll to bottom and any pending scroll operations to complete
-    // Use longer timeout for webkit which can be slower with scroll timing
-    await page.waitForTimeout(1500);
-
-    // Verify we're at the bottom first
-    const initialScrollInfo = await messagesContainer.evaluate((el) => ({
-      scrollTop: el.scrollTop,
-      scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight,
-    }));
-    const initialDistanceFromBottom =
-      initialScrollInfo.scrollHeight - initialScrollInfo.scrollTop - initialScrollInfo.clientHeight;
-    expect(initialDistanceFromBottom).toBeLessThan(100); // Should be at bottom initially
+    // The open-conversation path pins to the bottom once the visible images
+    // have loaded (scheduled over several frames + retries), so poll for it
+    // rather than sleeping a fixed time a loaded webkit runner can exceed
+    const distanceFromBottom = () =>
+      messagesContainer.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight);
+    await expect.poll(distanceFromBottom, { timeout: 10000 }).toBeLessThan(100);
+    // ...then let that pin finish: it is a smooth scroll (up to 600ms) and a
+    // scroll-up landing inside it is treated as the app's own scroll
+    await page.waitForTimeout(800);
 
     // Scroll up (this should disable auto-scroll)
     await messagesContainer.evaluate((el) => {

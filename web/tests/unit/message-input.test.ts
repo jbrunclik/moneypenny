@@ -11,6 +11,7 @@ import {
   showUploadProgress,
   hideUploadProgress,
   updateUploadProgress,
+  focusMessageInput,
 } from '@/components/MessageInput';
 import { MOBILE_BREAKPOINT_PX } from '@/config';
 import { useStore } from '@/state/store';
@@ -797,5 +798,41 @@ describe('recallLastSentMessage (up-arrow history)', () => {
     const { recallLastSentMessage } = await import('@/components/MessageInput');
     useStore.setState({ messages: new Map([['c1', []]]) });
     expect(recallLastSentMessage()).toBe(false);
+  });
+});
+
+describe('focusMessageInput', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '<textarea id="message-input"></textarea>';
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('focuses the composer', () => {
+    focusMessageInput();
+    expect(document.activeElement?.id).toBe('message-input');
+  });
+
+  it('does not steal focus from an open modal', () => {
+    // A send that finishes (cost/title fetches) after the user opened a
+    // delete confirmation used to re-focus the composer behind the modal
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<div class="modal-container"><div class="modal"><button class="modal-confirm">OK</button></div></div>'
+    );
+    document.querySelector<HTMLButtonElement>('.modal-confirm')!.focus();
+    focusMessageInput();
+    expect(document.activeElement?.className).toBe('modal-confirm');
+  });
+
+  it('focuses the composer again once the modal is hidden', () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<div class="modal-container modal-hidden"><div class="modal"></div></div>'
+    );
+    focusMessageInput();
+    expect(document.activeElement?.id).toBe('message-input');
   });
 });

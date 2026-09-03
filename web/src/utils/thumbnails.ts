@@ -818,7 +818,16 @@ function scheduleScrollAfterImageLoad(): void {
                     // SCROLL_USER_DETECTION_THRESHOLD_PX, e.g. WebKit's tighter text
                     // metrics on a short chat) the very TOP still counts as "near the
                     // bottom", and a late image load yanked the reader back down.
-                    if (messagesContainer.scrollTop < maxScrollTopWhileArmed - SCROLL_GENUINE_UP_PX) {
+                    // A content SHRINK (e.g. a streaming placeholder replaced by
+                    // shorter final markup) also lowers scrollTop - but the browser
+                    // clamps it to the new bottom, so "dropped below max" while sitting
+                    // exactly at the bottom is a clamp, not the user.
+                    const distanceFromBottom =
+                        messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
+                    if (
+                        messagesContainer.scrollTop < maxScrollTopWhileArmed - SCROLL_GENUINE_UP_PX &&
+                        distanceFromBottom > SCROLL_GENUINE_UP_PX
+                    ) {
                         safelyDisableScrollOnImageLoad('user genuinely scrolled up during scroll scheduling');
                         isSchedulingScroll = false;
                         scrollTimeout = undefined;

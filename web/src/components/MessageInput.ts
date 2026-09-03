@@ -259,6 +259,11 @@ export function clearMessageInput(): void {
  * Focus message input
  */
 export function focusMessageInput(): void {
+  // Never pull focus out of an open modal: a send that is still settling
+  // (cost / title fetches) re-focused the composer behind a delete
+  // confirmation the user had already opened. The modal's focus trap owns
+  // focus until it closes.
+  if (document.querySelector('.modal-container:not(.modal-hidden)')) return;
   const input = getElementById<HTMLTextAreaElement>('message-input');
   input?.focus();
 }
