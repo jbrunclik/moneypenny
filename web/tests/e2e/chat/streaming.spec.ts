@@ -752,6 +752,12 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
 });
 
 test.describe('Chat - End-of-stream repositioning', () => {
+  // A short viewport so a "taller than the viewport" answer needs few streamed
+  // tokens: the mock streams one 10ms token per WORD and re-renders the message
+  // on each, and the 400-line answer this used to send took webkit on a loaded
+  // CI runner longer than the assertion timeout to reach the end of the stream.
+  test.use({ viewport: { width: 1280, height: 520 } });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
@@ -764,33 +770,38 @@ test.describe('Chat - End-of-stream repositioning', () => {
   });
 
   test('long responses jump to the top of the message for read-from-start', async ({ page }) => {
-    // Response much taller than the viewport. Mock streaming collapses the
-    // paragraph breaks, so the text wraps to ~1 line per sentence - use enough
-    // sentences to clear the (tall, 1024px) E2E viewport with margin.
+    // Response clearly taller than the (520px) viewport - the jump only
+    // happens above RESPONSE_JUMP_MIN_VIEWPORT_RATIO of it. Mock streaming
+    // drops the paragraph breaks (tokens are whitespace-split), so this
+    // renders as one wrapped paragraph: ~7px per sentence, ~560px for 80.
     const longResponse = Array.from(
-      { length: 400 },
+      { length: 80 },
       (_, i) => `Line ${i + 1} of a long answer.`
     ).join('\n\n');
     await setMockResponse(page, longResponse);
 
     await page.fill('#message-input', 'Tell me everything');
     await page.click('#send-btn');
-    await expect(page.locator('.message.assistant')).toContainText('Line 120', { timeout: 20000 });
+    // The repositioning runs at the END of the stream, so wait for it to finish
+    const message = page.locator('.message.assistant');
+    await expect(message).toContainText('Line 80', { timeout: 20000 });
+    await expect(message).not.toHaveClass(/streaming/, { timeout: 20000 });
 
-    // Wait for the double-RAF repositioning to settle
-    await page.waitForTimeout(300);
-
-    const { messageTopDelta } = await page.evaluate(() => {
-      const container = document.getElementById('messages')!;
-      const messageEl = document.querySelector<HTMLElement>('.message.assistant')!;
-      return {
-        messageTopDelta: Math.abs(
-          messageEl.getBoundingClientRect().top - container.getBoundingClientRect().top
-        ),
-      };
-    });
-    // Viewport should sit at (near) the top of the assistant message
-    expect(messageTopDelta).toBeLessThan(120);
+    // Viewport should sit at (near) the top of the assistant message once the
+    // double-RAF repositioning has run
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const container = document.getElementById('messages')!;
+            const messageEl = document.querySelector<HTMLElement>('.message.assistant')!;
+            return Math.abs(
+              messageEl.getBoundingClientRect().top - container.getBoundingClientRect().top
+            );
+          }),
+        { timeout: 5000 }
+      )
+      .toBeLessThan(120);
   });
 
   test('short responses stay at the bottom instead of jumping', async ({ page }) => {

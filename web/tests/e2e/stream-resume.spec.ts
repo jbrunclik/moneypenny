@@ -145,9 +145,11 @@ test.describe('Resumable streams', () => {
     });
     await expect(page.locator('.message.assistant.message-incomplete')).toHaveCount(0);
 
-    // The entry is cleared once the resume reaches a terminal outcome
-    const entry = await page.evaluate(() => localStorage.getItem('inflight-streams'));
-    expect(entry).toBeNull();
+    // The entry is cleared once the resume reaches a terminal outcome - that
+    // happens after the final render, so poll instead of reading it once
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem('inflight-streams')), { timeout: 5000 })
+      .toBeNull();
   });
 
   test('second reload mid-resume still resumes the turn', async ({ page, request }) => {

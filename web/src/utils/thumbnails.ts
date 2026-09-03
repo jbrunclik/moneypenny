@@ -810,6 +810,21 @@ function scheduleScrollAfterImageLoad(): void {
                         return;
                     }
 
+                    // A genuine scroll-up wins over everything below: if scrollTop has
+                    // dropped well below the deepest position followed while armed, the
+                    // user scrolled up (a bottom image loading never lowers scrollTop).
+                    // This must run BEFORE the near-bottom tolerance check - in a
+                    // conversation that is only barely scrollable (max scroll below
+                    // SCROLL_USER_DETECTION_THRESHOLD_PX, e.g. WebKit's tighter text
+                    // metrics on a short chat) the very TOP still counts as "near the
+                    // bottom", and a late image load yanked the reader back down.
+                    if (messagesContainer.scrollTop < maxScrollTopWhileArmed - SCROLL_GENUINE_UP_PX) {
+                        safelyDisableScrollOnImageLoad('user genuinely scrolled up during scroll scheduling');
+                        isSchedulingScroll = false;
+                        scrollTimeout = undefined;
+                        return;
+                    }
+
                     // Only scroll if user is still at or near the bottom
                     // This prevents hijacking scroll when user is browsing history
                     // BUT: If we're scheduling a scroll, don't check isAtBottom because layout changes
@@ -823,22 +838,10 @@ function scheduleScrollAfterImageLoad(): void {
                         isSchedulingScroll = false;
                         scrollTimeout = undefined;
                         return;
-                    } else if (!isAtBottom && isSchedulingScroll) {
-                        // We're scheduling a scroll but the user appears scrolled away.
-                        // Normally that's a false positive from image-load layout shifts
-                        // (which move an ABOVE-fold image and nudge scrollTop) - so we'd
-                        // ignore it and scroll. But if scrollTop has dropped well below
-                        // where scrolling was armed, the user has GENUINELY scrolled up
-                        // (a bottom image loading never lowers scrollTop). Respect that
-                        // and don't yank them back to the bottom.
-                        if (messagesContainer.scrollTop < maxScrollTopWhileArmed - SCROLL_GENUINE_UP_PX) {
-                            safelyDisableScrollOnImageLoad('user genuinely scrolled up during scroll scheduling');
-                            isSchedulingScroll = false;
-                            scrollTimeout = undefined;
-                            return;
-                        }
-                        // else: likely a layout-shift false positive - ignore and scroll.
                     }
+                    // else: scheduling and not at bottom without a genuine scroll-up is
+                    // a layout-shift false positive (an ABOVE-fold image nudged
+                    // scrollTop) - ignore it and scroll.
 
                     // Mark this as a programmatic scroll so we don't disable on our own scroll
                     log.debug('scheduleScrollAfterImageLoad: about to scroll to bottom', {

@@ -647,6 +647,31 @@ def main() -> None:
         active_contexts: dict[str, tuple[Database, BlobStore]] = {}
         active_contexts_lock = threading.Lock()
 
+        # Slow-request log: any request the mock server takes >1s to answer is
+        # a starvation suspect (the suite's flakes are "mock response never
+        # arrived" timeouts). Printed to stderr so it shows up in Playwright's
+        # [WebServer] output; grep for SLOW.
+        import time as _time
+
+        @app.before_request
+        def _mark_request_start() -> None:
+            g._req_start = _time.perf_counter()
+
+        @app.after_request
+        def _log_slow_request(response):  # type: ignore[no-untyped-def]
+            start = getattr(g, "_req_start", None)
+            if start is not None and not response.is_streamed:
+                elapsed = _time.perf_counter() - start
+                if elapsed > 1.0:
+                    print(
+                        f"SLOW {elapsed:.2f}s {request.method} {request.path} "
+                        f"test={request.headers.get('X-Test-Execution-Id', '-')[:8]} "
+                        f"threads={threading.active_count()}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+            return response
+
         @app.before_request
         def resolve_db():
             test_id = request.headers.get("X-Test-Execution-Id")

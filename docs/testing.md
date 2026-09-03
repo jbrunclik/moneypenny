@@ -344,6 +344,35 @@ The Linux baseline regeneration artifact (`/regen-baselines`) captures
 whatever state the run happened to land in, so it can carry unrelated
 drift; commit only the snapshots your change actually touched.
 
+#### E2E first-run reliability (Sep 2026 pass)
+
+The E2E job now runs **one browser project per runner** (matrix in
+`test.yml`). With both projects on one 2-vCPU runner, 8 browser contexts
+shared a single mock server and the suite only passed through retries -
+webkit tests timing out on mock responses that were never slow in
+isolation. Retries are still configured as a safety net, but the goal is
+zero `flaky` in the Playwright summary; when a test needs a retry, treat
+it as a bug and diff the first-attempt `error-context.md` against the code.
+
+Races found and fixed in that pass (all reproduced from CI artifacts, not
+by guessing):
+
+- **Send button stuck disabled / temp conversation vanishing** - tests
+  click New Chat before `loadInitialData` finishes (see the visual section
+  above). Showed up in E2E as `page.click('#send-btn')` hitting the 30s
+  test timeout (Playwright waits for the button to become enabled).
+- **Image-load scroll yanked a reader who was at the top** - on WebKit a
+  five-message chat is only ~155px scrollable, below the 200px "near
+  bottom" tolerance, so scrollTop 0 still counted as "at bottom" when the
+  scheduled scroll fired late. The genuine-scroll-up guard in
+  `thumbnails.ts` now runs before that tolerance.
+- **Throughput-bound assertions** - the read-from-start test streamed a
+  400-line answer (2400 tokens, one DOM re-render each) and asserted
+  mid-stream; it now uses a short viewport so 80 lines are "taller than the
+  viewport", waits for the stream to end, and polls the position.
+- **One-shot reads of async state** - `localStorage` journal cleanup read
+  once right after the final render; use `expect.poll`.
+
 ### Planner Tests
 
 The Planner feature has comprehensive E2E and visual test coverage in [../../web/tests/e2e/planner.spec.ts](../../web/tests/e2e/planner.spec.ts) and [../../web/tests/visual/planner.visual.ts](../../web/tests/visual/planner.visual.ts).
