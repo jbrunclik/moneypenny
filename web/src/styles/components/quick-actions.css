@@ -1,0 +1,81 @@
+/* ============================================
+   Quick Actions (program conversations)
+   ============================================
+   - Chip bar above the composer
+   - Field form (popover desktop / bottom sheet mobile)
+   - Editor modal
+*/
+
+/* ----------------------------------------
+   Chip bar
+   ---------------------------------------- */
+
+.quick-actions-bar {
+    /* Sits inside .input-wrapper directly above the composer pill.
+       Visibility toggles via .hidden (display:none) - never animate height. */
+    padding: 0 0 var(--space-2);
+}
+
+.quick-actions-bar.hidden {
+    display: none;
+}
+
+.quick-actions-scroller {
+    display: flex;
+    gap: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    /* Let the first/last chip breathe past the pill's rounded edge */
+    padding: 2px var(--space-1);
+}
+
+.quick-actions-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+.quick-action-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+    max-width: 240px;
+    padding: var(--space-1) var(--space-3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast),
+        opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.quick-action-chip:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+}
+
+.quick-action-chip:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+.quick-action-chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.quick-action-chip-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Header button: icon-only on mobile to save width */
+@media (max-width: 768px) {
+    .program-quick-actions-btn span {
+        display: none;
+    }
+}

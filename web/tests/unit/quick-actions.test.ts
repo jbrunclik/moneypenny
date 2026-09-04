@@ -2,7 +2,7 @@
  * Unit tests for quick-action message composition and bar visibility rules.
  */
 import { describe, it, expect } from 'vitest';
-import { composeQuickActionMessage } from '@/core/quick-actions';
+import { composeQuickActionMessage, shouldShowQuickActionsBar } from '@/core/quick-actions';
 import type { QuickAction } from '@/types/api';
 
 const action: QuickAction = {
@@ -40,5 +40,24 @@ describe('composeQuickActionMessage', () => {
   it('indents continuation lines of multi-line values by two spaces', () => {
     const out = composeQuickActionMessage(action, { Comments: 'line one\nline two\n' });
     expect(out).toBe('Assess today.\n\nComments: line one\n  line two');
+  });
+});
+
+describe('shouldShowQuickActionsBar', () => {
+  it('desktop: always visible', () => {
+    expect(
+      shouldShowQuickActionsBar({ mobile: false, composerEmpty: false, streaming: true })
+    ).toBe(true);
+  });
+  it('mobile: visible only when composer is empty and nothing streams', () => {
+    expect(
+      shouldShowQuickActionsBar({ mobile: true, composerEmpty: true, streaming: false })
+    ).toBe(true);
+    expect(
+      shouldShowQuickActionsBar({ mobile: true, composerEmpty: false, streaming: false })
+    ).toBe(false);
+    expect(
+      shouldShowQuickActionsBar({ mobile: true, composerEmpty: true, streaming: true })
+    ).toBe(false);
   });
 });

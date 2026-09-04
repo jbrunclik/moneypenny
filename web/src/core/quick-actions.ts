@@ -7,6 +7,13 @@
  * components/QuickActions*.ts are presentation only.
  */
 import type { QuickAction } from '../types/api';
+import { useStore } from '../state/store';
+import { renderQuickActionsBar, setQuickActionsBarDisabled } from '../components/QuickActionsBar';
+import { isMobileViewport } from '../components/MessageInput';
+import { getElementById } from '../utils/dom';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('quick-actions');
 
 /**
  * Body, blank line, then one `Label: value` line per non-empty field (in
@@ -25,4 +32,90 @@ export function composeQuickActionMessage(
     lines.push(`${field}: ${value.split('\n').join('\n  ')}`);
   }
   return lines.length > 0 ? `${body}\n\n${lines.join('\n')}` : body;
+}
+
+export interface QuickActionsContext {
+  namespace: 'sports' | 'language';
+  programId: string;
+  actions: QuickAction[];
+  /** Persist the full list; resolves with the server's copy. */
+  save: (actions: QuickAction[]) => Promise<QuickAction[]>;
+}
+
+let current: QuickActionsContext | null = null;
+let unsubscribeStore: (() => void) | null = null;
+
+export function shouldShowQuickActionsBar(input: {
+  mobile: boolean;
+  composerEmpty: boolean;
+  streaming: boolean;
+}): boolean {
+  if (!input.mobile) return true;
+  return input.composerEmpty && !input.streaming;
+}
+
+function isCurrentConversationStreaming(): boolean {
+  const state = useStore.getState();
+  const convId = state.currentConversation?.id;
+  return convId !== undefined && state.activeRequests.has(convId);
+}
+
+/** Re-evaluate visibility + disabled state from composer/stream state. */
+export function refreshQuickActionsBar(): void {
+  const bar = getElementById<HTMLElement>('quick-actions-bar');
+  if (!bar) return;
+  if (!current || current.actions.length === 0) {
+    bar.classList.add('hidden');
+    return;
+  }
+  const textarea = getElementById<HTMLTextAreaElement>('message-input');
+  const streaming = isCurrentConversationStreaming();
+  const visible = shouldShowQuickActionsBar({
+    mobile: isMobileViewport(),
+    composerEmpty: !textarea || textarea.value.trim() === '',
+    streaming,
+  });
+  bar.classList.toggle('hidden', !visible);
+  setQuickActionsBarDisabled(bar, streaming);
+}
+
+function renderCurrent(): void {
+  const bar = getElementById<HTMLElement>('quick-actions-bar');
+  if (!bar || !current) return;
+  renderQuickActionsBar(bar, current.actions, (action, chip) => handleChipTap(action, chip));
+  refreshQuickActionsBar();
+}
+
+// Filled in by Task 6 (send + form). Kept here so Task 5 compiles.
+function handleChipTap(action: QuickAction, chip: HTMLElement): void {
+  log.debug('Quick action tapped', { id: action.id, chip: chip.tagName });
+}
+
+export function getQuickActionsContext(): QuickActionsContext | null {
+  return current;
+}
+
+export function mountQuickActionsBar(ctx: QuickActionsContext): void {
+  current = ctx;
+  document.body.classList.add('has-quick-actions');
+  renderCurrent();
+}
+
+export function unmountQuickActionsBar(): void {
+  current = null;
+  document.body.classList.remove('has-quick-actions');
+  const bar = getElementById<HTMLElement>('quick-actions-bar');
+  if (bar) bar.classList.add('hidden');
+}
+
+/** Wire composer + store listeners once at app init. */
+export function initQuickActions(): void {
+  const textarea = getElementById<HTMLTextAreaElement>('message-input');
+  textarea?.addEventListener('input', refreshQuickActionsBar);
+  window.addEventListener('resize', refreshQuickActionsBar);
+  unsubscribeStore?.();
+  unsubscribeStore = useStore.subscribe(
+    (state) => state.activeRequests,
+    () => refreshQuickActionsBar()
+  );
 }

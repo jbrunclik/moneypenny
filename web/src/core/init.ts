@@ -28,6 +28,7 @@ import { initMessageInput, updateSendButtonState } from '../components/MessageIn
 import { APP_NAME } from '../config';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
+import { initQuickActions } from './quick-actions';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
@@ -126,6 +127,7 @@ export function renderAppShell(): string {
         <div class="input-wrapper">
           <div id="file-preview" class="file-preview hidden"></div>
           <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json">
+          <div id="quick-actions-bar" class="quick-actions-bar hidden" role="toolbar" aria-label="Quick actions"></div>
           <div id="input-container" class="input-container">
             <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
             <div class="input-toolbar">
@@ -496,6 +498,7 @@ export async function init(): Promise<void> {
   initOrientationChangeHandler();
   initKeyboardViewportPinning();
   initComposerHeight();
+  initQuickActions();
   initKbDebugToggle();
   initAttention();
   initConnectivity();

@@ -118,3 +118,46 @@ describe('composer height re-pin', () => {
     expect(programmaticScrollToBottom).not.toHaveBeenCalled();
   });
 });
+
+describe('composer height with quick-actions bar', () => {
+  afterEach(() => cleanupComposerHeight());
+
+  function arrange(barHidden: boolean): void {
+    document.body.innerHTML = `
+      <div class="input-area">
+        <div id="quick-actions-bar" class="quick-actions-bar${barHidden ? ' hidden' : ''}"></div>
+        <div class="input-container"></div>
+      </div>`;
+    const inputArea = document.querySelector('.input-area') as HTMLDivElement;
+    const bar = document.getElementById('quick-actions-bar') as HTMLDivElement;
+    const pill = document.querySelector('.input-container') as HTMLDivElement;
+    // Box spans 0..200; pill top at 120 (footprint 80); bar top at 80 (footprint 120)
+    vi.spyOn(inputArea, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      bottom: 200,
+      height: 200,
+    } as DOMRect);
+    vi.spyOn(pill, 'getBoundingClientRect').mockReturnValue({
+      top: 120,
+      bottom: 200,
+      height: 80,
+    } as DOMRect);
+    vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue({
+      top: 80,
+      bottom: 120,
+      height: 40,
+    } as DOMRect);
+  }
+
+  it('measures from the pill when the bar is hidden', () => {
+    arrange(true);
+    initComposerHeight();
+    expect(getVar()).toBe('80px');
+  });
+
+  it('measures from the bar top when the bar is visible', () => {
+    arrange(false);
+    initComposerHeight();
+    expect(getVar()).toBe('120px');
+  });
+});
