@@ -249,7 +249,7 @@ export function renderLanguageProgramHeader(
   onQuickActions: () => void,
 ): void {
   const quickActionsBtn = document.createElement('button');
-  quickActionsBtn.className = 'language-reset-btn program-quick-actions-btn';
+  quickActionsBtn.className = 'program-quick-actions-btn';
   quickActionsBtn.title = 'Quick actions';
   quickActionsBtn.setAttribute('aria-label', 'Edit quick actions');
   quickActionsBtn.innerHTML = `${SLIDERS_ICON}<span>Quick actions</span>`;

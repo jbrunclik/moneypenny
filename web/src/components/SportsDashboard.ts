@@ -265,7 +265,7 @@ export function renderSportsProgramHeader(
   onQuickActions: () => void,
 ): void {
   const quickActionsBtn = document.createElement('button');
-  quickActionsBtn.className = 'sports-reset-btn program-quick-actions-btn';
+  quickActionsBtn.className = 'program-quick-actions-btn';
   quickActionsBtn.title = 'Quick actions';
   quickActionsBtn.setAttribute('aria-label', 'Edit quick actions');
   quickActionsBtn.innerHTML = `${SLIDERS_ICON}<span>Quick actions</span>`;
