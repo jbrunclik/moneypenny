@@ -119,6 +119,11 @@ export function getQuickActionsContext(): QuickActionsContext | null {
   return current;
 }
 
+/** Open the per-program editor (implemented in Task 8). */
+export function openQuickActionsEditor(draft?: Partial<QuickAction>): void {
+  log.debug('openQuickActionsEditor', { hasDraft: Boolean(draft) });
+}
+
 export function mountQuickActionsBar(ctx: QuickActionsContext): void {
   current = ctx;
   document.body.classList.add('has-quick-actions');

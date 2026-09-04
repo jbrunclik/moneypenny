@@ -8,7 +8,15 @@
 import type { LanguageProgram } from '../types/api';
 import { showConfirm } from './Modal';
 import { renderChatHeader } from './ChatHeader';
-import { CLOSE_ICON, DELETE_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, LANGUAGE_ICON } from '../utils/icons';
+import {
+  CLOSE_ICON,
+  DELETE_ICON,
+  PLAY_ICON,
+  PLUS_ICON,
+  REFRESH_ICON,
+  SLIDERS_ICON,
+  LANGUAGE_ICON,
+} from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 
@@ -238,7 +246,15 @@ export function renderLanguageProgramHeader(
   program: LanguageProgram,
   onBack: () => void,
   onReset: () => void,
+  onQuickActions: () => void,
 ): void {
+  const quickActionsBtn = document.createElement('button');
+  quickActionsBtn.className = 'language-reset-btn program-quick-actions-btn';
+  quickActionsBtn.title = 'Quick actions';
+  quickActionsBtn.setAttribute('aria-label', 'Edit quick actions');
+  quickActionsBtn.innerHTML = `${SLIDERS_ICON}<span>Quick actions</span>`;
+  quickActionsBtn.addEventListener('click', onQuickActions);
+
   const resetBtn = document.createElement('button');
   resetBtn.className = 'language-reset-btn';
   resetBtn.title = 'Start a new lesson';
@@ -258,7 +274,7 @@ export function renderLanguageProgramHeader(
     emoji: program.emoji,
     extraClass: 'language-program-header',
     onBack,
-    actions: [resetBtn],
+    actions: [quickActionsBtn, resetBtn],
   });
 }
 

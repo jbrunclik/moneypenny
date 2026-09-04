@@ -27,7 +27,12 @@ import {
   clearConversationHash,
   setLanguageHash,
 } from '../router/deeplink';
-import type { Conversation } from '../types/api';
+import type { Conversation, QuickAction } from '../types/api';
+import {
+  mountQuickActionsBar,
+  unmountQuickActionsBar,
+  openQuickActionsEditor,
+} from './quick-actions';
 import {
   createLanguageProgramsElement,
   renderLanguageProgramHeader,
@@ -93,6 +98,7 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
   renderModelDropdown();
   updateConversationCost(null);
   renderChatHeader(null);
+  unmountQuickActionsBar();
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
@@ -110,6 +116,7 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
   messagesContainer.appendChild(createLanguageLoadingElement());
   // Hide input for programs list view
   hideInputArea();
+  unmountQuickActionsBar();
   closeSidebar();
 
   try {
@@ -213,9 +220,17 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
         program,
         () => navigateToLanguage(),
         () => handleProgramReset(programId),
+        () => openQuickActionsEditor(),
       );
+      mountQuickActionsBar({
+        namespace: 'language',
+        programId,
+        actions: program.quick_actions ?? [],
+        save: (actions: QuickAction[]) => saveLanguageQuickActions(programId, actions),
+      });
     } else {
       renderChatHeader(null);
+      unmountQuickActionsBar();
     }
     updateConversationCost(convResponse.id);
 
@@ -308,6 +323,18 @@ function handleSelectProgram(id: string): void {
   navigateToLanguageProgram(id);
 }
 
+/** Persist quick actions and refresh the cached program list. */
+async function saveLanguageQuickActions(
+  programId: string,
+  actions: QuickAction[]
+): Promise<QuickAction[]> {
+  const updated = await language.updateQuickActions(programId, actions);
+  const store = useStore.getState();
+  const programs = store.languagePrograms ?? [];
+  store.setLanguagePrograms(programs.map((p) => (p.id === updated.id ? updated : p)));
+  return updated.quick_actions;
+}
+
 async function handleProgramReset(programId: string): Promise<void> {
   try {
     await language.reset(programId);
@@ -340,6 +367,7 @@ export function leaveLanguageView(): void {
   renderModelDropdown();
   updateConversationCost(null);
   renderChatHeader(null);
+  unmountQuickActionsBar();
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {

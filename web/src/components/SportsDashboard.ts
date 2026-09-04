@@ -8,7 +8,15 @@
 import type { SportsProgram } from '../types/api';
 import { showConfirm } from './Modal';
 import { renderChatHeader } from './ChatHeader';
-import { CLEAR_ICON, CLOSE_ICON, DELETE_ICON, PLAY_ICON, PLUS_ICON, SPORTS_ICON } from '../utils/icons';
+import {
+  CLEAR_ICON,
+  CLOSE_ICON,
+  DELETE_ICON,
+  PLAY_ICON,
+  PLUS_ICON,
+  SLIDERS_ICON,
+  SPORTS_ICON,
+} from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import { createLogger } from '../utils/logger';
@@ -249,12 +257,20 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
 // Program Chat Header
 // ============================================================================
 
-/** Create the header above a program's chat (back arrow, name, reset button). */
+/** Create the header above a program's chat (back arrow, name, quick actions, reset). */
 export function renderSportsProgramHeader(
   program: SportsProgram,
   onBack: () => void,
   onReset: () => void,
+  onQuickActions: () => void,
 ): void {
+  const quickActionsBtn = document.createElement('button');
+  quickActionsBtn.className = 'sports-reset-btn program-quick-actions-btn';
+  quickActionsBtn.title = 'Quick actions';
+  quickActionsBtn.setAttribute('aria-label', 'Edit quick actions');
+  quickActionsBtn.innerHTML = `${SLIDERS_ICON}<span>Quick actions</span>`;
+  quickActionsBtn.addEventListener('click', onQuickActions);
+
   const resetBtn = document.createElement('button');
   resetBtn.className = 'sports-reset-btn';
   resetBtn.title = 'Reset conversation';
@@ -274,7 +290,7 @@ export function renderSportsProgramHeader(
     emoji: program.emoji,
     extraClass: 'sports-program-header',
     onBack,
-    actions: [resetBtn],
+    actions: [quickActionsBtn, resetBtn],
   });
 }
 

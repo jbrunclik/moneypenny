@@ -27,7 +27,12 @@ import {
   clearConversationHash,
   setSportsHash,
 } from '../router/deeplink';
-import type { Conversation } from '../types/api';
+import type { Conversation, QuickAction } from '../types/api';
+import {
+  mountQuickActionsBar,
+  unmountQuickActionsBar,
+  openQuickActionsEditor,
+} from './quick-actions';
 import {
   createSportsProgramsElement,
   renderSportsProgramHeader,
@@ -93,6 +98,7 @@ export async function navigateToSports(forceRefresh: boolean = false): Promise<v
   renderModelDropdown();
   updateConversationCost(null);
   renderChatHeader(null);
+  unmountQuickActionsBar();
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
@@ -110,6 +116,7 @@ export async function navigateToSports(forceRefresh: boolean = false): Promise<v
   messagesContainer.appendChild(createSportsLoadingElement());
   // Hide input for programs list view
   hideInputArea();
+  unmountQuickActionsBar();
   closeSidebar();
 
   try {
@@ -213,9 +220,17 @@ export async function navigateToSportsProgram(programId: string): Promise<void> 
         program,
         () => navigateToSports(),
         () => handleProgramReset(programId),
+        () => openQuickActionsEditor(),
       );
+      mountQuickActionsBar({
+        namespace: 'sports',
+        programId,
+        actions: program.quick_actions ?? [],
+        save: (actions: QuickAction[]) => saveSportsQuickActions(programId, actions),
+      });
     } else {
       renderChatHeader(null);
+      unmountQuickActionsBar();
     }
     updateConversationCost(convResponse.id);
 
@@ -306,6 +321,18 @@ function handleSelectProgram(id: string): void {
   navigateToSportsProgram(id);
 }
 
+/** Persist quick actions and refresh the cached program list. */
+async function saveSportsQuickActions(
+  programId: string,
+  actions: QuickAction[]
+): Promise<QuickAction[]> {
+  const updated = await sports.updateQuickActions(programId, actions);
+  const store = useStore.getState();
+  const programs = store.sportsPrograms ?? [];
+  store.setSportsPrograms(programs.map((p) => (p.id === updated.id ? updated : p)));
+  return updated.quick_actions;
+}
+
 async function handleProgramReset(programId: string): Promise<void> {
   try {
     await sports.reset(programId);
@@ -338,6 +365,7 @@ export function leaveSportsView(): void {
   renderModelDropdown();
   updateConversationCost(null);
   renderChatHeader(null);
+  unmountQuickActionsBar();
 
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
