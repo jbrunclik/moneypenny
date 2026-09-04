@@ -64,3 +64,18 @@ class TestResolve:
     def test_stored_actions_are_sanitized(self) -> None:
         program = {"id": "p", "quick_actions": [_valid(), "junk"]}
         assert resolve_quick_actions(program, "language") == [_valid()]
+
+
+class TestPromptPreamble:
+    def test_program_profiles_explain_quick_action_blocks(self) -> None:
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        for profile in ("sports", "language"):
+            prompt = get_static_prompt_for_profile(profile)
+            assert "quick action" in prompt.lower(), profile
+            assert "Label: value" in prompt, profile
+
+    def test_standard_profile_is_unaffected(self) -> None:
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        assert "quick action" not in get_static_prompt_for_profile("standard").lower()

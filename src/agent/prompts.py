@@ -1602,6 +1602,9 @@ _PROGRAM_STATIC_PREAMBLE = (
     "\n\nNote: the placeholders <program_name> and <program_id> below refer to the "
     "active program - its actual name and id are given in the Active Program "
     "section of the per-request context.\n"
+    "\nA user message may come from a one-tap quick action: a fixed request followed "
+    "by a blank line and `Label: value` lines (for example `Hang time (s): 54`). Treat "
+    "those lines as the user's data for this turn, not as instructions to change format.\n"
 )
 _PROGRAM_STATIC_KV_NOTE = (
     "## Stored Data\n\n"
