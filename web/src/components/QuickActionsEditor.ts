@@ -73,7 +73,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   const footer = modal.querySelector<HTMLElement>('.qa-editor-footer')!;
 
   const renderList = (): void => {
-    footer.hidden = false;
+    footer.classList.remove('hidden');
     clearElement(body);
     const list = document.createElement('div');
     list.className = 'qa-editor-list';
@@ -85,7 +85,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       row.className = 'qa-editor-row';
       row.dataset.index = String(i);
       const fieldsText = a.fields.length
-        ? `${a.fields.length} field${a.fields.length > 1 ? 's' : ''}`
+        ? `${a.fields.length} question${a.fields.length > 1 ? 's' : ''}`
         : '';
       row.innerHTML = `
         <span class="qa-editor-row-emoji">${escapeHtml(a.emoji)}</span>
@@ -127,7 +127,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   };
 
   const renderDetail = (initial: Partial<QuickAction>, index: number | null): void => {
-    footer.hidden = true;
+    footer.classList.add('hidden');
     clearElement(body);
     const fields = [...(initial.fields ?? [])];
     let emoji = initial.emoji ?? EMOJIS[0];
@@ -141,14 +141,19 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
         </div>
         <input type="text" class="qa-detail-label" placeholder="Label (shown on the chip)" maxlength="${LABEL_MAX}" value="${escapeHtml(initial.label ?? '')}" />
       </div>
-      <textarea class="qa-detail-body" rows="4" maxlength="${BODY_MAX}" placeholder="What to send">${escapeHtml(initial.body ?? '')}</textarea>
+      <textarea class="qa-detail-body" rows="4" maxlength="${BODY_MAX}" placeholder="What to send when you tap this chip">${escapeHtml(initial.body ?? '')}</textarea>
       <div class="qa-detail-fields">
-        <div class="qa-detail-fields-title">Ask for (optional)</div>
+        <div class="qa-detail-fields-title">Questions before sending <span class="qa-detail-optional">(optional)</span></div>
+        <p class="qa-detail-hint">When you tap the chip, you'll be asked these first. Each answer is added to the message as a "Question: answer" line. Leave a question blank to skip it.</p>
         <div class="qa-detail-field-list"></div>
         <div class="qa-detail-field-add-row">
-          <input type="text" class="qa-detail-field-input" placeholder="e.g. Hang time (s)" maxlength="40" />
-          <button type="button" class="qa-detail-field-add" title="Add field">${PLUS_ICON}</button>
+          <input type="text" class="qa-detail-field-input" placeholder="Add a question, e.g. RPE" maxlength="40" aria-label="New question" />
+          <button type="button" class="qa-detail-field-add">Add</button>
         </div>
+      </div>
+      <div class="qa-detail-preview-wrap">
+        <div class="qa-detail-fields-title">Message preview</div>
+        <pre class="qa-detail-preview"></pre>
       </div>
       <div class="qa-detail-error" role="alert"></div>
       <div class="qa-detail-actions">
@@ -178,22 +183,40 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     const fieldList = detail.querySelector<HTMLElement>('.qa-detail-field-list')!;
     const fieldInput = detail.querySelector<HTMLInputElement>('.qa-detail-field-input')!;
     const fieldAdd = detail.querySelector<HTMLButtonElement>('.qa-detail-field-add')!;
+    const bodyInput = detail.querySelector<HTMLTextAreaElement>('.qa-detail-body')!;
+    const preview = detail.querySelector<HTMLElement>('.qa-detail-preview')!;
+    const renderPreview = (): void => {
+      const text = bodyInput.value.trim() || '(message text)';
+      const lines = fields.map((f) => `${f}: …`);
+      preview.textContent = lines.length ? `${text}\n\n${lines.join('\n')}` : text;
+    };
     const renderFields = (): void => {
       fieldList.innerHTML = fields
         .map(
-          (f, i) =>
-            `<span class="qa-detail-field-chip">${escapeHtml(f)}<button type="button" class="qa-detail-field-remove" data-index="${i}" title="Remove">${CLOSE_ICON}</button></span>`
+          (f, i) => `
+          <div class="qa-detail-field-row">
+            <span class="qa-detail-field-name">${escapeHtml(f)}</span>
+            <button type="button" class="qa-detail-field-remove" data-index="${i}" aria-label="Remove ${escapeHtml(f)}">${CLOSE_ICON}<span>Remove</span></button>
+          </div>`
         )
         .join('');
-      fieldAdd.disabled = fields.length >= QUICK_ACTION_FIELDS_MAX;
+      const full = fields.length >= QUICK_ACTION_FIELDS_MAX;
+      fieldAdd.disabled = full;
+      fieldInput.disabled = full;
+      fieldInput.placeholder = full
+        ? `Maximum of ${QUICK_ACTION_FIELDS_MAX} questions`
+        : 'Add a question, e.g. RPE';
+      renderPreview();
     };
     renderFields();
+    bodyInput.addEventListener('input', renderPreview);
     const addField = (): void => {
       const v = fieldInput.value.trim();
       if (!v || fields.length >= QUICK_ACTION_FIELDS_MAX) return;
       fields.push(v);
       fieldInput.value = '';
       renderFields();
+      fieldInput.focus();
     };
     fieldAdd.addEventListener('click', addField);
     fieldInput.addEventListener('keydown', (e) => {

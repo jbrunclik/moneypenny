@@ -61,6 +61,20 @@ describe('QuickActionsEditor', () => {
     expect(labels).toEqual(['Plan today', 'Week overview']);
   });
 
+  it('renders questions as rows with a Remove button and updates the preview', () => {
+    showQuickActionsEditor({ actions: [a], onSave: vi.fn() });
+    (document.querySelectorAll('.qa-editor-edit')[0] as HTMLButtonElement).click();
+    expect(q('.qa-detail-field-row .qa-detail-field-name').textContent).toBe('Comments');
+    expect(q('.qa-detail-preview').textContent).toBe('Plan.\n\nComments: …');
+    q<HTMLInputElement>('.qa-detail-field-input').value = 'RPE';
+    q<HTMLButtonElement>('.qa-detail-field-add').click();
+    expect(document.querySelectorAll('.qa-detail-field-row').length).toBe(2);
+    expect(q('.qa-detail-preview').textContent).toBe('Plan.\n\nComments: …\nRPE: …');
+    (document.querySelectorAll('.qa-detail-field-remove')[0] as HTMLButtonElement).click();
+    expect(document.querySelectorAll('.qa-detail-field-row').length).toBe(1);
+    expect(q('.qa-detail-preview').textContent).toBe('Plan.\n\nRPE: …');
+  });
+
   it('Done with an empty label or body shows an inline error and stays open', () => {
     showQuickActionsEditor({ actions: [], onSave: vi.fn() });
     q<HTMLButtonElement>('.qa-editor-add').click();

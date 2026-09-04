@@ -54,6 +54,14 @@ test.describe('Visual: Quick actions', () => {
 test.describe('Visual: Quick actions mobile', () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
+  test('editor detail form', async ({ page }) => {
+    await open(page);
+    await page.locator('.quick-action-edit-chip').click();
+    await page.locator('.qa-editor-edit').first().click();
+    await page.waitForTimeout(200);
+    await expect(page.locator('.qa-editor')).toHaveScreenshot('quick-actions-editor-detail-mobile.png');
+  });
+
   test('bar and bottom-sheet form', async ({ page }) => {
     await open(page);
     await expect(page.locator('.input-area')).toHaveScreenshot('quick-actions-bar-mobile.png');
