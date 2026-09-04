@@ -4254,6 +4254,76 @@
         "description": "Mid-run steering: stores guidance that the agent picks up between tool rounds of the in-flight turn (cross-worker via kv_store). The text is also persisted as a regular user message so future turns see it in history. Best-effort: if the turn finishes before the next tool round, the guidance still lands in history."
       }
     },
+    "/api/sports/programs/{program_id}/quick-actions": {
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SportsProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Replace the program's quick actions (create/edit/reorder/delete)."
+      }
+    },
     "/api/messages/{message_id}/files/{file_index}": {
       "get": {
         "parameters": [
@@ -4321,6 +4391,76 @@
         ],
         "summary": "Get full file from a message",
         "description": "Returns the file as binary data with appropriate content-type header."
+      }
+    },
+    "/api/language/programs/{program_id}/quick-actions": {
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Replace the program's quick actions (create/edit/reorder/delete)."
       }
     },
     "/api/messages/{message_id}/files/{file_index}/thumbnail": {
@@ -6730,6 +6870,52 @@
         "title": "TodoistStatusResponse",
         "type": "object"
       },
+      "SportsProgramsResponse.QuickActionItem": {
+        "description": "A one-tap saved prompt for a program conversation.",
+        "properties": {
+          "id": {
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "emoji": {
+            "maxLength": 10,
+            "minLength": 1,
+            "title": "Emoji",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "emoji",
+          "label",
+          "body"
+        ],
+        "title": "QuickActionItem",
+        "type": "object"
+      },
       "SportsProgramsResponse.SportsProgramItem": {
         "description": "A single sports training program.",
         "properties": {
@@ -6753,6 +6939,13 @@
             "default": false,
             "title": "Has Conversation",
             "type": "boolean"
+          },
+          "quick_actions": {
+            "items": {
+              "$ref": "#/components/schemas/SportsProgramsResponse.QuickActionItem"
+            },
+            "title": "Quick Actions",
+            "type": "array"
           }
         },
         "required": [
@@ -7228,6 +7421,13 @@
             "default": false,
             "title": "Has Conversation",
             "type": "boolean"
+          },
+          "quick_actions": {
+            "items": {
+              "$ref": "#/components/schemas/LanguageProgramsResponse.QuickActionItem"
+            },
+            "title": "Quick Actions",
+            "type": "array"
           }
         },
         "required": [
@@ -7237,6 +7437,52 @@
           "created_at"
         ],
         "title": "LanguageProgramItem",
+        "type": "object"
+      },
+      "LanguageProgramsResponse.QuickActionItem": {
+        "description": "A one-tap saved prompt for a program conversation.",
+        "properties": {
+          "id": {
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "emoji": {
+            "maxLength": 10,
+            "minLength": 1,
+            "title": "Emoji",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "title": "Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "emoji",
+          "label",
+          "body"
+        ],
+        "title": "QuickActionItem",
         "type": "object"
       },
       "LanguageProgramsResponse": {

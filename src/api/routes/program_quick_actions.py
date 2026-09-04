@@ -110,7 +110,7 @@ def register_quick_action_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) ->
     @rate_limit_conversations
     @require_auth
     @validate_request(UpdateQuickActionsRequest)
-    def update_quick_actions(user: User, program_id: str, data: Any) -> dict[str, Any]:
+    def update_quick_actions(user: User, data: Any, program_id: str) -> dict[str, Any]:
         """Replace the program's quick actions (create/edit/reorder/delete)."""
         programs = _get_programs(user.id, ns)
         program = next((p for p in programs if p["id"] == program_id), None)

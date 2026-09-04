@@ -5296,6 +5296,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sports/programs/{program_id}/quick-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the program's quick actions (create/edit/reorder/delete). */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SportsProgramsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{message_id}/files/{file_index}": {
         parameters: {
             query?: never;
@@ -5358,6 +5432,80 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/language/programs/{program_id}/quick-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the program's quick actions (create/edit/reorder/delete). */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    program_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LanguageProgramsResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -6736,6 +6884,22 @@ export interface components {
             needs_reconnect: boolean;
         };
         /**
+         * QuickActionItem
+         * @description A one-tap saved prompt for a program conversation.
+         */
+        "SportsProgramsResponse.QuickActionItem": {
+            /** Id */
+            id: string;
+            /** Emoji */
+            emoji: string;
+            /** Label */
+            label: string;
+            /** Body */
+            body: string;
+            /** Fields */
+            fields?: string[];
+        };
+        /**
          * SportsProgramItem
          * @description A single sports training program.
          */
@@ -6753,6 +6917,8 @@ export interface components {
              * @default false
              */
             has_conversation: boolean;
+            /** Quick Actions */
+            quick_actions?: components["schemas"]["SportsProgramsResponse.QuickActionItem"][];
         };
         /**
          * SportsProgramsResponse
@@ -7018,6 +7184,24 @@ export interface components {
              * @default false
              */
             has_conversation: boolean;
+            /** Quick Actions */
+            quick_actions?: components["schemas"]["LanguageProgramsResponse.QuickActionItem"][];
+        };
+        /**
+         * QuickActionItem
+         * @description A one-tap saved prompt for a program conversation.
+         */
+        "LanguageProgramsResponse.QuickActionItem": {
+            /** Id */
+            id: string;
+            /** Emoji */
+            emoji: string;
+            /** Label */
+            label: string;
+            /** Body */
+            body: string;
+            /** Fields */
+            fields?: string[];
         };
         /**
          * LanguageProgramsResponse

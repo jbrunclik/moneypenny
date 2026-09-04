@@ -18,6 +18,11 @@ from apiflask import APIBlueprint
 
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
+from src.api.routes.program_quick_actions import (
+    QUICK_ACTION_DEFAULTS,
+    register_quick_action_routes,
+    resolve_quick_actions,
+)
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
@@ -68,6 +73,30 @@ def _save_programs(user_id: str, namespace: str, programs: list[dict[str, Any]])
     db.kv_set(user_id, namespace, "programs", json.dumps(programs))
 
 
+def program_to_item(
+    user_id: str,
+    namespace: str,
+    program: dict[str, Any],
+    conv_program_ids: set[str] | None = None,
+) -> dict[str, Any]:
+    """Shape a stored program dict as the API's program item."""
+    if conv_program_ids is None:
+        from src.db.models.programs import PROGRAM_FEATURES
+
+        column = PROGRAM_FEATURES[namespace].program_column
+        conv_program_ids = {
+            getattr(c, column) for c in db.list_program_conversations(namespace, user_id)
+        }
+    return {
+        "id": program["id"],
+        "name": program["name"],
+        "emoji": program["emoji"],
+        "created_at": program["created_at"],
+        "has_conversation": program["id"] in conv_program_ids,
+        "quick_actions": resolve_quick_actions(program, namespace),
+    }
+
+
 def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
     """Register the 5 program-feature endpoints on the given blueprint."""
     ns = cfg.namespace
@@ -88,19 +117,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
         program_column = PROGRAM_FEATURES[ns].program_column
         conv_programs = {getattr(c, program_column) for c in convs}
 
-        items = []
-        for p in programs:
-            items.append(
-                {
-                    "id": p["id"],
-                    "name": p["name"],
-                    "emoji": p["emoji"],
-                    "created_at": p["created_at"],
-                    "has_conversation": p["id"] in conv_programs,
-                }
-            )
-
-        return {"programs": items}
+        return {"programs": [program_to_item(user.id, ns, p, conv_programs) for p in programs]}
 
     @api.route(f"/{ns}/programs", methods=["POST"])
     @api.output(cfg.programs_response)
@@ -128,6 +145,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
             "name": data.name,
             "emoji": data.emoji,
             "created_at": datetime.now().isoformat(),
+            "quick_actions": [dict(a) for a in QUICK_ACTION_DEFAULTS.get(ns, [])],
         }
         programs.append(new_program)
         _save_programs(user.id, ns, programs)
@@ -137,7 +155,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
             extra={"namespace": ns, "user_id": user.id, "program_id": program_id},
         )
 
-        return {"programs": [{"has_conversation": False, **new_program}]}
+        return {"programs": [program_to_item(user.id, ns, new_program, set())]}
 
     @api.route(f"/{ns}/programs/<program_id>", methods=["DELETE"])
     @api.output(cfg.status_response)
@@ -219,3 +237,5 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
             "success": True,
             "message": f"{cfg.display_name} conversation reset successfully",
         }
+
+    register_quick_action_routes(api, cfg)
