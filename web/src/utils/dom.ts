@@ -124,17 +124,34 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
   const duration = Math.min(600, Math.max(300, Math.abs(distance) * 0.5)); // 300-600ms based on distance
   const startTime = performance.now();
 
+  // Track the position we last wrote so a scroll AGAINST the animation (the
+  // user scrolling up) is detectable. Without it a scroll-up landing inside
+  // this 300-600ms animation was overwritten frame by frame until the list
+  // sat at the bottom again. Only an upward deviation counts: content
+  // loading above the viewport moves scrollTop DOWN via scroll anchoring,
+  // and that must not cancel a scroll-to-bottom (it broke "load remaining
+  // messages, then pin to bottom" flows).
+  let expectedScrollTop = start;
+
   // Easing function: ease-out-cubic
   const easeOutCubic = (t: number): number => {
     return 1 - Math.pow(1 - t, 3);
   };
 
   const animate = (currentTime: number): void => {
+    if (element.scrollTop < expectedScrollTop - 5) {
+      // Scrolled up from outside - respect it and stop animating
+      currentSmoothScrollAnimationId = null;
+      return;
+    }
+
     const elapsed = currentTime - startTime;
     const progress = Math.min(elapsed / duration, 1);
     const eased = easeOutCubic(progress);
 
-    element.scrollTop = start + distance * eased;
+    const newScrollTop = start + distance * eased;
+    element.scrollTop = newScrollTop;
+    expectedScrollTop = newScrollTop;
 
     if (progress < 1) {
       currentSmoothScrollAnimationId = requestAnimationFrame(animate);

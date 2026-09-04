@@ -38,4 +38,32 @@ test.describe('Chat - Batch Mode', () => {
     await expect(assistantMessage).toBeVisible();
     await expect(userMessage).toContainText('Hello!');
   });
+
+  test('a follow-up sent right after a response starts a new turn (not an interjection)', async ({
+    page,
+  }) => {
+    // Regression: the active-request flag used to stay set until the
+    // post-response cost fetch finished, so a message sent in that window was
+    // routed to /chat/interject - queued into an already-finished turn and
+    // never answered. Slow the cost fetch down to widen the window.
+    await page.route('**/api/conversations/*/cost', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    const interjections: string[] = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/chat/interject')) interjections.push(req.url());
+    });
+
+    await page.fill('#message-input', 'First');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toHaveCount(1, { timeout: 10000 });
+
+    // Immediately follow up, while the cost fetch for turn one is still pending
+    await page.fill('#message-input', 'Second');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toHaveCount(2, { timeout: 10000 });
+    await expect(page.locator('.message.assistant').nth(1)).toContainText('Second');
+    expect(interjections).toEqual([]);
+  });
 });

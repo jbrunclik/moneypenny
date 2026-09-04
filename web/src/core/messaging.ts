@@ -1649,6 +1649,9 @@ async function handleStreamDone(
   }
 
   updateConversationTitle(convId, event.title);
+  // Same window as the batch path: the stream is done, so a follow-up sent
+  // while the cost fetch is in flight must start a new turn, not interject
+  useStore.getState().removeActiveRequest(convId);
   await updateConversationCost(convId);
 
   // If approval was requested, the message element will contain the approval buttons
@@ -1881,6 +1884,14 @@ async function sendBatchMessage(
 
     const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
+
+    // The turn is over the moment the response is in: release the active
+    // request NOW, not in the finally after the cost/title bookkeeping below.
+    // While it stayed set, a message sent in that window (a fast follow-up,
+    // or an E2E loop) was routed to /chat/interject - queued into a turn that
+    // had already finished, so it was stored but never answered.
+    activeRequests.delete(requestId);
+    useStore.getState().removeActiveRequest(convId);
 
     // Response received = the user message is persisted server-side
     confirmDelivery(convId, tempUserMessageId);

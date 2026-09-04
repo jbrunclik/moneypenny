@@ -449,3 +449,82 @@ describe('clearElement', () => {
     expect(div.innerHTML).toBe('');
   });
 });
+
+describe('scrollToBottom (smooth) yields to an external scroll', () => {
+  let frames: FrameRequestCallback[];
+  let now: number;
+
+  beforeEach(() => {
+    frames = [];
+    now = 0;
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function scroller(): HTMLElement {
+    const el = document.createElement('div');
+    Object.defineProperty(el, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(el, 'clientHeight', { value: 500, configurable: true });
+    let top = 0;
+    Object.defineProperty(el, 'scrollTop', {
+      get: () => top,
+      set: (v: number) => {
+        top = v;
+      },
+      configurable: true,
+    });
+    return el;
+  }
+
+  function tick(ms: number): void {
+    now += ms;
+    const pending = frames.splice(0);
+    for (const cb of pending) cb(now);
+  }
+
+  it('keeps animating toward the bottom when nothing interferes', async () => {
+    const { scrollToBottom } = await import('@/utils/dom');
+    const el = scroller();
+    scrollToBottom(el, true);
+    tick(16);
+    tick(16);
+    expect(el.scrollTop).toBeGreaterThan(0);
+    tick(1000);
+    expect(el.scrollTop).toBe(1500);
+  });
+
+  it('keeps going when content above grows and scroll anchoring nudges the position down', async () => {
+    const { scrollToBottom } = await import('@/utils/dom');
+    const el = scroller();
+    scrollToBottom(el, true);
+    tick(16);
+    tick(16);
+    // Scroll anchoring after an image above the viewport loaded
+    el.scrollTop += 120;
+    tick(16);
+    tick(1000);
+    expect(el.scrollTop).toBe(1500);
+  });
+
+  it('stops when the scroll position was moved from outside (user scrolled up)', async () => {
+    const { scrollToBottom } = await import('@/utils/dom');
+    const el = scroller();
+    scrollToBottom(el, true);
+    tick(16);
+    tick(16);
+    // The user (or a test) jumps to the top mid-animation
+    el.scrollTop = 0;
+    tick(16);
+    tick(1000);
+    expect(el.scrollTop).toBe(0);
+  });
+});

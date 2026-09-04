@@ -390,7 +390,29 @@ by guessing):
   log showed `/test/reset` taking up to 12s on the webkit runner at only
   4-10 server threads (a reset is ~6ms in isolation; even `GET /` took
   3.8s). Four webkit contexts saturate a 2-vCPU runner. WebKit now runs as
-  two shards of three workers.
+  four shards of two workers; the server also prints `INFLIGHT` lines for
+  requests still running after 3s. (Running the browsers under `nice` was
+  tried and reverted - chromium went from 0 to 6 retries.)
+- **"Response never arrived" was a lost message, not a slow server** - the
+  Playwright trace of a failing run showed the follow-up message posted to
+  `/chat/interject`, not `/chat/batch`: the active-request flag stayed set
+  until the post-response cost fetch finished, so a message sent in that
+  window was queued into an already-finished turn and never answered. Real
+  users hit this too (fast follow-up after a reply). Both send paths now
+  release the active request the moment the turn ends; batch-mode.spec has
+  the regression test (delays `/cost`, sends two messages back to back).
+  Lesson: when a test waits for a response that "never arrives", read the
+  network trace before blaming load - `--trace on` plus the request bodies
+  in `trace.zip` pinpointed this in one run.
+- **Archived deep-link reload** - the test waited for `.message.assistant`,
+  which also matches the streaming placeholder, so on a slow run it archived
+  and reloaded before the response was saved. Wait for
+  `.message.assistant:not(.streaming)` when the next step depends on the
+  turn being persisted (79 bare waits remain in the suite; most are in
+  batch-mode tests, where no placeholder exists).
+- **Smooth scroll-to-bottom fought a user scroll-up** - `scrollToBottom`'s
+  animator now stops when the position moves against it (up); it keeps
+  going when scroll anchoring nudges it down as content above loads.
 
 ### Planner Tests
 

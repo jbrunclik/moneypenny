@@ -383,7 +383,10 @@ test.describe('Deep link - Archived conversations', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Message before archive');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 20000 });
+    // Wait for the response to FINISH: '.message.assistant' alone matches the
+    // streaming placeholder, and archiving + reloading before the stream ended
+    // reloaded a conversation whose assistant message was not saved yet
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 20000 });
 
     // Capture its URL, then archive it via the API (as the UI would)
     const url = page.url();
