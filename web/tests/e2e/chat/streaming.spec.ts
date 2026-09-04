@@ -457,11 +457,13 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(sendBtn).not.toHaveClass(/btn-send/);
     await expect(sendBtn).toHaveAttribute('title', 'Stop generating');
 
-    // Wait for streaming to complete naturally by waiting for the button to revert
-    // With 1000ms delay per word (set in beforeEach), streaming takes ~10-12 seconds
+    // Wait for streaming to complete naturally by waiting for the button to revert.
+    // The mock streams one word per second (set in beforeEach) and the reply is
+    // 12 words, so the nominal stream is ~12s: 15s left no margin on a loaded
+    // CI runner (the last webkit retry in the suite). Give it 2.5x.
     // Note: We wait for btn-send class instead of text because the response text
     // ("mock response") appears early in the stream, before it's complete
-    await expect(sendBtn).toHaveClass(/btn-send/, { timeout: 15000 });
+    await expect(sendBtn).toHaveClass(/btn-send/, { timeout: 30000 });
     await expect(sendBtn).not.toHaveClass(/btn-stop/);
     await expect(sendBtn).toHaveAttribute('title', 'Send message');
   });
