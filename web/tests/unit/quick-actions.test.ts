@@ -41,6 +41,15 @@ describe('composeQuickActionMessage', () => {
     const out = composeQuickActionMessage(action, { Comments: 'line one\nline two\n' });
     expect(out).toBe('Assess today.\n\nComments: line one\n  line two');
   });
+
+  it('appends the free-text note as its own paragraph after the answers', () => {
+    const out = composeQuickActionMessage(action, { 'Hang time (s)': '54' }, '  felt strong  ');
+    expect(out).toBe('Assess today.\n\nHang time (s): 54\n\nfelt strong');
+  });
+
+  it('note only (no answers) follows the body after one blank line', () => {
+    expect(composeQuickActionMessage(action, {}, 'quick note')).toBe('Assess today.\n\nquick note');
+  });
 });
 
 describe('shouldShowQuickActionsBar', () => {

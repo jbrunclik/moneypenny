@@ -13,8 +13,12 @@ describe('quick actions mount', () => {
     document.body.className = '';
     document.body.innerHTML = `
       <div class="input-area"><div class="input-wrapper">
-        <div id="quick-actions-bar" class="quick-actions-bar hidden"></div>
-        <div id="input-container"><textarea id="message-input"></textarea></div>
+        <div id="input-container">
+          <div id="quick-actions-bar" class="quick-actions-bar hidden"></div>
+          <div id="quick-action-mode" class="qa-mode hidden"></div>
+          <div id="quick-action-slash" class="qa-slash-menu hidden"></div>
+          <textarea id="message-input"></textarea>
+        </div>
       </div></div>`;
     Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
   });

@@ -346,6 +346,15 @@ function hasActiveStreamForCurrentConversation(): boolean {
  * mid-run steering (sendMessage's interject path). Attachments don't
  * steer, so pending files keep the button in Stop mode.
  */
+// Set while a quick action is being composed inside the pill: the message
+// has content (the action body) even when the note textarea is empty.
+let composerHasExternalContent = false;
+
+export function setComposerHasExternalContent(value: boolean): void {
+  composerHasExternalContent = value;
+  updateSendButtonState();
+}
+
 export function updateSendButtonState(): void {
   // Don't enable if blocked for approval
   if (isBlockedForApproval) return;
@@ -356,7 +365,7 @@ export function updateSendButtonState(): void {
 
   if (!sendBtn) return;
 
-  const hasContent = (input?.value.trim().length ?? 0) > 0;
+  const hasContent = composerHasExternalContent || (input?.value.trim().length ?? 0) > 0;
   const hasFiles = pendingFiles.length > 0;
 
   const effectiveStop = hasActiveStreamForCurrentConversation() && !hasContent;

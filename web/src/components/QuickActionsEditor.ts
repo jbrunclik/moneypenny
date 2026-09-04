@@ -134,12 +134,8 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     add.className = 'qa-editor-add';
     add.innerHTML = `${PLUS_ICON}<span>Add quick action</span>`;
     add.disabled = draftList.length >= QUICK_ACTIONS_MAX;
-    const hint = document.createElement('p');
-    hint.className = 'qa-editor-autosave-hint';
-    hint.textContent = 'Changes are saved automatically.';
     body.appendChild(list);
     body.appendChild(add);
-    body.appendChild(hint);
 
     list.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -176,20 +172,19 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
           <input type="text" class="qa-detail-emoji-input" value="${escapeHtml(emoji)}" maxlength="16" autocomplete="off" aria-label="Icon - type any emoji or pick a suggestion" title="Type any emoji" />
           <div class="qa-detail-emoji-popover"><div class="qa-detail-emoji-grid"></div></div>
         </div>
-        <input type="text" class="qa-detail-label" placeholder="Label (shown on the chip)" maxlength="${LABEL_MAX}" value="${escapeHtml(initial.label ?? '')}" />
+        <input type="text" class="qa-detail-label" placeholder="Label" maxlength="${LABEL_MAX}" value="${escapeHtml(initial.label ?? '')}" aria-label="Label" />
       </div>
-      <textarea class="qa-detail-body" rows="4" maxlength="${BODY_MAX}" placeholder="What to send when you tap this chip">${escapeHtml(initial.body ?? '')}</textarea>
+      <textarea class="qa-detail-body" rows="3" maxlength="${BODY_MAX}" placeholder="Message" aria-label="Message">${escapeHtml(initial.body ?? '')}</textarea>
       <div class="qa-detail-fields">
-        <div class="qa-detail-fields-title">Questions before sending <span class="qa-detail-optional">(optional)</span></div>
-        <p class="qa-detail-hint">When you tap the chip, you'll be asked these first. Each answer is added to the message as a "Question: answer" line. Leave a question blank to skip it.</p>
+        <div class="qa-detail-section-title">Questions</div>
         <div class="qa-detail-field-list"></div>
         <div class="qa-detail-field-add-row">
-          <input type="text" class="qa-detail-field-input" placeholder="Add a question, e.g. RPE" maxlength="40" aria-label="New question" />
+          <input type="text" class="qa-detail-field-input" placeholder="New question" maxlength="40" aria-label="New question" />
           <button type="button" class="qa-detail-field-add">Add</button>
         </div>
       </div>
       <div class="qa-detail-preview-wrap">
-        <div class="qa-detail-fields-title">Message preview</div>
+        <div class="qa-detail-section-title">Preview</div>
         <pre class="qa-detail-preview"></pre>
       </div>
       <div class="qa-detail-error" role="alert"></div>
@@ -241,7 +236,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     const bodyInput = detail.querySelector<HTMLTextAreaElement>('.qa-detail-body')!;
     const preview = detail.querySelector<HTMLElement>('.qa-detail-preview')!;
     const renderPreview = (): void => {
-      const text = bodyInput.value.trim() || '(message text)';
+      const text = bodyInput.value.trim() || '…';
       const lines = fields.map((f) => `${f}: …`);
       preview.textContent = lines.length ? `${text}\n\n${lines.join('\n')}` : text;
     };
@@ -254,7 +249,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
             <span class="qa-detail-field-controls">
               <button type="button" class="btn-icon qa-detail-field-up" title="Move up" aria-label="Move ${escapeHtml(f)} up" ${i === 0 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
               <button type="button" class="btn-icon qa-detail-field-down" title="Move down" aria-label="Move ${escapeHtml(f)} down" ${i === fields.length - 1 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
-              <button type="button" class="qa-detail-field-remove" aria-label="Remove ${escapeHtml(f)}">${CLOSE_ICON}<span>Remove</span></button>
+              <button type="button" class="qa-detail-field-remove" aria-label="Remove ${escapeHtml(f)}" title="Remove">${CLOSE_ICON}</button>
             </span>
           </div>`
         )
@@ -262,9 +257,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       const full = fields.length >= QUICK_ACTION_FIELDS_MAX;
       fieldAdd.disabled = full;
       fieldInput.disabled = full;
-      fieldInput.placeholder = full
-        ? `Maximum of ${QUICK_ACTION_FIELDS_MAX} questions`
-        : 'Add a question, e.g. RPE';
+      fieldInput.placeholder = full ? `Max ${QUICK_ACTION_FIELDS_MAX}` : 'New question';
       renderPreview();
     };
     renderFields();

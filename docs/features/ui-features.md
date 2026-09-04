@@ -334,13 +334,25 @@ The app supports three color scheme options: Light, Dark, and System (default).
 
 ## Program Quick Actions
 
-One-tap saved prompts in sports and language program conversations. A chip bar sits above
-the composer; tapping a chip with no fields sends its body immediately, a chip with fields
-opens a form (popover on desktop, bottom sheet on mobile) whose answers are appended as
-`Label: value` lines under the body (empty fields omitted). Actions are edited per program
-from the trailing gear chip in the bar (the only entry point on mobile, where the program
-header is hidden), the "Quick actions" button in the program header on desktop, or via
-"Save as quick action" on any of your own messages.
+One-tap saved prompts in sports and language program conversations. Everything lives
+**inside the composer pill**:
+
+- **Chip row** on the pill's top edge (ghost chips + a gear that opens the editor; on
+  mobile the gear is the only entry point because the program header is hidden there).
+  Tapping a chip with no questions sends its body immediately.
+- **Composer mode**: a chip with questions turns the pill into a small form: header
+  (emoji, label, ✕), one compact input per question (inline on desktop, stacked on
+  mobile), and the textarea becomes the free-text note. The composer's own Send button
+  sends `body`, a blank line, `Question: answer` lines (empty ones omitted), then the note
+  as its own paragraph. Enter in the last question sends on desktop and focuses the note
+  on mobile; ✕ or Escape cancels.
+- **Slash menu**: typing `/` in an empty composer lists the actions (filtered by what
+  follows), arrow keys + Enter/Tab pick, Escape closes. Picking behaves like tapping the chip.
+- **Editor** (autosaving): list with up/down reorder, edit, delete; detail form with a
+  free-form emoji input (first grapheme kept), label, message, question rows (reorder,
+  remove) and a preview rendered as the user bubble it will become. Closing over a valid,
+  unfinished detail form commits it, so no path loses work.
+- **Save as quick action** on any of your own messages in a program conversation.
 
 ### Storage
 
@@ -348,32 +360,32 @@ Actions live inside each program object in the namespace's `programs` K/V list �
 under `{program_id}:*`, which `program_context.py` injects into the prompt each turn.
 Programs without a `quick_actions` key resolve to the namespace defaults
 (`QUICK_ACTION_DEFAULTS` in `src/api/routes/program_quick_actions.py`). Corrupt entries are
-dropped on read with a warning. Limits: 12 actions, 6 fields, 40-char labels, 2000-char body.
+dropped on read with a warning. Limits: 12 actions, 6 questions, 40-char labels, 2000-char body.
 
 ### Key Files
 
 - `src/api/routes/program_quick_actions.py` — defaults, sanitization, `PUT /api/{ns}/programs/<id>/quick-actions`
-- `web/src/core/quick-actions.ts` — composition, mount/visibility, send, editor glue
-- `web/src/components/QuickActionsBar.ts`, `QuickActionForm.ts`, `QuickActionsEditor.ts`
+- `web/src/core/quick-actions.ts` — composition, mount/visibility, composer mode, slash menu, send, editor glue
+- `web/src/components/QuickActionsBar.ts`, `QuickActionComposer.ts`, `QuickActionsSlashMenu.ts`, `QuickActionsEditor.ts`
 - `web/src/styles/components/quick-actions.css`
+
+### Send path
+
+`core/messaging.ts` exposes `registerComposerHook({ transform, onConsumed })`. Quick actions
+register it once at init: `sendMessage()` runs the raw textarea text through `transform`
+(composer mode turns the note into the full message) and calls `onConsumed` after the
+input is cleared (composer mode exits). Messaging never imports quick-actions, so there is
+no cycle. `MessageInput.setComposerHasExternalContent()` keeps Send enabled while the note
+is empty in composer mode.
 
 ### Behavior notes
 
-- Mobile: the bar is visible only while the composer is empty and nothing is streaming.
-- The bar lives inside `.input-wrapper` above the pill; `composer-height.ts` measures from
-  its top when visible so the message list clears it.
-- Sends go through `sendMessage()`; the composed text is an ordinary user message, so
-  history, sync, stream resume and compaction need nothing special.
-- The editor autosaves: every add/edit/reorder/delete PUTs the full list and the chip bar
-  behind the modal re-renders immediately. Closing over a valid, unfinished detail form
-  commits it first, so no path loses work (this replaced an explicit Save button that could
-  be tapped from inside the detail form and silently dropped the in-progress action).
-- The detail form shows the questions as rows (up/down reorder, Remove) and a live preview
-  of the exact message that will be sent. The icon field accepts any emoji typed from the OS
-  keyboard; the grid is only suggestions. Reorder uses up/down buttons rather than drag
-  (drag does not work on iOS).
-- Mobile safe areas: the editor header/body pad for `env(safe-area-inset-top/bottom)`; the
-  page already declares `viewport-fit=cover`.
+- Mobile: the chip row is visible only while the composer is empty and nothing is
+  streaming; it is also hidden during composer mode and while the slash menu is open.
+- The chip row is part of `.input-container`, so `composer-height.ts` measures it as part
+  of the pill with no special case. Visibility toggles via `.hidden` (never animated height).
+- Safe areas: the editor header/body pad for `env(safe-area-inset-top/bottom)`; the page
+  declares `viewport-fit=cover`.
 
 ### Testing
 

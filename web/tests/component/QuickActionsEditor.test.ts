@@ -31,7 +31,6 @@ describe('QuickActionsEditor', () => {
     expect(rows[0].querySelector('.qa-editor-move-up')).not.toBeNull();
     expect(rows[0].querySelector('.qa-editor-delete')).not.toBeNull();
     expect(document.querySelector('.qa-editor-save')).toBeNull();
-    expect(q('.qa-editor-autosave-hint').textContent).toContain('saved automatically');
   });
 
   it('move down reorders and autosaves the new order', async () => {

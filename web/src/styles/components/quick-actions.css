@@ -1,19 +1,28 @@
 /* ============================================
    Quick Actions (program conversations)
    ============================================
-   - Chip bar above the composer
-   - Field form (popover desktop / bottom sheet mobile)
-   - Editor modal
+   Everything lives INSIDE the composer pill (.input-container):
+   - Chip row (top edge of the pill)
+   - Composer mode (header + question fields above the note textarea)
+   - Slash menu ("/" in an empty composer)
+   Plus the editor modal and the header button.
 */
 
+@keyframes qa-rise {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* ----------------------------------------
-   Chip bar
+   Chip row
    ---------------------------------------- */
 
 .quick-actions-bar {
-    /* Sits inside .input-wrapper directly above the composer pill.
-       Visibility toggles via .hidden (display:none) - never animate height. */
-    padding: 0 0 var(--space-2);
+    /* Visibility toggles via .hidden (display:none) - never animate height. */
+    padding: var(--space-1) 0 var(--space-1);
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--border);
+    animation: qa-rise 120ms var(--ease-out, ease-out);
 }
 
 .quick-actions-bar.hidden {
@@ -22,49 +31,57 @@
 
 .quick-actions-scroller {
     display: flex;
-    gap: var(--space-2);
+    align-items: center;
+    gap: var(--space-1);
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    /* Let the first/last chip breathe past the pill's rounded edge */
-    padding: 2px var(--space-1);
+    padding: 2px 0;
 }
 
 .quick-actions-scroller::-webkit-scrollbar {
     display: none;
 }
 
+/* Quiet ghost chips: no fill, hairline border, accent only on hover */
 .quick-action-chip {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: 6px;
     flex-shrink: 0;
     max-width: 240px;
-    padding: var(--space-1) var(--space-3);
-    background: var(--bg-secondary);
+    padding: 3px var(--space-2-5, 10px) 3px var(--space-2);
+    background: transparent;
     border: 1px solid var(--border);
     border-radius: 999px;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-size: var(--font-size-sm);
     font-weight: 500;
     line-height: 1.4;
     cursor: pointer;
-    transition: background var(--transition-fast), border-color var(--transition-fast),
-        opacity var(--transition-fast), transform var(--transition-fast);
+    transition: border-color var(--transition-fast), color var(--transition-fast),
+        background var(--transition-fast), opacity var(--transition-fast);
 }
 
-.quick-action-chip:hover:not(:disabled) {
-    background: var(--bg-hover);
+.quick-action-chip:hover:not(:disabled),
+.quick-action-chip:focus-visible {
     border-color: var(--accent);
+    color: var(--text-primary);
+    background: var(--accent-muted);
 }
 
 .quick-action-chip:active:not(:disabled) {
-    transform: scale(0.97);
+    transform: translateY(1px);
 }
 
 .quick-action-chip:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: default;
+}
+
+.quick-action-chip-emoji {
+    font-size: 0.95em;
+    line-height: 1;
 }
 
 .quick-action-chip-label {
@@ -73,21 +90,22 @@
     text-overflow: ellipsis;
 }
 
-/* Trailing gear chip: opens the editor (only entry point on mobile) */
+/* Gear at the end of the row: solid icon button, pinned right */
 .quick-action-edit-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 30px;
-    height: 30px;
+    margin-left: auto;
+    width: 26px;
+    height: 26px;
     padding: 0;
     background: transparent;
-    border: 1px dashed var(--border);
-    border-radius: 999px;
-    color: var(--text-secondary);
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
     cursor: pointer;
-    transition: background var(--transition-fast), border-color var(--transition-fast);
+    transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .quick-action-edit-chip svg {
@@ -95,14 +113,155 @@
     height: 14px;
 }
 
-.quick-action-edit-chip:hover {
+.quick-action-edit-chip:hover,
+.quick-action-edit-chip:focus-visible {
+    color: var(--text-primary);
     background: var(--bg-hover);
-    border-color: var(--accent);
+}
+
+/* ----------------------------------------
+   Composer mode (inside the pill)
+   ---------------------------------------- */
+
+.qa-mode {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-1) 0 var(--space-2);
+    border-bottom: 1px solid var(--border);
+    animation: qa-rise 120ms var(--ease-out, ease-out);
+}
+
+.qa-mode.hidden {
+    display: none;
+}
+
+.qa-mode-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 26px;
+}
+
+.qa-mode-emoji { line-height: 1; }
+
+.qa-mode-label {
+    font-size: var(--font-size-ui);
+    font-weight: 600;
     color: var(--text-primary);
 }
 
-/* Header button (desktop program header; same footprint as the reset button
-   but a neutral hover and its own class so tests can target Reset alone). */
+.qa-mode-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.qa-mode-cancel svg { width: 14px; height: 14px; }
+.qa-mode-cancel:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* Desktop: inline label + input pairs flowing on one line */
+.qa-mode-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+}
+
+.qa-mode-field {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.qa-mode-field-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.qa-mode-field-input {
+    width: 9em;
+    padding: 4px var(--space-2);
+    font: inherit;
+    font-size: var(--font-size-ui);
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: border-color var(--transition-fast);
+}
+
+.qa-mode-field-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* ----------------------------------------
+   Slash menu (inside the pill, above the textarea)
+   ---------------------------------------- */
+
+.qa-slash-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-1) 0 var(--space-2);
+    border-bottom: 1px solid var(--border);
+    animation: qa-rise 120ms var(--ease-out, ease-out);
+}
+
+.qa-slash-menu.hidden {
+    display: none;
+}
+
+.qa-slash-item {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-1-5, 6px) var(--space-2);
+    text-align: left;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: var(--font-size-ui);
+    cursor: pointer;
+}
+
+.qa-slash-item:hover,
+.qa-slash-item.active {
+    background: var(--bg-hover);
+}
+
+.qa-slash-item.active {
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.qa-slash-label { font-weight: 600; white-space: nowrap; }
+
+.qa-slash-body {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ----------------------------------------
+   Header button (desktop program header)
+   ---------------------------------------- */
+
 .program-quick-actions-btn {
     display: flex;
     align-items: center;
@@ -131,116 +290,9 @@
     color: var(--text-primary);
 }
 
-/* Header button: icon-only on mobile to save width */
-@media (max-width: 768px) {
-    .program-quick-actions-btn span {
-        display: none;
-    }
-}
-
-/* ----------------------------------------
-   Field form
-   ---------------------------------------- */
-
-.quick-action-form-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-modal);
-    background: transparent;
-}
-
-.quick-action-form {
-    position: fixed;
-    width: min(360px, calc(100vw - 16px));
-    padding: var(--space-3);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.quick-action-form-title {
-    font-weight: 600;
-    font-size: var(--font-size-ui);
-}
-
-.quick-action-form-fields {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.quick-action-form-field label {
-    display: block;
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    margin-bottom: 2px;
-}
-
-.quick-action-form-field textarea {
-    width: 100%;
-    resize: none;
-    padding: var(--space-2);
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    font: inherit;
-    font-size: var(--font-size-ui);
-    max-height: 160px;
-}
-
-.quick-action-form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-2);
-}
-
-.quick-action-form-cancel,
-.quick-action-form-send {
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-}
-
-.quick-action-form-send {
-    background: var(--accent);
-    border-color: transparent;
-    color: #fff;
-}
-
-.quick-action-form-send:hover {
-    background: var(--accent-hover);
-}
-
-@media (max-width: 768px) {
-    .quick-action-form-overlay {
-        background: rgba(0, 0, 0, 0.35);
-    }
-
-    .quick-action-form {
-        left: 0 !important;
-        right: 0;
-        bottom: 0 !important;
-        width: auto;
-        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-        padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
-    }
-
-    .quick-action-form-cancel,
-    .quick-action-form-send {
-        flex: 1;
-        padding: var(--space-3);
-    }
-}
+/* "Save as quick action" only makes sense inside a program conversation */
+.message-save-quick-action-btn { display: none; }
+body.has-quick-actions .message-save-quick-action-btn { display: inline-flex; }
 
 /* ----------------------------------------
    Editor modal
@@ -266,6 +318,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
+    animation: qa-rise 120ms var(--ease-out, ease-out);
 }
 
 .qa-editor-header {
@@ -295,23 +348,6 @@
 
 .qa-editor-body { padding: var(--space-4); overflow-y: auto; flex: 1; }
 
-.qa-editor-autosave-hint { margin: var(--space-3) 0 0; font-size: var(--font-size-sm); color: var(--text-secondary); }
-
-.qa-detail-back, .qa-detail-done {
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-.qa-detail-back:hover { background: var(--bg-hover); }
-.qa-detail-done { background: var(--accent); border-color: transparent; color: #fff; }
-.qa-detail-done:hover { background: var(--accent-hover); }
-
 .qa-editor-list { display: flex; flex-direction: column; gap: var(--space-1); }
 .qa-editor-row {
     display: grid;
@@ -336,6 +372,7 @@
 .qa-editor-add svg { width: 16px; height: 16px; flex-shrink: 0; }
 .qa-editor-add:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--accent); color: var(--text-primary); }
 .qa-editor-add:disabled { opacity: 0.5; cursor: default; }
+
 .qa-detail { display: flex; flex-direction: column; gap: var(--space-3); }
 .qa-detail-row { display: flex; gap: var(--space-2); align-items: center; }
 .qa-detail-label, .qa-detail-body, .qa-detail-field-input {
@@ -343,52 +380,83 @@
     background: var(--bg-primary); color: var(--text-primary);
     border: 1px solid var(--border); border-radius: var(--radius-md);
 }
-.qa-detail-body { resize: vertical; min-height: 96px; }
+.qa-detail-label:focus, .qa-detail-body:focus, .qa-detail-field-input:focus { outline: none; border-color: var(--accent); }
+.qa-detail-body { resize: vertical; min-height: 84px; }
 .qa-detail-emoji-wrapper { position: relative; }
 .qa-detail-emoji-input {
     width: 52px; height: 40px; padding: 0; text-align: center; font-size: 1.25rem; line-height: 1;
     border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary);
 }
 .qa-detail-emoji-input:focus { outline: none; border-color: var(--accent); }
-.qa-detail-emoji-popover { display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 2; padding: var(--space-2); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.qa-detail-emoji-popover { display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 2; padding: var(--space-2); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
 .qa-detail-emoji-popover.open { display: block; }
 .qa-detail-emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
 .qa-detail-emoji-option { font-size: 1.1rem; padding: 4px; background: transparent; border: 0; border-radius: var(--radius-sm); cursor: pointer; }
 .qa-detail-emoji-option:hover { background: var(--bg-hover); }
-.qa-detail-fields-title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-1); }
-.qa-detail-optional { font-weight: 400; color: var(--text-secondary); }
-.qa-detail-hint { margin: 0 0 var(--space-2); font-size: var(--font-size-sm); color: var(--text-secondary); line-height: 1.4; }
-.qa-detail-field-list { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-2); }
+
+.qa-detail-section-title { font-size: var(--font-size-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: var(--space-1); }
+.qa-detail-field-list { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-1); }
 .qa-detail-field-row {
     display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
     background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md);
 }
-.qa-detail-field-name { font-size: var(--font-size-ui); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.qa-detail-field-controls { display: inline-flex; align-items: center; gap: var(--space-1); flex-shrink: 0; }
+.qa-detail-field-name { font-size: var(--font-size-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qa-detail-field-controls { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .qa-detail-field-up svg { transform: rotate(180deg); }
 .qa-detail-field-remove {
-    display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
-    padding: 2px var(--space-2); border: 1px solid transparent; border-radius: var(--radius-sm);
-    background: transparent; color: var(--text-secondary); font-size: var(--font-size-sm); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+    border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer;
 }
-.qa-detail-field-remove svg { width: 12px; height: 12px; }
-.qa-detail-field-remove:hover { color: var(--color-error-500); border-color: var(--color-error-500); }
+.qa-detail-field-remove svg { width: 14px; height: 14px; }
+.qa-detail-field-remove:hover { color: var(--color-error-500); background: var(--bg-hover); }
 .qa-detail-field-add-row { display: flex; gap: var(--space-2); }
 .qa-detail-field-add {
-    flex-shrink: 0; padding: 0 var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-md);
+    flex-shrink: 0; padding: 0 var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md);
     background: var(--bg-tertiary); color: var(--text-primary); font-size: var(--font-size-sm); font-weight: 500; cursor: pointer;
 }
 .qa-detail-field-add:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--accent); }
 .qa-detail-field-add:disabled, .qa-detail-field-input:disabled { opacity: 0.5; cursor: default; }
+
+/* Preview rendered as the user bubble it will become */
+.qa-detail-preview-wrap { display: flex; flex-direction: column; align-items: flex-end; }
+.qa-detail-preview-wrap .qa-detail-section-title { align-self: flex-start; }
 .qa-detail-preview {
-    margin: 0; padding: var(--space-3); white-space: pre-wrap; word-break: break-word;
-    font: inherit; font-size: var(--font-size-sm); line-height: 1.45; color: var(--text-secondary);
-    background: var(--bg-primary); border: 1px dashed var(--border); border-radius: var(--radius-md);
+    margin: 0; padding: var(--space-3) var(--space-4); max-width: 100%; width: fit-content;
+    white-space: pre-wrap; word-break: break-word;
+    font: inherit; font-size: var(--font-size-ui); line-height: 1.5;
+    color: var(--color-user-text); background: var(--bg-user);
+    border-radius: var(--radius-lg);
 }
 .qa-detail-error { color: var(--color-error-500); font-size: var(--font-size-sm); min-height: 1.2em; }
 .qa-detail-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.qa-detail-back, .qa-detail-done {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.qa-detail-back:hover { background: var(--bg-hover); }
+.qa-detail-done { background: var(--accent); border-color: transparent; color: #fff; }
+.qa-detail-done:hover { background: var(--accent-hover); }
+
+/* ----------------------------------------
+   Mobile
+   ---------------------------------------- */
+
 @media (max-width: 768px) {
+    .program-quick-actions-btn span { display: none; }
+
+    /* Questions stack; each input takes the full width */
+    .qa-mode-fields { flex-direction: column; gap: var(--space-2); }
+    .qa-mode-field { display: grid; grid-template-columns: minmax(6em, auto) 1fr; }
+    .qa-mode-field-input { width: 100%; }
+
     .qa-editor { width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0; }
     .qa-editor-header { padding-top: calc(var(--space-3) + env(safe-area-inset-top)); }
     .qa-editor-body { padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom)); }
@@ -396,6 +464,6 @@
     .qa-editor-row-fields { display: none; }
 }
 
-/* "Save as quick action" only makes sense inside a program conversation */
-.message-save-quick-action-btn { display: none; }
-body.has-quick-actions .message-save-quick-action-btn { display: inline-flex; }
+@media (prefers-reduced-motion: reduce) {
+    .quick-actions-bar, .qa-mode, .qa-slash-menu, .qa-editor { animation: none; }
+}

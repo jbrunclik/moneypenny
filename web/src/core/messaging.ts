@@ -280,12 +280,29 @@ async function interjectIntoActiveTurn(convId: string, messageText: string): Pro
   log.info('Interjection sent', { conversationId: convId, length: messageText.length });
 }
 
+/**
+ * Optional composer hook (quick actions): transforms the raw textarea text
+ * into the outgoing message and is told when that message left the composer.
+ * Registered by core/quick-actions.ts; messaging never imports it (no cycle).
+ */
+export interface ComposerHook {
+  transform: (text: string) => string;
+  onConsumed: () => void;
+}
+
+let composerHook: ComposerHook | null = null;
+
+export function registerComposerHook(hook: ComposerHook | null): void {
+  composerHook = hook;
+}
+
 export async function sendMessage(): Promise<void> {
   // Stop voice recording if active (prevents text from being re-added after send)
   stopVoiceRecording();
 
   let store = useStore.getState();
-  const messageText = getMessageInput();
+  const rawText = getMessageInput();
+  const messageText = composerHook ? composerHook.transform(rawText) : rawText;
   const files = getPendingFiles();
 
   if (!messageText && files.length === 0) return;
@@ -477,6 +494,7 @@ export async function sendMessage(): Promise<void> {
 
   // Clear input, draft and force tools (one-shot)
   clearMessageInput();
+  composerHook?.onConsumed();
   clearPendingFiles();
   useStore.getState().setConversationDraft(conv.id, '');
   resetForceTools();

@@ -41,7 +41,7 @@ QUICK_ACTION_DEFAULTS: dict[str, list[dict[str, Any]]] = {
                 "Plan today's session. Check my Garmin readiness first and tell me "
                 "which numbers drove the intensity call."
             ),
-            "fields": ["Comments"],
+            "fields": [],
         },
         {
             "id": "log-review",
@@ -52,7 +52,7 @@ QUICK_ACTION_DEFAULTS: dict[str, list[dict[str, Any]]] = {
                 "PRs, update the Garmin workouts for the next session, and prepare the "
                 "overview table."
             ),
-            "fields": ["Results", "Comments"],
+            "fields": ["Results"],
         },
     ],
     "language": [

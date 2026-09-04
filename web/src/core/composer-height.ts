@@ -41,12 +41,7 @@ export function initComposerHeight(): void {
     // whole box over-clears and leaves a gap above the pill (device-verified:
     // cph=149 vs a ~87px visible pill). Measure from the pill's top edge to
     // the box bottom (= the viewport bottom, since .input-area is bottom:0).
-    // The quick-actions bar (program conversations) sits above the pill and
-    // must be cleared too when visible.
-    const pill =
-      inputArea.querySelector<HTMLElement>('.quick-actions-bar:not(.hidden)') ??
-      inputArea.querySelector<HTMLElement>('.input-container') ??
-      inputArea;
+    const pill = inputArea.querySelector<HTMLElement>('.input-container') ?? inputArea;
     const h = Math.round(
       inputArea.getBoundingClientRect().bottom - pill.getBoundingClientRect().top
     );

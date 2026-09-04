@@ -127,8 +127,10 @@ export function renderAppShell(): string {
         <div class="input-wrapper">
           <div id="file-preview" class="file-preview hidden"></div>
           <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json">
-          <div id="quick-actions-bar" class="quick-actions-bar hidden" role="toolbar" aria-label="Quick actions"></div>
           <div id="input-container" class="input-container">
+            <div id="quick-actions-bar" class="quick-actions-bar hidden" role="toolbar" aria-label="Quick actions"></div>
+            <div id="quick-action-mode" class="qa-mode hidden"></div>
+            <div id="quick-action-slash" class="qa-slash-menu hidden" role="listbox" aria-label="Quick actions"></div>
             <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
             <div class="input-toolbar">
             <div class="toolbar-left">
