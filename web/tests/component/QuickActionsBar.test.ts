@@ -52,6 +52,17 @@ describe('QuickActionsBar', () => {
     expect(container.querySelectorAll('.quick-action-chip').length).toBe(1);
   });
 
+  it('trailing edit chip calls onEdit and never onTap', () => {
+    const onTap = vi.fn();
+    const onEdit = vi.fn();
+    renderQuickActionsBar(container, actions, onTap, onEdit);
+    container
+      .querySelector('.quick-action-edit-chip')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onTap).not.toHaveBeenCalled();
+  });
+
   it('disabled state disables every chip', () => {
     renderQuickActionsBar(container, actions, vi.fn());
     setQuickActionsBarDisabled(container, true);

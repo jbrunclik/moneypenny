@@ -68,7 +68,7 @@ function isCurrentConversationStreaming(): boolean {
 export function refreshQuickActionsBar(): void {
   const bar = getElementById<HTMLElement>('quick-actions-bar');
   if (!bar) return;
-  if (!current || current.actions.length === 0) {
+  if (!current) {
     bar.classList.add('hidden');
     return;
   }
@@ -86,7 +86,12 @@ export function refreshQuickActionsBar(): void {
 function renderCurrent(): void {
   const bar = getElementById<HTMLElement>('quick-actions-bar');
   if (!bar || !current) return;
-  renderQuickActionsBar(bar, current.actions, (action, chip) => handleChipTap(action, chip));
+  renderQuickActionsBar(
+    bar,
+    current.actions,
+    (action, chip) => handleChipTap(action, chip),
+    () => openQuickActionsEditor()
+  );
   refreshQuickActionsBar();
 }
 

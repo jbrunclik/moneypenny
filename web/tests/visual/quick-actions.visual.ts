@@ -1,0 +1,64 @@
+/**
+ * Visual regression: quick-actions bar, field form, editor.
+ */
+import { test, expect } from '../global-setup';
+
+const PROGRAMS = [
+  {
+    id: 'pushups',
+    name: 'Push-ups',
+    emoji: '💪',
+    created_at: '2026-01-01T00:00:00',
+    quick_actions: [
+      { id: 'plan', emoji: '📋', label: 'Plan today', body: 'Plan.', fields: ['Comments'] },
+      {
+        id: 'log',
+        emoji: '📊',
+        label: 'Log & review',
+        body: 'Log.',
+        fields: ['Results', 'Comments'],
+      },
+    ],
+  },
+];
+
+async function open(page: import('@playwright/test').Page): Promise<void> {
+  await page.request.post('/test/set-sports-programs', { data: { programs: PROGRAMS } });
+  await page.goto('/#/sports/pushups');
+  await page.waitForSelector('.quick-action-chip');
+  await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
+  await page.waitForTimeout(300);
+}
+
+test.describe('Visual: Quick actions', () => {
+  test('bar above composer', async ({ page }) => {
+    await open(page);
+    await expect(page.locator('.input-area')).toHaveScreenshot('quick-actions-bar.png');
+  });
+
+  test('field form popover', async ({ page }) => {
+    await open(page);
+    await page.locator('.quick-action-chip').nth(1).click();
+    await page.waitForTimeout(200);
+    await expect(page.locator('.quick-action-form')).toHaveScreenshot('quick-actions-form.png');
+  });
+
+  test('editor list', async ({ page }) => {
+    await open(page);
+    await page.locator('.program-quick-actions-btn').click();
+    await page.waitForTimeout(200);
+    await expect(page.locator('.qa-editor')).toHaveScreenshot('quick-actions-editor.png');
+  });
+});
+
+test.describe('Visual: Quick actions mobile', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test('bar and bottom-sheet form', async ({ page }) => {
+    await open(page);
+    await expect(page.locator('.input-area')).toHaveScreenshot('quick-actions-bar-mobile.png');
+    await page.locator('.quick-action-chip').nth(1).click();
+    await page.waitForTimeout(250);
+    await expect(page).toHaveScreenshot('quick-actions-form-mobile.png');
+  });
+});

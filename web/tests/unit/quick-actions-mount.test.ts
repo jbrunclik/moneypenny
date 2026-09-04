@@ -38,8 +38,11 @@ describe('quick actions mount', () => {
     expect(getQuickActionsContext()).toBeNull();
   });
 
-  it('mount with zero actions keeps the bar hidden', () => {
+  it('mount with zero actions still shows the bar with only the edit chip', () => {
     mountQuickActionsBar({ namespace: 'language', programId: 'es', actions: [], save: vi.fn() });
-    expect(document.getElementById('quick-actions-bar')!.classList.contains('hidden')).toBe(true);
+    const bar = document.getElementById('quick-actions-bar')!;
+    expect(bar.classList.contains('hidden')).toBe(false);
+    expect(bar.querySelectorAll('.quick-action-chip').length).toBe(0);
+    expect(bar.querySelector('.quick-action-edit-chip')).not.toBeNull();
   });
 });

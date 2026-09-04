@@ -73,6 +73,34 @@
     text-overflow: ellipsis;
 }
 
+/* Trailing gear chip: opens the editor (only entry point on mobile) */
+.quick-action-edit-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.quick-action-edit-chip svg {
+    width: 14px;
+    height: 14px;
+}
+
+.quick-action-edit-chip:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
 /* Header button: icon-only on mobile to save width */
 @media (max-width: 768px) {
     .program-quick-actions-btn span {
