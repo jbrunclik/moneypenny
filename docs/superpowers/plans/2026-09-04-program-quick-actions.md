@@ -2166,7 +2166,7 @@ Replace the `/* Editor (Task 7) */` placeholder in `quick-actions.css` with:
 }
 
 .qa-editor-title-row { display: flex; align-items: center; gap: var(--space-2); }
-.qa-editor-title-row h2 { margin: 0; font-size: var(--font-size-lg); font-weight: 600; }
+.qa-editor-title-row h2 { margin: 0; font-size: var(--font-size-xl); font-weight: 600; }
 .qa-editor-icon svg { width: 18px; height: 18px; color: var(--text-secondary); }
 
 .qa-editor-close {
