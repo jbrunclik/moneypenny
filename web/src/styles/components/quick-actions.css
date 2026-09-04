@@ -79,3 +79,107 @@
         display: none;
     }
 }
+
+/* ----------------------------------------
+   Field form
+   ---------------------------------------- */
+
+.quick-action-form-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    background: transparent;
+}
+
+.quick-action-form {
+    position: fixed;
+    width: min(360px, calc(100vw - 16px));
+    padding: var(--space-3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.quick-action-form-title {
+    font-weight: 600;
+    font-size: var(--font-size-ui);
+}
+
+.quick-action-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.quick-action-form-field label {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.quick-action-form-field textarea {
+    width: 100%;
+    resize: none;
+    padding: var(--space-2);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font: inherit;
+    font-size: var(--font-size-ui);
+    max-height: 160px;
+}
+
+.quick-action-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
+.quick-action-form-cancel,
+.quick-action-form-send {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.quick-action-form-send {
+    background: var(--accent);
+    border-color: transparent;
+    color: #fff;
+}
+
+.quick-action-form-send:hover {
+    background: var(--accent-hover);
+}
+
+@media (max-width: 768px) {
+    .quick-action-form-overlay {
+        background: rgba(0, 0, 0, 0.35);
+    }
+
+    .quick-action-form {
+        left: 0 !important;
+        right: 0;
+        bottom: 0 !important;
+        width: auto;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
+    }
+
+    .quick-action-form-cancel,
+    .quick-action-form-send {
+        flex: 1;
+        padding: var(--space-3);
+    }
+}

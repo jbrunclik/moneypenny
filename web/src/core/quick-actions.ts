@@ -10,8 +10,11 @@ import type { QuickAction } from '../types/api';
 import { useStore } from '../state/store';
 import { renderQuickActionsBar, setQuickActionsBarDisabled } from '../components/QuickActionsBar';
 import { isMobileViewport } from '../components/MessageInput';
+import { showQuickActionForm } from '../components/QuickActionForm';
+import { toast } from '../components/Toast';
 import { getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
+import { sendMessage } from './messaging';
 
 const log = createLogger('quick-actions');
 
@@ -86,9 +89,30 @@ function renderCurrent(): void {
   refreshQuickActionsBar();
 }
 
-// Filled in by Task 6 (send + form). Kept here so Task 5 compiles.
 function handleChipTap(action: QuickAction, chip: HTMLElement): void {
-  log.debug('Quick action tapped', { id: action.id, chip: chip.tagName });
+  if (isCurrentConversationStreaming()) {
+    toast.info('Please wait for the current response to finish.');
+    return;
+  }
+  if (action.fields.length === 0) {
+    void sendQuickAction(action, {});
+    return;
+  }
+  showQuickActionForm(action, chip, (values) => void sendQuickAction(action, values));
+}
+
+/** Compose the message, put it in the composer and send through the normal path. */
+export async function sendQuickAction(
+  action: QuickAction,
+  values: Record<string, string>
+): Promise<void> {
+  const textarea = getElementById<HTMLTextAreaElement>('message-input');
+  if (!textarea) return;
+  const text = composeQuickActionMessage(action, values);
+  log.info('Sending quick action', { id: action.id, fields: Object.keys(values).length });
+  textarea.value = text;
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  await sendMessage();
 }
 
 export function getQuickActionsContext(): QuickActionsContext | null {
