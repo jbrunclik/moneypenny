@@ -424,7 +424,17 @@ by guessing):
   batch-mode tests, where no placeholder exists).
 - **Smooth scroll-to-bottom fought a user scroll-up** - `scrollToBottom`'s
   animator now stops when the position moves against it (up); it keeps
-  going when scroll anchoring nudges it down as content above loads.
+  going when scroll anchoring nudges it down as content above loads, and
+  retargets to the new bottom when the content height changes. A downward
+  deviation must NOT count as the user: application code adjusts scrollTop
+  around these animations (pagination re-anchoring, the scroll-to-bottom
+  button after loading remaining messages) - "any deviation cancels" broke
+  those flows on both browsers.
+- **A test whose premise wasn't true** - conversation.spec:797 ("user scrolled
+  up, image loads, don't yank") sent five one-word exchanges that on WebKit
+  did not overflow the viewport, so the "scroll to the top" was a 0 -> 0
+  no-op the app could not distinguish from never having scrolled. The setup
+  now sends longer messages and asserts the overflow before the image step.
 - **Deferred pin re-checked position, not intent** - after a reply the
   batch/streaming paths pin or jump inside a `requestAnimationFrame`, guarded
   by "did scrollTop move since?". On WebKit a five-message chat is not

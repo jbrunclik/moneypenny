@@ -119,19 +119,23 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
 
   // Custom smooth scroll with easing for better animation
   const start = element.scrollTop;
-  const target = element.scrollHeight - element.clientHeight;
-  const distance = target - start;
+  let target = element.scrollHeight - element.clientHeight;
+  let distance = target - start;
   const duration = Math.min(600, Math.max(300, Math.abs(distance) * 0.5)); // 300-600ms based on distance
   const startTime = performance.now();
 
-  // Track the position we last wrote so a scroll AGAINST the animation (the
-  // user scrolling up) is detectable. Without it a scroll-up landing inside
-  // this 300-600ms animation was overwritten frame by frame until the list
-  // sat at the bottom again. Only an upward deviation counts: content
-  // loading above the viewport moves scrollTop DOWN via scroll anchoring,
-  // and that must not cancel a scroll-to-bottom (it broke "load remaining
-  // messages, then pin to bottom" flows).
+  // Track the position we last wrote and the content height we saw. A
+  // position that moved UP against the animation is the user scrolling up -
+  // stop and respect it (without this a scroll-up landing inside the 300-600ms
+  // animation was overwritten frame by frame). A downward deviation is NOT
+  // treated as the user: application code adjusts scrollTop around these
+  // animations (pagination keeping its anchor after appending a page, the
+  // scroll-to-bottom button after loading the remaining messages) and
+  // aborting on those left the list short of the bottom. When the content
+  // height changes (scroll anchoring as content above loads, a page appended
+  // below) retarget to the new bottom and keep going.
   let expectedScrollTop = start;
+  let lastScrollHeight = element.scrollHeight;
 
   // Easing function: ease-out-cubic
   const easeOutCubic = (t: number): number => {
@@ -139,7 +143,12 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
   };
 
   const animate = (currentTime: number): void => {
-    if (element.scrollTop < expectedScrollTop - 5) {
+    if (element.scrollHeight !== lastScrollHeight) {
+      lastScrollHeight = element.scrollHeight;
+      target = element.scrollHeight - element.clientHeight;
+      distance = target - start;
+      expectedScrollTop = element.scrollTop;
+    } else if (element.scrollTop < expectedScrollTop - 5) {
       // Scrolled up from outside - respect it and stop animating
       currentSmoothScrollAnimationId = null;
       return;

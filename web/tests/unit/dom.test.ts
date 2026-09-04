@@ -470,9 +470,13 @@ describe('scrollToBottom (smooth) yields to an external scroll', () => {
     vi.restoreAllMocks();
   });
 
-  function scroller(): HTMLElement {
-    const el = document.createElement('div');
-    Object.defineProperty(el, 'scrollHeight', { value: 2000, configurable: true });
+  function scroller(): HTMLElement & { setScrollHeight(h: number): void } {
+    const el = document.createElement('div') as HTMLElement & { setScrollHeight(h: number): void };
+    let height = 2000;
+    Object.defineProperty(el, 'scrollHeight', { get: () => height, configurable: true });
+    el.setScrollHeight = (h: number) => {
+      height = h;
+    };
     Object.defineProperty(el, 'clientHeight', { value: 500, configurable: true });
     let top = 0;
     Object.defineProperty(el, 'scrollTop', {
@@ -508,8 +512,22 @@ describe('scrollToBottom (smooth) yields to an external scroll', () => {
     scrollToBottom(el, true);
     tick(16);
     tick(16);
-    // Scroll anchoring after an image above the viewport loaded
+    // Scroll anchoring after an image above the viewport loaded: the content
+    // grew by 120px and the browser kept the viewport anchored (+120)
+    el.setScrollHeight(2120);
     el.scrollTop += 120;
+    tick(16);
+    tick(1000);
+    expect(el.scrollTop).toBe(1620); // the NEW bottom
+  });
+
+  it('is not cancelled by a downward adjustment from other code (pagination re-anchoring)', async () => {
+    const { scrollToBottom } = await import('@/utils/dom');
+    const el = scroller();
+    scrollToBottom(el, true);
+    tick(16);
+    tick(16);
+    el.scrollTop = el.scrollTop + 300; // moved down, height unchanged
     tick(16);
     tick(1000);
     expect(el.scrollTop).toBe(1500);

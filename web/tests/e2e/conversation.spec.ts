@@ -797,13 +797,21 @@ test.describe('Scroll to bottom behavior', () => {
   test('does not scroll back to bottom when image loads while user is scrolled up', async ({
     page,
   }) => {
-    // Create a conversation with several messages to create scrollable content
+    // Create a conversation with several messages to create scrollable content.
+    // The messages must actually overflow the (1024px) viewport BEFORE the image
+    // message: with five one-word exchanges the list on WebKit only became
+    // scrollable with the reply to the image message, so the "scroll to the
+    // top" below moved from 0 to 0 - no scroll event, no position change -
+    // and the app's deferred pin to the new reply could not tell it from
+    // "never scrolled" (the fourth distinct cause behind this assertion).
     await page.click('#new-chat-btn');
-    for (let i = 0; i < 5; i++) {
-      await page.fill('#message-input', `Message ${i + 1}`);
+    for (let i = 0; i < 6; i++) {
+      await page.fill('#message-input', `Message ${i + 1} - adding more content to ensure the conversation is scrollable`);
       await page.click('#send-btn');
       await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
+    const preImageOverflow = await page.locator('#messages').evaluate((el) => el.scrollHeight - el.clientHeight);
+    expect(preImageOverflow).toBeGreaterThan(200); // premise of the test: already scrollable
 
     // Create a simple 1x1 pixel PNG image for testing
     // PNG header + minimal image data
