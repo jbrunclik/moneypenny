@@ -44,8 +44,19 @@ os.environ["RATE_LIMITING_ENABLED"] = "false"  # Disable rate limiting for paral
 
 # Template databases are created once at startup with migrations applied
 # Test contexts copy the template instead of running migrations for each test
-TEMPLATE_DB_PATH = PROJECT_ROOT / "tests" / "e2e-template.db"
-TEMPLATE_BLOB_PATH = PROJECT_ROOT / "tests" / "e2e-template-blobs.db"
+# The test databases are disposable, so keep them on tmpfs where one exists
+# (Linux CI runners): every commit fsyncs, and on a GitHub runner's disk the
+# per-test reset (a few commits) and each chat turn were taking seconds under
+# eight concurrent contexts (SLOW/INFLIGHT lines in the job log).
+_SHM = Path("/dev/shm")
+E2E_DB_DIR = (
+    (_SHM / "moneypenny-e2e")
+    if _SHM.is_dir() and os.access(_SHM, os.W_OK)
+    else PROJECT_ROOT / "tests"
+)
+E2E_DB_DIR.mkdir(parents=True, exist_ok=True)
+TEMPLATE_DB_PATH = E2E_DB_DIR / "e2e-template.db"
+TEMPLATE_BLOB_PATH = E2E_DB_DIR / "e2e-template-blobs.db"
 # Set env vars to the template path - migrations will run on template
 os.environ["DATABASE_PATH"] = str(TEMPLATE_DB_PATH)
 os.environ["BLOB_STORAGE_PATH"] = str(TEMPLATE_BLOB_PATH)
@@ -468,7 +479,7 @@ def cleanup_databases() -> None:
     # Clean up template files and all test-specific files
     patterns = ["e2e-template*.db*", "e2e-test-*.db*"]
     for pattern in patterns:
-        for f in PROJECT_ROOT.glob(f"tests/{pattern}"):
+        for f in E2E_DB_DIR.glob(pattern):
             try:
                 f.unlink()
             except Exception:
@@ -591,6 +602,19 @@ def main() -> None:
         from src.db.models.base import DatabaseBase
 
         stack.enter_context(patch.object(DatabaseBase, "_init_db", lambda self: None))
+
+        # Test data is disposable: don't fsync on every commit. The pragma is
+        # per-connection, so wrap the pool's connection factory.
+        from src.utils.connection_pool import ConnectionPool
+
+        _orig_create = ConnectionPool._create_connection
+
+        def _create_nosync(self: ConnectionPool) -> Any:
+            conn = _orig_create(self)
+            conn.execute("PRAGMA synchronous=OFF")
+            return conn
+
+        stack.enter_context(patch.object(ConnectionPool, "_create_connection", _create_nosync))
 
         # Create proxies for test isolation
         proxy_db = ProxyDatabase()
@@ -732,8 +756,8 @@ def main() -> None:
                     if ctx is None:
                         # Copy template databases for this test context (much faster than migrations)
                         safe_id = "".join(c for c in test_id if c.isalnum() or c in "-_")
-                        db_path = PROJECT_ROOT / "tests" / f"e2e-test-{safe_id}.db"
-                        blob_path = PROJECT_ROOT / "tests" / f"e2e-test-{safe_id}-blobs.db"
+                        db_path = E2E_DB_DIR / f"e2e-test-{safe_id}.db"
+                        blob_path = E2E_DB_DIR / f"e2e-test-{safe_id}-blobs.db"
                         t1 = _time.perf_counter()
                         shutil.copy2(TEMPLATE_DB_PATH, db_path)
                         shutil.copy2(TEMPLATE_BLOB_PATH, blob_path)

@@ -398,6 +398,13 @@ by guessing):
   runner, under the context lock and holding the GIL - unrelated requests
   stalled 12s+ (`SLOW ... init=5.00` in the phase log). The e2e-server now
   patches `DatabaseBase._init_db` to a no-op once the templates exist.
+- **fsync on a runner disk** - with migrations gone, the phase log moved the
+  time into the handlers: a `/test/reset` is a few commits, a chat turn
+  several, and under eight concurrent contexts each fsync on the GitHub
+  runner's disk queued for seconds (`INFLIGHT` counts of 45-55 per shard).
+  The e2e-server keeps its databases on `/dev/shm` when it exists and sets
+  `PRAGMA synchronous=OFF` on every pooled connection - test data is
+  disposable.
 - **"Response never arrived" was a lost message, not a slow server** - the
   Playwright trace of a failing run showed the follow-up message posted to
   `/chat/interject`, not `/chat/batch`: the active-request flag stayed set
