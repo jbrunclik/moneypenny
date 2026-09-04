@@ -311,3 +311,7 @@
     .qa-editor-row { grid-template-columns: auto 1fr auto auto auto auto; }
     .qa-editor-row-fields { display: none; }
 }
+
+/* "Save as quick action" only makes sense inside a program conversation */
+.message-save-quick-action-btn { display: none; }
+body.has-quick-actions .message-save-quick-action-btn { display: inline-flex; }

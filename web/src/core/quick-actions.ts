@@ -161,4 +161,15 @@ export function initQuickActions(): void {
     (state) => state.activeRequests,
     () => refreshQuickActionsBar()
   );
+  document.addEventListener('message:save-quick-action', (e) => {
+    const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
+    const convId = useStore.getState().currentConversation?.id;
+    if (!convId || !current) return;
+    const message = useStore
+      .getState()
+      .getMessages(convId)
+      .find((m) => m.id === messageId);
+    if (!message) return;
+    openQuickActionsEditor({ body: message.content });
+  });
 }

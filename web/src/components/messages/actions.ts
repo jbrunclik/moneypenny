@@ -12,6 +12,7 @@ import {
   CONTINUE_ICON,
   DELETE_ICON,
   EDIT_ICON,
+  PIN_ICON,
   REFRESH_ICON,
   SPEAKER_ICON,
   COPY_ICON,
@@ -165,6 +166,14 @@ function attachEditHandler(actions: HTMLElement, messageId: string): void {
   });
 }
 
+function attachSaveQuickActionHandler(actions: HTMLElement, messageId: string): void {
+  actions.querySelector('.message-save-quick-action-btn')?.addEventListener('click', () => {
+    document.dispatchEvent(
+      new CustomEvent('message:save-quick-action', { detail: { messageId } })
+    );
+  });
+}
+
 // ============================================================================
 // Main Function
 // ============================================================================
@@ -192,6 +201,9 @@ export function createMessageActions(
   // they make sense (regenerate/continue on the LAST assistant message)
   const showRerunButtons = role === 'assistant';
   const showEditButton = role === 'user';
+  // Only meaningful inside program conversations; CSS hides it elsewhere
+  // (body.has-quick-actions), so it is rendered on every user message.
+  const showSaveQuickActionButton = role === 'user';
 
   // Build HTML. On touch devices the secondary buttons collapse behind
   // the overflow toggle (CSS-controlled); copy is the most-used action
@@ -205,6 +217,7 @@ export function createMessageActions(
       ${showRerunButtons ? `<button class="message-regenerate-btn" title="Regenerate response">${REFRESH_ICON}</button>` : ''}
       ${showRerunButtons ? `<button class="message-continue-btn" title="Continue response">${CONTINUE_ICON}</button>` : ''}
       ${showEditButton ? `<button class="message-edit-btn" title="Edit and resend">${EDIT_ICON}</button>` : ''}
+      ${showSaveQuickActionButton ? `<button class="message-save-quick-action-btn" title="Save as quick action">${PIN_ICON}</button>` : ''}
       ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
       ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
       ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
@@ -217,6 +230,7 @@ export function createMessageActions(
   attachDeleteHandler(actions, messageId);
   if (showRerunButtons) attachRerunHandlers(actions, messageId);
   if (showEditButton) attachEditHandler(actions, messageId);
+  if (showSaveQuickActionButton) attachSaveQuickActionHandler(actions, messageId);
   if (hasSources) attachSourcesHandler(actions, sources!);
   if (hasGeneratedImages) attachImagegenHandler(actions, generatedImages!, messageId);
   if (showCostButton) attachCostHandler(actions, messageId);
