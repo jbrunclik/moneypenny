@@ -132,13 +132,14 @@ export function openQuickActionsEditor(draft?: Partial<QuickAction>): void {
   showQuickActionsEditor({
     actions: ctx.actions,
     initialDraft: draft,
-    onSave: async (actions) => {
+    // Autosave: the editor calls this after every change; the bar behind
+    // the modal updates immediately so closing needs no extra step.
+    onChange: async (actions) => {
       const saved = await ctx.save(actions);
       if (current && current.programId === ctx.programId) {
         current.actions = saved;
         renderCurrent();
       }
-      toast.success('Quick actions saved.');
     },
   });
 }

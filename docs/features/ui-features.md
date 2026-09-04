@@ -364,7 +364,16 @@ dropped on read with a warning. Limits: 12 actions, 6 fields, 40-char labels, 20
   its top when visible so the message list clears it.
 - Sends go through `sendMessage()`; the composed text is an ordinary user message, so
   history, sync, stream resume and compaction need nothing special.
-- Reorder in the editor uses up/down buttons rather than drag (drag does not work on iOS).
+- The editor autosaves: every add/edit/reorder/delete PUTs the full list and the chip bar
+  behind the modal re-renders immediately. Closing over a valid, unfinished detail form
+  commits it first, so no path loses work (this replaced an explicit Save button that could
+  be tapped from inside the detail form and silently dropped the in-progress action).
+- The detail form shows the questions as rows (up/down reorder, Remove) and a live preview
+  of the exact message that will be sent. The icon field accepts any emoji typed from the OS
+  keyboard; the grid is only suggestions. Reorder uses up/down buttons rather than drag
+  (drag does not work on iOS).
+- Mobile safe areas: the editor header/body pad for `env(safe-area-inset-top/bottom)`; the
+  page already declares `viewport-fit=cover`.
 
 ### Testing
 

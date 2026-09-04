@@ -55,14 +55,16 @@ test.describe('Quick actions - desktop', () => {
     await expect(last).toContainText('Comments: felt strong');
   });
 
-  test('editor adds an action that appears as a chip and persists', async ({ page }) => {
+  test('editor adds an action that appears as a chip and persists (autosave)', async ({ page }) => {
     await openProgram(page);
     await page.locator('.program-quick-actions-btn').click();
     await page.locator('.qa-editor-add').click();
     await page.fill('.qa-detail-label', 'Week overview');
     await page.fill('.qa-detail-body', 'Summarize the week.');
     await page.locator('.qa-detail-done').click();
-    await page.locator('.qa-editor-save').click();
+    // No Save button: the bar behind the modal already shows the new chip
+    await expect(page.locator('.quick-action-chip')).toHaveCount(3);
+    await page.locator('.qa-editor-close').click();
     await expect(page.locator('.quick-action-chip')).toHaveCount(3);
     await expect(page.locator('.quick-action-chip').nth(2)).toContainText('Week overview');
     await page.reload();
@@ -107,6 +109,20 @@ test.describe('Quick actions - mobile', () => {
     await page.locator('.quick-action-edit-chip').click();
     await expect(page.locator('.qa-editor')).toBeVisible();
     await expect(page.locator('.qa-editor-row')).toHaveCount(2);
+  });
+
+  test('closing the editor over an unfinished action still saves it (mobile regression)', async ({ page }) => {
+    await openProgram(page);
+    await page.locator('.quick-action-edit-chip').click();
+    await page.locator('.qa-editor-add').click();
+    await page.fill('.qa-detail-label', 'Evaluate');
+    await page.fill('.qa-detail-body', 'Evaluate my session.');
+    await page.locator('.qa-editor-close').click();
+    await expect(page.locator('.quick-action-chip')).toHaveCount(3);
+    await page.reload();
+    await page.waitForSelector('#quick-actions-bar .quick-action-edit-chip');
+    await expect(page.locator('.quick-action-chip')).toHaveCount(3);
+    await expect(page.locator('.quick-action-chip').nth(2)).toContainText('Evaluate');
   });
 
   test('field form opens as a bottom sheet and sends', async ({ page }) => {

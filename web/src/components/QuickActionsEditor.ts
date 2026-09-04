@@ -1,7 +1,10 @@
 /**
  * Editor modal for a program's quick actions: list (reorder via up/down,
- * edit, delete, add) + a detail form (emoji, label, body, fields).
- * Presentation + local draft state only; persistence is the caller's onSave.
+ * edit, delete, add) + a detail form (emoji, label, body, questions).
+ *
+ * Autosaves: every change calls onChange with the full list and the caller
+ * persists it, so closing the modal never loses work. Closing while a valid
+ * detail form is open commits it first. Presentation + local draft state only.
  */
 import type { QuickAction } from '../types/api';
 import { escapeHtml, clearElement } from '../utils/dom';
@@ -30,16 +33,40 @@ export function newQuickActionId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/** First user-perceived character (grapheme cluster) of a string, or ''. */
+export function firstGrapheme(value: string): string {
+  if (!value) return '';
+  const Segmenter = (
+    Intl as unknown as {
+      Segmenter?: new () => { segment(s: string): Iterable<{ segment: string }> };
+    }
+  ).Segmenter;
+  if (Segmenter) {
+    for (const part of new Segmenter().segment(value)) return part.segment;
+    return '';
+  }
+  return Array.from(value)[0] ?? '';
+}
+
 interface EditorOptions {
   actions: QuickAction[];
   initialDraft?: Partial<QuickAction>;
-  onSave: (actions: QuickAction[]) => Promise<void>;
+  /** Called after every change with the full ordered list; persist it. */
+  onChange: (actions: QuickAction[]) => Promise<void>;
 }
 
 let overlay: HTMLElement | null = null;
 let keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+/** Set while a detail form is open: commits it if valid (true) or reports invalid (false). */
+let commitOpenDetail: (() => boolean) | null = null;
 
 export function closeQuickActionsEditor(): void {
+  // Closing over a half-edited action must not lose it: commit when valid.
+  if (commitOpenDetail) {
+    const commit = commitOpenDetail;
+    commitOpenDetail = null;
+    commit();
+  }
   if (keydownHandler) document.removeEventListener('keydown', keydownHandler);
   keydownHandler = null;
   overlay?.remove();
@@ -59,21 +86,26 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   modal.innerHTML = `
     <div class="qa-editor-header">
       <div class="qa-editor-title-row"><span class="qa-editor-icon">${SLIDERS_ICON}</span><h2>Quick actions</h2></div>
-      <button type="button" class="qa-editor-close" title="Close">${CLOSE_ICON}</button>
+      <button type="button" class="qa-editor-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
     </div>
-    <div class="qa-editor-body"></div>
-    <div class="qa-editor-footer">
-      <button type="button" class="qa-editor-cancel">Cancel</button>
-      <button type="button" class="qa-editor-save">Save</button>
-    </div>`;
+    <div class="qa-editor-body"></div>`;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
   const body = modal.querySelector<HTMLElement>('.qa-editor-body')!;
-  const footer = modal.querySelector<HTMLElement>('.qa-editor-footer')!;
+
+  // Persist after each mutation. Keeps the local draft even on failure so a
+  // retry (next change) resends everything.
+  const persist = async (): Promise<void> => {
+    try {
+      await opts.onChange(draftList.map((a) => ({ ...a, fields: [...a.fields] })));
+    } catch {
+      toast.error('Failed to save quick actions.');
+    }
+  };
 
   const renderList = (): void => {
-    footer.classList.remove('hidden');
+    commitOpenDetail = null;
     clearElement(body);
     const list = document.createElement('div');
     list.className = 'qa-editor-list';
@@ -102,8 +134,12 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     add.className = 'qa-editor-add';
     add.innerHTML = `${PLUS_ICON}<span>Add quick action</span>`;
     add.disabled = draftList.length >= QUICK_ACTIONS_MAX;
+    const hint = document.createElement('p');
+    hint.className = 'qa-editor-autosave-hint';
+    hint.textContent = 'Changes are saved automatically.';
     body.appendChild(list);
     body.appendChild(add);
+    body.appendChild(hint);
 
     list.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -112,22 +148,23 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       const i = Number(row.dataset.index);
       if (target.closest('.qa-editor-move-up') && i > 0) {
         [draftList[i - 1], draftList[i]] = [draftList[i], draftList[i - 1]];
-        renderList();
       } else if (target.closest('.qa-editor-move-down') && i < draftList.length - 1) {
         [draftList[i + 1], draftList[i]] = [draftList[i], draftList[i + 1]];
-        renderList();
       } else if (target.closest('.qa-editor-delete')) {
         draftList.splice(i, 1);
-        renderList();
       } else if (target.closest('.qa-editor-edit')) {
         renderDetail(draftList[i], i);
+        return;
+      } else {
+        return;
       }
+      renderList();
+      void persist();
     });
     add.addEventListener('click', () => renderDetail({}, null));
   };
 
   const renderDetail = (initial: Partial<QuickAction>, index: number | null): void => {
-    footer.classList.add('hidden');
     clearElement(body);
     const fields = [...(initial.fields ?? [])];
     let emoji = initial.emoji ?? EMOJIS[0];
@@ -136,7 +173,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     detail.innerHTML = `
       <div class="qa-detail-row">
         <div class="qa-detail-emoji-wrapper">
-          <button type="button" class="qa-detail-emoji-trigger" title="Choose icon">${escapeHtml(emoji)}</button>
+          <input type="text" class="qa-detail-emoji-input" value="${escapeHtml(emoji)}" maxlength="16" autocomplete="off" aria-label="Icon - type any emoji or pick a suggestion" title="Type any emoji" />
           <div class="qa-detail-emoji-popover"><div class="qa-detail-emoji-grid"></div></div>
         </div>
         <input type="text" class="qa-detail-label" placeholder="Label (shown on the chip)" maxlength="${LABEL_MAX}" value="${escapeHtml(initial.label ?? '')}" />
@@ -157,7 +194,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       </div>
       <div class="qa-detail-error" role="alert"></div>
       <div class="qa-detail-actions">
-        <button type="button" class="qa-detail-back">Back</button>
+        <button type="button" class="qa-detail-back">Cancel</button>
         <button type="button" class="qa-detail-done">Done</button>
       </div>`;
     body.appendChild(detail);
@@ -166,23 +203,41 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     grid.innerHTML = EMOJIS.map(
       (e) => `<button type="button" class="qa-detail-emoji-option" data-emoji="${e}">${e}</button>`
     ).join('');
-    const trigger = detail.querySelector<HTMLButtonElement>('.qa-detail-emoji-trigger')!;
+    const emojiInput = detail.querySelector<HTMLInputElement>('.qa-detail-emoji-input')!;
     const popover = detail.querySelector<HTMLElement>('.qa-detail-emoji-popover')!;
-    trigger.addEventListener('click', (e) => {
+    // Any emoji goes: the input takes the OS emoji keyboard; the grid is
+    // just one-tap suggestions. Keep the first grapheme so a single emoji
+    // (with skin tone / ZWJ sequences) survives but "abc" collapses to "a".
+    const applyEmojiInput = (): void => {
+      const first = firstGrapheme(emojiInput.value.trim());
+      if (first) emoji = first;
+    };
+    emojiInput.addEventListener('focus', () => popover.classList.add('open'));
+    emojiInput.addEventListener('click', (e) => {
       e.stopPropagation();
-      popover.classList.toggle('open');
+      popover.classList.add('open');
+    });
+    emojiInput.addEventListener('input', applyEmojiInput);
+    emojiInput.addEventListener('blur', () => {
+      applyEmojiInput();
+      emojiInput.value = emoji;
     });
     grid.addEventListener('click', (e) => {
       const opt = (e.target as HTMLElement).closest<HTMLElement>('.qa-detail-emoji-option');
       if (!opt?.dataset.emoji) return;
       emoji = opt.dataset.emoji;
-      trigger.textContent = emoji;
+      emojiInput.value = emoji;
       popover.classList.remove('open');
+    });
+    detail.addEventListener('click', (e) => {
+      const wrapper = detail.querySelector('.qa-detail-emoji-wrapper');
+      if (wrapper && !wrapper.contains(e.target as Node)) popover.classList.remove('open');
     });
 
     const fieldList = detail.querySelector<HTMLElement>('.qa-detail-field-list')!;
     const fieldInput = detail.querySelector<HTMLInputElement>('.qa-detail-field-input')!;
     const fieldAdd = detail.querySelector<HTMLButtonElement>('.qa-detail-field-add')!;
+    const labelInput = detail.querySelector<HTMLInputElement>('.qa-detail-label')!;
     const bodyInput = detail.querySelector<HTMLTextAreaElement>('.qa-detail-body')!;
     const preview = detail.querySelector<HTMLElement>('.qa-detail-preview')!;
     const renderPreview = (): void => {
@@ -194,9 +249,13 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       fieldList.innerHTML = fields
         .map(
           (f, i) => `
-          <div class="qa-detail-field-row">
+          <div class="qa-detail-field-row" data-index="${i}">
             <span class="qa-detail-field-name">${escapeHtml(f)}</span>
-            <button type="button" class="qa-detail-field-remove" data-index="${i}" aria-label="Remove ${escapeHtml(f)}">${CLOSE_ICON}<span>Remove</span></button>
+            <span class="qa-detail-field-controls">
+              <button type="button" class="btn-icon qa-detail-field-up" title="Move up" aria-label="Move ${escapeHtml(f)} up" ${i === 0 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
+              <button type="button" class="btn-icon qa-detail-field-down" title="Move down" aria-label="Move ${escapeHtml(f)} down" ${i === fields.length - 1 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
+              <button type="button" class="qa-detail-field-remove" aria-label="Remove ${escapeHtml(f)}">${CLOSE_ICON}<span>Remove</span></button>
+            </span>
           </div>`
         )
         .join('');
@@ -226,50 +285,60 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       }
     });
     fieldList.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest<HTMLElement>('.qa-detail-field-remove');
-      if (!btn) return;
-      fields.splice(Number(btn.dataset.index), 1);
+      const target = e.target as HTMLElement;
+      const row = target.closest<HTMLElement>('.qa-detail-field-row');
+      if (!row) return;
+      const i = Number(row.dataset.index);
+      if (target.closest('.qa-detail-field-up') && i > 0) {
+        [fields[i - 1], fields[i]] = [fields[i], fields[i - 1]];
+      } else if (target.closest('.qa-detail-field-down') && i < fields.length - 1) {
+        [fields[i + 1], fields[i]] = [fields[i], fields[i + 1]];
+      } else if (target.closest('.qa-detail-field-remove')) {
+        fields.splice(i, 1);
+      } else {
+        return;
+      }
       renderFields();
     });
 
-    detail.querySelector('.qa-detail-back')!.addEventListener('click', renderList);
-    detail.querySelector('.qa-detail-done')!.addEventListener('click', () => {
-      const label = detail.querySelector<HTMLInputElement>('.qa-detail-label')!.value.trim();
-      const text = detail.querySelector<HTMLTextAreaElement>('.qa-detail-body')!.value.trim();
-      const error = detail.querySelector<HTMLElement>('.qa-detail-error')!;
-      if (!label || !text) {
-        error.textContent = 'Label and body are required.';
-        return;
-      }
+    /** Validate + write the form into the draft list and persist. */
+    const commit = (): boolean => {
+      const label = labelInput.value.trim();
+      const text = bodyInput.value.trim();
+      if (!label || !text) return false;
+      // Stray question typed but not added: keep it rather than lose it
+      const pending = fieldInput.value.trim();
+      if (pending && fields.length < QUICK_ACTION_FIELDS_MAX) fields.push(pending);
+      applyEmojiInput();
       const action: QuickAction = {
         id: initial.id ?? newQuickActionId(),
-        emoji,
+        emoji: emoji || EMOJIS[0],
         label,
         body: text,
         fields: [...fields],
       };
       if (index === null) draftList.push(action);
       else draftList[index] = action;
+      void persist();
+      return true;
+    };
+    commitOpenDetail = commit;
+
+    detail.querySelector('.qa-detail-back')!.addEventListener('click', renderList);
+    detail.querySelector('.qa-detail-done')!.addEventListener('click', () => {
+      if (!commit()) {
+        detail.querySelector<HTMLElement>('.qa-detail-error')!.textContent =
+          'Label and body are required.';
+        return;
+      }
       renderList();
     });
-    detail.querySelector<HTMLInputElement>('.qa-detail-label')!.focus();
+    labelInput.focus();
   };
 
   modal.querySelector('.qa-editor-close')!.addEventListener('click', closeQuickActionsEditor);
-  modal.querySelector('.qa-editor-cancel')!.addEventListener('click', closeQuickActionsEditor);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeQuickActionsEditor();
-  });
-  const saveBtn = modal.querySelector<HTMLButtonElement>('.qa-editor-save')!;
-  saveBtn.addEventListener('click', async () => {
-    saveBtn.disabled = true;
-    try {
-      await opts.onSave(draftList);
-      closeQuickActionsEditor();
-    } catch {
-      toast.error('Failed to save quick actions.');
-      saveBtn.disabled = false;
-    }
   });
   keydownHandler = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
