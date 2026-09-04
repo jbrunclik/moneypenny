@@ -339,10 +339,10 @@ One-tap saved prompts in sports and language program conversations. Everything l
 
 - **Chip row** on the pill's top edge (ghost chips + a gear that opens the editor; on
   mobile the gear is the only entry point because the program header is hidden there).
-  Tapping a chip with no questions sends its body immediately.
-- **Composer mode**: a chip with questions turns the pill into a small form: header
-  (emoji, label, ✕), one compact input per question (inline on desktop, stacked on
-  mobile), and the textarea becomes the free-text note. The composer's own Send button
+- **Composer mode**: tapping any chip turns the pill into a small form: header (emoji,
+  label, ✕), one compact input per question (inline on desktop, stacked on mobile), and
+  the textarea becomes the free-text note. Without questions the cursor lands in the
+  note; the note is the way to add today's context to a fixed prompt. The composer's own Send button
   sends `body`, a blank line, `Question: answer` lines (empty ones omitted), then the note
   as its own paragraph. Enter in the last question sends on desktop and focuses the note
   on mobile; ✕ or Escape cancels.

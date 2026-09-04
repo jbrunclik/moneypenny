@@ -33,12 +33,28 @@ async function openProgram(page: import('@playwright/test').Page): Promise<void>
 }
 
 test.describe('Quick actions - desktop', () => {
-  test('chip row sits inside the composer and a no-question chip sends its body', async ({ page }) => {
+  test('a chip without questions still opens composer mode with the cursor in the note', async ({ page }) => {
     await openProgram(page);
     await expect(page.locator('#input-container #quick-actions-bar .quick-action-chip')).toHaveCount(2);
     await page.locator('.quick-action-chip').nth(0).click();
-    await expect(page.locator('.message.user').last()).toContainText('Plan my session please.');
+    const mode = page.locator('#quick-action-mode');
+    await expect(mode).toBeVisible();
+    await expect(mode.locator('.qa-mode-field-input')).toHaveCount(0);
+    await expect(page.locator('#message-input')).toBeFocused();
+    await expect(page.locator('#send-btn')).toBeEnabled();
+    await page.fill('#message-input', 'legs are sore');
+    await page.click('#send-btn');
+    const last = page.locator('.message.user').last();
+    await expect(last).toContainText('Plan my session please.');
+    await expect(last).toContainText('legs are sore');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
+  });
+
+  test('a chip without questions sends just its body when the note is left empty', async ({ page }) => {
+    await openProgram(page);
+    await page.locator('.quick-action-chip').nth(0).click();
+    await page.click('#send-btn');
+    await expect(page.locator('.message.user .message-content').last()).toHaveText('Plan my session please.');
   });
 
   test('a chip with questions enters composer mode; answers + note are sent as one message', async ({ page }) => {
@@ -103,17 +119,17 @@ test.describe('Quick actions - desktop', () => {
     await expect(menu).toBeHidden();
   });
 
-  test('slash menu Enter does not send a bare slash message', async ({ page }) => {
+  test('slash menu Enter never sends a bare slash message', async ({ page }) => {
     await openProgram(page);
     const before = await page.locator('.message.user').count();
     await page.fill('#message-input', '/');
-    // ArrowDown then ArrowUp wraps back to the first item ("Plan today", no questions)
+    // ArrowDown then ArrowUp wraps back to the first item ("Plan today")
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowUp');
     await page.keyboard.press('Enter');
-    // Sends its body, never a bare "/"
-    await expect(page.locator('.message.user').last()).toContainText('Plan my session please.');
-    await expect(page.locator('.message.user')).toHaveCount(before + 1);
+    await expect(page.locator('#quick-action-mode .qa-mode-label')).toHaveText('Plan today');
+    await expect(page.locator('#message-input')).toHaveValue('');
+    await expect(page.locator('.message.user')).toHaveCount(before);
   });
 
   test('editor adds an action that appears as a chip and persists (autosave)', async ({ page }) => {

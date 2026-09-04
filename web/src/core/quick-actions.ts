@@ -128,10 +128,8 @@ function activateQuickAction(action: QuickAction): void {
     return;
   }
   closeSlashMenu();
-  if (action.fields.length === 0) {
-    void sendQuickAction(action, {});
-    return;
-  }
+  // Always go through composer mode: even without questions the note is the
+  // place to add today's context before sending.
   enterComposerMode(action);
 }
 
@@ -175,7 +173,8 @@ function enterComposerMode(action: QuickAction): void {
   textarea.placeholder = NOTE_PLACEHOLDER;
   setComposerHasExternalContent(true);
   refreshQuickActionsBar();
-  focusQuickActionField(modeEl, 0);
+  // Cursor into the first question, or straight into the note when there are none
+  if (!focusQuickActionField(modeEl, 0)) textarea.focus();
   log.debug('Composer mode entered', { id: action.id });
 }
 
