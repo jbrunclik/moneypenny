@@ -11,6 +11,7 @@ import { useStore } from '../state/store';
 import { renderQuickActionsBar, setQuickActionsBarDisabled } from '../components/QuickActionsBar';
 import { isMobileViewport } from '../components/MessageInput';
 import { showQuickActionForm } from '../components/QuickActionForm';
+import { showQuickActionsEditor } from '../components/QuickActionsEditor';
 import { toast } from '../components/Toast';
 import { getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
@@ -119,9 +120,22 @@ export function getQuickActionsContext(): QuickActionsContext | null {
   return current;
 }
 
-/** Open the per-program editor (implemented in Task 8). */
+/** Open the per-program editor; saving persists via the context and re-renders the bar. */
 export function openQuickActionsEditor(draft?: Partial<QuickAction>): void {
-  log.debug('openQuickActionsEditor', { hasDraft: Boolean(draft) });
+  const ctx = current;
+  if (!ctx) return;
+  showQuickActionsEditor({
+    actions: ctx.actions,
+    initialDraft: draft,
+    onSave: async (actions) => {
+      const saved = await ctx.save(actions);
+      if (current && current.programId === ctx.programId) {
+        current.actions = saved;
+        renderCurrent();
+      }
+      toast.success('Quick actions saved.');
+    },
+  });
 }
 
 export function mountQuickActionsBar(ctx: QuickActionsContext): void {
