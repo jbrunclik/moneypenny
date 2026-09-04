@@ -443,7 +443,31 @@ test.describe('Search - Navigation with Pagination', () => {
     await expect(targetMessage).toBeVisible({ timeout: 10000 });
 
     // The message should be highlighted (briefly)
-    await expect(targetMessage).toHaveClass(/search-highlight/, { timeout: 2000 });
+    try {
+      await expect(targetMessage).toHaveClass(/search-highlight/, { timeout: 2000 });
+    } catch (error) {
+      // Diagnostic for the CI-only retry: which node carries the highlight (if
+      // any), and whether the target was re-rendered since navigation
+      const state = await page.evaluate(() => {
+        const target = Array.from(document.querySelectorAll('.message.user')).find((el) =>
+          el.textContent?.includes('FINDME target message here')
+        );
+        return {
+          targetClasses: target?.className,
+          highlighted: Array.from(document.querySelectorAll('.search-highlight')).map(
+            (el) => (el as HTMLElement).dataset.messageId
+          ),
+          messageCount: document.querySelectorAll('.message').length,
+          scrollTop: document.getElementById('messages')?.scrollTop,
+        };
+      });
+      console.log(`search-highlight diagnostic: ${JSON.stringify(state)}`);
+      await test.info().attach('highlight-state', {
+        body: JSON.stringify(state, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
   });
 
   test('enables bi-directional pagination after navigating to search result', async ({ page }) => {
