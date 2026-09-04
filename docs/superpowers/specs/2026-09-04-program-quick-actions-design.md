@@ -1,7 +1,7 @@
 # Program Quick Actions — Design
 
 - **Date:** 2026-09-04
-- **Status:** Approved (design); implementation pending
+- **Status:** Implemented 2026-09-04 (branch `feat/program-quick-actions`)
 - **Author:** Jiri Brunclik + Claude
 
 ## Context & motivation
@@ -141,14 +141,15 @@ to regenerate `generated-api.ts`.
 ### Components
 
 - **`components/QuickActionsBar.ts`** — renders the chip row from a program's
-  actions. Handles tap → either `sendQuickAction(action, {})` or opens the field
+  actions plus a trailing gear chip that opens the editor (the program header is
+  hidden on mobile, so this is the mobile entry point). Handles tap → either `sendQuickAction(action, {})` or opens the field
   form. Emits nothing else; pure presentation plus the two callbacks.
 - **`components/QuickActionForm.ts`** — the field form. Bottom sheet on mobile
   (reuse `ActionSheet.ts` styling/behavior), popover anchored to the chip on desktop.
   One auto-growing textarea per field, first field focused, `Send` primary,
   `Cancel` secondary, Escape closes. Cmd/Ctrl+Enter sends.
 - **`components/QuickActionsEditor.ts`** — modal listing the program's actions
-  (drag reorder, edit, delete, add). Editing shows emoji picker (reuse the sports
+  (reorder via up/down buttons — HTML5 drag does not work on iOS — edit, delete, add). Editing shows emoji picker (reuse the sports
   emoji grid), label, body textarea, and a field list (add/remove/reorder chips).
   Saves via PUT. Opened from a "Quick actions" gear button in the program header
   (added to `actions` in `renderSportsProgramHeader` / language equivalent).

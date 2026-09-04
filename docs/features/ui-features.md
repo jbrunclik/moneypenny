@@ -331,3 +331,43 @@ The app supports three color scheme options: Light, Dark, and System (default).
 - [Voice and TTS](voice-and-tts.md) - Voice input button
 - [Search](search.md) - Search input in sidebar
 - [Sync](sync.md) - Unread badges in conversation list
+
+## Program Quick Actions
+
+One-tap saved prompts in sports and language program conversations. A chip bar sits above
+the composer; tapping a chip with no fields sends its body immediately, a chip with fields
+opens a form (popover on desktop, bottom sheet on mobile) whose answers are appended as
+`Label: value` lines under the body (empty fields omitted). Actions are edited per program
+from the trailing gear chip in the bar (the only entry point on mobile, where the program
+header is hidden), the "Quick actions" button in the program header on desktop, or via
+"Save as quick action" on any of your own messages.
+
+### Storage
+
+Actions live inside each program object in the namespace's `programs` K/V list — never
+under `{program_id}:*`, which `program_context.py` injects into the prompt each turn.
+Programs without a `quick_actions` key resolve to the namespace defaults
+(`QUICK_ACTION_DEFAULTS` in `src/api/routes/program_quick_actions.py`). Corrupt entries are
+dropped on read with a warning. Limits: 12 actions, 6 fields, 40-char labels, 2000-char body.
+
+### Key Files
+
+- `src/api/routes/program_quick_actions.py` — defaults, sanitization, `PUT /api/{ns}/programs/<id>/quick-actions`
+- `web/src/core/quick-actions.ts` — composition, mount/visibility, send, editor glue
+- `web/src/components/QuickActionsBar.ts`, `QuickActionForm.ts`, `QuickActionsEditor.ts`
+- `web/src/styles/components/quick-actions.css`
+
+### Behavior notes
+
+- Mobile: the bar is visible only while the composer is empty and nothing is streaming.
+- The bar lives inside `.input-wrapper` above the pill; `composer-height.ts` measures from
+  its top when visible so the message list clears it.
+- Sends go through `sendMessage()`; the composed text is an ordinary user message, so
+  history, sync, stream resume and compaction need nothing special.
+- Reorder in the editor uses up/down buttons rather than drag (drag does not work on iOS).
+
+### Testing
+
+- `tests/unit/test_program_quick_actions.py`, `tests/integration/test_routes_program_quick_actions.py`
+- `web/tests/unit/quick-actions*.test.ts`, `web/tests/component/QuickAction*.test.ts`
+- `web/tests/e2e/quick-actions.spec.ts`, `web/tests/visual/quick-actions.visual.ts`
