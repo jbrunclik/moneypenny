@@ -195,7 +195,7 @@ jobs:
       # suspect. Empty is the goal.
       - name: Mock server slow-request log
         if: always()
-        run: grep -E 'SLOW ' e2e-server.log || echo "no slow requests"
+        run: grep -E 'SLOW |INFLIGHT ' e2e-server.log || echo "no slow requests"
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7

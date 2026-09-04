@@ -393,6 +393,11 @@ by guessing):
   four shards of two workers; the server also prints `INFLIGHT` lines for
   requests still running after 3s. (Running the browsers under `nice` was
   tried and reverted - chromium went from 0 to 6 retries.)
+- **Per-test context creation ran yoyo** - `Database()` on a template copy
+  re-read and hashed every migration file: 6ms locally, 5-6.5s on a CI
+  runner, under the context lock and holding the GIL - unrelated requests
+  stalled 12s+ (`SLOW ... init=5.00` in the phase log). The e2e-server now
+  patches `DatabaseBase._init_db` to a no-op once the templates exist.
 - **"Response never arrived" was a lost message, not a slow server** - the
   Playwright trace of a failing run showed the follow-up message posted to
   `/chat/interject`, not `/chat/batch`: the active-request flag stayed set
@@ -413,6 +418,14 @@ by guessing):
 - **Smooth scroll-to-bottom fought a user scroll-up** - `scrollToBottom`'s
   animator now stops when the position moves against it (up); it keeps
   going when scroll anchoring nudges it down as content above loads.
+- **Deferred pin re-checked position, not intent** - after a reply the
+  batch/streaming paths pin or jump inside a `requestAnimationFrame`, guarded
+  by "did scrollTop move since?". On WebKit a five-message chat is not
+  scrollable until the sixth, so the user's scroll "to the top" moved a few
+  px and the late frame yanked them back (conversation.spec:797 again, only
+  on loaded runners). `watchForUserScroll` now records a genuine scroll-up
+  (moved up AND not at the bottom) between the insert and the frame;
+  finalization clamps and scroll anchoring don't count.
 
 ### Planner Tests
 

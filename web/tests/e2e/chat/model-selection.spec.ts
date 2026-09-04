@@ -58,10 +58,11 @@ test.describe('Chat - Model Selection', () => {
     await modelSelectorBtn.click();
     await expect(modelDropdown).not.toHaveClass(/hidden/);
 
-    // Get all model options
+    // Get all model options - the list is populated from /api/models, so wait
+    // for it rather than counting whatever has rendered so far
     const modelOptions = modelDropdown.locator('.model-option');
+    await expect.poll(() => modelOptions.count()).toBeGreaterThan(1);
     const optionCount = await modelOptions.count();
-    expect(optionCount).toBeGreaterThan(1); // Ensure we have multiple models to choose from
 
     // Find a model that is NOT currently selected (no .selected class)
     let differentModelOption = null;

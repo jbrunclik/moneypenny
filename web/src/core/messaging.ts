@@ -46,7 +46,14 @@ import {
 import { clearPendingFiles, getPendingFiles } from '../components/FileUpload';
 import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
-import { enableScrollOnImageLoad, getThumbnailObserver, observeThumbnail, programmaticScrollToBottom, programmaticScrollToElementTop } from '../utils/thumbnails';
+import {
+  enableScrollOnImageLoad,
+  getThumbnailObserver,
+  isProgrammaticScrollActive,
+  observeThumbnail,
+  programmaticScrollToBottom,
+  programmaticScrollToElementTop,
+} from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
 import type { ClientLocation, FileUpload, Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
@@ -964,6 +971,36 @@ function cleanupStreamingRequest(
 /**
  * Handle scroll-to-bottom for lazy-loaded images after message completion.
  */
+/**
+ * Watch for a USER scroll between now and a deferred (rAF) scroll of ours.
+ * Position deltas can't see the case that bit us: the user scrolls "to the
+ * top" of a list that only just became scrollable, landing within a few px
+ * of where it already was, and the deferred pin then yanked them back down.
+ * A scroll event fires regardless of how far the position moved.
+ */
+function watchForUserScroll(container: HTMLElement): () => boolean {
+  let scrolled = false;
+  let last = container.scrollTop;
+  const onScroll = (): void => {
+    const cur = container.scrollTop;
+    const distanceFromBottom = container.scrollHeight - cur - container.clientHeight;
+    // A user scroll-up moves UP and leaves a gap to the bottom. Two things
+    // also fire scroll events here and must NOT count: the browser clamping
+    // scrollTop when the finalized message is shorter than the streaming
+    // placeholder (moves up, but lands exactly at the new bottom), and
+    // scroll anchoring when content above grows (moves down).
+    if (!isProgrammaticScrollActive() && cur < last - 1 && distanceFromBottom > 1) {
+      scrolled = true;
+    }
+    last = cur;
+  };
+  container.addEventListener('scroll', onScroll, { passive: true });
+  return () => {
+    container.removeEventListener('scroll', onScroll);
+    return scrolled;
+  };
+}
+
 function handleImageScrollAfterMessage(
   messageEl: HTMLElement,
   files: Array<{ type: string; previewUrl?: string }> | undefined
@@ -1600,6 +1637,7 @@ async function handleStreamDone(
   if (wasFollowing && messagesContainer) {
     // Record scroll position to detect if user scrolls away before RAF fires
     const scrollTopWhenDone = messagesContainer.scrollTop;
+    const userScrolledSinceDone = watchForUserScroll(messagesContainer);
 
     // User was following the stream - scroll to top of the assistant's response
     // Use double RAF to ensure layout is fully settled after finalization
@@ -1609,7 +1647,7 @@ async function handleStreamDone(
         const currentScrollTop = messagesContainer.scrollTop;
         const scrolledUp = currentScrollTop < scrollTopWhenDone - 100;
         const nearTop = currentScrollTop < 50;
-        if (scrolledUp || nearTop) {
+        if (userScrolledSinceDone() || scrolledUp || nearTop) {
           log.info('Scroll aborted - user scrolled away');
           checkScrollButtonVisibility();
           return;
@@ -1943,13 +1981,14 @@ async function sendBatchMessage(
         // Capture scroll position right after adding the message to detect user scrolling
         // between now and when the RAF fires (race condition on slower engines like WebKit)
         const scrollTopAfterAdd = messagesContainer.scrollTop;
+        const userScrolledSinceAdd = watchForUserScroll(messagesContainer);
 
         // Scroll to top of the assistant's response (batch mode shows complete message)
         // Use RAF to ensure layout is settled after adding message
         requestAnimationFrame(() => {
           // Re-check: if user scrolled away between adding message and this frame,
           // respect their intent rather than hijacking their scroll position
-          if (Math.abs(messagesContainer.scrollTop - scrollTopAfterAdd) > 20) {
+          if (userScrolledSinceAdd() || Math.abs(messagesContainer.scrollTop - scrollTopAfterAdd) > 20) {
             checkScrollButtonVisibility();
             return;
           }

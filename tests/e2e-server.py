@@ -583,6 +583,15 @@ def main() -> None:
         print(f"Template DB: {TEMPLATE_DB_PATH}")
         print(f"Template Blob: {TEMPLATE_BLOB_PATH}")
 
+        # Every per-test context is a byte copy of the template, so it never
+        # needs a migration check. Yoyo's read_migrations + to_apply on each
+        # Database() took 5-6s per context on a 2-vCPU CI runner (6ms on a
+        # dev Mac) - CPU-bound Python holding the GIL, so every other in-flight
+        # request stalled with it (SLOW phases: init=5.00, lock_wait=2.67).
+        from src.db.models.base import DatabaseBase
+
+        stack.enter_context(patch.object(DatabaseBase, "_init_db", lambda self: None))
+
         # Create proxies for test isolation
         proxy_db = ProxyDatabase()
         proxy_blob_store = ProxyBlobStore()
