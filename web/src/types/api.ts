@@ -806,12 +806,23 @@ export interface KVValueResponse {
 // Sports types
 // =============================================================================
 
+/** A one-tap saved prompt for a program conversation (sports, language). */
+export interface QuickAction {
+  id: string;
+  emoji: string;
+  label: string;
+  body: string;
+  /** Ordered field labels asked for before sending; answers append as `Label: value`. */
+  fields: string[];
+}
+
 export interface SportsProgram {
   id: string;
   name: string;
   emoji: string;
   created_at: string;
   has_conversation: boolean;
+  quick_actions: QuickAction[];
 }
 
 export interface SportsProgramsResponse {
@@ -843,6 +854,7 @@ export interface LanguageProgram {
   emoji: string;
   created_at: string;
   has_conversation: boolean;
+  quick_actions: QuickAction[];
 }
 
 export interface LanguageProgramsResponse {

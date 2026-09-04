@@ -38,6 +38,7 @@ import {
   type SportsConversation,
   type SportsProgram,
   type SportsProgramsResponse,
+  type QuickAction,
   type SportsResetResponse,
   type LanguageConversation,
   type LanguageProgram,
@@ -1159,6 +1160,14 @@ export const sports = {
       method: 'POST',
     });
   },
+
+  async updateQuickActions(programId: string, actions: QuickAction[]): Promise<SportsProgram> {
+    const response = await request<SportsProgramsResponse>(
+      `/api/sports/programs/${encodeURIComponent(programId)}/quick-actions`,
+      { method: 'PUT', body: JSON.stringify({ quick_actions: actions }) }
+    );
+    return response.programs[0];
+  },
 };
 
 // Language Learning endpoints
@@ -1190,6 +1199,14 @@ export const language = {
     return request<LanguageResetResponse>(`/api/language/${encodeURIComponent(program)}/reset`, {
       method: 'POST',
     });
+  },
+
+  async updateQuickActions(programId: string, actions: QuickAction[]): Promise<LanguageProgram> {
+    const response = await request<LanguageProgramsResponse>(
+      `/api/language/programs/${encodeURIComponent(programId)}/quick-actions`,
+      { method: 'PUT', body: JSON.stringify({ quick_actions: actions }) }
+    );
+    return response.programs[0];
   },
 };
 
