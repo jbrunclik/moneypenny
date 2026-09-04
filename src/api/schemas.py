@@ -1523,6 +1523,40 @@ class KVSetRequest(BaseModel):
 
 
 # ============================================================================
+# Program Quick Actions (shared by sports + language)
+# ============================================================================
+
+QUICK_ACTIONS_MAX_PER_PROGRAM = 12
+QUICK_ACTION_MAX_FIELDS = 6
+
+
+class QuickActionItem(BaseModel):
+    """A one-tap saved prompt for a program conversation."""
+
+    id: str = Field(..., min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_-]+$")
+    emoji: str = Field(..., min_length=1, max_length=10)
+    label: str = Field(..., min_length=1, max_length=40)
+    body: str = Field(..., min_length=1, max_length=2000)
+    fields: list[str] = Field(default_factory=list, max_length=QUICK_ACTION_MAX_FIELDS)
+
+    @field_validator("fields")
+    @classmethod
+    def _fields_non_empty_and_short(cls, value: list[str]) -> list[str]:
+        cleaned = [f.strip() for f in value]
+        if any(not f or len(f) > 40 for f in cleaned):
+            raise ValueError("each field label must be 1-40 characters")
+        return cleaned
+
+
+class UpdateQuickActionsRequest(BaseModel):
+    """Replace a program's full ordered quick-action list."""
+
+    quick_actions: list[QuickActionItem] = Field(
+        default_factory=list, max_length=QUICK_ACTIONS_MAX_PER_PROGRAM
+    )
+
+
+# ============================================================================
 # Sports Tracking Schemas
 # ============================================================================
 
@@ -1535,6 +1569,7 @@ class SportsProgramItem(BaseModel):
     emoji: str
     created_at: str
     has_conversation: bool = False
+    quick_actions: list[QuickActionItem] = Field(default_factory=list)
 
 
 class SportsProgramsResponse(BaseModel):
@@ -1582,6 +1617,7 @@ class LanguageProgramItem(BaseModel):
     emoji: str
     created_at: str
     has_conversation: bool = False
+    quick_actions: list[QuickActionItem] = Field(default_factory=list)
 
 
 class LanguageProgramsResponse(BaseModel):
