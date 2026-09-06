@@ -6,8 +6,14 @@ isolated temp database, deterministic checks run first (required/forbidden
 tools, round caps), then an LLM judge scores the response against the rubric.
 
 Informational, not a CI gate: run `make eval` before/after changing prompts,
-tool descriptions, or the graph, and compare pass rates. Hits the live Gemini
-API (a few cents per run).
+tool descriptions, or the graph, and compare pass rates AND cost.
+
+Hits the live Gemini API, so every run costs real money. Spend is measured
+per case (agent tokens + any in-tool image/delegate spend, plus the LLM
+judge, which is billed on a Pro model and is a substantial share), printed
+in the summary, and persisted under "cost" in the results JSON so runs stay
+comparable - a prompt change that holds the pass rate while doubling spend
+is a regression that pass counts alone will not show.
 
 Usage:
     make eval
@@ -130,6 +136,45 @@ def parse_judge_response(text: str) -> tuple[int, bool, str]:
         return 0, False, f"judge reply unparseable: {text[:120]}"
 
 
+def _judge_tokens(reply: Any) -> tuple[int, int]:
+    """(input, output) tokens for a judge call, 0 when the API omitted usage."""
+    usage = getattr(reply, "usage_metadata", None)
+    if not isinstance(usage, dict):
+        return 0, 0
+    return int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0))
+
+
+def _turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, Any]]) -> float:
+    """Cost of one agent turn, priced exactly as production prices a message.
+
+    Deliberately reuses the same helpers as src/api/utils.record_message_cost
+    rather than re-deriving the arithmetic, so an eval run's reported spend is
+    directly comparable to real conversation costs (and any pricing change
+    lands in both places at once). Covers the three components a turn can
+    incur: its own tokens, images generated inside tools, and delegate_task
+    subagent runs (which are billed at the subagent's own model).
+    """
+    from src.api.utils import (
+        calculate_delegate_cost_from_tool_results,
+        calculate_image_generation_cost_from_tool_results,
+    )
+    from src.utils.costs import calculate_total_cost
+
+    return calculate_total_cost(
+        model,
+        input_tokens=int(usage.get("input_tokens", 0)),
+        output_tokens=int(usage.get("output_tokens", 0)),
+        cached_input_tokens=int(usage.get("cached_input_tokens", 0)),
+        image_generation_cost=calculate_image_generation_cost_from_tool_results(tool_results),
+        tool_llm_cost=calculate_delegate_cost_from_tool_results(tool_results),
+    )
+
+
+def _usd(amount: float) -> str:
+    """Format a USD amount, keeping sub-cent figures legible."""
+    return f"${amount:.4f}" if amount < 0.01 else f"${amount:.2f}"
+
+
 def deterministic_failures(case: EvalCase, tools_used: set[str], tool_rounds: int) -> list[str]:
     """Rule-based checks that need no LLM. required_tools is any-of."""
     failures: list[str] = []
@@ -217,7 +262,9 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
             sports_context=sports_context,
         )
         turn_started = time.monotonic()
-        response, _tools, usage, result_messages = agent.chat_batch(
+        # tool_results is needed for pricing: image generations and
+        # delegate_task subagent tokens are only visible in there.
+        response, tool_results, usage, result_messages = agent.chat_batch(
             text=case.user,
             files=files_payload or None,
             history=case.history or None,
@@ -268,6 +315,15 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     )
     score, judge_pass, reasoning = parse_judge_response(extract_text_content(judge_reply.content))
 
+    # The judge is a real billed API call - roughly a third of a run's spend,
+    # since it re-sends the rubric plus the full response on a Pro model. It
+    # went unmeasured before, so "a few cents per run" was a guess.
+    from src.utils.costs import calculate_token_cost
+
+    judge_input, judge_output = _judge_tokens(judge_reply)
+    judge_cost = calculate_token_cost(Config.EVAL_JUDGE_MODEL, judge_input, judge_output)
+    agent_cost = _turn_cost(Config.DEFAULT_MODEL, usage, tool_results)
+
     passed = judge_pass and not failures
     return {
         "id": case.id,
@@ -278,6 +334,12 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "tools_used": sorted(tools_used),
         "input_tokens": usage.get("input_tokens", 0),
         "output_tokens": usage.get("output_tokens", 0),
+        "cached_input_tokens": usage.get("cached_input_tokens", 0),
+        "judge_input_tokens": judge_input,
+        "judge_output_tokens": judge_output,
+        "agent_cost_usd": round(agent_cost, 6),
+        "judge_cost_usd": round(judge_cost, 6),
+        "cost_usd": round(agent_cost + judge_cost, 6),
         "deterministic_failures": failures,
         "judge_reasoning": reasoning,
         "response_preview": response[:200],
@@ -301,6 +363,9 @@ def main() -> int:
 
     # First src import in this process - the module-level db singleton (which
     # every agent tool uses) initializes against the temp DATABASE_PATH.
+    # Imported here, not at module scope: Config reads env at import time and
+    # must not be loaded before the DATABASE_PATH override above.
+    from src.config import Config
     from src.db.models import db
 
     user = db.get_or_create_user("eval@example.com", "Eval User")
@@ -325,22 +390,68 @@ def main() -> int:
             result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
         results.append(result)
         status = "PASS" if result.get("pass") else "FAIL"
+        cost = result.get("cost_usd")
+        cost_str = f" cost={_usd(cost)}" if cost is not None else ""
         print(
-            f"{status}  {case.id} score={result.get('score')} rounds={result.get('tool_rounds')} t={result.get('duration_s')}s"
+            f"{status}  {case.id} score={result.get('score')} "
+            f"rounds={result.get('tool_rounds')} t={result.get('duration_s')}s{cost_str}"
         )
 
     ran = [r for r in results if not r.get("skipped")]
     passed = sum(1 for r in ran if r.get("pass"))
+
+    def _sum(key: str) -> float:
+        return sum(float(r.get(key) or 0) for r in ran)
+
+    cost = {
+        "agent_usd": round(_sum("agent_cost_usd"), 6),
+        "judge_usd": round(_sum("judge_cost_usd"), 6),
+        "total_usd": round(_sum("cost_usd"), 6),
+        "agent_input_tokens": int(_sum("input_tokens")),
+        "agent_output_tokens": int(_sum("output_tokens")),
+        "agent_cached_input_tokens": int(_sum("cached_input_tokens")),
+        "judge_input_tokens": int(_sum("judge_input_tokens")),
+        "judge_output_tokens": int(_sum("judge_output_tokens")),
+        "cases_priced": len(ran),
+        "agent_model": Config.DEFAULT_MODEL,
+        "judge_model": Config.EVAL_JUDGE_MODEL,
+    }
 
     results_dir = Path(__file__).parent / "results"
     results_dir.mkdir(exist_ok=True)
     from datetime import datetime
 
     out_path = results_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
-    out_path.write_text(json.dumps({"results": results}, indent=2))
+    # `cost` is persisted so runs stay comparable: a prompt change that keeps
+    # the pass rate but doubles spend is a regression you would not otherwise see.
+    out_path.write_text(json.dumps({"cost": cost, "results": results}, indent=2))
 
     print(f"\n{passed}/{len(ran)} passed ({len(results) - len(ran)} skipped)")
-    print(f"Results: {out_path}")
+
+    print(f"\nCost: {_usd(cost['total_usd'])} total for {len(ran)} cases")
+    print(
+        f"  agent ({cost['agent_model']}): {_usd(cost['agent_usd'])}  "
+        f"{cost['agent_input_tokens']:,} in / {cost['agent_output_tokens']:,} out"
+        + (
+            f" ({cost['agent_cached_input_tokens']:,} cached)"
+            if cost["agent_cached_input_tokens"]
+            else ""
+        )
+    )
+    print(
+        f"  judge ({cost['judge_model']}): {_usd(cost['judge_usd'])}  "
+        f"{cost['judge_input_tokens']:,} in / {cost['judge_output_tokens']:,} out"
+    )
+    if ran:
+        priciest = max(ran, key=lambda r: float(r.get("cost_usd") or 0))
+        print(
+            f"  mean {_usd(cost['total_usd'] / len(ran))}/case, "
+            f"priciest {priciest['id']} at {_usd(float(priciest.get('cost_usd') or 0))}"
+        )
+    if any(r.get("cost_usd") is None for r in ran):
+        print("  NOTE: some cases errored before pricing; total is a lower bound.")
+
+    print(f"\nResults: {out_path}")
     for r in ran:
         if not r.get("pass"):
             reason = "; ".join(r.get("deterministic_failures", [])) or r.get(
