@@ -48,7 +48,7 @@
     "@types/uuid": "^11.0.0",
     "dompurify": "^3.4.12",
     "highlight.js": "^11.9.0",
-    "katex": "^0.18.1",
+    "katex": "^0.18.5",
     "marked": "^18.0.7",
     "mediabunny": "^1.55.2",
     "pdfjs-dist": "^6.2.108",
