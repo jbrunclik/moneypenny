@@ -46,7 +46,27 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Performance / Cost
 
-(Cost tooling: `scripts/analyze_costs.py`. Context caching, token-based compaction, batched `web_search`, and a per-turn tool-round cap all shipped Jun 2026.)
+(Cost tooling: `scripts/analyze_costs.py`. Context caching, token-based compaction, batched `web_search`, and a per-turn tool-round cap all shipped Jun 2026 — but see the verification item below: the batch parameter went essentially unused for three months.)
+
+- [ ] **Verify the tool-round work actually moved the numbers** (added Sep 6 2026, re-check after ~2 weeks of traffic, i.e. from ~Sep 20 2026). The Sep 2026 efficiency changes (commit 6d608bc) are a *behavioral bet on a live model* — result-attached nudges, composite `get_readiness_snapshot` / `kv_store merge` actions. Only the baseline is measured; nothing yet confirms the model changed how it calls tools. Precedent for taking this seriously: `web_search(queries=[...])` shipped Jun 2026 and was used **once in 864 rounds** — a capability can ship and simply never get picked up.
+
+  **Baseline (14 days to Sep 6 2026):**
+
+  | Metric | Before |
+  |---|---|
+  | Rounds with exactly 1 tool call | 1,752 / 1,835 (95.5%) |
+  | `web_search` solo in its round | 858 / 864 (99%) |
+  | Turns with 2+ separate `web_search` rounds | 207 / 521 |
+  | `web_search` → `fetch_url` chains | 65 |
+  | Consecutive `kv_store` rounds (get-then-set) | 57 |
+  | Round cap hit | 83 |
+  | Turn wall-clock | p50 10s, p90 91s, max 610s |
+
+  **How to re-run:** on the production host, `journalctl --user -u moneypenny --since "14 days ago" -o cat` piped into a parser (copy the script to the server's `/tmp` and run it there — it's ~150k lines, don't pull them down). Parse `LLM requested tool calls` (carries `tool_calls` + `count` per round) and group rounds into turns on a ≤90s gap. The new `Tool round completed` line adds per-round `elapsed_ms`, tool outcomes and result sizes, which the baseline run did not have — so tool latency can be attributed directly this time instead of inferred from gaps between LLM calls.
+
+  **What to do with the answer:** if the single-call-per-round share has not moved meaningfully, the result-attached nudge failed too, and the next lever is structural rather than advisory — e.g. rejecting a 2nd single-query `web_search` in a turn outright and returning an error that names the batched call to make instead. If it did move, record the new numbers in `docs/features/agents.md` → "Tool Round Economics" and consider lowering `AGENT_MAX_TOOL_ROUNDS` from 6.
+
+  Also still unrun: `make eval` against these prompt/tool-surface changes (live API, costs money).
 
 - [ ] **Model routing / tiering by turn difficulty** - PARKED Aug 2026 after a data-driven suitability check (see [docs/superpowers/specs/2026-08-20-model-routing-design.md](docs/superpowers/specs/2026-08-20-model-routing-design.md)): `gemini-3.5-flash-lite` matched Flash on the 30-case eval suite (26/30 vs 27/30, same failures) but ran ~20-30% SLOWER with worse tail latency, failing the "faster, not slower" requirement. Re-check when a current-generation lite tier ships: quality gate + timed comparison are both one command (`DEFAULT_MODEL=<candidate> make eval`). Original sizing: 60% of turns use zero tools; savings would be ~15% now / ~25-30% after the Jan 2027 Flash price doubling. Everything currently runs on `gemini-3.8-flash` (rates in `Config.MODEL_PRICING`); a large share of turns are short and trivial (greetings, quick lookups, one-line follow-ups) yet pay frontier-flash rates. Route by predicted difficulty: cheap/small model for simple turns, the strong model reserved for genuinely hard requests (multi-step reasoning, tool orchestration, code). Two viable shapes: (a) a lightweight up-front classifier (a fast Flash call emitting a model tier — the removed `should_plan` classifier in git history shows the pattern); or (b) escalation — start on the cheap model and bump to the strong one when the turn needs tools / the classifier flags complexity / a retry is needed. Caveats to design around: the context cache is keyed per `(profile, model)` (`context_cache.py`), so mixing models fragments cache hits — weigh cheaper tokens vs lost cache; and the cheap model must hold tool-calling quality (validate against the agent graph, not just chat). Add a `MODELS`/pricing tier table in `config.py` and measure the blended cost/msg via `scripts/analyze_costs.py` (already groups BY MODEL) before/after.
 
