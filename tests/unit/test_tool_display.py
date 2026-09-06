@@ -14,20 +14,29 @@ from src.agent.tool_display import (
     TOOL_METADATA,
     extract_tool_detail,
 )
-from src.agent.tools import get_available_tools
+from src.agent.tools import get_all_tool_names, get_available_tools
 
 
 class TestMetadataCoverage:
     def test_every_bindable_tool_has_display_metadata(self) -> None:
+        """Config-dependent by design: only tools this env can bind must be labelled."""
         bindable = {tool.name for tool in get_available_tools()} | set(_CONDITIONAL_TOOLS)
         missing = sorted(bindable - set(TOOL_METADATA))
         assert not missing, f"tools would render as raw function names: {missing}"
 
     def test_no_metadata_for_tools_that_do_not_exist(self) -> None:
-        bindable = {tool.name for tool in get_available_tools()} | set(_CONDITIONAL_TOOLS)
-        # google_calendar is registered only when credentials are configured.
-        unknown = sorted(set(TOOL_METADATA) - bindable - {"google_calendar"})
-        assert not unknown
+        """Must NOT use get_available_tools(): integration tools disappear from it
+        when credentials are absent, so comparing against it passes on a
+        configured laptop and fails in CI (which is exactly what happened)."""
+        unknown = sorted(set(TOOL_METADATA) - get_all_tool_names())
+        assert not unknown, f"metadata for tools that do not exist: {unknown}"
+
+    def test_metadata_covers_every_tool_that_exists(self) -> None:
+        """Stronger than the bindable check and config-independent: no tool
+        anywhere in the registry may be missing a label, even one this
+        environment cannot currently bind."""
+        missing = sorted(get_all_tool_names() - set(TOOL_METADATA))
+        assert not missing, f"tools with no TOOL_METADATA entry: {missing}"
 
     def test_entries_are_complete(self) -> None:
         for name, meta in TOOL_METADATA.items():

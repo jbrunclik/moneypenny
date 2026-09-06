@@ -328,6 +328,28 @@ _TOOL_MAP: dict[str, Any] = {
 }
 
 
+# Tools that are real but never appear in _TOOL_MAP: they are bound by a
+# specific caller rather than selected by agent permissions.
+_NON_PERMISSIONED_TOOLS = frozenset(
+    {
+        "set_conversation_title",  # metadata tool, always bound
+        "refresh_planner_dashboard",  # planner mode only
+        "request_approval",  # autonomous agents only
+    }
+)
+
+
+def get_all_tool_names() -> set[str]:
+    """Every tool name that exists, regardless of local configuration.
+
+    Distinct from get_available_tools(), which is environment-dependent -
+    integration tools only register when their package/credentials are present.
+    Use this (never get_available_tools) to decide whether a tool name is
+    legitimate, or the answer changes between a dev laptop and CI.
+    """
+    return set(_TOOL_MAP) | set(_NON_PERMISSIONED_TOOLS)
+
+
 def get_tools_for_agent(agent: Agent) -> list[Any]:
     """Get tools for an autonomous agent based on its permissions.
 

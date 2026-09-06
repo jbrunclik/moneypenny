@@ -6,7 +6,6 @@ for extracting human-readable details from tool calls.
 
 from typing import Any
 
-from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -96,6 +95,15 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Read a past conversation",
         "icon": "history",
     },
+    # Registered unconditionally, like every other entry: these are static
+    # display strings, so gating them on whether credentials happen to be
+    # configured only creates a machine where the tool renders as a raw
+    # function name.
+    "google_calendar": {
+        "label": "Organizing calendar",
+        "label_past": "Organized calendar",
+        "icon": "calendar",
+    },
     # Health & training. garmin_connect is one of the most-used tools in the
     # app; without an entry here it rendered as a bare "Used garmin_connect".
     "garmin_connect": {
@@ -177,18 +185,6 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
     },
 }
 
-# Check if Google Calendar is configured
-_GOOGLE_CALENDAR_CONFIGURED = bool(
-    Config.GOOGLE_CALENDAR_CLIENT_ID and Config.GOOGLE_CALENDAR_CLIENT_SECRET
-)
-
-if _GOOGLE_CALENDAR_CONFIGURED:
-    TOOL_METADATA["google_calendar"] = {
-        "label": "Organizing calendar",
-        "label_past": "Organized calendar",
-        "icon": "calendar",
-    }
-
 # Place/routing tools share one detail formatter.
 _PLACE_TOOLS = frozenset(
     {"search_places", "save_place", "list_places", "delete_place", "get_route"}
@@ -217,19 +213,25 @@ def validate_tool_names() -> None:
     pill, which is how garmin_connect, kv_store and cite_sources - three of the
     five most-called tools - ended up unlabelled for months.
     """
-    from src.agent.tools import get_available_tools
+    from src.agent.tools import get_all_tool_names, get_available_tools
 
-    actual_tool_names = {tool.name for tool in get_available_tools()}
-    valid_tool_names = actual_tool_names | _CONDITIONAL_TOOLS
-
-    unknown = set(TOOL_METADATA) - valid_tool_names
+    # Two different sets, deliberately. Whether a metadata entry is LEGITIMATE
+    # is config-independent (get_all_tool_names), because integration tools
+    # vanish from get_available_tools() when their credentials are absent -
+    # checking against that would flag garmin_connect/todoist/places as
+    # "unknown" on any machine without those keys, CI included.
+    unknown = set(TOOL_METADATA) - get_all_tool_names()
     if unknown:
         logger.warning(
             f"TOOL_METADATA contains unknown tool names: {sorted(unknown)}. "
-            f"Valid tools: {sorted(valid_tool_names)}"
+            f"Known tools: {sorted(get_all_tool_names())}"
         )
 
-    unlabelled = valid_tool_names - set(TOOL_METADATA)
+    # Whether an entry is MISSING is config-dependent: only warn about tools
+    # this environment can actually bind, so an unconfigured integration is
+    # silent rather than noisy.
+    bindable = {tool.name for tool in get_available_tools()} | _CONDITIONAL_TOOLS
+    unlabelled = bindable - set(TOOL_METADATA)
     if unlabelled:
         logger.warning(
             "Tools missing TOOL_METADATA (they will render as raw function names "
