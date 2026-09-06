@@ -42,4 +42,10 @@ jobs:
             exit 0
           fi
           echo "Tests passed for PR #$pr ($HEAD_BRANCH); squash-merging."
-          gh pr merge --squash "$pr"
+          # --repo is REQUIRED: this job deliberately does no actions/checkout,
+          # so without it gh falls back to inferring the repo from the local
+          # git remote and dies with "fatal: not a git repository". The
+          # gh pr list above always had --repo; the merge did not, so every
+          # auto-merge since this workflow was rewritten (Aug 1 2026) failed
+          # after reporting "squash-merging", leaving PRs open indefinitely.
+          gh pr merge --squash --repo "$REPO" "$pr"
