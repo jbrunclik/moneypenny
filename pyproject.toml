@@ -77,6 +77,16 @@ module = [
 ]
 ignore_missing_imports = true
 
+# pillow-heif 1.7.0 (Sep 2026) ships py.typed but defines no __all__, so under
+# strict mode's no_implicit_reexport mypy rejects `pillow_heif.register_heif_opener`
+# even though it exists and is callable at runtime. requirements.txt tracks
+# pillow-heif>=1.0.0, so CI resolves new releases the moment they land - this
+# broke lint on main with no code change. Scoped to the re-export rule (not a
+# blanket ignore) so genuine API breakage in this package still surfaces.
+[[tool.mypy.overrides]]
+module = ["pillow_heif", "pillow_heif.*"]
+implicit_reexport = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
