@@ -2,6 +2,7 @@
 
 import base64
 import json
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import urljoin
 
@@ -11,6 +12,7 @@ import trafilatura
 from bs4 import BeautifulSoup
 from langchain_core.tools import tool
 
+from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
 from src.agent.tools.url_safety import check_host, validate_public_url
 from src.config import Config
 from src.utils.logging import get_logger
@@ -261,6 +263,7 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
         For errors: JSON with error field
     """
     logger.info("fetch_url called", extra={"url": url})
+    record_tool_call("fetch_url")
     response, fetch_error = _fetch_response(url)
     if fetch_error or response is None:
         return json.dumps({"error": fetch_error or f"Failed to fetch {url}"})
@@ -295,6 +298,9 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
                 "It may require JavaScript rendering. "
                 "Use the browser tool for JS-heavy pages.]"
             )
+        chain_nudge = _chained_fetch_nudge()
+        if chain_nudge:
+            wrapped += f"\n\n[{chain_nudge}]"
         return wrapped
 
     # Handle plain text content
@@ -374,6 +380,48 @@ _SEARCH_WARNING = (
 )
 
 
+def _batching_nudge(search_round: int) -> str | None:
+    """Escalating "stop drip-feeding searches" note for repeat searches in a turn.
+
+    Returned in the tool result rather than the system prompt on purpose: the
+    Sep 2026 audit showed the model reliably ignores standing prompt guidance
+    about batching (99% of its searches were single-query, one per round) but
+    acts on directives that arrive attached to a result it just read.
+    """
+    if search_round < 2:
+        return None
+    if search_round == 2:
+        return (
+            "EFFICIENCY: this is your 2nd separate web_search this turn. Each extra "
+            "round re-sends the entire conversation to you, which is slow and "
+            f"expensive. If you need more angles, pass them ALL in one "
+            f"web_search(queries=[...]) call (up to {Config.WEB_SEARCH_MAX_BATCH_QUERIES}). "
+            "If you need to READ pages rather than skim snippets, call research "
+            "instead - it searches and reads in a single round."
+        )
+    return (
+        f"EFFICIENCY: you have now run {search_round} separate web_search rounds this "
+        "turn. Do NOT issue another single-query web_search. Either put every "
+        "remaining query into ONE web_search(queries=[...]) call, or call research "
+        "to search and read in one round, or answer with what you already have."
+    )
+
+
+def _chained_fetch_nudge() -> str | None:
+    """Note for fetch_url used to open a search result (the research anti-pattern).
+
+    Fires only when a web_search already ran this turn - fetching a URL the
+    user supplied is exactly what fetch_url is for and deserves no nudge.
+    """
+    if get_tool_call_count("web_search") < 1:
+        return None
+    return (
+        "EFFICIENCY: you are chaining web_search -> fetch_url, which costs one full "
+        "round per page. The research tool does the search AND reads the top pages "
+        "in a single round - prefer it for find-and-read tasks."
+    )
+
+
 def _search_one(query: str, num_results: int) -> dict[str, Any]:
     """Run a single web search via the configured provider, as a result dict."""
     logger.info(
@@ -393,6 +441,14 @@ def _search_one(query: str, num_results: int) -> dict[str, Any]:
 
     logger.info("Search completed", extra={"query": query, "result_count": len(search_results)})
     return {"query": query, "results": search_results}
+
+
+def _search_many(all_queries: list[str], num_results: int) -> list[dict[str, Any]]:
+    """Run a batch of searches concurrently, preserving the requested order."""
+    if len(all_queries) == 1:
+        return [_search_one(all_queries[0], num_results)]
+    with ThreadPoolExecutor(max_workers=len(all_queries)) as pool:
+        return list(pool.map(lambda q: _search_one(q, num_results), all_queries))
 
 
 @tool
@@ -437,13 +493,27 @@ def web_search(
     dropped = len(all_queries) - Config.WEB_SEARCH_MAX_BATCH_QUERIES
     all_queries = all_queries[: Config.WEB_SEARCH_MAX_BATCH_QUERIES]
 
-    if len(all_queries) == 1:
-        return json.dumps({**_search_one(all_queries[0], num_results), "_warning": _SEARCH_WARNING})
+    # Counted per CALL, not per query: batching is exactly the behaviour we
+    # want, so a five-query call is one search round, not five.
+    nudge = _batching_nudge(record_tool_call("web_search"))
 
+    if len(all_queries) == 1:
+        single: dict[str, Any] = {
+            **_search_one(all_queries[0], num_results),
+            "_warning": _SEARCH_WARNING,
+        }
+        if nudge:
+            single["_efficiency"] = nudge
+        return json.dumps(single)
+
+    # Batched queries run concurrently - a batch that fanned out serially would
+    # just trade LLM round-trips for provider round-trips.
     response: dict[str, Any] = {
-        "searches": [_search_one(q, num_results) for q in all_queries],
+        "searches": _search_many(all_queries, num_results),
         "_warning": _SEARCH_WARNING,
     }
+    if nudge:
+        response["_efficiency"] = nudge
     if dropped > 0:
         response["note"] = (
             f"{dropped} queries were dropped (max {Config.WEB_SEARCH_MAX_BATCH_QUERIES} "

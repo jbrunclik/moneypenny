@@ -5,6 +5,8 @@ across conversations and executions using a namespaced K/V store.
 Values must be valid JSON strings.
 """
 
+from typing import Any
+
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
@@ -17,6 +19,24 @@ logger = get_logger(__name__)
 _MAX_KEY_LENGTH = 256
 _MAX_VALUE_SIZE = 65536  # 64KB
 _MAX_KEYS_PER_NAMESPACE = 1000
+
+
+def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge `patch` into `base`, returning a new dict.
+
+    Nested objects merge rather than replace, so updating one field of
+    `progress.bench` does not drop `progress.squat`. An explicit null removes
+    the key, which is the only way to delete a field without a full rewrite.
+    """
+    out = dict(base)
+    for k, v in patch.items():
+        if v is None:
+            out.pop(k, None)
+        elif isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
 
 
 @tool
@@ -34,13 +54,18 @@ def kv_store(
     Actions:
     - get: Retrieve a value by key
     - set: Store a key-value pair (creates or overwrites). Value must be valid JSON.
+    - merge: Deep-merge a JSON object into the existing value (creates it if absent).
+      PREFER THIS over get-then-set when updating part of a stored object: it is
+      one round instead of two, and it cannot clobber fields you did not read.
+      Only the keys you pass are changed; nested objects merge recursively and a
+      null value deletes a key. Fails if the stored value is not a JSON object.
     - delete: Remove a key
     - list: List all keys in the namespace (key parameter used as optional prefix filter)
 
     Args:
-        action: One of 'get', 'set', 'delete', 'list'
-        key: The key to operate on (required for get/set/delete, optional prefix for list)
-        value: The value to store (required for set, must be valid JSON, max 64KB)
+        action: One of 'get', 'set', 'merge', 'delete', 'list'
+        key: The key to operate on (required for get/set/merge/delete, optional prefix for list)
+        value: The value to store (required for set/merge, must be valid JSON, max 64KB)
         namespace: Storage namespace. Auto-defaults to 'agent:<agent_id>' for autonomous agents.
             Can be overridden to access shared namespaces.
 
@@ -74,8 +99,8 @@ def kv_store(
             namespace = f"agent:{agent_context.agent.id}"
 
     # Validate action
-    if action not in ("get", "set", "delete", "list"):
-        return f"Error: Invalid action '{action}'. Use 'get', 'set', 'delete', or 'list'."
+    if action not in ("get", "set", "merge", "delete", "list"):
+        return f"Error: Invalid action '{action}'. Use 'get', 'set', 'merge', 'delete', or 'list'."
 
     # Validate key length
     if key and len(key) > _MAX_KEY_LENGTH:
@@ -108,6 +133,42 @@ def kv_store(
             return f"Error: Namespace '{namespace}' has reached the maximum of {_MAX_KEYS_PER_NAMESPACE} keys."
         db.kv_set(user_id, namespace, key, value)
         return f"Stored '{key}' in namespace '{namespace}'."
+
+    elif action == "merge":
+        if not key:
+            return "Error: 'key' is required for 'merge' action."
+        if not value:
+            return "Error: 'value' is required for 'merge' action."
+        if len(value) > _MAX_VALUE_SIZE:
+            return f"Error: Value too large ({len(value)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+        try:
+            patch = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return "Error: Value must be valid JSON."
+        if not isinstance(patch, dict):
+            return "Error: 'merge' requires a JSON object. Use 'set' to replace a non-object value."
+
+        stored = db.kv_get(user_id, namespace, key)
+        base: dict[str, Any] = {}
+        if stored is None:
+            if db.kv_count(user_id, namespace) >= _MAX_KEYS_PER_NAMESPACE:
+                return f"Error: Namespace '{namespace}' has reached the maximum of {_MAX_KEYS_PER_NAMESPACE} keys."
+        else:
+            try:
+                decoded = json.loads(stored)
+            except (json.JSONDecodeError, TypeError):
+                return (
+                    f"Error: Stored value for '{key}' is not valid JSON. Use 'set' to replace it."
+                )
+            if not isinstance(decoded, dict):
+                return f"Error: Stored value for '{key}' is not a JSON object. Use 'set' to replace it."
+            base = decoded
+
+        merged = json.dumps(_deep_merge(base, patch))
+        if len(merged) > _MAX_VALUE_SIZE:
+            return f"Error: Merged value too large ({len(merged)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+        db.kv_set(user_id, namespace, key, merged)
+        return f"Merged into '{key}' in namespace '{namespace}'. New value:\n{merged}"
 
     elif action == "delete":
         if not key:

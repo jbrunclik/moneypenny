@@ -221,7 +221,7 @@ When adding a new tool for autonomous agents, update these locations:
 
 1. **`src/agent/tools/<tool_name>.py`** - Tool implementation with `@tool` decorator
 2. **`src/agent/tools/__init__.py`** - Register in `get_tools_for_request()`, add `is_<tool>_available()` function
-3. **`src/agent/tool_display.py`** - Add to `TOOL_METADATA` dict for UI display (icon, label, description)
+3. **`src/agent/tool_display.py`** - Add to `TOOL_METADATA` (icon, present/past labels) **and** a branch in `extract_tool_detail()` so the pill says *what* the tool did, not just that it ran. A tool with no metadata renders as a raw `Used <function_name>` with a generic brain icon; `validate_tool_names()` logs a warning at import for any bindable tool that is missing an entry, and `tests/unit/test_tool_display.py` fails the build. Tools bound only in specific contexts (planner, programs, autonomous agents) must also be listed in `_CONDITIONAL_TOOLS`.
 4. **`src/api/routes/agents.py`** - Add to `_PROMPT_TOOL_DESCRIPTIONS` dict for prompt enhancer
 
 **Frontend (required):**
@@ -303,6 +303,36 @@ In production, use the systemd timer which runs every minute to check for due ag
 7. **Run conversation**: Execute with retry logic for transient failures
 8. **Save messages**: Add user trigger and assistant response to conversation
 9. **Update timestamps**: Set `last_run_at` and calculate `next_run_at`
+
+## Tool Round Economics
+
+Every tool round re-invokes the model with the **entire accumulated conversation**, so wall-clock and cost scale with the number of *rounds*, not the number of tool calls. Five tool calls in one round are near-free relative to five calls across five rounds.
+
+A Sep 2026 audit of 14 days of production logs found the agent doing exactly the wrong thing:
+
+| Finding | Measurement |
+|---|---|
+| Rounds carrying exactly one tool call | 1,752 of 1,835 (95.5%) |
+| `web_search` calls that were solo in their round | 858 of 864 (99%) |
+| Turns issuing 2+ separate `web_search` rounds | 207 of 521 |
+| Avoidable rounds from un-batched search alone | ~554 |
+| `web_search` → `fetch_url` chains (what `research` exists to replace) | 65 |
+| Consecutive `kv_store` rounds (get-then-set) | 57 |
+| Tool round cap (`AGENT_MAX_TOOL_ROUNDS`) hit | 83 times |
+| Turn wall-clock | p50 10s, p90 91s, max 610s |
+
+**The key lesson: prompt-level batching guidance does not work.** Both the system prompt and the `web_search` docstring already told the model to batch queries and prefer `research`; it batched twice in 864 rounds. What works is putting the directive in the **tool result**, which the model reads far more reliably than standing instructions.
+
+Mechanisms now in place:
+
+- **`src/agent/tools/turn_usage.py`** — counts tool calls per turn, keyed by request id (the tool node runs calls on a thread pool, so a contextvar would not survive). Returns 0 without a request context, so evals and unit tests are unaffected.
+- **Escalating search nudges** — `web_search` attaches an `_efficiency` directive from the 2nd separate call in a turn; by the 3rd it forbids another single-query search. Counted per *call*, so a 5-query batch is one round and never self-nudges. `fetch_url` nudges toward `research` when a search already ran this turn.
+- **Composite actions** — `garmin_connect(action="get_readiness_snapshot")` returns readiness + sleep + HRV + stats + training status + recent activities in one concurrent fetch, replacing five sequential calls. `kv_store(action="merge", ...)` deep-merges server-side, replacing get-then-set.
+- **Concurrency inside tools** — batched `web_search` queries and Garmin's per-activity breakdowns fan out in a thread pool, so batching does not just trade LLM round-trips for provider round-trips. Garmin sub-fetches run under `copy_context()` because the helpers read conversation contextvars.
+- **Session caching** — `garmin.login()` re-fetches profile + settings on every call (two extra HTTP round trips). `src/agent/tools/garmin_session.py` caches the client per user, fingerprinting the stored token on each lookup so a reconnect invalidates every worker immediately; tokens are written back only when garth actually rotates them.
+- **Per-round timing** — `Tool round completed` logs tool names, outcomes, result sizes and `elapsed_ms`. Before this, tool latency could only be inferred by diffing timestamps of surrounding LLM calls.
+
+Re-run the audit with `journalctl --user -u moneypenny --since "14 days ago" -o cat`, filtering for `LLM requested tool calls` (tool names + count per round) and `Tool round completed` (per-round latency).
 
 ## Conversation Compaction
 

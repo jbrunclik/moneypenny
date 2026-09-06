@@ -20,6 +20,16 @@ import {
   GLOBE_ICON,
   DATABASE_ICON,
   HISTORY_ICON,
+  ACTIVITY_ICON,
+  MAP_PIN_ICON,
+  FILE_ICON,
+  ROBOT_ICON,
+  LOCK_ICON,
+  SOURCES_ICON,
+  EDIT_ICON,
+  REFRESH_ICON,
+  IMAGE_ICON,
+  PHONE_ICON,
 } from '../utils/icons';
 import { escapeHtml, isScrolledToBottom } from '../utils/dom';
 import { markProgrammaticScrollEnd, markProgrammaticScrollStart } from '../utils/thumbnails';
@@ -38,6 +48,16 @@ const ICON_MAP: Record<string, string> = {
   brain: BRAIN_ICON,
   database: DATABASE_ICON,
   history: HISTORY_ICON,
+  activity: ACTIVITY_ICON,
+  'map-pin': MAP_PIN_ICON,
+  file: FILE_ICON,
+  robot: ROBOT_ICON,
+  lock: LOCK_ICON,
+  sources: SOURCES_ICON,
+  edit: EDIT_ICON,
+  refresh: REFRESH_ICON,
+  image: IMAGE_ICON,
+  message: PHONE_ICON,
 };
 
 /**

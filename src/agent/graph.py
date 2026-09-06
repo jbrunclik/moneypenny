@@ -17,6 +17,7 @@ was removed in Aug 2026 (git history has it).
 
 import json
 import threading
+import time
 from collections import OrderedDict
 from typing import Annotated, Any, Literal, TypedDict
 
@@ -562,6 +563,38 @@ def _split_approval_tool_calls(
     return approval_state, siblings_state
 
 
+def _log_tool_round(messages: list[Any], elapsed_ms: int) -> None:
+    """Record what a tool round ran, how it ended, and how long it took.
+
+    Until Sep 2026 nothing logged tool timing at all: the only way to see how
+    slow a tool was, was to diff the timestamps of the LLM calls around it.
+    Since ~95% of rounds carry a single tool call, the round's wall-clock is
+    that tool's latency; batched rounds run concurrently, so the round time is
+    the number that actually matters there too.
+    """
+    outcomes = [
+        {
+            "tool": msg.name or "unknown",
+            "status": getattr(msg, "status", None) or "success",
+            "result_chars": len(msg.content) if isinstance(msg.content, str) else None,
+        }
+        for msg in messages
+        if isinstance(msg, ToolMessage)
+    ]
+    if not outcomes:
+        return
+
+    logger.info(
+        "Tool round completed",
+        extra={
+            "tools": [o["tool"] for o in outcomes],
+            "count": len(outcomes),
+            "elapsed_ms": elapsed_ms,
+            "outcomes": outcomes,
+        },
+    )
+
+
 def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None) -> None:
     """Store original tool results for server-side extraction, then strip
     _full_result payloads (e.g. generated images) before they reach the LLM."""
@@ -648,7 +681,9 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
             # Every call was blocked (or was an approval request)
             result: dict[str, Any] = {"messages": blocked_messages}
         else:
+            started = time.monotonic()
             result = base_tool_node.invoke(exec_state)
+            _log_tool_round(result.get("messages", []), int((time.monotonic() - started) * 1000))
             if blocked_messages:
                 result["messages"] = blocked_messages + list(result.get("messages", []))
 

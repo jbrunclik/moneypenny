@@ -535,6 +535,14 @@ class Config:
         os.getenv("AGENT_AGED_TOOL_RESULT_MAX_CHARS", "2000")
     )
 
+    # How long a restored Garmin Connect session is reused before being rebuilt.
+    # Rebuilding costs two extra HTTP round trips to Garmin (profile + settings
+    # are re-fetched on every login), so a per-call rebuild dominated the
+    # latency of any turn that read several Garmin endpoints. A reconnect
+    # invalidates cached sessions immediately regardless of this TTL, because
+    # every lookup fingerprints the stored token.
+    GARMIN_SESSION_TTL_SECONDS: int = int(os.getenv("GARMIN_SESSION_TTL_SECONDS", "900"))
+
     # Gunicorn worker recycling: restart workers after N requests to prevent memory leaks
     GUNICORN_MAX_REQUESTS: int = int(os.getenv("GUNICORN_MAX_REQUESTS", "1000"))
     GUNICORN_MAX_REQUESTS_JITTER: int = int(os.getenv("GUNICORN_MAX_REQUESTS_JITTER", "50"))

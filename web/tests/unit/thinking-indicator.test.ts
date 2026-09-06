@@ -19,9 +19,11 @@ import type { ThinkingState, ToolMetadata } from '../../src/types/api';
 const TOOL_METADATA: Record<string, ToolMetadata> = {
   web_search: { label: 'Searching the web', label_past: 'Searched', icon: 'search' },
   fetch_url: { label: 'Fetching page', label_past: 'Fetched', icon: 'link' },
-  generate_image: { label: 'Generating image', label_past: 'Generated image', icon: 'sparkles' },
+  generate_image: { label: 'Generating image', label_past: 'Generated image', icon: 'image' },
   execute_code: { label: 'Running code', label_past: 'Ran code', icon: 'code' },
   todoist: { label: 'Managing tasks', label_past: 'Managed tasks', icon: 'checklist' },
+  garmin_connect: { label: 'Reading Garmin data', label_past: 'Read Garmin data', icon: 'activity' },
+  kv_store: { label: 'Accessing storage', label_past: 'Accessed storage', icon: 'database' },
 };
 
 describe('ThinkingIndicator', () => {
@@ -255,6 +257,37 @@ describe('ThinkingIndicator', () => {
 
       const detail = indicator.querySelector('.thinking-detail');
       expect(detail?.textContent).toContain('best pizza in town');
+    });
+
+    // Sep 2026: garmin_connect and kv_store had no backend TOOL_METADATA, so
+    // they rendered as a raw "Used garmin_connect" with a generic brain icon.
+    it('should label garmin_connect with its metadata, not the function name', () => {
+      addToolStartToTrace(
+        state,
+        'garmin_connect',
+        'readiness snapshot · 2026-09-06',
+        TOOL_METADATA.garmin_connect
+      );
+      markToolCompletedInTrace(state, 'garmin_connect');
+      updateThinkingIndicator(indicator, state);
+
+      const item = indicator.querySelector('.thinking-trace-item.completed');
+      expect(item?.querySelector('.thinking-label')?.textContent).toBe('Read Garmin data');
+      expect(item?.textContent).not.toContain('Used garmin_connect');
+      expect(item?.querySelector('.thinking-detail')?.textContent).toContain(
+        'readiness snapshot'
+      );
+    });
+
+    it('should show which key kv_store touched', () => {
+      addToolStartToTrace(state, 'kv_store', 'merge: cycling:progress', TOOL_METADATA.kv_store);
+      updateThinkingIndicator(indicator, state);
+
+      const item = indicator.querySelector('.thinking-trace-item.active');
+      expect(item?.querySelector('.thinking-label')?.textContent).toBe('Accessing storage');
+      expect(item?.querySelector('.thinking-detail')?.textContent).toContain(
+        'merge: cycling:progress'
+      );
     });
   });
 

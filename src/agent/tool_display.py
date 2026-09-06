@@ -46,7 +46,7 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
     "generate_image": {
         "label": "Generating image",
         "label_past": "Generated image",
-        "icon": "sparkles",
+        "icon": "image",
     },
     "execute_code": {
         "label": "Running code",
@@ -96,6 +96,85 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Read a past conversation",
         "icon": "history",
     },
+    # Health & training. garmin_connect is one of the most-used tools in the
+    # app; without an entry here it rendered as a bare "Used garmin_connect".
+    "garmin_connect": {
+        "label": "Reading Garmin data",
+        "label_past": "Read Garmin data",
+        "icon": "activity",
+    },
+    "garmin_workout": {
+        "label": "Updating Garmin workout",
+        "label_past": "Updated Garmin workout",
+        "icon": "activity",
+    },
+    "rouvy_workout": {
+        "label": "Updating Rouvy workout",
+        "label_past": "Updated Rouvy workout",
+        "icon": "activity",
+    },
+    # Places & routing
+    "search_places": {
+        "label": "Searching places",
+        "label_past": "Searched places",
+        "icon": "map-pin",
+    },
+    "save_place": {
+        "label": "Saving a place",
+        "label_past": "Saved a place",
+        "icon": "map-pin",
+    },
+    "list_places": {
+        "label": "Listing saved places",
+        "label_past": "Listed saved places",
+        "icon": "map-pin",
+    },
+    "delete_place": {
+        "label": "Removing a saved place",
+        "label_past": "Removed a saved place",
+        "icon": "map-pin",
+    },
+    "get_route": {
+        "label": "Planning a route",
+        "label_past": "Planned a route",
+        "icon": "map-pin",
+    },
+    # Files
+    "create_file": {
+        "label": "Creating a file",
+        "label_past": "Created a file",
+        "icon": "file",
+    },
+    "retrieve_file": {
+        "label": "Opening a file",
+        "label_past": "Opened a file",
+        "icon": "file",
+    },
+    # Agent control
+    "trigger_agent": {
+        "label": "Triggering an agent",
+        "label_past": "Triggered an agent",
+        "icon": "robot",
+    },
+    "request_approval": {
+        "label": "Requesting approval",
+        "label_past": "Requested approval",
+        "icon": "lock",
+    },
+    # Extract-only metadata tools (see tools/metadata.py). They do no work the
+    # user asked for, but they DO emit tool_start events, so without an entry
+    # here the trace showed a raw "Used cite_sources" - the single most common
+    # unlabelled pill in the app.
+    "cite_sources": {
+        "label": "Citing sources",
+        "label_past": "Cited sources",
+        "icon": "sources",
+    },
+    "set_conversation_title": {
+        "label": "Naming the conversation",
+        "label_past": "Renamed the conversation",
+        "icon": "edit",
+    },
 }
 
 # Check if Google Calendar is configured
@@ -110,61 +189,76 @@ if _GOOGLE_CALENDAR_CONFIGURED:
         "icon": "calendar",
     }
 
-# ============ Tools with Detail Extraction ============
+# Place/routing tools share one detail formatter.
+_PLACE_TOOLS = frozenset(
+    {"search_places", "save_place", "list_places", "delete_place", "get_route"}
+)
 
-# Tools that have custom detail extraction logic in _extract_tool_detail
-# IMPORTANT: Must match function names in tools.py - verified at import time below
-_detail_tools = {
-    "web_search",
-    "fetch_url",
-    "browser",
-    "generate_image",
-    "execute_code",
-    "todoist",
-    "manage_memory",
-    "search_memory",
-    "search_conversations",
-    "read_conversation",
-}
-if _GOOGLE_CALENDAR_CONFIGURED:
-    _detail_tools.add("google_calendar")
 
-TOOLS_WITH_DETAIL_EXTRACTION = frozenset(_detail_tools)
+# Tools that exist but are only bound in specific contexts, so they never show
+# up in get_available_tools(): planner mode, program/agent conversations, and
+# the autonomous-agent tool set.
+_CONDITIONAL_TOOLS = frozenset(
+    {
+        "refresh_planner_dashboard",
+        "kv_store",
+        "browser",
+        "request_approval",
+        "trigger_agent",
+    }
+)
 
 
 def validate_tool_names() -> None:
-    """Validate that tool names in metadata and detail extraction match actual tools.
+    """Check TOOL_METADATA against the real tool registry, both directions.
 
-    This runs at import time to catch mismatches early during development.
+    Runs at import time. The reverse check is the important one: a tool with no
+    metadata entry silently renders in the UI as a raw "Used <function_name>"
+    pill, which is how garmin_connect, kv_store and cite_sources - three of the
+    five most-called tools - ended up unlabelled for months.
     """
     from src.agent.tools import get_available_tools
 
     actual_tool_names = {tool.name for tool in get_available_tools()}
+    valid_tool_names = actual_tool_names | _CONDITIONAL_TOOLS
 
-    # Add conditional tools that are only available in specific contexts
-    # refresh_planner_dashboard is only added in planner mode via get_tools_for_request()
-    # kv_store is only added for agent, sports, and language conversations
-    conditional_tools = {"refresh_planner_dashboard", "kv_store", "browser"}
-    valid_tool_names = actual_tool_names | conditional_tools
-
-    # Check TOOL_METADATA
-    invalid_metadata_names = set(TOOL_METADATA.keys()) - valid_tool_names
-    if invalid_metadata_names:
+    unknown = set(TOOL_METADATA) - valid_tool_names
+    if unknown:
         logger.warning(
-            f"TOOL_METADATA contains unknown tool names: {invalid_metadata_names}. "
-            f"Valid tools: {valid_tool_names}"
+            f"TOOL_METADATA contains unknown tool names: {sorted(unknown)}. "
+            f"Valid tools: {sorted(valid_tool_names)}"
         )
 
-    # Check TOOLS_WITH_DETAIL_EXTRACTION
-    invalid_detail_names = TOOLS_WITH_DETAIL_EXTRACTION - valid_tool_names
-    if invalid_detail_names:
+    unlabelled = valid_tool_names - set(TOOL_METADATA)
+    if unlabelled:
         logger.warning(
-            f"TOOLS_WITH_DETAIL_EXTRACTION contains unknown tool names: {invalid_detail_names}. "
-            f"Valid tools: {valid_tool_names}"
+            "Tools missing TOOL_METADATA (they will render as raw function names "
+            f"in the thinking trace): {sorted(unlabelled)}"
         )
 
 
 # ============ Detail Extraction Functions ============
+
+# Human phrasing for garmin_connect actions. Anything unmapped falls back to
+# the action name with its get_ prefix stripped, so a new action still reads
+# sensibly in the UI without a change here.
+_GARMIN_ACTION_LABELS = {
+    "get_readiness_snapshot": "readiness snapshot",
+    "get_stats": "daily stats",
+    "get_heart_rates": "heart rate",
+    "get_sleep_data": "sleep",
+    "get_stress_data": "stress",
+    "get_hrv_data": "HRV",
+    "get_spo2_data": "blood oxygen",
+    "get_body_composition": "body composition",
+    "get_activities": "recent activities",
+    "get_activity_details": "activity",
+    "get_training_readiness": "training readiness",
+    "get_training_status": "training status",
+    "get_steps": "steps",
+    "get_courses": "saved routes",
+    "get_course_details": "route",
+}
 
 
 def _format_todoist_detail(tool_args: dict[str, Any]) -> str:
@@ -253,6 +347,82 @@ def _format_calendar_detail(tool_args: dict[str, Any]) -> str:
     if action == "get_event":
         return f"get_event: {tool_args.get('event_id', '')}"
     return action
+
+
+def _format_garmin_detail(tool_args: dict[str, Any]) -> str:
+    """Garmin read as 'what, for when' - e.g. 'sleep · 2026-09-05'."""
+    action = str(tool_args.get("action", ""))
+    label = _GARMIN_ACTION_LABELS.get(action, action.removeprefix("get_").replace("_", " "))
+
+    if action == "get_activity_details":
+        return f"{label} · {tool_args.get('activity_id', '')}"
+    if action == "get_course_details":
+        return f"{label} · course {tool_args.get('course_id', '')}"
+    if action in {"get_activities", "get_courses"}:
+        bits = [label]
+        if tool_args.get("activity_type"):
+            bits.append(str(tool_args["activity_type"]))
+        if tool_args.get("limit"):
+            bits.append(f"last {tool_args['limit']}")
+        return " · ".join(bits)
+    if tool_args.get("date_str"):
+        return f"{label} · {tool_args['date_str']}"
+    return label
+
+
+def _format_garmin_workout_detail(tool_args: dict[str, Any]) -> str:
+    """Garmin workout edit as 'action: target'."""
+    action = str(tool_args.get("action", ""))
+    if action == "search_exercises":
+        return f"search exercises: {tool_args.get('query', '')}"
+    if action == "update":
+        edits = tool_args.get("edits")
+        count = len(edits) if isinstance(edits, list) else None
+        suffix = f" ({count} edits)" if count else ""
+        return f"update workout {tool_args.get('workout_id', '')}{suffix}"
+    if action in {"get", "delete"}:
+        return f"{action} workout {tool_args.get('workout_id', '')}"
+    return action
+
+
+def _format_rouvy_detail(tool_args: dict[str, Any]) -> str:
+    """Rouvy workout op as 'action: name-or-id'."""
+    action = str(tool_args.get("action", ""))
+    name = tool_args.get("name")
+    if name:
+        return f"{action}: {_snippet(str(name), 55)}"
+    if tool_args.get("workout_id"):
+        return f"{action}: workout {tool_args['workout_id']}"
+    return action
+
+
+def _format_kv_detail(tool_args: dict[str, Any]) -> str:
+    """KV op as 'verb key' - the sports/language programs lean on this heavily."""
+    action = str(tool_args.get("action", ""))
+    key = str(tool_args.get("key") or "")
+    if action == "list":
+        return f"list keys{f': {key}*' if key else ''}"
+    if not key:
+        return action
+    return f"{action}: {key}"
+
+
+def _format_places_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:
+    """Place/route args as the thing being looked up."""
+    if tool_name == "search_places":
+        query = str(tool_args.get("query") or "")
+        near = str(tool_args.get("near") or "")
+        if near and near != "current":
+            return f"{query} near {near}"
+        return query or None
+    if tool_name in {"save_place", "delete_place"}:
+        return str(tool_args.get("name") or "") or None
+    if tool_name == "get_route":
+        origin = tool_args.get("origin", "")
+        destination = tool_args.get("destination", "")
+        mode = tool_args.get("mode", "car")
+        return f"{origin} → {destination} ({mode})"
+    return None
 
 
 def _snippet(text: str, limit: int) -> str:
@@ -395,6 +565,33 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
         return str(tool_args["query"])
     elif tool_name == "read_conversation" and tool_args.get("conversation_id"):
         return _fetch_conversation_title(str(tool_args["conversation_id"]).strip())
+    elif tool_name == "garmin_connect" and "action" in tool_args:
+        return _format_garmin_detail(tool_args)
+    elif tool_name == "garmin_workout" and "action" in tool_args:
+        return _format_garmin_workout_detail(tool_args)
+    elif tool_name == "rouvy_workout" and "action" in tool_args:
+        return _format_rouvy_detail(tool_args)
+    elif tool_name == "kv_store" and "action" in tool_args:
+        return _format_kv_detail(tool_args)
+    elif tool_name in _PLACE_TOOLS:
+        return _format_places_detail(tool_name, tool_args)
+    elif tool_name == "whatsapp" and tool_args.get("message"):
+        return _snippet(str(tool_args["message"]), 60)
+    elif tool_name == "create_file" and tool_args.get("filename"):
+        return str(tool_args["filename"])
+    elif tool_name == "retrieve_file" and tool_args.get("message_id"):
+        return f"file {tool_args.get('file_index', 0)} from an earlier message"
+    elif tool_name == "trigger_agent" and tool_args.get("agent_name"):
+        return str(tool_args["agent_name"])
+    elif tool_name == "request_approval" and tool_args.get("action_description"):
+        return _snippet(str(tool_args["action_description"]), 70)
+    elif tool_name == "cite_sources":
+        sources = tool_args.get("sources")
+        if isinstance(sources, list) and sources:
+            return f"{len(sources)} source{'s' if len(sources) != 1 else ''}"
+        return None
+    elif tool_name == "set_conversation_title" and tool_args.get("title"):
+        return str(tool_args["title"])
     return None
 
 

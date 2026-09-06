@@ -5,12 +5,15 @@ from Garmin Connect. No write operations.
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from datetime import date, timedelta
 from typing import Any
 
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.garmin_session import get_client, persist_tokens_if_changed
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -19,41 +22,22 @@ logger = get_logger(__name__)
 def _get_garmin_client() -> Any | None:
     """Get an authenticated Garmin client for the current user.
 
+    Sessions are cached per user (see garmin_session) so a turn that reads
+    several endpoints pays the login round trips once, not once per call.
     Returns None if user is not connected to Garmin.
     """
     _, user_id = get_conversation_context()
     if not user_id:
         return None
-
-    from src.db.models import db
-
-    user = db.get_user_by_id(user_id)
-    if not user or not user.garmin_token:
-        return None
-
-    try:
-        from src.auth.garmin_auth import create_client_from_tokens
-
-        return create_client_from_tokens(user.garmin_token)
-    except Exception as e:
-        logger.warning("Failed to create Garmin client", extra={"error": str(e)})
-        return None
+    return get_client(user_id)
 
 
 def _persist_refreshed_tokens(garmin: Any) -> None:
-    """Re-serialize and save tokens after API calls in case garth refreshed them."""
+    """Save tokens after API calls, but only when garth actually rotated them."""
     _, user_id = get_conversation_context()
     if not user_id:
         return
-
-    try:
-        from src.auth.garmin_auth import refresh_and_serialize
-        from src.db.models import db
-
-        updated_tokens = refresh_and_serialize(garmin)
-        db.update_user_garmin_token(user_id, updated_tokens)
-    except Exception as e:
-        logger.debug("Failed to persist refreshed Garmin tokens", extra={"error": str(e)})
+    persist_tokens_if_changed(user_id, garmin)
 
 
 def _safe_api_call(garmin: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
@@ -195,43 +179,60 @@ def _slim_lap(lap: dict[str, Any], index: int) -> dict[str, Any]:
     return {k: v for k, v in slim.items() if v is not None}
 
 
+def _gather(tasks: dict[str, Any]) -> None:
+    """Run best-effort Garmin sub-fetches concurrently, swallowing failures.
+
+    Each task runs in a copy of the calling context: the Garmin helpers read
+    the conversation/user contextvars, and a bare thread pool would not carry
+    them across, silently losing the user id.
+    """
+    if not tasks:
+        return
+
+    def _run(label: str, fn: Any) -> None:
+        try:
+            copy_context().run(fn)
+        except Exception as e:
+            logger.debug(f"No {label}", extra={"error": str(e)})
+
+    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+        list(pool.map(lambda item: _run(item[0], item[1]), tasks.items()))
+
+
 def _attach_activity_breakdowns(garmin: Any, activity_id: str, payload: dict[str, Any]) -> None:
     """Best-effort attach per-set / HR-zone / per-lap breakdowns to an activity.
 
     Each lives in a dedicated Garmin endpoint that get_activity does not
-    include. Any endpoint that errors or has no data is simply skipped - these
-    enrich the activity but must never fail the details call.
+    include, so they are fetched concurrently - run serially they tripled the
+    wall-clock of every get_activity_details call. Any endpoint that errors or
+    has no data is simply skipped: these enrich the activity but must never
+    fail the details call.
     """
-    # Strength: per-set reps/weight (e.g. 28/23/16 across three sets)
-    try:
+
+    def _sets() -> None:
         sets_result = _safe_api_call(garmin, "get_activity_exercise_sets", activity_id)
         raw_sets = sets_result.get("exerciseSets") if isinstance(sets_result, dict) else sets_result
         if isinstance(raw_sets, list) and raw_sets:
             payload["exercise_sets"] = [
                 _slim_exercise_set(s) for s in raw_sets if isinstance(s, dict)
             ]
-    except Exception as e:
-        logger.debug("No exercise sets", extra={"activity_id": activity_id, "error": str(e)})
 
-    # Cardio: time spent in each heart-rate zone
-    try:
+    def _zones() -> None:
         zones = _safe_api_call(garmin, "get_activity_hr_in_timezones", activity_id)
         if isinstance(zones, list) and zones:
             payload["hr_zones"] = _slim_hr_zones(zones)
-    except Exception as e:
-        logger.debug("No HR zones", extra={"activity_id": activity_id, "error": str(e)})
 
-    # Per-lap splits (intervals). A single lap == the whole activity, already
-    # covered by the summary, so only expose 2+ laps.
-    try:
+    def _laps() -> None:
+        # A single lap == the whole activity, already covered by the summary,
+        # so only expose 2+ laps.
         splits = _safe_api_call(garmin, "get_activity_splits", activity_id)
         laps = splits.get("lapDTOs") if isinstance(splits, dict) else None
         if isinstance(laps, list) and len(laps) >= 2:
             payload["laps"] = [_slim_lap(lap, i) for i, lap in enumerate(laps[:_MAX_LAPS], start=1)]
             if len(laps) > _MAX_LAPS:
                 payload["laps_note"] = f"showing first {_MAX_LAPS} of {len(laps)} laps"
-    except Exception as e:
-        logger.debug("No lap splits", extra={"activity_id": activity_id, "error": str(e)})
+
+    _gather({"exercise sets": _sets, "HR zones": _zones, "lap splits": _laps})
 
 
 # Garmin's course-service (saved routes/courses) - not wrapped by the
@@ -398,7 +399,58 @@ def _slim_course_detail(d: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dict[str, Any]:
+    """Every "how recovered am I" metric in one concurrent fetch.
+
+    Assessing readiness needs training readiness, sleep, HRV, daily stats (for
+    Body Battery and resting HR), training status and recent activities. Asked
+    one action at a time that is five or six tool calls, and each extra round
+    re-sends the whole conversation to the model. Fetched together they cost
+    roughly one Garmin round trip.
+
+    Every section is independent and best-effort: a device that reports no HRV
+    yields {"error": ...} under `hrv` while the rest of the snapshot stands.
+    """
+    payload: dict[str, Any] = {"action": "get_readiness_snapshot", "date": target_date}
+
+    def _section(key: str, method: str, *args: Any) -> Any:
+        def run() -> None:
+            try:
+                payload[key] = _strip_bulky_fields(_safe_api_call(garmin, method, *args))
+            except Exception as e:
+                payload[key] = {"error": str(e)}
+
+        return run
+
+    start = (date.today() - timedelta(days=90)).isoformat()
+    end = date.today().isoformat()
+
+    def _activities() -> None:
+        try:
+            result = _safe_api_call(garmin, "get_activities_by_date", start, end, None)
+            if isinstance(result, list):
+                result = result[: limit or 5]
+            payload["recent_activities"] = _strip_bulky_fields(result, max_list_items=50)
+        except Exception as e:
+            payload["recent_activities"] = {"error": str(e)}
+
+    _gather(
+        {
+            "training readiness": _section(
+                "training_readiness", "get_training_readiness", target_date
+            ),
+            "sleep": _section("sleep", "get_sleep_data", target_date),
+            "HRV": _section("hrv", "get_hrv_data", target_date),
+            "daily stats": _section("stats", "get_stats", target_date),
+            "training status": _section("training_status", "get_training_status", target_date),
+            "recent activities": _activities,
+        }
+    )
+    return payload
+
+
 _GARMIN_ACTIONS = {
+    "get_readiness_snapshot",
     "get_stats",
     "get_heart_rates",
     "get_sleep_data",
@@ -434,6 +486,15 @@ def garmin_connect(
     This is a READ-ONLY tool — no data is modified on Garmin.
 
     Actions available:
+    - "get_readiness_snapshot": PREFERRED for any "how am I / how recovered am I /
+      what should I train today" question. Returns training readiness, sleep,
+      HRV, daily stats (Body Battery, resting HR), training status AND recent
+      activities together in ONE call. Use this instead of calling get_training_
+      readiness + get_sleep_data + get_hrv_data + get_stats + get_activities
+      separately - it is one round instead of five. Optional: date_str, limit
+      (recent activities to include, default 5). Sections that a device does
+      not report come back as {"error": ...}; the rest of the snapshot is still
+      valid.
     - "get_stats": Daily summary (steps, distance, calories, floors, active minutes)
       plus recovery metrics: Body Battery (use `bodyBatteryAtWakeTime` for the
       stable morning value, not `bodyBatteryMostRecentValue`) and resting heart
@@ -501,7 +562,10 @@ def garmin_connect(
     target_date = date_str or date.today().isoformat()
 
     try:
-        if action == "get_stats":
+        if action == "get_readiness_snapshot":
+            return json.dumps(_readiness_snapshot(garmin, target_date, limit))
+
+        elif action == "get_stats":
             result = _safe_api_call(garmin, "get_stats", target_date)
             return json.dumps(
                 {"action": "get_stats", "date": target_date, "stats": _strip_bulky_fields(result)}
