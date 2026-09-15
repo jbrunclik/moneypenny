@@ -138,8 +138,6 @@ Agents are configured with specific tool permissions. Some tools are always avai
 |------|-------------|--------------|
 | `web_search` | Web search queries | Always available |
 | `research` | Composite search + fetch top pages in one round | Always available |
-
-`web_search` and `research` route through a **quota-aware provider chain** ([search_provider.py](../../src/utils/search_provider.py)): Brave → Tavily → Exa → DuckDuckGo (unmetered fallback), skipping providers with no API key or an exhausted quota (`SEARCH_QUOTA_*_MONTHLY`). Quotas reset per **billing period** (`SEARCH_BILLING_DAY_*`, default calendar month — which all three providers use as of Aug 2026). Usage counters persist in `kv_store` under a `__system__` sentinel user, one key per provider+period, incremented atomically on successful (billed) calls only. When ddgs ends up serving despite paid providers being configured, the operator (first `ALLOWED_EMAILS` entry) gets a push notification, deduped to once per day. Backfill/inspect with `python scripts/seed_search_usage.py [provider count]`.
 | `fetch_url` | Fetch content from URLs | Always available |
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |
@@ -160,6 +158,12 @@ Agents are configured with specific tool permissions. Some tools are always avai
 | `search_conversations` | Search the user's past conversations | Requires grant |
 | `read_conversation` | Read one past conversation | Requires grant |
 | `delegate_task` | Context-isolated research subagent (spends tokens) | **Must be granted** |
+
+`web_search` and `research` route through a **quota-aware provider chain** ([search_provider.py](../../src/utils/search_provider.py)): Brave → Tavily → Exa → Linkup → DuckDuckGo (unmetered fallback), skipping providers with no API key or an exhausted quota (`SEARCH_QUOTA_*_MONTHLY`). Quotas reset per **billing period** (`SEARCH_BILLING_DAY_*`, default calendar month — which all four metered providers use as of Sep 2026). Usage counters persist in `kv_store` under a `__system__` sentinel user, one key per provider+period, incremented atomically on successful (billed) calls only.
+
+A provider that fails `SEARCH_BREAKER_THRESHOLD` times in a row trips a per-provider **circuit breaker** and is skipped until a half-open probe window (`SEARCH_BREAKER_PROBE_SECONDS`) elapses. The failure count is an atomic `kv_increment` on an integer key (`breaker:<provider>:<period>`), with the last-failure timestamp in a separate `breaker-last:...` key — split out so the count stays a true atomic increment rather than a read-modify-write JSON blob, since production runs multiple gunicorn workers that can record failures concurrently.
+
+`is_degraded()` is the single definition of "serving from the fallback": true only when *every configured* metered provider is unavailable (quota spent, breaker tripped, or keyless). A single provider erroring and falling through to the next one is not degradation. The operator (first `ALLOWED_EMAILS` entry) gets a push notification only on genuine degradation, deduped to once per day — a transient provider blip no longer trips the alert or burns that day's dedupe slot. While degraded, `web_search` results carry a `_degraded` directive pointing the model at `research` instead of repeating a thin-snippet search, and `research`'s default source count rises to `Config.RESEARCH_DEGRADED_MAX_SOURCES` (fetched page content compensates for ddgs's weaker ranking and short snippets); an explicit `max_sources` from the caller still wins. Backfill/inspect usage with `python scripts/seed_search_usage.py [provider count]`.
 
 **Permission settings:**
 - `tool_permissions=null` (default): All available tools enabled

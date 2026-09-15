@@ -317,6 +317,10 @@ class Config:
     BRAVE_SEARCH_API_KEY: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
     TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
     EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
+    LINKUP_API_KEY: str = os.getenv("LINKUP_API_KEY", "")
+    # Linkup search depth: flash | fast | standard | deep. Cheaper tiers buy
+    # more searches per credit at lower result quality.
+    LINKUP_SEARCH_DEPTH: str = os.getenv("LINKUP_SEARCH_DEPTH", "standard")
     # Monthly search quotas per provider plan (searches/month). Stop using a
     # provider at the quota rather than incurring overage/hard errors.
     # Brave "Search" plan: $5 free credit/month at $5/1k = 1,000 searches
@@ -327,13 +331,18 @@ class Config:
     # conservative real-world count (a 402 falls through to the next
     # provider anyway if credits run out sooner)
     SEARCH_QUOTA_EXA_MONTHLY = int(os.getenv("SEARCH_QUOTA_EXA_MONTHLY", "1000"))
+    # Linkup free tier: ~$5/mo credit plus a one-off signup grant. A 429 means
+    # rate-limited OR out of credits (Linkup conflates the two), so the
+    # circuit breaker below is what actually catches exhaustion here.
+    SEARCH_QUOTA_LINKUP_MONTHLY = int(os.getenv("SEARCH_QUOTA_LINKUP_MONTHLY", "1000"))
     # Day of month each provider's billing period starts (1 = calendar
-    # month). As of Aug 2026 Brave, Tavily and Exa ALL reset free credits on
-    # calendar months, so the default fits - the knob exists in case a
-    # provider moves to signup-anniversary cycles.
+    # month). As of Sep 2026 Brave, Tavily, Exa and Linkup ALL reset free
+    # credits on calendar months, so the default fits - the knob exists in
+    # case a provider moves to signup-anniversary cycles.
     SEARCH_BILLING_DAY_BRAVE = int(os.getenv("SEARCH_BILLING_DAY_BRAVE", "1"))
     SEARCH_BILLING_DAY_TAVILY = int(os.getenv("SEARCH_BILLING_DAY_TAVILY", "1"))
     SEARCH_BILLING_DAY_EXA = int(os.getenv("SEARCH_BILLING_DAY_EXA", "1"))
+    SEARCH_BILLING_DAY_LINKUP = int(os.getenv("SEARCH_BILLING_DAY_LINKUP", "1"))
     # Circuit breaker: our usage counters bill on success only, so they
     # undercount a provider's real spend and can keep routing to a provider
     # that's actually out of credits. After this many consecutive failures a
@@ -354,6 +363,10 @@ class Config:
 
     # Research tool (search + fetch top sources in one tool round)
     RESEARCH_MAX_SOURCES = 5
+    # While every metered provider is exhausted, results come from the ddgs
+    # fallback: weaker ranking and ~290-char snippets (measured Sep 2026), so
+    # read more pages to compensate. Stays under _MAX_SOURCES_HARD_CAP.
+    RESEARCH_DEGRADED_MAX_SOURCES = 7
     # 6000 (was 4000): truncated spec/table-heavy pages made the model re-fetch
     # them individually with fetch_url, doubling rounds (observed in evals);
     # 8000 measurably slowed turns without helping further

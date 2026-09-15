@@ -18,7 +18,7 @@ from langchain_core.tools import tool
 from src.agent.tools.web import fetch_page_text, wrap_untrusted_content
 from src.config import Config
 from src.utils.logging import get_logger
-from src.utils.search_provider import SearchProviderError, search_web
+from src.utils.search_provider import SearchProviderError, is_degraded, search_web
 
 logger = get_logger(__name__)
 
@@ -114,7 +114,13 @@ def research(question: str, queries: list[str] | None = None, max_sources: int =
     all_queries = list(dict.fromkeys(q.strip() for q in merged if q and q.strip()))
     all_queries = all_queries[: Config.WEB_SEARCH_MAX_BATCH_QUERIES]
 
-    n_sources = max_sources or Config.RESEARCH_MAX_SOURCES
+    # On the ddgs fallback the ranking is weaker and snippets are short, so
+    # read more pages by default - fetched content is what survives a bad
+    # snippet. An explicit max_sources from the caller still wins.
+    default_sources = (
+        Config.RESEARCH_DEGRADED_MAX_SOURCES if is_degraded() else Config.RESEARCH_MAX_SOURCES
+    )
+    n_sources = max_sources or default_sources
     n_sources = max(1, min(n_sources, _MAX_SOURCES_HARD_CAP))
 
     logger.info(

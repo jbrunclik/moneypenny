@@ -55,7 +55,7 @@ def seed(provider: str, count: int, month: str | None) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("provider", nargs="?", help="Provider name (brave, tavily, exa)")
+    parser.add_argument("provider", nargs="?", help="Provider name (brave, tavily, exa, linkup)")
     parser.add_argument("count", nargs="?", type=int, help="Searches already used this month")
     parser.add_argument("--month", help="Month key YYYY-MM (default: current month)")
     args = parser.parse_args()

@@ -1,7 +1,7 @@
 """Quota-aware search provider router.
 
-Providers are tried in priority order — Brave, Tavily, Exa, then DuckDuckGo
-(ddgs) as the unmetered terminal fallback. A provider is skipped when its
+Providers are tried in priority order — Brave, Tavily, Exa, Linkup, then
+DuckDuckGo (ddgs) as the unmetered terminal fallback. A provider is skipped when its
 API key is empty or its monthly quota (Config.SEARCH_QUOTA_*) is used up,
 and a failing provider falls through to the next one, so a mid-month quota
 exhaustion degrades gracefully instead of breaking web search.
@@ -15,12 +15,12 @@ Contract: search_web() returns [{title, url, snippet}] or raises
 SearchProviderError (retriable flag drives the agent's self-correction).
 """
 
-import json
 import time
 from calendar import monthrange
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 import httpx
 from ddgs import DDGS
@@ -35,6 +35,7 @@ logger = get_logger(__name__)
 _BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 _TAVILY_ENDPOINT = "https://api.tavily.com/search"
 _EXA_ENDPOINT = "https://api.exa.ai/search"
+_LINKUP_ENDPOINT = "https://api.linkup.so/v1/search"
 _HTTP_TIMEOUT_SECONDS = 15
 
 # Usage counters are global app state, not per-user data - stored under a
@@ -78,6 +79,7 @@ def _billing_anchor(provider: str) -> int:
         "brave": Config.SEARCH_BILLING_DAY_BRAVE,
         "tavily": Config.SEARCH_BILLING_DAY_TAVILY,
         "exa": Config.SEARCH_BILLING_DAY_EXA,
+        "linkup": Config.SEARCH_BILLING_DAY_LINKUP,
     }.get(provider, 1)
 
 
@@ -107,12 +109,23 @@ def _record_use(provider: str) -> None:
 
 
 def breaker_key(provider: str) -> str:
-    """kv_store key for a provider's breaker state this billing period.
+    """kv_store key for a provider's consecutive-failure count this period.
 
     Shares the usage counter's period suffix, so a trip clears exactly when
     the provider's quota resets.
     """
     return f"breaker:{provider}:{period_start(_billing_anchor(provider), date.today())}"
+
+
+def breaker_last_key(provider: str) -> str:
+    """kv_store key for the epoch of a provider's last failure this period.
+
+    Split from the count so the count can use an atomic increment: failures
+    arrive simultaneously across gunicorn workers, and a read-modify-write
+    counter loses exactly the updates that matter. Last-write-wins is fine
+    for this timestamp - it only paces the half-open probe.
+    """
+    return f"breaker-last:{breaker_key(provider)}"
 
 
 def _now() -> float:
@@ -122,15 +135,26 @@ def _now() -> float:
 
 
 def _breaker_state(provider: str) -> tuple[int, float]:
-    """(consecutive failures, epoch of the last failure); (0, 0.0) when clear."""
+    """(consecutive failures, epoch of the last failure); (0, 0.0) when clear.
+
+    Unparseable values read as clear. That covers the legacy {"fails": N}
+    blobs this counter replaced: they are period-scoped and expire on their
+    own, so treating them as clear costs at most one billing period of
+    breaker history rather than wedging a provider off.
+    """
     raw = db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
     if not raw:
         return 0, 0.0
     try:
-        data = json.loads(raw)
-        return int(data.get("fails", 0)), float(data.get("last", 0.0))
+        fails = int(raw)
     except (ValueError, TypeError):
         return 0, 0.0
+    last_raw = db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_last_key(provider))
+    try:
+        last = float(last_raw) if last_raw else 0.0
+    except (ValueError, TypeError):
+        last = 0.0
+    return fails, last
 
 
 def _breaker_tripped(provider: str) -> bool:
@@ -148,19 +172,20 @@ def _breaker_tripped(provider: str) -> bool:
 
 
 def _record_breaker_failure(provider: str) -> None:
-    fails, _ = _breaker_state(provider)
-    payload = json.dumps({"fails": fails + 1, "last": _now()})
-    db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider), payload)
-    logger.debug(
-        "Search breaker failure recorded", extra={"provider": provider, "fails": fails + 1}
-    )
+    fails = db.kv_increment(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
+    db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_last_key(provider), str(_now()))
+    logger.debug("Search breaker failure recorded", extra={"provider": provider, "fails": fails})
 
 
 def _reset_breaker(provider: str) -> None:
     """Clear the breaker after a success (no-op when already clear)."""
     fails, _ = _breaker_state(provider)
-    if fails:
-        db.kv_delete(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
+    # Unconditional: a pre-migration JSON blob reads as 0 fails, so guarding
+    # the delete on `fails` would leave that row orphaned until the billing
+    # period rolls the key name over. kv_delete is idempotent.
+    deleted = db.kv_delete(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
+    db.kv_delete(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_last_key(provider))
+    if fails or deleted:
         logger.info("Search breaker reset after success", extra={"provider": provider})
 
 
@@ -194,14 +219,56 @@ def active_provider() -> str:
     return "ddgs"
 
 
+def _configured_metered() -> list[_Provider]:
+    """Metered providers with a key set (i.e. ones we expect to serve)."""
+    return [p for p in _PROVIDERS if p.monthly_quota() is not None and p.api_key()]
+
+
+def has_metered_providers() -> bool:
+    """Whether any metered provider is configured at all.
+
+    A box with no keys is not "degraded" when ddgs serves - there, ddgs is
+    the intended provider rather than a fallback.
+    """
+    return bool(_configured_metered())
+
+
+def is_degraded() -> bool:
+    """Whether searches are running on the unmetered ddgs fallback.
+
+    True only when every configured metered provider is unavailable - spent,
+    breaker-tripped, or keyless. A provider erroring on one call is NOT
+    degradation: search_web falls through and the next search uses it again.
+
+    A box with no metered keys at all is not degraded either: there, ddgs is
+    the intended provider, not a fallback.
+    """
+    return bool(_configured_metered()) and active_provider() == "ddgs"
+
+
 def search_web(query: str, num_results: int) -> list[dict[str, str]]:
     """Run one web search; returns [{title, url, snippet}].
+
+    Thin wrapper over search_web_detailed for callers that don't care which
+    provider served.
+    """
+    return search_web_detailed(query, num_results)[0]
+
+
+def search_web_detailed(query: str, num_results: int) -> tuple[list[dict[str, str]], str]:
+    """Run one web search; returns ([{title, url, snippet}], served_by).
 
     Routing: first configured provider with quota remaining; a provider
     error falls through to the next. Zero results for a query containing
     quote operators triggers ONE retry with the operators stripped on the
     same provider: models write Google-style exact-match queries that
     return nothing, then burn whole LLM rounds rephrasing.
+
+    `served_by` names the provider that actually answered. Callers need it
+    because availability checked BEFORE a search does not describe it: a
+    provider can look available, fail, and fall through to ddgs inside this
+    very call. Anything that reports on the results themselves must use
+    this, not a pre-call is_degraded() snapshot.
 
     Raises SearchProviderError when every available provider failed.
     """
@@ -227,21 +294,31 @@ def search_web(query: str, num_results: int) -> list[dict[str, str]]:
         if metered:
             _reset_breaker(provider.name)
         _notify_if_degraded(provider.name)
-        return results
+        return results, provider.name
 
     raise last_error or SearchProviderError("No search provider available", retriable=True)
 
 
 def _notify_if_degraded(served_by: str) -> None:
-    """Alert the operator (once per day) when ddgs serves despite paid
-    providers being configured - otherwise quality degrades silently when
-    quotas run out mid-period. Never breaks the search that triggered it."""
+    """Alert the operator (once per day) when every metered provider is
+    unavailable and ddgs is all that's left - otherwise quality degrades
+    silently when quotas run out mid-period. Never breaks the search that
+    triggered it.
+
+    A single provider erroring is NOT degradation: search_web falls through
+    to the next provider, and the next search will use the erroring one
+    again once it recovers. Alerting on that both cries wolf and consumes
+    the daily dedupe slot a genuine exhaustion would need later that day -
+    so the check is "nothing metered is available", not "ddgs served".
+    """
     if served_by != "ddgs":
         return
     try:
-        metered = [p for p in _PROVIDERS if p.monthly_quota() is not None and p.api_key()]
-        if not metered:
-            return  # dev setup without keys - ddgs IS the intended provider
+        metered = _configured_metered()
+        if not is_degraded():
+            # Either no metered keys (ddgs IS the intent here) or one is still
+            # available and this was just a blip on the way through.
+            return
 
         dedupe_key = f"degraded-alert:{date.today().isoformat()}"
         if db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, dedupe_key):
@@ -249,7 +326,7 @@ def _notify_if_degraded(served_by: str) -> None:
         db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, dedupe_key, "1")
 
         exhausted = all(get_monthly_usage(p.name) >= (p.monthly_quota() or 0) for p in metered)
-        reason = "quotas exhausted" if exhausted else "providers failing"
+        reason = "quotas exhausted" if exhausted else "providers unavailable"
         logger.warning(
             "Web search degraded to DuckDuckGo fallback",
             extra={"reason": reason, "metered_providers": [p.name for p in metered]},
@@ -295,6 +372,21 @@ def _billed_search(provider: _Provider, query: str, num_results: int) -> list[di
 # ============ Provider adapters ============
 
 
+def _decoded_json(response: httpx.Response, provider: str) -> dict[str, Any]:
+    """Decode a provider response body, or raise SearchProviderError.
+
+    A malformed body (an upstream proxy's HTML error page served with a 200,
+    say) raises ValueError from .json(), which is not an httpx.HTTPError and
+    would otherwise escape the adapter uncaught instead of falling through
+    to the next provider.
+    """
+    try:
+        decoded: dict[str, Any] = response.json()
+    except ValueError as e:
+        raise SearchProviderError(f"{provider} returned an undecodable body", retriable=True) from e
+    return decoded
+
+
 def _search_brave(query: str, num_results: int) -> list[dict[str, str]]:
     try:
         response = httpx.get(
@@ -309,7 +401,7 @@ def _search_brave(query: str, num_results: int) -> list[dict[str, str]]:
         if response.status_code == 429:
             raise SearchProviderError("Brave Search rate limited", retriable=True)
         response.raise_for_status()
-        items = response.json().get("web", {}).get("results", [])
+        items = _decoded_json(response, "Brave Search").get("web", {}).get("results", [])
         return [
             {
                 "title": item.get("title", "No title"),
@@ -338,7 +430,7 @@ def _search_tavily(query: str, num_results: int) -> list[dict[str, str]]:
         if response.status_code in (429, 432):  # 432 = Tavily plan limit
             raise SearchProviderError("Tavily rate/plan limited", retriable=True)
         response.raise_for_status()
-        items = response.json().get("results", [])
+        items = _decoded_json(response, "Tavily").get("results", [])
         return [
             {
                 "title": item.get("title", "No title"),
@@ -372,7 +464,7 @@ def _search_exa(query: str, num_results: int) -> list[dict[str, str]]:
         if response.status_code in (402, 429):  # 402 = out of credits
             raise SearchProviderError("Exa credits exhausted or rate limited", retriable=True)
         response.raise_for_status()
-        items = response.json().get("results", [])
+        items = _decoded_json(response, "Exa").get("results", [])
         return [
             {
                 "title": item.get("title") or "No title",
@@ -385,6 +477,42 @@ def _search_exa(query: str, num_results: int) -> list[dict[str, str]]:
         raise SearchProviderError("Exa search timed out", retriable=True) from e
     except httpx.HTTPError as e:
         raise SearchProviderError(f"Exa search failed: {e}") from e
+
+
+def _search_linkup(query: str, num_results: int) -> list[dict[str, str]]:
+    try:
+        response = httpx.post(
+            _LINKUP_ENDPOINT,
+            json={
+                "q": query,
+                "depth": Config.LINKUP_SEARCH_DEPTH,
+                "outputType": "searchResults",
+                "maxResults": num_results,
+            },
+            headers={
+                "Authorization": f"Bearer {Config.LINKUP_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=_HTTP_TIMEOUT_SECONDS,
+        )
+        # Linkup returns 429 for rate limiting AND for exhausted credits, so
+        # the breaker (not this status) is what catches a spent plan.
+        if response.status_code == 429:
+            raise SearchProviderError("Linkup rate limited or out of credits", retriable=True)
+        response.raise_for_status()
+        items = _decoded_json(response, "Linkup").get("results", [])
+        return [
+            {
+                "title": item.get("name") or "No title",
+                "url": item.get("url", ""),
+                "snippet": item.get("content", ""),
+            }
+            for item in items[:num_results]
+        ]
+    except httpx.TimeoutException as e:
+        raise SearchProviderError("Linkup search timed out", retriable=True) from e
+    except httpx.HTTPError as e:
+        raise SearchProviderError(f"Linkup search failed: {e}") from e
 
 
 def _search_ddgs(query: str, num_results: int) -> list[dict[str, str]]:
@@ -430,6 +558,12 @@ _PROVIDERS: tuple[_Provider, ...] = (
         lambda: Config.EXA_API_KEY,
         lambda: Config.SEARCH_QUOTA_EXA_MONTHLY,
         lambda q, n: _search_exa(q, n),
+    ),
+    _Provider(
+        "linkup",
+        lambda: Config.LINKUP_API_KEY,
+        lambda: Config.SEARCH_QUOTA_LINKUP_MONTHLY,
+        lambda q, n: _search_linkup(q, n),
     ),
     _Provider("ddgs", lambda: "", lambda: None, lambda q, n: _search_ddgs(q, n)),
 )

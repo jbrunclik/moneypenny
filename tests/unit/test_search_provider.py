@@ -1,12 +1,14 @@
 """Tests for the quota-aware search provider router.
 
-Providers are tried in priority order (brave -> tavily -> exa -> ddgs);
+Providers are tried in priority order (brave -> tavily -> exa -> linkup ->
+ddgs);
 a provider is skipped when unconfigured or over its monthly quota, and a
 failing provider falls through to the next one. Usage counters live in
 kv_store under a system sentinel user.
 """
 
-import json
+import threading
+import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -15,9 +17,17 @@ import pytest
 from src.config import Config
 from src.utils.search_provider import (
     SearchProviderError,
+    _breaker_state,
+    _record_breaker_failure,
+    _search_brave,
+    _search_exa,
+    _search_linkup,
+    _search_tavily,
     active_provider,
     breaker_key,
+    breaker_last_key,
     get_monthly_usage,
+    is_degraded,
     period_start,
     search_web,
     usage_key,
@@ -59,6 +69,7 @@ def _no_keys() -> Any:  # noqa: ANN401
         BRAVE_SEARCH_API_KEY="",
         TAVILY_API_KEY="",
         EXA_API_KEY="",
+        LINKUP_API_KEY="",
     )
 
 
@@ -69,7 +80,13 @@ class TestActiveProvider:
 
     def test_brave_first_when_configured(self) -> None:
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="tk", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", _fake_db()),
         ):
             assert active_provider() == "brave"
@@ -77,7 +94,13 @@ class TestActiveProvider:
     def test_skips_provider_over_quota(self) -> None:
         usage = {usage_key("brave"): Config.SEARCH_QUOTA_BRAVE_MONTHLY}
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="tk", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", _fake_db(usage)),
         ):
             assert active_provider() == "tavily"
@@ -92,7 +115,13 @@ class TestRouting:
         mock_brave.side_effect = SearchProviderError("rate limited", retriable=True)
         mock_tavily.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="tk", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", _fake_db()),
         ):
             results = search_web("q", 3)
@@ -107,7 +136,13 @@ class TestRouting:
         mock_tavily.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         usage = {usage_key("brave"): Config.SEARCH_QUOTA_BRAVE_MONTHLY}
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="tk", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", _fake_db(usage)),
         ):
             results = search_web("q", 3)
@@ -119,7 +154,13 @@ class TestRouting:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         db = _fake_db()
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", db),
         ):
             search_web("q", 3)
@@ -131,14 +172,23 @@ class TestRouting:
         mock_brave.side_effect = SearchProviderError("boom")
         db = _fake_db()
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", db),
             patch("src.utils.search_provider._search_ddgs") as mock_ddgs,
         ):
             mock_ddgs.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
             search_web("q", 3)
-        # ddgs is unmetered; the failed brave call must not be billed
-        db.kv_increment.assert_not_called()
+        # ddgs is unmetered; the failed brave call must not be billed.
+        # (The breaker increments its own key on that failure - only the
+        # usage counter is off limits here.)
+        incremented = [call.args[2] for call in db.kv_increment.call_args_list]
+        assert usage_key("brave") not in incremented
 
     @patch("src.utils.search_provider._search_ddgs")
     @patch("src.utils.search_provider._search_brave")
@@ -148,7 +198,13 @@ class TestRouting:
         mock_brave.side_effect = SearchProviderError("brave down", retriable=True)
         mock_ddgs.side_effect = SearchProviderError("ddgs down", retriable=True)
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", _fake_db()),
         ):
             with pytest.raises(SearchProviderError) as exc_info:
@@ -228,7 +284,11 @@ class TestTavilySearch:
 
         with (
             patch.multiple(
-                Config, BRAVE_SEARCH_API_KEY="", TAVILY_API_KEY="tvly-key", EXA_API_KEY=""
+                Config,
+                BRAVE_SEARCH_API_KEY="",
+                TAVILY_API_KEY="tvly-key",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
             ),
             patch("src.utils.search_provider.db", _fake_db()),
         ):
@@ -245,7 +305,11 @@ class TestTavilySearch:
 
         with (
             patch.multiple(
-                Config, BRAVE_SEARCH_API_KEY="", TAVILY_API_KEY="tvly-key", EXA_API_KEY=""
+                Config,
+                BRAVE_SEARCH_API_KEY="",
+                TAVILY_API_KEY="tvly-key",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
             ),
             patch("src.utils.search_provider.db", _fake_db()),
             patch("src.utils.search_provider._search_ddgs") as mock_ddgs,
@@ -270,7 +334,11 @@ class TestExaSearch:
 
         with (
             patch.multiple(
-                Config, BRAVE_SEARCH_API_KEY="", TAVILY_API_KEY="", EXA_API_KEY="exa-key"
+                Config,
+                BRAVE_SEARCH_API_KEY="",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="exa-key",
+                LINKUP_API_KEY="",
             ),
             patch("src.utils.search_provider.db", _fake_db()),
         ):
@@ -287,7 +355,11 @@ class TestExaSearch:
 
         with (
             patch.multiple(
-                Config, BRAVE_SEARCH_API_KEY="", TAVILY_API_KEY="", EXA_API_KEY="exa-key"
+                Config,
+                BRAVE_SEARCH_API_KEY="",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="exa-key",
+                LINKUP_API_KEY="",
             ),
             patch("src.utils.search_provider.db", _fake_db()),
             patch("src.utils.search_provider._search_ddgs") as mock_ddgs,
@@ -430,6 +502,7 @@ class TestDegradationAlert:
                 BRAVE_SEARCH_API_KEY="bk",
                 TAVILY_API_KEY="",
                 EXA_API_KEY="",
+                LINKUP_API_KEY="",
                 ALLOWED_EMAILS=["op@example.com"],
             ),
             patch("src.utils.search_provider.db", self._db_with_store(usage)),
@@ -449,6 +522,7 @@ class TestDegradationAlert:
                 BRAVE_SEARCH_API_KEY="bk",
                 TAVILY_API_KEY="",
                 EXA_API_KEY="",
+                LINKUP_API_KEY="",
                 ALLOWED_EMAILS=["op@example.com"],
             ),
             patch("src.utils.search_provider.db", self._db_with_store(store)),
@@ -464,7 +538,13 @@ class TestDegradationAlert:
     ) -> None:
         mock_ddgs.return_value = []
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="", TAVILY_API_KEY="", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", self._db_with_store({})),
         ):
             search_web("q", 3)
@@ -477,11 +557,75 @@ class TestDegradationAlert:
     ) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
         with (
-            patch.multiple(Config, BRAVE_SEARCH_API_KEY="bk", TAVILY_API_KEY="", EXA_API_KEY=""),
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
             patch("src.utils.search_provider.db", self._db_with_store({})),
         ):
             search_web("q", 3)
         mock_push.assert_not_called()
+
+    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.utils.search_provider._search_exa")
+    def test_no_alert_when_a_metered_provider_is_merely_failing(
+        self, mock_exa: MagicMock, mock_ddgs: MagicMock, mock_push: MagicMock
+    ) -> None:
+        """A transient provider outage is not degradation.
+
+        Exa still has quota, so the very next search uses it again. Alerting
+        on a one-off 503 cries wolf and (worse) burns the daily dedupe slot
+        that a real exhaustion later that day would need.
+        """
+        mock_exa.side_effect = SearchProviderError("503 Service Unavailable", retriable=True)
+        mock_ddgs.return_value = []
+        usage = {usage_key("brave"): str(Config.SEARCH_QUOTA_BRAVE_MONTHLY)}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="ek",
+                LINKUP_API_KEY="",
+                ALLOWED_EMAILS=["op@example.com"],
+            ),
+            patch("src.utils.search_provider.db", self._db_with_store(usage)),
+        ):
+            search_web("q", 3)
+        mock_push.assert_not_called()
+
+    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.utils.search_provider._search_exa")
+    def test_transient_failure_does_not_consume_the_daily_alert_slot(
+        self, mock_exa: MagicMock, mock_ddgs: MagicMock, mock_push: MagicMock
+    ) -> None:
+        """A blip earlier in the day must not silence a real exhaustion."""
+        mock_exa.side_effect = SearchProviderError("503 Service Unavailable", retriable=True)
+        mock_ddgs.return_value = []
+        store = {usage_key("brave"): str(Config.SEARCH_QUOTA_BRAVE_MONTHLY)}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="ek",
+                LINKUP_API_KEY="",
+                ALLOWED_EMAILS=["op@example.com"],
+            ),
+            patch("src.utils.search_provider.db", self._db_with_store(store)),
+        ):
+            search_web("blip", 3)  # exa fails transiently, still has quota
+            store[usage_key("exa")] = str(Config.SEARCH_QUOTA_EXA_MONTHLY)
+            search_web("real", 3)  # exa now genuinely exhausted
+        mock_push.assert_called_once()
+        # The surviving alert must be the real one, not the blip: the blip
+        # would have read "providers failing" and left no slot for this.
+        assert "quotas exhausted" in mock_push.call_args[0][2]
 
 
 class TestCircuitBreaker:
@@ -512,6 +656,7 @@ class TestCircuitBreaker:
                 BRAVE_SEARCH_API_KEY="bk",
                 TAVILY_API_KEY="tk",
                 EXA_API_KEY="",
+                LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
             ),
             patch("src.utils.search_provider.db", _stateful_db()),
@@ -531,13 +676,17 @@ class TestCircuitBreaker:
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
         mock_tavily.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
-        store = {breaker_key("brave"): json.dumps({"fails": 3, "last": 1_000_000.0})}
+        store = {
+            breaker_key("brave"): "3",
+            breaker_last_key("brave"): "1000000.0",
+        }
         with (
             patch.multiple(
                 Config,
                 BRAVE_SEARCH_API_KEY="bk",
                 TAVILY_API_KEY="tk",
                 EXA_API_KEY="",
+                LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
                 SEARCH_BREAKER_PROBE_SECONDS=self._PROBE,
             ),
@@ -552,13 +701,17 @@ class TestCircuitBreaker:
     @patch("src.utils.search_provider._search_brave")
     def test_half_open_probe_after_a_day(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
-        store = {breaker_key("brave"): json.dumps({"fails": 3, "last": 1_000_000.0})}
+        store = {
+            breaker_key("brave"): "3",
+            breaker_last_key("brave"): "1000000.0",
+        }
         with (
             patch.multiple(
                 Config,
                 BRAVE_SEARCH_API_KEY="bk",
                 TAVILY_API_KEY="",
                 EXA_API_KEY="",
+                LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
                 SEARCH_BREAKER_PROBE_SECONDS=self._PROBE,
             ),
@@ -574,13 +727,17 @@ class TestCircuitBreaker:
     def test_success_resets_the_breaker(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         # Below threshold (a couple of blips), then a success clears the counter
-        store = {breaker_key("brave"): json.dumps({"fails": 2, "last": 1_000_000.0})}
+        store = {
+            breaker_key("brave"): "2",
+            breaker_last_key("brave"): "1000000.0",
+        }
         with (
             patch.multiple(
                 Config,
                 BRAVE_SEARCH_API_KEY="bk",
                 TAVILY_API_KEY="",
                 EXA_API_KEY="",
+                LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
             ),
             patch("src.utils.search_provider.db", _stateful_db(store)),
@@ -602,6 +759,7 @@ class TestCircuitBreaker:
                 BRAVE_SEARCH_API_KEY="bk",
                 TAVILY_API_KEY="",
                 EXA_API_KEY="",
+                LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
             ),
             patch("src.utils.search_provider.db", _stateful_db(store)),
@@ -610,3 +768,208 @@ class TestCircuitBreaker:
                 search_web("q", 3)
         assert breaker_key("brave") in store  # metered provider recorded a failure
         assert breaker_key("ddgs") not in store  # unmetered terminal fallback did not
+
+
+class TestLinkupSearch:
+    """Linkup is the fourth metered provider, tried after Exa."""
+
+    @patch("httpx.post")
+    def test_maps_linkup_results_to_contract(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=200)
+        mock_post.return_value.json.return_value = {
+            "results": [
+                {"type": "text", "name": "T1", "url": "https://a", "content": "C1"},
+                {"type": "text", "name": "T2", "url": "https://b", "content": "C2"},
+            ]
+        }
+        with patch.object(Config, "LINKUP_API_KEY", "lk"):
+            results = _search_linkup("q", 5)
+        assert results == [
+            {"title": "T1", "url": "https://a", "snippet": "C1"},
+            {"title": "T2", "url": "https://b", "snippet": "C2"},
+        ]
+
+    @patch("httpx.post")
+    def test_requests_raw_results_at_configured_depth(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=200)
+        mock_post.return_value.json.return_value = {"results": []}
+        with patch.multiple(Config, LINKUP_API_KEY="lk", LINKUP_SEARCH_DEPTH="standard"):
+            _search_linkup("q", 3)
+        body = mock_post.call_args.kwargs["json"]
+        assert body["outputType"] == "searchResults"
+        assert body["depth"] == "standard"
+        assert body["q"] == "q"
+
+    @patch("httpx.post")
+    def test_caps_results_to_requested_count(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=200)
+        mock_post.return_value.json.return_value = {
+            "results": [
+                {"type": "text", "name": f"T{i}", "url": f"https://{i}", "content": "C"}
+                for i in range(5)
+            ]
+        }
+        with patch.object(Config, "LINKUP_API_KEY", "lk"):
+            assert len(_search_linkup("q", 2)) == 2
+
+    @patch("httpx.post")
+    def test_429_is_retriable(self, mock_post: MagicMock) -> None:
+        # Linkup returns 429 for BOTH rate limiting and exhausted credits
+        mock_post.return_value = MagicMock(status_code=429)
+        with (
+            patch.object(Config, "LINKUP_API_KEY", "lk"),
+            pytest.raises(SearchProviderError) as excinfo,
+        ):
+            _search_linkup("q", 3)
+        assert excinfo.value.retriable
+
+    def test_linkup_is_the_last_metered_provider(self) -> None:
+        usage = {
+            usage_key("brave"): Config.SEARCH_QUOTA_BRAVE_MONTHLY,
+            usage_key("tavily"): Config.SEARCH_QUOTA_TAVILY_MONTHLY,
+            usage_key("exa"): Config.SEARCH_QUOTA_EXA_MONTHLY,
+        }
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="ek",
+                LINKUP_API_KEY="lk",
+            ),
+            patch("src.utils.search_provider.db", _fake_db(usage)),
+        ):
+            assert active_provider() == "linkup"
+
+
+class TestBreakerCounterIsAtomic:
+    """Breaker failures are counted with an atomic increment.
+
+    Production runs 4 gunicorn workers. A read-modify-write counter loses
+    updates when failures arrive at the same moment - which is exactly when
+    a provider is dying and the breaker is supposed to notice.
+    """
+
+    class _LaggyKV:
+        """kv_store fake with a real gap between read and write.
+
+        Plain class, not MagicMock: the point is the interleaving, and the
+        lag must sit AFTER the read (that is the read-modify-write window)
+        - sleeping before the read closes the very race being tested.
+        """
+
+        def __init__(self, store: dict[str, str]) -> None:
+            self.store = store
+            self._lock = threading.Lock()
+
+        def kv_get(self, _u: str, _ns: str, key: str) -> str | None:
+            value = self.store.get(key)
+            time.sleep(0.05)
+            return value
+
+        def kv_set(self, _u: str, _ns: str, key: str, value: str) -> None:
+            with self._lock:
+                self.store[key] = value
+
+        def kv_increment(self, _u: str, _ns: str, key: str, delta: int = 1) -> int:
+            with self._lock:  # atomic, mirroring the SQL UPSERT
+                self.store[key] = str(int(self.store.get(key, "0")) + delta)
+                return int(self.store[key])
+
+        def kv_delete(self, _u: str, _ns: str, key: str) -> bool:
+            with self._lock:
+                return self.store.pop(key, None) is not None
+
+    def test_simultaneous_failures_are_all_counted(self) -> None:
+        store: dict[str, str] = {}
+        with patch("src.utils.search_provider.db", self._LaggyKV(store)):
+            threads = [
+                threading.Thread(target=_record_breaker_failure, args=("brave",)) for _ in range(3)
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            fails, _ = _breaker_state("brave")
+        assert fails == 3
+
+    def test_legacy_json_breaker_value_reads_as_clear(self) -> None:
+        """Pre-existing {"fails": N} blobs are period-scoped and expire on
+        their own; they must not crash or wedge a provider off."""
+        store = {breaker_key("brave"): '{"fails": 5, "last": 1.0}'}
+        with patch("src.utils.search_provider.db", _stateful_db(store)):
+            fails, _ = _breaker_state("brave")
+        assert fails == 0
+
+
+class TestIsDegraded:
+    """One definition of "degraded", shared by the operator alert and the
+    agent tools: nothing metered is available, so ddgs is all that's left."""
+
+    def test_true_when_all_metered_providers_are_spent(self) -> None:
+        usage = {
+            usage_key("brave"): Config.SEARCH_QUOTA_BRAVE_MONTHLY,
+            usage_key("tavily"): Config.SEARCH_QUOTA_TAVILY_MONTHLY,
+            usage_key("exa"): Config.SEARCH_QUOTA_EXA_MONTHLY,
+            usage_key("linkup"): Config.SEARCH_QUOTA_LINKUP_MONTHLY,
+        }
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="ek",
+                LINKUP_API_KEY="lk",
+            ),
+            patch("src.utils.search_provider.db", _fake_db(usage)),
+        ):
+            assert is_degraded() is True
+
+    def test_false_while_a_metered_provider_has_quota(self) -> None:
+        usage = {usage_key("brave"): Config.SEARCH_QUOTA_BRAVE_MONTHLY}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
+            patch("src.utils.search_provider.db", _fake_db(usage)),
+        ):
+            assert is_degraded() is False
+
+    def test_false_when_no_metered_provider_is_configured(self) -> None:
+        """A dev box with no keys is not degraded - ddgs IS the intent."""
+        with (
+            _no_keys(),
+            patch.multiple(Config, LINKUP_API_KEY=""),
+            patch("src.utils.search_provider.db", _fake_db()),
+        ):
+            assert is_degraded() is False
+
+
+class TestMalformedProviderResponses:
+    """A 200 with a non-JSON body (an upstream proxy's HTML error page, say)
+    must surface as a SearchProviderError so the router falls through, not as
+    a raw ValueError escaping past the tool boundary."""
+
+    @pytest.mark.parametrize(
+        ("adapter", "key_attr"),
+        [
+            (_search_brave, "BRAVE_SEARCH_API_KEY"),
+            (_search_tavily, "TAVILY_API_KEY"),
+            (_search_exa, "EXA_API_KEY"),
+            (_search_linkup, "LINKUP_API_KEY"),
+        ],
+    )
+    def test_undecodable_body_becomes_a_provider_error(self, adapter: Any, key_attr: str) -> None:
+        response = MagicMock(status_code=200)
+        response.json.side_effect = ValueError("Expecting value: line 1 column 1")
+        target = "httpx.get" if adapter is _search_brave else "httpx.post"
+        with (
+            patch(target, return_value=response),
+            patch.object(Config, key_attr, "key"),
+            pytest.raises(SearchProviderError),
+        ):
+            adapter("q", 3)

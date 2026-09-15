@@ -36,7 +36,7 @@ Built for a household of a few users, deployed on a single box.
 ### Tools & Capabilities
 - **File uploads**: images, videos, PDFs, and text files with multimodal analysis; screenshots paste straight from the clipboard, and images are compressed client-side before upload
 - **Image generation**: create images from text, or edit an uploaded one; thumbnails open a gallery lightbox with pinch zoom, pan, fullscreen, and download, and PDFs open in an inline viewer
-- **Web tools**: quota-aware web search that routes across providers (Brave -> Tavily -> Exa, DuckDuckGo as the free fallback) with per-billing-period usage ledgers, URL fetching with source citations, and full browser automation - JS rendering, clicks, form filling, screenshots (Playwright)
+- **Web tools**: quota-aware web search that routes across providers (Brave -> Tavily -> Exa -> Linkup, DuckDuckGo as the free fallback), with per-billing-period usage ledgers, a per-provider circuit breaker, and an automatic quality bump for the `research` tool when every metered provider is unavailable; plus URL fetching with source citations and full browser automation - JS rendering, clicks, form filling, screenshots (Playwright)
 - **Code execution**: Python in a sandboxed Docker container for calculations, data analysis, charts, and PDFs
 - **Conversation recall**: the assistant can search and read your past conversations, so "what did we decide about X?" does not depend on it having memorized X
 - **Todoist**: list, add, complete, prioritize, and organize tasks across projects

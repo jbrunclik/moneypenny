@@ -233,7 +233,7 @@ def create_mock_llm() -> MagicMock:
 
 
 def mock_search_web(query: str, num_results: int) -> list[dict[str, str]]:
-    """Mock the search-provider seam (web_search and research both use it)."""
+    """Mock the search-provider seam (research uses it directly)."""
     return [
         {
             "title": "Example Search Result",
@@ -241,6 +241,11 @@ def mock_search_web(query: str, num_results: int) -> list[dict[str, str]]:
             "snippet": "This is a mock search result snippet.",
         }
     ]
+
+
+def mock_search_web_detailed(query: str, num_results: int) -> tuple[list[dict[str, str]], str]:
+    """web_search's seam: results plus the provider that actually served."""
+    return mock_search_web(query, num_results), "brave"
 
 
 def create_mock_httpx() -> MagicMock:
@@ -553,7 +558,9 @@ def main() -> None:
         # Apply external service mocks
         stack.enter_context(patch("src.agent.graph.ChatGoogleGenerativeAI", create_mock_llm()))
         stack.enter_context(patch("src.agent.agent.ChatGoogleGenerativeAI", create_mock_llm()))
-        stack.enter_context(patch("src.agent.tools.web.search_web", mock_search_web))
+        stack.enter_context(
+            patch("src.agent.tools.web.search_web_detailed", mock_search_web_detailed)
+        )
         stack.enter_context(patch("src.agent.tools.research.search_web", mock_search_web))
         stack.enter_context(patch("src.agent.tools.web.httpx.Client", create_mock_httpx()))
         stack.enter_context(

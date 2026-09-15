@@ -16,7 +16,12 @@ from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
 from src.agent.tools.url_safety import check_host, validate_public_url
 from src.config import Config
 from src.utils.logging import get_logger
-from src.utils.search_provider import SearchProviderError, active_provider, search_web
+from src.utils.search_provider import (
+    SearchProviderError,
+    active_provider,
+    has_metered_providers,
+    search_web_detailed,
+)
 
 logger = get_logger(__name__)
 
@@ -422,6 +427,34 @@ def _chained_fetch_nudge() -> str | None:
     )
 
 
+# Internal bookkeeping on a per-query result dict; stripped before the tool
+# returns, so it never reaches the model.
+_SERVED_BY = "_served_by"
+
+
+def _degraded_notice(served_by: list[str]) -> str | None:
+    """Note for results actually served by the unmetered ddgs fallback.
+
+    Snippets there run ~290 chars against a weaker ranking, so a second
+    snippet-only search usually re-reads the same thin material. Pointing at
+    research (which fetches the pages) is the way out, and it rides on the
+    tool result rather than the system prompt because that is where the
+    model actually acts on directives.
+
+    Driven by which provider ANSWERED, not by availability sampled before
+    the search: a provider can look available, fail, and fall through to
+    ddgs within the same call - precisely the case worth flagging.
+    """
+    if "ddgs" not in served_by or not has_metered_providers():
+        return None
+    some = "some of these searches" if len(served_by) > 1 else "these results"
+    return (
+        f"DEGRADED: {some} fell back to the free search provider - weaker ranking "
+        "and short snippets. If they do not settle the question, call research "
+        "(it reads the pages) rather than running another web_search."
+    )
+
+
 def _search_one(query: str, num_results: int) -> dict[str, Any]:
     """Run a single web search via the configured provider, as a result dict."""
     logger.info(
@@ -430,7 +463,7 @@ def _search_one(query: str, num_results: int) -> dict[str, Any]:
     )
 
     try:
-        search_results = search_web(query, num_results)
+        search_results, served_by = search_web_detailed(query, num_results)
     except SearchProviderError as e:
         logger.warning("Search failed", extra={"query": query, "error": str(e)})
         return {"query": query, "results": [], "error": str(e), "retriable": e.retriable}
@@ -439,8 +472,19 @@ def _search_one(query: str, num_results: int) -> dict[str, Any]:
         logger.warning("No search results found", extra={"query": query})
         return {"query": query, "results": [], "error": "No results found"}
 
-    logger.info("Search completed", extra={"query": query, "result_count": len(search_results)})
-    return {"query": query, "results": search_results}
+    logger.info(
+        "Search completed",
+        extra={"query": query, "result_count": len(search_results), "served_by": served_by},
+    )
+    return {"query": query, "results": search_results, _SERVED_BY: served_by}
+
+
+def _take_served_by(results: list[dict[str, Any]]) -> list[str]:
+    """Pop the internal _served_by marks, returning the providers that served.
+
+    Popped rather than read so the bookkeeping key never reaches the model.
+    """
+    return [provider for r in results if (provider := r.pop(_SERVED_BY, None))]
 
 
 def _search_many(all_queries: list[str], num_results: int) -> list[dict[str, Any]]:
@@ -502,18 +546,25 @@ def web_search(
             **_search_one(all_queries[0], num_results),
             "_warning": _SEARCH_WARNING,
         }
+        degraded = _degraded_notice(_take_served_by([single]))
         if nudge:
             single["_efficiency"] = nudge
+        if degraded:
+            single["_degraded"] = degraded
         return json.dumps(single)
 
     # Batched queries run concurrently - a batch that fanned out serially would
     # just trade LLM round-trips for provider round-trips.
+    searches = _search_many(all_queries, num_results)
+    degraded = _degraded_notice(_take_served_by(searches))
     response: dict[str, Any] = {
-        "searches": _search_many(all_queries, num_results),
+        "searches": searches,
         "_warning": _SEARCH_WARNING,
     }
     if nudge:
         response["_efficiency"] = nudge
+    if degraded:
+        response["_degraded"] = degraded
     if dropped > 0:
         response["note"] = (
             f"{dropped} queries were dropped (max {Config.WEB_SEARCH_MAX_BATCH_QUERIES} "

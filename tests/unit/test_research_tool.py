@@ -106,3 +106,48 @@ class TestResearchTool:
     def test_empty_question_rejected(self) -> None:
         parsed = json.loads(research.invoke({"question": "  "}))
         assert "error" in parsed
+
+
+class TestResearchDegradedSources:
+    """On the ddgs fallback the ranking is weaker, so read more pages to
+    compensate - the fetched content is what survives a bad snippet."""
+
+    @patch("src.agent.tools.research.is_degraded", return_value=True)
+    @patch("src.agent.tools.research.fetch_page_text")
+    @patch("src.agent.tools.research.search_web")
+    def test_reads_more_sources_while_degraded(
+        self, mock_search: MagicMock, mock_fetch: MagicMock, _degraded: MagicMock
+    ) -> None:
+        mock_search.return_value = [_result(f"https://site{i}") for i in range(12)]
+        mock_fetch.return_value = ("Page content here", None)
+
+        parsed = json.loads(research.invoke({"question": "what is X?"}))
+
+        assert len(parsed["sources"]) == Config.RESEARCH_DEGRADED_MAX_SOURCES
+
+    @patch("src.agent.tools.research.is_degraded", return_value=False)
+    @patch("src.agent.tools.research.fetch_page_text")
+    @patch("src.agent.tools.research.search_web")
+    def test_normal_default_when_providers_are_healthy(
+        self, mock_search: MagicMock, mock_fetch: MagicMock, _degraded: MagicMock
+    ) -> None:
+        mock_search.return_value = [_result(f"https://site{i}") for i in range(12)]
+        mock_fetch.return_value = ("Page content here", None)
+
+        parsed = json.loads(research.invoke({"question": "what is X?"}))
+
+        assert len(parsed["sources"]) == Config.RESEARCH_MAX_SOURCES
+
+    @patch("src.agent.tools.research.is_degraded", return_value=True)
+    @patch("src.agent.tools.research.fetch_page_text")
+    @patch("src.agent.tools.research.search_web")
+    def test_explicit_max_sources_still_wins(
+        self, mock_search: MagicMock, mock_fetch: MagicMock, _degraded: MagicMock
+    ) -> None:
+        """The degraded bump is a default, not an override of the caller."""
+        mock_search.return_value = [_result(f"https://site{i}") for i in range(12)]
+        mock_fetch.return_value = ("Page content here", None)
+
+        parsed = json.loads(research.invoke({"question": "what is X?", "max_sources": 2}))
+
+        assert len(parsed["sources"]) == 2
