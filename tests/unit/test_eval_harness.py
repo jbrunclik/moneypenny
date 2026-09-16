@@ -4,11 +4,19 @@ Only the pure pieces are tested here - actually running evals hits the live
 Gemini API and happens via `make eval`, never in CI.
 """
 
+import json
 from pathlib import Path
 
 import pytest
 
-from evals.run import EvalCase, deterministic_failures, load_cases, parse_judge_response
+from evals.run import (
+    EvalCase,
+    deterministic_failures,
+    load_cases,
+    parse_judge_response,
+    run_with_timeout,
+    write_results,
+)
 
 
 def _write_case(directory: Path, name: str, body: str) -> None:
@@ -187,3 +195,53 @@ expect:
         assert case.files == []
         assert case.memories == []
         assert case.seed_conversation == {}
+
+
+class TestRunWithTimeout:
+    """A case that never returns must not hang the whole suite.
+
+    The agent path evals use (ChatAgent directly) has no client timeout -
+    CHAT_TIMEOUT is enforced at the route layer - so a stalled TLS read blocks
+    forever. Observed Sep 15 2026: a run sat in _ssl__SSLSocket_read for 5h38m
+    and forfeited 27 completed cases.
+    """
+
+    def test_returns_the_value_when_the_case_finishes(self) -> None:
+        assert run_with_timeout(lambda: {"id": "x", "pass": True}, timeout_s=5) == {
+            "id": "x",
+            "pass": True,
+        }
+
+    def test_raises_timeout_when_the_case_hangs(self) -> None:
+        import threading
+
+        never = threading.Event()  # never set; mimics a blocked socket read
+        with pytest.raises(TimeoutError):
+            run_with_timeout(lambda: never.wait(), timeout_s=0.2)
+
+    def test_propagates_the_cases_own_exception(self) -> None:
+        def boom() -> None:
+            raise RuntimeError("case blew up")
+
+        with pytest.raises(RuntimeError, match="case blew up"):
+            run_with_timeout(boom, timeout_s=5)
+
+
+class TestIncrementalResults:
+    """Results are flushed after every case, so a hang or Ctrl-C keeps the
+    cases already paid for instead of forfeiting the whole run's spend."""
+
+    def test_writes_partial_results_after_each_case(self, tmp_path: Path) -> None:
+        out = tmp_path / "run.json"
+        write_results(out, [{"id": "a", "pass": True}])
+        first = json.loads(out.read_text())
+        assert [r["id"] for r in first["results"]] == ["a"]
+
+        write_results(out, [{"id": "a", "pass": True}, {"id": "b", "pass": False}])
+        second = json.loads(out.read_text())
+        assert [r["id"] for r in second["results"]] == ["a", "b"]
+
+    def test_partial_file_carries_cost_so_far(self, tmp_path: Path) -> None:
+        out = tmp_path / "run.json"
+        write_results(out, [{"id": "a", "pass": True, "cost_usd": 0.03}])
+        assert json.loads(out.read_text())["cost"]["total_usd"] == 0.03

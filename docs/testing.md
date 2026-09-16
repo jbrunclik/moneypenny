@@ -393,6 +393,21 @@ by guessing):
   four shards of two workers; the server also prints `INFLIGHT` lines for
   requests still running after 3s. (Running the browsers under `nice` was
   tried and reverted - chromium went from 0 to 6 retries.)
+- **WebKit flakes under sustained load (settled Sep 2026)** - two specs
+  (`search.spec.ts`, and `deeplink.spec.ts:379` "reloading an archived
+  conversation URL") failed only under parallel load and were never
+  reproduced deliberately (~430 targeted executions all passed). The
+  mitigation is retry budget, not a fix: the webkit project gets 3 CI
+  retries vs chromium's 2 (per-project `retries` in
+  `playwright.config.ts`). Thirty main-branch runs after that change
+  produced zero false reds. If red E2E returns under load, the forensics
+  are already in place - `SearchResults.ts` warns when the search hint
+  renders while the DOM input still has text (distinguishing a lost input
+  event from a cleared input), and CI retries retain traces including
+  console. Pull the trace from the failed run's artifacts BEFORE
+  theorizing - the earlier "stray version banner" lead was a red herring
+  (see the version-banner note under E2E Stability Pitfalls).
+
 - **Per-test context creation ran yoyo** - `Database()` on a template copy
   re-read and hashed every migration file: 6ms locally, 5-6.5s on a CI
   runner, under the context lock and holding the GIL - unrelated requests

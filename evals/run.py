@@ -26,8 +26,10 @@ import os
 import re
 import sys
 import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -198,6 +200,74 @@ def _requirements_met(case: EvalCase) -> bool:
         "browser": is_browser_available,
     }
     return all(checks[req]() for req in case.requires if req in checks)
+
+
+def run_with_timeout(fn: Callable[[], Any], timeout_s: float) -> Any:
+    """Run `fn`, raising TimeoutError if it outlives `timeout_s`.
+
+    Evals drive ChatAgent directly, and CHAT_TIMEOUT is enforced at the route
+    layer, so nothing bounds a model call here: a stalled TLS read blocks the
+    interpreter forever (observed Sep 15 2026 - 5h38m in _ssl__SSLSocket_read,
+    forfeiting 27 finished cases).
+
+    The worker is a daemon thread because a blocked socket read cannot be
+    interrupted: on timeout we abandon it rather than join it, and being a
+    daemon keeps it from holding the process open at exit.
+    """
+    outcome: dict[str, Any] = {}
+
+    def _target() -> None:
+        try:
+            outcome["value"] = fn()
+        except BaseException as e:  # noqa: BLE001 - re-raised on the caller's thread
+            outcome["error"] = e
+
+    worker = threading.Thread(target=_target, daemon=True)
+    worker.start()
+    worker.join(timeout_s)
+    if worker.is_alive():
+        raise TimeoutError(f"case exceeded {timeout_s:.0f}s and was abandoned")
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome.get("value")
+
+
+def _cost_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate spend over the cases that actually ran."""
+    from src.config import Config
+
+    ran = [r for r in results if not r.get("skipped")]
+
+    def _sum(key: str) -> float:
+        return sum(float(r.get(key) or 0) for r in ran)
+
+    return {
+        "agent_usd": round(_sum("agent_cost_usd"), 6),
+        "judge_usd": round(_sum("judge_cost_usd"), 6),
+        "total_usd": round(_sum("cost_usd"), 6),
+        "agent_input_tokens": int(_sum("input_tokens")),
+        "agent_output_tokens": int(_sum("output_tokens")),
+        "agent_cached_input_tokens": int(_sum("cached_input_tokens")),
+        "judge_input_tokens": int(_sum("judge_input_tokens")),
+        "judge_output_tokens": int(_sum("judge_output_tokens")),
+        "cases_priced": len(ran),
+        "agent_model": Config.DEFAULT_MODEL,
+        "judge_model": Config.EVAL_JUDGE_MODEL,
+    }
+
+
+def write_results(out_path: Path, results: list[dict[str, Any]]) -> None:
+    """Persist results so far, overwriting the file.
+
+    Called after EVERY case, not once at the end: a hang or a Ctrl-C used to
+    forfeit the whole run's spend because nothing had been written yet.
+
+    `cost` is persisted so runs stay comparable: a prompt change that keeps
+    the pass rate but doubles spend is a regression you would not otherwise see.
+    """
+    out_path.write_text(
+        json.dumps({"cost": _cost_summary(results), "results": results}, indent=2)
+    )
 
 
 def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
@@ -377,18 +447,34 @@ def main() -> int:
             print(f"No case with id={args.only}")
             return 1
 
+    results_dir = Path(__file__).parent / "results"
+    results_dir.mkdir(exist_ok=True)
+    from datetime import datetime
+
+    out_path = results_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+
     results: list[dict[str, Any]] = []
     for case in cases:
         if case.requires and not _requirements_met(case):
             print(f"SKIP  {case.id} (requires {case.requires})")
             results.append({"id": case.id, "skipped": True})
+            write_results(out_path, results)
             continue
         print(f"RUN   {case.id} ...", flush=True)
         try:
-            result = _run_case(case, user, db)
+            result = run_with_timeout(
+                lambda case=case: _run_case(case, user, db),  # type: ignore[misc]
+                Config.EVAL_CASE_TIMEOUT_SECONDS,
+            )
+        except TimeoutError as e:
+            # Abandoned, not retried: the worker thread is stuck in a socket
+            # read we cannot interrupt, so the suite moves on without it.
+            result = {"id": case.id, "pass": False, "score": 0, "error": str(e), "timed_out": True}
         except Exception as e:  # a crashed case is a failed case, not a dead run
             result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
         results.append(result)
+        # Flush after every case so a hang or Ctrl-C keeps what was paid for
+        write_results(out_path, results)
         status = "PASS" if result.get("pass") else "FAIL"
         cost = result.get("cost_usd")
         cost_str = f" cost={_usd(cost)}" if cost is not None else ""
@@ -399,32 +485,8 @@ def main() -> int:
 
     ran = [r for r in results if not r.get("skipped")]
     passed = sum(1 for r in ran if r.get("pass"))
-
-    def _sum(key: str) -> float:
-        return sum(float(r.get(key) or 0) for r in ran)
-
-    cost = {
-        "agent_usd": round(_sum("agent_cost_usd"), 6),
-        "judge_usd": round(_sum("judge_cost_usd"), 6),
-        "total_usd": round(_sum("cost_usd"), 6),
-        "agent_input_tokens": int(_sum("input_tokens")),
-        "agent_output_tokens": int(_sum("output_tokens")),
-        "agent_cached_input_tokens": int(_sum("cached_input_tokens")),
-        "judge_input_tokens": int(_sum("judge_input_tokens")),
-        "judge_output_tokens": int(_sum("judge_output_tokens")),
-        "cases_priced": len(ran),
-        "agent_model": Config.DEFAULT_MODEL,
-        "judge_model": Config.EVAL_JUDGE_MODEL,
-    }
-
-    results_dir = Path(__file__).parent / "results"
-    results_dir.mkdir(exist_ok=True)
-    from datetime import datetime
-
-    out_path = results_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
-    # `cost` is persisted so runs stay comparable: a prompt change that keeps
-    # the pass rate but doubles spend is a regression you would not otherwise see.
-    out_path.write_text(json.dumps({"cost": cost, "results": results}, indent=2))
+    cost = _cost_summary(results)
+    write_results(out_path, results)
 
     print(f"\n{passed}/{len(ran)} passed ({len(results) - len(ran)} skipped)")
 

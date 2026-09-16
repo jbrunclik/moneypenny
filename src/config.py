@@ -380,6 +380,11 @@ class Config:
     # Judge model for the eval harness (evals/run.py, `make eval`). Pro by
     # default: judging quality matters more than judge cost (a few calls/run).
     EVAL_JUDGE_MODEL: str = os.getenv("EVAL_JUDGE_MODEL") or "gemini-3.1-pro-preview"
+    # Wall-clock budget per eval case. Evals drive ChatAgent directly, so the
+    # route layer's CHAT_TIMEOUT does not apply and nothing else bounds a
+    # stalled model call. Generous: the slowest legitimate cases (delegate /
+    # research) run ~80s.
+    EVAL_CASE_TIMEOUT_SECONDS: float = float(os.getenv("EVAL_CASE_TIMEOUT_SECONDS", "300"))
 
     # Embeddings for semantic recall (memories + past conversations).
     # Vectors stored in the embeddings table; brute-force cosine search.
