@@ -53,6 +53,6 @@
     "mediabunny": "^1.55.2",
     "pdfjs-dist": "^6.3.289",
     "uuid": "^14.0.1",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   }
 }
