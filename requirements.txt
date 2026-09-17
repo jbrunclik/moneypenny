@@ -12,7 +12,7 @@ google-api-core>=2.36.0
 langgraph>=1.2.11
 langchain-google-genai>=4.1.2
 langchain-core>=1.6.2
-pyjwt>=2.8
+pyjwt>=2.14.0
 requests>=2.31
 
 # Web tools
