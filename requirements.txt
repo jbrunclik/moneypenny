@@ -57,4 +57,4 @@ pytest-cov>=4.0
 pytest-mock>=3.0
 openapi-core>=0.23.1
 pyyaml>=6.0.3
-pillow-heif>=1.0.0
+pillow-heif>=1.7.0
