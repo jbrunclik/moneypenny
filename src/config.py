@@ -268,6 +268,13 @@ class Config:
     # length, so a 4K generated image (~15 MB base64) can't push the request past
     # Gemini's ~20 MB inline limit
     IMAGE_REFERENCE_MAX_EDGE_PX: int = int(os.getenv("IMAGE_REFERENCE_MAX_EDGE_PX", "2048"))
+    # Files retrieved for the chat model above this size (after image downscaling)
+    # go through the Gemini Files API instead of inline base64 (~20 MB request limit)
+    GEMINI_INLINE_FILE_MAX_BYTES: int = int(
+        os.getenv("GEMINI_INLINE_FILE_MAX_BYTES", str(8 * BYTES_PER_MB))
+    )
+    # Text files returned by retrieve_file are truncated to this many characters
+    RETRIEVE_FILE_TEXT_MAX_CHARS: int = int(os.getenv("RETRIEVE_FILE_TEXT_MAX_CHARS", "200000"))
     THUMBNAIL_WORKER_THREADS: int = int(os.getenv("THUMBNAIL_WORKER_THREADS", "2"))
     THUMBNAIL_RESAMPLING: str = os.getenv(
         "THUMBNAIL_RESAMPLING", "BILINEAR"

@@ -7,6 +7,8 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.config import Config
+from src.utils.images import downscale_image_for_reference
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -119,7 +121,6 @@ def retrieve_file(
     file_meta = message.files[file_index]
     file_name = file_meta.get("name", f"file_{file_index}")
     mime_type = file_meta.get("type", "application/octet-stream")
-    file_size = file_meta.get("size", 0)
 
     # Age-based retention gate: stays truthful even before the physical
     # sweep has deleted the blob (videos 7 days, images 30 days)
@@ -161,33 +162,6 @@ def retrieve_file(
             )
             return json.dumps({"error": "File data not found in storage."})
 
-    file_size = len(binary_data)
-
-    # Videos go via the Gemini Files API (inline limit is ~20MB); skip the
-    # base64 encoding below — a 100MB video would be needlessly inflated
-    if mime_type.startswith("video/"):
-        from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri
-
-        try:
-            uri = ensure_gemini_file_uri(message_id, file_index, binary_data, mime_type)
-        except GeminiFileError as e:
-            return json.dumps({"error": f"Failed to prepare video for viewing: {e}"})
-        logger.info(
-            "retrieve_file: video prepared via Files API",
-            extra={"message_id": message_id, "file_index": file_index},
-        )
-        return [
-            {
-                "type": "text",
-                "text": f"Here is {file_name} ({mime_type}, {file_size} bytes) "
-                f"from message {message_id}:",
-            },
-            {"type": "media", "file_uri": uri, "mime_type": mime_type},
-        ]
-
-    # Encode as base64 for return
-    file_base64 = base64.b64encode(binary_data).decode("utf-8")
-
     logger.info(
         "retrieve_file: file retrieved successfully",
         extra={
@@ -195,36 +169,83 @@ def retrieve_file(
             "file_index": file_index,
             "file_name": file_name,
             "mime_type": mime_type,
-            "size": file_size,
+            "size": len(binary_data),
         },
     )
+    return _build_file_content(message_id, file_index, file_name, mime_type, binary_data)
 
-    # For images and PDFs, return multimodal content for analysis
-    if mime_type.startswith("image/") or mime_type == "application/pdf":
+
+def _build_file_content(
+    message_id: str,
+    file_index: int,
+    file_name: str,
+    mime_type: str,
+    binary_data: bytes,
+) -> str | list[dict[str, Any]]:
+    """Turn retrieved file bytes into tool content the chat model can consume.
+
+    Everything returned here is sent inline on every later model call in the
+    turn, so it must stay well under Gemini's ~20 MB inline request limit.
+    """
+    file_size = len(binary_data)
+    header = f"Here is {file_name} ({mime_type}, {file_size} bytes) from message {message_id}:"
+
+    # Analysis doesn't need more than ~2K pixels; shrinks 4K generations ~10x
+    if mime_type.startswith("image/"):
+        binary_data, mime_type = downscale_image_for_reference(binary_data, mime_type)
+
+    is_visual = mime_type.startswith("image/") or mime_type == "application/pdf"
+    too_big_inline = len(binary_data) > Config.GEMINI_INLINE_FILE_MAX_BYTES
+
+    # Videos always, and oversized images/PDFs, go via the Gemini Files API;
+    # skip the base64 encoding - a 100MB video would be needlessly inflated
+    if mime_type.startswith("video/") or (is_visual and too_big_inline):
+        from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri
+
+        kind = "video" if mime_type.startswith("video/") else "file"
+        try:
+            uri = ensure_gemini_file_uri(message_id, file_index, binary_data, mime_type)
+        except GeminiFileError as e:
+            return json.dumps({"error": f"Failed to prepare {kind} for viewing: {e}"})
+        logger.info(
+            "retrieve_file: file prepared via Files API",
+            extra={"message_id": message_id, "file_index": file_index, "mime_type": mime_type},
+        )
         return [
-            {
-                "type": "text",
-                "text": f"Here is {file_name} ({mime_type}, {file_size} bytes) from message {message_id}:",
-            },
+            {"type": "text", "text": header},
+            {"type": "media", "file_uri": uri, "mime_type": mime_type},
+        ]
+
+    if is_visual:
+        return [
+            {"type": "text", "text": header},
             {
                 "type": "image",  # LangChain uses "image" type for both images and PDFs
-                "base64": file_base64,
+                "base64": base64.b64encode(binary_data).decode("utf-8"),
                 "mime_type": mime_type,
             },
         ]
 
-    # For text files, decode and return as text
+    # For text files, decode and return as (capped) text
     if mime_type.startswith("text/") or mime_type in (
         "application/json",
         "application/xml",
     ):
         try:
             text_content = binary_data.decode("utf-8")
-            return f"Here is the content of {file_name} ({mime_type}):\n\n{text_content}"
         except UnicodeDecodeError:
-            pass  # Fall through to base64 return
+            pass  # Fall through to the metadata-only return
+        else:
+            max_chars = Config.RETRIEVE_FILE_TEXT_MAX_CHARS
+            if len(text_content) > max_chars:
+                text_content = (
+                    f"{text_content[:max_chars]}\n\n[... truncated: showing the first "
+                    f"{max_chars} of {len(text_content)} characters]"
+                )
+            return f"Here is the content of {file_name} ({mime_type}):\n\n{text_content}"
 
-    # For other files, return metadata with base64
+    # Other binary files: base64 as text is unreadable to the model and costs
+    # tokens proportional to size, so return metadata only
     return json.dumps(
         {
             "success": True,
@@ -234,7 +255,7 @@ def retrieve_file(
                 "name": file_name,
                 "type": mime_type,
                 "size": file_size,
-                "data": file_base64,
             },
+            "note": "Binary file content cannot be shown directly.",
         }
     )

@@ -96,6 +96,13 @@ The `id` format is `"message_id:file_index"` which maps directly to the tool par
 - Use a historical image as a reference for image generation
 - Re-read a document that was uploaded earlier
 
+**Size handling** (everything returned is resent inline on each later model call in the turn, and Gemini's inline request limit is ~20 MB):
+- Images are downscaled to `IMAGE_REFERENCE_MAX_EDGE_PX` (2048) before being returned inline.
+- Videos always go through the Gemini Files API (`media` block with `file_uri`). Images and PDFs above `GEMINI_INLINE_FILE_MAX_BYTES` (8 MB) do too, since a 20 MB PDF upload is ~27 MB as base64.
+- Text files are truncated to `RETRIEVE_FILE_TEXT_MAX_CHARS` (200k chars, ~50k tokens), with a note giving the full length.
+- Other binary files return metadata only; base64 text is unreadable to the model and costs tokens in proportion to its size.
+- Known gap: files attached to the *current* message are still sent inline at full size (`src/agent/agent.py`), so many large uploads in one message can still exceed the limit.
+
 **Security:**
 - Verifies message belongs to the current conversation
 - Verifies conversation belongs to the current user
