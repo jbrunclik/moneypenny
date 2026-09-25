@@ -326,15 +326,20 @@ class Config:
     # Brave "Search" plan: $5 free credit/month at $5/1k = 1,000 searches
     SEARCH_QUOTA_BRAVE_MONTHLY = int(os.getenv("SEARCH_QUOTA_BRAVE_MONTHLY", "1000"))
     SEARCH_QUOTA_TAVILY_MONTHLY = int(os.getenv("SEARCH_QUOTA_TAVILY_MONTHLY", "1000"))
-    # Exa free tier: $10/mo credit; a search with text snippets bills
-    # $7/1k requests PLUS ~$1/1k content pages per result, so ~1,000 is the
-    # conservative real-world count (a 402 falls through to the next
-    # provider anyway if credits run out sooner)
-    SEARCH_QUOTA_EXA_MONTHLY = int(os.getenv("SEARCH_QUOTA_EXA_MONTHLY", "1000"))
-    # Linkup free tier: ~$5/mo credit plus a one-off signup grant. A 429 means
-    # rate-limited OR out of credits (Linkup conflates the two), so the
-    # circuit breaker below is what actually catches exhaustion here.
-    SEARCH_QUOTA_LINKUP_MONTHLY = int(os.getenv("SEARCH_QUOTA_LINKUP_MONTHLY", "1000"))
+    # Exa free tier: $10/mo credit. Measured Sep 25 2026 against the live API,
+    # a search with text snippets bills $0.007 total -> ~1,400 searches, not
+    # the ~1,000 originally guessed. The old cap benched Exa ~400 searches
+    # early every month and dropped traffic to the ddgs fallback while free
+    # credit was still sitting there. Over-setting this is now safe: Exa
+    # answers 402 when credits really are gone, which benches it at once.
+    SEARCH_QUOTA_EXA_MONTHLY = int(os.getenv("SEARCH_QUOTA_EXA_MONTHLY", "1400"))
+    # Linkup free tier: ~$5/mo credit plus a one-off signup grant. Probed live
+    # Sep 25 2026 at 1,000 recorded searches and it still served, so the
+    # signup grant had headroom the old cap was throwing away. A 429 means
+    # rate-limited OR out of credits (Linkup conflates the two and exposes
+    # nothing to tell them apart), so unlike the other three this one cannot
+    # be classified - the consecutive-failure threshold benches it instead.
+    SEARCH_QUOTA_LINKUP_MONTHLY = int(os.getenv("SEARCH_QUOTA_LINKUP_MONTHLY", "1500"))
     # Day of month each provider's billing period starts (1 = calendar
     # month). As of Sep 2026 Brave, Tavily, Exa and Linkup ALL reset free
     # credits on calendar months, so the default fits - the knob exists in

@@ -45,11 +45,20 @@ USAGE_NAMESPACE = "search-usage"
 
 
 class SearchProviderError(Exception):
-    """A search failure, with a retriable hint for agent self-correction."""
+    """A search failure, with a retriable hint for agent self-correction.
 
-    def __init__(self, message: str, retriable: bool = True) -> None:
+    `exhausted` marks a TERMINAL failure - the provider is out of credits for
+    the billing period, not merely busy. Credits do not come back mid-period,
+    so an exhausted provider is benched at once and never probed again until
+    the period rolls over. Conflating the two cost us 19 days of daily probes
+    against a Tavily that had been dry since Sep 5 2026, each one charging a
+    real user's search a failed round-trip before falling through.
+    """
+
+    def __init__(self, message: str, retriable: bool = True, exhausted: bool = False) -> None:
         super().__init__(message)
         self.retriable = retriable
+        self.exhausted = exhausted
 
 
 # ============ Usage accounting ============
@@ -128,6 +137,11 @@ def breaker_last_key(provider: str) -> str:
     return f"breaker-last:{breaker_key(provider)}"
 
 
+def breaker_exhausted_key(provider: str) -> str:
+    """kv_store key marking a provider as out of credits for this period."""
+    return f"breaker-exhausted:{breaker_key(provider)}"
+
+
 def _now() -> float:
     """Epoch seconds - a seam so tests can control the breaker clock without
     patching the global time.time (which also drives date.today())."""
@@ -165,15 +179,21 @@ def _breaker_tripped(provider: str) -> bool:
     so a transient (non-exhaustion) outage recovers within a day instead of
     staying down until the billing period rolls over.
     """
+    if db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_exhausted_key(provider)):
+        return True  # terminal for the period; the probe would only re-confirm
     fails, last = _breaker_state(provider)
     if fails < Config.SEARCH_BREAKER_THRESHOLD:
         return False
     return _now() - last < Config.SEARCH_BREAKER_PROBE_SECONDS
 
 
-def _record_breaker_failure(provider: str) -> None:
+def _record_breaker_failure(provider: str, exhausted: bool = False) -> None:
     fails = db.kv_increment(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
     db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_last_key(provider), str(_now()))
+    if exhausted:
+        # One authoritative "out of credits" beats counting to the threshold
+        db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_exhausted_key(provider), "1")
+        logger.info("Search provider out of credits for the period", extra={"provider": provider})
     logger.debug("Search breaker failure recorded", extra={"provider": provider, "fails": fails})
 
 
@@ -185,6 +205,7 @@ def _reset_breaker(provider: str) -> None:
     # period rolls the key name over. kv_delete is idempotent.
     deleted = db.kv_delete(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_key(provider))
     db.kv_delete(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_last_key(provider))
+    db.kv_delete(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_exhausted_key(provider))
     if fails or deleted:
         logger.info("Search breaker reset after success", extra={"provider": provider})
 
@@ -288,7 +309,7 @@ def search_web_detailed(query: str, num_results: int) -> tuple[list[dict[str, st
             # Breaker only guards metered providers; ddgs is the terminal
             # fallback with nowhere to fail over to.
             if metered:
-                _record_breaker_failure(provider.name)
+                _record_breaker_failure(provider.name, exhausted=error.exhausted)
             last_error = error
             continue
         if metered:
@@ -398,6 +419,12 @@ def _search_brave(query: str, num_results: int) -> list[dict[str, str]]:
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
         )
+        if response.status_code == 402:
+            raise SearchProviderError(
+                "Brave Search usage limit exceeded for the period",
+                retriable=True,
+                exhausted=True,
+            )
         if response.status_code == 429:
             raise SearchProviderError("Brave Search rate limited", retriable=True)
         response.raise_for_status()
@@ -427,8 +454,14 @@ def _search_tavily(query: str, num_results: int) -> list[dict[str, str]]:
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
         )
-        if response.status_code in (429, 432):  # 432 = Tavily plan limit
-            raise SearchProviderError("Tavily rate/plan limited", retriable=True)
+        if response.status_code == 432:  # Tavily's plan-limit code
+            raise SearchProviderError(
+                "Tavily plan usage limit exceeded for the period",
+                retriable=True,
+                exhausted=True,
+            )
+        if response.status_code == 429:
+            raise SearchProviderError("Tavily rate limited", retriable=True)
         response.raise_for_status()
         items = _decoded_json(response, "Tavily").get("results", [])
         return [
@@ -461,8 +494,12 @@ def _search_exa(query: str, num_results: int) -> list[dict[str, str]]:
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
         )
-        if response.status_code in (402, 429):  # 402 = out of credits
-            raise SearchProviderError("Exa credits exhausted or rate limited", retriable=True)
+        if response.status_code == 402:
+            raise SearchProviderError(
+                "Exa credits exhausted for the period", retriable=True, exhausted=True
+            )
+        if response.status_code == 429:
+            raise SearchProviderError("Exa rate limited", retriable=True)
         response.raise_for_status()
         items = _decoded_json(response, "Exa").get("results", [])
         return [
@@ -495,8 +532,11 @@ def _search_linkup(query: str, num_results: int) -> list[dict[str, str]]:
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
         )
-        # Linkup returns 429 for rate limiting AND for exhausted credits, so
-        # the breaker (not this status) is what catches a spent plan.
+        # Linkup returns 429 for rate limiting AND for exhausted credits with
+        # nothing in the response distinguishing them, so this one genuinely
+        # cannot be classified: it stays transient and the consecutive-failure
+        # threshold is what benches a spent plan. Revisit if Linkup ever splits
+        # the codes (the other three providers all do).
         if response.status_code == 429:
             raise SearchProviderError("Linkup rate limited or out of credits", retriable=True)
         response.raise_for_status()

@@ -18,6 +18,7 @@ from src.config import Config
 from src.utils.search_provider import (
     SearchProviderError,
     _breaker_state,
+    _now,
     _record_breaker_failure,
     _search_brave,
     _search_exa,
@@ -973,3 +974,130 @@ class TestMalformedProviderResponses:
             pytest.raises(SearchProviderError),
         ):
             adapter("q", 3)
+
+
+class TestTerminalVsTransientErrors:
+    """Providers signal "out of credits" differently from "slow down".
+
+    Conflating them made the breaker treat terminal exhaustion as a transient
+    outage: Tavily ran dry on Sep 5 2026 and every daily half-open probe for
+    the next 19 days re-discovered it, each one costing a real user's search a
+    failed round-trip before falling through.
+
+    Ground truth captured Sep 25 2026 against the live APIs while exhausted.
+    """
+
+    @patch("httpx.get")
+    def test_brave_402_usage_limit_is_exhaustion(self, mock_get: MagicMock) -> None:
+        response = MagicMock(status_code=402)
+        response.json.return_value = {"error": {"detail": "Usage limit exceeded."}}
+        mock_get.return_value = response
+        with (
+            patch.object(Config, "BRAVE_SEARCH_API_KEY", "bk"),
+            pytest.raises(SearchProviderError) as excinfo,
+        ):
+            _search_brave("q", 3)
+        assert excinfo.value.exhausted
+
+    @patch("httpx.get")
+    def test_brave_429_is_transient_not_exhaustion(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = MagicMock(status_code=429)
+        with (
+            patch.object(Config, "BRAVE_SEARCH_API_KEY", "bk"),
+            pytest.raises(SearchProviderError) as excinfo,
+        ):
+            _search_brave("q", 3)
+        assert not excinfo.value.exhausted
+
+    @patch("httpx.post")
+    def test_tavily_432_plan_limit_is_exhaustion(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=432)
+        with (
+            patch.object(Config, "TAVILY_API_KEY", "tk"),
+            pytest.raises(SearchProviderError) as excinfo,
+        ):
+            _search_tavily("q", 3)
+        assert excinfo.value.exhausted
+
+    @patch("httpx.post")
+    def test_tavily_429_is_transient_not_exhaustion(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=429)
+        with (
+            patch.object(Config, "TAVILY_API_KEY", "tk"),
+            pytest.raises(SearchProviderError) as excinfo,
+        ):
+            _search_tavily("q", 3)
+        assert not excinfo.value.exhausted
+
+    @patch("httpx.post")
+    def test_exa_402_out_of_credits_is_exhaustion(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=402)
+        with (
+            patch.object(Config, "EXA_API_KEY", "ek"),
+            pytest.raises(SearchProviderError) as excinfo,
+        ):
+            _search_exa("q", 3)
+        assert excinfo.value.exhausted
+
+    @patch("httpx.post")
+    def test_exa_429_is_transient_not_exhaustion(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=429)
+        with (
+            patch.object(Config, "EXA_API_KEY", "ek"),
+            pytest.raises(SearchProviderError) as excinfo,
+        ):
+            _search_exa("q", 3)
+        assert not excinfo.value.exhausted
+
+
+class TestExhaustionBenchesImmediately:
+    """A terminal signal benches a provider for the rest of the period, with
+    no threshold to reach and no daily probe re-asking a settled question."""
+
+    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.utils.search_provider._search_brave")
+    def test_one_exhaustion_trips_the_breaker(
+        self, mock_brave: MagicMock, mock_ddgs: MagicMock
+    ) -> None:
+        mock_brave.side_effect = SearchProviderError("out of credits", exhausted=True)
+        mock_ddgs.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
+        store: dict[str, str] = {}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
+            patch("src.utils.search_provider.db", _stateful_db(store)),
+        ):
+            search_web("q", 3)  # one failure, not SEARCH_BREAKER_THRESHOLD
+            search_web("q2", 3)
+        mock_brave.assert_called_once()  # skipped on the second search
+
+    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.utils.search_provider._search_brave")
+    def test_exhausted_provider_is_not_probed_again_this_period(
+        self, mock_brave: MagicMock, mock_ddgs: MagicMock
+    ) -> None:
+        """The half-open probe exists to recover a transient outage. Credits
+        do not come back mid-period, so probing for them is pure waste."""
+        mock_brave.side_effect = SearchProviderError("out of credits", exhausted=True)
+        mock_ddgs.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
+        store: dict[str, str] = {}
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
+            patch("src.utils.search_provider.db", _stateful_db(store)),
+        ):
+            search_web("q", 3)
+            # Well past the probe window - a transient trip would retry here
+            with patch("src.utils.search_provider._now", return_value=_now() + 10 * 86400):
+                search_web("q2", 3)
+        mock_brave.assert_called_once()
