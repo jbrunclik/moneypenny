@@ -15,6 +15,13 @@ MYPY := mypy
 endif
 NPM := npm
 
+# Deploy hosts may pin a newer node than the distro ships (Debian 13 stops at
+# node 20, below what vite will require) - see .nvmrc. That pinned toolchain
+# is installed per-user and linked into ~/.local/bin, never system-wide: the
+# host runs other people's node services off /usr/bin/node and must not have
+# the runtime swapped under them. Harmless no-op where the directory is absent.
+export PATH := $(HOME)/.local/bin:$(PATH)
+
 help:
 	@echo "Moneypenny - Available targets:"
 	@echo ""
@@ -322,8 +329,16 @@ reload:
 
 # Full update with dependencies rebuild and graceful reload
 # npm ci, not npm install: install mutates package-lock.json on version
-# drift, and the dirty lockfile then blocks the next git pull --ff-only
+# drift, and the dirty lockfile then blocks the next git pull --ff-only.
+# npm ci is not enough on its own though - it still normalizes the lockfile
+# when the deploy host's npm is OLDER than the one that generated it (npm 9
+# strips the `libc` entries npm 10+ writes for optional platform packages).
+# That silently dirties the tree and aborts the NEXT deploy, which is how a
+# routine dependency bump broke one on Sep 25 2026. On a deploy host the
+# lockfile is a build input, never a local edit worth keeping, so discard
+# any generated drift before pulling.
 update:
+	git checkout -- web/package-lock.json 2>/dev/null || true
 	git pull --ff-only
 	$(PIP) install -r requirements.txt
 	# Keep the agent browser tool's Chromium in lockstep with the playwright

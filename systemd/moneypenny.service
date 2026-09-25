@@ -12,8 +12,14 @@ After=network.target
 Type=simple
 WorkingDirectory=%h/src/moneypenny
 
-# Build frontend before starting (npm install + build)
-ExecStartPre=/bin/bash -c 'cd %h/src/moneypenny/web && npm install && npm run build'
+# Build the frontend ONLY when it is missing (fresh checkout). Deploys build
+# via `make update`, so rebuilding on every start just made restarts slow and,
+# worse, `npm install` rewrote the tracked package-lock.json each time - the
+# dirty lockfile then aborted the NEXT deploy's `git pull --ff-only`.
+# npm ci, never npm install: ci does not resolve new versions.
+# ~/.local/bin first so the pinned node (.nvmrc) is used rather than the
+# distro's, which lags behind what vite requires.
+ExecStartPre=/bin/bash -c 'cd %h/src/moneypenny && [ -n "$(ls -A static/assets 2>/dev/null)" ] || (cd web && PATH=%h/.local/bin:$PATH npm ci && PATH=%h/.local/bin:$PATH npm run build)'
 
 # Worker class: gthread (threaded). Long SSE streaming responses (chat/stream)
 # must NOT use the default sync worker — sync workers suspend their master
