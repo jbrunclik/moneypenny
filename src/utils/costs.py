@@ -83,7 +83,7 @@ def calculate_image_generation_cost(usage_metadata: dict[str, Any]) -> float:
     # Calculate cost using image generation model pricing
     # Input tokens (prompt) are charged at input rate
     # Output tokens (candidates + thoughts) are charged at output rate
-    image_model_pricing = Config.MODEL_PRICING["gemini-3-pro-image-preview"]
+    image_model_pricing = Config.MODEL_PRICING[Config.IMAGE_GENERATION_MODEL]
     input_cost = (prompt_tokens / 1_000_000) * image_model_pricing["input"]
     output_cost = ((candidates_tokens + thoughts_tokens) / 1_000_000) * image_model_pricing[
         "output"

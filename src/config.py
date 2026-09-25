@@ -36,7 +36,7 @@ class Config:
     DEFAULT_MODEL = "gemini-3.8-flash"
 
     # Image generation model
-    IMAGE_GENERATION_MODEL = "gemini-3-pro-image-preview"
+    IMAGE_GENERATION_MODEL = "gemini-3-pro-image"
     MAX_IMAGE_PROMPT_LENGTH: int = int(os.getenv("MAX_IMAGE_PROMPT_LENGTH", "2000"))  # characters
 
     # Google Identity Services (GIS) - only Client ID needed
@@ -177,7 +177,7 @@ class Config:
             "cached_input": 0.3125,
             "output": 5.00,  # $5.00 per million output tokens (historical)
         },
-        "gemini-3-pro-image-preview": {
+        "gemini-3-pro-image": {
             "input": 2.00,  # $2.00 per million input tokens (text prompts)
             "cached_input": 0.50,
             "output": 12.00,  # $12.00 per million output tokens (images + thinking)

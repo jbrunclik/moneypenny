@@ -29,7 +29,7 @@ class TestGetModelPricing:
 
     def test_image_model_pricing(self) -> None:
         """Test pricing for image generation model."""
-        pricing = get_model_pricing("gemini-3-pro-image-preview")
+        pricing = get_model_pricing("gemini-3-pro-image")
         assert pricing["input"] == 2.00
         assert pricing["output"] == 12.00
 

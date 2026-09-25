@@ -4,7 +4,7 @@ This document covers image generation, code execution, file uploads, clipboard p
 
 ## Image Generation
 
-The app can generate images using Gemini's image generation model (`gemini-3-pro-image-preview`).
+The app can generate images using Gemini's image generation model (`gemini-3-pro-image`).
 
 ### How it works
 
