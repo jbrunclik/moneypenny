@@ -264,6 +264,10 @@ class Config:
     THUMBNAIL_SKIP_THRESHOLD_BYTES: int = int(
         os.getenv("THUMBNAIL_SKIP_THRESHOLD", str(100 * BYTES_PER_KB))
     )  # 100KB - skip thumbnail for small images
+    # Reference images re-sent inline to the image model are capped to this edge
+    # length, so a 4K generated image (~15 MB base64) can't push the request past
+    # Gemini's ~20 MB inline limit
+    IMAGE_REFERENCE_MAX_EDGE_PX: int = int(os.getenv("IMAGE_REFERENCE_MAX_EDGE_PX", "2048"))
     THUMBNAIL_WORKER_THREADS: int = int(os.getenv("THUMBNAIL_WORKER_THREADS", "2"))
     THUMBNAIL_RESAMPLING: str = os.getenv(
         "THUMBNAIL_RESAMPLING", "BILINEAR"

@@ -129,6 +129,41 @@ def transcode_image_for_browser(binary_data: bytes, mime_type: str) -> tuple[byt
         return binary_data, mime_type
 
 
+def downscale_image_for_reference(binary_data: bytes, mime_type: str) -> tuple[bytes, str]:
+    """Downscale an image whose longest edge exceeds IMAGE_REFERENCE_MAX_EDGE_PX.
+
+    Used before re-sending a stored image inline to the image model. Images
+    within the limit pass through untouched; larger ones are resized and
+    re-encoded as JPEG. Fails open to the original bytes on decode errors.
+
+    Returns:
+        (bytes, mime_type) to send.
+    """
+    max_edge = Config.IMAGE_REFERENCE_MAX_EDGE_PX
+    try:
+        img: Image.Image = Image.open(io.BytesIO(binary_data))
+        if max(img.size) <= max_edge:
+            return binary_data, mime_type
+        original_size = img.size
+        img.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=90)
+    except (UnidentifiedImageError, OSError) as e:
+        logger.warning(
+            "Failed to downscale reference image, sending original",
+            extra={"mime_type": mime_type, "error": str(e)},
+        )
+        return binary_data, mime_type
+
+    logger.debug(
+        "Downscaled reference image",
+        extra={"from_size": original_size, "to_size": img.size, "bytes": output.tell()},
+    )
+    return output.getvalue(), "image/jpeg"
+
+
 def process_image_files_sync(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Process a list of files and add thumbnails to images synchronously.
 

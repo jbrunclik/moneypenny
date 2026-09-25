@@ -11,6 +11,7 @@ from PIL import Image
 
 from src.config import Config
 from src.utils.images import (
+    downscale_image_for_reference,
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,
     generate_thumbnail,
@@ -163,6 +164,42 @@ class TestTranscodeImageForBrowser:
         data, mime = transcode_image_for_browser(b"not an image", "image/heic")
         assert data == b"not an image"
         assert mime == "image/heic"
+
+
+class TestDownscaleImageForReference:
+    """Tests for downscale_image_for_reference (keeps inline requests under Gemini's limit)."""
+
+    @staticmethod
+    def _jpeg(width: int, height: int) -> bytes:
+        output = io.BytesIO()
+        Image.new("RGB", (width, height), color="blue").save(output, format="JPEG")
+        return output.getvalue()
+
+    def test_small_image_passes_through_untouched(self) -> None:
+        data = self._jpeg(1024, 768)
+        assert downscale_image_for_reference(data, "image/jpeg") == (data, "image/jpeg")
+
+    def test_large_image_downscaled_to_max_edge(self) -> None:
+        data = self._jpeg(4096, 2048)
+        out, mime = downscale_image_for_reference(data, "image/jpeg")
+        assert mime == "image/jpeg"
+        assert Image.open(io.BytesIO(out)).size == (
+            Config.IMAGE_REFERENCE_MAX_EDGE_PX,
+            Config.IMAGE_REFERENCE_MAX_EDGE_PX // 2,
+        )
+
+    def test_large_png_with_alpha_becomes_jpeg(self) -> None:
+        output = io.BytesIO()
+        Image.new("RGBA", (4096, 4096), color=(0, 0, 255, 128)).save(output, format="PNG")
+        out, mime = downscale_image_for_reference(output.getvalue(), "image/png")
+        assert mime == "image/jpeg"
+        assert max(Image.open(io.BytesIO(out)).size) == Config.IMAGE_REFERENCE_MAX_EDGE_PX
+
+    def test_undecodable_data_fails_open(self) -> None:
+        assert downscale_image_for_reference(b"not an image", "image/jpeg") == (
+            b"not an image",
+            "image/jpeg",
+        )
 
 
 class TestProcessImageFiles:

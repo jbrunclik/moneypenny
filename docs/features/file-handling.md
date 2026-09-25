@@ -8,7 +8,7 @@ The app can generate images using Gemini's image generation model (`gemini-3-pro
 
 ### How it works
 
-1. **Tool available**: `generate_image(prompt, aspect_ratio, reference_images, history_image_message_id, history_image_file_index)` tool in [tools/image_generation.py](../../src/agent/tools/image_generation.py)
+1. **Tool available**: `generate_image(prompt, aspect_ratio, image_size, use_search, reference_images, history_image_message_id, history_image_file_index)` tool in [tools/image_generation.py](../../src/agent/tools/image_generation.py)
 2. **Tool returns JSON**: Returns `{"prompt": "...", "image": {"data": "base64...", "mime_type": "image/png"}}`
 3. **LLM appends metadata**: System prompt instructs LLM to include `"generated_images": [{"prompt": "..."}]` in the metadata block
 4. **Backend extracts images**: `extract_generated_images_from_tool_results()` in [routes/chat.py](../../src/api/routes/chat.py) parses tool results
@@ -18,7 +18,14 @@ The app can generate images using Gemini's image generation model (`gemini-3-pro
 
 ### Aspect Ratios
 
-Supported: `1:1` (default), `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`
+Supported: `1:1` (default), `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `4:5`, `5:4`, `21:9`
+
+### Resolution and Search Grounding
+
+- **`image_size`**: `1K` (default), `2K`, `4K` (case-insensitive; the API itself rejects lowercase `k`). 1K and 2K both produce 1120 image tokens (~$0.134); 4K produces 2000 (~$0.24). Output is always JPEG, roughly 0.5 MB at 1K, 3–4 MB at 2K, and ~11 MB at 4K.
+- **`use_search`**: adds the Google Search tool to the request so the image can reflect real-world or current facts. Search requests are free up to 5,000/month (shared across Gemini 3.x models), so they are not tracked as a cost.
+- **Large references are downscaled**: when a stored image is reused via `history_image_*`, anything with a longest edge above `IMAGE_REFERENCE_MAX_EDGE_PX` (default 2048) is resized and re-encoded as JPEG before being sent inline. A 4K image is ~15 MB as base64, and Gemini's inline request limit is ~20 MB.
+- **Not available on the Developer API**: `output_mime_type` / compression (Vertex only). The model also has no masks, denoise strength, seeds, negative prompts, or ControlNet/FaceID. Edits regenerate the whole image, so the system prompt tells the agent to spell out what must stay unchanged when a person's likeness matters.
 
 ### Image-to-Image Editing
 

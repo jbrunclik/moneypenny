@@ -790,7 +790,7 @@ class TestGenerateImage:
 
     def test_valid_aspect_ratios_constant(self) -> None:
         """Verify valid aspect ratios are defined."""
-        expected_ratios = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"}
+        expected_ratios = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"}
         assert VALID_ASPECT_RATIOS == expected_ratios
 
     @patch("src.agent.tools.image_generation.genai.Client")
@@ -1167,6 +1167,80 @@ class TestGenerateImage:
         call_args = mock_client.models.generate_content.call_args
         contents = call_args.kwargs["contents"]
         assert len(contents) == 2  # prompt + 1 valid image
+
+
+def _mock_image_client(mock_client_class: MagicMock) -> MagicMock:
+    """Wire a genai.Client mock that returns a single generated image."""
+    mock_part = MagicMock()
+    mock_part.inline_data = MagicMock()
+    mock_part.inline_data.data = b"output_image"
+    mock_part.inline_data.mime_type = "image/jpeg"
+    mock_candidate = MagicMock()
+    mock_candidate.content = MagicMock()
+    mock_candidate.content.parts = [mock_part]
+    mock_response = MagicMock()
+    mock_response.candidates = [mock_candidate]
+    mock_response.usage_metadata = None
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+    mock_client_class.return_value = mock_client
+    return mock_client
+
+
+class TestGenerateImageOptions:
+    """Tests for image_size and use_search options of generate_image."""
+
+    @patch("src.agent.tools.image_generation.genai.Client")
+    def test_default_image_size_is_1k(self, mock_client_class: MagicMock) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        generate_image.invoke({"prompt": "test"})
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert config.image_config.image_size == "1K"
+
+    @patch("src.agent.tools.image_generation.genai.Client")
+    def test_image_size_passed_to_api(self, mock_client_class: MagicMock) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        parsed = json.loads(generate_image.invoke({"prompt": "test", "image_size": "4K"}))
+        assert parsed["success"] is True
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert config.image_config.image_size == "4K"
+
+    @patch("src.agent.tools.image_generation.genai.Client")
+    def test_image_size_is_case_insensitive(self, mock_client_class: MagicMock) -> None:
+        """The API rejects lowercase 'k'; the tool normalizes it."""
+        mock_client = _mock_image_client(mock_client_class)
+        generate_image.invoke({"prompt": "test", "image_size": "2k"})
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert config.image_config.image_size == "2K"
+
+    def test_rejects_invalid_image_size(self) -> None:
+        parsed = json.loads(generate_image.invoke({"prompt": "test", "image_size": "8K"}))
+        assert "Invalid image size" in parsed["error"]
+
+    @patch("src.agent.tools.image_generation.genai.Client")
+    def test_search_grounding_off_by_default(self, mock_client_class: MagicMock) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        generate_image.invoke({"prompt": "test"})
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert not config.tools
+
+    @patch("src.agent.tools.image_generation.genai.Client")
+    def test_use_search_enables_google_search_tool(self, mock_client_class: MagicMock) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        parsed = json.loads(generate_image.invoke({"prompt": "test", "use_search": True}))
+        assert parsed["success"] is True
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert len(config.tools) == 1
+        assert config.tools[0].google_search is not None
+
+    @patch("src.agent.tools.image_generation.genai.Client")
+    def test_new_aspect_ratios_accepted(self, mock_client_class: MagicMock) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        for ratio in ("4:5", "5:4", "21:9"):
+            parsed = json.loads(generate_image.invoke({"prompt": "test", "aspect_ratio": ratio}))
+            assert parsed["success"] is True, ratio
+            config = mock_client.models.generate_content.call_args.kwargs["config"]
+            assert config.image_config.aspect_ratio == ratio
 
 
 class TestGetMimeType:

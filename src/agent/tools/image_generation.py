@@ -15,18 +15,24 @@ from src.agent.tools.context import (
 )
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
+from src.utils.images import downscale_image_for_reference
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 # Valid aspect ratios for image generation
-VALID_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"}
+VALID_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"}
+
+# Output resolutions; 1K and 2K cost the same, 4K costs ~1.8x
+VALID_IMAGE_SIZES = {"1K", "2K", "4K"}
 
 
 @tool
 def generate_image(
     prompt: str,
     aspect_ratio: str = "1:1",
+    image_size: str = "1K",
+    use_search: bool = False,
     reference_images: str | None = None,
     history_image_message_id: str | None = None,
     history_image_file_index: int = 0,
@@ -46,7 +52,15 @@ def generate_image(
                 Be specific about style, colors, composition, lighting, and any text.
         aspect_ratio: The image aspect ratio. Options: 1:1 (square, default),
                      16:9 (landscape/widescreen), 9:16 (portrait/mobile),
-                     4:3 (standard), 3:4 (portrait), 3:2, 2:3
+                     4:3 (standard), 3:4 (portrait), 3:2, 2:3,
+                     4:5 (social media portrait), 5:4, 21:9 (ultrawide banner)
+        image_size: Output resolution: "1K" (default), "2K", or "4K". Use "2K" when the
+                   user needs a sharper or higher-resolution result (profile pictures,
+                   wallpapers, edits of high-resolution photos) - same price as 1K.
+                   Use "4K" only for print or when explicitly asked (~1.8x the cost).
+        use_search: Ground the image in Google Search results. Use for images that depend
+                   on real-world or current facts (today's weather, recent events, real
+                   products, landmarks, people's public appearance, data infographics).
         reference_images: Which uploaded images FROM THE CURRENT MESSAGE to use as reference.
                          Options: "all" (use all uploaded images), "0" (first image),
                          "0,1" (first and second), etc. None means generate from scratch.
@@ -72,6 +86,15 @@ def generate_image(
             }
         )
 
+    # Validate image size (the API rejects a lowercase "k")
+    image_size = image_size.strip().upper()
+    if image_size not in VALID_IMAGE_SIZES:
+        return json.dumps(
+            {
+                "error": f"Invalid image size '{image_size}'. Valid options: {', '.join(sorted(VALID_IMAGE_SIZES))}"
+            }
+        )
+
     # Validate aspect ratio
     if aspect_ratio not in VALID_ASPECT_RATIOS:
         return json.dumps(
@@ -86,6 +109,8 @@ def generate_image(
             extra={
                 "model": Config.IMAGE_GENERATION_MODEL,
                 "aspect_ratio": aspect_ratio,
+                "image_size": image_size,
+                "use_search": use_search,
                 "has_reference_images": reference_images is not None,
                 "has_history_image": history_image_message_id is not None,
             },
@@ -158,6 +183,9 @@ def generate_image(
                     )
             else:
                 return json.dumps({"error": "Image data not found in storage."})
+
+            # Cap resolution so a 4K image can't exceed the inline request limit
+            binary_data, mime_type = downscale_image_for_reference(binary_data, mime_type)
 
             # Store the history image data to be added to contents
             history_image_data = {
@@ -256,7 +284,8 @@ def generate_image(
             contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
-                image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
+                image_config=types.ImageConfig(aspect_ratio=aspect_ratio, image_size=image_size),
+                tools=[types.Tool(google_search=types.GoogleSearch())] if use_search else None,
             ),
         )
         logger.debug("Image generation API call completed")
@@ -303,11 +332,12 @@ def generate_image(
                 if image_data.data is None:
                     continue
                 image_base64 = base64.b64encode(image_data.data).decode("utf-8")
-                image_size = len(image_data.data)
+                image_bytes = len(image_data.data)
                 logger.info(
                     "Image generated successfully",
                     extra={
-                        "image_size_bytes": image_size,
+                        "image_size_bytes": image_bytes,
+                        "image_size": image_size,
                         "mime_type": image_data.mime_type,
                         "aspect_ratio": aspect_ratio,
                         "used_reference_images": reference_images is not None,

@@ -198,6 +198,18 @@ For image prompts, be specific and detailed:
 - Describe colors, lighting, composition, mood, and atmosphere
 - If text should appear in the image, specify it clearly
 - For modifications, describe the complete desired result, not just the changes
+- Use image_size="2K" for sharper results (same price as 1K); "4K" only for print or when asked
+- Use use_search=True when the image depends on real-world or current facts (weather, events, real places or products)
+
+**What the image model can and cannot do:**
+generate_image is instruction-based: it takes a text prompt plus reference images and regenerates the WHOLE image.
+It has NO inpainting masks, denoising strength, seed, negative prompt, ControlNet, or IP-Adapter/FaceID controls -
+never tell the user to set these, and never claim pixels will stay "untouched".
+For edits that must preserve a person's likeness (e.g. relighting a profile photo):
+- State explicitly what must NOT change: "keep the person's face, facial features, expression, skin texture, hair, and clothing identical; no retouching or beautifying"
+- State the ONLY things to change (lighting direction/softness, color grading, background blur)
+- Prefer one small change per turn; tell the user to compare the result and that subtle likeness drift is possible
+- If the user needs a guaranteed-identical face, recommend a photo editor (e.g. Lightroom) instead
 
 **Image Editing (with current uploads):**
 When the user uploads an image in the current message and asks you to modify it:
