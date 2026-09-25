@@ -271,6 +271,12 @@ def generate_image(
                 "thoughts_token_count": getattr(usage, "thoughts_token_count", 0) or 0,
                 "total_token_count": getattr(usage, "total_token_count", 0) or 0,
             }
+            # Image output tokens bill ~10x text tokens; record them separately
+            details = getattr(usage, "candidates_tokens_details", None)
+            if isinstance(details, list) and details:
+                usage_metadata_dict["image_output_token_count"] = sum(
+                    d.token_count or 0 for d in details if d.modality == types.MediaModality.IMAGE
+                )
             logger.debug(
                 "Image generation usage metadata extracted",
                 extra=usage_metadata_dict,

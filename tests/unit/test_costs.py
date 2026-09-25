@@ -32,6 +32,7 @@ class TestGetModelPricing:
         pricing = get_model_pricing("gemini-3-pro-image")
         assert pricing["input"] == 2.00
         assert pricing["output"] == 12.00
+        assert pricing["image_output"] == 120.00
 
     def test_unknown_model_falls_back_to_flash(self) -> None:
         """Unknown models should fall back to flash pricing."""
@@ -110,17 +111,40 @@ class TestCalculateImageGenerationCost:
     """Tests for calculate_image_generation_cost function."""
 
     def test_with_all_token_types(self) -> None:
-        """Test cost calculation with all token types."""
+        """Image tokens bill at the image rate; text + thinking at the text rate."""
         usage = {
             "prompt_token_count": 100,
             "candidates_token_count": 500,
+            "image_output_token_count": 450,
             "thoughts_token_count": 100,
         }
         cost = calculate_image_generation_cost(usage)
-        # Input: 100/1M * $2.00 = $0.0002
-        # Output: (500 + 100)/1M * $12.00 = $0.0072
-        expected = (100 / 1_000_000 * 2.0) + (600 / 1_000_000 * 12.0)
+        # Input: 100/1M * $2.00
+        # Image output: 450/1M * $120.00
+        # Text output: (50 text + 100 thinking)/1M * $12.00
+        expected = (100 / 1_000_000 * 2.0) + (450 / 1_000_000 * 120.0) + (150 / 1_000_000 * 12.0)
         assert cost == pytest.approx(expected)
+
+    def test_real_1k_image_matches_published_price(self) -> None:
+        """A real 1K image response (captured Sep 2026) costs ~$0.134 per image."""
+        usage = {
+            "prompt_token_count": 8,
+            "candidates_token_count": 1177,
+            "image_output_token_count": 1120,
+            "thoughts_token_count": 82,
+        }
+        cost = calculate_image_generation_cost(usage)
+        assert cost == pytest.approx(0.1360, abs=0.0005)
+
+    def test_missing_breakdown_bills_candidates_as_image(self) -> None:
+        """Without a modality breakdown, candidates are billed as image output."""
+        usage = {
+            "prompt_token_count": 0,
+            "candidates_token_count": 1000,
+            "thoughts_token_count": 0,
+        }
+        cost = calculate_image_generation_cost(usage)
+        assert cost == pytest.approx(1000 / 1_000_000 * 120.0)
 
     def test_empty_usage_metadata(self) -> None:
         """Empty usage metadata should return zero cost."""

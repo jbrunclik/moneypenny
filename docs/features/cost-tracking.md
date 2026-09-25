@@ -102,7 +102,7 @@ total_token_cost = input_cost + output_cost
 
 ### Image Generation Costs
 
-Calculated from `usage_metadata` with separate pricing for prompt tokens and candidate/thought tokens. Stored separately in `image_generation_cost_usd` column.
+Calculated from `usage_metadata` with three rates: prompt tokens at the input rate, image output tokens (`image_output_token_count`, from the IMAGE entry of `candidates_tokens_details`) at `image_output` ($120/M, ~$0.134 per 1K image), and remaining text + thinking output at `output` ($12/M). Without a modality breakdown, all candidate tokens are billed as image output. Stored separately in `image_generation_cost_usd` column.
 
 ### Other Tools
 

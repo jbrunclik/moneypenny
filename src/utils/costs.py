@@ -71,7 +71,8 @@ def calculate_image_generation_cost(usage_metadata: dict[str, Any]) -> float:
     """Calculate cost for image generation from API usage_metadata.
 
     Args:
-        usage_metadata: Usage metadata dict with prompt_token_count, candidates_token_count, thoughts_token_count
+        usage_metadata: Usage metadata dict with prompt_token_count, candidates_token_count,
+            image_output_token_count (optional), thoughts_token_count
 
     Returns:
         Cost in USD
@@ -79,22 +80,27 @@ def calculate_image_generation_cost(usage_metadata: dict[str, Any]) -> float:
     prompt_tokens = usage_metadata.get("prompt_token_count", 0)
     candidates_tokens = usage_metadata.get("candidates_token_count", 0)
     thoughts_tokens = usage_metadata.get("thoughts_token_count", 0)
+    # Without a modality breakdown, treat all candidates as image output
+    # (the tool requests IMAGE-only responses)
+    image_tokens = min(
+        usage_metadata.get("image_output_token_count", candidates_tokens), candidates_tokens
+    )
+    text_output_tokens = candidates_tokens - image_tokens + thoughts_tokens
 
-    # Calculate cost using image generation model pricing
-    # Input tokens (prompt) are charged at input rate
-    # Output tokens (candidates + thoughts) are charged at output rate
-    image_model_pricing = Config.MODEL_PRICING[Config.IMAGE_GENERATION_MODEL]
-    input_cost = (prompt_tokens / 1_000_000) * image_model_pricing["input"]
-    output_cost = ((candidates_tokens + thoughts_tokens) / 1_000_000) * image_model_pricing[
-        "output"
-    ]
+    # Input (prompt) is charged at the input rate, image output at the image
+    # rate, and text + thinking output at the (much lower) text output rate
+    pricing = Config.MODEL_PRICING[Config.IMAGE_GENERATION_MODEL]
+    input_cost = (prompt_tokens / 1_000_000) * pricing["input"]
+    image_cost = (image_tokens / 1_000_000) * pricing["image_output"]
+    text_output_cost = (text_output_tokens / 1_000_000) * pricing["output"]
 
-    total_cost: float = float(input_cost + output_cost)
+    total_cost: float = float(input_cost + image_cost + text_output_cost)
     logger.debug(
         "Image generation cost calculated",
         extra={
             "prompt_tokens": prompt_tokens,
             "candidates_tokens": candidates_tokens,
+            "image_tokens": image_tokens,
             "thoughts_tokens": thoughts_tokens,
             "total_cost_usd": total_cost,
         },

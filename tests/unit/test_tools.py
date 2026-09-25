@@ -858,6 +858,41 @@ class TestGenerateImage:
         assert parsed["usage_metadata"]["candidates_token_count"] == 200
 
     @patch("src.agent.tools.image_generation.genai.Client")
+    def test_usage_metadata_splits_image_output_tokens(self, mock_client_class: MagicMock) -> None:
+        """Image-modality output tokens are reported separately (billed at a higher rate)."""
+        from google.genai import types
+
+        mock_part = MagicMock()
+        mock_part.inline_data = MagicMock()
+        mock_part.inline_data.data = b"image"
+        mock_part.inline_data.mime_type = "image/png"
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = MagicMock()
+        mock_candidate.content.parts = [mock_part]
+
+        mock_response = MagicMock()
+        mock_response.candidates = [mock_candidate]
+        mock_response.usage_metadata = types.GenerateContentResponseUsageMetadata(
+            prompt_token_count=8,
+            candidates_token_count=1177,
+            candidates_tokens_details=[
+                types.ModalityTokenCount(modality=types.MediaModality.IMAGE, token_count=1120)
+            ],
+            thoughts_token_count=82,
+            total_token_count=1267,
+        )
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        parsed = json.loads(generate_image.invoke({"prompt": "test"}))
+
+        assert parsed["usage_metadata"]["candidates_token_count"] == 1177
+        assert parsed["usage_metadata"]["image_output_token_count"] == 1120
+
+    @patch("src.agent.tools.image_generation.genai.Client")
     def test_handles_no_candidates(self, mock_client_class: MagicMock) -> None:
         """Should return error when no candidates in response."""
         mock_response = MagicMock()

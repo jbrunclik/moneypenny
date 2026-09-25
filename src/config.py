@@ -180,7 +180,8 @@ class Config:
         "gemini-3-pro-image": {
             "input": 2.00,  # $2.00 per million input tokens (text prompts)
             "cached_input": 0.50,
-            "output": 12.00,  # $12.00 per million output tokens (images + thinking)
+            "output": 12.00,  # $12.00 per million output tokens (text + thinking)
+            "image_output": 120.00,  # $120.00 per million image output tokens (~$0.134/1K image)
         },
     }
 
