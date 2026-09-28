@@ -50,6 +50,79 @@
 }
 
 /* ----------------------------------------
+   Compaction marker (CompactionIndicator.ts)
+   Messages the model only sees as a summary are dimmed and followed by a
+   divider. Opacity only - layout-affecting effects here disturb auto-scroll.
+   ---------------------------------------- */
+
+.message.message--compacted {
+    opacity: 0.55;
+    transition: opacity var(--transition-fast);
+}
+
+.message.message--compacted:hover,
+.message.message--compacted:focus-within {
+    opacity: 1;
+}
+
+.compaction-divider {
+    max-width: var(--message-max-width);
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+.compaction-divider:hover,
+.compaction-divider:focus-visible {
+    color: var(--text-primary);
+}
+
+.compaction-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.compaction-divider-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    text-align: center;
+}
+
+.compaction-divider-label svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.compaction-divider.compaction--deep {
+    color: var(--warning-text);
+}
+
+@media (max-width: 768px) {
+    .compaction-divider-detail {
+        display: none;
+    }
+
+    .compaction-divider-line {
+        min-width: var(--space-4);
+    }
+}
+
+.compaction-divider.compaction--deep .compaction-divider-line {
+    background: var(--warning);
+    opacity: 0.5;
+}
+
+/* ----------------------------------------
    Message Avatar
    ---------------------------------------- */
 

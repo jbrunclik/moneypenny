@@ -705,6 +705,95 @@
 }
 
 /* ----------------------------------------
+   Conversation Compaction Popup
+   ---------------------------------------- */
+
+.compaction-content {
+    padding: var(--space-4);
+}
+
+.compaction-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--font-size-sm);
+}
+
+.compaction-table td {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.compaction-table tr:last-child td {
+    border-bottom: none;
+}
+
+.compaction-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding-right: var(--space-4);
+    white-space: nowrap;
+}
+
+.compaction-value {
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.compaction-note {
+    margin: var(--space-3) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.compaction-note.compaction--deep {
+    color: var(--warning-text);
+}
+
+.compaction-summary-heading {
+    margin: var(--space-4) 0 var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.compaction-summary {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+/* Summaries are markdown; keep them at popup scale */
+.compaction-summary > :first-child {
+    margin-top: 0;
+}
+
+.compaction-summary > :last-child {
+    margin-bottom: 0;
+}
+
+.compaction-summary h1,
+.compaction-summary h2,
+.compaction-summary h3,
+.compaction-summary h4 {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: var(--space-3) 0 var(--space-1);
+}
+
+.compaction-summary ul,
+.compaction-summary ol {
+    padding-left: var(--space-5);
+    margin: var(--space-1) 0;
+}
+
+/* ----------------------------------------
    Toast Notifications
    ---------------------------------------- */
 

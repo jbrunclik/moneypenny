@@ -79,6 +79,13 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
   spacer.className = 'chat-header-spacer';
   header.appendChild(spacer);
 
+  // Filled by CompactionIndicator; hidden until the conversation is compacted
+  const compaction = document.createElement('button');
+  compaction.id = 'conversation-compaction';
+  compaction.type = 'button';
+  compaction.className = 'chat-header-compaction hidden';
+  header.appendChild(compaction);
+
   const cost = document.createElement('span');
   cost.id = 'conversation-cost';
   cost.className = 'chat-header-cost';

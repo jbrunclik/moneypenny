@@ -548,7 +548,9 @@ Long chats re-send their entire history to the LLM on every turn, so cost grows 
 - `CONVERSATION_COMPACTION_KEEP_RECENT` (default: `12`) — recent messages always kept verbatim
 - `CONVERSATION_COMPACTION_RESUMMARIZE_BATCH` (default: `10`) — re-summarize cadence
 
-**Testing:** [test_conversation_compaction.py](../../tests/unit/test_conversation_compaction.py)
+**Depth tracking & UI:** the kv state is `{summary, covered_count, generation}`. `generation` counts summarization passes - each one folds the prior summary into a new one, so the oldest messages lose detail every pass. State saved before the counter existed gets an upper-bound estimate (`generation_estimated`). `get_compaction_status()` mirrors `build_compacted_history`'s gating without side effects and backs `GET /api/conversations/<id>/compaction` ([routes/costs.py](../../src/api/routes/costs.py)): whether the next turn is compacted, how many leading messages the summary replaces (`boundary_message_id` = the last one), the generation and the summary text. The frontend shows it as a header chip, an in-list divider and a popup (see [Compaction indicator](../ui/components.md#compaction-indicator)). The summary refreshes in the background, so right after a batch boundary the indicator can show the previous state until the next refresh of the chip (end of the following turn or reload).
+
+**Testing:** [test_conversation_compaction.py](../../tests/unit/test_conversation_compaction.py), [test_routes_costs.py](../../tests/integration/test_routes_costs.py) (route), `web/tests/unit/compaction-indicator.test.ts`, `web/tests/e2e/compaction.spec.ts` (`/test/seed` accepts a per-conversation `compaction` state).
 
 ## LangGraph Agent Graph
 

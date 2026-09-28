@@ -15,7 +15,9 @@ import pytest
 from src.agent import conversation_compaction as cc
 from src.agent.conversation_compaction import (
     SUMMARY_PREFIX,
+    CompactionStatus,
     build_compacted_history,
+    get_compaction_status,
 )
 from src.config import Config
 
@@ -113,7 +115,7 @@ class TestFirstCompaction:
         _user, namespace, key, value = mock_db.kv_set.call_args.args
         assert namespace == cc.KV_NAMESPACE
         assert key == "c1"
-        assert json.loads(value) == {"summary": "SUMMARY", "covered_count": 16}
+        assert json.loads(value) == {"summary": "SUMMARY", "covered_count": 16, "generation": 1}
 
     def test_no_prior_summary_and_failure_returns_full_history(
         self, compaction_config: None, mock_db: MagicMock
@@ -238,7 +240,13 @@ class TestRunningSummary:
         assert len(summarized) == 11
         # New state covers the full older portion
         _u, _ns, _k, value = mock_db.kv_set.call_args.args
-        assert json.loads(value) == {"summary": "NEW", "covered_count": 16}
+        # Legacy state (no counter): estimated 1 prior pass, plus this one
+        assert json.loads(value) == {
+            "summary": "NEW",
+            "covered_count": 16,
+            "generation": 2,
+            "generation_estimated": True,
+        }
         # Current turn still serves the PRIOR summary + middle (refresh is async)
         assert result[0]["content"] == f"{SUMMARY_PREFIX}\n\nOLD"
         assert len(result) == 1 + 11 + 4
@@ -305,3 +313,89 @@ class TestBackgroundRefresh:
 
         mock_db.kv_set.assert_called_once()
         assert "c1" not in cc._inflight_refreshes
+
+
+class TestGeneration:
+    def test_generation_increments_on_each_refresh(
+        self, compaction_config: None, mock_db: MagicMock
+    ) -> None:
+        mock_db.kv_get.return_value = json.dumps(
+            {"summary": "OLD", "covered_count": 5, "generation": 3}
+        )
+        with patch.object(cc, "summarize_messages", return_value="NEW"):
+            build_compacted_history("u1", "c1", _history(20))
+
+        _u, _ns, _k, value = mock_db.kv_set.call_args.args
+        assert json.loads(value)["generation"] == 4
+
+    def test_legacy_state_refresh_persists_estimate_flag(
+        self, compaction_config: None, mock_db: MagicMock
+    ) -> None:
+        """State written before generations were tracked has no counter: the
+        refresh builds on an estimate and keeps the result marked estimated."""
+        mock_db.kv_get.return_value = json.dumps({"summary": "OLD", "covered_count": 5})
+        with patch.object(cc, "summarize_messages", return_value="NEW"):
+            build_compacted_history("u1", "c1", _history(20))
+
+        _u, _ns, _k, value = mock_db.kv_set.call_args.args
+        state = json.loads(value)
+        assert state["generation"] == 2  # estimate(5 covered) == 1, plus this pass
+        assert state["generation_estimated"] is True
+
+
+class TestCompactionStatus:
+    def test_none_when_below_threshold(self, compaction_config: None, mock_db: MagicMock) -> None:
+        mock_db.kv_get.return_value = json.dumps({"summary": "S", "covered_count": 4})
+        assert get_compaction_status("u1", "c1", _history(10)) is None
+
+    def test_none_without_summary_yet(self, compaction_config: None, mock_db: MagicMock) -> None:
+        assert get_compaction_status("u1", "c1", _history(20)) is None
+
+    def test_none_when_disabled(
+        self, compaction_config: None, mock_db: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_ENABLED", False)
+        mock_db.kv_get.return_value = json.dumps({"summary": "S", "covered_count": 16})
+        assert get_compaction_status("u1", "c1", _history(20)) is None
+
+    def test_reports_what_the_next_turn_sends(
+        self, compaction_config: None, mock_db: MagicMock
+    ) -> None:
+        mock_db.kv_get.return_value = json.dumps(
+            {"summary": "S", "covered_count": 12, "generation": 3}
+        )
+        status = get_compaction_status("u1", "c1", _history(20))
+        assert status == CompactionStatus(
+            summarized_count=12,
+            total_count=20,
+            generation=3,
+            generation_estimated=False,
+            summary="S",
+        )
+
+    def test_coverage_clamped_to_older_portion(
+        self, compaction_config: None, mock_db: MagicMock
+    ) -> None:
+        mock_db.kv_get.return_value = json.dumps(
+            {"summary": "S", "covered_count": 999, "generation": 1}
+        )
+        status = get_compaction_status("u1", "c1", _history(20))
+        assert status is not None
+        assert status.summarized_count == 16  # 20 - keep_recent(4)
+
+    def test_legacy_state_estimates_generation(
+        self, compaction_config: None, mock_db: MagicMock
+    ) -> None:
+        # First pass covers >= threshold+1-keep_recent (7); each later one >= batch (5)
+        mock_db.kv_get.return_value = json.dumps({"summary": "S", "covered_count": 16})
+        status = get_compaction_status("u1", "c1", _history(20))
+        assert status is not None
+        assert status.generation == 2
+        assert status.generation_estimated is True
+
+    def test_never_schedules_a_refresh(self, compaction_config: None, mock_db: MagicMock) -> None:
+        mock_db.kv_get.return_value = json.dumps({"summary": "S", "covered_count": 1})
+        with patch.object(cc, "summarize_messages") as mock_sum:
+            get_compaction_status("u1", "c1", _history(20))
+        mock_sum.assert_not_called()
+        mock_db.kv_set.assert_not_called()

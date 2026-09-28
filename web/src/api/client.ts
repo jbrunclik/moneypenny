@@ -14,6 +14,7 @@ import {
   type ConversationsPagination,
   type CostHistoryResponse,
   type ConversationCostResponse,
+  type ConversationCompactionResponse,
   type CreateAgentRequest,
   type EnhancePromptRequest,
   type EnhancePromptResponse,
@@ -653,6 +654,12 @@ export const version = {
 export const costs = {
   async getConversationCost(conversationId: string): Promise<ConversationCostResponse> {
     return requestWithRetry<ConversationCostResponse>(`/api/conversations/${conversationId}/cost`);
+  },
+
+  async getConversationCompaction(conversationId: string): Promise<ConversationCompactionResponse> {
+    return requestWithRetry<ConversationCompactionResponse>(
+      `/api/conversations/${conversationId}/compaction`
+    );
   },
 
   async getMonthlyCost(year?: number, month?: number): Promise<MonthlyCostResponse> {

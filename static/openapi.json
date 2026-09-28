@@ -4050,6 +4050,46 @@
         "description": "Accepts JSON body with:\n- message: str (optional if files present) - the text message\n- files: list[dict] (optional if message present) - array of {name, type, data} file objects\n- force_tools: list[str] (optional) - list of tool names to force (e.g. [\"web_search\"])"
       }
     },
+    "/api/conversations/{conv_id}/compaction": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationCompactionResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Costs"
+        ],
+        "summary": "Get how much of a conversation the model sees only as a summary."
+      }
+    },
     "/api/agents/{agent_id}/conversation/sync": {
       "get": {
         "parameters": [
@@ -10314,6 +10354,76 @@
           "created_at"
         ],
         "title": "ChatBatchResponse",
+        "type": "object"
+      },
+      "ConversationCompactionResponse": {
+        "description": "How the next turn compacts a conversation's history for the model.",
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "active": {
+            "description": "Whether older messages are replaced by a summary",
+            "title": "Active",
+            "type": "boolean"
+          },
+          "summarized_count": {
+            "description": "Leading messages replaced by the summary",
+            "title": "Summarized Count",
+            "type": "integer"
+          },
+          "total_count": {
+            "description": "Messages in the conversation",
+            "title": "Total Count",
+            "type": "integer"
+          },
+          "generation": {
+            "description": "Summarization passes folded into the summary (each loses detail)",
+            "title": "Generation",
+            "type": "integer"
+          },
+          "generation_estimated": {
+            "description": "Generation inferred for summaries saved before it was tracked",
+            "title": "Generation Estimated",
+            "type": "boolean"
+          },
+          "boundary_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Last message covered by the summary",
+            "title": "Boundary Message Id"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Summary text the model sees",
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "active",
+          "summarized_count",
+          "total_count",
+          "generation",
+          "generation_estimated"
+        ],
+        "title": "ConversationCompactionResponse",
         "type": "object"
       },
       "AgentConversationSyncResponse.AgentConversationSyncData": {

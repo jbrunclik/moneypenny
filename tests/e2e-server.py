@@ -842,6 +842,16 @@ def main() -> None:
                     files = msg.get("files")
                     g.db.add_message(conv.id, role, content, files=files)
 
+                # Optional running-summary state, as conversation compaction
+                # persists it ({summary, covered_count, generation})
+                compaction = conv_data.get("compaction")
+                if compaction:
+                    import json
+
+                    from src.agent.conversation_compaction import KV_NAMESPACE
+
+                    g.db.kv_set(user.id, KV_NAMESPACE, conv.id, json.dumps(compaction))
+
             return {"status": "seeded", "conversation_ids": created_ids}, 200
 
         @test_bp.route("/test/dump-threads", methods=["GET"])

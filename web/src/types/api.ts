@@ -309,6 +309,17 @@ export interface MessageCostResponse {
   image_generation_cost_formatted?: string;
 }
 
+export interface ConversationCompactionResponse {
+  conversation_id: string;
+  active: boolean;
+  summarized_count: number;
+  total_count: number;
+  generation: number;
+  generation_estimated: boolean;
+  boundary_message_id: string | null;
+  summary: string | null;
+}
+
 export interface MonthlyCostResponse {
   user_id: string;
   year: number;

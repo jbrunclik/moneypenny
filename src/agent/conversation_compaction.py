@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from src.agent.compaction import summarize_messages
@@ -55,30 +56,79 @@ def _estimate_tokens(messages: list[dict[str, Any]]) -> int:
     return chars // _CHARS_PER_TOKEN_ESTIMATE
 
 
-def _load_state(user_id: str, conversation_id: str) -> tuple[str | None, int]:
+@dataclass(frozen=True)
+class _State:
+    """Persisted running summary for one conversation."""
+
+    summary: str | None = None
+    # Leading history messages the summary replaces
+    covered_count: int = 0
+    # Summarization passes folded into the summary (each pass loses detail)
+    generation: int = 0
+    # True when generation was inferred for state saved before it was tracked
+    generation_estimated: bool = False
+
+
+@dataclass(frozen=True)
+class CompactionStatus:
+    """What the next turn sends the model in place of the older history."""
+
+    summarized_count: int
+    total_count: int
+    generation: int
+    generation_estimated: bool
+    summary: str
+
+
+def _estimate_generation(covered_count: int) -> int:
+    """Infer summarization passes for legacy state that has no counter.
+
+    The first pass covers at least ``THRESHOLD + 1 - KEEP_RECENT`` messages and
+    each later pass at least ``RESUMMARIZE_BATCH`` more, so this is an upper
+    bound on how many passes produced ``covered_count``.
+    """
+    first_pass = max(
+        1,
+        Config.CONVERSATION_COMPACTION_THRESHOLD + 1 - Config.CONVERSATION_COMPACTION_KEEP_RECENT,
+    )
+    batch = max(1, Config.CONVERSATION_COMPACTION_RESUMMARIZE_BATCH)
+    return 1 + max(0, covered_count - first_pass) // batch
+
+
+def _load_state(user_id: str, conversation_id: str) -> _State:
     """Load the persisted running summary and how many leading messages it covers."""
     raw = db.kv_get(user_id, KV_NAMESPACE, conversation_id)
     if not raw:
-        return None, 0
+        return _State()
     try:
         data = json.loads(raw)
-        return data.get("summary"), int(data.get("covered_count", 0))
-    except (ValueError, TypeError):
+        summary = data.get("summary")
+        covered_count = int(data.get("covered_count", 0))
+        if "generation" in data:
+            generation = int(data["generation"])
+            estimated = bool(data.get("generation_estimated", False))
+        else:
+            generation = _estimate_generation(covered_count) if summary else 0
+            estimated = bool(summary)
+        return _State(summary, covered_count, generation, estimated)
+    except (ValueError, TypeError, AttributeError):
         logger.warning(
             "Discarding malformed compaction state",
             extra={"conversation_id": conversation_id},
         )
-        return None, 0
+        return _State()
 
 
-def _save_state(user_id: str, conversation_id: str, summary: str, covered_count: int) -> None:
-    """Persist the running summary and its coverage."""
-    db.kv_set(
-        user_id,
-        KV_NAMESPACE,
-        conversation_id,
-        json.dumps({"summary": summary, "covered_count": covered_count}),
-    )
+def _save_state(user_id: str, conversation_id: str, state: _State) -> None:
+    """Persist the running summary, its coverage and its generation."""
+    data: dict[str, Any] = {
+        "summary": state.summary,
+        "covered_count": state.covered_count,
+        "generation": state.generation,
+    }
+    if state.generation_estimated:
+        data["generation_estimated"] = True
+    db.kv_set(user_id, KV_NAMESPACE, conversation_id, json.dumps(data))
 
 
 def _summary_message(summary: str) -> dict[str, Any]:
@@ -99,7 +149,7 @@ def _schedule_summary_refresh(
     user_id: str,
     conversation_id: str,
     uncovered: list[dict[str, Any]],
-    prior_summary: str | None,
+    prior: _State,
     covered_target: int,
 ) -> None:
     """Refresh the running summary in the background.
@@ -119,9 +169,15 @@ def _schedule_summary_refresh(
 
     def _work() -> None:
         try:
-            summary = summarize_messages(projected, prior_summary=prior_summary)
+            summary = summarize_messages(projected, prior_summary=prior.summary)
             if summary:
-                _save_state(user_id, conversation_id, summary, covered_target)
+                refreshed = _State(
+                    summary,
+                    covered_target,
+                    prior.generation + 1,
+                    prior.generation_estimated,
+                )
+                _save_state(user_id, conversation_id, refreshed)
                 logger.info(
                     "Compaction summary refreshed in background",
                     extra={
@@ -152,6 +208,67 @@ def _schedule_summary_refresh(
     _spawn_refresh(_work)
 
 
+def _keep_recent_count(history: list[dict[str, Any]]) -> int | None:
+    """Size of the verbatim recent tail, or None when compaction does not apply.
+
+    Compaction applies once the history exceeds the configured message-count
+    OR estimated-token threshold and is longer than the verbatim tail.
+    """
+    if not Config.CONVERSATION_COMPACTION_ENABLED:
+        return None
+    over_count = len(history) > Config.CONVERSATION_COMPACTION_THRESHOLD
+    token_threshold = Config.CONVERSATION_COMPACTION_TOKEN_THRESHOLD
+    over_tokens = token_threshold > 0 and _estimate_tokens(history) > token_threshold
+    if not (over_count or over_tokens):
+        return None
+
+    keep_recent = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    # A few huge recent messages can exceed the token threshold all by
+    # themselves - shrink the verbatim tail (down to a floor) so compaction
+    # actually bounds what is sent, not just how many messages frame it.
+    if token_threshold > 0:
+        while (
+            keep_recent > _MIN_KEEP_RECENT
+            and _estimate_tokens(history[-keep_recent:]) > token_threshold
+        ):
+            keep_recent -= 1
+    if len(history) <= keep_recent:
+        return None
+    return keep_recent
+
+
+def get_compaction_status(
+    user_id: str,
+    conversation_id: str,
+    history: list[dict[str, Any]],
+) -> CompactionStatus | None:
+    """Describe how the next turn will compact ``history``, for display.
+
+    Mirrors ``build_compacted_history`` without side effects (never schedules
+    a summary refresh). Returns None when the next turn sends the history
+    verbatim.
+
+    Args:
+        user_id: Owner of the conversation
+        conversation_id: Conversation identifier (kv key)
+        history: Enriched history dicts for the whole conversation so far
+    """
+    keep_recent = _keep_recent_count(history)
+    if keep_recent is None:
+        return None
+    state = _load_state(user_id, conversation_id)
+    covered_count = max(0, min(state.covered_count, len(history) - keep_recent))
+    if not state.summary or covered_count == 0:
+        return None
+    return CompactionStatus(
+        summarized_count=covered_count,
+        total_count=len(history),
+        generation=state.generation,
+        generation_estimated=state.generation_estimated,
+        summary=state.summary,
+    )
+
+
 def build_compacted_history(
     user_id: str | None,
     conversation_id: str | None,
@@ -173,35 +290,19 @@ def build_compacted_history(
     Returns:
         Possibly-compacted enriched history. The input is never mutated.
     """
-    if not Config.CONVERSATION_COMPACTION_ENABLED:
-        return history
     if not user_id or not conversation_id:
         return history
-    over_count = len(history) > Config.CONVERSATION_COMPACTION_THRESHOLD
-    token_threshold = Config.CONVERSATION_COMPACTION_TOKEN_THRESHOLD
-    over_tokens = token_threshold > 0 and _estimate_tokens(history) > token_threshold
-    if not (over_count or over_tokens):
-        return history
-
-    keep_recent = Config.CONVERSATION_COMPACTION_KEEP_RECENT
-    # A few huge recent messages can exceed the token threshold all by
-    # themselves - shrink the verbatim tail (down to a floor) so compaction
-    # actually bounds what is sent, not just how many messages frame it.
-    if token_threshold > 0:
-        while (
-            keep_recent > _MIN_KEEP_RECENT
-            and _estimate_tokens(history[-keep_recent:]) > token_threshold
-        ):
-            keep_recent -= 1
-    if len(history) <= keep_recent:
+    keep_recent = _keep_recent_count(history)
+    if keep_recent is None:
         return history
 
     older = history[:-keep_recent]
     recent = history[-keep_recent:]
 
-    prior_summary, covered_count = _load_state(user_id, conversation_id)
+    state = _load_state(user_id, conversation_id)
+    prior_summary = state.summary
     # Clamp coverage in case history shrank (e.g. messages deleted from the UI)
-    covered_count = max(0, min(covered_count, len(older)))
+    covered_count = max(0, min(state.covered_count, len(older)))
     uncovered = older[covered_count:]
 
     needs_resummarize = prior_summary is None or (
@@ -215,7 +316,7 @@ def build_compacted_history(
         # this turn uses whatever state already exists. Deferring also keeps
         # this turn's history prefix byte-identical to the previous one,
         # which Gemini's implicit caching rewards.
-        _schedule_summary_refresh(user_id, conversation_id, uncovered, prior_summary, len(older))
+        _schedule_summary_refresh(user_id, conversation_id, uncovered, state, len(older))
 
     if prior_summary is None:
         # No usable summary yet — safest to send the full history unchanged.

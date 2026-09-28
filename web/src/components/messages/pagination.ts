@@ -15,6 +15,7 @@ import {
 } from '../../config';
 import { PaginationDirection } from '../../types/api';
 import { addMessageToUI, lockOlderQuizBlocks } from './render';
+import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { Message } from '../../types/api';
 
 const log = createLogger('messages');
@@ -260,6 +261,8 @@ function prependMessagesToUI(messages: Message[], container: HTMLElement): void 
   });
 
   lockOlderQuizBlocks(container);
+  // The boundary message may have just been loaded
+  applyCompactionMarkers(container);
 
   log.debug('Prepended messages to UI', { count: messages.length });
 }

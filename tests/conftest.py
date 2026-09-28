@@ -159,6 +159,9 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
         stack.enter_context(patch("src.api.helpers.program_context.db", test_database))
         stack.enter_context(patch("src.api.helpers.validation.db", test_database))
         stack.enter_context(patch("src.api.utils.db", test_database))
+        # Compaction state (kv_store) is read by the chat paths and the
+        # compaction status route; unpatched, it bound a different database
+        stack.enter_context(patch("src.agent.conversation_compaction.db", test_database))
 
         # Patch blob store
         stack.enter_context(patch("src.db.blob_store._blob_store", test_blob_store))

@@ -751,20 +751,44 @@ See [Testing](../testing.md#planner-tests) for details.
 `web/src/components/ChatHeader.ts` renders the shared conversation header
 into the `#chat-header` mount in the app shell (above `#messages`):
 
-- Regular conversations: title (click to rename inline), per-conversation
-  cost chip (`#conversation-cost`), archive + delete actions.
+- Regular conversations: title (click to rename inline), compaction chip
+  (`#conversation-compaction`, hidden until the conversation is compacted -
+  see `CompactionIndicator.ts` below), per-conversation cost chip
+  (`#conversation-cost`), archive + delete actions.
 - Program variants: sports/language/agent conversation headers delegate to
   the same component via `renderSportsProgramHeader` /
   `renderLanguageProgramHeader` / `renderAgentConversationHeader`, passing
   a back button, emoji/icon and their action button (Reset / New Lesson /
   Edit). The variant's legacy class (e.g. `.sports-program-header`) is kept
   on the mount as a styling/test hook.
-- Mobile (<= 768px) hides the header; `.mobile-header` shows the title and
-  a compact cost chip (`#conversation-cost-mobile`).
+- Mobile (<= 768px) hides the header; `.mobile-header` shows the title, the
+  compaction chip (`#conversation-compaction-mobile`, depth only) and a
+  compact cost chip (`#conversation-cost-mobile`).
 - Dashboards hide it with `renderChatHeader(null)`.
 
 `updateChatTitle()` (messages/utils.ts) keeps both the mobile header title
 and the chat header title in sync.
+
+### Compaction indicator
+
+`web/src/components/CompactionIndicator.ts` shows when the model no longer
+sees older messages verbatim (see [Conversation Compaction](../features/chat-and-streaming.md#conversation-compaction-cost-control)):
+the header chips (`48/72 · ×4`), a `.compaction-divider` in `#messages` after
+the last summarized message with the summarized messages dimmed
+(`.message--compacted`, opacity only), and a popup with the stats and the
+summary text. Chip and divider turn warning-tinted at
+`COMPACTION_DEEP_GENERATION` summary passes (`config.ts`).
+
+- Refreshed by `updateConversationCost()` (toolbar.ts), i.e. on conversation
+  load and at the end of every turn. The cached status is dropped as soon as
+  another conversation is open.
+- `applyCompactionMarkers()` is idempotent and re-run by `renderMessages()`
+  and the pagination prepend (the boundary message may only arrive with an
+  older page). Only the fetch-driven call passes `preserveScroll: true`:
+  `#messages` has `overflow-anchor: none`, so a late insertion re-pins to the
+  bottom (if following) or keeps the first visible message in place. The
+  render/prepend paths manage scroll themselves - preserving there too would
+  double-adjust.
 
 ## Wide Tables
 

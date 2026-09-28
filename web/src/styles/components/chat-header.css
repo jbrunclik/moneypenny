@@ -70,6 +70,41 @@
     display: none;
 }
 
+/* Compaction chip (CompactionIndicator.ts): older messages are summarized */
+.chat-header-compaction {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: 2px var(--space-2-5);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.chat-header-compaction:hover {
+    color: var(--text-primary);
+}
+
+.chat-header-compaction.hidden {
+    display: none;
+}
+
+.chat-header-compaction svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.chat-header-compaction.compaction--deep {
+    color: var(--warning-text);
+    border-color: var(--warning);
+}
+
 .chat-header-emoji {
     font-size: var(--font-size-xl);
     flex-shrink: 0;
@@ -123,5 +158,25 @@
     #conversation-cost-mobile {
         margin-left: auto;
         flex-shrink: 0;
+    }
+
+    #conversation-compaction-mobile {
+        margin-left: auto;
+        margin-right: var(--space-2);
+        flex-shrink: 0;
+    }
+
+    /* When the chip shows, the cost follows it rather than pushing apart */
+    #conversation-compaction-mobile:not(.hidden) + #conversation-cost-mobile {
+        margin-left: 0;
+    }
+
+    .mobile-header .compaction-chip-counts {
+        display: none;
+    }
+
+    /* Keep the centered title clear of the extra chip */
+    .mobile-header:has(#conversation-compaction-mobile:not(.hidden)) #current-chat-title {
+        max-width: calc(100% - 260px);
     }
 }

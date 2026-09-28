@@ -40,6 +40,7 @@ import { initSourcesPopup } from '../components/SourcesPopup';
 import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHistoryPopup';
+import { getCompactionPopupHtml, initCompactionIndicator } from '../components/CompactionIndicator';
 import { initVoiceInput } from '../components/VoiceInput';
 import { initScrollToBottom, setBeforeScrollToBottomCallback } from '../components/ScrollToBottom';
 import { initHeaderAutoHide } from './header-autohide';
@@ -114,6 +115,7 @@ export function renderAppShell(): string {
       <header class="mobile-header">
         <button id="menu-btn" class="btn-icon">${MENU_ICON}</button>
         <span id="current-chat-title">${APP_NAME}</span>
+        <button id="conversation-compaction-mobile" type="button" class="chat-header-compaction hidden"></button>
         <span id="conversation-cost-mobile" class="chat-header-cost"></span>
       </header>
 
@@ -237,6 +239,9 @@ export function renderAppShell(): string {
 
     <!-- Cost History Popup -->
     ${getCostHistoryPopupHtml()}
+
+    <!-- Conversation Compaction Popup -->
+    ${getCompactionPopupHtml()}
 
     <!-- Settings Popup shell (contents + handlers lazy-load from
          SettingsPopup.ts on first open - keep the id in sync) -->
@@ -477,6 +482,7 @@ export async function init(): Promise<void> {
   initImageGenPopup();
   initMessageCostPopup();
   costHistoryPopup.init();
+  initCompactionIndicator();
   initAgents();
   initScrollToBottom();
   initHeaderAutoHide();

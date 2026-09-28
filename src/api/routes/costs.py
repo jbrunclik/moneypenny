@@ -11,6 +11,7 @@ from flask import request
 
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.schemas import (
+    ConversationCompactionResponse,
     ConversationCostResponse,
     CostHistoryResponse,
     MessageCostResponse,
@@ -66,6 +67,67 @@ def get_conversation_cost(user: User, conv_id: str) -> tuple[dict[str, Any], int
         "cost": cost_display,
         "currency": Config.COST_CURRENCY,
         "formatted": formatted_cost,
+    }, 200
+
+
+@api.route("/conversations/<conv_id>/compaction", methods=["GET"])
+@api.output(ConversationCompactionResponse)
+@api.doc(responses=[404])
+@require_auth
+def get_conversation_compaction(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
+    """Get how much of a conversation the model sees only as a summary."""
+    from src.agent.conversation_compaction import get_compaction_status
+    from src.agent.history import enrich_history
+
+    logger.debug(
+        "Getting conversation compaction", extra={"user_id": user.id, "conversation_id": conv_id}
+    )
+
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        logger.warning(
+            "Conversation not found for compaction query",
+            extra={"user_id": user.id, "conversation_id": conv_id},
+        )
+        raise_not_found_error("Conversation")
+
+    messages = db.get_messages(conv_id)
+    # Agent conversations use their own destructive compaction (see chat routes)
+    is_autonomous = bool(conv.is_agent and conv.agent_id and db.get_agent(conv.agent_id, user.id))
+    status = (
+        None if is_autonomous else get_compaction_status(user.id, conv_id, enrich_history(messages))
+    )
+
+    if status is None:
+        return {
+            "conversation_id": conv_id,
+            "active": False,
+            "summarized_count": 0,
+            "total_count": len(messages),
+            "generation": 0,
+            "generation_estimated": False,
+            "boundary_message_id": None,
+            "summary": None,
+        }, 200
+
+    logger.debug(
+        "Conversation compaction retrieved",
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "summarized_count": status.summarized_count,
+            "generation": status.generation,
+        },
+    )
+    return {
+        "conversation_id": conv_id,
+        "active": True,
+        "summarized_count": status.summarized_count,
+        "total_count": status.total_count,
+        "generation": status.generation,
+        "generation_estimated": status.generation_estimated,
+        "boundary_message_id": messages[status.summarized_count - 1].id,
+        "summary": status.summary,
     }, 200
 
 

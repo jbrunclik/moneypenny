@@ -25,6 +25,7 @@ import { createMessageActions } from './actions';
 import { renderMessageFiles } from './attachments';
 import { applySendState } from './send-state';
 import { setInputBlockedForApproval } from '../MessageInput';
+import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { RenderMessagesOptions } from './types';
 import type { Message } from '../../types/api';
 
@@ -264,6 +265,9 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
 
   // Lock quiz blocks in all messages except the last assistant message
   lockOlderQuizBlocks(container);
+
+  // Re-place the compaction divider (cleared with the old messages)
+  applyCompactionMarkers(container);
 
   if (!options.skipScrollToBottom) {
     scheduleScrollToBottom(container);

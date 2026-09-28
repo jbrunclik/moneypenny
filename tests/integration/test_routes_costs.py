@@ -260,3 +260,92 @@ class TestGetCostHistory:
         """Should return 401 without authentication."""
         response = client.get("/api/users/me/costs/history")
         assert response.status_code == 401
+
+
+class TestGetConversationCompaction:
+    """Tests for GET /api/conversations/<conv_id>/compaction endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def _compaction_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_ENABLED", True)
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_THRESHOLD", 10)
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_KEEP_RECENT", 4)
+        monkeypatch.setattr(Config, "CONVERSATION_COMPACTION_RESUMMARIZE_BATCH", 5)
+
+    @staticmethod
+    def _add_messages(db: Database, conv_id: str, n: int) -> list[str]:
+        return [
+            db.add_message(conv_id, "user" if i % 2 == 0 else "assistant", f"m{i}").id
+            for i in range(n)
+        ]
+
+    def test_reports_active_compaction(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """Should describe the summary the next turn sends the model."""
+        from src.agent.conversation_compaction import KV_NAMESPACE
+
+        ids = self._add_messages(test_database, test_conversation.id, 20)
+        test_database.kv_set(
+            test_user.id,
+            KV_NAMESPACE,
+            test_conversation.id,
+            json.dumps({"summary": "Earlier: hotels", "covered_count": 12, "generation": 3}),
+        )
+
+        response = client.get(
+            f"/api/conversations/{test_conversation.id}/compaction",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert json.loads(response.data) == {
+            "conversation_id": test_conversation.id,
+            "active": True,
+            "summarized_count": 12,
+            "total_count": 20,
+            "generation": 3,
+            "generation_estimated": False,
+            "boundary_message_id": ids[11],
+            "summary": "Earlier: hotels",
+        }
+
+    def test_inactive_without_summary(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Should report inactive when the history is still sent verbatim."""
+        self._add_messages(test_database, test_conversation.id, 20)
+
+        response = client.get(
+            f"/api/conversations/{test_conversation.id}/compaction",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["active"] is False
+        assert data["summarized_count"] == 0
+        assert data["total_count"] == 20
+        assert data["boundary_message_id"] is None
+        assert data["summary"] is None
+
+    def test_returns_404_for_nonexistent_conversation(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        response = client.get("/api/conversations/nonexistent-id/compaction", headers=auth_headers)
+        assert response.status_code == 404
+
+    def test_requires_auth(self, client: FlaskClient, test_conversation: Conversation) -> None:
+        response = client.get(f"/api/conversations/{test_conversation.id}/compaction")
+        assert response.status_code == 401

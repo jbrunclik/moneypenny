@@ -738,6 +738,23 @@ class ConversationCostResponse(BaseModel):
     formatted: str
 
 
+class ConversationCompactionResponse(BaseModel):
+    """How the next turn compacts a conversation's history for the model."""
+
+    conversation_id: str
+    active: bool = Field(..., description="Whether older messages are replaced by a summary")
+    summarized_count: int = Field(..., description="Leading messages replaced by the summary")
+    total_count: int = Field(..., description="Messages in the conversation")
+    generation: int = Field(
+        ..., description="Summarization passes folded into the summary (each loses detail)"
+    )
+    generation_estimated: bool = Field(
+        ..., description="Generation inferred for summaries saved before it was tracked"
+    )
+    boundary_message_id: str | None = Field(None, description="Last message covered by the summary")
+    summary: str | None = Field(None, description="Summary text the model sees")
+
+
 class MessageCostResponse(BaseModel):
     """Cost breakdown for a message."""
 

@@ -548,3 +548,14 @@ export const LOG_LEVEL: LogLevel = (() => {
   // Default based on environment
   return import.meta.env.DEV ? 'debug' : 'warn';
 })();
+// =============================================================================
+// Conversation Compaction Indicator
+// =============================================================================
+
+/**
+ * Summarization passes at which the compaction chip/divider switch to a
+ * warning tint. Each pass folds the previous summary into a new one, so the
+ * oldest messages lose detail every time - by the third pass recall of early
+ * specifics is noticeably degraded.
+ */
+export const COMPACTION_DEEP_GENERATION = 3;

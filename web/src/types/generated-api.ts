@@ -5043,6 +5043,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/compaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get how much of a conversation the model sees only as a summary. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationCompactionResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/{agent_id}/conversation/sync": {
         parameters: {
             query?: never;
@@ -8666,6 +8713,51 @@ export interface components {
              * @default null
              */
             user_message_id: string | null;
+        };
+        /**
+         * ConversationCompactionResponse
+         * @description How the next turn compacts a conversation's history for the model.
+         */
+        ConversationCompactionResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Active
+             * @description Whether older messages are replaced by a summary
+             */
+            active: boolean;
+            /**
+             * Summarized Count
+             * @description Leading messages replaced by the summary
+             */
+            summarized_count: number;
+            /**
+             * Total Count
+             * @description Messages in the conversation
+             */
+            total_count: number;
+            /**
+             * Generation
+             * @description Summarization passes folded into the summary (each loses detail)
+             */
+            generation: number;
+            /**
+             * Generation Estimated
+             * @description Generation inferred for summaries saved before it was tracked
+             */
+            generation_estimated: boolean;
+            /**
+             * Boundary Message Id
+             * @description Last message covered by the summary
+             * @default null
+             */
+            boundary_message_id: string | null;
+            /**
+             * Summary
+             * @description Summary text the model sees
+             * @default null
+             */
+            summary: string | null;
         };
         /**
          * AgentConversationSyncData
