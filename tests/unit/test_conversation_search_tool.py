@@ -63,6 +63,36 @@ class TestSearchConversations:
 
         assert "Ongoing chat" not in result
 
+    def test_finds_summarized_part_of_the_current_conversation(
+        self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Messages compaction replaced with a summary are no longer verbatim in
+        context, so their exact details must stay searchable."""
+        import json
+
+        import src.agent.conversation_compaction as compaction
+
+        monkeypatch.setattr(compaction, "db", search_context[0])
+        database, user = search_context
+        conv = database.create_conversation(user.id, "Long trip chat")
+        database.add_message(conv.id, "user", "receipt total was 87 EUR zebrafinch")
+        database.add_message(conv.id, "assistant", "noted")
+        database.add_message(conv.id, "user", "still verbatim zebrafinch")
+        database.kv_set(
+            user.id,
+            compaction.KV_NAMESPACE,
+            conv.id,
+            json.dumps({"segments": [{"text": "S", "end": 2, "passes": 1}], "covered_count": 2}),
+        )
+        set_conversation_context(conv.id, user.id)
+
+        result = str(search_conversations.invoke({"query": "zebrafinch"}))
+
+        assert "87 EUR" in result
+        assert "this conversation" in result
+        # The verbatim tail is already in the prompt - not repeated
+        assert "still verbatim" not in result
+
     def test_no_matches_suggests_rephrasing(self, search_context: tuple[Database, User]) -> None:
         """A miss should be actionable, not just empty."""
         result = str(search_conversations.invoke({"query": "nothing-here-at-all"}))

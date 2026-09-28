@@ -53,8 +53,10 @@ function renderCompaction(status: ConversationCompactionResponse): string {
   const verbatim = status.total_count - status.summarized_count;
   const passes = generationLabel(status);
   const lossNote = isDeep(status)
-    ? 'The oldest messages have been condensed several times, so early specifics are likely lost.'
-    : 'Each re-summarization condenses the oldest messages further, losing detail.';
+    ? 'The oldest messages have been condensed several times, so early specifics are likely lost. ' +
+      'The assistant can still search them for exact details.'
+    : 'A summary keeps the gist, not every detail. The assistant can still search the ' +
+      'summarized messages for exact details.';
   const summaryHtml = status.summary ? renderMarkdown(status.summary) : '';
   return `
     <div class="compaction-content">

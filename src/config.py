@@ -533,6 +533,17 @@ class Config:
     CONVERSATION_COMPACTION_TOKEN_THRESHOLD: int = int(
         os.getenv("CONVERSATION_COMPACTION_TOKEN_THRESHOLD", "60000")
     )
+    # Segmented summary budget (see src/agent/compaction_segments.py): each
+    # batch of messages is summarized once into a segment of about this many
+    # words; adjacent segments are merged only once the total exceeds the cap.
+    # The whole summary is re-sent every compacted turn, so the cap is the
+    # per-turn cost knob (~1.4 tokens per word).
+    CONVERSATION_COMPACTION_SEGMENT_WORDS: int = int(
+        os.getenv("CONVERSATION_COMPACTION_SEGMENT_WORDS", "250")
+    )
+    CONVERSATION_COMPACTION_SUMMARY_MAX_WORDS: int = int(
+        os.getenv("CONVERSATION_COMPACTION_SUMMARY_MAX_WORDS", "2500")
+    )
 
     # Graph recursion limit: max graph steps per request (navigate+screenshot+click = multiple steps)
     # Browser automation needs more headroom than simple tool calls

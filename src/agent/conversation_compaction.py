@@ -3,7 +3,8 @@
 Long chats re-send their entire history to the LLM every turn, so cost grows
 ~O(n^2) over a conversation. This module bounds the history *sent to the model*
 by replacing older turns with a running summary while keeping recent turns
-verbatim.
+verbatim. The summary is a list of segments, each summarizing one batch of
+messages from full text (see ``compaction_segments.py``).
 
 Unlike the autonomous-agent path in ``compaction.py``, this is **non-destructive**:
 the full message history stays in the database for display. Only the enriched
@@ -17,10 +18,11 @@ from __future__ import annotations
 import json
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from src.agent.compaction import summarize_messages
+from src.agent.compaction_segments import Segment, extend_segments, max_passes, render_segments
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -38,6 +40,19 @@ KV_NAMESPACE = "conv_compaction"
 
 # Prefix marking the synthetic summary message so the model treats it as context
 SUMMARY_PREFIX = "[Summary of earlier conversation]"
+
+# Closes the summary message: the summary keeps the gist, not every detail,
+# and search_conversations covers this conversation's summarized messages
+SUMMARY_RECALL_HINT = (
+    "[The messages above were condensed into this summary, so exact details "
+    "(numbers, names, wording) may be missing. If you need one and the "
+    "search_conversations tool is available, search for it - it includes this "
+    "conversation's summarized messages.]"
+)
+
+# Failed refreshes back off exponentially (30 min, 1 h, 2 h, ... up to 1 day)
+_FAILURE_BACKOFF_BASE_SECONDS = 30 * 60
+_FAILURE_BACKOFF_MAX_SECONDS = 24 * 60 * 60
 
 # Rough chars-per-token for history size estimation. Deliberately conservative
 # (Gemini averages ~4 for English, ~3 for Czech) so the token trigger fires
@@ -58,15 +73,27 @@ def _estimate_tokens(messages: list[dict[str, Any]]) -> int:
 
 @dataclass(frozen=True)
 class _State:
-    """Persisted running summary for one conversation."""
+    """Persisted segmented running summary for one conversation."""
 
-    summary: str | None = None
-    # Leading history messages the summary replaces
-    covered_count: int = 0
-    # Summarization passes folded into the summary (each pass loses detail)
-    generation: int = 0
-    # True when generation was inferred for state saved before it was tracked
+    segments: tuple[Segment, ...] = ()
+    # Legacy single-summary state (pre-segments): served as one segment until
+    # the next refresh rebuilds it from full text
+    legacy: bool = False
+    # Legacy states never tracked passes; theirs is an upper-bound estimate
     generation_estimated: bool = False
+    # Consecutive failed refreshes and when to try again (ISO timestamp):
+    # a conversation whose summary is always blocked must not retry every turn
+    failures: int = 0
+    retry_after: str | None = None
+
+    @property
+    def covered_count(self) -> int:
+        """Leading history messages the summary replaces."""
+        return self.segments[-1].end if self.segments else 0
+
+    @property
+    def summary(self) -> str | None:
+        return render_segments(list(self.segments)) if self.segments else None
 
 
 @dataclass(frozen=True)
@@ -78,6 +105,11 @@ class CompactionStatus:
     generation: int
     generation_estimated: bool
     summary: str
+
+
+def _now() -> datetime:
+    """Current UTC time (seam for tests - patching time.time also shifts date.today)."""
+    return datetime.now(UTC)
 
 
 def _estimate_generation(covered_count: int) -> int:
@@ -95,23 +127,49 @@ def _estimate_generation(covered_count: int) -> int:
     return 1 + max(0, covered_count - first_pass) // batch
 
 
+def _parse_state(data: dict[str, Any]) -> _State:
+    failures = int(data.get("failures", 0))
+    retry_after = data.get("retry_after")
+    if "segments" in data:
+        segments = tuple(
+            Segment(str(s["text"]), int(s["end"]), int(s["passes"])) for s in data["segments"]
+        )
+        # A legacy state whose rebuild failed is re-saved in segment form but
+        # keeps its marker, so the rebuild is retried once backoff clears
+        return _State(
+            segments,
+            legacy=bool(data.get("legacy", False)),
+            generation_estimated=bool(data.get("generation_estimated", False)),
+            failures=failures,
+            retry_after=retry_after,
+        )
+    # Legacy {summary, covered_count[, generation]} - one opaque segment
+    summary = data.get("summary")
+    covered_count = int(data.get("covered_count", 0))
+    if not summary or covered_count <= 0:
+        return _State(failures=failures, retry_after=retry_after)
+    if "generation" in data:
+        passes = int(data["generation"])
+        estimated = bool(data.get("generation_estimated", False))
+    else:
+        passes, estimated = _estimate_generation(covered_count), True
+    return _State(
+        (Segment(summary, covered_count, passes),),
+        legacy=True,
+        generation_estimated=estimated,
+        failures=failures,
+        retry_after=retry_after,
+    )
+
+
 def _load_state(user_id: str, conversation_id: str) -> _State:
-    """Load the persisted running summary and how many leading messages it covers."""
+    """Load the persisted summary state (empty when absent or malformed)."""
     raw = db.kv_get(user_id, KV_NAMESPACE, conversation_id)
     if not raw:
         return _State()
     try:
-        data = json.loads(raw)
-        summary = data.get("summary")
-        covered_count = int(data.get("covered_count", 0))
-        if "generation" in data:
-            generation = int(data["generation"])
-            estimated = bool(data.get("generation_estimated", False))
-        else:
-            generation = _estimate_generation(covered_count) if summary else 0
-            estimated = bool(summary)
-        return _State(summary, covered_count, generation, estimated)
-    except (ValueError, TypeError, AttributeError):
+        return _parse_state(json.loads(raw))
+    except (ValueError, TypeError, AttributeError, KeyError):
         logger.warning(
             "Discarding malformed compaction state",
             extra={"conversation_id": conversation_id},
@@ -120,22 +178,43 @@ def _load_state(user_id: str, conversation_id: str) -> _State:
 
 
 def _save_state(user_id: str, conversation_id: str, state: _State) -> None:
-    """Persist the running summary, its coverage and its generation."""
+    """Persist the segments (plus failure backoff, when set)."""
     data: dict[str, Any] = {
-        "summary": state.summary,
+        "segments": [{"text": s.text, "end": s.end, "passes": s.passes} for s in state.segments],
         "covered_count": state.covered_count,
-        "generation": state.generation,
     }
+    if state.legacy:
+        data["legacy"] = True
     if state.generation_estimated:
         data["generation_estimated"] = True
+    if state.failures:
+        data["failures"] = state.failures
+        data["retry_after"] = state.retry_after
     db.kv_set(user_id, KV_NAMESPACE, conversation_id, json.dumps(data))
+
+
+def _in_backoff(state: _State) -> bool:
+    if not state.retry_after:
+        return False
+    try:
+        return _now() < datetime.fromisoformat(state.retry_after)
+    except ValueError:
+        return False
+
+
+def _with_failure(state: _State) -> _State:
+    """State after one more failed refresh: exponential backoff, capped."""
+    failures = state.failures + 1
+    delay = min(_FAILURE_BACKOFF_MAX_SECONDS, _FAILURE_BACKOFF_BASE_SECONDS * 2 ** (failures - 1))
+    retry_after = (_now() + timedelta(seconds=delay)).isoformat()
+    return replace(state, failures=failures, retry_after=retry_after)
 
 
 def _summary_message(summary: str) -> dict[str, Any]:
     """Build the synthetic summary message (no volatile metadata, cache-stable)."""
     return {
         "role": "user",
-        "content": f"{SUMMARY_PREFIX}\n\n{summary}",
+        "content": f"{SUMMARY_PREFIX}\n\n{summary}\n\n{SUMMARY_RECALL_HINT}",
         "metadata": {},
     }
 
@@ -145,14 +224,25 @@ def _spawn_refresh(work: Callable[[], None]) -> None:
     threading.Thread(target=work, daemon=True, name="compaction-summary").start()
 
 
+def _refresh_segments(state: _State, older: list[dict[str, Any]]) -> list[Segment] | None:
+    """New segment list covering all of ``older`` (LLM calls; None on failure).
+
+    Legacy and empty states are rebuilt from scratch out of full message text;
+    otherwise only the not-yet-covered messages are summarized and appended.
+    """
+    if state.legacy or not state.segments:
+        return extend_segments([], older, 0, len(older))
+    start = min(state.covered_count, len(older))
+    return extend_segments(list(state.segments), older, start, len(older))
+
+
 def _schedule_summary_refresh(
     user_id: str,
     conversation_id: str,
-    uncovered: list[dict[str, Any]],
+    older: list[dict[str, Any]],
     prior: _State,
-    covered_target: int,
 ) -> None:
-    """Refresh the running summary in the background.
+    """Refresh the segmented summary in the background.
 
     The summarizer is an LLM call - running it synchronously added seconds to
     the user's turn whenever the un-summarized middle crossed the batch size.
@@ -160,7 +250,7 @@ def _schedule_summary_refresh(
     summary lands in kv_store for subsequent turns.
     """
     # Project eagerly: the worker must not share the caller's history dicts
-    projected = [{"role": m["role"], "content": m["content"]} for m in uncovered]
+    projected = [{"role": m["role"], "content": m["content"]} for m in older]
 
     with _inflight_lock:
         if conversation_id in _inflight_refreshes:
@@ -169,26 +259,29 @@ def _schedule_summary_refresh(
 
     def _work() -> None:
         try:
-            summary = summarize_messages(projected, prior_summary=prior.summary)
-            if summary:
-                refreshed = _State(
-                    summary,
-                    covered_target,
-                    prior.generation + 1,
-                    prior.generation_estimated,
-                )
-                _save_state(user_id, conversation_id, refreshed)
+            segments = _refresh_segments(prior, projected)
+            if segments:
+                _save_state(user_id, conversation_id, _State(tuple(segments)))
                 logger.info(
                     "Compaction summary refreshed in background",
                     extra={
                         "conversation_id": conversation_id,
-                        "summarized_messages": covered_target,
+                        "summarized_messages": segments[-1].end,
+                        "segments": len(segments),
+                        "summary_words": len(render_segments(segments).split()),
+                        "rebuilt": prior.legacy or not prior.segments,
                     },
                 )
             else:
+                failed = _with_failure(prior)
+                _save_state(user_id, conversation_id, failed)
                 logger.warning(
                     "Background summarization returned nothing",
-                    extra={"conversation_id": conversation_id},
+                    extra={
+                        "conversation_id": conversation_id,
+                        "failures": failed.failures,
+                        "retry_after": failed.retry_after,
+                    },
                 )
         except Exception:
             logger.warning(
@@ -206,6 +299,18 @@ def _schedule_summary_refresh(
                 logger.debug("Closing thread-local db connection failed", exc_info=True)
 
     _spawn_refresh(_work)
+
+
+def summarized_message_ids(user_id: str, conversation_id: str) -> set[str]:
+    """Ids of the conversation's messages currently replaced by the summary.
+
+    They are no longer verbatim in the prompt, so conversation search must be
+    able to reach them (the rest of the conversation is already in context).
+    """
+    covered_count = _load_state(user_id, conversation_id).covered_count
+    if covered_count <= 0:
+        return set()
+    return {m.id for m in db.get_messages(conversation_id)[:covered_count]}
 
 
 def _keep_recent_count(history: list[dict[str, Any]]) -> int | None:
@@ -263,7 +368,7 @@ def get_compaction_status(
     return CompactionStatus(
         summarized_count=covered_count,
         total_count=len(history),
-        generation=state.generation,
+        generation=max_passes(list(state.segments)),
         generation_estimated=state.generation_estimated,
         summary=state.summary,
     )
@@ -280,7 +385,9 @@ def build_compacted_history(
     exceeds the configured message-count OR estimated-token threshold,
     otherwise returns it unchanged. The running summary is regenerated only
     when the un-summarized middle has grown by
-    ``CONVERSATION_COMPACTION_RESUMMARIZE_BATCH`` messages.
+    ``CONVERSATION_COMPACTION_RESUMMARIZE_BATCH`` messages (appending a new
+    segment), when legacy state needs rebuilding, and never while a failure
+    backoff is running.
 
     Args:
         user_id: Owner of the conversation (required for kv persistence)
@@ -305,9 +412,11 @@ def build_compacted_history(
     covered_count = max(0, min(state.covered_count, len(older)))
     uncovered = older[covered_count:]
 
-    needs_resummarize = prior_summary is None or (
-        len(uncovered) >= Config.CONVERSATION_COMPACTION_RESUMMARIZE_BATCH
-    )
+    needs_resummarize = (
+        prior_summary is None
+        or state.legacy
+        or len(uncovered) >= Config.CONVERSATION_COMPACTION_RESUMMARIZE_BATCH
+    ) and not _in_backoff(state)
 
     if needs_resummarize:
         # OFF the request path: the LLM summarizer used to run synchronously
@@ -316,7 +425,7 @@ def build_compacted_history(
         # this turn uses whatever state already exists. Deferring also keeps
         # this turn's history prefix byte-identical to the previous one,
         # which Gemini's implicit caching rewards.
-        _schedule_summary_refresh(user_id, conversation_id, uncovered, state, len(older))
+        _schedule_summary_refresh(user_id, conversation_id, older, state)
 
     if prior_summary is None:
         # No usable summary yet — safest to send the full history unchanged.

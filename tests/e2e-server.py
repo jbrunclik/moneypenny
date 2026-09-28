@@ -574,7 +574,7 @@ def main() -> None:
         # real compaction path runs without a network call when a seeded
         # conversation exceeds CONVERSATION_COMPACTION_THRESHOLD.
         stack.enter_context(
-            patch("src.agent.compaction._run_summary_model", return_value="[mock summary]")
+            patch("src.agent.compaction.run_summary_model", return_value="[mock summary]")
         )
         stack.enter_context(
             patch("src.auth.google_auth.requests.get", create_mock_google_tokeninfo())
@@ -661,6 +661,8 @@ def main() -> None:
         stack.enter_context(patch("src.api.helpers.program_context.db", proxy_db))
         stack.enter_context(patch("src.api.helpers.validation.db", proxy_db))
         stack.enter_context(patch("src.api.utils.db", proxy_db))
+        # Bound at import time (conversation_search imports it on tool registration)
+        stack.enter_context(patch("src.agent.conversation_compaction.db", proxy_db))
 
         # Patch threading.Thread to propagate context (used in chat_streaming helper)
         stack.enter_context(

@@ -17,6 +17,22 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Per-message character cap in summarizer input. Generous on purpose: a
+# 500-char cap meant the summarizer saw ~25% of the text it replaced (measured
+# on production conversations). The cheap summary model has a large context
+# window; this only guards pathological messages.
+SUMMARY_MESSAGE_MAX_CHARS = 8000
+
+# What a conversation summary should preserve (shared by all summarizers)
+SUMMARY_FOCUS = (
+    "1. Key topics, questions, and decisions\n"
+    "2. Important facts, preferences, or context the user shared\n"
+    "3. Conclusions reached or actions the assistant took\n"
+    "4. Any ongoing tasks or open threads\n"
+    "5. Exact identifiers needed to continue the work verbatim: names, "
+    "dates, numbers, amounts, URLs, and file or message references"
+)
+
 
 def needs_compaction(agent: Agent) -> bool:
     """Check if an agent's conversation needs compaction.
@@ -34,7 +50,7 @@ def needs_compaction(agent: Agent) -> bool:
     return message_count > Config.AGENT_COMPACTION_THRESHOLD
 
 
-def _run_summary_model(prompt: str) -> str | None:
+def run_summary_model(prompt: str) -> str | None:
     """Run the fast summarization model on a prompt.
 
     Returns the stripped summary text, or None if the model returned nothing
@@ -42,7 +58,7 @@ def _run_summary_model(prompt: str) -> str | None:
     """
     # Import here to avoid circular imports
     from google import genai
-    from google.genai.types import GenerateContentConfig
+    from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel
 
     try:
         client = genai.Client(api_key=Config.GEMINI_API_KEY)
@@ -51,10 +67,25 @@ def _run_summary_model(prompt: str) -> str | None:
             contents=prompt,
             config=GenerateContentConfig(
                 temperature=0.3,  # More deterministic for summaries
+                # Summaries are extraction, not reasoning: on production
+                # conversations LOW kept fact recall (81-92% vs 74-88% at the
+                # API default) at ~30% lower cost - thinking tokens were ~85%
+                # of the summarizer's output spend.
+                thinking_config=ThinkingConfig(thinking_level=ThinkingLevel.LOW),
             ),
         )
         if response.text:
             return response.text.strip()
+        # No text without an exception is usually a blocked response (safety,
+        # recitation) - record why, it is otherwise invisible
+        candidate = response.candidates[0] if response.candidates else None
+        logger.warning(
+            "Summary model returned no text",
+            extra={
+                "finish_reason": str(getattr(candidate, "finish_reason", None)),
+                "block_reason": str(getattr(response.prompt_feedback, "block_reason", None)),
+            },
+        )
         return None
     except Exception as e:
         logger.error("Failed to generate conversation summary", extra={"error": str(e)})
@@ -66,14 +97,7 @@ def summarize_messages(
     prior_summary: str | None = None,
     *,
     role_labels: tuple[str, str] = ("User", "Assistant"),
-    focus: str = (
-        "1. Key topics, questions, and decisions\n"
-        "2. Important facts, preferences, or context the user shared\n"
-        "3. Conclusions reached or actions the assistant took\n"
-        "4. Any ongoing tasks or open threads\n"
-        "5. Exact identifiers needed to continue the work verbatim: names, "
-        "dates, numbers, amounts, URLs, and file or message references"
-    ),
+    focus: str = SUMMARY_FOCUS,
     intro: str = "Summarize this conversation history concisely.",
     max_words: int = 500,
 ) -> str | None:
@@ -98,7 +122,7 @@ def summarize_messages(
     conversation_text = ""
     for msg in messages:
         label = assistant_label if msg["role"] == "assistant" else user_label
-        conversation_text += f"{label}: {msg['content'][:500]}...\n\n"
+        conversation_text += f"{label}: {msg['content'][:SUMMARY_MESSAGE_MAX_CHARS]}\n\n"
 
     prior_block = ""
     if prior_summary:
@@ -120,7 +144,7 @@ def summarize_messages(
         "Summary:"
     )
 
-    return _run_summary_model(prompt)
+    return run_summary_model(prompt)
 
 
 def generate_summary(agent: Agent, messages: list[dict[str, str]]) -> str:

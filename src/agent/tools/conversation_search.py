@@ -16,6 +16,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agent.conversation_compaction import summarized_message_ids
 from src.agent.tools.context import get_conversation_context
 from src.config import Config
 from src.db.models import db
@@ -32,6 +33,9 @@ _SEMANTIC_MIN_SIMILARITY = 0.5
 _HIGHLIGHT_OPEN = "[[HIGHLIGHT]]"
 _HIGHLIGHT_CLOSE = "[[/HIGHLIGHT]]"
 
+# Marks hits from the summarized (no longer verbatim) part of this conversation
+_CURRENT_CONVERSATION_LABEL = "(this conversation, earlier part now only summarized)"
+
 
 def _clean_snippet(snippet: str | None) -> str:
     """Strip highlight markers from an FTS snippet."""
@@ -45,6 +49,7 @@ def _format_results(
     total: int,
     shown: int,
     semantic_rows: list[tuple[str, str, str, str, str]] | None = None,
+    current_conversation_id: str | None = None,
 ) -> str:
     """Render search results as compact lines for the model."""
     semantic_rows = semantic_rows or []
@@ -56,7 +61,12 @@ def _format_results(
     for result in results:
         date = result.created_at.strftime("%Y-%m-%d") if result.created_at else "unknown date"
         title = result.conversation_title or "Untitled"
-        lines.append(f"\n- [{date}] {title} (conversation_id={result.conversation_id})")
+        where = (
+            _CURRENT_CONVERSATION_LABEL
+            if result.conversation_id == current_conversation_id
+            else f"(conversation_id={result.conversation_id})"
+        )
+        lines.append(f"\n- [{date}] {title} {where}")
         snippet = _clean_snippet(result.message_content)
         if snippet:
             lines.append(f"  {snippet}")
@@ -68,9 +78,12 @@ def _format_results(
             date = datetime.fromisoformat(created_at).strftime("%Y-%m-%d")
         except (ValueError, TypeError):
             date = "unknown date"
-        lines.append(
-            f"\n- [{date}] {title or 'Untitled'} (conversation_id={conv_id}) (semantic match)"
+        where = (
+            _CURRENT_CONVERSATION_LABEL
+            if conv_id == current_conversation_id
+            else f"(conversation_id={conv_id})"
         )
+        lines.append(f"\n- [{date}] {title or 'Untitled'} {where} (semantic match)")
         snippet = (content or "").strip().replace("\n", " ")
         if snippet:
             lines.append(f"  {snippet[:200]}")
@@ -88,8 +101,12 @@ def _semantic_matches(
     query: str,
     exclude_conversation_ids: set[str],
     limit: int,
+    allow_message_ids: set[str] | None = None,
 ) -> list[tuple[str, str, str, str, str]]:
     """Embedding-based message matches, excluding already-covered conversations.
+
+    ``allow_message_ids`` are kept even inside an excluded conversation (the
+    summarized part of the current one).
 
     Returns rendered-ready rows; empty on any failure (keyword results stand
     alone). One entry per conversation - multiple similar messages in the same
@@ -114,8 +131,9 @@ def _semantic_matches(
 
     seen_conversations = set(exclude_conversation_ids)
     rows: list[tuple[str, str, str, str, str]] = []
+    allowed = allow_message_ids or set()
     for row in db.get_message_rows_for_ids(user_id, ranked):
-        if row[1] in seen_conversations:
+        if row[1] in seen_conversations and row[0] not in allowed:
             continue
         seen_conversations.add(row[1])
         rows.append(row)
@@ -131,8 +149,10 @@ def search_conversations(query: str, limit: int = 10) -> str:
     Use this when the user refers to an earlier discussion ("what did we decide
     about...", "the recipe you gave me", "that error from last month") or when
     you need context that is not in the current conversation and not in your
-    stored memories. Do NOT use it for general knowledge questions - it only
-    searches this user's own chat history.
+    stored memories. It also covers the earlier part of THIS conversation once
+    it has been condensed into a summary - search it when you need an exact
+    detail (number, name, wording) the summary left out. Do NOT use it for
+    general knowledge questions - it only searches this user's own chat history.
 
     Args:
         query: Words or a short phrase. Matches both keywords and meaning
@@ -152,16 +172,22 @@ def search_conversations(query: str, limit: int = 10) -> str:
 
     limit = max(1, min(int(limit), Config.CONVERSATION_SEARCH_MAX_RESULTS))
 
+    # The current conversation is already in the prompt - except the part
+    # compaction replaced with a summary, which stays searchable
+    summarized = summarized_message_ids(user_id, conversation_id) if conversation_id else set()
+
     # Over-fetch so that dropping the current conversation does not leave a
     # short page: its content is already in the prompt.
     results, total = db.search(user_id, query, limit=limit + 5)
-    results = [r for r in results if r.conversation_id != conversation_id][:limit]
+    results = [
+        r for r in results if r.conversation_id != conversation_id or r.message_id in summarized
+    ][:limit]
 
     # Semantic pass: embedding matches for conversations FTS did not surface
     covered = {r.conversation_id for r in results}
     if conversation_id:
         covered.add(conversation_id)
-    semantic_rows = _semantic_matches(user_id, query, covered, limit)
+    semantic_rows = _semantic_matches(user_id, query, covered, limit, allow_message_ids=summarized)
 
     logger.info(
         "Conversation search via tool",
@@ -180,7 +206,9 @@ def search_conversations(query: str, limit: int = 10) -> str:
             "or rephrase - the search matches both words and meaning."
         )
 
-    return _format_results(results, total, len(results), semantic_rows)
+    return _format_results(
+        results, total, len(results), semantic_rows, current_conversation_id=conversation_id
+    )
 
 
 @tool
