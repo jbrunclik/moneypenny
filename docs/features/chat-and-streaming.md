@@ -315,7 +315,7 @@ Titles are set two ways, both resolved by `_resolve_title_update()` in
 pipeline and the batch endpoint):
 
 1. **First exchange (auto-generation)**: while the title is still `DEFAULT_CONVERSATION_TITLE`,
-   `generate_title()` in [agent.py](../../src/agent/agent.py) creates one with a cheap Flash
+   `generate_title()` in [title.py](../../src/agent/title.py) creates one with a cheap Flash
    call (single leading emoji + space, 3-6 words, user's language). This path always takes
    precedence over the agent tool on the same turn.
 2. **Agent-driven retitle**: the agent sees the current title in its per-request dynamic

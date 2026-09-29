@@ -134,6 +134,19 @@ def clean_tool_call_json(response: str) -> str:
     return TOOL_CALL_JSON_PATTERN.sub("", response).strip()
 
 
+def final_response_text(messages: list[BaseMessage]) -> str:
+    """Text of the last AI message with actual (non-tool-call) content."""
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage):
+            text_content = extract_text_content(msg.content)
+            if msg.tool_calls and not text_content:
+                continue
+            text_content = clean_tool_call_json(text_content)
+            if text_content:
+                return text_content
+    return ""
+
+
 def strip_full_result_from_tool_content(content: str) -> str:
     """Strip the _full_result field from tool result JSON to avoid sending large data to LLM.
 

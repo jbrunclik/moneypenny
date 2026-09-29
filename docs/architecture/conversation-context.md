@@ -88,7 +88,7 @@ HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
 ### Key Files
 
 - [history.py](../../src/agent/history.py) - `enrich_history()`, timestamp/file/tool formatting functions
-- [agent.py](../../src/agent/agent.py) - `_format_message_with_metadata()`, `_build_messages()`
+- [message_content.py](../../src/agent/message_content.py) - `format_message_with_metadata()`; [agent.py](../../src/agent/agent.py) - `_build_messages()`
 - [tool_outputs.py](../../src/agent/tool_outputs.py) - `build_tool_outputs()`, `format_tool_outputs()`
 - [chat_turn.py](../../src/api/helpers/chat_turn.py) - `prepare_turn()` enriches history; `build_turn_context()` compacts it (both chat modes)
 - [config.py](../../src/config.py) - `HISTORY_SESSION_GAP_HOURS` configuration

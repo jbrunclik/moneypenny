@@ -109,7 +109,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 
 ### Key Files
 
-- [agent.py](../../src/agent/agent.py) - `stream_chat_events()`, `ChatAgent` class
+- [agent.py](../../src/agent/agent.py) - `stream_chat_events()`, `ChatAgent` class; [stream_events.py](../../src/agent/stream_events.py) - graph stream to client events
 - [content.py](../../src/agent/content.py) - `extract_thinking_and_text()`
 - [tool_display.py](../../src/agent/tool_display.py) - `TOOL_METADATA`, `extract_tool_detail()`
 - [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types

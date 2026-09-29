@@ -1,8 +1,8 @@
-"""Unit tests for ChatAgent message formatting and building (src/agent/agent.py)."""
+"""Unit tests for ChatAgent._build_messages and src/agent/message_content.py."""
 
 
 class TestFormatMessageWithMetadata:
-    """Tests for ChatAgent._format_message_with_metadata method."""
+    """Tests for format_message_with_metadata (src/agent/message_content.py)."""
 
     def _format_message(self, msg: dict) -> str:
         """Helper to call the method without instantiating full ChatAgent."""
@@ -161,14 +161,9 @@ class TestFormatMessageWithMetadata:
 class TestBuildMessageContentVideo:
     """Video attachments become Files API media blocks in message content."""
 
-    @staticmethod
-    def _agent():
-        from src.agent.agent import ChatAgent
-
-        # _build_message_content is pure; skip the heavyweight __init__
-        return ChatAgent.__new__(ChatAgent)
-
     def test_video_with_uri_becomes_media_block(self) -> None:
+        from src.agent.message_content import build_message_content
+
         files = [
             {
                 "name": "clip.mp4",
@@ -177,7 +172,7 @@ class TestBuildMessageContentVideo:
                 "gemini_file_uri": "https://files.example/f1",
             }
         ]
-        blocks = self._agent()._build_message_content("what is this?", files)
+        blocks = build_message_content("what is this?", files)
         assert isinstance(blocks, list)
         media = [b for b in blocks if isinstance(b, dict) and b.get("type") == "media"]
         assert media == [
@@ -189,6 +184,8 @@ class TestBuildMessageContentVideo:
         ]
 
     def test_video_without_uri_becomes_text_notice(self) -> None:
+        from src.agent.message_content import build_message_content
+
         files = [
             {
                 "name": "clip.mp4",
@@ -197,7 +194,7 @@ class TestBuildMessageContentVideo:
                 "gemini_upload_error": "boom",
             }
         ]
-        blocks = self._agent()._build_message_content("what is this?", files)
+        blocks = build_message_content("what is this?", files)
         assert isinstance(blocks, list)
         texts = [b["text"] for b in blocks if isinstance(b, dict) and b.get("type") == "text"]
         assert any("could not be attached" in t for t in texts)
@@ -239,12 +236,9 @@ class TestMsgContextToolDigest:
     helper above would pass even if production dropped the field)."""
 
     def _format(self, msg: dict) -> str:
-        from typing import Any, cast
+        from src.agent.message_content import format_message_with_metadata
 
-        from src.agent.agent import ChatAgent
-
-        # The method never touches self - call it unbound
-        return ChatAgent._format_message_with_metadata(cast(Any, None), msg)
+        return format_message_with_metadata(msg)
 
     def test_tool_digest_included_in_msg_context(self) -> None:
         msg = {

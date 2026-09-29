@@ -1,7 +1,8 @@
 """Chat agent module - DEPRECATED.
 
 This module has been refactored into focused submodules. Import directly from:
-- src.agent.agent: ChatAgent, generate_title, _planner_dashboard_context
+- src.agent.agent: ChatAgent, _planner_dashboard_context
+- src.agent.title: generate_title
 - src.agent.graph: AgentState, create_chat_model, create_chat_graph, etc.
 - src.agent.prompts: System prompts, get_system_prompt, get_user_context, etc.
 - src.agent.content: extract_text_content, detect_response_language, etc.

@@ -32,7 +32,7 @@ The `id` format is `"message_id:file_index"` which maps directly to the tool par
 - Videos always go through the Gemini Files API (`media` block with `file_uri`). Images and PDFs above `GEMINI_INLINE_FILE_MAX_BYTES` (8 MB) do too, since a 20 MB PDF upload is ~27 MB as base64.
 - Text files are truncated to `RETRIEVE_FILE_TEXT_MAX_CHARS` (200k chars, ~50k tokens), with a note giving the full length.
 - Other binary files return metadata only; base64 text is unreadable to the model and costs tokens in proportion to its size.
-- Known gap: files attached to the *current* message are still sent inline at full size (`src/agent/agent.py`), so many large uploads in one message can still exceed the limit.
+- Known gap: files attached to the *current* message are still sent inline at full size (`src/agent/message_content.py`), so many large uploads in one message can still exceed the limit.
 
 **Security:**
 - Verifies message belongs to the current conversation
@@ -260,7 +260,7 @@ FILE_RETENTION_DAYS=30
 - [gemini_files.py](../../src/agent/gemini_files.py) - Files API bridge + kv URI cache
 - [file_retention.py](../../src/utils/file_retention.py) - retention policy + sweep; [cleanup_files.py](../../scripts/cleanup_files.py) runs it on a timer
 - [file_retrieval.py](../../src/agent/tools/file_retrieval.py) - video branch + expiry errors
-- [agent.py](../../src/agent/agent.py) - `_build_message_content()` media blocks
+- [message_content.py](../../src/agent/message_content.py) - `build_message_content()` media blocks
 - [chat_turn.py](../../src/api/helpers/chat_turn.py) - `attach_gemini_file_uris()` call site (user message save, both chat modes)
 - [routes/files.py](../../src/api/routes/files.py) - 410 Gone gate
 - [attachments.ts](../../web/src/components/messages/attachments.ts) - tap-to-load player

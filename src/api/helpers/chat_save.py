@@ -13,13 +13,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agent.agent import generate_title
 from src.agent.content import (
     detect_response_language,
     extract_conversation_title,
     extract_image_prompts_from_messages,
     extract_read_sources,
 )
+from src.agent.title import generate_title
 from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (

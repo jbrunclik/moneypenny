@@ -9,9 +9,9 @@ is covered in [chat-and-streaming.md](../features/chat-and-streaming.md).
 ## MSG_CONTEXT
 
 History messages sent to the model carry a `<!-- MSG_CONTEXT: {...} -->` prefix
-(timestamps, files, tool-output digests; built in `src/agent/agent.py` and
+(timestamps, files, tool-output digests; built in `src/agent/message_content.py` and
 `src/agent/tool_outputs.py`). The model occasionally echoes it, so
-`stream_chat_events()` strips it from the stream, including a block split across
+`stream_chat_events()` strips it (`MsgContextFilter` in `src/agent/stream_events.py`) from the stream, including a block split across
 chunks (`in_msg_context` tracks that).
 
 - It must be stripped: an unclosed `<!--` reaching the browser hides everything

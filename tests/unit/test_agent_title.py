@@ -1,4 +1,4 @@
-"""Unit tests for generate_title in src/agent/agent.py."""
+"""Unit tests for generate_title in src/agent/title.py."""
 
 
 class TestGenerateTitle:
@@ -14,7 +14,7 @@ class TestGenerateTitle:
         """ChatGoogleGenerativeAIError on rate-limit must not escape."""
         from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
 
-        from src.agent import agent as agent_mod
+        from src.agent import title as title_mod
 
         class _RaisingModel:
             def __init__(self, *args, **kwargs) -> None:
@@ -25,12 +25,12 @@ class TestGenerateTitle:
                     "Error calling model 'gemini-3-flash-preview' (RESOURCE_EXHAUSTED): 429"
                 )
 
-        monkeypatch.setattr(agent_mod, "ChatGoogleGenerativeAI", _RaisingModel)
-        assert agent_mod.generate_title("hello", "world") is None
+        monkeypatch.setattr(title_mod, "ChatGoogleGenerativeAI", _RaisingModel)
+        assert title_mod.generate_title("hello", "world") is None
 
     def test_returns_none_on_unexpected_exception(self, monkeypatch) -> None:
         """Any Exception subclass must be caught — not just GoogleAPIError."""
-        from src.agent import agent as agent_mod
+        from src.agent import title as title_mod
 
         class _RaisingModel:
             def __init__(self, *args, **kwargs) -> None:
@@ -39,12 +39,12 @@ class TestGenerateTitle:
             def invoke(self, *args, **kwargs):
                 raise RuntimeError("network blew up")
 
-        monkeypatch.setattr(agent_mod, "ChatGoogleGenerativeAI", _RaisingModel)
-        assert agent_mod.generate_title("hi", "there") is None
+        monkeypatch.setattr(title_mod, "ChatGoogleGenerativeAI", _RaisingModel)
+        assert title_mod.generate_title("hi", "there") is None
 
     def test_returns_title_on_success(self, monkeypatch) -> None:
         """Happy path: cleaned-up title returned to caller."""
-        from src.agent import agent as agent_mod
+        from src.agent import title as title_mod
 
         class _Resp:
             content = '"🐍 Python List Sorting"'
@@ -56,7 +56,7 @@ class TestGenerateTitle:
             def invoke(self, *args, **kwargs):
                 return _Resp()
 
-        monkeypatch.setattr(agent_mod, "ChatGoogleGenerativeAI", _StubModel)
-        assert agent_mod.generate_title("how do I sort?", "use sorted()") == (
+        monkeypatch.setattr(title_mod, "ChatGoogleGenerativeAI", _StubModel)
+        assert title_mod.generate_title("how do I sort?", "use sorted()") == (
             "🐍 Python List Sorting"
         )
