@@ -9,7 +9,7 @@ You diagnose Playwright E2E failures in Moneypenny. Find the root cause; a retry
 ## Before anything else
 
 - **E2E runs against the last `make build`**, served from `static/assets/`. After any frontend change, rebuild first or you are debugging old code.
-- Read [docs/testing.md](../../docs/testing.md): "E2E Tests" (starved-runner signature, visual flakes as state races, the Sep 2026 first-run reliability pass) and "E2E Test Server".
+- Read [docs/testing/e2e-reliability.md](../../docs/testing/e2e-reliability.md) (starved-runner signature, visual flakes as state races, the Sep 2026 first-run reliability pass, gotchas) and "E2E Test Server" in [docs/testing/frontend.md](../../docs/testing/frontend.md).
 
 ## Architecture
 

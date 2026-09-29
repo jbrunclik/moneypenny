@@ -43,7 +43,11 @@ User interface patterns and implementations:
 
 - **[setup.md](setup.md)** - Operator setup guides: code-execution sandbox, browser automation, Google Sign In, Todoist, Google Calendar, Garmin Connect, WhatsApp
 - **[deployment.md](deployment.md)** - Production operations: systemd maintenance timers (backup, vacuum, currency, memory defrag), nginx reverse-proxy config, log rotation
-- **[testing.md](testing.md)** - Test structure (backend and frontend), patterns, E2E server with parallel execution, visual regression tests
+- **[testing.md](testing.md)** - Testing index: commands, TDD, isolation and mocking rules, flaky-test prevention, lint/coverage/audit gates
+- **[testing/backend.md](testing/backend.md)** - pytest layout, fixtures, chat-path mock return shapes, writing backend tests
+- **[testing/frontend.md](testing/frontend.md)** - Vitest unit/component tests, Playwright E2E, the E2E mock server and `/test/*` endpoints, planner tests
+- **[testing/e2e-reliability.md](testing/e2e-reliability.md)** - Starved-runner signature, visual flakes as state races, CI first-run reliability pass, E2E gotchas
+- **[testing/visual.md](testing/visual.md)** - Visual regression tests: darwin vs Linux baselines, regeneration via Docker or CI
 - **[testing/evals.md](testing/evals.md)** - Agent behavior evals: golden cases + LLM judge (`make eval`), when to run, case authoring
 - **[logging.md](logging.md)** - Structured logging (backend JSON format, frontend logger utility), request IDs, logging guidelines
 - **[conventions.md](conventions.md)** - Code quality guidelines, refactoring patterns, file size rules

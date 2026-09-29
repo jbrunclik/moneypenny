@@ -743,7 +743,7 @@ Comprehensive E2E and visual tests ensure dashboard quality:
 - Cost display is cleared/updated appropriately
 - UI state is properly reset when leaving the planner
 
-See [Testing](../testing.md#planner-tests) for details.
+See [Testing](../testing/frontend.md#planner-tests) for details.
 
 
 ## Chat Header

@@ -165,5 +165,5 @@ LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200 // Scroll threshold for loading newer mes
 ## See Also
 
 - [Cursor-Based Pagination](../ui/scroll-behavior.md#cursor-based-pagination) - Message pagination system
-- [Database Indexes](../architecture/database.md#indexes) - FTS5 index details
+- [Database Indexes](../architecture/database.md#database-indexes) - FTS5 index details
 - [Testing Guide](../testing.md) - Testing patterns
