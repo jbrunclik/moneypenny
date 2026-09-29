@@ -136,7 +136,7 @@ When adding a new tool for autonomous agents, update these locations:
 **Documentation:**
 
 10. **`docs/features/agent-tools.md`** - Update the tools table above
-11. **`docs/features/integrations.md`** - Add integration documentation (for external service tools)
+11. **`docs/features/<integration>.md`** - A page for an external-service tool, linked from the table in `docs/features/integrations.md`; use `not_connected_result()` for users without a working connection
 
 **Tests:**
 

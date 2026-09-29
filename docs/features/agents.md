@@ -399,4 +399,5 @@ other views, the input area must be restored. This is handled by `ensureInputAre
 - [Agent Tools](agent-tools.md) - tool table, permissions, adding a tool, K/V store, browser
 - [Agent Graph](../architecture/agent-graph.md) - the loop every run goes through
 - [Push Notifications](push-notifications.md) - how agents notify the user
+- [WhatsApp](whatsapp.md) - WhatsApp notifications for agents
 - [Scheduled Jobs](../architecture/scheduled-jobs.md) - production scheduling

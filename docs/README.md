@@ -17,7 +17,12 @@ Feature-specific documentation covering user-facing functionality:
 - **[voice-and-tts.md](features/voice-and-tts.md)** - Voice input (speech-to-text), text-to-speech
 - **[search.md](features/search.md)** - Full-text search with SQLite FTS5, O(1) message navigation
 - **[sync.md](features/sync.md)** - Real-time synchronization across devices/tabs with timestamp-based polling
-- **[integrations.md](features/integrations.md)** - Todoist, Google Calendar, and Garmin Connect integrations with full API coverage
+- **[integrations.md](features/integrations.md)** - Integrations hub: which tools bind when, and the shared "not connected" / "disconnected" tool results
+- **[todoist.md](features/todoist.md)** - Todoist OAuth, `todoist` tool actions, task assignment
+- **[google-calendar.md](features/google-calendar.md)** - Google Calendar OAuth, token refresh and error classes, multi-calendar selection, privacy page
+- **[planner.md](features/planner.md)** - Planner mode: 7-day dashboard, `refresh_planner_dashboard`, caching, Yr.no weather
+- **[garmin.md](features/garmin.md)** - Garmin Connect health data (`garmin_connect`) and workout editing (`garmin_workout`)
+- **[whatsapp.md](features/whatsapp.md)** - WhatsApp notifications for autonomous agents (Meta Cloud API templates)
 - **[push-notifications.md](features/push-notifications.md)** - Web Push (VAPID) to the user's devices; the primary notification rail for autonomous agents
 - **[language-learning.md](features/language-learning.md)** - Language programs: AI tutor, assessments, lessons, quizzes
 - **[rouvy.md](features/rouvy.md)** - Rouvy indoor-cycling workout CRUD (headless login + cookie-authed httpx; upload agent-authored ZWO)
@@ -44,7 +49,9 @@ User interface patterns and implementations:
 
 - **[scroll-behavior.md](ui/scroll-behavior.md)** - Complex scroll scenarios, programmatic scroll wrapper, streaming auto-scroll, race condition fixes, cursor-based pagination
 - **[mobile-and-pwa.md](ui/mobile-and-pwa.md)** - iOS Safari gotchas (9 documented issues), touch gestures, PWA viewport fixes
-- **[components.md](ui/components.md)** - CSS architecture, design system variables, component patterns, popup escape handler
+- **[components.md](ui/components.md)** - Component structure, event delegation, DOM helpers, popup escape handler, adding components, chat header and compaction indicator
+- **[design-system.md](ui/design-system.md)** - CSS file layout and cascade order, design tokens (color, spacing, type, motion, z-index), light/dark themes, glass materials
+- **[planner-dashboard.md](ui/planner-dashboard.md)** - Planner dashboard UI: content order, CSS classes, priority rings, mobile layout, scroll-to-top
 - **[patterns.md](ui/patterns.md)** - Standard interaction and visual patterns to reuse in new features
 
 ### General

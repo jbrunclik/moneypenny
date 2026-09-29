@@ -42,7 +42,7 @@ When drilling into a specific item's conversation/detail view, add a sticky head
 - **Background**: `var(--bg-secondary)` with bottom border to separate from content
 - **Prepend**: Header element is prepended to the messages container (before messages)
 
-**Reference**: `createSportsProgramHeader()` (sports), `createAgentConversationHeader()` (agents)
+**Reference**: `renderSportsProgramHeader()` (sports), `renderLanguageProgramHeader()` (language), `renderAgentConversationHeader()` (agents) - all delegate to `renderChatHeader()` in `ChatHeader.ts`
 
 ### Don't Make Anything Sticky Inside a Glass Panel
 
@@ -183,7 +183,7 @@ stay sorted by `updated_at` desc after every mutation (Aug 2026 bug class):
 All features use hash-based routing (`#/feature` and `#/feature/{id}`):
 
 - Parse in `deeplink.ts` with `parseHash()`
-- Set programmatically via `setFeatureHash()` with `isIgnoringHashChange` guard
+- Set programmatically via a per-feature setter (`setPlannerHash()`, `setSportsHash()`, `setConversationHash()`, ...) with the `isIgnoringHashChange` guard
 - Handle in `handleDeepLinkNavigation()` and initial route loading in `init.ts`
 - Always support both list view (`#/sports`) and detail view (`#/sports/pushups`)
 

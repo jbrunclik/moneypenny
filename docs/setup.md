@@ -204,7 +204,7 @@ GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173  # Use Vite port in dev
 
 ## Setting up Garmin Connect Integration
 
-The Garmin Connect integration allows the AI to query your health and fitness data — steps, sleep, heart rate, HRV, SpO2, body composition, training readiness, and activities. It is read-only; no data is written to Garmin.
+The Garmin Connect integration allows the AI to query your health and fitness data — steps, sleep, heart rate, HRV, SpO2, body composition, training readiness, and activities - and edit the user's saved strength workouts (`garmin_workout`). Health data is read-only.
 
 **Prerequisites:**
 - A Garmin Connect account
@@ -228,7 +228,7 @@ GARMIN_API_TIMEOUT=15  # Optional, default is 15 seconds
    - "Show me my last 5 runs"
    - "What was my resting heart rate this week?"
 
-**Disabling:** If you do not want Garmin Connect to appear, it is available whenever the `garminconnect` Python package is installed (included in `requirements.txt`). Users who do not connect their account simply won't have the tool available.
+**Disabling:** If you do not want Garmin Connect to appear, it is available whenever the `garminconnect` Python package is installed (included in `requirements.txt`). Users who have not connected an account get a "connect Garmin in Settings" reply if the agent tries to use it.
 
 ## Setting up WhatsApp Integration (Autonomous Agents)
 
