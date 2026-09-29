@@ -75,7 +75,7 @@ def seeded_env(test_database, test_blob_store):
     with (
         patch("src.db.models.db", test_database),
         patch("src.db.blob_store.get_blob_store", return_value=test_blob_store),
-        patch("src.db.models.message.get_blob_store", return_value=test_blob_store),
+        patch("src.db.models.message_files.get_blob_store", return_value=test_blob_store),
         patch("src.db.models.helpers.get_blob_store", return_value=test_blob_store),
         patch("src.agent.gemini_files.db", test_database),
     ):

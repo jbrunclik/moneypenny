@@ -56,6 +56,8 @@ from src.db.models.helpers import (
 from src.db.models.kv_store import KVStoreMixin
 from src.db.models.memory import MemoryMixin
 from src.db.models.message import MessageMixin
+from src.db.models.message_files import MessageFileMixin
+from src.db.models.message_pagination import MessagePaginationMixin
 from src.db.models.planner import PlannerMixin
 from src.db.models.programs import ProgramConversationMixin
 from src.db.models.push import PushSubscriptionMixin
@@ -70,6 +72,8 @@ class Database(
     UserMixin,
     ConversationMixin,
     MessageMixin,
+    MessagePaginationMixin,
+    MessageFileMixin,
     MemoryMixin,
     PlannerMixin,
     CacheMixin,
