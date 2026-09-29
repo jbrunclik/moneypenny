@@ -1,6 +1,6 @@
 """Sidebar preview snippets must strip markdown, not render it raw."""
 
-from src.db.models.conversation import build_message_preview
+from src.db.models.conversation_rows import build_message_preview
 
 
 class TestBuildMessagePreview:

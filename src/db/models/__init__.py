@@ -27,6 +27,8 @@ from src.db.models.agent_stats import AgentStatsMixin
 from src.db.models.base import DatabaseBase
 from src.db.models.cache import CacheMixin
 from src.db.models.conversation import ConversationMixin
+from src.db.models.conversation_archive import ConversationArchiveMixin
+from src.db.models.conversation_listing import ConversationListingMixin
 from src.db.models.cost import CostMixin
 from src.db.models.dataclasses import (
     Agent,
@@ -71,6 +73,8 @@ class Database(
     DatabaseBase,
     UserMixin,
     ConversationMixin,
+    ConversationListingMixin,
+    ConversationArchiveMixin,
     MessageMixin,
     MessagePaginationMixin,
     MessageFileMixin,
