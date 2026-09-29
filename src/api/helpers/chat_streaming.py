@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.stream_finalize import _finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save, stream_events
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger

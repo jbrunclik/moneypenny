@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.api.helpers.chat_turn import TurnContext
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.config import Config
 
 if TYPE_CHECKING:

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.api.utils import build_stream_done_event, is_round_capped, serialize_messages_for_response
 from src.config import Config
 from src.db.models.dataclasses import Message

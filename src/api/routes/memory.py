@@ -14,11 +14,8 @@ from typing import Any
 from apiflask import APIBlueprint
 
 from src.api.errors import raise_not_found_error
-from src.api.schemas import (
-    MemoriesListResponse,
-    StatusResponse,
-    UpdateMemoryProtectionRequest,
-)
+from src.api.schemas.common import StatusResponse
+from src.api.schemas.memory import MemoriesListResponse, UpdateMemoryProtectionRequest
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Memory, User, db

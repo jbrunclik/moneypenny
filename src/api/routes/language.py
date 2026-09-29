@@ -8,12 +8,12 @@ language-specific configuration.
 from apiflask import APIBlueprint
 
 from src.api.routes.programs import ProgramRoutesConfig, register_program_routes
-from src.api.schemas import (
+from src.api.schemas.common import StatusResponse
+from src.api.schemas.programs import (
     CreateLanguageProgramRequest,
     LanguageConversationResponse,
     LanguageProgramsResponse,
     LanguageResetResponse,
-    StatusResponse,
 )
 
 api = APIBlueprint("language", __name__, url_prefix="/api", tag="Language")

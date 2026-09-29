@@ -9,7 +9,8 @@ from apiflask import APIBlueprint
 
 from src.agent.daily_briefing import get_briefing_status, set_briefing
 from src.agent.tools.whatsapp import is_whatsapp_available
-from src.api.schemas import StatusResponse, UpdateSettingsRequest, UserSettingsResponse
+from src.api.schemas.common import StatusResponse
+from src.api.schemas.settings import UpdateSettingsRequest, UserSettingsResponse
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db

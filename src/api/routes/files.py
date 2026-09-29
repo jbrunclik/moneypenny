@@ -18,7 +18,7 @@ from src.api.errors import (
     raise_validation_error,
 )
 from src.api.rate_limiting import rate_limit_files
-from src.api.schemas import ThumbnailStatus
+from src.api.schemas.common import ThumbnailStatus
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.blob_store import get_blob_store

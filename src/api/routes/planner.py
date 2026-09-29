@@ -14,7 +14,7 @@ from flask import request
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.calendar import _get_valid_calendar_access_token
-from src.api.schemas import (
+from src.api.schemas.planner import (
     PlannerConversationResponse,
     PlannerDashboardResponse,
     PlannerResetResponse,

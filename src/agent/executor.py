@@ -30,7 +30,7 @@ from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
 )
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.api.utils import (
     calculate_and_save_message_cost,
 )

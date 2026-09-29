@@ -10,12 +10,12 @@ from typing import Any
 from apiflask import APIBlueprint
 from flask import request
 
-from src.api.schemas import (
+from src.api.schemas.common import StatusResponse
+from src.api.schemas.push import (
     PushKeysResponse,
     PushSubscribeRequest,
     PushSubscribeResponse,
     PushUnsubscribeRequest,
-    StatusResponse,
 )
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth

@@ -308,7 +308,7 @@ The scroll behavior is the most annoyance-sensitive UX area (regressions here hu
 **Backend:**
 - [../../src/db/models/](../../src/db/models/) - `build_cursor()`, `parse_cursor()`, pagination methods
 - [../../src/api/routes/conversations.py](../../src/api/routes/conversations.py) - Pagination endpoints
-- [../../src/api/schemas.py](../../src/api/schemas.py) - Pagination response schemas
+- [../../src/api/schemas/conversations.py](../../src/api/schemas/conversations.py) - Pagination response schemas
 - [../../src/config.py](../../src/config.py) - Backend configuration
 
 **Frontend State:**

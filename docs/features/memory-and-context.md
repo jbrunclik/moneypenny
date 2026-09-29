@@ -255,7 +255,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - [migrations/0010_add_custom_instructions.py](../../migrations/0010_add_custom_instructions.py) - Database migration
 - [models/](../../src/db/models/) - `User.custom_instructions` field, `update_user_custom_instructions()` method
 - [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant; [prompts.py](../../src/agent/prompts.py) - `get_system_prompt()` with `custom_instructions` parameter
-- [schemas.py](../../src/api/schemas.py) - `UpdateSettingsRequest` schema with 2000 char limit
+- [schemas/settings.py](../../src/api/schemas/settings.py) - `UpdateSettingsRequest` schema with 2000 char limit
 - [routes/settings.py](../../src/api/routes/settings.py) - Settings endpoints
 - [routes/chat.py](../../src/api/routes/chat.py) - Passes `custom_instructions` to agent
 

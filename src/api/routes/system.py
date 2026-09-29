@@ -9,7 +9,7 @@ from apiflask import APIBlueprint
 from flask import current_app
 
 from src.api.rate_limiting import exempt_from_rate_limit
-from src.api.schemas import (
+from src.api.schemas.system import (
     HealthResponse,
     ModelsListResponse,
     ReadinessResponse,

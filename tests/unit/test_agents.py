@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import ValidationError
 
-from src.api.schemas import CreateAgentRequest, UpdateAgentRequest
+from src.api.schemas.agents import CreateAgentRequest, UpdateAgentRequest
 from src.db.models.dataclasses import Agent, AgentExecution, ApprovalRequest
 
 # =============================================================================
@@ -1476,7 +1476,7 @@ class TestCompactAgentConversationOrdering:
     """
 
     def test_summary_sorts_before_kept_messages(self, test_database, test_user):
-        from src.api.schemas import MessageRole
+        from src.api.schemas.common import MessageRole
 
         agent = test_database.create_agent(user_id=test_user.id, name="compact-order-test")
         conv_id = agent.conversation_id

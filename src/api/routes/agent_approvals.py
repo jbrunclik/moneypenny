@@ -8,7 +8,8 @@ from src.api.errors import raise_not_found_error
 from src.api.helpers.agent_responses import approval_to_response
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.agents import api
-from src.api.schemas import MessageRole, PendingApprovalsResponse, StatusResponse
+from src.api.schemas.agents import PendingApprovalsResponse
+from src.api.schemas.common import MessageRole, StatusResponse
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 from src.utils.logging import get_logger

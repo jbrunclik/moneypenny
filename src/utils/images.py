@@ -9,7 +9,7 @@ from typing import Any
 import pillow_heif
 from PIL import Image, UnidentifiedImageError
 
-from src.api.schemas import ThumbnailStatus
+from src.api.schemas.common import ThumbnailStatus
 from src.config import Config
 from src.utils.logging import get_logger
 

@@ -15,13 +15,8 @@ from src.api.errors import raise_llm_error, raise_not_found_error, raise_server_
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.chat_turn import build_turn_context, prepare_turn
 from src.api.rate_limiting import rate_limit_chat
-from src.api.schemas import (
-    ChatBatchResponse,
-    ChatRequest,
-    InterjectRequest,
-    MessageRole,
-    StatusResponse,
-)
+from src.api.schemas.chat import ChatBatchResponse, ChatRequest, InterjectRequest
+from src.api.schemas.common import MessageRole, StatusResponse
 from src.api.utils import build_chat_response, is_round_capped
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth

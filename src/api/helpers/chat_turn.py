@@ -33,7 +33,8 @@ from src.agent.tools import (
 )
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.program_context import load_language_context, load_sports_context
-from src.api.schemas import ChatRequest, MessageRole
+from src.api.schemas.chat import ChatRequest
+from src.api.schemas.common import MessageRole
 from src.config import Config
 from src.db.models import Conversation, Message, User, db
 from src.utils.background_thumbnails import (

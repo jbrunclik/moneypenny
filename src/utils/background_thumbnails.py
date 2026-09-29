@@ -10,7 +10,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from src.api.schemas import ThumbnailStatus
+from src.api.schemas.common import ThumbnailStatus
 from src.config import Config
 from src.utils.logging import get_logger
 

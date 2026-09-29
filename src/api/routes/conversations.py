@@ -12,16 +12,15 @@ from flask import request
 
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.schemas import (
+from src.api.schemas.chat import MessageResponse
+from src.api.schemas.common import PaginationDirection, StatusResponse
+from src.api.schemas.conversations import (
     ConversationDetailPaginatedResponse,
     ConversationResponse,
     ConversationsListPaginatedResponse,
     CreateConversationRequest,
-    MessageResponse,
     MessagesListResponse,
-    PaginationDirection,
     SearchResultsResponse,
-    StatusResponse,
     SyncResponse,
     TruncateConversationRequest,
     TruncateConversationResponse,

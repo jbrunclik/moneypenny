@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.api.schemas import ChatRequest, ClientLocation
+from src.api.schemas.chat import ChatRequest, ClientLocation
 
 
 def test_chat_request_accepts_client_location() -> None:

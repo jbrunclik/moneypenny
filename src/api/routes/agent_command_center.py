@@ -10,7 +10,7 @@ from src.api.helpers.agent_responses import (
     execution_to_response,
 )
 from src.api.routes.agents import api
-from src.api.schemas import CommandCenterResponse
+from src.api.schemas.agents import CommandCenterResponse
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db

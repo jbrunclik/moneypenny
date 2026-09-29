@@ -5,13 +5,10 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from src.api.schemas import (
-    ChatRequest,
-    CreateConversationRequest,
-    FileAttachment,
-    GoogleAuthRequest,
-    UpdateConversationRequest,
-)
+from src.api.schemas.auth import GoogleAuthRequest
+from src.api.schemas.chat import ChatRequest
+from src.api.schemas.conversations import CreateConversationRequest, UpdateConversationRequest
+from src.api.schemas.files import FileAttachment
 
 
 class TestGoogleAuthRequest:
@@ -214,7 +211,7 @@ class TestChatRequest:
         errors = exc_info.value.errors()
         assert "Message or files required" in errors[0]["msg"]
 
-    @patch("src.api.schemas.Config.MAX_FILES_PER_MESSAGE", 10)
+    @patch("src.api.schemas.chat.Config.MAX_FILES_PER_MESSAGE", 10)
     def test_too_many_files(self) -> None:
         """Should reject too many files."""
         files = [{"name": f"test{i}.png", "type": "image/png", "data": "base64"} for i in range(15)]

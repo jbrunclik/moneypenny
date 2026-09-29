@@ -4,7 +4,7 @@ import base64
 
 from flask.testing import FlaskClient
 
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.db.models import Database, User
 
 # 1x1 transparent PNG

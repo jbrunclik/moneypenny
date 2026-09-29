@@ -10,11 +10,11 @@ from typing import Any
 from apiflask import APIBlueprint
 
 from src.api.errors import raise_not_found_error, raise_validation_error
-from src.api.schemas import (
+from src.api.schemas.common import StatusResponse
+from src.api.schemas.integrations import (
     RouvyConnectRequest,
     RouvyConnectResponse,
     RouvyStatusResponse,
-    StatusResponse,
 )
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth

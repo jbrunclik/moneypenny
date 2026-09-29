@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.schemas import (
+from src.api.schemas.programs import (
     QUICK_ACTIONS_MAX_PER_PROGRAM,
     QuickActionItem,
     UpdateQuickActionsRequest,

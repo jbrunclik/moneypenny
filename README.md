@@ -406,7 +406,7 @@ moneypenny/
 │   ├── api/
 │   │   ├── routes/               # 18 modules of REST endpoints, split by feature
 │   │   ├── helpers/              # Streaming, save pipeline, stream resume
-│   │   ├── schemas.py            # Pydantic request/response schemas (source of the OpenAPI spec)
+│   │   ├── schemas/              # Pydantic request/response schemas by feature (OpenAPI source)
 │   │   └── rate_limiting.py
 │   ├── agent/                    # LangGraph agent
 │   │   ├── graph.py              # Nodes, routing, self-correction

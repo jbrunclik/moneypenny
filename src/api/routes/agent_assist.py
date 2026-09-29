@@ -10,7 +10,7 @@ from src.agent.tools.todoist import is_todoist_available
 from src.agent.tools.whatsapp import is_whatsapp_available
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.agents import api
-from src.api.schemas import (
+from src.api.schemas.agents import (
     EnhancePromptRequest,
     EnhancePromptResponse,
     ParseScheduleRequest,

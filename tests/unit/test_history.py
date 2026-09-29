@@ -17,7 +17,7 @@ from src.agent.history import (
     infer_tools_used,
     simplify_mime_type,
 )
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.db.models.dataclasses import Message
 
 

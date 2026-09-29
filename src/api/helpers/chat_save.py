@@ -27,7 +27,7 @@ from src.agent.tools import (
     set_current_message_files,
     set_location_context,
 )
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.api.utils import calculate_and_save_message_cost
 from src.config import Config
 from src.db.models import db

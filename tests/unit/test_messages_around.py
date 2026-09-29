@@ -228,7 +228,7 @@ class TestGetMessagesAround:
         assert len(result_msgs) == 6
 
         # Use older_cursor to load more older messages
-        from src.api.schemas import PaginationDirection
+        from src.api.schemas.common import PaginationDirection
 
         older_msgs, older_pagination = test_database.get_messages_paginated(
             conversation_id=test_conversation.id,

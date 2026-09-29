@@ -25,11 +25,11 @@ This creates `web/src/types/generated-api.ts`. The manual types in [api.ts](../.
 
 ### Adding Response Schemas
 
-Response schemas are defined in [schemas.py](../../src/api/schemas.py) alongside request schemas. Use `@api.output()` for success responses and `@api.doc(responses=[...])` to document error status codes:
+Response schemas are defined in the feature modules of [src/api/schemas/](../../src/api/schemas/) (e.g. `agents.py`, `conversations.py`) alongside request schemas; import from the module directly - the package re-exports nothing. Use `@api.output()` for success responses and `@api.doc(responses=[...])` to document error status codes:
 
 ```python
 from apiflask import APIBlueprint
-from src.api.schemas import MyResponse
+from src.api.schemas.my_feature import MyResponse
 from src.api.errors import raise_not_found_error
 
 api = APIBlueprint("api", __name__, url_prefix="/api")
@@ -67,13 +67,13 @@ make types
 ```
 
 This workflow should be run whenever you modify:
-- Response schemas in `src/api/schemas.py`
+- Response schemas in `src/api/schemas/<feature>.py`
 - Endpoint definitions or `@api.output()` decorators in `src/api/routes/`
 
 ### Key Files
 
 - [app.py](../../src/app.py) - APIFlask configuration
-- [schemas.py](../../src/api/schemas.py) - Request and response Pydantic schemas
+- [schemas/](../../src/api/schemas/) - Request and response Pydantic schemas, one module per feature
 - [routes/](../../src/api/routes/) - API endpoints organized by feature (see Route Organization below)
 - [static/openapi.json](../../static/openapi.json) - Generated OpenAPI specification
 - [web/src/types/generated-api.ts](../../web/src/types/generated-api.ts) - Auto-generated TypeScript types
@@ -123,7 +123,7 @@ The API uses Pydantic v2 for request validation. All validation follows a consis
 
 ### Schema Location
 
-Request schemas are defined in [schemas.py](../../src/api/schemas.py):
+Request schemas are defined in the feature modules of [src/api/schemas/](../../src/api/schemas/):
 - `GoogleAuthRequest` - POST /auth/google
 - `CreateConversationRequest` - POST /api/conversations
 - `UpdateConversationRequest` - PATCH /api/conversations/<id>
@@ -132,7 +132,7 @@ Request schemas are defined in [schemas.py](../../src/api/schemas.py):
 
 ### Adding Validation to a New Endpoint
 
-**1. Define the schema in `src/api/schemas.py`:**
+**1. Define the schema in `src/api/schemas/<feature>.py`:**
 
 ```python
 from pydantic import BaseModel, Field, field_validator
@@ -152,7 +152,7 @@ class MyRequest(BaseModel):
 **2. Apply the decorator to your route:**
 
 ```python
-from src.api.schemas import MyRequest
+from src.api.schemas.my_feature import MyRequest
 from src.api.validation import validate_request
 from src.db.models import User
 
@@ -229,7 +229,7 @@ Validation errors return the standard error format:
 
 ### Key Files
 
-- [schemas.py](../../src/api/schemas.py) - Pydantic schema definitions
+- [schemas/](../../src/api/schemas/) - Pydantic schema definitions (one module per feature)
 - [validation.py](../../src/api/validation.py) - `@validate_request` decorator and error conversion
 - [errors.py](../../src/api/errors.py) - Error response helpers
 - [files.py](../../src/utils/files.py) - Content validation for files

@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from src.api.schemas import MessageRole, PaginationDirection, ThumbnailStatus
+from src.api.schemas.common import MessageRole, PaginationDirection, ThumbnailStatus
 from src.db.blob_store import get_blob_store
 from src.db.models.dataclasses import Message, MessagePagination
 from src.db.models.helpers import (

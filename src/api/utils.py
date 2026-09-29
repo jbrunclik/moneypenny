@@ -5,7 +5,7 @@ from typing import Any
 
 from flask import Request
 
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.config import Config
 from src.db.models import db
 from src.utils.costs import calculate_total_cost

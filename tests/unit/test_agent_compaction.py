@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.agent import compaction
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.config import Config
 from src.db.models.dataclasses import Agent, Message
 

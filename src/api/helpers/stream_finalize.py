@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from src.agent.tools.request_approval import build_approval_message
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.stream_producer import _notify_response_ready
-from src.api.schemas import MessageRole
+from src.api.schemas.common import MessageRole
 from src.api.utils import build_stream_done_event, is_round_capped
 from src.db.models import db
 from src.utils.logging import get_logger

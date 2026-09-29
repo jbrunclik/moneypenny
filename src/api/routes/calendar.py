@@ -9,14 +9,14 @@ from typing import Any
 from apiflask import APIBlueprint
 
 from src.api.errors import raise_not_found_error, raise_validation_error
-from src.api.schemas import (
+from src.api.schemas.common import StatusResponse
+from src.api.schemas.integrations import (
     CalendarListResponse,
     GoogleCalendarAuthUrlResponse,
     GoogleCalendarConnectRequest,
     GoogleCalendarConnectResponse,
     GoogleCalendarStatusResponse,
     SelectedCalendarsResponse,
-    StatusResponse,
     UpdateSelectedCalendarsRequest,
 )
 from src.api.validation import validate_request

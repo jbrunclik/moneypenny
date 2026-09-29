@@ -16,16 +16,16 @@ from apiflask import APIBlueprint
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.agent_responses import agent_to_response, execution_to_response
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.schemas import (
+from src.api.schemas.agents import (
     AgentConversationSyncResponse,
     AgentExecutionsListResponse,
     AgentResponse,
     AgentsListResponse,
     CreateAgentRequest,
-    StatusResponse,
     TriggerAgentResponse,
     UpdateAgentRequest,
 )
+from src.api.schemas.common import StatusResponse
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 from src.utils.logging import get_logger

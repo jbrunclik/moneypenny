@@ -13,7 +13,7 @@ from src.api.errors import (
     raise_validation_error,
 )
 from src.api.rate_limiting import rate_limit_auth
-from src.api.schemas import (
+from src.api.schemas.auth import (
     AuthResponse,
     ClientIdResponse,
     GoogleAuthRequest,
