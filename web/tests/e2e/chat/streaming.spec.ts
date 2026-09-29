@@ -794,11 +794,14 @@ test.describe('Chat - End-of-stream repositioning', () => {
 
   test('long responses jump to the top of the message for read-from-start', async ({ page }) => {
     // Response clearly taller than the (520px) viewport - the jump only
-    // happens above RESPONSE_JUMP_MIN_VIEWPORT_RATIO of it. Mock streaming
-    // drops the paragraph breaks (tokens are whitespace-split), so this
-    // renders as one wrapped paragraph: ~7px per sentence, ~560px for 80.
+    // happens above RESPONSE_JUMP_MIN_VIEWPORT_RATIO of it (~468px). Mock
+    // streaming drops the paragraph breaks (tokens are whitespace-split), so
+    // this renders as one wrapped paragraph whose height depends on the font:
+    // 80 sentences (~560px) sat under the cutoff when the web font was not yet
+    // loaded under full-suite load, so the page stayed at the bottom (offset
+    // 150 = 520 - ~370). 120 sentences (~840px) clears it either way.
     const longResponse = Array.from(
-      { length: 80 },
+      { length: 120 },
       (_, i) => `Line ${i + 1} of a long answer.`
     ).join('\n\n');
     await setMockResponse(page, longResponse);
@@ -807,7 +810,7 @@ test.describe('Chat - End-of-stream repositioning', () => {
     await page.click('#send-btn');
     // The repositioning runs at the END of the stream, so wait for it to finish
     const message = page.locator('.message.assistant');
-    await expect(message).toContainText('Line 80', { timeout: 20000 });
+    await expect(message).toContainText('Line 120', { timeout: 20000 });
     await expect(message).not.toHaveClass(/streaming/, { timeout: 20000 });
 
     // Viewport should sit at (near) the top of the assistant message once the
