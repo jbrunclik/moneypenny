@@ -1,0 +1,21 @@
+id: cz_garmin_readiness
+description: Answer a recovery question from a Garmin readiness snapshot (fake Garmin)
+integrations:
+  garmin:
+    state: connected
+    data:
+      get_training_readiness: [{score: 38, level: LOW, feedbackShort: "RECOVERY_NEEDED"}]
+      get_sleep_data: {dailySleepDTO: {sleepTimeSeconds: 19800, sleepScores: {overall: {value: 52}}}}
+      get_hrv_data: {hrvSummary: {lastNightAvg: 41, weeklyAvg: 55, status: UNBALANCED}}
+      get_stats: {restingHeartRate: 54, bodyBatteryMostRecentValue: 31}
+      get_training_status: {mostRecentTrainingStatus: {latestTrainingStatusData: {x: {trainingStatus: 7}}}}
+      get_activities_by_date: [{activityName: "Intervaly 5x5", startTimeLocal: "{yesterday} 18:00:00", duration: 4200}]
+user: "mám dneska dát těžký intervalový trénink?"
+expect:
+  rubric: >
+    Uses the Garmin data and advises AGAINST hard intervals today in Czech,
+    grounded in the numbers (low readiness ~38, short/poor sleep ~5.5 h,
+    HRV 41 below the ~55 weekly average, low body battery), suggesting rest or
+    easy/recovery training instead. Must not ask the user for data it has.
+  required_tools: [garmin_connect]
+  max_tool_rounds: 2

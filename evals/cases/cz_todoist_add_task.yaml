@@ -1,0 +1,25 @@
+id: cz_todoist_add_task
+description: >
+  Todoist capture: a messy request becomes a verb-first task in the right
+  project/section of the user's system (fake Todoist backend)
+integrations:
+  todoist:
+    projects:
+      - {id: p1, name: Práce}
+      - {id: p2, name: Osobní}
+    sections:
+      - {id: s1, project_id: p2, name: Nákupy}
+      - {id: s2, project_id: p2, name: Domácnost}
+    tasks:
+      - {id: t1, content: "Koupit mléko", project_id: p2, section_id: s1}
+user: "připomeň mi zítra ten instalatér kvůli kapajícímu kohoutku v koupelně"
+expect:
+  rubric: >
+    Creates exactly one Todoist task (see integration changes) that is
+    verb-first (e.g. "Zavolat instalatérovi ..."), due tomorrow, placed in the
+    Osobní project (Domácnost section is ideal; not Práce, not Inbox), and
+    confirms briefly in Czech what was added.
+  required_tools: [todoist]
+  # Learning the user's system (projects, sections) before adding is the
+  # prompted behavior, so 4 rounds is legitimate
+  max_tool_rounds: 4

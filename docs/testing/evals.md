@@ -49,6 +49,13 @@ history:                        # optional: prior turns for multi-turn cases
     content: "Suggested: 9 km karst loop."
     metadata:                   # optional: enriched-history metadata (MSG_CONTEXT),
       tool_outputs: 'garmin_connect({}) -> {"hrv":62}'  # e.g. a persisted tool digest
+integrations:                   # optional: fake backends (evals/fakes.py) behind
+  todoist:                      # the REAL tools - only the HTTP/client seam
+    projects: [{id: p1, name: Work}]   # is replaced. {today}, {tomorrow},
+    tasks: [{id: t1, content: "Send invoice", project_id: p1, due: {date: "{today}"}}]
+  garmin:                       # {yesterday}, {in_N_days}, {N_days_ago} expand.
+    state: connected            # or disconnected (expired) / not_connected
+    data: {get_hrv_data: {hrvSummary: {lastNightAvg: 41}}}
 compact_history: true           # optional: compact `history` with the REAL
                                 # pipeline first (summarizer LLM calls; the
                                 # summarized part is stored + searchable)
@@ -86,6 +93,23 @@ Long-chat and cross-turn cases (Sep 2026):
   case fails, so it discriminates.
 - `cz_batched_lookups` — four independent lookups with `max_tool_rounds: 3`;
   reproduces the one-search-per-round pattern behind most round-cap hits.
+
+Integration cases (Sep 2026) - fake Todoist/Garmin backends, since the eval
+environment has no credentials and those tools were the biggest error
+sources in production. The fake Todoist validates filters like the real API
+(natural-language filters are rejected with error_code 55); mutations are
+listed to the judge as "integration changes":
+- `cz_todoist_add_task` — verb-first task, due tomorrow, placed in the right
+  project/section.
+- `cz_todoist_work_today` — filtered read (project + today + priority).
+- `cz_garmin_readiness` — advice grounded in a readiness snapshot.
+- `cz_garmin_disconnected` — must say the EXISTING connection broke and point
+  to Settings. Control: with the pre-fix "Garmin not connected" message it
+  scores 1/5, with the current message 5/5.
+
+Note: each case runs under its own request id. Before Sep 29 2026 it did not,
+which left the per-turn efficiency nudges (turn_usage) inert - round counts
+from earlier runs were measured with every nudge off.
 
 ## Commands
 

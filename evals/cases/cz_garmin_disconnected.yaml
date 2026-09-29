@@ -1,0 +1,19 @@
+id: cz_garmin_disconnected
+description: >
+  Garmin connection expired: the agent must say it got disconnected and point
+  to reconnecting - not act as if it cannot use Garmin (fake Garmin)
+integrations:
+  garmin:
+    state: disconnected
+user: "jak jsem se dneska vyspal podle Garminu?"
+expect:
+  rubric: >
+    The user HAD Garmin connected and believes it still is. The answer must
+    say explicitly, in Czech, that their existing Garmin connection stopped
+    working (disconnected / expired / needs reconnecting) and that they can
+    reconnect it in Settings (Nastavení). A generic "Garmin is not connected,
+    please connect it" - as if it had never been set up - FAILS, as does
+    claiming no access to Garmin in general or inventing sleep numbers.
+    General sleep advice or offering to check after reconnecting is fine.
+  required_tools: [garmin_connect]
+  max_tool_rounds: 2

@@ -1,0 +1,22 @@
+id: cz_todoist_work_today
+description: >
+  Filtered Todoist read (project + today + priority), recovering via the
+  tool guidance if a filter is rejected (the fake validates filters)
+integrations:
+  todoist:
+    projects:
+      - {id: p1, name: Práce}
+      - {id: p2, name: Osobní}
+    tasks:
+      - {id: t1, content: "Poslat fakturu Novákovi", project_id: p1, priority: 4, due: {date: "{today}"}}
+      - {id: t2, content: "Objednat STK", project_id: p2, due: {date: "{today}"}}
+      - {id: t3, content: "Připravit prezentaci", project_id: p1, due: {date: "{in_5_days}"}}
+      - {id: t4, content: "Koupit dárek pro mámu", project_id: p2}
+user: "co mám v práci na dnešek a co je urgentní?"
+expect:
+  rubric: >
+    Answers in Czech that today in Práce there is "Poslat fakturu Novákovi"
+    and that it is the urgent (priority 1 / p1) one; must not list the
+    Osobní tasks as work tasks and must not claim it could not read Todoist.
+  required_tools: [todoist]
+  max_tool_rounds: 3

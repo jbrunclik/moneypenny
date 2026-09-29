@@ -56,6 +56,10 @@ Sources the assistant formally cited via its citation tool (these are shown to
 the user as source chips below the answer; citing this way COUNTS as citing):
 {cited_sources}
 
+Changes the assistant made through integrations during the turn (e.g. Todoist
+tasks created/updated - judge actions by this list, not by the answer text):
+{integration_changes}
+
 Reply with ONLY a JSON object: {{"score": <1-5>, "pass": <true|false>, "reasoning": "<one sentence>"}}
 Score 5 = fully satisfies the rubric; pass = score >= 3 AND no rubric requirement is missed."""
 
@@ -91,6 +95,38 @@ class EvalCase:
     # A past conversation seeded for episodic-recall cases:
     # {title: str, messages: [{role, content}]}
     seed_conversation: dict[str, Any] = field(default_factory=dict)
+    # Fake integration backends (evals/fakes.py): {todoist: {...}, garmin: {...}}
+    integrations: dict[str, Any] = field(default_factory=dict)
+
+
+def _resolve_dates(value: Any) -> Any:
+    """Replace {today}, {tomorrow}, {yesterday}, {in_N_days}, {N_days_ago}
+    placeholders in fixture strings, so date-relative fixtures stay valid."""
+    from datetime import date, timedelta
+
+    if isinstance(value, dict):
+        return {k: _resolve_dates(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_resolve_dates(v) for v in value]
+    if not isinstance(value, str):
+        return value
+    today = date.today()
+
+    def sub(match: re.Match[str]) -> str:
+        placeholder = match.group(1)
+        if placeholder == "today":
+            return today.isoformat()
+        if placeholder == "tomorrow":
+            return (today + timedelta(days=1)).isoformat()
+        if placeholder == "yesterday":
+            return (today - timedelta(days=1)).isoformat()
+        if m := re.fullmatch(r"in_(\d+)_days", placeholder):
+            return (today + timedelta(days=int(m.group(1)))).isoformat()
+        if m := re.fullmatch(r"(\d+)_days_ago", placeholder):
+            return (today - timedelta(days=int(m.group(1)))).isoformat()
+        return match.group(0)
+
+    return re.sub(r"\{([a-z0-9_]+)\}", sub, value)
 
 
 def load_cases(directory: Path) -> list[EvalCase]:
@@ -128,6 +164,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     for m in (data.get("memories") or [])
                 ],
                 seed_conversation=dict(data.get("seed_conversation") or {}),
+                integrations=_resolve_dates(dict(data.get("integrations") or {})),
             )
         )
     return cases
@@ -398,6 +435,9 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     if case.compact_history:
         history, summarizer_usage = _compacted_history(case, user, db, conversation.id)
 
+    from evals.fakes import describe_actions, fake_integrations
+
+    integration_changes = "none"
     try:
         agent = ChatAgent(
             model_name=Config.DEFAULT_MODEL,
@@ -405,18 +445,22 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
             sports_context=sports_context,
         )
         turn_started = time.monotonic()
-        # tool_results is needed for pricing: image generations and
-        # delegate_task subagent tokens are only visible in there.
-        response, tool_results, usage, result_messages = agent.chat_batch(
-            text=case.user,
-            files=files_payload or None,
-            history=history,
-            user_name="Eval User",
-            user_id=user.id,
-            conversation_id=conversation.id,
-            is_sports=is_sports,
-            sports_context=sports_context,
-        )
+        # Fake integration backends replace only the HTTP/client seams, so
+        # the real tool code runs (no-op when the case declares none)
+        with fake_integrations(case.integrations) as fakes:
+            # tool_results is needed for pricing: image generations and
+            # delegate_task subagent tokens are only visible in there.
+            response, tool_results, usage, result_messages = agent.chat_batch(
+                text=case.user,
+                files=files_payload or None,
+                history=history,
+                user_name="Eval User",
+                user_id=user.id,
+                conversation_id=conversation.id,
+                is_sports=is_sports,
+                sports_context=sports_context,
+            )
+            integration_changes = describe_actions(fakes)
     finally:
         set_conversation_context(None, None)
         from src.agent.tools.turn_usage import reset_turn_usage
@@ -456,6 +500,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
                     response=response[:8000],
                     tools_called=", ".join(sorted(tools_used)) or "none",
                     cited_sources=json.dumps(cited, ensure_ascii=False) if cited else "none",
+                    integration_changes=integration_changes,
                 )
             )
         ]
