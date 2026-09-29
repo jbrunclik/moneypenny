@@ -28,6 +28,29 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _store_message_payload(
+    message_id: str,
+    files: list[dict[str, Any]],
+    sources: list[dict[str, str]] | None,
+    generated_images: list[dict[str, str]] | None,
+    tool_outputs: list[dict[str, str]] | None,
+) -> tuple[list[dict[str, Any]], str | None, str | None, str | None, str | None]:
+    """Save file blobs; return (files_metadata, files, sources, images, tool_outputs JSON)."""
+    # Extract metadata and save binary data to blob store
+    files_metadata: list[dict[str, Any]] = []
+    for idx, file_data in enumerate(files):
+        # Save file data and thumbnail to blob store
+        save_file_to_blob_store(message_id, idx, file_data)
+        # Keep only metadata in the database
+        files_metadata.append(extract_file_metadata(file_data))
+
+    files_json = json.dumps(files_metadata) if files_metadata else None
+    sources_json = json.dumps(sources) if sources else None
+    generated_images_json = json.dumps(generated_images) if generated_images else None
+    tool_outputs_json = json.dumps(tool_outputs, ensure_ascii=False) if tool_outputs else None
+    return files_metadata, files_json, sources_json, generated_images_json, tool_outputs_json
+
+
 class MessageMixin:
     """Mixin providing Message-related database operations."""
 
@@ -189,18 +212,9 @@ class MessageMixin:
         now = datetime.now()
         files = files or []
 
-        # Extract metadata and save binary data to blob store
-        files_metadata: list[dict[str, Any]] = []
-        for idx, file_data in enumerate(files):
-            # Save file data and thumbnail to blob store
-            save_file_to_blob_store(msg_id, idx, file_data)
-            # Keep only metadata in the database
-            files_metadata.append(extract_file_metadata(file_data))
-
-        files_json = json.dumps(files_metadata) if files_metadata else None
-        sources_json = json.dumps(sources) if sources else None
-        generated_images_json = json.dumps(generated_images) if generated_images else None
-        tool_outputs_json = json.dumps(tool_outputs, ensure_ascii=False) if tool_outputs else None
+        files_metadata, files_json, sources_json, generated_images_json, tool_outputs_json = (
+            _store_message_payload(msg_id, files, sources, generated_images, tool_outputs)
+        )
         logger.debug(
             "Adding message",
             extra={
@@ -346,16 +360,9 @@ class MessageMixin:
         """
         files = files or []
 
-        # Extract metadata and save binary data to blob store
-        files_metadata: list[dict[str, Any]] = []
-        for idx, file_data in enumerate(files):
-            save_file_to_blob_store(message_id, idx, file_data)
-            files_metadata.append(extract_file_metadata(file_data))
-
-        files_json = json.dumps(files_metadata) if files_metadata else None
-        sources_json = json.dumps(sources) if sources else None
-        generated_images_json = json.dumps(generated_images) if generated_images else None
-        tool_outputs_json = json.dumps(tool_outputs, ensure_ascii=False) if tool_outputs else None
+        _, files_json, sources_json, generated_images_json, tool_outputs_json = (
+            _store_message_payload(message_id, files, sources, generated_images, tool_outputs)
+        )
         now = datetime.now()
 
         with self._pool.get_connection() as conn:
