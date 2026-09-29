@@ -19,7 +19,9 @@ _INLINE_CODE = re.compile(r"`[^`\n]*`")
 
 def _markdown_files() -> list[Path]:
     files = [*_ROOT.glob("*.md"), *_ROOT.glob("docs/**/*.md"), *_ROOT.glob(".claude/**/*.md")]
-    return sorted(p for p in files if p.is_file())
+    # Agent worktrees are full checkouts of the repo, not its docs
+    worktrees = _ROOT / ".claude" / "worktrees"
+    return sorted(p for p in files if p.is_file() and not p.is_relative_to(worktrees))
 
 
 def _broken_links(path: Path) -> list[str]:
