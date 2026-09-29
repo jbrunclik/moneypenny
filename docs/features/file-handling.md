@@ -129,7 +129,7 @@ tool-call arguments, just as `extract_cited_sources()` reads sources from `cite_
 - [tools/image_generation.py](../../src/agent/tools/image_generation.py) - `generate_image()` tool with `reference_images` and `history_image_*` parameters
 - [tools/file_retrieval.py](../../src/agent/tools/file_retrieval.py) - `retrieve_file()` tool
 - [tools/context.py](../../src/agent/tools/context.py) - Context variable helpers
-- [prompts.py](../../src/agent/prompts.py) - System prompt with image editing and file retrieval instructions
+- [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - System prompt with image editing and file retrieval instructions
 - [models/](../../src/db/models/) - `Message.generated_images` field
 - [routes/chat.py](../../src/api/routes/chat.py) - Sets files and conversation context before agent call, image extraction from tool results
 - [ImageGenPopup.ts](../../web/src/components/ImageGenPopup.ts) - Popup showing generation info
@@ -257,7 +257,7 @@ The tool uses the same `_full_result` pattern as `generate_image` to avoid sendi
 - [Makefile](../../Makefile) - `sandbox-image` target for building custom image
 - [images.py](../../src/utils/images.py) - `extract_code_output_files_from_tool_results()` for file extraction
 - [config.py](../../src/config.py) - `CODE_SANDBOX_*` configuration options
-- [prompts.py](../../src/agent/prompts.py) - System prompt with code execution instructions
+- [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - System prompt with code execution instructions
 - [routes/chat.py](../../src/api/routes/chat.py) - Extracts and attaches code output files to messages
 
 ### Testing Locally

@@ -377,7 +377,7 @@ class TestUntrustedContentFraming:
         assert "END UNTRUSTED WEB CONTENT" in wrapped
 
     def test_system_prompt_warns_about_untrusted_content(self) -> None:
-        from src.agent.prompts import TOOLS_SYSTEM_PROMPT_CONTEXT
+        from src.agent.prompt_texts.core import TOOLS_SYSTEM_PROMPT_CONTEXT
 
         assert "Untrusted External Content" in TOOLS_SYSTEM_PROMPT_CONTEXT
         assert "never as instructions" in TOOLS_SYSTEM_PROMPT_CONTEXT

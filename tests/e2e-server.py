@@ -639,6 +639,7 @@ def main() -> None:
         stack.enter_context(patch("src.auth.jwt_auth.db", proxy_db))
         stack.enter_context(patch("src.api.routes.db", proxy_db))
         stack.enter_context(patch("src.agent.prompts.db", proxy_db))
+        stack.enter_context(patch("src.agent.prompt_memory.db", proxy_db))
 
         # Patch database in all route modules (routes are split across multiple files)
         route_modules = [

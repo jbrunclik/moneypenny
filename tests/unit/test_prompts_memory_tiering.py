@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from src.agent.prompts import get_user_memories_list_prompt
+from src.agent.prompt_memory import get_user_memories_list_prompt
 from src.config import Config
 from src.db.models.dataclasses import Memory
 
@@ -27,7 +27,7 @@ def _memory(
 
 
 class TestMemoryTiering:
-    @patch("src.agent.prompts.db")
+    @patch("src.agent.prompt_memory.db")
     def test_below_threshold_injects_all(self, mock_db) -> None:
         memories = [_memory(i) for i in range(5)]
         mock_db.list_memories.return_value = memories
@@ -38,7 +38,7 @@ class TestMemoryTiering:
             assert memory.content in prompt
         assert "more memories exist" not in prompt
 
-    @patch("src.agent.prompts.db")
+    @patch("src.agent.prompt_memory.db")
     def test_above_threshold_injects_core_and_recent(self, mock_db) -> None:
         threshold = Config.MEMORY_INJECT_FULL_MAX
         recent = Config.MEMORY_INJECT_RECENT_COUNT
@@ -66,7 +66,7 @@ class TestMemoryTiering:
         assert "more memories exist" in prompt
         assert "search_memory" in prompt
 
-    @patch("src.agent.prompts.db")
+    @patch("src.agent.prompt_memory.db")
     def test_above_threshold_header_shows_shown_count(self, mock_db) -> None:
         total = Config.MEMORY_INJECT_FULL_MAX + 20
         mock_db.list_memories.return_value = [
@@ -77,7 +77,7 @@ class TestMemoryTiering:
 
         assert f"of {total}/" in prompt
 
-    @patch("src.agent.prompts.db")
+    @patch("src.agent.prompt_memory.db")
     def test_old_facts_are_always_injected(self, mock_db) -> None:
         """Durable facts (family, birthdays, health) are what the memory prompt
         says never to lose; an old, never-updated fact must not age out of the
@@ -93,7 +93,7 @@ class TestMemoryTiering:
 
 
 class TestMemoryUnicode:
-    @patch("src.agent.prompts.db")
+    @patch("src.agent.prompt_memory.db")
     def test_injected_memories_keep_unicode(self, mock_db) -> None:
         """Czech characters must not be \\uXXXX-escaped in the prompt.
 

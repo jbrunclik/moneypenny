@@ -82,7 +82,7 @@ class TestAutonomousPromptContext:
     actually builds history for the agent."""
 
     def test_fresh_context_variant(self) -> None:
-        from src.agent.prompts import get_autonomous_agent_prompt
+        from src.agent.prompt_agents import get_autonomous_agent_prompt
 
         prompt = get_autonomous_agent_prompt(
             "Daily Briefing",
@@ -98,7 +98,7 @@ class TestAutonomousPromptContext:
         assert "persistent conversation" not in prompt
 
     def test_persistent_variant_is_default(self) -> None:
-        from src.agent.prompts import get_autonomous_agent_prompt
+        from src.agent.prompt_agents import get_autonomous_agent_prompt
 
         prompt = get_autonomous_agent_prompt(
             "Research",

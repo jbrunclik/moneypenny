@@ -55,7 +55,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
     # a circular import at module load time
     from src.agent.agent import ChatAgent
     from src.agent.content import extract_cited_sources
-    from src.agent.prompts import DELEGATE_SYSTEM_PROMPT
+    from src.agent.prompt_texts.agents import DELEGATE_SYSTEM_PROMPT
     from src.agent.tools import cite_sources, fetch_url, research, web_search
 
     prompt = task.strip()

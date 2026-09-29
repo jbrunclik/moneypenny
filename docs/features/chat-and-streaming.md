@@ -412,7 +412,7 @@ pipeline and the batch endpoint):
    call (single leading emoji + space, 3-6 words, user's language). This path always takes
    precedence over the agent tool on the same turn.
 2. **Agent-driven retitle**: the agent sees the current title in its per-request dynamic
-   context (`CONVERSATION_TITLE_CONTEXT_PROMPT` in [prompts.py](../../src/agent/prompts.py))
+   context (`CONVERSATION_TITLE_CONTEXT_PROMPT` in [prompt_texts/core.py](../../src/agent/prompt_texts/core.py))
    and calls the extract-only `set_conversation_title` tool
    ([tools/metadata.py](../../src/agent/tools/metadata.py)) when the conversation's scope has
    clearly widened or narrowed. The arg is read post-hoc by `extract_conversation_title()` in

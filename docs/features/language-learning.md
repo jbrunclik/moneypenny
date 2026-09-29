@@ -44,7 +44,7 @@ Namespace: `language`
 
 ### Agent Integration
 
-The language tutor system prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompts.py`) includes:
+The language tutor system prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompt_texts/language.py`) includes:
 - KV storage rules and key documentation
 - Quiz format specifications (multiple-choice, fill-blank, translate, batch)
 - Spaced repetition system (interval doubling to 60d, mastery retirement, leech re-teaching at 3+ lapses, overdue-first ordering, 10-item session cap)

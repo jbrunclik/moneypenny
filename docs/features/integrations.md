@@ -124,7 +124,7 @@ TODOIST_API_TIMEOUT=10  # API request timeout in seconds
 - [models/](../../src/db/models/) - User fields and token management methods
 - [tools/todoist.py](../../src/agent/tools/todoist.py) - `todoist()` tool with context helpers
 - [routes/todoist.py](../../src/api/routes/todoist.py) - OAuth endpoints
-- [prompts.py](../../src/agent/prompts.py) - `TOOLS_SYSTEM_PROMPT_PRODUCTIVITY` (includes Todoist documentation)
+- [prompt_texts/productivity.py](../../src/agent/prompt_texts/productivity.py) - `TOOLS_SYSTEM_PROMPT_PRODUCTIVITY` (Todoist/Calendar behavior; action lists live in the tool docstrings)
 - [migrations/0018_add_todoist_fields.py](../../migrations/0018_add_todoist_fields.py) - Database schema
 
 **Frontend:**
@@ -278,7 +278,7 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 - [routes/calendar.py](../../src/api/routes/calendar.py) - OAuth endpoints, status endpoint, and exported `_get_valid_calendar_access_token` helper
 - [tools/google_calendar.py](../../src/agent/tools/google_calendar.py) - `google_calendar` LangGraph tool (401 retry via `_retry_on_401`)
 - [tools/planner.py](../../src/agent/tools/planner.py) - Uses `_get_valid_calendar_access_token` for token retrieval
-- [prompts.py](../../src/agent/prompts.py) - Prompt instructions for calendar + strategic productivity heuristics
+- [prompt_texts/productivity.py](../../src/agent/prompt_texts/productivity.py) - Prompt instructions for calendar + strategic productivity heuristics
 - [migrations/0019_add_google_calendar_fields.py](../../migrations/0019_add_google_calendar_fields.py) - Database schema
 
 **Frontend:**
@@ -425,7 +425,7 @@ Dashboard data is cached in SQLite with a 5-minute TTL to improve performance ac
 - [planner_data.py](../../src/utils/planner_data.py) - Dashboard building logic
 - [tools/planner.py](../../src/agent/tools/planner.py) - refresh_planner_dashboard tool
 - [routes/planner.py](../../src/api/routes/planner.py) - Planner API endpoints
-- [prompts.py](../../src/agent/prompts.py) - PLANNER_SYSTEM_PROMPT and dashboard context injection
+- [prompt_texts/planner.py](../../src/agent/prompt_texts/planner.py) - `PLANNER_SYSTEM_PROMPT`; [prompt_dashboard.py](../../src/agent/prompt_dashboard.py) - dashboard context injection
 - [models/](../../src/db/models/) - Planner conversation management and caching
 
 **Frontend:**

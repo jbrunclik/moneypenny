@@ -82,7 +82,7 @@ Detailed per-area conventions load by path from `.claude/rules/`; deeper referen
 - [config.py](src/config.py) - All env vars, model definitions
 - [routes/](src/api/routes/) - API endpoints by feature (see [api-design.md](docs/architecture/api-design.md))
 - [schemas.py](src/api/schemas.py) - Pydantic request/response schemas
-- [agent/](src/agent/) - LangGraph agent: [agent.py](src/agent/agent.py), [graph.py](src/agent/graph.py), [prompts.py](src/agent/prompts.py), [content.py](src/agent/content.py), [history.py](src/agent/history.py)
+- [agent/](src/agent/) - LangGraph agent: [agent.py](src/agent/agent.py), [graph.py](src/agent/graph.py), [prompts.py](src/agent/prompts.py) (assembly; texts in [prompt_texts/](src/agent/prompt_texts/)), [content.py](src/agent/content.py), [history.py](src/agent/history.py)
 - [tools/](src/agent/tools/) - Agent tools (including [browser.py](src/agent/tools/browser.py) for Playwright-based browsing)
 - [models/](src/db/models/) - Database models and operations
 - [core/](web/src/core/) - Frontend core modules

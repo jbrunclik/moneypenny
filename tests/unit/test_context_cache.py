@@ -172,7 +172,7 @@ class TestGetDynamicPromptParts:
         result = get_dynamic_prompt_parts(custom_instructions="Always respond in Czech")
         assert "Always respond in Czech" in result
 
-    @patch("src.agent.prompts.db")
+    @patch("src.agent.prompt_memory.db")
     def test_includes_memory_list(self, mock_db: MagicMock) -> None:
         from src.agent.prompts import get_dynamic_prompt_parts
 
@@ -180,7 +180,7 @@ class TestGetDynamicPromptParts:
         result = get_dynamic_prompt_parts(user_id="user-1")
         assert "Current Memories" in result
 
-    @patch("src.agent.prompts.db")
+    @patch("src.agent.prompt_memory.db")
     def test_excludes_static_memory_instructions(self, mock_db: MagicMock) -> None:
         """The instructions are invariant, so they belong in the cached prefix.
 

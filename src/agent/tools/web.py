@@ -51,7 +51,7 @@ def wrap_untrusted_content(text: str, source: str | None = None) -> str:
     Prompt-injection mitigation (not a guarantee): content fetched from the web
     is attacker-controllable, so it is bracketed with explicit markers telling
     the model to treat it as data, never as instructions. Pairs with the rule
-    in TOOLS_SYSTEM_PROMPT_CONTEXT.
+    in TOOLS_SYSTEM_PROMPT_CONTEXT (prompt_texts/core.py).
     """
     origin = f" from {source}" if source else ""
     return (

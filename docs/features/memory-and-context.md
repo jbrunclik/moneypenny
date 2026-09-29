@@ -165,7 +165,7 @@ outside production. Backfill for pre-existing rows:
 - [tools/memory.py](../../src/agent/tools/memory.py) - the `manage_memory` tool (validation + writes + feedback)
 - [tools/conversation_search.py](../../src/agent/tools/conversation_search.py) - `search_conversations`, `read_conversation`
 - [models/memory.py](../../src/db/models/memory.py) - `Memory` CRUD, soft delete, purge, protection
-- [prompts.py](../../src/agent/prompts.py) - `MEMORY_SYSTEM_PROMPT`, `get_memory_instructions_prompt()` (static/cached), `get_user_memories_list_prompt()` (dynamic)
+- [prompt_texts/memory.py](../../src/agent/prompt_texts/memory.py) - `MEMORY_SYSTEM_PROMPT`; [prompt_memory.py](../../src/agent/prompt_memory.py) - `get_memory_instructions_prompt()` (static/cached), `get_user_memories_list_prompt()` (dynamic, tiered)
 - [routes/memory.py](../../src/api/routes/memory.py) - list, delete, restore, protection endpoints
 - [config.py](../../src/config.py) - the settings tabled above
 
@@ -254,7 +254,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 **Backend:**
 - [migrations/0010_add_custom_instructions.py](../../migrations/0010_add_custom_instructions.py) - Database migration
 - [models/](../../src/db/models/) - `User.custom_instructions` field, `update_user_custom_instructions()` method
-- [prompts.py](../../src/agent/prompts.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant, `get_system_prompt()` with `custom_instructions` parameter
+- [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant; [prompts.py](../../src/agent/prompts.py) - `get_system_prompt()` with `custom_instructions` parameter
 - [schemas.py](../../src/api/schemas.py) - `UpdateSettingsRequest` schema with 2000 char limit
 - [routes/settings.py](../../src/api/routes/settings.py) - Settings endpoints
 - [routes/chat.py](../../src/api/routes/chat.py) - Passes `custom_instructions` to agent
