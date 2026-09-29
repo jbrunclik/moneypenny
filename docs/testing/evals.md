@@ -47,6 +47,11 @@ history:                        # optional: prior turns for multi-turn cases
     content: Plan me a hike.
   - role: assistant
     content: "Suggested: 9 km karst loop."
+    metadata:                   # optional: enriched-history metadata (MSG_CONTEXT),
+      tool_outputs: 'garmin_connect({}) -> {"hrv":62}'  # e.g. a persisted tool digest
+compact_history: true           # optional: compact `history` with the REAL
+                                # pipeline first (summarizer LLM calls; the
+                                # summarized part is stored + searchable)
 expect:
   rubric: >                     # required: what the judge grades against
     The answer gives a concrete price, acknowledges fluctuation, and cites
@@ -70,6 +75,17 @@ Authoring tips:
   a baseline tracker, not a green wall. Known-failing baselines (Aug 2026):
   `research_multi_source` (round overrun), `web_lookup_cited` (citation
   adherence).
+
+Long-chat and cross-turn cases (Sep 2026):
+- `cz_compaction_recall` — 30-message history with early specifics (booking
+  code, price, allergy) compacted by the real segment pipeline; the answer
+  must recall them exactly. Guards the segmented-summary + search fallback.
+- `cz_tool_output_recall` — a follow-up about an earlier Garmin result must be
+  answered from the `tool_outputs` digest with `garmin_connect` forbidden.
+  Control check: with the digest stripped the model re-calls Garmin and the
+  case fails, so it discriminates.
+- `cz_batched_lookups` — four independent lookups with `max_tool_rounds: 3`;
+  reproduces the one-search-per-round pattern behind most round-cap hits.
 
 ## Commands
 

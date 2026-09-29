@@ -127,6 +127,31 @@ expect:
             {"role": "assistant", "content": "Suggested: Moravian Karst trail, 12 km, Saturday."},
         ]
 
+    def test_history_metadata_and_compaction_flag_parse(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "recall.yaml",
+            """
+id: recall
+description: Tool output recall
+compact_history: true
+history:
+  - role: user
+    content: hi
+  - role: assistant
+    content: done
+    metadata:
+      tool_outputs: 'garmin_connect({}) -> {"hrv":62}'
+user: what was it?
+expect:
+  rubric: says 62
+""",
+        )
+        case = load_cases(tmp_path)[0]
+        assert case.compact_history is True
+        assert case.history[1]["metadata"] == {"tool_outputs": 'garmin_connect({}) -> {"hrv":62}'}
+        assert "metadata" not in case.history[0]
+
     def test_history_defaults_empty(self, tmp_path: Path) -> None:
         _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
         assert load_cases(tmp_path)[0].history == []

@@ -28,8 +28,8 @@ import sys
 import tempfile
 import threading
 import time
-from dataclasses import dataclass, field
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -72,8 +72,14 @@ class EvalCase:
     required_tools: list[str] = field(default_factory=list)  # any-of
     forbidden_tools: list[str] = field(default_factory=list)
     max_tool_rounds: int = 0  # 0 = no limit
-    # Prior turns for multi-turn cases: [{role: user|assistant, content: str}]
-    history: list[dict[str, str]] = field(default_factory=list)
+    # Prior turns for multi-turn cases: [{role, content[, metadata]}] - metadata
+    # is the enriched-history dict (e.g. tool_outputs) the model sees in MSG_CONTEXT
+    history: list[dict[str, Any]] = field(default_factory=list)
+    # Run the history through the real compaction pipeline first (summarizer
+    # LLM calls included): older turns become the segmented summary, the recent
+    # tail stays verbatim, and the summarized part is searchable - long-chat
+    # memory end to end
+    compact_history: bool = False
     # "chat" (default) or "sports" (runs with a canned cycling program context)
     mode: str = "chat"
     # Sports mode: stored KV data injected into the program context
@@ -106,9 +112,14 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 forbidden_tools=list(expect.get("forbidden_tools") or []),
                 max_tool_rounds=int(expect.get("max_tool_rounds") or 0),
                 history=[
-                    {"role": str(h["role"]), "content": str(h["content"])}
+                    {
+                        "role": str(h["role"]),
+                        "content": str(h["content"]),
+                        **({"metadata": dict(h["metadata"])} if h.get("metadata") else {}),
+                    }
                     for h in (data.get("history") or [])
                 ],
+                compact_history=bool(data.get("compact_history", False)),
                 mode=str(data.get("mode") or "chat"),
                 program_kv={str(k): str(v) for k, v in (data.get("program_kv") or {}).items()},
                 files=[str(f) for f in (data.get("files") or [])],
@@ -265,9 +276,58 @@ def write_results(out_path: Path, results: list[dict[str, Any]]) -> None:
     `cost` is persisted so runs stay comparable: a prompt change that keeps
     the pass rate but doubles spend is a regression you would not otherwise see.
     """
-    out_path.write_text(
-        json.dumps({"cost": _cost_summary(results), "results": results}, indent=2)
+    out_path.write_text(json.dumps({"cost": _cost_summary(results), "results": results}, indent=2))
+
+
+def _compacted_history(
+    case: EvalCase, user: Any, db: Any, conversation_id: str
+) -> tuple[list[dict[str, Any]], dict[str, float]]:
+    """Compact the case history exactly as production does for the next turn.
+
+    Stores the history as the conversation's messages (so search can reach the
+    summarized part), builds the segments with the real summarizer, persists
+    them as the compaction state, and returns (history to send, summarizer
+    token usage).
+    """
+    import json as _json
+    from unittest.mock import patch
+
+    from src.agent import compaction
+    from src.agent.compaction_segments import extend_segments, render_segments
+    from src.agent.conversation_compaction import KV_NAMESPACE, _summary_message
+    from src.config import Config
+
+    for turn in case.history:
+        db.add_message(conversation_id, turn["role"], turn["content"])
+    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    older, recent = case.history[:-keep], case.history[-keep:]
+
+    usage = {"input": 0.0, "output": 0.0}
+    original = compaction.run_summary_model
+
+    def counted(prompt: str) -> str | None:
+        # Rough token accounting for the summarizer's spend (~4 chars/token)
+        text = original(prompt)
+        usage["input"] += len(prompt) / 4
+        usage["output"] += len(text or "") / 4
+        return text
+
+    with patch.object(compaction, "run_summary_model", counted):
+        segments = extend_segments([], older, 0, len(older))
+    if not segments:
+        raise RuntimeError("compaction summarizer failed for the eval history")
+    db.kv_set(
+        user.id,
+        KV_NAMESPACE,
+        conversation_id,
+        _json.dumps(
+            {
+                "segments": [{"text": s.text, "end": s.end, "passes": s.passes} for s in segments],
+                "covered_count": segments[-1].end,
+            }
+        ),
     )
+    return [_summary_message(render_segments(segments)), *recent], usage
 
 
 def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
@@ -325,6 +385,11 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         }
         set_sports_context("cycling")
 
+    history = case.history or None
+    summarizer_usage = {"input": 0.0, "output": 0.0}
+    if case.compact_history:
+        history, summarizer_usage = _compacted_history(case, user, db, conversation.id)
+
     try:
         agent = ChatAgent(
             model_name=Config.DEFAULT_MODEL,
@@ -337,7 +402,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         response, tool_results, usage, result_messages = agent.chat_batch(
             text=case.user,
             files=files_payload or None,
-            history=case.history or None,
+            history=history,
             user_name="Eval User",
             user_id=user.id,
             conversation_id=conversation.id,
@@ -393,6 +458,10 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     judge_input, judge_output = _judge_tokens(judge_reply)
     judge_cost = calculate_token_cost(Config.EVAL_JUDGE_MODEL, judge_input, judge_output)
     agent_cost = _turn_cost(Config.DEFAULT_MODEL, usage, tool_results)
+    # Compaction cases also pay for building the summary (estimated tokens)
+    agent_cost += calculate_token_cost(
+        Config.AI_ASSIST_MODEL, int(summarizer_usage["input"]), int(summarizer_usage["output"])
+    )
 
     passed = judge_pass and not failures
     return {

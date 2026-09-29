@@ -1,0 +1,16 @@
+id: cz_batched_lookups
+description: >
+  Several independent lookups in one question. Reproduces the pattern behind
+  most tool-round-cap hits (Sep 2026: 98% of rounds in capped turns carried a
+  single tool call, mostly web_search): the agent must batch the queries
+  (web_search queries=[...] or research) instead of one search per round.
+user: >
+  Potřebuju na zítra otevírací dobu těchto čtyř míst: Národní technické muzeum
+  v Praze, Technické muzeum v Brně, Dolní oblast Vítkovice v Ostravě
+  a Techmania v Plzni. Stačí stručně ke každému.
+expect:
+  rubric: >
+    Gives opening hours (or a clear statement that it could not confirm them)
+    for all four places, concisely, in Czech, and cites sources.
+  required_tools: [research, web_search]
+  max_tool_rounds: 3

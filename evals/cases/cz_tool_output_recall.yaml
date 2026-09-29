@@ -1,0 +1,20 @@
+id: cz_tool_output_recall
+description: >
+  Cross-turn tool recall: a follow-up about an earlier tool result is answered
+  from the persisted tool_outputs digest (MSG_CONTEXT), without re-calling the
+  tool. The earlier reply deliberately does not state the numbers.
+history:
+  - role: user
+    content: "Jak jsem na tom dneska s regenerací?"
+  - role: assistant
+    content: "Regenerace vypadá dobře - HRV je v normálu a spánek byl solidní, klidně si dnes dej plánovaný trénink."
+    metadata:
+      tools_used: [garmin_connect]
+      tool_outputs: 'garmin_connect({"action":"get_readiness_snapshot"}) -> {"training_readiness":71,"hrv_last_night_ms":58,"hrv_weekly_avg_ms":62,"hrv_status":"BALANCED","sleep_score":84,"sleep_hours":7.4,"resting_hr":46}'
+user: "A jaké přesně bylo to HRV v noci a jaký je týdenní průměr? A kolik mám klidovou tepovku?"
+expect:
+  rubric: >
+    Answers in Czech with the exact values from the earlier readiness data:
+    HRV last night 58 ms, weekly average 62 ms, resting heart rate 46 bpm.
+    Must not claim it has no access to the data or ask the user to check.
+  forbidden_tools: [garmin_connect]

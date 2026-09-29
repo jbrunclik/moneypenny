@@ -1,0 +1,75 @@
+id: cz_compaction_recall
+description: >
+  Long-chat memory end to end: early specifics (booking code, price, allergy)
+  sit in the part that compaction summarizes; the answer must still recall
+  them exactly (from the segmented summary or via search_conversations)
+compact_history: true
+history:
+  - role: user
+    content: "Ahoj, plánujeme s rodinou týden v Chorvatsku v červenci, Makarska. Pomůžeš mi to dát dohromady?"
+  - role: assistant
+    content: "Jasně! Makarska je v červenci super, jen počítej s davy. Máte už ubytování, nebo ho hledáme?"
+  - role: user
+    content: "Ubytování mám: apartmán Villa Marija, rezervační kód HX7-4412, 3 150 Kč za noc, od 12. do 19. července. Parkování je v ceně, ale jen pro jedno auto."
+  - role: assistant
+    content: "Super, poznamenávám si: Villa Marija, kód HX7-4412, 3 150 Kč/noc, 12.–19. 7., parkování pro jedno auto v ceně. Celkem za 7 nocí 22 050 Kč."
+  - role: user
+    content: "Dcera Ema (6 let) má silnou alergii na ořechy, takže restaurace musíme vybírat opatrně."
+  - role: assistant
+    content: "Rozumím, u Emy budu hlídat ořechy - v Chorvatsku se často používají v dezertech (baklava, orahnjača) a v pestu. Doporučím podniky s jasně značenými alergeny."
+  - role: user
+    content: "Pojedeme autem z Brna. Kolik to zhruba je?"
+  - role: assistant
+    content: "Z Brna do Makarské je to asi 870 km, zhruba 9–10 hodin jízdy přes Vídeň, Graz a Záhřeb. Počítej s dálničními známkami pro Rakousko a Slovinsko a mýtem v Chorvatsku."
+  - role: user
+    content: "Kolik stojí známky?"
+  - role: assistant
+    content: "Rakouská 10denní známka je kolem 12 EUR, slovinská týdenní asi 16 EUR. Chorvatské mýto se platí na mýtných branách, do Makarské zhruba 40–45 EUR jedním směrem."
+  - role: user
+    content: "Dobře. Co děti na pláži, jsou tam oblázky?"
+  - role: assistant
+    content: "Ano, hlavní pláž v Makarské je oblázková, takže se hodí boty do vody. Pro malé děti je fajn mělká část u přístavu."
+  - role: user
+    content: "Máme brát šnorchly?"
+  - role: assistant
+    content: "Určitě - u skal na okraji pláže Nugal i u Tučepi je čistá voda a hodně ryb. Pro šestiletou Emu stačí jednoduchá maska s šnorchlem."
+  - role: user
+    content: "Jaké je tam v červenci počasí?"
+  - role: assistant
+    content: "V červenci bývá 30–33 °C přes den, moře kolem 25 °C a téměř neprší. Nejtepleji je mezi 12. a 16. hodinou."
+  - role: user
+    content: "Doporučíš nějaký výlet?"
+  - role: assistant
+    content: "Biokovo - Skywalk na vyhlídce nad Makarskou, nebo loďkou na Brač (Zlatni rat). S dětmi bych bral Brač, je to na půl dne."
+  - role: user
+    content: "Kolik stojí trajekt na Brač?"
+  - role: assistant
+    content: "Trajekt Makarska–Sumartin stojí orientačně 6 EUR za osobu a kolem 25 EUR za auto, jede zhruba hodinu."
+  - role: user
+    content: "A co trhy nebo nákupy?"
+  - role: assistant
+    content: "Ráno je v Makarské tržnice s ovocem a zeleninou u kostela sv. Marka, supermarkety Konzum a Tommy jsou do 21:00."
+  - role: user
+    content: "Díky. Ještě se zeptám na vodní park pro děti."
+  - role: assistant
+    content: "Nejbližší velký je Aquapark Dalmatia u Omiše, asi 30 minut autem. Vstupné pro dítě kolem 20 EUR."
+  - role: user
+    content: "Super, a ještě kde se dá dobře zmrzlina?"
+  - role: assistant
+    content: "Na promenádě je spousta zmrzlináren - jen pozor u Emy na příchutě s ořechy, pistácie a lískové oříšky bývají ve stejném boxu."
+  - role: user
+    content: "Jasně. A kdy je nejlepší vyrazit z Brna, abychom se vyhnuli kolonám?"
+  - role: assistant
+    content: "V sobotu brzy ráno, ideálně ve 4:00, projedete Rakousko a Slovinsko před hlavní vlnou. Kolony bývají hlavně před Záhřebem a na chorvatských mýtných branách."
+  - role: user
+    content: "Ok, plán se mi líbí."
+  - role: assistant
+    content: "Paráda. Kdyby cokoliv, dej vědět - můžu ti na konec udělat souhrn celé cesty."
+user: "Připomeň mi prosím rezervační kód toho apartmánu, kolik jsme platili za noc a na co si mám u Emy v restauracích dávat pozor."
+expect:
+  rubric: >
+    Answers in Czech with the exact booking code HX7-4412, the price 3 150 Kč
+    per night, and that Ema has a (severe) nut allergy. Any wrong or missing
+    one of these three fails; approximate or hedged values ("zhruba 3 000")
+    fail. Using search_conversations to verify is fine.
+  max_tool_rounds: 2
