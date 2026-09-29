@@ -51,7 +51,7 @@ imports; eslint --fix). `PreToolUse` blocks hand-edits to generated files
 
 ## Layout
 
-- `src/` — `api/routes/` (REST by feature), `api/schemas.py` (Pydantic; source of
+- `src/` — `api/routes/` (REST by feature), `api/schemas/` (Pydantic by feature; source of
   the OpenAPI spec), `agent/` (graph, prompts in `prompt_texts/`, `tools/`),
   `db/models/` (SQL lives only here), `auth/`, `utils/`, `config.py` (all env vars
   and model definitions).
