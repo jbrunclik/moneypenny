@@ -128,6 +128,37 @@ class AgentConversationMixin:
 
             return int(row["count"]) if row else 0
 
+    def _insert_compaction_summary(
+        self,
+        conn: sqlite3.Connection,
+        conv_id: str,
+        summary: str,
+        keep_rows: list[sqlite3.Row],
+    ) -> None:
+        """Insert the compaction summary message BEFORE the kept messages.
+
+        History is loaded with ORDER BY created_at, so the summary must be
+        backdated to just before the oldest kept message or it would land at
+        the END of the context window (after the most recent real messages).
+        """
+        if keep_rows:
+            earliest_kept = min(datetime.fromisoformat(row["created_at"]) for row in keep_rows)
+            summary_ts = earliest_kept - timedelta(microseconds=1)
+        else:
+            # LOCAL-naive: messages.created_at uses the local convention
+            summary_ts = datetime.now()
+        self._execute_with_timing(
+            conn,
+            """INSERT INTO messages (id, conversation_id, role, content, created_at)
+               VALUES (?, ?, 'user', ?, ?)""",
+            (
+                str(uuid.uuid4()),
+                conv_id,
+                f"[Previous conversation summary]\n\n{summary}",
+                summary_ts.isoformat(),
+            ),
+        )
+
     def compact_agent_conversation(
         self,
         agent_id: str,
@@ -192,29 +223,7 @@ class AgentConversationMixin:
                 tuple(delete_ids),
             )
 
-            # Insert the summary message BEFORE the kept messages: history is
-            # loaded with ORDER BY created_at, so it must be backdated to just
-            # before the oldest kept message or it would land at the END of the
-            # context window (after the most recent real messages)
-            if keep_rows:
-                earliest_kept = min(datetime.fromisoformat(row["created_at"]) for row in keep_rows)
-                summary_ts = earliest_kept - timedelta(microseconds=1)
-            else:
-                # LOCAL-naive: messages.created_at uses the local convention
-                summary_ts = datetime.now()
-            summary_id = str(uuid.uuid4())
-            self._execute_with_timing(
-                conn,
-                """INSERT INTO messages (id, conversation_id, role, content, created_at)
-                   VALUES (?, ?, 'user', ?, ?)""",
-                (
-                    summary_id,
-                    conv_id,
-                    f"[Previous conversation summary]\n\n{summary}",
-                    summary_ts.isoformat(),
-                ),
-            )
-
+            self._insert_compaction_summary(conn, conv_id, summary, keep_rows)
             conn.commit()
 
             # Blob cleanup after the commit: a crash here leaves only

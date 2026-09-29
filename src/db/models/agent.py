@@ -266,36 +266,27 @@ class AgentMixin:
         updates: list[str] = ["updated_at = ?"]
         params: list[Any] = [utcnow_naive().isoformat()]
 
-        if not isinstance(name, EllipsisType):
-            updates.append("name = ?")
-            params.append(name)
-        if not isinstance(description, EllipsisType):
-            updates.append("description = ?")
-            params.append(description)
-        if not isinstance(system_prompt, EllipsisType):
-            updates.append("system_prompt = ?")
-            params.append(system_prompt)
-        if not isinstance(schedule, EllipsisType):
-            updates.append("schedule = ?")
-            params.append(schedule)
-        if not isinstance(timezone, EllipsisType):
-            updates.append("timezone = ?")
-            params.append(timezone)
-        if not isinstance(tool_permissions, EllipsisType):
-            updates.append("tool_permissions = ?")
-            params.append(json.dumps(tool_permissions) if tool_permissions is not None else None)
-        if not isinstance(enabled, EllipsisType):
-            updates.append("enabled = ?")
-            params.append(1 if enabled else 0)
-        if not isinstance(fresh_context, EllipsisType):
-            updates.append("fresh_context = ?")
-            params.append(1 if fresh_context else 0)
-        if not isinstance(model, EllipsisType):
-            updates.append("model = ?")
-            params.append(model)
-        if not isinstance(budget_limit, EllipsisType):
-            updates.append("budget_limit = ?")
-            params.append(budget_limit)
+        # (column, new value or Ellipsis, value as stored)
+        fields: list[tuple[str, Any, Any]] = [
+            ("name", name, name),
+            ("description", description, description),
+            ("system_prompt", system_prompt, system_prompt),
+            ("schedule", schedule, schedule),
+            ("timezone", timezone, timezone),
+            (
+                "tool_permissions",
+                tool_permissions,
+                json.dumps(tool_permissions) if isinstance(tool_permissions, list) else None,
+            ),
+            ("enabled", enabled, 1 if enabled else 0),
+            ("fresh_context", fresh_context, 1 if fresh_context else 0),
+            ("model", model, model),
+            ("budget_limit", budget_limit, budget_limit),
+        ]
+        for column, value, stored in fields:
+            if not isinstance(value, EllipsisType):
+                updates.append(f"{column} = ?")
+                params.append(stored)
 
         # Determine if we need to recalculate next_run_at
         needs_schedule_update = (
