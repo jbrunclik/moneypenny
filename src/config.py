@@ -315,9 +315,6 @@ class Config:
     DEFAULT_CONVERSATION_TITLE = "New Conversation"
     DEFAULT_IMAGE_GENERATION_MESSAGE = "I've generated the image for you."
 
-    # Metadata marker for extracting sources/images from LLM response
-    METADATA_MARKER = "<!-- METADATA:"
-
     # HTTP caching
     FILE_CACHE_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY  # 1 year
 

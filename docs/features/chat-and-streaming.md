@@ -372,33 +372,23 @@ When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are d
 
 ### How it works
 
-1. **Tool returns JSON**: `web_search` returns `{"query": "...", "results": [{title, url, snippet}, ...]}` instead of plain text
-2. **LLM appends metadata**: System prompt instructs LLM to append `<!-- METADATA:\n{"sources": [...]}\n-->` at the end of responses when web tools are used
-3. **Backend extracts sources**: `extract_metadata_from_response()` in [content.py](../../src/agent/content.py) parses and strips the metadata block. It handles both HTML comment format (preferred) and plain JSON format (fallback), removing both if the LLM outputs metadata in both formats
-4. **Streaming filters metadata**: During streaming, the HTML comment metadata marker is detected and not sent to the frontend. Any plain JSON metadata that slips through is cleaned in the final buffer check
-5. **Sources stored in DB**: Messages table has a `sources` column (JSON array)
-6. **Sources in API response**: Both batch and streaming responses include `sources` array
+1. **Tool returns JSON**: `web_search` returns `{"query": "...", "results": [{title, url, snippet}, ...]}` instead of plain text (`research`, `fetch_url` and the browser also produce citable pages)
+2. **LLM cites via a tool call**: the model calls the metadata-only `cite_sources(sources=[{title, url}])` tool ([tools/metadata.py](../../src/agent/tools/metadata.py)) together with its final answer. Metadata tools are extract-only: `should_continue()` routes to `end` when every tool call in a round is metadata-only, so citing never costs an extra round
+3. **Backend extracts sources**: `extract_cited_sources()` in [content.py](../../src/agent/content.py) reads them from the tool-call arguments. If the model searched but never cited, `extract_sources_fallback_from_tool_results()` recovers them from the raw `web_search` results so sources are not silently lost. (The old text-based `<!-- METADATA: -->` block the LLM appended to its answer is gone - nothing parses response text for metadata any more.)
+4. **Sources stored in DB**: Messages table has a `sources` column (JSON array)
+5. **Sources in API response**: Both batch and streaming responses include `sources` array
+6. **Sources in later turns**: `history.py` turns stored sources into a `tool_digest` ("read: Title (url); ...") in the message's `MSG_CONTEXT`, so the model can re-fetch a page it cited earlier
 7. **UI shows sources button**: A globe icon appears in message actions when sources exist, opening a popup with clickable links
 
 ### Key Files
 
 - [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
-- [prompts.py](../../src/agent/prompts.py) - `TOOLS_SYSTEM_PROMPT_*` constants
-- [content.py](../../src/agent/content.py) - `extract_metadata_from_response()`, streaming filter
+- [tools/metadata.py](../../src/agent/tools/metadata.py) - `cite_sources` (extract-only metadata tool)
+- [content.py](../../src/agent/content.py) - `extract_cited_sources()`, `extract_sources_fallback_from_tool_results()`
 - [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
 - [routes/chat.py](../../src/api/routes/chat.py) - Sources included in batch/stream responses
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
 - [messages/actions.ts](../../web/src/components/messages/actions.ts) - Sources button rendering
-
-### Metadata Format
-
-```html
-<!-- METADATA:
-{"sources": [{"title": "Source Title", "url": "https://..."}]}
--->
-```
-
-The metadata block is always at the end of the LLM response and is stripped before storing/displaying content. Sometimes the LLM outputs plain JSON metadata (without HTML comments) instead of or in addition to the HTML comment format. The extraction function handles both formats, preferring HTML comment format but removing both if present.
 
 ## Force Tools System
 
@@ -586,9 +576,10 @@ After tool execution, `check_tool_results()` inspects `ToolMessage` results for 
 **How it works:**
 
 1. Scans the latest batch of `ToolMessage` objects (stops at the preceding `AIMessage`)
-2. Detects errors by checking `status="error"` or content patterns (`"Error:"`, `"Exception:"`, `"Traceback"`, `"failed"`)
-3. On error with retries remaining: increments `tool_retries` counter, injects a `SystemMessage` telling the LLM to try a different approach
-4. On error after max retries: injects a `SystemMessage` telling the LLM to give up gracefully and explain the issue
+2. Detects errors **structurally** in `_tool_message_error()` ([graph.py](../../src/agent/graph.py)): `status == "error"` (set by the ToolNode exception handler and the permission-blocked path) or a JSON object with a truthy `"error"` key (the envelope every tool returns on failure). It deliberately **never** substring-matches content - matching `"Error:"`/`"failed"` false-positived on legitimate results, e.g. a fetched page that describes a failure. Tools mark permanent failures (integration not configured, invalid action) with `"retriable": false`, which skips pointless retries
+3. On a retriable error with retries remaining: increments `tool_retries`, injects guidance telling the LLM to try a different approach
+4. On error after max retries (or a non-retriable one): injects guidance telling the LLM to give up gracefully and explain the issue
+   - Guidance is a `SystemMessage`, or a `HumanMessage` wrapped in `[SYSTEM GUIDANCE]` markers in cached mode (LangChain drops mid-conversation system messages there)
 5. On success: resets `tool_retries` to 0
 6. Always routes back to the `chat` node - the LLM decides the next step
 

@@ -1,5 +1,12 @@
 # Streaming Metadata Handling
 
+> **Status (Sep 2026):** the LLM no longer appends a `<!-- METADATA: -->` block -
+> sources, image prompts and titles come from tool calls (`cite_sources`,
+> `generate_image`, `set_conversation_title`; see `content.py`). The METADATA parts
+> below are historical context for the bug they describe. `<!-- MSG_CONTEXT: -->`
+> is still live: history messages carry it and the stream still strips it if the
+> model echoes it (`agent.py`).
+
 This document describes how the chat agent handles metadata blocks during streaming, known issues, and debugging guidance.
 
 ## Overview

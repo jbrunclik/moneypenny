@@ -115,16 +115,14 @@ Tool results (including generated images) are returned from both `chat_batch()` 
 2. **Ensures fresh tool calls**: If tool results were persisted, the LLM might skip calling `generate_image` for follow-up requests, thinking the tool was already called
 3. **Conversation context is sufficient**: The human/AI message history stored in the `messages` table provides enough context for multi-turn conversations
 
-The `chat_batch()` method returns `(response_text, tool_results, usage_info)`. The batch and streaming endpoints extract images from `tool_results` for storage, then discard the tool results themselves.
+The `chat_batch()` method returns `(response_text, tool_results, usage_info, result_messages)`. The batch and streaming endpoints extract images from `tool_results` for storage, then discard the tool results themselves.
 
-### Metadata Format
+### Metadata Extraction
 
-The metadata block supports both sources and generated_images:
-```html
-<!-- METADATA:
-{"sources": [...], "generated_images": [{"prompt": "..."}]}
--->
-```
+Image metadata is not parsed from the response text (the old `<!-- METADATA: -->`
+block is gone): `extract_image_prompts_from_messages()` in
+[content.py](../../src/agent/content.py) reads the prompts from the `generate_image`
+tool-call arguments, just as `extract_cited_sources()` reads sources from `cite_sources`.
 
 ### Key Files
 
