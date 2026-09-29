@@ -225,6 +225,46 @@ def _format_task(
     return formatted
 
 
+# Todoist rejects malformed filter strings with this error (error_code 55)
+_INVALID_FILTER_MARKERS = ("INVALID_SEARCH", '"error_code":55', "search query is incorrect")
+
+# Known-good filter strings shown to the model after a rejected filter
+_VALID_FILTER_EXAMPLES = [
+    "today",
+    "overdue | today",
+    "7 days",
+    "no date",
+    "p1 & overdue",
+    "#Work",
+    "#Work & today",
+    "@waiting_for",
+    "search: dentist",
+]
+
+
+def _invalid_filter_result(filter_string: str) -> dict[str, Any]:
+    """Actionable result for a filter string Todoist rejected.
+
+    The raw API error ("The search query is incorrect") left the model
+    guessing - invalid filters were the top Todoist failure in Sep 2026.
+    """
+    logger.warning("Todoist rejected filter", extra={"filter_string": filter_string})
+    return {
+        "action": "list_tasks",
+        "error": (
+            f"Todoist rejected the filter {filter_string!r} (invalid filter syntax). "
+            "Filters use Todoist's query language, not natural language: dates "
+            "('today', '7 days', 'no date'), priorities ('p1'), projects ('#Name'), "
+            "labels ('@name') and free-text search ('search: word'), combined with "
+            "& (and), | (or), ! (not). Retry with a valid filter, or omit "
+            "filter_string to list all tasks and filter them yourself."
+        ),
+        "failed_filter": filter_string,
+        "valid_examples": _VALID_FILTER_EXAMPLES,
+        "retriable": True,
+    }
+
+
 def _todoist_list_tasks(
     token: str,
     filter_string: str | None = None,
@@ -245,7 +285,12 @@ def _todoist_list_tasks(
         params: dict[str, Any] = {"query": filter_string}
         if project_id:
             params["project_id"] = project_id
-        tasks = _todoist_api_request("GET", "/tasks/filter", token, params=params)
+        try:
+            tasks = _todoist_api_request("GET", "/tasks/filter", token, params=params)
+        except Exception as e:
+            if any(marker in str(e) for marker in _INVALID_FILTER_MARKERS):
+                return _invalid_filter_result(filter_string)
+            raise
     else:
         params = {}
         if project_id:

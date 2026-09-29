@@ -2163,6 +2163,31 @@ class TestTodoistTool:
 
     @patch("src.agent.tools.todoist._get_todoist_token")
     @patch("src.agent.tools.todoist._todoist_api_request")
+    def test_invalid_filter_returns_actionable_guidance(
+        self, mock_api: MagicMock, mock_get_token: MagicMock
+    ) -> None:
+        """Invalid filter strings were the top Todoist failure (Sep 2026:
+        22 in 30 days). The raw API error left the model guessing; the
+        result must name the failed filter and show valid syntax."""
+        from src.agent.tools import todoist
+
+        mock_get_token.return_value = "valid-token"
+        mock_api.side_effect = Exception(
+            'Todoist API error (400): {"error":"The search query is incorrect",'
+            '"error_code":55,"error_tag":"INVALID_SEARCH_QUERY","http_code":400}'
+        )
+
+        parsed = json.loads(
+            todoist.invoke({"action": "list_tasks", "filter_string": "tasks due this week"})
+        )
+
+        assert parsed["failed_filter"] == "tasks due this week"
+        assert parsed["retriable"] is True
+        assert "7 days" in parsed["valid_examples"]
+        assert "filter" in parsed["error"].lower()
+
+    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist._todoist_api_request")
     def test_list_tasks_without_filter_uses_plain_endpoint(
         self, mock_api: MagicMock, mock_get_token: MagicMock
     ) -> None:
