@@ -6,11 +6,16 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.integration_status import not_connected_result
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class TodoistAuthError(Exception):
+    """Todoist rejected the stored token (revoked or expired)."""
 
 
 def _get_todoist_token() -> str | None:
@@ -86,12 +91,9 @@ def _todoist_api_request(
                     "endpoint": endpoint,
                 },
             )
-            # Handle auth errors with clear reconnection message
+            # Revoked/expired token: surfaced as "disconnected" by the tool
             if response.status_code in (401, 403, 410):
-                raise Exception(
-                    "Todoist access has been revoked or expired. "
-                    "Please reconnect your Todoist account in Settings."
-                )
+                raise TodoistAuthError(f"Todoist rejected the token ({response.status_code})")
             raise Exception(f"Todoist API error ({response.status_code}): {error_msg}")
 
         result: dict[str, Any] | list[dict[str, Any]] = response.json()
@@ -154,10 +156,7 @@ def _todoist_sync_request(
                 extra={"status_code": response.status_code, "error": error_msg},
             )
             if response.status_code in (401, 403, 410):
-                raise Exception(
-                    "Todoist access has been revoked or expired. "
-                    "Please reconnect your Todoist account in Settings."
-                )
+                raise TodoistAuthError(f"Todoist rejected the token ({response.status_code})")
             raise Exception(f"Todoist Sync API error ({response.status_code}): {error_msg}")
 
         result: dict[str, Any] = response.json()
@@ -790,8 +789,9 @@ def todoist(
     """Manage the user's Todoist tasks, projects, and sections.
 
     IMPORTANT: This tool only works if the user has connected their Todoist account
-    in settings. If you get "Todoist not connected", ask the user to connect
-    their Todoist account in settings first.
+    in settings. A "Todoist disconnected" / "Todoist not connected" result says
+    which case applies - follow its message (warn the user and point them to
+    Settings); never act as if you cannot use Todoist at all.
 
     Actions available:
     - "list_tasks": List tasks. Use filter_string for Todoist filter syntax (e.g., "today",
@@ -877,13 +877,7 @@ def todoist(
     # Check if user has connected Todoist
     token = _get_todoist_token()
     if not token:
-        return json.dumps(
-            {
-                "error": "Todoist not connected",
-                "retriable": False,
-                "message": "Please ask the user to connect their Todoist account in settings first.",
-            }
-        )
+        return json.dumps(not_connected_result("todoist"))
 
     # Check permission for autonomous agents; entity ids enable
     # argument-level approval matching for destructive operations
@@ -1054,6 +1048,8 @@ def todoist(
 
         return json.dumps(result)
 
+    except TodoistAuthError:
+        return json.dumps(not_connected_result("todoist", was_connected=True))
     except Exception as e:
         logger.error(
             "Todoist tool error",

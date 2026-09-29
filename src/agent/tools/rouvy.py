@@ -28,6 +28,7 @@ import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.browser import is_browser_available
+from src.agent.tools.integration_status import not_connected_result
 from src.auth import rouvy_auth
 from src.config import Config
 from src.db.models import User, db
@@ -235,13 +236,7 @@ def rouvy_workout(
     """
     user = _resolve_user()
     if user is None or not user.rouvy_session:
-        return json.dumps(
-            {
-                "success": False,
-                "error": "Rouvy is not connected. Ask the user to connect Rouvy in Settings first.",
-                "retriable": False,
-            }
-        )
+        return json.dumps({"success": False, **not_connected_result("rouvy")})
     try:
         if action == "list":
             return json.dumps({"success": True, "workouts": rouvy_list(user)})
@@ -266,20 +261,10 @@ def rouvy_workout(
             return json.dumps({"success": True, **rouvy_delete(user, int(workout_id))})
         return json.dumps({"success": False, "error": f"Unknown action: {action}"})
     except RouvyNotConnected:
-        return json.dumps(
-            {"success": False, "error": "Rouvy is not connected.", "retriable": False}
-        )
+        return json.dumps({"success": False, **not_connected_result("rouvy")})
     except RouvySessionExpired:
-        return json.dumps(
-            {
-                "success": False,
-                "error": (
-                    "Rouvy session expired and automatic refresh failed. "
-                    "Please reconnect in Settings."
-                ),
-                "retriable": False,
-            }
-        )
+        # Automatic re-login failed: the stored credentials no longer work
+        return json.dumps({"success": False, **not_connected_result("rouvy", was_connected=True)})
     except Exception as e:  # noqa: BLE001 - tool must return, not raise
         logger.error("rouvy_workout failed", extra={"action": action, "error": str(e)})
         return json.dumps(

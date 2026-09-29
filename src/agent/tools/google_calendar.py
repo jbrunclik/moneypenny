@@ -9,6 +9,7 @@ import requests
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.integration_status import not_connected_result
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.auth.google_calendar import (
     GoogleCalendarAuthError,
@@ -21,6 +22,10 @@ logger = get_logger(__name__)
 
 def _is_google_calendar_configured() -> bool:
     return bool(Config.GOOGLE_CALENDAR_CLIENT_ID and Config.GOOGLE_CALENDAR_CLIENT_SECRET)
+
+
+class CalendarDisconnectedError(Exception):
+    """Google Calendar still rejects the token after a refresh (grant revoked)."""
 
 
 def _get_google_calendar_access_token() -> tuple[str, str | None] | None:
@@ -129,6 +134,10 @@ def _google_calendar_api_request(
             return _google_calendar_api_request(
                 method, endpoint, new_token, params=params, data=data, _retry_on_401=False
             )
+
+    if response.status_code == 401:
+        # Still unauthorized after a forced refresh: the grant is gone
+        raise CalendarDisconnectedError("Google Calendar rejected the refreshed token")
 
     if response.status_code >= 400:
         logger.warning(
@@ -550,13 +559,7 @@ def google_calendar(
 
     token_info = _get_google_calendar_access_token()
     if not token_info:
-        return json.dumps(
-            {
-                "error": "Google Calendar not connected",
-                "retriable": False,
-                "message": "Ask the user to connect Google Calendar in Settings first.",
-            }
-        )
+        return json.dumps(not_connected_result("google_calendar"))
 
     # Check permission for autonomous agents (write operations require approval)
     # Entity ids + reschedule fields enable argument-level approval
@@ -652,6 +655,8 @@ def google_calendar(
 
         return json.dumps(result)
 
+    except CalendarDisconnectedError:
+        return json.dumps(not_connected_result("google_calendar", was_connected=True))
     except Exception as exc:  # pragma: no cover - network interaction
         logger.error(
             "Google Calendar tool error",

@@ -14,6 +14,7 @@ from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.garmin_session import get_client, persist_tokens_if_changed
+from src.agent.tools.integration_status import not_connected_result
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -480,8 +481,9 @@ def garmin_connect(
     """Access health, fitness, and training data from the user's Garmin Connect account.
 
     IMPORTANT: This tool only works if the user has connected their Garmin account
-    in settings. If you get "Garmin not connected", ask the user to connect
-    their Garmin account in settings first.
+    in settings. A "Garmin disconnected" / "Garmin not connected" result says
+    which case applies - follow its message (warn the user and point them to
+    Settings); never act as if you cannot use Garmin at all.
 
     This is a READ-ONLY tool — no data is modified on Garmin.
 
@@ -551,13 +553,7 @@ def garmin_connect(
 
     garmin = _get_garmin_client()
     if not garmin:
-        return json.dumps(
-            {
-                "error": "Garmin not connected",
-                "retriable": False,
-                "message": "Please ask the user to connect their Garmin account in settings first.",
-            }
-        )
+        return json.dumps(not_connected_result("garmin"))
 
     target_date = date_str or date.today().isoformat()
 

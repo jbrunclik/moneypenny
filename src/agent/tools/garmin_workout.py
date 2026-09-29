@@ -26,11 +26,13 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-# Reuse the client/token plumbing that already backs the read-only tool.
 from src.agent.tools.garmin import (
     _get_garmin_client,
     _safe_api_call,
 )
+
+# Reuse the client/token plumbing that already backs the read-only tool.
+from src.agent.tools.integration_status import not_connected_result
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -540,13 +542,7 @@ def garmin_workout(
 
     garmin = _get_garmin_client()
     if not garmin:
-        return json.dumps(
-            {
-                "error": "Garmin not connected",
-                "retriable": False,
-                "message": "Please ask the user to connect their Garmin account in settings first.",
-            }
-        )
+        return json.dumps(not_connected_result("garmin"))
 
     try:
         if action == "list":
