@@ -297,6 +297,14 @@ def extract_sources_fallback_from_tool_results(
     """
     sources: list[dict[str, str]] = []
 
+    def add(item: Any) -> None:
+        # Providers normalize to {title, url}; "href" is the legacy ddgs shape
+        if not isinstance(item, dict) or "title" not in item:
+            return
+        url = item.get("url") or item.get("href")
+        if url:
+            sources.append({"title": str(item["title"]), "url": str(url)})
+
     for result in tool_results:
         if not isinstance(result, dict) or result.get("type") != "tool":
             continue
@@ -310,17 +318,21 @@ def extract_sources_fallback_from_tool_results(
         except (json.JSONDecodeError, TypeError):
             continue
 
-        # web_search returns a list of result dicts
         if isinstance(data, list):
             for item in data:
-                if isinstance(item, dict) and "title" in item and "href" in item:
-                    sources.append({"title": str(item["title"]), "url": str(item["href"])})
+                add(item)
         elif isinstance(data, dict):
-            # Check for results array inside the response
-            results = data.get("results", [])
-            if isinstance(results, list):
-                for item in results:
-                    if isinstance(item, dict) and "title" in item and "href" in item:
-                        sources.append({"title": str(item["title"]), "url": str(item["href"])})
+            # Single web_search: {"results": [...]}
+            for item in data.get("results") or []:
+                add(item)
+            # Batched web_search: {"searches": [{"results": [...]}, ...]}
+            for search in data.get("searches") or []:
+                if isinstance(search, dict):
+                    for item in search.get("results") or []:
+                        add(item)
+            # research / auto-upgraded web_search: only pages actually read
+            for item in data.get("sources") or []:
+                if isinstance(item, dict) and "content" in item:
+                    add(item)
 
     return sources

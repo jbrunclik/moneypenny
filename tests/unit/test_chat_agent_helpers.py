@@ -757,6 +757,54 @@ class TestExtractSourcesFallbackFromToolResults:
         assert len(sources) == 1
         assert sources[0]["title"] == "Result 1"
 
+    def test_extracts_current_web_search_url_shape(self) -> None:
+        """Providers normalize to {title, url, snippet}; the fallback only knew
+        the old "href" shape, so it silently recovered nothing."""
+        import json
+
+        tool_results = [
+            {
+                "type": "tool",
+                "content": json.dumps(
+                    {"query": "q", "results": [{"title": "A", "url": "https://a", "snippet": "s"}]}
+                ),
+            }
+        ]
+        assert extract_sources_fallback_from_tool_results(tool_results) == [
+            {"title": "A", "url": "https://a"}
+        ]
+
+    def test_extracts_batched_searches(self) -> None:
+        import json
+
+        content = json.dumps(
+            {
+                "searches": [
+                    {"query": "a", "results": [{"title": "A", "url": "https://a"}]},
+                    {"query": "b", "results": [{"title": "B", "url": "https://b"}]},
+                ]
+            }
+        )
+        sources = extract_sources_fallback_from_tool_results([{"type": "tool", "content": content}])
+        assert [s["url"] for s in sources] == ["https://a", "https://b"]
+
+    def test_extracts_read_research_sources_only(self) -> None:
+        """research (and auto-upgraded web_search) reports pages it READ under
+        sources; failed fetches and unfetched candidates are not citations."""
+        import json
+
+        content = json.dumps(
+            {
+                "sources": [
+                    {"title": "Read", "url": "https://read", "content": "..."},
+                    {"title": "Broken", "url": "https://broken", "error": "HTTP 403"},
+                ],
+                "unfetched": [{"title": "Later", "url": "https://later"}],
+            }
+        )
+        sources = extract_sources_fallback_from_tool_results([{"type": "tool", "content": content}])
+        assert sources == [{"title": "Read", "url": "https://read"}]
+
     def test_returns_empty_for_non_search_results(self) -> None:
         """Should return empty list for non-search tool results."""
         import json
