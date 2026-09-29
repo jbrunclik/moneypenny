@@ -222,6 +222,24 @@ class TestGetPlannerConversation:
         assert len(data2["messages"]) == 1
         assert data2["messages"][0]["content"] == "Test planning message"
 
+    def test_hides_empty_stream_placeholder(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+    ) -> None:
+        """The empty assistant placeholder saved at stream start must not render
+        as an empty bubble (the planner's old serializer copy lacked this)."""
+        conv_id = json.loads(client.get("/api/planner/conversation", headers=auth_headers).data)[
+            "id"
+        ]
+        test_database.add_message(conv_id, "user", "Plan my day")
+        test_database.add_message(conv_id, "assistant", "")  # in-flight placeholder
+
+        data = json.loads(client.get("/api/planner/conversation", headers=auth_headers).data)
+
+        assert [m["content"] for m in data["messages"]] == ["Plan my day"]
+
     def test_auto_reset_triggers_after_4am(
         self,
         client: FlaskClient,

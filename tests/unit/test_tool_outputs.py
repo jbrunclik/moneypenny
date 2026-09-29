@@ -102,3 +102,32 @@ class TestFormatToolOutputs:
     def test_none_for_empty(self) -> None:
         assert format_tool_outputs(None) is None
         assert format_tool_outputs([]) is None
+
+
+class TestCallShapes:
+    def test_parallel_calls_in_one_round(self) -> None:
+        messages = [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"id": "a", "name": "todoist", "args": {"action": "list_tasks"}},
+                    {"id": "b", "name": "garmin_connect", "args": {"action": "hrv"}},
+                ],
+            ),
+            ToolMessage(content='{"tasks":[]}', tool_call_id="a", name="todoist"),
+            ToolMessage(content='{"hrv":62}', tool_call_id="b", name="garmin_connect"),
+        ]
+        outputs = build_tool_outputs(messages)
+        assert outputs is not None
+        assert [o["tool"] for o in outputs] == ["todoist", "garmin_connect"]
+        assert outputs[1]["args"] == '{"action":"hrv"}'
+
+    def test_tool_name_falls_back_to_the_call(self) -> None:
+        """Hand-built ToolMessages (e.g. permission-blocked calls) carry no name."""
+        messages = [
+            AIMessage(content="", tool_calls=[{"id": "a", "name": "kv_store", "args": {}}]),
+            ToolMessage(content="blocked", tool_call_id="a"),
+        ]
+        outputs = build_tool_outputs(messages)
+        assert outputs is not None
+        assert outputs[0]["tool"] == "kv_store"
