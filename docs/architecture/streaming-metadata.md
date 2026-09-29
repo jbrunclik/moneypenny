@@ -18,7 +18,7 @@ chunks (`in_msg_context` tracks that).
   after it as an HTML comment.
 - A literal `-->` inside the JSON would end the block early. `json.dumps()` never
   emits one, and `format_tool_outputs()` guarantees none.
-- Tests: `TestStreamingMsgContextHandling` in `tests/unit/test_chat_agent_helpers.py`.
+- Tests: `TestStreamingMsgContextHandling` in `tests/unit/test_agent_streaming.py`.
 
 ## Stream Recovery
 

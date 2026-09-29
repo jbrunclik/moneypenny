@@ -503,7 +503,7 @@ FILE_RETENTION_DAYS=30
 
 ### Testing
 
-- Unit: [test_gemini_files.py](../../tests/unit/test_gemini_files.py), [test_file_retention.py](../../tests/unit/test_file_retention.py), video classes in [test_files.py](../../tests/unit/test_files.py), [test_tools.py](../../tests/unit/test_tools.py), [test_history.py](../../tests/unit/test_history.py)
+- Unit: [test_gemini_files.py](../../tests/unit/test_gemini_files.py), [test_file_retention.py](../../tests/unit/test_file_retention.py), video classes in [test_files.py](../../tests/unit/test_files.py), [test_file_retrieval.py](../../tests/unit/test_file_retrieval.py), [test_history.py](../../tests/unit/test_history.py)
 - Integration: video/410 classes in [test_routes_chat.py](../../tests/integration/test_routes_chat.py), [test_routes_files.py](../../tests/integration/test_routes_files.py)
 - E2E: "Chat - Video Upload" in [attachments.spec.ts](../../web/tests/e2e/chat/attachments.spec.ts); real ffmpeg-generated fixtures in [tests/fixtures/](../../tests/fixtures/)
 

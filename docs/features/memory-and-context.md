@@ -320,7 +320,7 @@ conversations, and without integration tools (Todoist, Google Calendar).
 ### Testing
 
 - **Backend unit tests**: `TestGetToolsForRequest` in [test_tools.py](../../tests/unit/test_tools.py),
-  `TestGetSystemPromptAnonymousMode` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
+  `TestGetSystemPromptAnonymousMode` in [test_prompts.py](../../tests/unit/test_prompts.py)
 - **Route tests**: `TestAnonymousMode` in [test_routes_conversations.py](../../tests/integration/test_routes_conversations.py)
 - **E2E tests**: "Chat - Anonymous Mode" describe block in [anonymous-mode.spec.ts](../../web/tests/e2e/chat/anonymous-mode.spec.ts)
 - Includes regression test for the temp-to-permanent ID transition bug

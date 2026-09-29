@@ -43,9 +43,11 @@ tests/
 │   ├── test_costs.py              # Cost calculations
 │   ├── test_jwt_auth.py           # JWT token handling
 │   ├── test_google_auth.py        # Google token verification
-│   ├── test_chat_agent_helpers.py # Agent helper functions
+│   ├── test_agent_*.py            # ChatAgent (src/agent/agent.py), by concern
+│   ├── test_content_*.py          # Response content helpers (src/agent/content.py)
 │   ├── test_images.py             # Image processing
-│   └── test_tools.py              # Agent tools (mocked externals)
+│   ├── test_<tool>_tool.py        # One file per agent tool module (mocked externals)
+│   └── test_tools.py              # Tool selection (src/agent/tools/__init__.py)
 ├── integration/                   # Integration tests (multi-component)
 │   ├── test_db_models/          # Database CRUD operations
 │   ├── test_routes_auth.py        # Auth endpoints

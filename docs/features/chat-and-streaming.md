@@ -364,7 +364,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 
 ### Testing
 
-- Backend unit tests: `TestExtractThinkingAndText` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
+- Backend unit tests: `TestExtractThinkingAndText` in [test_content_text.py](../../tests/unit/test_content_text.py)
 - Frontend unit tests: [thinking-indicator.test.ts](../../web/tests/unit/thinking-indicator.test.ts)
 - E2E tests: "Chat - Thinking Indicator" describe block in [thinking-indicator.spec.ts](../../web/tests/e2e/chat/thinking-indicator.spec.ts)
 
@@ -523,7 +523,7 @@ HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
 
 ### Testing
 
-- Unit tests: `TestFormatMessageWithMetadata` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
+- Unit tests: `TestFormatMessageWithMetadata` in [test_agent_messages.py](../../tests/unit/test_agent_messages.py)
 - Unit tests: [test_history.py](../../tests/unit/test_history.py) - comprehensive tests for enrichment functions
 
 ## Conversation Compaction (cost control)
