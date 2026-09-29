@@ -77,13 +77,10 @@ import { setupEventListeners } from './events';
 import { setupTouchGestures } from './gestures';
 import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
-import {
-  loadDeepLinkedConversation,
-  handleDeepLinkNavigation,
-  deleteMessage,
-  navigateToArchive,
-  isTempConversation,
-} from './conversation';
+import { isTempConversation } from './conversation';
+import { loadDeepLinkedConversation, handleDeepLinkNavigation } from './conversation-deeplink';
+import { deleteMessage } from './conversation-actions';
+import { navigateToArchive } from './archive';
 import { navigateToPlanner, leavePlannerView } from './planner';
 import { navigateToSports, navigateToSportsProgram } from './sports';
 import { navigateToLanguage, navigateToLanguageProgram } from './language';

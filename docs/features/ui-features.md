@@ -200,7 +200,7 @@ The sidebar displays a list of conversations with hover actions for rename and d
 ### Key Files
 
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversation list rendering, rename/delete handlers
-- [conversation.ts](../../web/src/core/conversation.ts) - `renameConversation()` function
+- [conversation-actions.ts](../../web/src/core/conversation-actions.ts) - `renameConversation()` function
 - [Modal.ts](../../web/src/components/Modal.ts) - `showPrompt()` and `showConfirm()` dialogs
 
 ---
@@ -247,7 +247,7 @@ The app supports hash-based routing (`#/conversations/{conversationId}`) for dee
 
 **Integration:**
 - [init.ts](../../web/src/core/init.ts) - Deep linking initialization
-- [conversation.ts](../../web/src/core/conversation.ts) - Deep linking handlers and navigation
+- [conversation-deeplink.ts](../../web/src/core/conversation-deeplink.ts) - Deep linking handlers and navigation
 - [store.ts](../../web/src/state/store.ts) - `currentConversationId` persisted to localStorage
 
 ### Testing

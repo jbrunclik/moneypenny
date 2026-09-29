@@ -10,7 +10,8 @@ import { toast } from '../components/Toast';
 import { getElementById } from '../utils/dom';
 import type { Conversation } from '../types/api';
 
-import { isTempConversation, switchToConversation, markAgentViewedAndRefresh } from './conversation';
+import { isTempConversation, markAgentViewedAndRefresh } from './conversation';
+import { switchToConversation } from './conversation-switch';
 
 const log = createLogger('sync-banner');
 

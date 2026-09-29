@@ -30,7 +30,7 @@ import {
 } from '../components/messages';
 import { getElementById, scrollToBottom } from '../utils/dom';
 import type { Message, Source, GeneratedImage, FileMetadata } from '../types/api';
-import { updateConversationTitle } from './conversation';
+import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { getSyncManager } from '../sync/SyncManager';
 import { hideNewMessagesAvailableBanner } from './sync-banner';

@@ -21,7 +21,7 @@ import {
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import type { ChatResponse, ClientLocation, FileUpload, Message } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
-import { updateConversationTitle } from './conversation';
+import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { notifyTurnFinished } from './attention';
 import { trackRequest, untrackRequest } from './active-requests';

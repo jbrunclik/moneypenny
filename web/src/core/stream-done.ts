@@ -15,7 +15,7 @@ import {
 } from '../components/messages';
 import { getElementById } from '../utils/dom';
 import type { FileMetadata, GeneratedImage, Message, Source } from '../types/api';
-import { updateConversationTitle } from './conversation';
+import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
 import type { StreamingState } from './stream-session';

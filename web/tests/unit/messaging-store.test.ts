@@ -113,6 +113,9 @@ vi.mock('@/sync/SyncManager', () => ({
 vi.mock('@/core/conversation', () => ({
   isTempConversation: vi.fn(() => false),
   createConversation: vi.fn(),
+}));
+
+vi.mock('@/core/conversation-actions', () => ({
   updateConversationTitle: vi.fn(),
 }));
 

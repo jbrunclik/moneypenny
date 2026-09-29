@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('@/core/conversation', () => ({ updateConversationTitle: vi.fn() }));
+vi.mock('@/core/conversation-actions', () => ({ updateConversationTitle: vi.fn() }));
 vi.mock('@/core/toolbar', () => ({ updateConversationCost: vi.fn() }));
 vi.mock('@/components/messages', () => ({}));
 

@@ -15,7 +15,9 @@ import { showActionSheet } from '../components/ActionSheet';
 import { useStore } from '../state/store';
 import { ARCHIVE_ICON, DELETE_ICON, EDIT_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 
-import { createConversation, selectConversation, deleteConversation, renameConversation, archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView, togglePinConversation } from './conversation';
+import { createConversation, selectConversation } from './conversation';
+import { deleteConversation, renameConversation, togglePinConversation } from './conversation-actions';
+import { archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView } from './archive';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';

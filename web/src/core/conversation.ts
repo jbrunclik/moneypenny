@@ -1,37 +1,30 @@
 /**
- * Conversation management module.
- * Handles conversation CRUD, selection, temp IDs, and switching.
+ * Conversation selection: temp IDs, the pending-load race guard, and
+ * selecting/creating conversations. Rendering a switch lives in
+ * conversation-switch.ts, CRUD actions in conversation-actions.ts, archive
+ * in archive.ts, deep links in conversation-deeplink.ts, the chat header
+ * in conversation-header.ts.
  */
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { agents } from '../api/agents';
-import { conversations, messages } from '../api/conversations';
+import { conversations } from '../api/conversations';
 import { toast } from '../components/Toast';
-import { showConfirm, showPrompt } from '../components/Modal';
-import { resumeInflightStreamIfAny } from './stream-resume';
 import { reconcileOutboxWithServer } from './outbox';
 import {
   renderConversationsList,
   setActiveConversation,
   closeSidebar,
   setPlannerActive,
-  loadArchivedConversations,
-  cleanupArchiveInfiniteScroll,
 } from '../components/Sidebar';
 import {
   renderMessages,
   showConversationLoader,
   hideConversationLoader,
   updateChatTitle,
-  setupOlderMessagesScrollListener,
   cleanupOlderMessagesScrollListener,
   cleanupNewerMessagesScrollListener,
-  showLoadingIndicator,
-  restoreStreamingMessage,
-  hasActiveStreamingContext,
-  getStreamingContextConversationId,
-  cleanupStreamingContext,
 } from '../components/messages';
 import {
   focusMessageInput,
@@ -41,41 +34,20 @@ import {
 } from '../components/MessageInput';
 import { renderModelDropdown } from '../components/ModelSelector';
 import { getElementById } from '../utils/dom';
-import { enableScrollOnImageLoad, setCurrentConversationForBlobs } from '../utils/thumbnails';
-import {
-  setArchiveHash,
-  setConversationHash,
-  clearConversationHash,
-  pushEmptyHash,
-  getSportsProgramFromHash,
-  getLanguageProgramFromHash,
-} from '../router/deeplink';
+import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { pushEmptyHash } from '../router/deeplink';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
-import type { Conversation } from '../types/api';
-import { APP_NAME } from '../config';
+import type { Conversation, ConversationDetailResponse, Message } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
-import { renderAgentConversationHeader } from '../components/AgentConversationHeader';
-import { renderChatHeader } from '../components/ChatHeader';
 import { revealHeader } from './header-autohide';
-import { ARCHIVE_ICON, DELETE_ICON, PIN_ICON, UNPIN_ICON } from '../utils/icons';
-
+import { renderChatHeaderForConversation } from './conversation-header';
+import { switchToConversation } from './conversation-switch';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { leavePlannerView, navigateToPlanner } from './planner';
-import { leaveStorageView, navigateToStorage } from './kv-store';
-import { leaveSportsView, navigateToSportsProgram, navigateToSports } from './sports';
-import { leaveLanguageView, navigateToLanguageProgram, navigateToLanguage } from './language';
-import { hideNewMessagesAvailableBanner } from './sync-banner';
-import { leaveAgentsView, navigateToAgents, handleAgentEditById } from './agents';
+import { leaveStorageView } from './kv-store';
+import { leaveSportsView } from './sports';
+import { leaveAgentsView } from './agents';
 
 const log = createLogger('conversation');
-
-/** Look up agent name from command center data in the store. */
-function getAgentNameById(agentId: string): string | null {
-  const { commandCenterData } = useStore.getState();
-  if (!commandCenterData) return null;
-  const agent = commandCenterData.agents.find(a => a.id === agentId);
-  return agent?.name ?? null;
-}
 
 // Track the most recently requested conversation ID to handle race conditions
 // When user clicks a conversation, we store its ID. If they click another
@@ -122,6 +94,28 @@ export function findReusableEmptyConversation(
 }
 
 /**
+ * Build the store's Conversation from a detail response, with the
+ * outbox-reconciled message list.
+ */
+export function toConversation(
+  response: ConversationDetailResponse,
+  mergedMessages: Message[],
+): Conversation {
+  return {
+    id: response.id,
+    title: response.title,
+    model: response.model,
+    created_at: response.created_at,
+    updated_at: response.updated_at,
+    messages: mergedMessages,
+    is_agent: response.is_agent,
+    agent_id: response.agent_id,
+    has_pending_approval: response.has_pending_approval,
+    archived: response.archived,
+  };
+}
+
+/**
  * Mark an agent's messages as viewed on the server and refresh the
  * command center so unread badges clear. Fire-and-forget: reading the
  * conversation must never block on this.
@@ -144,7 +138,7 @@ export function markAgentViewedAndRefresh(agentId: string): void {
  * Skipping this on any open path leaves last_viewed_at stale, so the
  * unread badge persists on every device.
  */
-function trackViewedAgentConversation(
+export function trackViewedAgentConversation(
   response: { is_agent?: boolean; agent_id?: string | null; message_pagination: { total_count: number } }
 ): void {
   if (response.is_agent && response.agent_id) {
@@ -156,186 +150,24 @@ function trackViewedAgentConversation(
 }
 
 /**
- * Build the icon action buttons for the regular conversation header.
+ * Leave any special view (planner, agents, storage, sports) before a
+ * conversation takes over the main area.
  */
-function buildChatHeaderActions(convId: string): HTMLElement[] {
-  const conv = useStore.getState().conversations.find((c) => c.id === convId);
-  const pinBtn = document.createElement('button');
-  pinBtn.className = 'btn-icon chat-header-action';
-  pinBtn.setAttribute('aria-label', conv?.pinned ? 'Unpin conversation' : 'Pin conversation');
-  pinBtn.title = conv?.pinned ? 'Unpin conversation' : 'Pin conversation';
-  pinBtn.innerHTML = conv?.pinned ? UNPIN_ICON : PIN_ICON;
-  pinBtn.addEventListener('click', () => {
-    void togglePinConversation(convId).then(() => {
-      // Refresh the header so the icon/tooltip reflect the new state
-      const updated = useStore.getState().conversations.find((c) => c.id === convId);
-      if (updated && useStore.getState().currentConversation?.id === convId) {
-        renderChatHeaderForConversation({ ...updated });
-      }
-    });
-  });
-
-  const archiveBtn = document.createElement('button');
-  archiveBtn.className = 'btn-icon chat-header-action';
-  archiveBtn.setAttribute('aria-label', 'Archive conversation');
-  archiveBtn.title = 'Archive conversation';
-  archiveBtn.innerHTML = ARCHIVE_ICON;
-  archiveBtn.addEventListener('click', () => void archiveConversation(convId));
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'btn-icon chat-header-action chat-header-action-danger';
-  deleteBtn.setAttribute('aria-label', 'Delete conversation');
-  deleteBtn.title = 'Delete conversation';
-  deleteBtn.innerHTML = DELETE_ICON;
-  deleteBtn.addEventListener('click', () => void deleteConversation(convId));
-
-  return [pinBtn, archiveBtn, deleteBtn];
-}
-
-/**
- * Render the chat header for a regular (non-agent) conversation.
- * Temp conversations get a plain header (no rename/actions until persisted).
- */
-function renderChatHeaderForConversation(conv: Conversation): void {
-  if (isTempConversation(conv.id)) {
-    renderChatHeader({ title: conv.title });
-    return;
-  }
-  renderChatHeader({
-    title: conv.title,
-    onRenameCommit: (newTitle) => void renameConversationTo(conv.id, newTitle),
-    actions: buildChatHeaderActions(conv.id),
-  });
-}
-
-/**
- * Switch to a conversation and update UI.
- */
-export function switchToConversation(conv: Conversation, totalMessageCount?: number): void {
-  log.debug('Switching to conversation', { conversationId: conv.id, title: conv.title, totalMessageCount });
+function leaveSpecialViewsForChat(): void {
   const store = useStore.getState();
-
-  // Clean up blob URLs from the previous conversation to prevent memory leaks
-  // This must happen before we set the new conversation ID
-  setCurrentConversationForBlobs(conv.id);
-
-  // Clean up newer messages scroll listener from previous conversation
-  // This must happen before setting up listeners for the new conversation
-  cleanupNewerMessagesScrollListener();
-
-  // Clean up streaming context only if switching to a DIFFERENT conversation
-  // If switching back to the streaming conversation, we want to restore the UI state instead
-  const streamingConvId = getStreamingContextConversationId();
-  if (hasActiveStreamingContext() && streamingConvId !== conv.id) {
-    log.debug('Cleaning up streaming context from different conversation', {
-      streamingConvId,
-      targetConvId: conv.id
-    });
-    cleanupStreamingContext();
+  if (store.isPlannerView) {
+    setPlannerActive(false);
   }
-
-  store.setCurrentConversation(conv);
-  setActiveConversation(conv.id);
-  updateChatTitle(conv.title);
-
-  // Regular conversations get the shared chat header; agent conversations
-  // keep their sticky in-messages header (hide the regular one)
-  if (conv.is_agent) {
-    renderChatHeader(null);
-  } else {
-    renderChatHeaderForConversation(conv);
+  if (store.isAgentsView) {
+    leaveAgentsView(false);
   }
-
-  // Update URL hash for deep linking (skips temp conversations automatically)
-  setConversationHash(conv.id);
-
-  // Hide any existing new messages banner when switching conversations
-  hideNewMessagesAvailableBanner();
-
-  // Enable scroll-to-bottom for images that load after initial render
-  enableScrollOnImageLoad();
-
-  // Pass server's pending approval status if this is an agent conversation
-  renderMessages(conv.messages || [], {
-    hasPendingApproval: conv.has_pending_approval,
-  });
-
-  // Restore this conversation's composer draft (typed text survives switches)
-  restoreDraftForConversation(conv.id);
-
-  // Agent conversations use the shared chat header with back/edit actions
-  if (conv.is_agent && conv.agent_id) {
-    const agentName = getAgentNameById(conv.agent_id) || conv.title;
-    renderAgentConversationHeader(
-      agentName,
-      () => {
-        navigateToAgents();
-      },
-      () => {
-        if (conv.agent_id) {
-          handleAgentEditById(conv.agent_id!);
-        }
-      },
-    );
+  if (store.isStorageView) {
+    leaveStorageView(false);
   }
-
-  // Set up scroll listener for loading older messages (if not a temp conversation)
-  if (!isTempConversation(conv.id)) {
-    setupOlderMessagesScrollListener(conv.id);
+  if (store.isSportsView) {
+    leaveSportsView();
   }
-
-  // Check if there's an active request for this conversation and restore UI state
-  const activeRequest = store.getActiveRequest(conv.id);
-  if (activeRequest) {
-    log.debug('Restoring active request UI', { conversationId: conv.id, type: activeRequest.type });
-    if (activeRequest.type === 'stream') {
-      // Restore streaming message UI with accumulated content
-      // The element is tracked in Messages.ts via currentStreamingContext
-      restoreStreamingMessage(
-        conv.id,
-        activeRequest.content || '',
-        activeRequest.thinkingState
-      );
-    } else if (activeRequest.type === 'batch') {
-      // Show loading indicator for batch requests
-      showLoadingIndicator();
-    }
-  }
-
-  // If the page died mid-stream in this conversation, resume from the journal.
-  // MUST run after the active-request restore above: the resume registers an
-  // active request of its own, and running first would make the restore path
-  // immediately re-create a competing bubble for it (the resume bails out when
-  // an active request already exists, so the two paths are mutually exclusive).
-  void resumeInflightStreamIfAny(conv.id);
-
-  renderModelDropdown();
-  closeSidebar();
-
-  // Ensure input area is visible (defensive fix for race conditions
-  // when navigating between agents/planner/conversation views)
-  ensureInputAreaVisible();
-
-  if (shouldAutoFocusInput()) {
-    focusMessageInput();
-  }
-
-  // Update anonymous button state for the new conversation
-  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
-  if (anonymousBtn) {
-    updateAnonymousButtonState(anonymousBtn, store.getAnonymousMode(conv.id));
-  }
-
-  // Update conversation cost
-  updateConversationCost(conv.id);
-
-  // Mark conversation as read in sync manager and re-render sidebar to clear badge
-  // Use totalMessageCount if provided (from pagination), otherwise fall back to messages.length
-  // This is critical for correct sync behavior: using messages.length when pagination is active
-  // would set localMessageCount too low, causing false "new messages available" banners
-  const messageCount = totalMessageCount ?? conv.messages?.length ?? 0;
-  getSyncManager()?.markConversationRead(conv.id, messageCount);
-  renderConversationsList();
+  store.setActiveView('chat');
 }
 
 /**
@@ -359,19 +191,7 @@ export async function selectConversation(convId: string): Promise<void> {
   const navToken = store.startNavigation();
 
   // Leave any special view before switching to a conversation
-  if (store.isPlannerView) {
-    setPlannerActive(false);
-  }
-  if (store.isAgentsView) {
-    leaveAgentsView(false);
-  }
-  if (store.isStorageView) {
-    leaveStorageView(false);
-  }
-  if (store.isSportsView) {
-    leaveSportsView();
-  }
-  store.setActiveView('chat');
+  leaveSpecialViewsForChat();
 
   // For temp conversations, just switch to them locally (no API call needed)
   if (isTempConversation(convId)) {
@@ -418,40 +238,7 @@ export async function selectConversation(convId: string): Promise<void> {
 
     // Safe to hide loader now - this navigation will proceed
     hideConversationLoader();
-
-    // Merge in unconfirmed outbox sends (pending/failed) before storing:
-    // this is what makes a lost send reappear with a retry affordance
-    const mergedMessages = reconcileOutboxWithServer(convId, response.messages);
-
-    // Store messages and pagination in the per-conversation Maps
-    store.setMessages(convId, mergedMessages, response.message_pagination);
-
-    // Anonymous mode is persisted server-side; adopt it so a reload does not
-    // silently drop the conversation back to memory-enabled.
-    if (response.anonymous_mode) {
-      store.setAnonymousMode(convId, true);
-    }
-
-    // Convert response to Conversation object for switchToConversation
-    const conv: Conversation = {
-      id: response.id,
-      title: response.title,
-      model: response.model,
-      created_at: response.created_at,
-      updated_at: response.updated_at,
-      messages: mergedMessages,
-      is_agent: response.is_agent,
-      agent_id: response.agent_id,
-      has_pending_approval: response.has_pending_approval,
-      archived: response.archived,
-    };
-
-    // Mark agent conversation as viewed to reset unread count
-    // Also track the agent for sync purposes
-    trackViewedAgentConversation(response);
-
-    // Pass total message count from pagination for correct sync behavior
-    switchToConversation(conv, response.message_pagination.total_count);
+    showLoadedConversation(convId, response);
   } catch (error) {
     log.error('Failed to load conversation', { error, conversationId: convId });
     hideConversationLoader();
@@ -463,59 +250,55 @@ export async function selectConversation(convId: string): Promise<void> {
   }
 }
 
-/**
- * Create a new conversation (local only - saved to DB on first message).
- */
-export function createConversation(): void {
-  log.debug('Creating new conversation');
+/** Store a freshly fetched conversation and switch to it. */
+function showLoadedConversation(convId: string, response: ConversationDetailResponse): void {
   const store = useStore.getState();
 
-  // Reuse an existing empty conversation instead of piling up untitled ones
+  // Merge in unconfirmed outbox sends (pending/failed) before storing:
+  // this is what makes a lost send reappear with a retry affordance
+  const mergedMessages = reconcileOutboxWithServer(convId, response.messages);
+
+  // Store messages and pagination in the per-conversation Maps
+  store.setMessages(convId, mergedMessages, response.message_pagination);
+
+  // Anonymous mode is persisted server-side; adopt it so a reload does not
+  // silently drop the conversation back to memory-enabled.
+  if (response.anonymous_mode) {
+    store.setAnonymousMode(convId, true);
+  }
+
+  // Mark agent conversation as viewed to reset unread count
+  // Also track the agent for sync purposes
+  trackViewedAgentConversation(response);
+
+  // Pass total message count from pagination for correct sync behavior
+  switchToConversation(toConversation(response, mergedMessages), response.message_pagination.total_count);
+}
+
+/**
+ * Reuse an existing empty conversation instead of piling up untitled ones.
+ * Returns true when one was found (and selected unless already shown).
+ */
+function reuseEmptyConversation(): boolean {
+  const store = useStore.getState();
   const reusable = findReusableEmptyConversation(store.conversations);
-  if (reusable) {
-    const inSpecialView =
-      store.isPlannerView ||
-      store.isAgentsView ||
-      store.isStorageView ||
-      store.isSportsView ||
-      store.isLanguageView;
-    const alreadyViewingIt = store.currentConversation?.id === reusable.id && !inSpecialView;
-    if (!alreadyViewingIt) {
-      void selectConversation(reusable.id);
-    }
-    return;
+  if (!reusable) return false;
+  const inSpecialView =
+    store.isPlannerView ||
+    store.isAgentsView ||
+    store.isStorageView ||
+    store.isSportsView ||
+    store.isLanguageView;
+  const alreadyViewingIt = store.currentConversation?.id === reusable.id && !inSpecialView;
+  if (!alreadyViewingIt) {
+    void selectConversation(reusable.id);
   }
+  return true;
+}
 
-  // Leave any special view before creating new conversation
-  if (store.isPlannerView) {
-    setPlannerActive(false);
-  }
-  if (store.isAgentsView) {
-    leaveAgentsView(false);
-  }
-  if (store.isStorageView) {
-    leaveStorageView(false);
-  }
-  if (store.isSportsView) {
-    leaveSportsView();
-  }
-  store.setActiveView('chat');
-
-  // Clear any tracked agent since we're starting a new conversation
-  getSyncManager()?.setViewedAgent(null);
-
-  // Clear any pending conversation load - user clicked "New Chat"
-  pendingConversationId = null;
-
-  // Clean up scroll listeners from previous conversation to prevent them from
-  // loading messages after we switch to the new conversation
-  cleanupOlderMessagesScrollListener();
-  cleanupNewerMessagesScrollListener();
-
-  // Clean up blob URLs from the previous conversation to prevent memory leaks
-  setCurrentConversationForBlobs(null);
-
-  // Create a local-only conversation with a temp ID
+/** Add a local-only conversation with a temp ID and make it current. */
+function addTempConversation(): { conv: Conversation; pendingAnonymous: boolean } {
+  const store = useStore.getState();
   const tempId = `temp-${Date.now()}`;
   const now = new Date().toISOString();
 
@@ -544,6 +327,35 @@ export function createConversation(): void {
     store.setAnonymousMode(tempId, true);
   }
   store.setPendingAnonymousMode(false);
+  return { conv, pendingAnonymous };
+}
+
+/**
+ * Create a new conversation (local only - saved to DB on first message).
+ */
+export function createConversation(): void {
+  log.debug('Creating new conversation');
+
+  if (reuseEmptyConversation()) return;
+
+  // Leave any special view before creating new conversation
+  leaveSpecialViewsForChat();
+
+  // Clear any tracked agent since we're starting a new conversation
+  getSyncManager()?.setViewedAgent(null);
+
+  // Clear any pending conversation load - user clicked "New Chat"
+  pendingConversationId = null;
+
+  // Clean up scroll listeners from previous conversation to prevent them from
+  // loading messages after we switch to the new conversation
+  cleanupOlderMessagesScrollListener();
+  cleanupNewerMessagesScrollListener();
+
+  // Clean up blob URLs from the previous conversation to prevent memory leaks
+  setCurrentConversationForBlobs(null);
+
+  const { conv, pendingAnonymous } = addTempConversation();
 
   renderConversationsList();
   setActiveConversation(conv.id);
@@ -573,571 +385,4 @@ export function createConversation(): void {
   // Push empty hash to history so back button works (navigates to previous conversation)
   // The real hash will be set when the conversation is persisted
   pushEmptyHash();
-}
-
-/**
- * Remove conversation from UI and clear if it was current.
- */
-export function removeConversationFromUI(convId: string): void {
-  const store = useStore.getState();
-  store.removeConversation(convId);
-  renderConversationsList();
-
-  if (store.currentConversation?.id === convId) {
-    store.setCurrentConversation(null);
-    renderMessages([]);
-    updateChatTitle(APP_NAME);
-    renderChatHeader(null);
-    // The mobile cost chip lives in the persistent mobile header (not the
-    // re-rendered chat header) - clear it or the deleted conversation's
-    // cost lingers on the welcome screen
-    void updateConversationCost(null);
-    // Clear the hash since conversation no longer exists
-    clearConversationHash();
-  }
-}
-
-/**
- * Delete a conversation.
- */
-export async function deleteConversation(convId: string): Promise<void> {
-  const confirmed = await showConfirm({
-    title: 'Delete Conversation',
-    message: 'Are you sure you want to delete this conversation? This cannot be undone.',
-    confirmLabel: 'Delete',
-    cancelLabel: 'Cancel',
-    danger: true,
-  });
-
-  if (!confirmed) return;
-
-  // For temp conversations, just remove locally (no API call needed)
-  if (isTempConversation(convId)) {
-    removeConversationFromUI(convId);
-    return;
-  }
-
-  // Check if the conversation is archived
-  const store = useStore.getState();
-  const isArchived = store.archivedConversations.some(c => c.id === convId);
-
-  try {
-    await conversations.delete(convId);
-
-    if (isArchived) {
-      store.removeArchivedConversation(convId);
-      renderConversationsList();
-    } else {
-      removeConversationFromUI(convId);
-    }
-  } catch (error) {
-    log.error('Failed to delete conversation', { error, conversationId: convId });
-    toast.error('Failed to delete conversation. Please try again.');
-  }
-}
-
-/**
- * Delete a message.
- */
-export async function deleteMessage(messageId: string): Promise<void> {
-  const confirmed = await showConfirm({
-    title: 'Delete Message',
-    message: 'Are you sure you want to delete this message? This cannot be undone.',
-    confirmLabel: 'Delete',
-    cancelLabel: 'Cancel',
-    danger: true,
-  });
-
-  if (!confirmed) return;
-
-  try {
-    await messages.delete(messageId);
-    // Remove the message element from the DOM
-    const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
-    if (messageEl) {
-      messageEl.remove();
-    }
-    toast.success('Message deleted.');
-  } catch (error) {
-    log.error('Failed to delete message', { error, messageId });
-    toast.error('Failed to delete message. Please try again.');
-  }
-}
-
-/**
- * Rename a conversation.
- */
-export async function renameConversation(convId: string): Promise<void> {
-  const store = useStore.getState();
-  const conv = store.conversations.find(c => c.id === convId)
-    || store.archivedConversations.find(c => c.id === convId);
-
-  if (!conv) {
-    log.warn('Conversation not found for rename', { conversationId: convId });
-    return;
-  }
-
-  const currentTitle = conv.title || DEFAULT_CONVERSATION_TITLE;
-
-  const newTitle = await showPrompt({
-    title: 'Rename Conversation',
-    message: 'Enter a new name for this conversation:',
-    defaultValue: currentTitle,
-    placeholder: 'Conversation name',
-    confirmLabel: 'Rename',
-    cancelLabel: 'Cancel',
-  });
-
-  // User cancelled or entered empty string
-  if (!newTitle || newTitle.trim() === '') {
-    return;
-  }
-
-  await renameConversationTo(convId, newTitle);
-}
-
-/**
- * Rename a conversation to a specific title (no prompt).
- * Used by the prompt flow above and the chat header inline rename.
- */
-export async function renameConversationTo(convId: string, newTitle: string): Promise<void> {
-  const store = useStore.getState();
-  const conv = store.conversations.find(c => c.id === convId)
-    || store.archivedConversations.find(c => c.id === convId);
-
-  if (!conv) {
-    log.warn('Conversation not found for rename', { conversationId: convId });
-    return;
-  }
-
-  const isArchived = store.archivedConversations.some(c => c.id === convId);
-  const currentTitle = conv.title || DEFAULT_CONVERSATION_TITLE;
-  const trimmedTitle = newTitle.trim();
-
-  // Empty or no change
-  if (!trimmedTitle || trimmedTitle === currentTitle) {
-    return;
-  }
-
-  // Validate length (backend accepts 1-200 chars)
-  if (trimmedTitle.length > 200) {
-    toast.error('Conversation name is too long (max 200 characters).');
-    return;
-  }
-
-  // For temp conversations, just update locally (no API call needed)
-  if (isTempConversation(convId)) {
-    store.updateConversation(convId, { title: trimmedTitle });
-    if (store.currentConversation?.id === convId) {
-      updateChatTitle(trimmedTitle);
-    }
-    renderConversationsList();
-    toast.success('Conversation renamed.');
-    return;
-  }
-
-  try {
-    await conversations.update(convId, { title: trimmedTitle });
-
-    // Update local state
-    if (isArchived) {
-      store.updateArchivedConversation(convId, { title: trimmedTitle });
-    } else {
-      store.updateConversation(convId, { title: trimmedTitle });
-    }
-
-    // Update chat title if this is the current conversation
-    if (store.currentConversation?.id === convId) {
-      updateChatTitle(trimmedTitle);
-    }
-
-    // Update sidebar
-    renderConversationsList();
-
-    toast.success('Conversation renamed.');
-  } catch (error) {
-    log.error('Failed to rename conversation', { error, conversationId: convId });
-    toast.error('Failed to rename conversation. Please try again.');
-  }
-}
-
-/**
- * Update conversation title after first message (auto-generated by backend).
- * Title is included in the response from both batch and streaming endpoints.
- */
-export function updateConversationTitle(convId: string, title?: string): void {
-  if (!title) return;
-
-  const store = useStore.getState();
-  if (store.currentConversation?.title === DEFAULT_CONVERSATION_TITLE) {
-    store.updateConversation(convId, { title });
-    updateChatTitle(title);
-    renderConversationsList();
-  }
-}
-
-/**
- * Load a conversation from a deep link URL.
- * Handles conversations that may not be in the initially paginated list.
- * Called BEFORE sync manager starts to prevent false "new messages available" banners.
- */
-export async function loadDeepLinkedConversation(conversationId: string): Promise<void> {
-  log.info('Loading deep-linked conversation', { conversationId });
-  const store = useStore.getState();
-
-  // Track that we're trying to load this conversation
-  pendingConversationId = conversationId;
-
-  // Check if conversation is already in the store (from initial list)
-  const existingConv = store.conversations.find((c) => c.id === conversationId);
-
-  if (existingConv) {
-    // Conversation is in the list, fetch full details and switch
-    log.debug('Deep-linked conversation found in store', { conversationId });
-    try {
-      showConversationLoader();
-      const response = await conversations.get(conversationId);
-
-      // Check if user navigated away during API call
-      if (pendingConversationId !== conversationId) {
-        log.debug('Deep-link navigation cancelled - user navigated away', {
-          requestedId: conversationId,
-          pendingId: pendingConversationId,
-        });
-        // Don't hide loader - another navigation may need it
-        return;
-      }
-
-      // Safe to hide loader now - this navigation will proceed
-      hideConversationLoader();
-
-      // Merge unconfirmed outbox sends, then store messages and pagination
-      const mergedMessages = reconcileOutboxWithServer(conversationId, response.messages);
-      store.setMessages(conversationId, mergedMessages, response.message_pagination);
-
-      const conv: Conversation = {
-        id: response.id,
-        title: response.title,
-        model: response.model,
-        created_at: response.created_at,
-        updated_at: response.updated_at,
-        messages: mergedMessages,
-        is_agent: response.is_agent,
-        agent_id: response.agent_id,
-        has_pending_approval: response.has_pending_approval,
-        archived: response.archived,
-      };
-      trackViewedAgentConversation(response);
-      // Use total message count from pagination for correct sync behavior
-      switchToConversation(conv, response.message_pagination.total_count);
-    } catch (error) {
-      log.error('Failed to load deep-linked conversation', { error, conversationId });
-      hideConversationLoader();
-      // Clear the invalid hash and show error
-      clearConversationHash();
-      toast.error('Failed to load conversation from URL.', {
-        action: { label: 'Retry', onClick: () => loadDeepLinkedConversation(conversationId) },
-      });
-    }
-  } else {
-    // Conversation not in paginated list - fetch directly from API
-    // This handles conversations beyond the initial page load
-    log.debug('Deep-linked conversation not in store, fetching from API', { conversationId });
-    try {
-      showConversationLoader();
-      const response = await conversations.get(conversationId);
-
-      // Check if user navigated away during API call
-      if (pendingConversationId !== conversationId) {
-        log.debug('Deep-link navigation cancelled - user navigated away', {
-          requestedId: conversationId,
-          pendingId: pendingConversationId,
-        });
-        // Don't hide loader - another navigation may need it
-        return;
-      }
-
-      // Safe to hide loader now - this navigation will proceed
-      hideConversationLoader();
-
-      // Add conversation to store (it wasn't in the initial list)
-      // This is important for sync manager to track it correctly
-      // Note: Don't add agent conversations to store - they're handled separately
-      // and would be detected as "deleted" by sync since they're not in the sync response
-      const mergedMessages = reconcileOutboxWithServer(conversationId, response.messages);
-      const conv: Conversation = {
-        id: response.id,
-        title: response.title,
-        model: response.model,
-        created_at: response.created_at,
-        updated_at: response.updated_at,
-        messages: mergedMessages,
-        is_agent: response.is_agent,
-        agent_id: response.agent_id,
-        has_pending_approval: response.has_pending_approval,
-        archived: response.archived,
-        // Set messageCount from pagination for sync manager
-        messageCount: response.message_pagination.total_count,
-      };
-      // Agent conversations are managed separately; archived ones must not
-      // appear in the main sidebar list (and sync would treat them oddly)
-      if (!response.is_agent && !response.archived) {
-        store.addConversation(conv);
-        renderConversationsList();
-      }
-      trackViewedAgentConversation(response);
-      store.setMessages(conversationId, mergedMessages, response.message_pagination);
-
-      // Switch to the conversation
-      switchToConversation(conv, response.message_pagination.total_count);
-    } catch (error) {
-      log.error('Failed to load deep-linked conversation from API', { error, conversationId });
-      hideConversationLoader();
-      // Fall back to the welcome state - the boot path replaced it with
-      // the loader, so it must be re-rendered explicitly
-      renderMessages([]);
-      // Clear the invalid hash - conversation likely doesn't exist or user doesn't have access
-      clearConversationHash();
-      toast.error('Conversation not found or you don\'t have access to it.');
-    }
-  }
-}
-
-/**
- * Handle deep link navigation (browser back/forward buttons).
- * This is called when the URL hash changes via browser navigation.
- */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean): void {
-  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports, isLanguage });
-  const store = useStore.getState();
-
-  // Handle planner navigation - import dynamically to avoid circular dependency
-  if (isPlanner) {
-    navigateToPlanner();
-    return;
-  }
-
-  // Handle agents navigation - import dynamically to avoid circular dependency
-  if (isAgents) {
-    navigateToAgents();
-    return;
-  }
-
-  // Handle storage navigation
-  if (isStorage) {
-    navigateToStorage();
-    return;
-  }
-
-  // Handle sports navigation
-  if (isSports) {
-    const sportsProgramId = getSportsProgramFromHash();
-    if (sportsProgramId) {
-      void navigateToSportsProgram(sportsProgramId);
-    } else {
-      void navigateToSports();
-    }
-    return;
-  }
-
-  // Handle archive navigation (back/forward to #/archive)
-  if (isArchive) {
-    navigateToArchive();
-    return;
-  }
-
-  // Handle language navigation
-  if (isLanguage) {
-    const languageProgramId = getLanguageProgramFromHash();
-    if (languageProgramId) {
-      void navigateToLanguageProgram(languageProgramId);
-    } else {
-      void navigateToLanguage();
-    }
-    return;
-  }
-
-  // If we were in planner view and navigating away, leave planner
-  if (store.isPlannerView) {
-    leavePlannerView();
-  }
-
-  // If we were in agents view and navigating away, leave agents
-  if (store.isAgentsView) {
-    leaveAgentsView();
-  }
-
-  // If we were in storage view and navigating away, leave storage
-  if (store.isStorageView) {
-    leaveStorageView();
-  }
-
-  // If we were in sports view and navigating away, leave sports
-  if (store.isSportsView) {
-    leaveSportsView();
-  }
-
-  // If we were in language view and navigating away, leave language
-  if (store.isLanguageView) {
-    leaveLanguageView();
-  }
-
-  // If we were in archive view and navigating away, leave archive
-  if (store.isArchiveView) {
-    leaveArchiveView();
-  }
-
-  if (!conversationId) {
-    // User navigated to home (no conversation selected)
-    // Clear current conversation but don't navigate away if there's an active request
-    const currentConv = store.currentConversation;
-    if (currentConv && !store.getActiveRequest(currentConv.id)) {
-      store.setCurrentConversation(null);
-      renderMessages([]);
-      updateChatTitle(APP_NAME);
-      setActiveConversation('');
-      renderConversationsList();
-      if (shouldAutoFocusInput()) {
-        focusMessageInput();
-      }
-    }
-    return;
-  }
-
-  // Navigate to the specified conversation
-  // Skip if already viewing this conversation
-  if (store.currentConversation?.id === conversationId) {
-    return;
-  }
-
-  // Check if conversation is in store
-  const conv = store.conversations.find((c) => c.id === conversationId);
-  if (conv) {
-    // Conversation is known, use selectConversation to load it
-    selectConversation(conversationId);
-  } else {
-    // Conversation not in store - try to load it from API
-    // This handles going back to a conversation that was beyond the paginated list
-    loadDeepLinkedConversation(conversationId);
-  }
-}
-
-/**
- * Archive a conversation (no confirmation needed - it's reversible).
- */
-export async function togglePinConversation(convId: string): Promise<void> {
-  if (isTempConversation(convId)) return;
-
-  const store = useStore.getState();
-  const conv = store.conversations.find((c) => c.id === convId);
-  if (!conv) return;
-
-  const nextPinned = !conv.pinned;
-  try {
-    if (nextPinned) {
-      await conversations.pin(convId);
-    } else {
-      await conversations.unpin(convId);
-    }
-  } catch (error) {
-    log.error('Failed to toggle pin', { error, conversationId: convId });
-    toast.error(nextPinned ? 'Failed to pin conversation.' : 'Failed to unpin conversation.');
-    return;
-  }
-
-  store.updateConversation(convId, { pinned: nextPinned });
-  renderConversationsList();
-}
-
-export async function archiveConversation(convId: string): Promise<void> {
-  if (isTempConversation(convId)) return;
-
-  const store = useStore.getState();
-  const conv = store.conversations.find((c) => c.id === convId);
-  if (!conv) return;
-
-  try {
-    await conversations.archive(convId);
-
-    // Move from active to archived list
-    store.removeConversation(convId);
-    store.addArchivedConversation({ ...conv, archived: true });
-
-    // If this was the current conversation, clear it
-    if (store.currentConversation?.id === convId) {
-      store.setCurrentConversation(null);
-      renderMessages([]);
-      updateChatTitle(APP_NAME);
-      renderChatHeader(null);
-      clearConversationHash();
-    }
-
-    renderConversationsList();
-    toast.success('Conversation archived.', {
-      action: {
-        label: 'Undo',
-        onClick: () => unarchiveConversation(convId),
-      },
-    });
-  } catch (error) {
-    log.error('Failed to archive conversation', { error, conversationId: convId });
-    toast.error('Failed to archive conversation.');
-  }
-}
-
-/**
- * Unarchive a conversation (restore to main list).
- */
-export async function unarchiveConversation(convId: string): Promise<void> {
-  const store = useStore.getState();
-  const conv = store.archivedConversations.find((c) => c.id === convId);
-  if (!conv) return;
-
-  try {
-    await conversations.unarchive(convId);
-
-    // Move from archived to active list
-    store.removeArchivedConversation(convId);
-    store.addConversation({ ...conv, archived: false });
-    renderConversationsList();
-    toast.success('Conversation restored.');
-  } catch (error) {
-    log.error('Failed to unarchive conversation', { error, conversationId: convId });
-    toast.error('Failed to unarchive conversation.');
-  }
-}
-
-/**
- * Navigate to the archive view (full-view, like search).
- * Lazy-loads archived conversations on first open.
- */
-export function navigateToArchive(): void {
-  const store = useStore.getState();
-  store.setIsArchiveView(true);
-  setArchiveHash();
-
-  // Lazy-load archived conversations on first open
-  if (store.archivedConversations.length === 0) {
-    loadArchivedConversations();
-    return; // loadArchivedConversations will re-render
-  }
-
-  renderConversationsList();
-}
-
-/**
- * Leave the archive view and return to conversations list.
- */
-export function leaveArchiveView(): void {
-  const store = useStore.getState();
-  store.setIsArchiveView(false);
-  cleanupArchiveInfiniteScroll();
-  renderConversationsList();
-  // Restore the URL: back to the open conversation or home
-  const currentId = store.currentConversation?.id;
-  if (currentId && !isTempConversation(currentId)) {
-    setConversationHash(currentId, { replace: true });
-  } else {
-    clearConversationHash();
-  }
 }

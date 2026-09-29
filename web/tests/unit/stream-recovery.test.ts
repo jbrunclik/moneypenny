@@ -54,7 +54,7 @@ vi.mock('@/utils/dom', () => ({
 }));
 
 // Mock conversation/toolbar functions
-vi.mock('@/core/conversation', () => ({
+vi.mock('@/core/conversation-actions', () => ({
   updateConversationTitle: vi.fn(),
 }));
 

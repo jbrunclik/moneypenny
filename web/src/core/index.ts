@@ -3,7 +3,11 @@
  *
  * This module contains the core functionality split from main.ts into focused modules:
  * - init.ts: App initialization, login overlay, theme
- * - conversation.ts: Conversation CRUD, selection, temp IDs, switching
+ * - conversation.ts: Conversation selection, temp IDs, switching, New Chat
+ *   (conversation-switch.ts: rendering a switch; conversation-actions.ts:
+ *   delete/rename/pin/auto-title; archive.ts:
+ *   archive view; conversation-deeplink.ts: URL routing;
+ *   conversation-header.ts: chat header actions)
  * - messaging.ts: Message send entry point, steering, dispatch-level failures
  *   (stream-send.ts / batch-send.ts: the two send paths; stream-session/-events/
  *   -done/-resume.ts: the streaming engine; rerun.ts: regenerate/edit/retry;
