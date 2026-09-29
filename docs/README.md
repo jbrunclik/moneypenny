@@ -14,6 +14,8 @@ Feature-specific documentation covering user-facing functionality:
 - **[search.md](features/search.md)** - Full-text search with SQLite FTS5, O(1) message navigation
 - **[sync.md](features/sync.md)** - Real-time synchronization across devices/tabs with timestamp-based polling
 - **[integrations.md](features/integrations.md)** - Todoist, Google Calendar, and Garmin Connect integrations with full API coverage
+- **[push-notifications.md](features/push-notifications.md)** - Web Push (VAPID) to the user's devices; the primary notification rail for autonomous agents
+- **[language-learning.md](features/language-learning.md)** - Language programs: AI tutor, assessments, lessons, quizzes
 - **[rouvy.md](features/rouvy.md)** - Rouvy indoor-cycling workout CRUD (headless login + cookie-authed httpx; upload agent-authored ZWO)
 - **[location.md](features/location.md)** - Places search and routing (Mapy.com), device location sharing, saved places, location-aware prompt context and briefing
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
@@ -26,7 +28,7 @@ System design and architectural decisions:
 - **[authentication.md](architecture/authentication.md)** - Google Sign-In, JWT token handling, token refresh, @require_auth decorator
 - **[database.md](architecture/database.md)** - Blob storage, connection pooling, indexes, performance monitoring, vacuum, backup, best practices
 - **[api-design.md](architecture/api-design.md)** - OpenAPI documentation, rate limiting, request validation (including magic bytes), comprehensive error handling
-- **[streaming-metadata.md](architecture/streaming-metadata.md)** - Streaming metadata handling, MSG_CONTEXT/METADATA markers, malformed metadata bug fix, debugging guide
+- **[streaming-metadata.md](architecture/streaming-metadata.md)** - MSG_CONTEXT stripping in the stream, placeholder messages and client-side stream recovery
 - **[scheduled-jobs.md](architecture/scheduled-jobs.md)** - Time-scheduled work: systemd timers in production, dev_scheduler loop in development, job inventory, how to add a new job
 
 ### UI (`ui/`)
@@ -35,6 +37,7 @@ User interface patterns and implementations:
 - **[scroll-behavior.md](ui/scroll-behavior.md)** - Complex scroll scenarios, programmatic scroll wrapper, streaming auto-scroll, race condition fixes, cursor-based pagination
 - **[mobile-and-pwa.md](ui/mobile-and-pwa.md)** - iOS Safari gotchas (9 documented issues), touch gestures, PWA viewport fixes
 - **[components.md](ui/components.md)** - CSS architecture, design system variables, component patterns, popup escape handler
+- **[patterns.md](ui/patterns.md)** - Standard interaction and visual patterns to reuse in new features
 
 ### General
 
@@ -44,6 +47,7 @@ User interface patterns and implementations:
 - **[testing/evals.md](testing/evals.md)** - Agent behavior evals: golden cases + LLM judge (`make eval`), when to run, case authoring
 - **[logging.md](logging.md)** - Structured logging (backend JSON format, frontend logger utility), request IDs, logging guidelines
 - **[conventions.md](conventions.md)** - Code quality guidelines, refactoring patterns, file size rules
+- **[superpowers/specs/](superpowers/specs/)** - Design specs still referenced by open work (parked or with deferred follow-ups). Shipped specs and plans are deleted; git history keeps them
 
 ## Quick Links
 
@@ -59,7 +63,7 @@ User interface patterns and implementations:
 ### For New Developers
 
 Start here to understand the system:
-1. Read the main [../CLAUDE.md](../CLAUDE.md) for quick reference and development workflow
+1. Read [../AGENTS.md](../AGENTS.md) (= CLAUDE.md) for commands and hard rules
 2. Explore [Architecture](architecture/) docs to understand system design
 3. Review [Features](features/) docs for specific functionality
 4. Check [Testing](testing.md) before making changes
@@ -70,7 +74,7 @@ When working on a specific area:
 1. Read the relevant feature doc first
 2. Check related architecture docs for design patterns
 3. Review testing patterns and add tests
-4. Follow code style guidelines in ../CLAUDE.md
+4. Follow [conventions.md](conventions.md)
 
 ### For Debugging
 
@@ -80,7 +84,7 @@ Common debugging scenarios:
 - **Authentication errors**: See [Authentication](architecture/authentication.md) - Error codes and handling
 - **Database performance**: See [Database](architecture/database.md) - Slow query logging, indexes
 - **API errors**: See [API Design](architecture/api-design.md) - Error handling patterns
-- **Empty messages after reload**: See [Streaming Metadata](architecture/streaming-metadata.md) - Malformed METADATA bug
+- **Stream dropped / reply missing after reload**: See [Streaming](architecture/streaming-metadata.md) and the resume section of [Chat and Streaming](features/chat-and-streaming.md)
 
 ## Documentation Guidelines
 
@@ -128,7 +132,7 @@ When implementing a significant new feature:
 2. ✅ Update architecture docs if system design changes
 3. ✅ Add testing section to feature doc
 4. ✅ Update `docs/README.md` index if adding new doc
-5. ✅ Add pointer to detailed doc from CLAUDE.md (if it's a common task)
+5. ✅ Add a pointer from AGENTS.md only for a new everyday command or hard rule
 6. ✅ Update `.env.example` if adding environment variables
 7. ✅ Update README.md if feature is user-facing
 
@@ -147,26 +151,7 @@ When implementing a significant new feature:
 2. **Use relative links**: Link to other docs using relative paths (e.g., `[Database](architecture/database.md)`)
 3. **Add "See Also" sections**: Help readers find related content
 4. **Include code examples**: Show don't tell - provide concrete examples
-5. **Update CLAUDE.md**: Add pointer to detailed doc if it's a common task
-
-## Refactoring Completed
-
-The documentation has been successfully refactored from a monolithic 3,921-line CLAUDE.md into:
-
-- **1 streamlined reference** (CLAUDE.md - 390 lines) with quick reference and pointers
-  - **Note**: `CLAUDE.md` is a symlink to `AGENTS.md` (the canonical file)
-  - Both names point to the same content for compatibility
-- **19 focused documentation files** (~60KB total) covering all topics in depth
-- **Organized structure** with clear categorization (features, architecture, UI, general)
-- **Comprehensive coverage** with 25+ scroll scenarios, 9 iOS gotchas, full API patterns, etc.
-
-### Benefits
-
-✅ **Faster**: Smaller system prompt means faster and cheaper AI interactions
-✅ **Discoverable**: Clear organization makes information easy to find
-✅ **Maintainable**: Focused files are easier to update than one giant file
-✅ **Comprehensive**: More detailed coverage with room to expand
-✅ **Accessible**: Claude can read specific docs when needed without loading everything
+5. **Keep AGENTS.md lean**: add a pointer only for a new everyday command or hard rule
 
 ## Contributing
 
@@ -175,4 +160,5 @@ When adding new features:
 2. Add a link to it in this README
 3. Add a pointer from [../CLAUDE.md](../CLAUDE.md) if it's a common task
 4. Ensure all internal links work correctly
-5. Follow the documentation style guide in CLAUDE.md
+5. Keep pages under ~500 lines - split by subsystem rather than growing one
+6. Link checks run in `tests/unit/test_docs_links.py`

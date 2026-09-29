@@ -382,7 +382,7 @@ Mobile-specific functionality is tested in:
   - Touch gesture tests
   - Swipe actions
   - Mobile layout tests
-- `web/tests/e2e/chat.spec.ts` - Chat functionality on mobile
+- `web/tests/e2e/chat/` - Chat functionality on mobile
   - Message sending with touch
   - Scroll behavior on mobile
 

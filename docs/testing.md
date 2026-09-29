@@ -68,7 +68,7 @@ tests/
 - DuckDuckGo search is mocked
 - HTTP requests (httpx) are mocked
 
-**Shared fixtures** (from [../../tests/conftest.py](../../tests/conftest.py)):
+**Shared fixtures** (from [../../tests/conftest.py](../tests/conftest.py)):
 ```python
 def test_example(client, test_user, test_conversation, auth_headers):
     # client: Flask test client
@@ -461,7 +461,7 @@ by guessing):
 
 ### Planner Tests
 
-The Planner feature has comprehensive E2E and visual test coverage in [../../web/tests/e2e/planner.spec.ts](../../web/tests/e2e/planner.spec.ts) and [../../web/tests/visual/planner.visual.ts](../../web/tests/visual/planner.visual.ts).
+The Planner feature has comprehensive E2E and visual test coverage in [../../web/tests/e2e/planner.spec.ts](../web/tests/e2e/planner.spec.ts) and [../../web/tests/visual/planner.visual.ts](../web/tests/visual/planner.visual.ts).
 
 #### E2E Test Coverage (32 tests)
 
@@ -557,13 +557,13 @@ test('can copy event item to clipboard', async ({ page, browserName }) => {
 
 #### Backend Planner Tests
 
-**Unit Tests** ([../../tests/unit/test_planner.py](../../tests/unit/test_planner.py)):
+**Unit Tests** ([../../tests/unit/test_planner.py](../tests/unit/test_planner.py)):
 - Dashboard data formatting
 - Date range calculations
 - Task priority handling
 - Event/task merging logic
 
-**Integration Tests** ([../../tests/integration/test_routes_planner.py](../../tests/integration/test_routes_planner.py)):
+**Integration Tests** ([../../tests/integration/test_routes_planner.py](../tests/integration/test_routes_planner.py)):
 - `GET /api/planner` (dashboard endpoint)
 - `GET /api/planner/conversation` (get or create planner conversation)
 - `POST /api/planner/reset` (reset conversation)
@@ -668,7 +668,7 @@ tests/integration/test_routes_chat.py .....                 [100%]
 **Frontend tests**:
 ```
 ✓ web/tests/unit/dom.test.ts (5 tests)
-✓ web/tests/e2e/chat.spec.ts (12 tests)
+✓ web/tests/e2e/chat/streaming.spec.ts (12 tests)
 
  Test Files  17 passed (17)
       Tests  89 passed (89)
@@ -676,7 +676,7 @@ tests/integration/test_routes_chat.py .....                 [100%]
 
 ## E2E Test Server
 
-The E2E test server ([../../tests/e2e-server.py](../../tests/e2e-server.py)) is a Flask app that mocks external services for frontend E2E tests.
+The E2E test server ([../../tests/e2e-server.py](../tests/e2e-server.py)) is a Flask app that mocks external services for frontend E2E tests.
 
 ### Features
 
@@ -752,7 +752,7 @@ cd web && npx playwright test
   observe streaming state set a larger delay via `POST /test/set-stream-delay`
   (per-execution-id isolated).
 - **Service worker blocks route mocks**: the app registers `/sw.js`
-  ([src/app.py](../../src/app.py)), and `page.route()` does **not** intercept
+  ([src/app.py](../src/app.py)), and `page.route()` does **not** intercept
   service-worker-mediated fetches. Any spec that mocks API responses must opt out
   with `test.use({ serviceWorkers: 'block' })` (see
   `web/tests/e2e/chat/attachments.spec.ts`).
@@ -762,7 +762,7 @@ cd web && npx playwright test
 - **libmagic video detection**: production validation uses `magic.from_buffer`,
   which can return `application/octet-stream` for real video containers — hence
   the `_matches_video_signature()` fallback in
-  [src/utils/files.py](../../src/utils/files.py). Hand-crafted `ftyp` headers are
+  [src/utils/files.py](../src/utils/files.py). Hand-crafted `ftyp` headers are
   not enough; use real (tiny, ffmpeg-generated) fixtures under `tests/fixtures/`.
 - **Stop button never satisfies Playwright actionability**: `#send-btn.btn-stop`
   has an infinite CSS pulse animation, so use `click({ force: true })` and assert
@@ -1035,7 +1035,7 @@ a stale contract. Classes of places to update:
 CI enforces these; a green test run alone does not guarantee a green build.
 
 - **Security lint (ruff / flake8-bandit)**: the `S` ruleset is enabled in
-  [pyproject.toml](../../pyproject.toml). `per-file-ignores` scope the test/script
+  [pyproject.toml](../pyproject.toml). `per-file-ignores` scope the test/script
   asserts and registry-validated SQL interpolation in `src/db/models/*` (`S608`).
   New justified findings need an inline `# noqa: SXXX - reason`.
 - **Coverage floor**: `fail_under = 70` under `[tool.coverage.report]` (currently
@@ -1049,10 +1049,10 @@ CI enforces these; a green test run alone does not guarantee a green build.
 
 ## See Also
 
-- [Backend Architecture](backend/architecture.md) - Backend code organization
-- [API Documentation](backend/api.md) - API endpoints and schemas
+- [API Design](architecture/api-design.md) - API endpoints, schemas and error handling
+- [Database](architecture/database.md) - Data layer and migrations
 - [UI Components](ui/components.md) - Frontend component patterns
-- [Error Handling](backend/error-handling.md) - Error handling strategies
+- [Evals](testing/evals.md) - Agent-behavior evals
 
 
 ## E2E Stability Pitfalls (Aug 2026)

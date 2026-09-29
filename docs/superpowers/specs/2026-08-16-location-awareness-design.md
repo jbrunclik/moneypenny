@@ -1,7 +1,7 @@
 # Location Awareness — Design Spec
 
 **Date:** 2026-08-16
-**Status:** Approved (Approach B — Mapy.com API, no live traffic)
+**Status:** Implemented (Approach B — Mapy.com API, no live traffic); traffic-aware ETAs tracked in TODO.md
 
 ## Goal
 

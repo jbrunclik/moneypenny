@@ -5,8 +5,9 @@ This document covers the chat system, streaming responses, thinking indicators, 
 ## Gemini API Integration
 
 ### Models
-- `gemini-3-pro-preview` - Complex tasks, advanced reasoning
-- `gemini-3-flash-preview` - Fast, cheap (default)
+Defined in `Config.MODELS` in [config.py](../../src/config.py) (a fast default and an
+advanced reasoning model; `DEFAULT_MODEL` picks the default). Each entry may set
+`thinking_level` for Gemini native reasoning.
 
 ### Response Format
 Gemini may return content in various formats:
@@ -365,7 +366,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 
 - Backend unit tests: `TestExtractThinkingAndText` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
 - Frontend unit tests: [thinking-indicator.test.ts](../../web/tests/unit/thinking-indicator.test.ts)
-- E2E tests: "Chat - Thinking Indicator" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
+- E2E tests: "Chat - Thinking Indicator" describe block in [thinking-indicator.spec.ts](../../web/tests/e2e/chat/thinking-indicator.spec.ts)
 
 ## Web Search Sources
 

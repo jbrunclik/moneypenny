@@ -308,16 +308,16 @@ The app uses cursor-based pagination for both conversations and messages to effi
 
 Scroll behavior is comprehensively tested in E2E tests:
 
-- `web/tests/e2e/chat.spec.ts` - "Chat - Streaming Auto-Scroll" describe block
+- `web/tests/e2e/chat/streaming.spec.ts` - "Chat - Streaming Auto-Scroll" describe block
   - `scrolls to bottom when sending a new message`
   - `auto-scroll can be interrupted by scrolling up during streaming`
   - `auto-scroll resumes when scrolling back to bottom during streaming`
   - `scroll position is maintained when scrolling up during active token streaming`
   - `rapid scrolling during streaming does not cause flicker or unexpected scroll jumps`
-- `web/tests/e2e/chat.spec.ts` - "Chat - Scroll to Bottom" describe block
-- `web/tests/e2e/chat.spec.ts` - "Chat - Conversation Switch During Active Request" describe block
-- `web/tests/e2e/chat.spec.ts` - "Chat - Streaming Scroll Pause Indicator" describe block
-- `web/tests/e2e/chat.spec.ts` - "Chat - Conversation Switch During Streaming Scroll" describe block
+- `web/tests/e2e/conversation.spec.ts` - "Scroll to bottom behavior" describe block
+- `web/tests/e2e/chat/conversation-switch.spec.ts` - "Chat - Conversation Switch During Active Request" describe block
+- `web/tests/e2e/chat/streaming.spec.ts` - "Chat - Streaming Scroll Pause Indicator" describe block
+- `web/tests/e2e/chat/conversation-switch.spec.ts` - "Chat - Conversation Switch During Streaming Scroll" describe block
 - `web/tests/e2e/pagination.spec.ts` - Pagination tests
 
 ### Backend Integration Tests
@@ -328,4 +328,3 @@ Scroll behavior is comprehensively tested in E2E tests:
 
 - [Mobile and PWA](mobile-and-pwa.md) - iOS keyboard handling, viewport issues
 - [Components](components.md) - UI component architecture
-- [Performance](../backend/performance.md) - Performance optimizations

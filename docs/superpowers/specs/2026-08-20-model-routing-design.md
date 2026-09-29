@@ -1,5 +1,7 @@
 # Model Routing / Tiering — Design Spec (Aug 2026)
 
+**Status:** Parked (Aug 2026) after the suitability check - see the TODO.md entry
+
 Route everyday turns to a cheaper model tier without degrading quality,
 gated by the eval harness. Follow-up to the Aug 2026 agent-improvements
 round; replaces the TODO "Model routing / tiering by turn difficulty" entry.

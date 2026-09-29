@@ -507,7 +507,7 @@ setDraft: (message: string | null, files: FileAttachment[]) => void;
 - `retryFromDraft()` - Restores draft to input and re-sends
 
 **Testing:**
-E2E tests for retry functionality are in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts) under "Chat - Message Retry" describe block.
+E2E tests for retry functionality are in [message-actions.spec.ts](../../web/tests/e2e/chat/message-actions.spec.ts) under "Chat - Message Retry" describe block.
 
 ### Error Handling Guidelines
 

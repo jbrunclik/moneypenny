@@ -216,7 +216,7 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 ## Testing
 
 - **Backend integration**: [test_routes_sync.py](../../tests/integration/test_routes_sync.py) - Sync endpoint tests
-- **Backend unit**: [test_db_models/](../../tests/integration/test_db_models/) - Sync database methods
+- **Backend unit**: [test_db_models.py](../../tests/integration/test_db_models.py) - Sync database methods
 - **Frontend unit**: [sync-manager.test.ts](../../web/tests/unit/sync-manager.test.ts) - SyncManager tests
 - **E2E**: [sync.spec.ts](../../web/tests/e2e/sync.spec.ts) - Multi-tab and visibility scenarios
 - **E2E**: [pagination.spec.ts](../../web/tests/e2e/pagination.spec.ts) - "Pagination with Sync - Edge Cases"

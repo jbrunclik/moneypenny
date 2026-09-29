@@ -1,7 +1,7 @@
 # Video Upload & Consultation — Design
 
 **Date:** 2026-07-19
-**Status:** Approved pending user review
+**Status:** Implemented (Jul 2026); deferred follow-ups tracked in TODO.md
 
 ## Goal
 

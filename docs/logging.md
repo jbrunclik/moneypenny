@@ -243,7 +243,7 @@ LOG_LEVEL=INFO  # Valid levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 ### Frontend Configuration
 
-Set log level in [../../web/src/config.ts](../../web/src/config.ts):
+Set log level in [../../web/src/config.ts](../web/src/config.ts):
 
 ```typescript
 export const LOG_LEVEL = import.meta.env.PROD ? 'warn' : 'debug';
@@ -370,44 +370,44 @@ logger.debug("Processing complete")
 
 ### Backend
 
-**Routes** ([../../src/api/routes/](../../src/api/routes/)):
+**Routes** ([../../src/api/routes/](../src/api/routes/)):
 - All endpoints log request/response with status codes
 - Include request ID, user ID, conversation ID where applicable
 
-**Agent** ([../../src/agent/](../../src/agent/)):
-- LLM invocations with token counts ([agent.py](../../src/agent/agent.py))
-- Tool calls and results ([graph.py](../../src/agent/graph.py))
-- Response extraction and metadata parsing ([content.py](../../src/agent/content.py))
+**Agent** ([../../src/agent/](../src/agent/)):
+- LLM invocations with token counts ([agent.py](../src/agent/agent.py))
+- Tool calls and results ([graph.py](../src/agent/graph.py))
+- Response extraction and metadata parsing ([content.py](../src/agent/content.py))
 
-**Tools** ([../../src/agent/tools/](../../src/agent/tools/)):
+**Tools** ([../../src/agent/tools/](../src/agent/tools/)):
 - Tool execution start/completion
 - Tool errors and retries
 - External API calls
 
-**Database** ([../../src/db/models/](../../src/db/models/)):
+**Database** ([../../src/db/models/](../src/db/models/)):
 - CRUD operations with record IDs
 - Query execution time (slow query warnings)
 - State saves and updates
 
-**Auth** ([../../src/auth/jwt_auth.py](../../src/auth/jwt_auth.py), [../../src/auth/google_auth.py](../../src/auth/google_auth.py)):
+**Auth** ([../../src/auth/jwt_auth.py](../src/auth/jwt_auth.py), [../../src/auth/google_auth.py](../src/auth/google_auth.py)):
 - Token validation
 - User lookups
 - Authentication failures
 
-**File Processing** ([../../src/utils/images.py](../../src/utils/images.py)):
+**File Processing** ([../../src/utils/images.py](../src/utils/images.py)):
 - File validation
 - Thumbnail generation
 - Processing errors
 
 ### Frontend
 
-**API Client** ([../../web/src/api/client.ts](../../web/src/api/client.ts)):
+**API Client** ([../../web/src/api/client.ts](../web/src/api/client.ts)):
 - Request/response logging
 - Retry attempts
 - Timeout events
 - Network errors
 
-**State Management** ([../../web/src/state/store.ts](../../web/src/state/store.ts)):
+**State Management** ([../../web/src/state/store.ts](../web/src/state/store.ts)):
 - State transitions
 - Action dispatches
 - Subscription updates
@@ -417,7 +417,7 @@ logger.debug("Processing complete")
 - Component lifecycle
 - Error boundaries
 
-**Auth** ([../../web/src/auth/google.ts](../../web/src/auth/google.ts)):
+**Auth** ([../../web/src/auth/google.ts](../web/src/auth/google.ts)):
 - Authentication flow
 - Token refresh
 - Auth errors
@@ -425,20 +425,19 @@ logger.debug("Processing complete")
 ## Key Files
 
 **Backend**:
-- [../../src/utils/logging.py](../../src/utils/logging.py) - Logger factory, `get_logger()`, `log_payload_snippet()`
-- [../../src/config.py](../../src/config.py) - `LOG_LEVEL` configuration
-- [../../src/app.py](../../src/app.py) - Logger initialization
+- [../../src/utils/logging.py](../src/utils/logging.py) - Logger factory, `get_logger()`, `log_payload_snippet()`
+- [../../src/config.py](../src/config.py) - `LOG_LEVEL` configuration
+- [../../src/app.py](../src/app.py) - Logger initialization
 
 **Frontend**:
-- [../../web/src/utils/logger.ts](../../web/src/utils/logger.ts) - Logger utility, `createLogger()` factory
-- [../../web/src/config.ts](../../web/src/config.ts) - `LOG_LEVEL` configuration
+- [../../web/src/utils/logger.ts](../web/src/utils/logger.ts) - Logger utility, `createLogger()` factory
+- [../../web/src/config.ts](../web/src/config.ts) - `LOG_LEVEL` configuration
 
 **Configuration**:
-- [../../.env.example](../../.env.example) - Environment variable examples
+- [.env.example](../.env.example) - Environment variable examples
 
 ## See Also
 
-- [Error Handling](backend/error-handling.md) - Error handling and logging integration
-- [API Documentation](backend/api.md) - API request/response logging
+- [API Design](architecture/api-design.md) - Error responses and request handling
 - [Testing](testing.md) - Log output in tests
-- [Deployment](deployment/production.md) - Production logging configuration
+- [Deployment](deployment.md) - Production logging configuration

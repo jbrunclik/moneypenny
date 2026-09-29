@@ -308,7 +308,7 @@ Users can paste screenshots directly from the clipboard into the message input (
 ### Testing
 
 - Unit tests: `handlePaste` describe block in [message-input.test.ts](../../web/tests/unit/message-input.test.ts)
-- E2E tests: "Chat - Clipboard Paste" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
+- E2E tests: "Chat - Clipboard Paste" describe block in [clipboard.spec.ts](../../web/tests/e2e/chat/clipboard.spec.ts)
 
 ## Client-side Image Compression
 
@@ -359,7 +359,7 @@ When sending messages with file attachments, upload progress renders as a conic-
 ### Testing
 
 - Unit tests: "Upload Progress UI Functions" describe block in [message-input.test.ts](../../web/tests/unit/message-input.test.ts)
-- E2E tests: "Chat - Upload Progress" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
+- E2E tests: "Chat - Upload Progress" describe block in [attachments.spec.ts](../../web/tests/e2e/chat/attachments.spec.ts)
 
 ## Background Thumbnail Generation
 
@@ -456,7 +456,7 @@ The app provides copy-to-clipboard functionality at two levels.
 
 ### Testing
 
-- E2E tests: "Chat - Copy to Clipboard" describe block in [chat.spec.ts](../../web/tests/e2e/chat.spec.ts)
+- E2E tests: "Chat - Copy to Clipboard" describe block in [clipboard.spec.ts](../../web/tests/e2e/chat/clipboard.spec.ts)
 
 ## Video Uploads
 
