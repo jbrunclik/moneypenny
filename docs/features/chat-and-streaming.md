@@ -42,7 +42,7 @@ Users can abort an ongoing streaming response by clicking the stop button.
 - [store.ts](../../web/src/state/store.ts) - `streamingConversationId` state
 - [client.ts](../../web/src/api/client.ts) - Abort handling
 - [MessageInput.ts](../../web/src/components/MessageInput.ts) - Button transformation
-- [messaging.ts](../../web/src/core/messaging.ts) - Abort flow
+- [active-requests.ts](../../web/src/core/active-requests.ts) - Abort flow (per-request AbortControllers, `swapAbortController`)
 
 **Race conditions handled:**
 
@@ -140,7 +140,7 @@ This belt-and-suspenders approach ensures the message content is always availabl
 - [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `_StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`, placeholder lifecycle
 - [message.py](../../src/db/models/message.py) - `update_message_content()`, `delete_message_by_id()`
 - [stream-recovery.ts](../../web/src/core/stream-recovery.ts) - Two-phase `fetchMessageWithRetry()` (Phase 1: find, Phase 2: content poll)
-- [messaging.ts](../../web/src/core/messaging.ts) - `handleMissingDoneEvent()`, `StreamingState.expectedAssistantMessageId`
+- [stream-resume.ts](../../web/src/core/stream-resume.ts) - `handleMissingDoneEvent()`; [stream-session.ts](../../web/src/core/stream-session.ts) - `StreamingState.expectedAssistantMessageId`
 - [conversations.py](../../src/api/routes/conversations.py) - `GET /api/messages/<message_id>` endpoint, placeholder filtering
 
 **Other uses for pre-generated IDs:**
@@ -219,13 +219,13 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 **Resume endpoint.** `GET /conversations/<conv_id>/chat/stream/<message_id>/resume?after_seq=N` (`chat_stream_resume` in [routes/chat.py](../../src/api/routes/chat.py), generator `stream_resume_events` in [stream_resume.py](../../src/api/helpers/stream_resume.py)). It replays journaled rows with `seq > after_seq`, then tails the journal until the producer's `stream_end` marker, then waits briefly for the saved message and synthesizes a `done` event from it. If the placeholder is gone (failed turn) or the stream stalls with no terminal marker, it emits `{"type": "error", "code": "RESUME_FAILED"}`.
 
-**Client reconnect.** `tryResumeStream` in [messaging.ts](../../web/src/core/messaging.ts) tracks `state.lastSeq` from each `event.seq` and reconnects with `after_seq=lastSeq`. This is what makes mobile network handoffs (wifi ↔ cellular, backgrounding) recover live progress instead of only polling for the final message.
+**Client reconnect.** `tryResumeStream` in [stream-resume.ts](../../web/src/core/stream-resume.ts) tracks `state.lastSeq` from each `event.seq` and reconnects with `after_seq=lastSeq`. This is what makes mobile network handoffs (wifi ↔ cellular, backgrounding) recover live progress instead of only polling for the final message.
 
 **Invariants (violating these re-introduces fixed bugs):**
 
 - **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`.) The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
 - **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
-- The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [messaging.ts](../../web/src/core/messaging.ts) / [conversation.ts](../../web/src/core/conversation.ts).
+- The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [stream-resume.ts](../../web/src/core/stream-resume.ts) (entries persisted by [inflight-streams.ts](../../web/src/core/inflight-streams.ts)) / [conversation.ts](../../web/src/core/conversation.ts).
 
 ### Reliable Sends (Outbox)
 
@@ -235,7 +235,7 @@ A message send used to be pure optimism: a DOM-only bubble, no store entry, noth
 
 **Send outbox** ([core/outbox.ts](../../web/src/core/outbox.ts)). Every outgoing message is written to the Zustand store (`status: 'pending'`) and persisted to localStorage before any network I/O. Delivery is confirmed by the **first SSE event** (streaming) or the response (batch) → entry dropped, status cleared. On failure the entry flips to `failed`. Reconciliation (`reconcileOutboxWithServer`, called at every conversation-load site in [conversation.ts](../../web/src/core/conversation.ts)) compares outbox entries against server messages: confirmed → dropped, in-flight in this session → rendered pending, otherwise → rendered failed with retry/discard.
 
-**Failure UX.** Failed bubbles stay in place with inline "Not sent — Retry / Discard" actions ([components/messages/send-state.ts](../../web/src/components/messages/send-state.ts), dispatching `outbox:retry`/`outbox:discard` CustomEvents handled in messaging.ts). Transient failures (network error, connect timeout) get **one silent auto-retry** after `SEND_AUTO_RETRY_DELAY_MS` before surfacing. Attachments over `OUTBOX_PERSIST_MAX_FILE_CHARS` aren't persisted to localStorage — a reload keeps the text but drops the files (`filesDropped`, warned on retry).
+**Failure UX.** Failed bubbles stay in place with inline "Not sent — Retry / Discard" actions ([components/messages/send-state.ts](../../web/src/components/messages/send-state.ts), dispatching `outbox:retry`/`outbox:discard` CustomEvents handled in [rerun.ts](../../web/src/core/rerun.ts)). Transient failures (network error, connect timeout) get **one silent auto-retry** after `SEND_AUTO_RETRY_DELAY_MS` before surfacing. Attachments over `OUTBOX_PERSIST_MAX_FILE_CHARS` aren't persisted to localStorage — a reload keeps the text but drops the files (`filesDropped`, warned on retry).
 
 **Invariants:**
 
@@ -283,7 +283,7 @@ During streaming responses, the app shows a thinking indicator at the top of ass
 
 2. **SSE forwarding**: [routes/chat.py](../../src/api/routes/chat.py) forwards these events via Server-Sent Events
 
-3. **Frontend handling**: [messaging.ts](../../web/src/core/messaging.ts) parses events and calls:
+3. **Frontend handling**: [stream-events.ts](../../web/src/core/stream-events.ts) parses events and calls:
    - `updateStreamingThinking(text)` for thinking events (with full accumulated text)
    - `updateStreamingToolStart(tool, detail)` for tool_start events (with optional detail)
    - `updateStreamingToolEnd()` for tool_end events
@@ -359,7 +359,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 - [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
 - [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
 - [messages/streaming.ts](../../web/src/components/messages/streaming.ts) - Streaming state management
-- [messaging.ts](../../web/src/core/messaging.ts) - Event handling
+- [stream-events.ts](../../web/src/core/stream-events.ts) - Event handling ([thinking-state.ts](../../web/src/core/thinking-state.ts) keeps the per-stream trace)
 - [thinking.css](../../web/src/styles/components/thinking.css) - Styles and animations
 
 ### Testing
@@ -456,7 +456,8 @@ When switching away from a conversation with an active request and back, the UI 
 
 **State management:**
 - `activeRequests` Map in store tracks content and thinking state per conversation
-- `streamingMessageElements` Map in [messaging.ts](../../web/src/core/messaging.ts) tracks DOM elements for continued updates
+- The streaming context in [messages/streaming.ts](../../web/src/components/messages/streaming.ts) (`getStreamingMessageElement`) tracks DOM elements for continued updates
+- The in-session store is authoritative for messages: every completion path (done event, journal resume, poll recovery, batch reply) `appendMessage`s the finished assistant reply, and `appendMessage` is idempotent by id because one reply can complete via more than one path
 - Streaming context includes `conversationId` to determine whether to clean up
 
 ### Conversation Selection Race Condition

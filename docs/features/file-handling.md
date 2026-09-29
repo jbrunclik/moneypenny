@@ -353,7 +353,7 @@ When sending messages with file attachments, upload progress renders as a conic-
 
 - [client.ts](../../web/src/api/client.ts) - `requestWithProgress()` XHR wrapper
 - [MessageInput.ts](../../web/src/components/MessageInput.ts) - Progress UI functions
-- [messaging.ts](../../web/src/core/messaging.ts) - Integration in `sendBatchMessage()` and `sendStreamingMessage()`
+- [batch-send.ts](../../web/src/core/batch-send.ts) / [stream-send.ts](../../web/src/core/stream-send.ts) - Integration in `sendBatchMessage()` and `sendStreamingMessage()`
 - [buttons.css](../../web/src/styles/components/buttons.css) - `.uploading` / `.processing` ring styles
 
 ### Testing

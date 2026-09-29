@@ -118,7 +118,7 @@ If captured after the query, a conversation created/updated between the query an
 
 When streaming completes, the local message count must be incremented BEFORE clearing the streaming flag.
 
-**Critical ordering in `sendStreamingMessage()` finally block:**
+**Critical ordering in `cleanupStreamingRequest()` ([stream-session.ts](../../web/src/core/stream-session.ts)), called from the `sendStreamingMessage()` finally block:**
 ```typescript
 // CORRECT ORDER - prevents race condition
 if (messageSuccessful) {

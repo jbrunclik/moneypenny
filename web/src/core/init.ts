@@ -67,7 +67,9 @@ import {
   loadAllRemainingNewerMessages,
 } from '../components/messages';
 
-import { sendMessage, handleStopStreaming, abortAllStreamingRequests, initOutboxHandlers } from './messaging';
+import { sendMessage } from './messaging';
+import { handleStopStreaming, abortAllStreamingRequests } from './active-requests';
+import { initOutboxHandlers } from './rerun';
 import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
 import { setupTouchGestures } from './gestures';

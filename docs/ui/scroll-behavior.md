@@ -289,7 +289,7 @@ The app uses cursor-based pagination for both conversations and messages to effi
 - [../../web/src/components/Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversations infinite scroll
 
 **Main:**
-- [../../web/src/core/messaging.ts](../../web/src/core/messaging.ts) - `sendBatchMessage()`, `sendStreamingMessage()`, scroll integration
+- [../../web/src/core/response-scroll.ts](../../web/src/core/response-scroll.ts) - end-of-response scroll (`scrollToFinishedStreamMessage()`, `scrollToBatchReply()`, `watchForUserScroll()`), used by [stream-done.ts](../../web/src/core/stream-done.ts) and [batch-send.ts](../../web/src/core/batch-send.ts)
 
 **Backend:**
 - [../../src/db/models/](../../src/db/models/) - `build_cursor()`, `parse_cursor()`, pagination methods

@@ -108,7 +108,7 @@ STREAM_RECOVERY_DEBOUNCE_MS = 300;    // Prevent rapid retriggers
 ### Related Files
 
 - `web/src/core/stream-recovery.ts` - Two-phase recovery logic
-- `web/src/core/messaging.ts` - Integration with streaming
+- `web/src/core/stream-send.ts` / `stream-resume.ts` - Integration with streaming
 - `web/src/sync/SyncManager.ts` - Visibility change handling
 - `src/db/models/message.py` - `update_message_content()`, `delete_message_by_id()`
 - `web/tests/unit/stream-recovery.test.ts` - Unit tests (Phase 2 content polling)

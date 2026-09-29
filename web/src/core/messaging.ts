@@ -1,12 +1,15 @@
 /**
- * Message sending module.
- * Handles message sending, streaming, batch mode, and request management.
+ * Message sending entry point: validates and prepares a send from the
+ * composer, renders the optimistic user message, and dispatches it to the
+ * streaming (stream-send.ts) or batch (batch-send.ts) path - or, while the
+ * conversation streams, to mid-run steering (steering.ts). Also owns the
+ * dispatch-level failure handling.
  */
 
 import { useStore } from '../state/store';
-import { RESPONSE_JUMP_MIN_VIEWPORT_RATIO, SEND_AUTO_RETRY_DELAY_MS } from '../config';
+import { SEND_AUTO_RETRY_DELAY_MS } from '../config';
 import { createLogger } from '../utils/logger';
-import { conversations, chat, messages } from '../api/client';
+import { conversations } from '../api/client';
 import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import {
@@ -15,22 +18,9 @@ import {
 } from '../components/Sidebar';
 import {
   addMessageToUI,
-  appendStoppedEarlyNote,
   renderMessages,
-  removeRenderedMessagesFrom,
-  addStreamingMessage,
-  updateStreamingMessage,
-  finalizeStreamingMessage,
-  updateStreamingThinking,
-  updateStreamingToolStart,
-  updateStreamingToolDetail,
-  updateStreamingToolEnd,
-  updateStreamingRetryStatus,
-  cleanupStreamingContext,
-  getStreamingMessageElement,
-  showLoadingIndicator,
   hideLoadingIndicator,
-  updateUserMessageId,
+  hasPendingApproval,
   loadAllRemainingNewerMessages,
   cleanupNewerMessagesScrollListener,
 } from '../components/messages';
@@ -41,246 +31,43 @@ import {
   focusMessageInput,
   setInputLoading,
   shouldAutoFocusInput,
-  showUploadProgress,
-  hideUploadProgress,
-  updateUploadProgress,
 } from '../components/MessageInput';
 import { clearPendingFiles, getPendingFiles } from '../components/FileUpload';
 import { stopVoiceRecording } from '../components/VoiceInput';
-import { getElementById, isScrolledToBottom } from '../utils/dom';
-import {
-  enableScrollOnImageLoad,
-  getThumbnailObserver,
-  isProgrammaticScrollActive,
-  observeThumbnail,
-  programmaticScrollToBottom,
-  programmaticScrollToElementTop,
-} from '../utils/thumbnails';
+import { getElementById } from '../utils/dom';
+import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
-import type { ClientLocation, FileUpload, Message, ThinkingState, ToolMetadata, ThinkingTraceItem, Source, GeneratedImage, FileMetadata } from '../types/api';
-import { getSyncManager } from '../sync/SyncManager';
+import type { Conversation, FileUpload, Message } from '../types/api';
+import { setMessageSendState } from '../components/messages/send-state';
 
-import { isTempConversation, createConversation, updateConversationTitle } from './conversation';
+import { isTempConversation, createConversation } from './conversation';
 import {
   addOutboxEntry,
-  confirmOutboxEntry,
   getOutboxEntry,
-  markOutboxFailed,
   markOutboxPending,
-  removeOutboxEntry,
   reconcileOutboxWithServer,
 } from './outbox';
-import { setMessageSendState } from '../components/messages/send-state';
-import { beginInlineEdit } from '../components/messages/edit';
-import { notifyTurnFinished } from './attention';
 import { getClientLocation } from './location';
-import { updateConversationCost, resetForceTools } from './toolbar';
-import { hasPendingApproval } from '../components/messages';
-import {
-  markStreamForRecovery,
-  clearPendingRecovery,
-  attemptRecovery,
-} from './stream-recovery';
+import { resetForceTools } from './toolbar';
+import { claimAutoRetry, confirmDelivery, markSendFailed } from './send-delivery';
+import { sendStreamingMessage } from './stream-send';
+import { sendBatchMessage } from './batch-send';
+import { interjectIntoActiveTurn } from './steering';
 
 const log = createLogger('messaging');
 
-// ============ Active Request Management ============
+type StoreState = ReturnType<typeof useStore.getState>;
 
-// Track active requests per conversation to allow continuation when switching
-interface ActiveRequest {
-  conversationId: string;
-  type: 'stream' | 'batch';
-  abortController?: AbortController;
+/** A tracked outbox message, as handed to the streaming/batch send. */
+interface SendEntry {
+  id: string;
+  content: string;
+  files: FileUpload[];
+  forceTools: string[];
+  anonymousMode: boolean;
 }
 
-const activeRequests = new Map<string, ActiveRequest>();
-
-/**
- * Abort a streaming request for a conversation.
- * Called when user clicks the stop button.
- * Returns true if a request was found and aborted.
- */
-export function abortStreamingRequest(convId: string): boolean {
-  for (const [requestId, request] of activeRequests.entries()) {
-    if (request.conversationId === convId && request.type === 'stream' && request.abortController) {
-      log.info('Aborting streaming request', { conversationId: convId, requestId });
-      request.abortController.abort();
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Abort every in-flight request and drop the persisted resume entries.
- * Called on logout: readers must not keep writing into a logged-out UI,
- * and a different account on this browser must not try to resume the
- * previous user's turns.
- */
-export function abortAllStreamingRequests(): void {
-  for (const [requestId, request] of activeRequests.entries()) {
-    request.abortController?.abort();
-    activeRequests.delete(requestId);
-  }
-  writeInflightStreams({});
-}
-
-/**
- * Handle stop button click - abort current streaming request.
- * This is passed to MessageInput as the onStop callback.
- */
-export function handleStopStreaming(): void {
-  const currentConvId = useStore.getState().currentConversation?.id;
-  if (currentConvId) {
-    const aborted = abortStreamingRequest(currentConvId);
-    if (!aborted) {
-      log.warn('No streaming request found to abort', { conversationId: currentConvId });
-    }
-  }
-}
-
-// ============ Thinking State Management ============
-
-/**
- * Deep copy a ThinkingState to avoid reference issues when storing in Zustand.
- */
-function deepCopyThinkingState(state: ThinkingState): ThinkingState {
-  return {
-    isThinking: state.isThinking,
-    thinkingText: state.thinkingText,
-    activeTool: state.activeTool,
-    activeToolDetail: state.activeToolDetail,
-    completedTools: [...state.completedTools],
-    trace: state.trace.map(item => ({
-      type: item.type,
-      label: item.label,
-      detail: item.detail,
-      completed: item.completed,
-    })),
-  };
-}
-
-/**
- * Update local thinking state based on streaming event type.
- * This mirrors the logic in ThinkingIndicator.ts but operates on a local state object
- * so we can track state even when the user switches conversations.
- */
-function updateLocalThinkingState(
-  state: ThinkingState,
-  eventType: 'thinking' | 'tool_start' | 'tool_detail' | 'tool_end',
-  toolOrText?: string,
-  detail?: string,
-  metadata?: ToolMetadata
-): void {
-  if (eventType === 'thinking') {
-    // Find existing thinking item or create one
-    const thinkingItem = state.trace.find(item => item.type === 'thinking');
-    if (thinkingItem) {
-      thinkingItem.detail = toolOrText;
-      thinkingItem.completed = false;
-    } else {
-      state.trace.push({
-        type: 'thinking',
-        label: 'thinking',
-        detail: toolOrText,
-        completed: false,
-      });
-    }
-    state.thinkingText = toolOrText || '';
-    state.isThinking = true;
-  } else if (eventType === 'tool_detail') {
-    // Update detail for an existing tool
-    const toolItem = state.trace.find(
-      item => item.type === 'tool' && item.label === toolOrText && !item.completed
-    );
-    if (toolItem) {
-      toolItem.detail = detail;
-    }
-    if (state.activeTool === toolOrText) {
-      state.activeToolDetail = detail;
-    }
-  } else if (eventType === 'tool_start') {
-    // Mark thinking as completed
-    const thinkingIndex = state.trace.findIndex(item => item.type === 'thinking');
-    if (thinkingIndex !== -1) {
-      state.trace[thinkingIndex].completed = true;
-    }
-    // Create tool item and insert before thinking (to keep thinking at end)
-    const toolItem: ThinkingTraceItem = {
-      type: 'tool',
-      label: toolOrText || '',
-      detail,
-      completed: false,
-      metadata, // Include metadata from backend for display
-    };
-    if (thinkingIndex !== -1) {
-      state.trace.splice(thinkingIndex, 0, toolItem);
-    } else {
-      state.trace.push(toolItem);
-    }
-    state.activeTool = toolOrText || null;
-    state.activeToolDetail = detail;
-    state.isThinking = false;
-  } else if (eventType === 'tool_end') {
-    // Find the tool and mark it completed
-    for (const item of state.trace) {
-      if (item.type === 'tool' && item.label === toolOrText && !item.completed) {
-        item.completed = true;
-        break;
-      }
-    }
-    if (toolOrText && !state.completedTools.includes(toolOrText)) {
-      state.completedTools.push(toolOrText);
-    }
-    if (state.activeTool === toolOrText) {
-      state.activeTool = null;
-      state.activeToolDetail = undefined;
-    }
-  }
-}
-
-// ============ Message Sending ============
-
-/**
- * Send a message.
- */
-/**
- * Mid-run steering: send guidance into a turn that is currently streaming.
- * The server injects it between the agent's tool rounds and also persists
- * it as a regular user message, so it shows up in history either way.
- */
-async function interjectIntoActiveTurn(convId: string, messageText: string): Promise<void> {
-  try {
-    await conversations.interject(convId, messageText);
-  } catch (error) {
-    log.error('Failed to send interjection', { error, conversationId: convId });
-    toast.error('Failed to steer the response. Please wait for it to finish.');
-    return;
-  }
-
-  // Render the steering text as a normal user bubble right away
-  const userMessage: Message = {
-    id: crypto.randomUUID(),
-    role: 'user',
-    content: messageText,
-    created_at: new Date().toISOString(),
-  };
-  useStore.getState().appendMessage(convId, userMessage);
-  const messagesContainer = getElementById<HTMLDivElement>('messages');
-  if (messagesContainer) {
-    addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
-    programmaticScrollToBottom(messagesContainer);
-  }
-
-  // The route persisted one user message - keep sync counts in step so no
-  // false unread badge appears for this conversation
-  getSyncManager()?.incrementLocalMessageCount(convId, 1);
-
-  clearMessageInput();
-  useStore.getState().setConversationDraft(convId, '');
-  toast.info('Steering the current response…');
-  log.info('Interjection sent', { conversationId: convId, length: messageText.length });
-}
+// ============ Composer hook ============
 
 /**
  * Optional composer hook (quick actions): transforms the raw textarea text
@@ -298,29 +85,18 @@ export function registerComposerHook(hook: ComposerHook | null): void {
   composerHook = hook;
 }
 
-export async function sendMessage(): Promise<void> {
-  // Stop voice recording if active (prevents text from being re-added after send)
-  stopVoiceRecording();
+// ============ Message Sending ============
 
-  let store = useStore.getState();
-  const rawText = getMessageInput();
-  const messageText = composerHook ? composerHook.transform(rawText) : rawText;
-  const files = getPendingFiles();
-
-  if (!messageText && files.length === 0) return;
-
-  log.info('Sending message', {
-    conversationId: store.currentConversation?.id,
-    messageLength: messageText.length,
-    fileCount: files.length,
-    streaming: store.streamingEnabled,
-  });
-
+/**
+ * Whether the current conversation cannot take a new message right now
+ * (planner still loading, or an agent approval pending). Toasts the reason.
+ */
+function isSendBlocked(store: StoreState): boolean {
   // If planner is still loading (placeholder conversation), block sending
   if (store.currentConversation?.id === 'planner-loading') {
     log.warn('Cannot send message while planner is loading');
     toast.info('Please wait for planner to finish loading...');
-    return;
+    return true;
   }
 
   // If there's a pending approval in this agent conversation, block sending
@@ -333,113 +109,123 @@ export async function sendMessage(): Promise<void> {
         messageCount: currentMessages.length,
       });
       toast.warning('Please approve or reject the pending action before sending a new message.');
-      return;
+      return true;
     }
   }
+  return false;
+}
 
-  // Create local conversation if none selected
-  if (!store.currentConversation) {
-    createConversation();
-    store = useStore.getState();
+/** Auto-unarchive if sending a message in an archived conversation. */
+async function unarchiveForSend(store: StoreState, conv: Conversation): Promise<Conversation> {
+  if (!conv.archived || isTempConversation(conv.id)) return conv;
+  try {
+    await conversations.unarchive(conv.id);
+    store.removeArchivedConversation(conv.id);
+    // addConversation, not updateConversation: a deep-linked archived
+    // conversation is never in store.conversations, so an update would
+    // no-op and the conversation would vanish from the sidebar until the
+    // next sync poll re-discovers it (addConversation merges if present)
+    store.addConversation({ ...conv, archived: false });
+    const unarchived = { ...conv, archived: false };
+    store.setCurrentConversation(unarchived);
+    renderConversationsList();
+    log.info('Auto-unarchived conversation on message send', { conversationId: conv.id });
+    return unarchived;
+  } catch (error) {
+    log.warn('Failed to auto-unarchive conversation', { error, conversationId: conv.id });
+    // Continue sending - unarchive failure shouldn't block the message
+    return conv;
   }
+}
 
+/**
+ * If this is a temp conversation, persist it to the backend first.
+ * Returns the persisted conversation, or null when that failed (toasted).
+ */
+async function persistTempConversation(store: StoreState, conv: Conversation): Promise<Conversation | null> {
+  if (!isTempConversation(conv.id)) return conv;
+  try {
+    const persistedConv = await conversations.create(conv.model);
+    const tempId = conv.id;
+
+    // Migrate anonymous mode state from temp ID to persistent ID
+    // This must happen BEFORE removing the temp conversation from store
+    const wasAnonymous = store.getAnonymousMode(tempId);
+    if (wasAnonymous) {
+      store.setAnonymousMode(persistedConv.id, true);
+    }
+    store.migrateConversationDraft(tempId, persistedConv.id);
+
+    // Update store with real ID
+    store.removeConversation(tempId);
+    store.addConversation(persistedConv);
+    store.setCurrentConversation(persistedConv);
+    renderConversationsList();
+    setActiveConversation(persistedConv.id);
+
+    // Update URL hash with the real (persisted) conversation ID
+    // Use replaceState to replace the empty hash (from createConversation) with the real ID
+    // This prevents empty hash entries from cluttering browser history
+    setConversationHash(persistedConv.id, { replace: true });
+    return persistedConv;
+  } catch (error) {
+    log.error('Failed to create conversation', { error });
+    toast.error('Failed to create conversation. Please try again.');
+    return null;
+  }
+}
+
+/**
+ * If we're in a partial view (e.g., after search navigation), load all remaining
+ * newer messages first to ensure there's no gap when the new message is added.
+ * This prevents the scenario where user searches, navigates to message 50, and sends
+ * a new message which would appear after message 60 with a gap of 140 missing messages.
+ * Returns false when loading failed (toasted).
+ */
+async function ensureFullHistoryLoaded(store: StoreState, convId: string): Promise<boolean> {
+  const pagination = store.getMessagesPagination(convId);
+  if (!pagination?.hasNewer) return true;
+  log.info('In partial view, loading remaining messages before send', {
+    conversationId: convId,
+    hasNewer: pagination.hasNewer,
+  });
+  setInputLoading(true);
+  try {
+    await loadAllRemainingNewerMessages(convId);
+    // Clean up the newer messages scroll listener since we've loaded everything
+    cleanupNewerMessagesScrollListener();
+    setInputLoading(false);
+    return true;
+  } catch (error) {
+    log.error('Failed to load remaining messages before send', { error, conversationId: convId });
+    setInputLoading(false);
+    toast.error('Failed to load conversation history. Please try again.');
+    return false;
+  }
+}
+
+/**
+ * Resolve the conversation to send into: unarchive it, persist a temp one,
+ * and load any unloaded newer history. Returns null when the send must not
+ * proceed.
+ */
+async function prepareConversationForSend(store: StoreState): Promise<Conversation | null> {
   let conv = store.currentConversation;
-  if (!conv) return;
+  if (!conv) return null;
 
-  // Auto-unarchive if sending a message in an archived conversation
-  if (conv.archived && !isTempConversation(conv.id)) {
-    try {
-      await conversations.unarchive(conv.id);
-      store.removeArchivedConversation(conv.id);
-      // addConversation, not updateConversation: a deep-linked archived
-      // conversation is never in store.conversations, so an update would
-      // no-op and the conversation would vanish from the sidebar until the
-      // next sync poll re-discovers it (addConversation merges if present)
-      store.addConversation({ ...conv, archived: false });
-      conv = { ...conv, archived: false };
-      store.setCurrentConversation(conv);
-      renderConversationsList();
-      log.info('Auto-unarchived conversation on message send', { conversationId: conv.id });
-    } catch (error) {
-      log.warn('Failed to auto-unarchive conversation', { error, conversationId: conv.id });
-      // Continue sending - unarchive failure shouldn't block the message
-    }
-  }
+  conv = await unarchiveForSend(store, conv);
+  conv = await persistTempConversation(store, conv);
+  if (!conv) return null;
 
-  // If this is a temp conversation, persist it to the backend first
-  if (isTempConversation(conv.id)) {
-    try {
-      const persistedConv = await conversations.create(conv.model);
-      const tempId = conv.id;
+  return (await ensureFullHistoryLoaded(store, conv.id)) ? conv : null;
+}
 
-      // Migrate anonymous mode state from temp ID to persistent ID
-      // This must happen BEFORE removing the temp conversation from store
-      const wasAnonymous = store.getAnonymousMode(tempId);
-      if (wasAnonymous) {
-        store.setAnonymousMode(persistedConv.id, true);
-      }
-      store.migrateConversationDraft(tempId, persistedConv.id);
-
-      // Update store with real ID
-      store.removeConversation(tempId);
-      store.addConversation(persistedConv);
-      store.setCurrentConversation(persistedConv);
-      renderConversationsList();
-      setActiveConversation(persistedConv.id);
-      conv = persistedConv;
-
-      // Update URL hash with the real (persisted) conversation ID
-      // Use replaceState to replace the empty hash (from createConversation) with the real ID
-      // This prevents empty hash entries from cluttering browser history
-      setConversationHash(persistedConv.id, { replace: true });
-    } catch (error) {
-      log.error('Failed to create conversation', { error });
-      toast.error('Failed to create conversation. Please try again.');
-      return;
-    }
-  }
-
-  // If we're in a partial view (e.g., after search navigation), load all remaining
-  // newer messages first to ensure there's no gap when the new message is added.
-  // This prevents the scenario where user searches, navigates to message 50, and sends
-  // a new message which would appear after message 60 with a gap of 140 missing messages.
-  const pagination = store.getMessagesPagination(conv.id);
-  if (pagination?.hasNewer) {
-    log.info('In partial view, loading remaining messages before send', {
-      conversationId: conv.id,
-      hasNewer: pagination.hasNewer,
-    });
-    setInputLoading(true);
-    try {
-      await loadAllRemainingNewerMessages(conv.id);
-      // Clean up the newer messages scroll listener since we've loaded everything
-      cleanupNewerMessagesScrollListener();
-      setInputLoading(false);
-    } catch (error) {
-      log.error('Failed to load remaining messages before send', { error, conversationId: conv.id });
-      setInputLoading(false);
-      toast.error('Failed to load conversation history. Please try again.');
-      return;
-    }
-  }
-
-  // Sending while THIS conversation streams = mid-run steering: the text is
-  // injected into the running turn between tool rounds (and persisted to
-  // history) instead of queueing a new turn. Attachments can't steer - keep
-  // the old blocking behavior for them. Must run BEFORE the optimistic
-  // render: a bubble with no request behind it looks sent but never was.
-  if (useStore.getState().getActiveRequest(conv.id)) {
-    if (files.length > 0) {
-      toast.info('Please wait for the current response before sending attachments.');
-      return;
-    }
-    await interjectIntoActiveTurn(conv.id, messageText);
-    return;
-  }
-
-  // Create user message for UI. The ID is client-generated and travels to the
-  // server as client_message_id, making retries idempotent (server dedupes).
-  const userMessage: Message = {
+/**
+ * Create user message for UI. The ID is client-generated and travels to the
+ * server as client_message_id, making retries idempotent (server dedupes).
+ */
+function buildOptimisticUserMessage(messageText: string, files: FileUpload[]): Message {
+  return {
     id: crypto.randomUUID(),
     role: 'user',
     content: messageText,
@@ -452,9 +238,38 @@ export async function sendMessage(): Promise<void> {
     created_at: new Date().toISOString(),
     status: 'pending',
   };
+}
 
-  const forceTools = [...store.forceTools];
-  // Use fresh store reference to get anonymous mode (not the stale `store` from the beginning)
+/** Add the user message to the UI immediately and scroll to show it. */
+function renderOptimisticUserMessage(userMessage: Message): void {
+  const messagesContainer = getElementById<HTMLDivElement>('messages');
+  if (!messagesContainer) return;
+  // Clear welcome message if present (first message in conversation)
+  const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+  if (welcomeMessage) {
+    welcomeMessage.remove();
+  }
+  addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
+  // Scroll to bottom after adding user message so it's visible
+  programmaticScrollToBottom(messagesContainer);
+  // Update scroll button visibility after adding user message
+  requestAnimationFrame(() => {
+    checkScrollButtonVisibility();
+  });
+}
+
+/**
+ * Track, render and dispatch a new user message in a prepared conversation.
+ */
+async function sendNewMessage(
+  conv: Conversation,
+  messageText: string,
+  files: FileUpload[],
+  forceTools: string[]
+): Promise<void> {
+  const userMessage = buildOptimisticUserMessage(messageText, files);
+
+  // Use fresh store reference to get anonymous mode (not a stale snapshot from before)
   // This is critical because the conversation ID may have changed from temp-xxx to a real ID
   const anonymousMode = useStore.getState().getAnonymousMode(conv.id);
 
@@ -477,22 +292,7 @@ export async function sendMessage(): Promise<void> {
   useStore.getState().bumpConversationActivity(conv.id, messageText);
   renderConversationsList();
 
-  // Add to UI immediately and scroll to bottom to show user's message
-  const messagesContainer = getElementById<HTMLDivElement>('messages');
-  if (messagesContainer) {
-    // Clear welcome message if present (first message in conversation)
-    const welcomeMessage = messagesContainer.querySelector('.welcome-message');
-    if (welcomeMessage) {
-      welcomeMessage.remove();
-    }
-    addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
-    // Scroll to bottom after adding user message so it's visible
-    programmaticScrollToBottom(messagesContainer);
-    // Update scroll button visibility after adding user message
-    requestAnimationFrame(() => {
-      checkScrollButtonVisibility();
-    });
-  }
+  renderOptimisticUserMessage(userMessage);
 
   // Clear input, draft and force tools (one-shot)
   clearMessageInput();
@@ -511,19 +311,60 @@ export async function sendMessage(): Promise<void> {
 }
 
 /**
+ * Send a message.
+ */
+export async function sendMessage(): Promise<void> {
+  // Stop voice recording if active (prevents text from being re-added after send)
+  stopVoiceRecording();
+
+  let store = useStore.getState();
+  const rawText = getMessageInput();
+  const messageText = composerHook ? composerHook.transform(rawText) : rawText;
+  const files = getPendingFiles();
+
+  if (!messageText && files.length === 0) return;
+
+  log.info('Sending message', {
+    conversationId: store.currentConversation?.id,
+    messageLength: messageText.length,
+    fileCount: files.length,
+    streaming: store.streamingEnabled,
+  });
+
+  if (isSendBlocked(store)) return;
+
+  // Create local conversation if none selected
+  if (!store.currentConversation) {
+    createConversation();
+    store = useStore.getState();
+  }
+  const forceTools = [...store.forceTools];
+
+  const conv = await prepareConversationForSend(store);
+  if (!conv) return;
+
+  // Sending while THIS conversation streams = mid-run steering: the text is
+  // injected into the running turn between tool rounds (and persisted to
+  // history) instead of queueing a new turn. Attachments can't steer - keep
+  // the old blocking behavior for them. Must run BEFORE the optimistic
+  // render: a bubble with no request behind it looks sent but never was.
+  if (useStore.getState().getActiveRequest(conv.id)) {
+    if (files.length > 0) {
+      toast.info('Please wait for the current response before sending attachments.');
+      return;
+    }
+    await interjectIntoActiveTurn(conv.id, messageText);
+    return;
+  }
+
+  await sendNewMessage(conv, messageText, files, forceTools);
+}
+
+/**
  * Run the actual send (streaming or batch) for a tracked outbox message.
  * Shared by the initial send and by retries of failed messages.
  */
-async function dispatchSend(
-  convId: string,
-  entry: {
-    id: string;
-    content: string;
-    files: FileUpload[];
-    forceTools: string[];
-    anonymousMode: boolean;
-  }
-): Promise<void> {
+export async function dispatchSend(convId: string, entry: SendEntry): Promise<void> {
   markOutboxPending(convId, entry.id);
   useStore.getState().updateMessage(convId, entry.id, { status: 'pending' });
   setMessageSendState(entry.id, 'pending');
@@ -548,30 +389,18 @@ async function dispatchSend(
   }
 }
 
-// Sends that already used their single automatic retry (session-only)
-const autoRetriedSends = new Set<string>();
-
-/**
- * The server confirmed receipt of the user message (first stream event or
- * batch response): drop the outbox entry and clear the pending state.
- */
-function confirmDelivery(convId: string, messageId: string): void {
-  autoRetriedSends.delete(messageId);
-  confirmOutboxEntry(convId, messageId);
-  useStore.getState().updateMessage(convId, messageId, { status: undefined });
-  setMessageSendState(messageId, 'sent');
-}
-
-/**
- * Mark an unconfirmed send as failed (outbox + store + DOM). No-op when the
- * message was already confirmed - a mid-stream failure after delivery must
- * not flag the user message as unsent.
- */
-function markSendFailed(convId: string, messageId: string): void {
-  if (!getOutboxEntry(convId, messageId)) return;
-  markOutboxFailed(convId, messageId);
-  useStore.getState().updateMessage(convId, messageId, { status: 'failed' });
-  setMessageSendState(messageId, 'failed');
+function toastSendError(error: unknown): void {
+  if (error instanceof ApiError) {
+    if (error.isTimeout) {
+      toast.error('Request timed out. Use Retry on the message to send it again.');
+    } else if (error.isNetworkError) {
+      toast.error('Network error. Please check your connection.');
+    } else {
+      toast.error(error.message || 'Failed to send message.');
+    }
+  } else {
+    toast.error('An unexpected error occurred. Please try again.');
+  }
 }
 
 /**
@@ -602,8 +431,7 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
   // The message stays visually PENDING during the wait (no retry/discard
   // buttons yet); the toast tells the user what's happening.
   const isTransient = error instanceof ApiError && (error.isNetworkError || error.isTimeout);
-  if (isTransient && !autoRetriedSends.has(messageId)) {
-    autoRetriedSends.add(messageId);
+  if (isTransient && claimAutoRetry(messageId)) {
     log.info('Auto-retrying send after transient failure', { conversationId: convId, messageId });
     toast.info('Connection problem - retrying...');
     await new Promise((resolve) => setTimeout(resolve, SEND_AUTO_RETRY_DELAY_MS));
@@ -615,18 +443,7 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
   }
 
   markSendFailed(convId, messageId);
-
-  if (error instanceof ApiError) {
-    if (error.isTimeout) {
-      toast.error('Request timed out. Use Retry on the message to send it again.');
-    } else if (error.isNetworkError) {
-      toast.error('Network error. Please check your connection.');
-    } else {
-      toast.error(error.message || 'Failed to send message.');
-    }
-  } else {
-    toast.error('An unexpected error occurred. Please try again.');
-  }
+  toastSendError(error);
 }
 
 /**
@@ -643,1497 +460,5 @@ async function refreshConversationMessages(convId: string): Promise<void> {
     }
   } catch (refreshError) {
     log.warn('Failed to refresh conversation after reconcile', { refreshError, conversationId: convId });
-  }
-}
-
-/**
- * Wire up retry/discard events dispatched by the failed-message affordance.
- * Called once from init.
- */
-export function initOutboxHandlers(): void {
-  document.addEventListener('outbox:retry', (e) => {
-    const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
-    void retryFailedMessage(messageId);
-  });
-  document.addEventListener('outbox:discard', (e) => {
-    const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
-    discardFailedMessage(messageId);
-  });
-  document.addEventListener('message:regenerate', (e) => {
-    const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
-    void regenerateResponse(messageId);
-  });
-  document.addEventListener('message:continue', () => {
-    void continueResponse();
-  });
-  document.addEventListener('message:edit', (e) => {
-    const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
-    startMessageEdit(messageId);
-  });
-}
-
-/**
- * Re-run the agent on existing history (no new user message): regenerate
- * after deleting the last assistant response, or continue a truncated one.
- */
-async function dispatchRerun(convId: string, mode: 'regenerate' | 'continue'): Promise<void> {
-  // Anchor id keeps the send pipeline's bookkeeping happy - no optimistic
-  // user bubble or outbox entry exists for reruns, so all the send-state
-  // updates keyed on it are harmless no-ops
-  const rerunAnchorId = `rerun-${Date.now()}`;
-  const anonymousMode = useStore.getState().getAnonymousMode(convId);
-  const clientLocation = await getClientLocation();
-  try {
-    if (useStore.getState().streamingEnabled) {
-      await sendStreamingMessage(convId, '', [], [], rerunAnchorId, anonymousMode, clientLocation, mode);
-    } else {
-      await sendBatchMessage(convId, '', [], [], rerunAnchorId, anonymousMode, clientLocation, mode);
-    }
-  } catch (error) {
-    log.error('Rerun failed', { error, conversationId: convId, mode });
-    hideLoadingIndicator();
-    toast.error(error instanceof ApiError ? error.message : 'Failed to re-run the response.');
-  }
-}
-
-async function regenerateResponse(messageId: string): Promise<void> {
-  const convId = useStore.getState().currentConversation?.id;
-  if (!convId) return;
-  if (useStore.getState().getActiveRequest(convId)) {
-    toast.info('Please wait for the current response in this conversation to finish.');
-    return;
-  }
-  log.info('Regenerating response', { conversationId: convId, messageId });
-  try {
-    await messages.delete(messageId);
-  } catch (error) {
-    log.error('Failed to delete response for regenerate', { error, messageId });
-    toast.error('Failed to remove the previous response.');
-    return;
-  }
-  useStore.getState().removeMessage(convId, messageId);
-  document.querySelector(`.message[data-message-id="${messageId}"]`)?.remove();
-  await dispatchRerun(convId, 'regenerate');
-}
-
-async function continueResponse(): Promise<void> {
-  const convId = useStore.getState().currentConversation?.id;
-  if (!convId) return;
-  if (useStore.getState().getActiveRequest(convId)) {
-    toast.info('Please wait for the current response in this conversation to finish.');
-    return;
-  }
-  log.info('Continuing response', { conversationId: convId });
-  await dispatchRerun(convId, 'continue');
-}
-
-/** Inline edit of a sent user message; saving truncates the tail and resends. */
-function startMessageEdit(messageId: string): void {
-  const convId = useStore.getState().currentConversation?.id;
-  if (!convId) return;
-  if (useStore.getState().getActiveRequest(convId)) {
-    toast.info('Please wait for the current response in this conversation to finish.');
-    return;
-  }
-  const message = useStore.getState().getMessages(convId).find((m) => m.id === messageId);
-  const messageEl = document.querySelector<HTMLElement>(`.message[data-message-id="${messageId}"]`);
-  if (!message || !messageEl) return;
-  beginInlineEdit(messageEl, message.content, {
-    onSave: (newText) => void submitMessageEdit(convId, messageId, newText),
-  });
-}
-
-async function submitMessageEdit(convId: string, messageId: string, newText: string): Promise<void> {
-  const trimmed = newText.trim();
-  if (!trimmed) return;
-  log.info('Edit-and-resend', { conversationId: convId, messageId });
-  try {
-    // Server first: the edited message and everything after it disappear
-    await conversations.truncate(convId, messageId, true);
-  } catch (error) {
-    log.error('Failed to truncate for edit', { error, conversationId: convId, messageId });
-    toast.error('Failed to edit the message.');
-    return;
-  }
-  useStore.getState().truncateMessagesFrom(convId, messageId);
-  // Remove the edited message and its tail from the DOM directly instead of
-  // re-rendering the whole list from the store (cheaper, and keeps the
-  // surviving bubbles' state - scroll position, loaded thumbnails)
-  removeRenderedMessagesFrom(messageId);
-
-  // Re-send through the normal pipeline (outbox, retry, streaming) by
-  // placing the edited text in the composer and sending
-  const input = getElementById<HTMLTextAreaElement>('message-input');
-  if (input) {
-    input.value = trimmed;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-  await sendMessage();
-}
-
-async function retryFailedMessage(messageId: string): Promise<void> {
-  const convId = useStore.getState().currentConversation?.id;
-  if (!convId) return;
-  const entry = getOutboxEntry(convId, messageId);
-  if (!entry) return;
-  if (useStore.getState().getActiveRequest(convId)) {
-    toast.info('Please wait for the current response in this conversation to finish.');
-    return;
-  }
-  log.info('Retrying failed message', { conversationId: convId, messageId });
-  // A manual retry earns a fresh automatic retry on transient failure
-  autoRetriedSends.delete(messageId);
-  if (entry.filesDropped) {
-    toast.warning('Attachments could not be restored after reload - sending text only.');
-  }
-  await dispatchSend(convId, entry);
-}
-
-function discardFailedMessage(messageId: string): void {
-  const convId = useStore.getState().currentConversation?.id;
-  if (!convId) return;
-  log.info('Discarding failed message', { conversationId: convId, messageId });
-  removeOutboxEntry(convId, messageId);
-  useStore.getState().removeMessage(convId, messageId);
-  document.querySelector(`.message[data-message-id="${messageId}"]`)?.remove();
-}
-
-// ============ Streaming Message ============
-
-/**
- * State for a streaming request, encapsulating all mutable data.
- */
-interface StreamingState {
-  messageEl: HTMLElement;
-  fullContent: string;
-  thinkingState: ThinkingState;
-  messageSuccessful: boolean;
-  uploadProgressHidden: boolean;
-  /** Pre-generated assistant message ID from server, used for stream recovery */
-  expectedAssistantMessageId: string | null;
-  /** Highest journal seq rendered so far (resume offset for resumable streams) */
-  lastSeq: number;
-  /** Set before aborting the reader to resume proactively (foreground/pageshow) */
-  resumeViaAbort?: boolean;
-  /** The controller wired to the CURRENT reader (initial stream or a resume
-   * attempt) - the stop button and the proactive bg/fg abort target this */
-  activeAbortController?: AbortController;
-  /** Count of token events received (for debugging) */
-  tokenCount?: number;
-}
-
-/**
- * Toggle the uploading state on the optimistic user message so its
- * attachment chips can indicate the in-flight upload.
- */
-function setUserMessageUploading(tempUserMessageId: string, uploading: boolean): void {
-  const el = document.querySelector(`.message.user[data-message-id="${tempUserMessageId}"]`);
-  el?.classList.toggle('uploading', uploading);
-}
-
-/**
- * Initialize streaming request state and tracking.
- */
-function initStreamingRequest(
-  convId: string,
-  hasFiles: boolean
-): { state: StreamingState; requestId: string; abortController: AbortController } {
-  const messageEl = addStreamingMessage(convId);
-  // While the multipart body (attachments) uploads, nothing is thinking
-  // server-side yet - keep the assistant bubble hidden until the first
-  // stream event acks that the server has the message
-  if (hasFiles) {
-    messageEl.classList.add('awaiting-upload');
-  }
-  const requestId = `stream-${convId}-${Date.now()}`;
-  const abortController = new AbortController();
-
-  // Track request
-  activeRequests.set(requestId, {
-    conversationId: convId,
-    type: 'stream',
-    abortController,
-  });
-
-  // Register in store for UI restoration
-  useStore.getState().setActiveRequest(convId, {
-    conversationId: convId,
-    type: 'stream',
-    content: '',
-    thinkingState: undefined,
-  });
-
-  // Mark streaming state
-  getSyncManager()?.setConversationStreaming(convId, true);
-  useStore.getState().setStreamingConversation(convId);
-
-  // Show upload progress if needed. The streaming path uploads via fetch,
-  // which has no progress events - show the indeterminate spin.
-  if (hasFiles) {
-    showUploadProgress(true);
-  }
-
-  const state: StreamingState = {
-    messageEl,
-    fullContent: '',
-    thinkingState: {
-      isThinking: true,
-      thinkingText: '',
-      activeTool: null,
-      activeToolDetail: undefined,
-      completedTools: [],
-      trace: [],
-    },
-    messageSuccessful: false,
-    uploadProgressHidden: false,
-    expectedAssistantMessageId: null,
-    lastSeq: 0,
-    activeAbortController: abortController,
-  };
-
-  return { state, requestId, abortController };
-}
-
-/**
- * Clean up streaming request resources.
- */
-// ============ In-flight stream persistence (resume after crash/reload) ============
-
-// Map keyed by conversation id: conversations can stream CONCURRENTLY, so a
-// single entry would be overwritten by the next stream and cleared by
-// whichever stream finishes first. Entries expire client-side well within
-// the server journal TTL and the map is pruned on every write/read.
-const INFLIGHT_STREAMS_KEY = 'inflight-streams';
-const INFLIGHT_STREAM_MAX_AGE_MS = 30 * 60 * 1000; // journal TTL is 1h server-side
-
-interface InflightStream {
-  messageId: string;
-  ts: number;
-}
-
-function readInflightStreams(): Record<string, InflightStream> {
-  try {
-    const raw = localStorage.getItem(INFLIGHT_STREAMS_KEY);
-    if (!raw) return {};
-    const map = JSON.parse(raw) as Record<string, InflightStream>;
-    const now = Date.now();
-    const fresh: Record<string, InflightStream> = {};
-    for (const [convId, entry] of Object.entries(map)) {
-      if (entry?.messageId && now - entry.ts <= INFLIGHT_STREAM_MAX_AGE_MS) {
-        fresh[convId] = entry;
-      }
-    }
-    return fresh;
-  } catch {
-    return {};
-  }
-}
-
-function writeInflightStreams(map: Record<string, InflightStream>): void {
-  try {
-    if (Object.keys(map).length === 0) {
-      localStorage.removeItem(INFLIGHT_STREAMS_KEY);
-    } else {
-      localStorage.setItem(INFLIGHT_STREAMS_KEY, JSON.stringify(map));
-    }
-  } catch {
-    // Quota/privacy-mode failures only cost the reload-resume nicety
-  }
-}
-
-function persistInflightStream(convId: string, messageId: string): void {
-  const map = readInflightStreams();
-  map[convId] = { messageId, ts: Date.now() };
-  writeInflightStreams(map);
-}
-
-function clearInflightStream(convId: string): void {
-  const map = readInflightStreams();
-  if (convId in map) {
-    delete map[convId];
-    writeInflightStreams(map);
-  }
-}
-
-function readInflightStream(convId: string): InflightStream | null {
-  return readInflightStreams()[convId] ?? null;
-}
-
-function cleanupStreamingRequest(
-  requestId: string,
-  convId: string,
-  messageSuccessful: boolean
-): void {
-  activeRequests.delete(requestId);
-  cleanupStreamingContext();
-  useStore.getState().removeActiveRequest(convId);
-
-  hideUploadProgress();
-  useStore.getState().setUploadProgress(null);
-
-  if (messageSuccessful) {
-    getSyncManager()?.incrementLocalMessageCount(convId, 2);
-    notifyTurnFinished();
-  }
-
-  getSyncManager()?.setConversationStreaming(convId, false);
-  // Only clear the global flag if it is OURS - another conversation may have
-  // started streaming meanwhile (concurrent conversations)
-  if (useStore.getState().streamingConversationId === convId) {
-    useStore.getState().setStreamingConversation(null);
-  }
-}
-
-/**
- * Handle scroll-to-bottom for lazy-loaded images after message completion.
- */
-/**
- * Watch for a USER scroll between now and a deferred (rAF) scroll of ours.
- * Position deltas can't see the case that bit us: the user scrolls "to the
- * top" of a list that only just became scrollable, landing within a few px
- * of where it already was, and the deferred pin then yanked them back down.
- * A scroll event fires regardless of how far the position moved.
- */
-function watchForUserScroll(container: HTMLElement): () => boolean {
-  let scrolled = false;
-  let last = container.scrollTop;
-  const onScroll = (): void => {
-    const cur = container.scrollTop;
-    const distanceFromBottom = container.scrollHeight - cur - container.clientHeight;
-    // A user scroll-up moves UP and leaves a gap to the bottom. Two things
-    // also fire scroll events here and must NOT count: the browser clamping
-    // scrollTop when the finalized message is shorter than the streaming
-    // placeholder (moves up, but lands exactly at the new bottom), and
-    // scroll anchoring when content above grows (moves down).
-    if (!isProgrammaticScrollActive() && cur < last - 1 && distanceFromBottom > 1) {
-      scrolled = true;
-    }
-    last = cur;
-  };
-  container.addEventListener('scroll', onScroll, { passive: true });
-  return () => {
-    container.removeEventListener('scroll', onScroll);
-    return scrolled;
-  };
-}
-
-function handleImageScrollAfterMessage(
-  messageEl: HTMLElement,
-  files: Array<{ type: string; previewUrl?: string }> | undefined
-): void {
-  const messagesContainer = getElementById<HTMLDivElement>('messages');
-  if (!messagesContainer || !files) return;
-
-  const hasImagesToLoad = files.some((f) => f.type.startsWith('image/') && !f.previewUrl);
-  const wasAtBottom = isScrolledToBottom(messagesContainer);
-
-  if (hasImagesToLoad && wasAtBottom) {
-    enableScrollOnImageLoad();
-    programmaticScrollToBottom(messagesContainer, false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        triggerVisibleImageObservation(messageEl, messagesContainer);
-        checkScrollButtonVisibility();
-      });
-    });
-  } else {
-    if (wasAtBottom) {
-      programmaticScrollToBottom(messagesContainer);
-    }
-    requestAnimationFrame(() => {
-      checkScrollButtonVisibility();
-    });
-  }
-}
-
-/**
- * Trigger observation for visible images that haven't started loading.
- */
-function triggerVisibleImageObservation(
-  messageEl: HTMLElement,
-  container: HTMLElement
-): void {
-  const images = messageEl.querySelectorAll<HTMLImageElement>(
-    'img[data-message-id][data-file-index]:not([src])'
-  );
-  const containerRect = container.getBoundingClientRect();
-
-  images.forEach((img) => {
-    const rect = img.getBoundingClientRect();
-    const isVisible = rect.top < containerRect.bottom && rect.bottom > containerRect.top;
-    if (isVisible && !img.src) {
-      getThumbnailObserver().unobserve(img);
-      observeThumbnail(img);
-    }
-  });
-}
-
-/**
- * Process a single streaming event and update state/UI.
- */
-function processStreamEvent(
-  event: { type: string; [key: string]: unknown },
-  state: StreamingState,
-  convId: string,
-  tempUserMessageId: string
-): { shouldBreak?: boolean; error?: Error } {
-  const store = useStore.getState();
-  const isCurrentConversation = store.currentConversation?.id === convId;
-
-  // Update message element reference (may have been restored after conversation switch)
-  const currentMessageEl = getStreamingMessageElement(convId);
-  if (currentMessageEl) {
-    state.messageEl = currentMessageEl;
-  }
-
-  switch (event.type) {
-    case 'user_message_saved':
-      if (event.user_message_id) {
-        updateUserMessageId(tempUserMessageId, event.user_message_id as string);
-      }
-      // Capture the expected assistant message ID for stream recovery
-      if (event.expected_assistant_message_id) {
-        state.expectedAssistantMessageId = event.expected_assistant_message_id as string;
-        // Persist so a crashed/reloaded page can resume this turn from the journal
-        persistInflightStream(convId, state.expectedAssistantMessageId);
-        log.debug('Captured expected assistant message ID', {
-          conversationId: convId,
-          expectedMessageId: state.expectedAssistantMessageId,
-        });
-        // Set the ID on the streaming element early for reliable recovery lookup
-        if (state.messageEl) {
-          state.messageEl.dataset.messageId = state.expectedAssistantMessageId;
-        }
-      }
-      break;
-
-    case 'thinking':
-      updateLocalThinkingState(state.thinkingState, 'thinking', event.text as string);
-      if (isCurrentConversation) {
-        updateStreamingThinking(event.text as string);
-      }
-      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
-      break;
-
-    case 'tool_start':
-      updateLocalThinkingState(
-        state.thinkingState,
-        'tool_start',
-        event.tool as string,
-        event.detail as string | undefined,
-        event.metadata as ToolMetadata | undefined
-      );
-      if (isCurrentConversation) {
-        updateStreamingToolStart(
-          event.tool as string,
-          event.detail as string | undefined,
-          event.metadata as ToolMetadata | undefined
-        );
-      }
-      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
-      break;
-
-    case 'tool_detail':
-      updateLocalThinkingState(
-        state.thinkingState,
-        'tool_detail',
-        event.tool as string,
-        event.detail as string | undefined
-      );
-      if (isCurrentConversation && event.detail) {
-        updateStreamingToolDetail(event.tool as string, event.detail as string);
-      }
-      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
-      break;
-
-    case 'retry':
-      // Transient Gemini error being retried server-side: show it instead
-      // of a silent stall (not part of the persisted thinking trace)
-      if (isCurrentConversation) {
-        updateStreamingRetryStatus(event.attempt as number, event.max_retries as number | undefined);
-      }
-      break;
-
-    case 'tool_end':
-      updateLocalThinkingState(state.thinkingState, 'tool_end', event.tool as string);
-      if (isCurrentConversation) {
-        updateStreamingToolEnd(event.tool as string);
-      }
-      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
-      break;
-
-    case 'token':
-      state.fullContent += event.text as string;
-      state.tokenCount = (state.tokenCount ?? 0) + 1;
-      if (state.thinkingState.isThinking) {
-        state.thinkingState.isThinking = false;
-      }
-      store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
-      if (isCurrentConversation) {
-        updateStreamingMessage(state.messageEl, state.fullContent);
-      } else {
-        // Log when tokens are not rendered (helps diagnose streaming issues)
-        if (state.tokenCount === 1) {
-          log.warn('Token received but not current conversation', {
-            conversationId: convId,
-            currentConversation: store.currentConversation?.id,
-          });
-        }
-      }
-      // Log first token and periodically to track streaming progress
-      if (state.tokenCount === 1 || state.tokenCount % 50 === 0) {
-        log.debug('Token streaming progress', {
-          tokenCount: state.tokenCount,
-          contentLength: state.fullContent.length,
-          isCurrentConversation,
-        });
-      }
-      break;
-
-    case 'approval_required':
-      // Agent requested approval - update UI state
-      // The done event will follow with the full message
-      log.info('Approval requested', {
-        approvalId: event.approval_id,
-        description: event.description,
-        conversationId: convId,
-      });
-      break;
-
-    case 'error':
-      return handleStreamError(event, state);
-  }
-
-  return {};
-}
-
-/**
- * Handle stream error event.
- */
-function handleStreamError(
-  event: { type: string; message?: string; code?: string; retryable?: boolean },
-  state: StreamingState
-): { error: Error } {
-  log.error('Stream error', { message: event.message });
-
-  if (state.fullContent.trim()) {
-    state.messageEl.classList.add('message-incomplete');
-  } else {
-    state.messageEl.remove();
-  }
-
-  const streamError = new ApiError(
-    event.message || 'Failed to generate response.',
-    event.code === 'TIMEOUT' ? 408 : 500,
-    {
-      code: event.code,
-      retryable: event.retryable ?? false,
-      isTimeout: event.code === 'TIMEOUT',
-    }
-  );
-
-  return { error: streamError };
-}
-
-/**
- * Point the conversation's tracked stream request at a new controller so the
- * stop button (handleStopStreaming) aborts the reader that is actually live.
- */
-function swapAbortController(convId: string, controller: AbortController): void {
-  for (const request of activeRequests.values()) {
-    if (request.conversationId === convId && request.type === 'stream') {
-      request.abortController = controller;
-    }
-  }
-}
-
-/**
- * Background/foreground handling shared by the live stream and the
- * reload-resume path. On hidden: mark for poll recovery (legacy fallback).
- * On visible after a real background stint (or a bfcache restore): the reader
- * is often silently dead (iOS froze the page / dropped the socket) and would
- * otherwise hang until the read timeout - abort it and resume from the
- * journal offset instead. Aborting BEFORE resuming also removes the
- * recovery-vs-late-reader race (R13: buffered bytes overwriting recovery).
- * Returns a cleanup function that removes the listeners.
- */
-function setupStreamLifecycleListeners(state: StreamingState, convId: string): () => void {
-  let hiddenAt: number | null = null;
-
-  const proactiveResume = (): void => {
-    if (state.messageSuccessful || !state.expectedAssistantMessageId) return;
-    log.info('Foregrounded mid-stream - aborting reader and resuming from journal', {
-      conversationId: convId,
-      lastSeq: state.lastSeq,
-    });
-    state.resumeViaAbort = true;
-    state.activeAbortController?.abort();
-  };
-
-  const handleVisibilityChange = (): void => {
-    if (document.visibilityState === 'hidden') {
-      hiddenAt = Date.now();
-      if (state.expectedAssistantMessageId) {
-        markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'visibility');
-      }
-    } else if (document.visibilityState === 'visible') {
-      const hiddenLongEnough = hiddenAt !== null && Date.now() - hiddenAt >= 500;
-      hiddenAt = null;
-      if (hiddenLongEnough) {
-        proactiveResume();
-      }
-    }
-  };
-
-  // iOS bfcache restore can skip visibilitychange entirely (R14)
-  const handlePageShow = (event: PageTransitionEvent): void => {
-    if (event.persisted) {
-      proactiveResume();
-    }
-  };
-
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  window.addEventListener('pageshow', handlePageShow);
-  return () => {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-    window.removeEventListener('pageshow', handlePageShow);
-  };
-}
-
-/**
- * Handle stream ending without a done event.
- * This can happen if the connection drops mid-stream but the server still saves the message.
- * Uses the stream recovery module which handles retries for race conditions.
- *
- * Throws AbortError when the user stops the stream mid-resume; a proactive
- * (foreground/pageshow) abort retries from the journal offset instead.
- */
-async function tryResumeStream(
-  state: StreamingState,
-  convId: string,
-  tempUserMessageId: string
-): Promise<boolean> {
-  if (!state.expectedAssistantMessageId) return false;
-  const messageId = state.expectedAssistantMessageId;
-  const MAX_RESUME_ATTEMPTS = 3;
-
-  for (let attempt = 0; attempt < MAX_RESUME_ATTEMPTS; attempt++) {
-    // An aborted controller at this point is either the user stopping the
-    // stream (during the backoff sleep, or the pre-resume reader) or the
-    // proactive bg/fg abort that brought us here - resumeViaAbort tells apart
-    if (state.activeAbortController?.signal.aborted && !state.resumeViaAbort) {
-      throw new DOMException('Aborted', 'AbortError');
-    }
-    state.resumeViaAbort = false;
-
-    // Fresh reader, fresh controller - swap it into the tracked request so
-    // the stop button and the bg/fg abort target the reader that is live
-    const controller = new AbortController();
-    state.activeAbortController = controller;
-    swapAbortController(convId, controller);
-
-    try {
-      log.info('Attempting stream resume', {
-        conversationId: convId,
-        messageId,
-        afterSeq: state.lastSeq,
-        attempt,
-      });
-      clearPendingRecovery(convId);
-      for await (const event of chat.resumeStream(convId, messageId, state.lastSeq, controller)) {
-        if (typeof event.seq === 'number') {
-          state.lastSeq = event.seq;
-        }
-        if (event.type === 'done') {
-          await handleStreamDone(
-            event as unknown as StreamDoneEvent,
-            state,
-            convId,
-            tempUserMessageId
-          );
-          return true;
-        }
-        if (event.type === 'error') {
-          if (event.code === 'RESUME_FAILED') {
-            // Turn failed server-side and nothing was saved - not retryable
-            return false;
-          }
-          throw new Error(event.message);
-        }
-        if (event.type === 'timeout') {
-          // The resume endpoint exhausted its own deadline - the turn is
-          // dead; retrying the resume cannot help. Fall back to poll recovery.
-          log.warn('Resume timed out server-side', { conversationId: convId });
-          return false;
-        }
-        const result = processStreamEvent(event, state, convId, tempUserMessageId);
-        if (result.error) {
-          throw result.error;
-        }
-      }
-      // Stream ended without done - retry (the save may still be in flight)
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        if (state.resumeViaAbort) {
-          // Foregrounded mid-resume: this reader is presumed dead - retry
-          // immediately from the journal offset (flag reset at loop top)
-          continue;
-        }
-        throw error; // User-initiated stop - propagate to the caller
-      }
-      // 404 = no journal for this message (expired, or server without the
-      // endpoint) - fall back to poll-based recovery immediately
-      if (error instanceof ApiError && error.status === 404) {
-        log.info('Resume endpoint has no journal, falling back', { conversationId: convId });
-        return false;
-      }
-      log.warn('Stream resume attempt failed', { error, conversationId: convId, attempt });
-    }
-    if (attempt < MAX_RESUME_ATTEMPTS - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
-    }
-  }
-  return false;
-}
-
-/**
- * Resume an in-flight stream after a page crash/reload.
- *
- * Called when a conversation's messages finish rendering. If localStorage
- * holds a fresh in-flight entry for THIS conversation and the assistant
- * message is still empty (the turn was mid-flight when the page died),
- * replays the journal from seq 0 - there is no rendered prefix to offset
- * from - and continues live.
- */
-export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
-  // The stream is still live in THIS tab (conversation switch, not a reload):
-  // the activeRequest restore path re-creates the streaming UI and the live
-  // reader keeps feeding it. Resuming here would spawn a second, competing
-  // reader and a duplicate bubble - and consume the entry a real reload needs.
-  if (useStore.getState().getActiveRequest(convId)) return;
-  const entry = readInflightStream(convId);
-  if (!entry) return;
-
-  const container = getElementById<HTMLDivElement>('messages');
-  const existing = container?.querySelector(`[data-message-id="${entry.messageId}"]`);
-  // Check the CONTENT element, not the whole bubble - an empty placeholder
-  // still has timestamps/action buttons in its textContent
-  const existingContent = existing?.querySelector('.message-content')?.textContent ?? '';
-  if (existing && existingContent.trim() !== '') {
-    // The turn completed before the reload; the saved message is rendered
-    clearInflightStream(convId);
-    return;
-  }
-
-  log.info('Resuming in-flight stream after reload', {
-    conversationId: convId,
-    messageId: entry.messageId,
-  });
-
-  // Replace the empty placeholder bubble (if the loader rendered it) with a
-  // live streaming bubble
-  if (existing instanceof HTMLElement) {
-    existing.remove();
-  }
-  const messageEl = addStreamingMessage(convId);
-  messageEl.dataset.messageId = entry.messageId;
-
-  const state: StreamingState = {
-    messageEl,
-    fullContent: '',
-    thinkingState: {
-      isThinking: true,
-      thinkingText: '',
-      activeTool: null,
-      activeToolDetail: undefined,
-      completedTools: [],
-      trace: [],
-    },
-    messageSuccessful: false,
-    uploadProgressHidden: true,
-    expectedAssistantMessageId: entry.messageId,
-    lastSeq: 0,
-  };
-  // One controller shared between the tracked request and the state so a
-  // stop click in the window before the first resume attempt is not lost
-  const abortController = new AbortController();
-  state.activeAbortController = abortController;
-
-  const requestId = `resume-${convId}-${Date.now()}`;
-  activeRequests.set(requestId, {
-    conversationId: convId,
-    type: 'stream',
-    abortController,
-  });
-  // Register in the store too: the getActiveRequest guard above blocks
-  // re-entry from further conversation switches, and the switch-back restore
-  // path can re-create this bubble with the accumulated content
-  useStore.getState().setActiveRequest(convId, {
-    conversationId: convId,
-    type: 'stream',
-    content: '',
-    thinkingState: undefined,
-  });
-  useStore.getState().setStreamingConversation(convId);
-  getSyncManager()?.setConversationStreaming(convId, true);
-
-  // Same bg/fg handling as a live stream: the resume reader can die in an
-  // iOS background stint too
-  const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
-
-  let delivered = false;
-  try {
-    try {
-      delivered = await tryResumeStream(state, convId, '');
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        // User stopped the resumed turn - terminal, no recovery
-        log.info('Reload-resume aborted by user', { conversationId: convId });
-        (getStreamingMessageElement(convId) ?? messageEl).remove();
-        toast.info('Response stopped.');
-        clearPendingRecovery(convId);
-        return;
-      }
-      throw error;
-    }
-    if (!delivered) {
-      // Journal gone or turn dead - poll recovery handles saved-but-swept
-      markStreamForRecovery(convId, entry.messageId, '', 'network');
-      delivered = await attemptRecovery(convId);
-      if (!delivered) {
-        messageEl.remove();
-      }
-    }
-  } finally {
-    cleanupLifecycleListeners();
-    // The localStorage entry survives until HERE (terminal outcome): clearing
-    // it up front meant a second reload mid-resume found nothing and silently
-    // abandoned the still-running turn
-    clearInflightStream(convId);
-    // messageSuccessful=false on purpose: the reload refetched server counts,
-    // so the user message is already counted - only the newly delivered
-    // assistant message needs the local baseline bump
-    cleanupStreamingRequest(requestId, convId, false);
-    if (delivered) {
-      getSyncManager()?.incrementLocalMessageCount(convId, 1);
-    }
-  }
-}
-
-async function handleMissingDoneEvent(
-  state: StreamingState,
-  convId: string,
-  tempUserMessageId: string
-): Promise<void> {
-  const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
-  if (!isCurrentConversation) {
-    // User switched away - just clean up the streaming element
-    state.messageEl.remove();
-    return;
-  }
-
-  // If we don't have the expected message ID, we can't reliably recover
-  if (!state.expectedAssistantMessageId) {
-    log.warn('Cannot recover - no expected assistant message ID', {
-      conversationId: convId,
-    });
-    if (state.fullContent.trim()) {
-      state.messageEl.classList.add('message-incomplete');
-    } else {
-      state.messageEl.remove();
-    }
-    return;
-  }
-
-  // Resume from the journal first: replays missed events and continues live
-  const resumed = await tryResumeStream(state, convId, tempUserMessageId);
-  if (resumed) {
-    state.messageSuccessful = true;
-    return;
-  }
-
-  // Fall back to the poll-based recovery module (handles journal-expired cases)
-  markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, 'network');
-  const recovered = await attemptRecovery(convId);
-
-  if (recovered) {
-    state.messageSuccessful = true;
-  }
-  // If not recovered, the recovery module already handled showing error UI
-}
-
-/** Payload of the stream's terminal `done` event (the saved assistant message). */
-interface StreamDoneEvent {
-  id: string;
-  created_at: string;
-  content?: string;
-  user_message_id?: string;
-  sources?: Source[];
-  generated_images?: GeneratedImage[];
-  files?: FileMetadata[];
-  title?: string;
-  language?: string;
-  approval_required?: boolean;
-  approval_id?: string;
-  stopped_early?: boolean;
-}
-
-/**
- * The store Message for a completed streamed reply - the same data the
- * finalized bubble renders. The server's saved content wins; the streamed
- * text covers a done event that carries none.
- */
-function assistantMessageFromDone(event: StreamDoneEvent, streamedContent: string): Message {
-  return {
-    id: event.id,
-    role: 'assistant',
-    content: event.content || streamedContent,
-    created_at: event.created_at,
-    sources: event.sources,
-    generated_images: event.generated_images,
-    files: event.files,
-    language: event.language,
-    stopped_early: event.stopped_early,
-  };
-}
-
-/**
- * Handle stream done event.
- */
-async function handleStreamDone(
-  event: StreamDoneEvent,
-  state: StreamingState,
-  convId: string,
-  tempUserMessageId: string
-): Promise<void> {
-  log.info('Streaming complete', {
-    conversationId: convId,
-    messageId: event.id,
-    approvalRequired: event.approval_required,
-    hasContent: !!event.content,
-    streamedContentLength: state.fullContent.length,
-  });
-
-  if (event.user_message_id) {
-    updateUserMessageId(tempUserMessageId, event.user_message_id);
-  }
-
-  const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
-  if (!isCurrentConversation) {
-    // The user switched away mid-stream: the turn still completed - do the
-    // bookkeeping without touching the (re-rendered) DOM. Bailing before
-    // messageSuccessful left every backgrounded stream looking interrupted,
-    // triggering a pointless recovery round and a wrong local message count.
-    state.messageSuccessful = true;
-    clearPendingRecovery(convId);
-    useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
-    if (event.title) {
-      updateConversationTitle(convId, event.title);
-    }
-    return;
-  }
-
-  // If the done event has no visible content (e.g. metadata-only tool calls),
-  // remove the empty message element instead of leaving an empty bubble
-  const hasVisibleContent = event.content?.trim() ||
-    event.files?.length || event.generated_images?.length || event.sources?.length;
-  if (!hasVisibleContent) {
-    const messageEl = getStreamingMessageElement(convId) ?? state.messageEl;
-    messageEl.remove();
-    clearPendingRecovery(convId);
-    state.messageSuccessful = true;
-    await updateConversationCost(convId);
-    return;
-  }
-
-  // Get the current streaming element from context, which may have been restored
-  // when switching back to this conversation. If the context doesn't exist or
-  // doesn't match this conversation, fall back to the original element.
-  const messageEl = getStreamingMessageElement(convId) ?? state.messageEl;
-
-  // Recovery: If tokens weren't rendered during streaming but done event has content,
-  // render the content now. This handles cases where SSE token events were lost
-  // (e.g., connection issues, iOS Safari quirks) but the done event arrived.
-  if (event.content && !state.fullContent.trim()) {
-    log.warn('Recovering content from done event - tokens were not streamed', {
-      conversationId: convId,
-      contentLength: event.content.length,
-    });
-    // Render the content that should have been streamed
-    updateStreamingMessage(messageEl, event.content);
-  }
-
-  const wasFollowing = finalizeStreamingMessage(
-    messageEl,
-    event.id,
-    event.created_at,
-    event.sources,
-    event.generated_images,
-    event.files,
-    'assistant',
-    event.language
-  );
-  useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
-  if (event.stopped_early) {
-    const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');
-    if (wrapper) appendStoppedEarlyNote(wrapper, event.id);
-  }
-
-  // Scroll to top of message if user was following, otherwise handle image scroll
-  const messagesContainer = getElementById<HTMLDivElement>('messages');
-  log.info('Streaming done scroll decision', {
-    wasFollowing,
-    hasMessagesContainer: !!messagesContainer,
-    messageElOffsetTop: messageEl.offsetTop,
-  });
-
-  if (wasFollowing && messagesContainer) {
-    // Record scroll position to detect if user scrolls away before RAF fires
-    const scrollTopWhenDone = messagesContainer.scrollTop;
-    const userScrolledSinceDone = watchForUserScroll(messagesContainer);
-
-    // User was following the stream - scroll to top of the assistant's response
-    // Use double RAF to ensure layout is fully settled after finalization
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // Check if user scrolled away while waiting for RAFs
-        const currentScrollTop = messagesContainer.scrollTop;
-        const scrolledUp = currentScrollTop < scrollTopWhenDone - 100;
-        const nearTop = currentScrollTop < 50;
-        if (userScrolledSinceDone() || scrolledUp || nearTop) {
-          log.info('Scroll aborted - user scrolled away');
-          checkScrollButtonVisibility();
-          return;
-        }
-
-        // Also check distance from bottom
-        const scrollHeight = messagesContainer.scrollHeight;
-        const clientHeight = messagesContainer.clientHeight;
-        const distanceFromBottom = scrollHeight - currentScrollTop - clientHeight;
-        if (distanceFromBottom > 500) {
-          log.info('Scroll aborted - user far from bottom');
-          checkScrollButtonVisibility();
-          return;
-        }
-
-        // Only jump to the top of responses taller than the viewport: the
-        // jump exists so long answers can be read from the start, but for a
-        // short answer that's already fully visible it's a jarring leap away
-        // from the bottom the user was just watching
-        if (messageEl.offsetHeight <= clientHeight * RESPONSE_JUMP_MIN_VIEWPORT_RATIO) {
-          log.info('Short response - staying at bottom instead of jumping to top');
-          programmaticScrollToBottom(messagesContainer);
-          checkScrollButtonVisibility();
-          return;
-        }
-
-        log.info('Scrolling to top of message (programmatic)');
-        // Use instant scroll to avoid timing issues with animations
-        programmaticScrollToElementTop(messagesContainer, messageEl, false);
-        checkScrollButtonVisibility();
-      });
-    });
-  } else {
-    // User scrolled away during streaming - don't auto-scroll, just handle images
-    log.info('Not scrolling to top - user scrolled away or no container');
-    handleImageScrollAfterMessage(messageEl, event.files);
-  }
-
-  updateConversationTitle(convId, event.title);
-  // Same window as the batch path: the stream is done, so a follow-up sent
-  // while the cost fetch is in flight must start a new turn, not interject
-  useStore.getState().removeActiveRequest(convId);
-  await updateConversationCost(convId);
-
-  // If approval was requested, the message element will contain the approval buttons
-  // The frontend rendering handles approval_request markers automatically
-  if (event.approval_required) {
-    log.info('Message finalized with pending approval', {
-      conversationId: convId,
-      approvalId: event.approval_id,
-    });
-  }
-
-  // Clear any pending recovery since stream completed successfully
-  clearPendingRecovery(convId);
-
-  state.messageSuccessful = true;
-}
-
-/**
- * Send message with streaming response.
- */
-async function sendStreamingMessage(
-  convId: string,
-  message: string,
-  files: ReturnType<typeof getPendingFiles>,
-  forceTools: string[],
-  tempUserMessageId: string,
-  anonymousMode: boolean,
-  clientLocation: ClientLocation | null = null,
-  rerunMode?: 'regenerate' | 'continue'
-): Promise<void> {
-  const hasFiles = files && files.length > 0;
-  const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
-  if (hasFiles) {
-    setUserMessageUploading(tempUserMessageId, true);
-  }
-
-  // Mark for recovery on mobile background/lock; proactively resume on return
-  const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
-
-  let deliveryConfirmed = false;
-
-  try {
-    for await (const event of chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode)) {
-      // First event = server has the message: the send can no longer fail
-      if (!deliveryConfirmed) {
-        deliveryConfirmed = true;
-        confirmDelivery(convId, tempUserMessageId);
-      }
-
-      // Hide upload progress, reveal the assistant bubble, clear the user
-      // bubble's upload state.
-      if (hasFiles && !state.uploadProgressHidden) {
-        hideUploadProgress();
-        useStore.getState().setUploadProgress(null);
-        state.uploadProgressHidden = true;
-        state.messageEl.classList.remove('awaiting-upload');
-        setUserMessageUploading(tempUserMessageId, false);
-      }
-
-      // Track the journal seq so an interrupted stream can resume from offset
-      if (typeof event.seq === 'number') {
-        state.lastSeq = event.seq;
-      }
-
-      // Handle done event specially (async)
-      if (event.type === 'done') {
-        await handleStreamDone(event as unknown as StreamDoneEvent, state, convId, tempUserMessageId);
-        continue;
-      }
-
-      // Server-side CHAT_TIMEOUT: partial content was saved; let the loop
-      // drain and the missing-done path recover the saved message
-      if (event.type === 'timeout') {
-        log.warn('Stream timed out server-side', { conversationId: convId });
-        toast.warning('Response timed out. Recovering saved content...');
-        continue;
-      }
-
-      // Process other events
-      const result = processStreamEvent(event, state, convId, tempUserMessageId);
-      if (result.error) {
-        throw result.error;
-      }
-    }
-
-    // Handle stream ending without done event (connection dropped mid-stream)
-    // The message may have been saved server-side, so try to recover it
-    if (!state.messageSuccessful) {
-      log.warn('Stream ended without done event', {
-        conversationId: convId,
-        hadContent: state.fullContent.trim() !== '',
-      });
-      await handleMissingDoneEvent(state, convId, tempUserMessageId);
-    }
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError' && !state.resumeViaAbort) {
-      log.info('Stream aborted by user', { conversationId: convId });
-      state.messageEl.remove();
-      // Stopped before the server confirmed receipt: surface as a failed
-      // send (retry-able); reconciliation resolves it if it actually landed
-      markSendFailed(convId, tempUserMessageId);
-      toast.info('Response stopped.');
-      // Clear any pending recovery since this was user-initiated
-      clearPendingRecovery(convId);
-      return;
-    }
-    log.error('Streaming failed', { error, conversationId: convId });
-
-    // Attempt resume/recovery for network/timeout errors if we have an expected message ID
-    // (resumeViaAbort stays set on a proactive abort: tryResumeStream uses it
-    // to tell the aborted main reader apart from a user stop)
-    if (state.expectedAssistantMessageId) {
-      // Resume from the journal first: replays missed events and continues live
-      let resumed: boolean;
-      try {
-        resumed = await tryResumeStream(state, convId, tempUserMessageId);
-      } catch (resumeError) {
-        if (resumeError instanceof Error && resumeError.name === 'AbortError') {
-          // User stopped the stream while a resume was in flight
-          log.info('Resume aborted by user', { conversationId: convId });
-          state.messageEl.remove();
-          toast.info('Response stopped.');
-          clearPendingRecovery(convId);
-          return;
-        }
-        throw resumeError;
-      }
-      if (resumed) {
-        state.messageSuccessful = true;
-        return;
-      }
-
-      const reason = (error instanceof ApiError && error.isTimeout) ? 'timeout' : 'network';
-      markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, reason);
-
-      // Attempt recovery immediately for non-visibility errors
-      const recovered = await attemptRecovery(convId);
-      if (recovered) {
-        // Recovery succeeded - don't show error or throw (messageSuccessful
-        // keeps the local message count in sync - R11)
-        state.messageSuccessful = true;
-        return;
-      }
-    }
-
-    // Recovery failed or not possible - show error state
-    if (state.fullContent.trim()) {
-      state.messageEl.classList.add('message-incomplete');
-    } else {
-      state.messageEl.remove();
-    }
-
-    // 409 means the message actually landed on a previous attempt - always
-    // propagate so the dispatch level reconciles instead of marking failed
-    if (error instanceof ApiError && error.status === 409) {
-      throw error;
-    }
-
-    const isCurrentConversation = useStore.getState().currentConversation?.id === convId;
-    if (isCurrentConversation) {
-      // Propagate: handleSendFailure decides between a silent auto-retry and
-      // the failed state. Marking failed HERE flashed the retry/discard
-      // buttons for the 2s auto-retry window.
-      throw error;
-    }
-
-    // Swallowed (user switched away): record the failure so the outbox
-    // doesn't lose track of it
-    markSendFailed(convId, tempUserMessageId);
-  } finally {
-    cleanupLifecycleListeners();
-    // Safety net: never leave the user bubble pulsing or the assistant
-    // bubble hidden if the request died before the first event
-    if (hasFiles) {
-      setUserMessageUploading(tempUserMessageId, false);
-      state.messageEl.classList.remove('awaiting-upload');
-    }
-    // The turn finished (or its failure was surfaced) in this page - only a
-    // page that died mid-stream should resume after reload. Per-conversation:
-    // other concurrent streams keep their entries.
-    clearInflightStream(convId);
-    cleanupStreamingRequest(requestId, convId, state.messageSuccessful);
-  }
-}
-
-// ============ Batch Message ============
-
-/**
- * Send message with batch response.
- */
-async function sendBatchMessage(
-  convId: string,
-  message: string,
-  files: ReturnType<typeof getPendingFiles>,
-  forceTools: string[],
-  tempUserMessageId: string,
-  anonymousMode: boolean,
-  clientLocation: ClientLocation | null = null,
-  rerunMode?: 'regenerate' | 'continue'
-): Promise<void> {
-  const requestId = `batch-${convId}-${Date.now()}`;
-
-  // Track this request
-  const request: ActiveRequest = {
-    conversationId: convId,
-    type: 'batch',
-  };
-  activeRequests.set(requestId, request);
-
-  // Register active request in store for UI restoration on conversation switch
-  useStore.getState().setActiveRequest(convId, {
-    conversationId: convId,
-    type: 'batch',
-  });
-
-  // Show upload progress for requests with files
-  const hasFiles = files && files.length > 0;
-  if (hasFiles) {
-    showUploadProgress();
-  } else {
-    showLoadingIndicator();
-  }
-
-  try {
-    // Pass progress callback for requests with files
-    const onUploadProgress = hasFiles ? (progress: number) => {
-      updateUploadProgress(progress);
-      useStore.getState().setUploadProgress(progress);
-    } : undefined;
-
-    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode);
-    log.info('Batch response received', { conversationId: convId, messageId: response.id });
-
-    // The turn is over the moment the response is in: release the active
-    // request NOW, not in the finally after the cost/title bookkeeping below.
-    // While it stayed set, a message sent in that window (a fast follow-up,
-    // or an E2E loop) was routed to /chat/interject - queued into a turn that
-    // had already finished, so it was stored but never answered.
-    activeRequests.delete(requestId);
-    useStore.getState().removeActiveRequest(convId);
-
-    // Response received = the user message is persisted server-side
-    confirmDelivery(convId, tempUserMessageId);
-
-    // Update user message ID from temp to real ID (for file fetching in lightbox)
-    if (response.user_message_id) {
-      updateUserMessageId(tempUserMessageId, response.user_message_id);
-    }
-
-    const assistantMessage: Message = {
-      id: response.id,
-      role: 'assistant',
-      content: response.content,
-      sources: response.sources,
-      generated_images: response.generated_images,
-      files: response.files,
-      language: response.language,
-      created_at: response.created_at,
-      stopped_early: response.stopped_early,
-    };
-    // The store is authoritative for the conversation's messages - record
-    // the reply whether or not it gets rendered below
-    useStore.getState().appendMessage(convId, assistantMessage);
-
-    // Check if conversation is still current before updating UI
-    const store = useStore.getState();
-    const isCurrentConversation = store.currentConversation?.id === convId;
-
-    if (!isCurrentConversation) {
-      // User switched conversations - message is saved to DB, just hide loading
-      hideLoadingIndicator();
-      hideUploadProgress();
-      useStore.getState().setUploadProgress(null);
-      return;
-    }
-
-    hideLoadingIndicator();
-    hideUploadProgress();
-    useStore.getState().setUploadProgress(null);
-
-    const messagesContainer = getElementById<HTMLDivElement>('messages');
-    if (messagesContainer) {
-      const hasImagesToLoad = assistantMessage.files?.some(
-        (f) => f.type.startsWith('image/') && !f.previewUrl
-      );
-      const wasAtBottom = isScrolledToBottom(messagesContainer);
-      // Note: We intentionally don't call enableScrollOnImageLoad() here because
-      // we're using scroll-to-top-of-message behavior, not scroll-to-bottom.
-      // The scroll-on-image-load system is designed for bottom-scrolling.
-      addMessageToUI(assistantMessage, messagesContainer, undefined, { animate: true });
-
-      // Only scroll if user was following (at bottom) - don't hijack scroll if user is browsing history
-      if (wasAtBottom) {
-        // Capture scroll position right after adding the message to detect user scrolling
-        // between now and when the RAF fires (race condition on slower engines like WebKit)
-        const scrollTopAfterAdd = messagesContainer.scrollTop;
-        const userScrolledSinceAdd = watchForUserScroll(messagesContainer);
-
-        // Scroll to top of the assistant's response (batch mode shows complete message)
-        // Use RAF to ensure layout is settled after adding message
-        requestAnimationFrame(() => {
-          // Re-check: if user scrolled away between adding message and this frame,
-          // respect their intent rather than hijacking their scroll position
-          if (userScrolledSinceAdd() || Math.abs(messagesContainer.scrollTop - scrollTopAfterAdd) > 20) {
-            checkScrollButtonVisibility();
-            return;
-          }
-
-          const messageEl = messagesContainer.querySelector<HTMLElement>(
-            `[data-message-id="${assistantMessage.id}"]`
-          );
-          if (messageEl) {
-            // Short responses that fit the viewport scroll to the bottom
-            // instead of jumping to the message top (see the streaming-done
-            // path for rationale). Instant, not smooth: the smooth animator
-            // has no user-interference abort and would fight a user scroll
-            // for its whole 300-600ms run.
-            if (messageEl.offsetHeight <= messagesContainer.clientHeight * RESPONSE_JUMP_MIN_VIEWPORT_RATIO) {
-              programmaticScrollToBottom(messagesContainer);
-            } else {
-              programmaticScrollToElementTop(messagesContainer, messageEl, true);
-            }
-
-            // If message has images to load, trigger observation for visible ones
-            if (hasImagesToLoad) {
-              requestAnimationFrame(() => {
-                const images = messageEl.querySelectorAll<HTMLImageElement>(
-                  'img[data-message-id][data-file-index]:not([src])'
-                );
-                images.forEach((img) => {
-                  const rect = img.getBoundingClientRect();
-                  const containerRect = messagesContainer.getBoundingClientRect();
-                  const isVisible = rect.top < containerRect.bottom && rect.bottom > containerRect.top;
-                  if (isVisible && !img.src) {
-                    getThumbnailObserver().unobserve(img);
-                    observeThumbnail(img);
-                  }
-                });
-              });
-            }
-          }
-          checkScrollButtonVisibility();
-        });
-      } else {
-        // User is browsing history - just update scroll button visibility
-        requestAnimationFrame(() => {
-          checkScrollButtonVisibility();
-        });
-      }
-    }
-
-    // Update conversation title if this was the first message (title comes from response)
-    updateConversationTitle(convId, response.title);
-
-    // Update conversation cost
-    await updateConversationCost(convId);
-
-    // Update sync manager's local message count (user message + assistant response = 2)
-    // This is done here (after success) to ensure the count is updated before any sync
-    getSyncManager()?.incrementLocalMessageCount(convId, 2);
-    notifyTurnFinished();
-  } catch (error) {
-    hideLoadingIndicator();
-    hideUploadProgress();
-    useStore.getState().setUploadProgress(null);
-
-    // 409 = delivered by a previous attempt; propagate for reconciliation
-    if (error instanceof ApiError && error.status === 409) {
-      throw error;
-    }
-
-    // Check if conversation is still current before showing errors
-    const store = useStore.getState();
-    const isCurrentConversation = store.currentConversation?.id === convId;
-
-    if (!isCurrentConversation) {
-      // User switched conversations - swallow the error but record the
-      // failure so the outbox doesn't lose track of it
-      markSendFailed(convId, tempUserMessageId);
-      return;
-    }
-
-    // Propagate: handleSendFailure decides between auto-retry and failed state
-    throw error;
-  } finally {
-    // Clean up request tracking
-    activeRequests.delete(requestId);
-    // Remove active request from store
-    useStore.getState().removeActiveRequest(convId);
-    // Ensure upload progress is hidden (safety net)
-    hideUploadProgress();
-    useStore.getState().setUploadProgress(null);
   }
 }

@@ -8,7 +8,7 @@ import { createLogger } from '../utils/logger';
 import { agents, conversations, messages } from '../api/client';
 import { toast } from '../components/Toast';
 import { showConfirm, showPrompt } from '../components/Modal';
-import { resumeInflightStreamIfAny } from './messaging';
+import { resumeInflightStreamIfAny } from './stream-resume';
 import { reconcileOutboxWithServer } from './outbox';
 import {
   renderConversationsList,
