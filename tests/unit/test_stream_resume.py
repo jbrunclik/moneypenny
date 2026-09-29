@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from src.api.helpers.chat_turn import TurnContext
 from src.api.schemas import MessageRole
 from src.config import Config
 
@@ -75,17 +76,13 @@ class TestProducerJournaling:
             _ThreeTokenAgent(),
             q,
             final_results,
-            "hello",
-            None,
-            [],
-            None,
-            "Alice",
-            "user-1",
-            None,
-            False,
-            None,
-            "conv-1",
-            "req-1",
+            TurnContext(
+                request_id="req-1",
+                conv_id="conv-1",
+                user_id="user-1",
+                message_text="hello",
+                user_name="Alice",
+            ),
             journal_message_id="assist-msg-1",
         )
 
@@ -232,17 +229,13 @@ class TestProducerSideApprovalSave:
             _ApprovalAgent(),
             q,
             final_results,
-            "hello",
-            None,
-            [],
-            None,
-            "Alice",
-            test_user.id,
-            None,
-            False,
-            None,
-            conv.id,
-            "req-1",
+            TurnContext(
+                request_id="req-1",
+                conv_id=conv.id,
+                user_id=test_user.id,
+                message_text="hello",
+                user_name="Alice",
+            ),
             journal_message_id=placeholder.id,
         )
 

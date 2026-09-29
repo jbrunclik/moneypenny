@@ -1,8 +1,8 @@
 """Persistence pipeline for a completed chat turn.
 
 Orchestrates metadata extraction, generated-file collection, message
-persistence, cost accounting and title generation. Called from both the stream
-generator and the cleanup thread.
+persistence, cost accounting and title generation. Called from the batch
+endpoint, the stream generator and the stream cleanup thread.
 
 Memory operations are not handled here: manage_memory writes during the turn so
 the model can read the outcome, rather than having its arguments replayed after
@@ -220,8 +220,9 @@ def save_message_to_db(
     stream_request_id: str,
     client_connected: bool,
     assistant_message_id: str | None = None,
+    mode: str = "stream",
 ) -> SaveResult | None:
-    """Save message to database. Called from both generator and cleanup thread.
+    """Save message to database. Called from batch, generator and cleanup thread.
 
     Orchestrates the sub-steps: metadata extraction, generated-file collection,
     message persistence, cost accounting and title generation.
@@ -238,6 +239,7 @@ def save_message_to_db(
         stream_request_id: Streaming request ID (for full tool results)
         client_connected: Whether client is still connected (for logging)
         assistant_message_id: Pre-generated message ID for streaming recovery
+        mode: "batch" or "stream" (recorded with the cost)
 
     Returns:
         SaveResult with extracted data for building done event, or None on error.
@@ -249,6 +251,9 @@ def save_message_to_db(
         all_generated_files, full_tool_results = _collect_generated_files(
             stream_request_id, user_id, conv_id
         )
+        # A turn that only produced files still needs visible text
+        if not content and all_generated_files:
+            content = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
         assistant_msg = _persist_assistant_message(
             conv_id,
             user_id,
@@ -270,7 +275,7 @@ def save_message_to_db(
             usage,
             full_tool_results,
             len(content),
-            mode="stream",
+            mode=mode,
         )
 
         generated_title = _resolve_title_update(
@@ -278,8 +283,9 @@ def save_message_to_db(
         )
 
         logger.info(
-            "Stream chat completed and saved",
+            "Chat turn completed and saved",
             extra={
+                "mode": mode,
                 "user_id": user_id,
                 "conversation_id": conv_id,
                 "message_id": assistant_msg.id,

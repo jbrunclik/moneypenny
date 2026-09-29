@@ -404,7 +404,7 @@ def create_mock_stream_chat_events() -> Any:
 
     def mock_stream_chat_events(
         self: Any,
-        message: str,
+        text: str,
         files: list[dict[str, Any]] | None = None,
         history: list[dict[str, Any]] | None = None,
         force_tools: list[str] | None = None,
@@ -428,7 +428,7 @@ def create_mock_stream_chat_events() -> Any:
             response_text = MOCK_CONFIG["custom_response"]
         else:
             prefix = MOCK_CONFIG["response_prefix"]
-            response_text = f"{prefix}{message[:100]}"
+            response_text = f"{prefix}{text[:100]}"
 
         delay_s = MOCK_CONFIG["stream_delay_ms"] / 1000
 
@@ -438,7 +438,7 @@ def create_mock_stream_chat_events() -> Any:
             time.sleep(MOCK_CONFIG["emit_retry_hold_ms"] / 1000)
 
         # Optionally yield a thinking event (based on mock config or message content)
-        if "think" in message.lower() or MOCK_CONFIG.get("emit_thinking"):
+        if "think" in text.lower() or MOCK_CONFIG.get("emit_thinking"):
             time.sleep(delay_s)
             yield {"type": "thinking", "text": "Let me think about this..."}
 

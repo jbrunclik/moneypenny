@@ -20,7 +20,7 @@ class TestChatBatch:
         test_conversation: Conversation,
     ) -> None:
         """Should return assistant response."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Hello! How can I help?",  # response
@@ -66,7 +66,7 @@ class TestChatBatch:
         test_database: Database,
     ) -> None:
         """Should save user and assistant messages."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Response text",
@@ -97,7 +97,7 @@ class TestChatBatch:
         """Pages the turn read become the response's sources (no citation tool)."""
         from langchain_core.messages import AIMessage, ToolMessage
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             result_msgs = [
                 AIMessage(
@@ -150,7 +150,7 @@ class TestChatBatch:
         later turn can recall them without re-calling the tool."""
         from langchain_core.messages import AIMessage, ToolMessage
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             result_msgs = [
                 AIMessage(
@@ -191,7 +191,7 @@ class TestChatBatch:
         from src.config import Config
 
         with (
-            patch("src.api.routes.chat.ChatAgent") as mock_agent_class,
+            patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class,
             patch.object(Config, "AGENT_MAX_TOOL_ROUNDS", 6),
         ):
             mock_agent = MagicMock()
@@ -225,7 +225,7 @@ class TestChatBatch:
         """A set_conversation_title tool call retitles a non-default conversation."""
         from langchain_core.messages import AIMessage
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             result_msgs = [
                 AIMessage(
@@ -287,7 +287,7 @@ class TestChatBatch:
         test_conversation: Conversation,
     ) -> None:
         """Should pass force_tools to agent."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Response",
@@ -318,7 +318,7 @@ class TestChatStream:
         test_conversation: Conversation,
     ) -> None:
         """Should return SSE content type."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -351,7 +351,7 @@ class TestChatStream:
         test_conversation: Conversation,
     ) -> None:
         """Should stream tokens as SSE events."""
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -414,7 +414,7 @@ class TestChatStream:
         test_database: Database,
     ) -> None:
         """Should save message to DB even if client disconnects during streaming."""
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -475,7 +475,7 @@ class TestChatStream:
 
         monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0)  # trip after first event
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -526,7 +526,7 @@ class TestChatWithFiles:
         sample_file: dict[str, Any],
     ) -> None:
         """Should handle file attachments in batch mode."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "I see your image",
@@ -555,7 +555,7 @@ class TestChatWithFiles:
         sample_file: dict[str, Any],
     ) -> None:
         """Should accept files without text message."""
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "This is an image of...",
@@ -620,7 +620,7 @@ class TestChatWithGeneratedImages:
             }
         )
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             # Mock chat_batch to return the response AND simulate tool node capture
@@ -724,7 +724,7 @@ class TestChatWithGeneratedImages:
             }
         )
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -830,7 +830,7 @@ class TestChatWithGeneratedImages:
         """
         import time
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -896,7 +896,7 @@ class TestChatStreamDoneEvent:
         """Should send done event when content exists regardless of client status."""
         import time
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -956,7 +956,7 @@ class TestChatStreamDoneEvent:
         """Done event should include message id and created_at for finalization."""
         import time
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -1016,7 +1016,7 @@ class TestChatStreamDoneEvent:
 
         expected_content = "This is the full response content."
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -1072,7 +1072,7 @@ class TestChatStreamDoneEvent:
         """Should send done event even when content is empty (e.g., memory-only tool calls)."""
         import time
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -1127,7 +1127,7 @@ class TestChatStreamDoneEvent:
         """user_message_saved event should include expected_assistant_message_id for recovery."""
         import time
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -1190,7 +1190,7 @@ class TestChatStreamDoneEvent:
         """Message should be saved with the pre-generated ID for reliable recovery."""
         import time
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
@@ -1319,8 +1319,8 @@ class TestChatVideoUpload:
             attached["files"] = files
 
         with (
-            patch("src.api.routes.chat.ChatAgent") as mock_agent_class,
-            patch("src.api.routes.chat.attach_gemini_file_uris", side_effect=fake_attach),
+            patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class,
+            patch("src.api.helpers.chat_turn.attach_gemini_file_uris", side_effect=fake_attach),
         ):
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
@@ -1374,7 +1374,7 @@ class TestClientMessageId:
     ) -> None:
         """User message should be persisted under the client-supplied UUID."""
         client_id = "0f7b8a3c-2f1d-4e5a-9b6c-8d7e6f5a4b3c"
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             self._mock_batch_agent(mock_agent_class)
             response = client.post(
                 f"/api/conversations/{test_conversation.id}/chat/batch",
@@ -1396,7 +1396,7 @@ class TestClientMessageId:
     ) -> None:
         """Retrying a send that already landed must not duplicate the message."""
         client_id = "1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d"
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             self._mock_batch_agent(mock_agent_class)
             first = client.post(
                 f"/api/conversations/{test_conversation.id}/chat/batch",
@@ -1456,7 +1456,7 @@ class TestClientMessageId:
         )
         test_database.add_message(other_conv.id, "user", "Hi", message_id=client_id)
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             self._mock_batch_agent(mock_agent_class)
             response = client.post(
                 f"/api/conversations/{test_conversation.id}/chat/batch",
@@ -1527,7 +1527,7 @@ class TestTruncateAndRerun:
         inserting a new user message."""
         test_database.add_message(test_conversation.id, "user", "q1")
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Regenerated answer",
@@ -1589,7 +1589,7 @@ class TestTruncateAndRerun:
         test_database.add_message(test_conversation.id, "user", "q1")
         test_database.add_message(test_conversation.id, "assistant", "partial answer")
 
-        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "the rest of the answer",
@@ -1604,10 +1604,7 @@ class TestTruncateAndRerun:
                 json={"rerun_mode": "continue"},
             )
             # The transient continue instruction reaches the agent as the message
-            called_message = (
-                mock_agent.chat_batch.call_args.kwargs.get("message")
-                or mock_agent.chat_batch.call_args.args[0]
-            )
+            called_message = mock_agent.chat_batch.call_args.kwargs["text"]
 
         assert response.status_code == 200
         assert "continue" in called_message.lower()
@@ -1619,7 +1616,7 @@ class TestTruncateAndRerun:
     ) -> None:
         test_database.add_message(test_conversation.id, "user", "q1")
 
-        with patch("src.api.helpers.chat_streaming.ChatAgent") as mock_agent_class:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
 
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:

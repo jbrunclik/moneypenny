@@ -14,22 +14,11 @@ import uuid
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
-from src.agent.agent import ChatAgent
-
-# Agent context imports for interactive agent conversations
-from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
-from src.agent.tool_results import set_current_request_id
-from src.agent.tools import (
-    set_conversation_context,
-    set_current_message_files,
-    set_location_context,
-)
 from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
 )
 from src.api.helpers.chat_save import SaveResult, save_message_to_db
-from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES, _StreamJournal
 from src.api.schemas import MessageRole
 from src.api.utils import (
@@ -42,6 +31,8 @@ from src.utils.logging import get_logger
 from src.utils.push import send_push_to_user
 
 if TYPE_CHECKING:
+    from src.agent.agent import ChatAgent
+    from src.api.helpers.chat_turn import PreparedTurn, TurnContext
     from src.db.models import Conversation, Message, User
 
 logger = get_logger(__name__)
@@ -106,26 +97,8 @@ def stream_events(
     agent: ChatAgent,
     event_queue: queue.Queue[dict[str, Any] | None | Exception],
     final_results: dict[str, Any],
-    message_text: str,
-    files: list[dict[str, Any]] | None,
-    history: list[dict[str, Any]],
-    force_tools: list[str] | None,
-    user_name: str,
-    user_id: str,
-    custom_instructions: str | None,
-    is_planning: bool,
-    dashboard_data: dict[str, Any] | None,
-    conv_id: str,
-    stream_request_id: str,
-    conversation_id: str | None = None,
-    is_sports: bool = False,
-    sports_context: dict[str, Any] | None = None,
-    is_language: bool = False,
-    language_context: dict[str, Any] | None = None,
+    turn: TurnContext,
     journal_message_id: str | None = None,
-    agent_execution_context: AgentContext | None = None,
-    client_location: dict[str, Any] | None = None,
-    conversation_title: str | None = None,
 ) -> None:
     """Background thread that streams events into the queue.
 
@@ -133,41 +106,17 @@ def stream_events(
         agent: ChatAgent instance
         event_queue: Queue to push events into
         final_results: Shared dict to store final results
-        message_text: User message text
-        files: Optional file attachments
-        history: Message history
-        force_tools: Optional list of forced tools
-        user_name: User's name
-        user_id: User ID
-        custom_instructions: Optional custom instructions
-        is_planning: Whether this is a planning conversation
-        dashboard_data: Optional planner dashboard data
-        conv_id: Conversation ID (for logging)
-        stream_request_id: Stream request ID (for context)
+        turn: The turn's inputs and context
         journal_message_id: Assistant message id for the resumable-stream
             journal (None disables journaling)
-        agent_execution_context: AgentContext for interactive agent
-            conversations - contextvars don't cross threads, so it must be
-            re-set here for kv_store and permission checks to see it
     """
+    user_id, conv_id = turn.user_id, turn.conv_id
     journal: _StreamJournal | None = None
     if journal_message_id and Config.STREAM_JOURNAL_ENABLED:
         journal = _StreamJournal(journal_message_id)
-    # Copy context from parent thread so contextvars are accessible
-    set_current_request_id(stream_request_id)
-    set_current_message_files(files if files else None)
-    set_conversation_context(conv_id, user_id)
-    set_location_context(client_location)
-    if agent_execution_context is not None:
-        set_agent_context(agent_execution_context)
-    if is_sports and sports_context:
-        from src.agent.tools.context import set_sports_context
-
-        set_sports_context(sports_context.get("program_id"))
-    if is_language and language_context:
-        from src.agent.tools.context import set_language_context
-
-        set_language_context(language_context.get("program_id"))
+    # Contextvars don't cross threads: re-set the turn's (agent context for
+    # kv_store and permission checks, request id for tool results, ...)
+    turn.apply()
     try:
         logger.debug(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
@@ -175,23 +124,7 @@ def stream_events(
         event_count = 0
         deadline = time.monotonic() + Config.CHAT_TIMEOUT
         timed_out = False
-        gen = agent.stream_chat_events(
-            message_text,
-            files,
-            history,
-            force_tools=force_tools,
-            user_name=user_name,
-            user_id=user_id,
-            custom_instructions=custom_instructions,
-            is_planning=is_planning,
-            dashboard_data=dashboard_data,
-            conversation_id=conversation_id,
-            is_sports=is_sports,
-            sports_context=sports_context,
-            is_language=is_language,
-            language_context=language_context,
-            conversation_title=conversation_title,
-        )
+        gen = agent.stream_chat_events(**turn.agent_call_kwargs())
         try:
             for event in gen:
                 event_count += 1
@@ -404,59 +337,18 @@ def cleanup_and_save(
 # ============================================================================
 
 
-def create_stream_generator(
-    user: User,
-    conv: Conversation,
-    user_msg: Message,
-    message_text: str,
-    files: list[dict[str, Any]],
-    history: list[dict[str, Any]],
-    force_tools: list[str] | None,
-    anonymous_mode: bool,
-    stream_request_id: str,
-    client_location: dict[str, Any] | None = None,
-) -> Generator[str]:
+def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) -> Generator[str]:
     """Create the SSE stream generator for chat streaming.
 
-    This factory function creates and returns the generator that handles:
-    - Setting up agent and threading context
-    - Processing events from the background thread
-    - Sending SSE events to the client
-    - Saving the message to the database
-
-    Args:
-        user: The authenticated user
-        conv: The conversation object
-        user_msg: The saved user message
-        message_text: The user's message text
-        files: List of file attachments
-        history: Conversation history
-        force_tools: Optional list of tools to force
-        anonymous_mode: Whether anonymous mode is enabled
-        stream_request_id: Unique request ID for tool result capture
-
-    Returns:
-        Generator that yields SSE-formatted strings
+    The generator sets up the turn's context, starts the producer and cleanup
+    threads, relays events to the client and saves the message.
     """
 
     def generate() -> Generator[str]:
         """Generator that streams tokens as SSE events with keepalive support."""
         # Initialize context
-        context = _StreamContext(
-            user=user,
-            conv=conv,
-            user_msg=user_msg,
-            message_text=message_text,
-            files=files,
-            history=history,
-            force_tools=force_tools,
-            anonymous_mode=anonymous_mode,
-            stream_request_id=stream_request_id,
-            client_location=client_location,
-        )
-
-        # Set up threading context
-        context.setup_context()
+        context = _StreamContext(user=user, conv=turn.conv, user_msg=turn.user_msg, turn=ctx)
+        ctx.apply()
 
         # Start background threads
         context.start_threads()
@@ -475,8 +367,7 @@ def create_stream_generator(
             yield from _handle_generator_error(context, e)
 
         finally:
-            # Clean up agent context if this was an agent conversation
-            context.cleanup_agent_context()
+            ctx.clear()
             # Delete placeholder ONLY if the turn truly died: producer thread
             # finished without results. While the producer is still generating
             # (client disconnect mid-stream), the placeholder must survive so
@@ -512,34 +403,18 @@ class _StreamContext:
     """Encapsulates all state for a streaming request."""
 
     def __init__(
-        self,
-        user: User,
-        conv: Conversation,
-        user_msg: Message,
-        message_text: str,
-        files: list[dict[str, Any]],
-        history: list[dict[str, Any]],
-        force_tools: list[str] | None,
-        anonymous_mode: bool,
-        stream_request_id: str,
-        client_location: dict[str, Any] | None = None,
+        self, user: User, conv: Conversation, user_msg: Message, turn: TurnContext
     ) -> None:
         self.user = user
         self.conv = conv
         self.user_msg = user_msg
-        self.message_text = message_text
-        self.files = files
-        self.history = history
-        self.force_tools = force_tools
-        self.anonymous_mode = anonymous_mode
-        self.stream_request_id = stream_request_id
-        # Device GPS fix (ClientLocation.model_dump()); in-flight only, never persisted
-        self.client_location = client_location
+        self.turn = turn
+        self.message_text = turn.message_text
+        self.stream_request_id = turn.request_id
 
         # Derived values
         self.conv_id = conv.id
         self.user_id = user.id
-        self.stream_user_id = user.id
 
         # State
         self.clean_content = ""
@@ -570,186 +445,20 @@ class _StreamContext:
         self.generator_done_event = threading.Event()
         self.stream_thread: threading.Thread | None = None
         self.cleanup_thread: threading.Thread | None = None
-        self.dashboard_data: dict[str, Any] | None = None
-
-        # Sports context for sports conversations
-        self.sports_context: dict[str, Any] | None = None
-
-        # Language context for language learning conversations
-        self.language_context: dict[str, Any] | None = None
-
-        # Agent context for interactive agent conversations
-        self.is_autonomous = False
-        self.agent_context: dict[str, Any] | None = None
-        # AgentContext instance forwarded to the producer thread (contextvars
-        # don't cross threads)
-        self.agent_execution_context: AgentContext | None = None
-
         # Approval request info (set when ApprovalRequestedException is caught)
         self.approval_info: dict[str, Any] | None = None
 
-    def setup_context(self) -> None:
-        """Set up request context variables."""
-        set_current_request_id(self.stream_request_id)
-        set_current_message_files(self.files if self.files else None)
-        set_conversation_context(self.conv_id, self.user_id)
-        set_location_context(self.client_location)
-
-        # Fetch planner dashboard if needed
-        if self.conv.is_planning:
-            self._setup_planner_context()
-
-        # Set up sports context if this is a sports conversation
-        if self.conv.is_sports and self.conv.sports_program:
-            self._setup_sports_context()
-
-        # Set up language context if this is a language learning conversation
-        if self.conv.is_language and self.conv.language_program:
-            self._setup_language_context()
-
-        # Set up agent context if this is an agent conversation
-        if self.conv.is_agent and self.conv.agent_id:
-            self._setup_agent_context()
-
-        # Compact long histories for regular (non-agent) conversations to bound
-        # per-turn input cost. Agent conversations use their own destructive
-        # compaction, so they are left untouched.
-        if not self.is_autonomous:
-            from src.agent.conversation_compaction import build_compacted_history
-
-            self.history = build_compacted_history(self.user_id, self.conv_id, self.history)
-
-    def _setup_planner_context(self) -> None:
-        """Set up planner dashboard context if this is a planning conversation."""
-        from dataclasses import asdict
-
-        from src.agent.agent import _planner_dashboard_context
-        from src.api.routes.calendar import _get_valid_calendar_access_token
-        from src.utils.planner_data import build_planner_dashboard
-
-        calendar_token = _get_valid_calendar_access_token(self.user)
-        dashboard_obj = build_planner_dashboard(
-            todoist_token=self.user.todoist_access_token,
-            calendar_token=calendar_token,
-            garmin_token=self.user.garmin_token,
-            user_id=self.user_id,
-            force_refresh=False,
-            db=db,
-        )
-        self.dashboard_data = asdict(dashboard_obj)
-        _planner_dashboard_context.set(self.dashboard_data)
-
-    def _setup_sports_context(self) -> None:
-        """Set up sports program context for sports conversations."""
-        from src.agent.tools import set_sports_context
-
-        assert self.conv.sports_program is not None  # noqa: S101 - narrowing; checked by caller
-        self.sports_context = load_sports_context(self.user_id, self.conv.sports_program)
-        set_sports_context(self.conv.sports_program)
-
-    def _setup_language_context(self) -> None:
-        """Set up language program context for language learning conversations."""
-        from src.agent.tools import set_language_context
-
-        assert self.conv.language_program is not None  # noqa: S101 - narrowing; checked by caller
-        self.language_context = load_language_context(self.user_id, self.conv.language_program)
-        set_language_context(self.conv.language_program)
-
-    def _setup_agent_context(self) -> None:
-        """Set up agent context if this is an interactive agent conversation."""
-        # Type narrowing: agent_id is checked in setup_context before calling this
-        assert self.conv.agent_id is not None  # noqa: S101 - narrowing; checked by caller
-        agent_record = db.get_agent(self.conv.agent_id, self.user_id)
-        if agent_record:
-            logger.debug(
-                "Interactive agent conversation (streaming) - applying tool permissions",
-                extra={
-                    "user_id": self.user_id,
-                    "conversation_id": self.conv_id,
-                    "agent_id": agent_record.id,
-                    "tool_permissions": agent_record.tool_permissions,
-                },
-            )
-            # Set up agent execution context for permission checks
-            agent_execution_context = AgentContext(
-                agent=agent_record,
-                user=self.user,
-                trigger_chain=[agent_record.id],
-            )
-            set_agent_context(agent_execution_context)
-            self.agent_execution_context = agent_execution_context
-            self.is_autonomous = True
-            # Build agent context for the ChatAgent (for tool filtering)
-            # Note: tool_permissions=None means all tools, [] means no tools
-            from src.agent.daily_briefing import resolve_agent_system_prompt
-
-            self.agent_context = {
-                "name": agent_record.name,
-                "description": agent_record.description,
-                "schedule": agent_record.schedule,
-                "timezone": agent_record.timezone,
-                "goals": resolve_agent_system_prompt(agent_record),
-                "tools": agent_record.tool_permissions,
-                "trigger_type": "interactive",
-            }
-
-    def cleanup_agent_context(self) -> None:
-        """Clean up agent, sports, and language context."""
-        if self.conv.is_sports:
-            from src.agent.tools import set_sports_context
-
-            set_sports_context(None)
-        if self.conv.is_language:
-            from src.agent.tools import set_language_context
-
-            set_language_context(None)
-        if self.is_autonomous:
-            clear_agent_context()
-
     def start_threads(self) -> None:
         """Start the streaming and cleanup background threads."""
-        agent = ChatAgent(
-            model_name=self.conv.model,
-            include_thoughts=True,
-            anonymous_mode=self.anonymous_mode,
-            is_planning=self.conv.is_planning,
-            is_autonomous=self.is_autonomous,
-            agent_context=self.agent_context,
-            is_sports=self.conv.is_sports,
-            sports_context=self.sports_context,
-            is_language=self.conv.is_language,
-            language_context=self.language_context,
-        )
-
         self.stream_thread = threading.Thread(
             target=stream_events,
             args=(
-                agent,
+                self.turn.create_agent(include_thoughts=True),
                 self.event_queue,
                 self.final_results,
-                self.message_text,
-                self.files,
-                self.history,
-                self.force_tools,
-                self.user.name,
-                self.user_id,
-                self.user.custom_instructions,
-                self.conv.is_planning,
-                self.dashboard_data,
-                self.conv_id,
-                self.stream_request_id,
-                self.conv_id,  # conversation_id for checkpointing
-                self.conv.is_sports,
-                self.sports_context,
-                self.conv.is_language,
-                self.language_context,
+                self.turn,
             ),
-            kwargs={
-                "journal_message_id": self.expected_assistant_msg_id,
-                "agent_execution_context": self.agent_execution_context,
-                "client_location": self.client_location,
-                "conversation_title": self.conv.title,
-            },
+            kwargs={"journal_message_id": self.expected_assistant_msg_id},
             daemon=False,
         )
         self.stream_thread.start()
@@ -1118,11 +827,7 @@ def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
     # Mark as saved so cleanup thread doesn't try to save again
     context.final_results["saved"] = True
 
-    # Clean up context
-    set_current_request_id(None)
-    set_current_message_files(None)
-    set_conversation_context(None, None)
-    set_location_context(None)
+    context.turn.clear()
 
     def notify_approval_needed() -> None:
         # The turn is blocked on the user and nobody saw the request

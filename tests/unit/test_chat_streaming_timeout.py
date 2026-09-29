@@ -12,6 +12,7 @@ from src.api.helpers.chat_streaming import (
     _process_event_queue,
     stream_events,
 )
+from src.api.helpers.chat_turn import TurnContext
 from src.config import Config
 
 
@@ -54,17 +55,13 @@ def test_stream_events_breaks_at_deadline(monkeypatch) -> None:
         _ForeverAgent(),
         q,
         final_results,
-        "hello",
-        None,
-        [],
-        None,
-        "Alice",
-        "user-1",
-        None,
-        False,
-        None,
-        "conv-1",
-        "req-1",
+        TurnContext(
+            request_id="req-1",
+            conv_id="conv-1",
+            user_id="user-1",
+            message_text="hello",
+            user_name="Alice",
+        ),
     )
 
     items = _drain(q)
@@ -112,19 +109,15 @@ def test_stream_events_forwards_agent_context_to_worker_thread() -> None:
             _CapturingAgent(),
             q,
             final_results,
-            "hello",
-            None,
-            [],
-            None,
-            "Alice",
-            "user-1",
-            None,
-            False,
-            None,
-            "conv-1",
-            "req-1",
+            TurnContext(
+                request_id="req-1",
+                conv_id="conv-1",
+                user_id="user-1",
+                message_text="hello",
+                user_name="Alice",
+                agent_execution_context=agent_ctx,
+            ),
         ),
-        kwargs={"agent_execution_context": agent_ctx},
     )
     thread.start()
     thread.join(timeout=10)
@@ -245,17 +238,13 @@ def test_stream_events_approval_puts_completion_sentinel() -> None:
         _ApprovalAgent(),
         q,
         final_results,
-        "hello",
-        None,
-        [],
-        None,
-        "Alice",
-        "user-1",
-        None,
-        False,
-        None,
-        "conv-1",
-        "req-1",
+        TurnContext(
+            request_id="req-1",
+            conv_id="conv-1",
+            user_id="user-1",
+            message_text="hello",
+            user_name="Alice",
+        ),
     )
 
     items = _drain(q)

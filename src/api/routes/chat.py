@@ -5,40 +5,16 @@ batch (complete response) and streaming (SSE) modes.
 """
 
 import uuid
+from typing import NoReturn
 
 from apiflask import APIBlueprint
 from flask import Response, request
 
-from src.agent.agent import ChatAgent
-from src.agent.content import (
-    detect_response_language,
-    extract_image_prompts_from_messages,
-    extract_read_sources,
-)
-from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
-
-# Agent context imports for interactive agent conversations
-from src.agent.gemini_files import attach_gemini_file_uris
-from src.agent.interjection import clear_interjection, save_interjection
-from src.agent.tool_outputs import build_tool_outputs
-from src.agent.tool_results import get_full_tool_results, set_current_request_id
-from src.agent.tools import (
-    set_conversation_context,
-    set_current_message_files,
-    set_location_context,
-)
-from src.api.errors import (
-    raise_conflict_error,
-    raise_llm_error,
-    raise_not_found_error,
-    raise_server_error,
-    raise_validation_error,
-)
-from src.api.helpers.chat_save import _resolve_title_update
-from src.api.helpers.program_context import load_language_context as _load_language_context
-from src.api.helpers.program_context import load_sports_context as _load_sports_context
+from src.agent.interjection import save_interjection
+from src.api.errors import raise_llm_error, raise_not_found_error, raise_server_error
+from src.api.helpers.chat_save import save_message_to_db
+from src.api.helpers.chat_turn import build_turn_context, prepare_turn
 from src.api.rate_limiting import rate_limit_chat
-from src.api.routes.calendar import _get_valid_calendar_access_token
 from src.api.schemas import (
     ChatBatchResponse,
     ChatRequest,
@@ -46,74 +22,13 @@ from src.api.schemas import (
     MessageRole,
     StatusResponse,
 )
-from src.api.utils import (
-    build_chat_response,
-    calculate_and_save_message_cost,
-    is_round_capped,
-)
+from src.api.utils import build_chat_response, is_round_capped
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
-from src.config import Config
-from src.db.models import Message, User, db
-from src.utils.background_thumbnails import (
-    mark_files_for_thumbnail_generation,
-    queue_pending_thumbnails,
-)
-from src.utils.files import validate_files
-from src.utils.images import (
-    extract_code_output_files_from_tool_results,
-    extract_generated_images_from_tool_results,
-)
-from src.utils.logging import get_logger, log_payload_snippet
+from src.db.models import User, db
+from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def _dedupe_client_message_id(conv_id: str, client_message_id: str | None) -> None:
-    """Make sends idempotent: reject a retry whose original POST already landed.
-
-    409 tells the client the message exists (reconcile, don't re-send); a hit in
-    another conversation means an ID collision and is a plain validation error.
-    """
-    if not client_message_id:
-        return
-    existing = db.get_message_by_id(client_message_id)
-    if existing is None:
-        return
-    if existing.conversation_id == conv_id:
-        raise_conflict_error("Message already received", details={"message_id": client_message_id})
-    raise_validation_error("client_message_id is already in use", field="client_message_id")
-
-
-_CONTINUE_INSTRUCTION = (
-    "Continue your previous response from exactly where it left off. "
-    "Do not repeat or summarize content you already wrote - just keep going."
-)
-
-
-def _resolve_rerun(conv_id: str, rerun_mode: str) -> tuple[str, list[Message], Message]:
-    """Inputs for a re-run turn: no new user message is inserted.
-
-    Returns (message_text, history_messages, anchor_msg). anchor_msg is the
-    existing message that stands in for the "current user message" in
-    response payloads/stream events.
-    """
-    existing = db.get_messages(conv_id)
-    if not existing:
-        raise_validation_error("Nothing to re-run in an empty conversation")
-    last = existing[-1]
-    if rerun_mode == "regenerate":
-        if last.role != MessageRole.USER:
-            raise_validation_error(
-                "Regenerate requires the conversation to end with a user message "
-                "(delete the assistant response first)"
-            )
-        return last.content, existing[:-1], last
-    if last.role != MessageRole.ASSISTANT:
-        raise_validation_error(
-            "Nothing to continue - the last message is not an assistant response"
-        )
-    return _CONTINUE_INSTRUCTION, existing, last
 
 
 api = APIBlueprint("chat", __name__, url_prefix="/api", tag="Chat")
@@ -139,260 +54,13 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     - force_tools: list[str] (optional) - list of tool names to force (e.g. ["web_search"])
     """
     logger.info("Batch chat request", extra={"user_id": user.id, "conversation_id": conv_id})
-    conv = db.get_conversation(conv_id, user.id)
-    if not conv:
-        logger.warning(
-            "Conversation not found for chat",
-            extra={"user_id": user.id, "conversation_id": conv_id},
-        )
-        raise_not_found_error("Conversation")
-
-    # Block sending messages to agent conversations with pending approvals
-    if conv.is_agent and conv.agent_id:
-        if db.has_pending_approval(conv.agent_id):
-            logger.warning(
-                "Attempted to send message to agent with pending approval",
-                extra={"user_id": user.id, "conversation_id": conv_id, "agent_id": conv.agent_id},
-            )
-            raise_validation_error(
-                "Cannot send messages while an action is awaiting approval. "
-                "Please approve or reject the pending action first."
-            )
-
-    message_text = data.message.strip()
-    files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
-    force_tools = data.force_tools
-    # OR the persisted flag with the request flag: a conversation marked
-    # anonymous stays anonymous even if a stale client omits the flag, and a
-    # brand-new conversation can be anonymous before the toggle is persisted.
-    anonymous_mode = conv.anonymous_mode or data.anonymous_mode
-    if data.anonymous_mode and not conv.anonymous_mode:
-        db.set_conversation_anonymous_mode(conv_id, user.id, True)
-    log_payload_snippet(
-        logger,
-        {
-            "message_length": len(message_text),
-            "file_count": len(files),
-            "force_tools": force_tools,
-            "anonymous_mode": anonymous_mode,
-        },
-    )
-
-    # Content validation for files (base64 decoding, size) - structure already validated by Pydantic
-    if files:
-        logger.debug(
-            "Validating files",
-            extra={"user_id": user.id, "conversation_id": conv_id, "file_count": len(files)},
-        )
-        is_valid, error = validate_files(files)
-        if not is_valid:
-            logger.warning(
-                "File validation failed",
-                extra={
-                    "user_id": user.id,
-                    "conversation_id": conv_id,
-                    "error": error,
-                    "file_count": len(files),
-                },
-            )
-            raise_validation_error(error or "File validation failed", field="files")
-        # Mark images for background thumbnail generation
-        logger.debug(
-            "Marking image files for thumbnail generation",
-            extra={"user_id": user.id, "conversation_id": conv_id},
-        )
-        files = mark_files_for_thumbnail_generation(files)
-
-    # Save user message with separate content and files
-    logger.debug(
-        "Saving user message",
-        extra={
-            "user_id": user.id,
-            "conversation_id": conv_id,
-            "message_length": len(message_text),
-            "file_count": len(files) if files else 0,
-        },
-    )
-    if data.rerun_mode:
-        # Re-run on existing history: no new user message is inserted
-        message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
-    else:
-        _dedupe_client_message_id(conv_id, data.client_message_id)
-        user_msg = db.add_message(
-            conv_id,
-            MessageRole.USER,
-            message_text,
-            files=files if files else None,
-            message_id=data.client_message_id,
-        )
-
-        # Queue background thumbnail generation for pending files
-        if files:
-            queue_pending_thumbnails(user_msg.id, files)
-            # Upload videos to the Gemini Files API and annotate files with URIs
-            # (annotations are transient: the message was already saved without them)
-            attach_gemini_file_uris(user_msg.id, files)
-
-        history_messages = db.get_messages(conv_id)[:-1]  # Exclude the just-added message
-
-    # Get conversation history with enrichment (timestamps, file refs, tool summaries)
-    # Files are excluded from previous messages to save tokens (only metadata is included)
-    from src.agent.history import enrich_history
-
-    history = enrich_history(history_messages)
-    logger.debug(
-        "Starting chat agent",
-        extra={
-            "user_id": user.id,
-            "conversation_id": conv_id,
-            "model": conv.model,
-            "history_length": len(history),
-            "force_tools": force_tools,
-        },
-    )
-
-    # Create agent and get response
+    turn = prepare_turn(user, data, conv_id)
+    ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
+    ctx.apply()
     try:
-        # Generate a unique request ID for capturing full tool results
-        request_id = str(uuid.uuid4())
-        set_current_request_id(request_id)
-        # Set current message files for tools (like generate_image) to access
-        set_current_message_files(files if files else None)
-        # Set conversation context for tools (like retrieve_file) to access history
-        set_conversation_context(conv_id, user.id)
-        # Device location (if shared) for places tools and prompt context
-        set_location_context(data.client_location.model_dump() if data.client_location else None)
-
-        # If this is a planner conversation, fetch dashboard data for context
-        dashboard_data = None
-        if conv.is_planning:
-            from dataclasses import asdict
-
-            from src.agent.agent import _planner_dashboard_context
-            from src.utils.planner_data import build_planner_dashboard
-
-            # Refresh calendar token if needed (expires hourly)
-            calendar_token = _get_valid_calendar_access_token(user)
-
-            dashboard_obj = build_planner_dashboard(
-                todoist_token=user.todoist_access_token,
-                calendar_token=calendar_token,
-                garmin_token=user.garmin_token,
-                user_id=user.id,
-                force_refresh=False,
-                db=db,
-            )
-            dashboard_data = asdict(dashboard_obj)
-            # Set initial dashboard context for potential refresh_planner_dashboard tool calls
-            _planner_dashboard_context.set(dashboard_data)
-
-        # Check if this is an agent conversation - apply agent's tool permissions
-        is_autonomous = False
-        agent_context = None
-        if conv.is_agent and conv.agent_id:
-            agent_record = db.get_agent(conv.agent_id, user.id)
-            if agent_record:
-                logger.debug(
-                    "Interactive agent conversation - applying tool permissions",
-                    extra={
-                        "user_id": user.id,
-                        "conversation_id": conv_id,
-                        "agent_id": agent_record.id,
-                        "tool_permissions": agent_record.tool_permissions,
-                    },
-                )
-                # Set up agent context for permission checks
-                agent_execution_context = AgentContext(
-                    agent=agent_record,
-                    user=user,
-                    trigger_chain=[agent_record.id],
-                )
-                set_agent_context(agent_execution_context)
-                is_autonomous = True
-                # Build agent context for the ChatAgent (for tool filtering)
-                # Note: tool_permissions=None means all tools, [] means no tools
-                agent_context = {
-                    "name": agent_record.name,
-                    "description": agent_record.description,
-                    "schedule": agent_record.schedule,
-                    "timezone": agent_record.timezone,
-                    "goals": agent_record.system_prompt,
-                    "tools": agent_record.tool_permissions,
-                    "trigger_type": "interactive",
-                }
-
-        # Check if this is a sports conversation - set up sports context
-        sports_context = None
-        if conv.is_sports and conv.sports_program:
-            from src.agent.tools import set_sports_context
-
-            sports_context = _load_sports_context(user.id, conv.sports_program)
-            set_sports_context(conv.sports_program)
-
-        # Check if this is a language conversation - set up language context
-        language_context = None
-        if conv.is_language and conv.language_program:
-            from src.agent.tools import set_language_context
-
-            language_context = _load_language_context(user.id, conv.language_program)
-            set_language_context(conv.language_program)
-
-        # Compact long histories for regular (non-agent) conversations to bound
-        # per-turn input cost. Agent conversations use their own destructive
-        # compaction, so they are left untouched.
-        if not is_autonomous:
-            from src.agent.conversation_compaction import build_compacted_history
-
-            history = build_compacted_history(user.id, conv_id, history)
-
-        agent = ChatAgent(
-            model_name=conv.model,
-            anonymous_mode=anonymous_mode,
-            is_planning=conv.is_planning,
-            is_autonomous=is_autonomous,
-            agent_context=agent_context,
-            is_sports=conv.is_sports,
-            sports_context=sports_context,
-            is_language=conv.is_language,
-            language_context=language_context,
+        raw_response, tool_results, usage_info, result_messages = ctx.create_agent().chat_batch(
+            **ctx.agent_call_kwargs()
         )
-        raw_response, tool_results, usage_info, result_messages = agent.chat_batch(
-            message_text,
-            files,
-            history,
-            force_tools=force_tools,
-            user_name=user.name,
-            user_id=user.id,
-            custom_instructions=user.custom_instructions,
-            is_planning=conv.is_planning,
-            dashboard_data=dashboard_data,
-            conversation_id=conv.id,
-            is_sports=conv.is_sports,
-            sports_context=sports_context,
-            is_language=conv.is_language,
-            language_context=language_context,
-            conversation_title=conv.title,
-        )
-
-        # Get the FULL tool results (with _full_result) captured before stripping
-        # This is needed for extracting generated images, as the tool_results from
-        # chat_batch have already been stripped
-        full_tool_results = get_full_tool_results(request_id)
-        set_current_request_id(None)  # Clean up
-        set_current_message_files(None)  # Clean up
-        set_conversation_context(None, None)  # Clean up
-        set_location_context(None)  # Clean up
-        if conv.is_sports:
-            from src.agent.tools import set_sports_context
-
-            set_sports_context(None)  # Clean up
-        if conv.is_language:
-            from src.agent.tools import set_language_context
-
-            set_language_context(None)  # Clean up
-        if is_autonomous:
-            clear_agent_context()  # Clean up agent context
-
         logger.debug(
             "Chat agent completed",
             extra={
@@ -400,151 +68,67 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
                 "conversation_id": conv_id,
                 "response_length": len(raw_response),
                 "tool_results_count": len(tool_results),
-                "full_tool_results_count": len(full_tool_results),
                 "input_tokens": usage_info.get("input_tokens", 0),
                 "output_tokens": usage_info.get("output_tokens", 0),
-                "usage_info": str(usage_info),
             },
         )
-
-        # Extract metadata from tool calls and deterministic analysis
-        clean_response = raw_response
-        # Source chips = pages the turn read (no cite_sources tool any more)
-        sources: list[dict[str, str]] = extract_read_sources(result_messages)
-        generated_images_meta = extract_image_prompts_from_messages(result_messages)
-        language = detect_response_language(clean_response)
-
-        logger.debug(
-            "Extracted metadata",
-            extra={
-                "user_id": user.id,
-                "conversation_id": conv_id,
-                "sources_count": len(sources) if sources else 0,
-                "generated_images_count": len(generated_images_meta)
-                if generated_images_meta
-                else 0,
-                "language": language,
-            },
-        )
-
-        # Memory operations are applied by the manage_memory tool during the
-        # turn (and the tool is not bound at all in anonymous mode), so there is
-        # nothing to replay here.
-
-        # Extract generated files from FULL tool results (before stripping)
-        # We need the full results because they contain the _full_result data
-        gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
-        code_output_files = extract_code_output_files_from_tool_results(full_tool_results)
-
-        # Combine all generated files
-        all_generated_files = gen_image_files + code_output_files
-        if all_generated_files:
-            logger.info(
-                "Generated files extracted",
-                extra={
-                    "user_id": user.id,
-                    "conversation_id": conv_id,
-                    "image_count": len(gen_image_files),
-                    "code_output_count": len(code_output_files),
-                },
-            )
-
-        # Ensure we have at least some content or files to save
-        # If response is empty but we have generated files, use a default message
-        if not clean_response and all_generated_files:
-            clean_response = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
-
-        # Save assistant message (with clean content, files, and metadata)
-        logger.debug(
-            "Saving assistant message",
-            extra={"user_id": user.id, "conversation_id": conv_id},
-        )
-        assistant_msg = db.add_message(
-            conv_id,
-            MessageRole.ASSISTANT,
-            clean_response,
-            files=all_generated_files if all_generated_files else None,
-            sources=sources if sources else None,
-            generated_images=generated_images_meta if generated_images_meta else None,
-            language=language,
-            tool_outputs=build_tool_outputs(result_messages),
-        )
-
-        # Calculate and save cost (use full_tool_results for image generation cost)
-        calculate_and_save_message_cost(
-            assistant_msg.id,
+        saved = save_message_to_db(
+            raw_response,
+            result_messages,
+            tool_results,
+            usage_info,
             conv_id,
             user.id,
-            conv.model,
-            usage_info,
-            full_tool_results,
-            len(clean_response),
+            turn.conv.model,
+            turn.message_text,
+            ctx.request_id,
+            client_connected=True,
             mode="batch",
-        )
-
-        logger.info(
-            "Batch chat completed",
-            extra={
-                "user_id": user.id,
-                "conversation_id": conv_id,
-                "message_id": assistant_msg.id,
-                "response_length": len(clean_response),
-            },
         )
     except TimeoutError:
         logger.error(
             "Timeout in chat_batch",
-            extra={
-                "user_id": user.id,
-                "conversation_id": conv_id,
-            },
+            extra={"user_id": user.id, "conversation_id": conv_id},
             exc_info=True,
         )
         raise_llm_error("Request timed out. The AI took too long to respond. Please try again.")
     except Exception as e:
         # Log the error but don't expose internal details to users
-        import traceback
-
         logger.error(
             "Error in chat_batch",
-            extra={
-                "user_id": user.id,
-                "conversation_id": conv_id,
-                "error": str(e),
-                "traceback": traceback.format_exc(),
-            },
+            extra={"user_id": user.id, "conversation_id": conv_id, "error": str(e)},
             exc_info=True,
         )
-        # Check for common recoverable errors
-        error_str = str(e).lower()
-        if "timeout" in error_str or "timed out" in error_str:
-            raise_llm_error("Request timed out. Please try again.")
-        if "rate limit" in error_str or "quota" in error_str:
-            raise_llm_error("AI service is busy. Please try again in a moment.")
-        # Generic server error (don't expose internal details)
+        _raise_chat_error(e)
+    finally:
+        ctx.clear()
+
+    assistant_msg = db.get_message_by_id(saved.message_id) if saved else None
+    if saved is None or assistant_msg is None:
         raise_server_error("Failed to generate response. Please try again.")
 
-    # Resolve any title change for this turn: first-exchange auto-generation
-    # or an agent-driven retitle via set_conversation_title. Never raises, so
-    # a title failure can't turn a successful chat into a 500.
-    generated_title = _resolve_title_update(
-        conv_id, user.id, message_text, clean_response, result_messages
-    )
-
-    # Build response (include title if it was just generated, and user message ID for UI update)
     response_data = build_chat_response(
         assistant_msg,
-        clean_response,
-        gen_image_files,
-        sources,
-        generated_images_meta,
-        conversation_title=generated_title,
-        user_message_id=user_msg.id,
-        language=language,
+        assistant_msg.content,
+        saved.all_generated_files,
+        saved.sources,
+        saved.generated_images_meta,
+        conversation_title=saved.generated_title,
+        user_message_id=turn.user_msg.id,
+        language=saved.language,
         stopped_early=is_round_capped(usage_info.get("tool_rounds", 0)),
     )
-
     return response_data, 200
+
+
+def _raise_chat_error(error: Exception) -> NoReturn:
+    """Map an agent failure to a user-facing error without internal details."""
+    error_str = str(error).lower()
+    if "timeout" in error_str or "timed out" in error_str:
+        raise_llm_error("Request timed out. Please try again.")
+    if "rate limit" in error_str or "quota" in error_str:
+        raise_llm_error("AI service is busy. Please try again in a moment.")
+    raise_server_error("Failed to generate response. Please try again.")
 
 
 @api.route("/conversations/<conv_id>/chat/stream", methods=["POST"])
@@ -583,142 +167,19 @@ def chat_stream(
     from src.api.helpers.chat_streaming import create_stream_generator
 
     logger.info("Stream chat request", extra={"user_id": user.id, "conversation_id": conv_id})
-    conv = db.get_conversation(conv_id, user.id)
-    if not conv:
-        logger.warning(
-            "Conversation not found for stream chat",
-            extra={"user_id": user.id, "conversation_id": conv_id},
-        )
-        raise_not_found_error("Conversation")
-
-    # Block sending messages to agent conversations with pending approvals
-    if conv.is_agent and conv.agent_id:
-        if db.has_pending_approval(conv.agent_id):
-            logger.warning(
-                "Attempted to send message to agent with pending approval",
-                extra={"user_id": user.id, "conversation_id": conv_id, "agent_id": conv.agent_id},
-            )
-            raise_validation_error(
-                "Cannot send messages while an action is awaiting approval. "
-                "Please approve or reject the pending action first."
-            )
-
-    message_text = data.message.strip()
-    files = [f.model_dump() for f in data.files]  # Convert Pydantic models to dicts
-    force_tools = data.force_tools
-    # OR the persisted flag with the request flag: a conversation marked
-    # anonymous stays anonymous even if a stale client omits the flag, and a
-    # brand-new conversation can be anonymous before the toggle is persisted.
-    anonymous_mode = conv.anonymous_mode or data.anonymous_mode
-    if data.anonymous_mode and not conv.anonymous_mode:
-        db.set_conversation_anonymous_mode(conv_id, user.id, True)
-    log_payload_snippet(
-        logger,
-        {
-            "message_length": len(message_text),
-            "file_count": len(files),
-            "force_tools": force_tools,
-            "anonymous_mode": anonymous_mode,
-        },
-    )
-
-    # Content validation for files (base64 decoding, size) - structure already validated by Pydantic
-    if files:
-        logger.debug(
-            "Validating files for stream",
-            extra={"user_id": user.id, "conversation_id": conv_id, "file_count": len(files)},
-        )
-        is_valid, error = validate_files(files)
-        if not is_valid:
-            logger.warning(
-                "File validation failed in stream",
-                extra={
-                    "user_id": user.id,
-                    "conversation_id": conv_id,
-                    "error": error,
-                    "file_count": len(files),
-                },
-            )
-            raise_validation_error(error or "File validation failed", field="files")
-        # Mark images for background thumbnail generation
-        logger.debug(
-            "Marking image files for thumbnail generation in stream",
-            extra={"user_id": user.id, "conversation_id": conv_id},
-        )
-        files = mark_files_for_thumbnail_generation(files)
-
-    # Save user message with separate content and files
-    logger.debug(
-        "Saving user message for stream",
-        extra={
-            "user_id": user.id,
-            "conversation_id": conv_id,
-            "message_length": len(message_text),
-            "file_count": len(files) if files else 0,
-        },
-    )
-    if data.rerun_mode:
-        # Re-run on existing history: no new user message is inserted
-        message_text, rerun_history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
-    else:
-        rerun_history_messages = None
-        _dedupe_client_message_id(conv_id, data.client_message_id)
-        user_msg = db.add_message(
-            conv_id,
-            MessageRole.USER,
-            message_text,
-            files=files if files else None,
-            message_id=data.client_message_id,
-        )
-
-        # Queue background thumbnail generation for pending files
-        if files:
-            queue_pending_thumbnails(user_msg.id, files)
-            # Upload videos to the Gemini Files API and annotate files with URIs
-            # (annotations are transient: the message was already saved without them)
-            attach_gemini_file_uris(user_msg.id, files)
-
-    # Get conversation history with enrichment (timestamps, file refs, tool summaries)
-    # NOTE: We exclude file DATA from history to avoid re-sending large base64 data.
-    # Only file metadata (name, type, message_id, file_index) is included so the LLM
-    # can reference historical files using retrieve_file or generate_image tools.
-    from src.agent.history import enrich_history
-
-    if rerun_history_messages is not None:
-        history = enrich_history(rerun_history_messages)
-    else:
-        messages = db.get_messages(conv_id)
-        history = enrich_history(messages[:-1])  # Exclude the just-added message
+    turn = prepare_turn(user, data, conv_id)
+    ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
     logger.debug(
         "Starting stream chat agent",
         extra={
             "user_id": user.id,
             "conversation_id": conv_id,
-            "model": conv.model,
-            "history_length": len(history),
-            "force_tools": force_tools,
+            "model": turn.conv.model,
+            "history_length": len(ctx.history),
+            "force_tools": turn.force_tools,
         },
     )
-
-    # Generate a unique request ID for capturing full tool results
-    stream_request_id = str(uuid.uuid4())
-
-    # A stale interjection from a previous turn must never steer this one
-    clear_interjection(user.id, conv_id)
-
-    # Create the stream generator with all necessary context
-    generator = create_stream_generator(
-        user=user,
-        conv=conv,
-        user_msg=user_msg,
-        message_text=message_text,
-        files=files,
-        history=history,
-        force_tools=force_tools,
-        anonymous_mode=anonymous_mode,
-        stream_request_id=stream_request_id,
-        client_location=data.client_location.model_dump() if data.client_location else None,
-    )
+    generator = create_stream_generator(user=user, turn=turn, ctx=ctx)
 
     return Response(
         generator,

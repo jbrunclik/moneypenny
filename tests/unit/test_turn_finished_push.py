@@ -110,6 +110,7 @@ class TestApprovalFinalizeNotifies:
             final_results={"ready": True, "saved": False},
             client_connected=client_connected,
             user_msg=SimpleNamespace(id="user-msg-1"),
+            turn=MagicMock(),
         )
 
     def test_disconnected_client_gets_approval_push(self) -> None:
