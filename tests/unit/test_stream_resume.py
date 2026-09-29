@@ -65,14 +65,14 @@ class TestProducerJournaling:
     def test_events_journaled_with_seq_and_stream_end(
         self, test_database: Database, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from src.api.helpers import chat_streaming, stream_resume
+        from src.api.helpers import stream_producer, stream_resume
 
         monkeypatch.setattr(stream_resume, "db", test_database)
-        monkeypatch.setattr(chat_streaming, "db", test_database)
+        monkeypatch.setattr(stream_producer, "db", test_database)
         q: queue.Queue = queue.Queue()
         final_results: dict = {"ready": False, "saved": False}
 
-        chat_streaming.stream_events(
+        stream_producer.stream_events(
             _ThreeTokenAgent(),
             q,
             final_results,
@@ -116,9 +116,9 @@ def _drain_sse(gen) -> list[dict]:
 class TestStreamResumeEvents:
     @pytest.fixture(autouse=True)
     def _patch_db(self, test_database: Database, monkeypatch: pytest.MonkeyPatch):
-        from src.api.helpers import stream_resume as chat_streaming
+        from src.api.helpers import stream_resume
 
-        monkeypatch.setattr(chat_streaming, "db", test_database)
+        monkeypatch.setattr(stream_resume, "db", test_database)
         yield
 
     def _make_message(self, test_database: Database, test_user: User, content: str = "") -> str:
@@ -175,9 +175,9 @@ class TestStreamResumeEvents:
 class TestResumeStallBound:
     @pytest.fixture(autouse=True)
     def _patch_db(self, test_database: Database, monkeypatch: pytest.MonkeyPatch):
-        from src.api.helpers import stream_resume as chat_streaming
+        from src.api.helpers import stream_resume
 
-        monkeypatch.setattr(chat_streaming, "db", test_database)
+        monkeypatch.setattr(stream_resume, "db", test_database)
         yield
 
     def test_dead_producer_ends_resume_promptly(
@@ -216,16 +216,16 @@ class TestProducerSideApprovalSave:
         """If the client disconnects before the consumer processes the approval
         event, the approval message must already be in the placeholder - the
         consumer's finally would otherwise delete it."""
-        from src.api.helpers import chat_streaming, stream_resume
+        from src.api.helpers import stream_producer, stream_resume
 
         monkeypatch.setattr(stream_resume, "db", test_database)
-        monkeypatch.setattr(chat_streaming, "db", test_database)
+        monkeypatch.setattr(stream_producer, "db", test_database)
         conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
         placeholder = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
 
         q: queue.Queue = queue.Queue()
         final_results: dict = {"ready": False, "saved": False}
-        chat_streaming.stream_events(
+        stream_producer.stream_events(
             _ApprovalAgent(),
             q,
             final_results,

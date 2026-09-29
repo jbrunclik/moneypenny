@@ -10,9 +10,9 @@ from src.api.helpers.chat_streaming import (
     _handle_generator_error,
     _handle_queue_event,
     _process_event_queue,
-    stream_events,
 )
 from src.api.helpers.chat_turn import TurnContext
+from src.api.helpers.stream_producer import stream_events
 from src.config import Config
 
 

@@ -1410,7 +1410,7 @@ class TestCleanupAndSave:
         import threading
         from unittest.mock import MagicMock
 
-        from src.api.helpers.chat_streaming import cleanup_and_save
+        from src.api.helpers.stream_producer import cleanup_and_save
 
         # Create a stream thread that's already done
         stream_thread = MagicMock(spec=threading.Thread)
@@ -1455,7 +1455,7 @@ class TestCleanupAndSave:
         import threading
         from unittest.mock import MagicMock
 
-        from src.api.helpers.chat_streaming import cleanup_and_save
+        from src.api.helpers.stream_producer import cleanup_and_save
 
         stream_thread = MagicMock(spec=threading.Thread)
         stream_thread.is_alive.return_value = False
@@ -1495,7 +1495,7 @@ class TestCleanupAndSave:
         import threading
         from unittest.mock import MagicMock
 
-        from src.api.helpers.chat_streaming import cleanup_and_save
+        from src.api.helpers.stream_producer import cleanup_and_save
 
         stream_thread = MagicMock(spec=threading.Thread)
         stream_thread.is_alive.return_value = False
@@ -1535,7 +1535,7 @@ class TestCleanupAndSave:
         import threading
         from unittest.mock import MagicMock
 
-        from src.api.helpers.chat_streaming import cleanup_and_save
+        from src.api.helpers.stream_producer import cleanup_and_save
 
         stream_thread = MagicMock(spec=threading.Thread)
         stream_thread.is_alive.return_value = False

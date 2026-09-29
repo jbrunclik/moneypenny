@@ -13,7 +13,8 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from src.api.helpers.chat_streaming import _finalize_approval_stream, cleanup_and_save
+from src.api.helpers.stream_finalize import _finalize_approval_stream
+from src.api.helpers.stream_producer import cleanup_and_save
 
 
 def _finished_thread() -> MagicMock:
@@ -33,7 +34,7 @@ class TestCleanupThreadNotifies:
         done_event.set()
         save_func = MagicMock()
 
-        with patch("src.api.helpers.chat_streaming.send_push_to_user") as mock_push:
+        with patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push:
             cleanup_and_save(
                 _finished_thread(),
                 final_results,
@@ -60,7 +61,7 @@ class TestCleanupThreadNotifies:
         done_event.set()
         save_func = MagicMock()
 
-        with patch("src.api.helpers.chat_streaming.send_push_to_user") as mock_push:
+        with patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push:
             cleanup_and_save(
                 _finished_thread(),
                 final_results,
@@ -80,7 +81,7 @@ class TestCleanupThreadNotifies:
         done_event = threading.Event()
         done_event.set()
 
-        with patch("src.api.helpers.chat_streaming.send_push_to_user") as mock_push:
+        with patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push:
             cleanup_and_save(
                 _finished_thread(),
                 final_results,
@@ -116,8 +117,8 @@ class TestApprovalFinalizeNotifies:
     def test_disconnected_client_gets_approval_push(self) -> None:
         mock_db = MagicMock()
         with (
-            patch("src.api.helpers.chat_streaming.db", mock_db),
-            patch("src.api.helpers.chat_streaming.send_push_to_user") as mock_push,
+            patch("src.api.helpers.stream_finalize.db", mock_db),
+            patch("src.api.helpers.stream_finalize.send_push_to_user") as mock_push,
         ):
             list(_finalize_approval_stream(self._context(client_connected=False)))
 
@@ -135,8 +136,8 @@ class TestApprovalFinalizeNotifies:
         message.created_at = datetime(2026, 6, 12, 10, 0, 0)
         mock_db.add_message.return_value = message
         with (
-            patch("src.api.helpers.chat_streaming.db", mock_db),
-            patch("src.api.helpers.chat_streaming.send_push_to_user") as mock_push,
+            patch("src.api.helpers.stream_finalize.db", mock_db),
+            patch("src.api.helpers.stream_finalize.send_push_to_user") as mock_push,
         ):
             list(_finalize_approval_stream(self._context(client_connected=True)))
 
@@ -147,26 +148,26 @@ class TestAgentConversationTagCoalescing:
     def test_agent_conversation_uses_agent_tag(self) -> None:
         """Turn-finished pushes about an agent conversation share the
         executor's tag so the two notification kinds replace each other."""
-        from src.api.helpers.chat_streaming import _notify_response_ready
+        from src.api.helpers.stream_producer import _notify_response_ready
 
         mock_db = MagicMock()
         mock_db.get_conversation.return_value = SimpleNamespace(agent_id="agent-9")
         with (
-            patch("src.api.helpers.chat_streaming.db", mock_db),
-            patch("src.api.helpers.chat_streaming.send_push_to_user") as mock_push,
+            patch("src.api.helpers.stream_producer.db", mock_db),
+            patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push,
         ):
             _notify_response_ready("user-1", "conv-1", "Briefing text")
 
         assert mock_push.call_args.kwargs["tag"] == "agent-agent-9"
 
     def test_regular_conversation_keeps_turn_tag(self) -> None:
-        from src.api.helpers.chat_streaming import _notify_response_ready
+        from src.api.helpers.stream_producer import _notify_response_ready
 
         mock_db = MagicMock()
         mock_db.get_conversation.return_value = SimpleNamespace(agent_id=None)
         with (
-            patch("src.api.helpers.chat_streaming.db", mock_db),
-            patch("src.api.helpers.chat_streaming.send_push_to_user") as mock_push,
+            patch("src.api.helpers.stream_producer.db", mock_db),
+            patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push,
         ):
             _notify_response_ready("user-1", "conv-1", "Answer")
 
