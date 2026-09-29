@@ -378,9 +378,6 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
     # Add request_approval for sensitive actions
     tools.append(request_approval)
 
-    # Add trigger_agent for agent-to-agent communication
-    tools.append(trigger_agent)
-
     # Add kv_store for persistent storage
     tools.append(kv_store)
 
@@ -436,6 +433,9 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
         tools.append(generate_image)
         # Unrestricted agents keep memory access; restricted ones must ask for it
         tools.append(manage_memory)
+        # Agent-to-agent handoff passes text into another agent's run, so
+        # restricted agents must be granted it like any other capability
+        tools.append(trigger_agent)
 
     logger.debug(
         "Tools for agent",

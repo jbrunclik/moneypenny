@@ -32,6 +32,7 @@ ALWAYS_SAFE_TOOLS: set[str] = {
     "fetch_url",
     "research",  # read-only web: search + fetch composite
     "retrieve_file",
+    "create_file",  # attaches generated content to the reply
     "request_approval",
     "kv_store",
     # Read-only places/routing lookups (Mapy.com)

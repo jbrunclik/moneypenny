@@ -203,3 +203,28 @@ class TestGetToolsForAgent:
 
         tools = get_tools_for_agent(self._agent(None))
         assert "manage_memory" in {t.name for t in tools}
+
+    def test_every_bound_tool_passes_the_permission_gate(self) -> None:
+        """A bound tool the gate then refuses wastes a model round on an error.
+
+        create_file and trigger_agent were bound for every agent but denied at
+        call time unless listed in tool_permissions (same class of bug as the
+        kv_store fix in 0be1fb1).
+        """
+        from src.agent.permissions import PermissionResult, check_tool_permission
+        from src.agent.tools import get_tools_for_agent
+
+        for permissions in ([], ["web_search"], ["todoist"]):
+            agent = self._agent(permissions)
+            for tool in get_tools_for_agent(agent):
+                result = check_tool_permission(agent, tool.name, {})
+                assert result == PermissionResult.ALLOWED, (permissions, tool.name)
+
+    def test_trigger_agent_only_when_granted(self) -> None:
+        """Handing another agent a message is a capability, not a baseline tool."""
+        from src.agent.tools import get_tools_for_agent
+
+        assert "trigger_agent" not in {t.name for t in get_tools_for_agent(self._agent([]))}
+        granted = get_tools_for_agent(self._agent(["trigger_agent"]))
+        assert "trigger_agent" in {t.name for t in granted}
+        assert "trigger_agent" in {t.name for t in get_tools_for_agent(self._agent(None))}

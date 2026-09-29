@@ -8,16 +8,15 @@ Interactive chat binds every available tool (`get_tools_for_request()`); autonom
 get `get_tools_for_agent()`, filtered by the agent's `tool_permissions`. Two lists matter:
 
 - **Always bound** for every agent: `web_search`, `fetch_url`, `research`, `retrieve_file`,
-  `create_file`, `request_approval`, `trigger_agent`, `kv_store`.
+  `create_file`, `request_approval`, `kv_store`.
 - **`ALWAYS_SAFE_TOOLS`** ([permissions.py](../../src/agent/permissions.py)) skip the
-  call-time permission check: `web_search`, `fetch_url`, `research`, `retrieve_file`,
-  `request_approval`, `kv_store`, and the read-only places tools `search_places`,
-  `get_route`, `list_places`.
+  call-time permission check: every always-bound tool, plus the read-only places tools
+  `search_places`, `get_route`, `list_places`.
 
-`create_file` and `trigger_agent` are in the first list but **not** the second: an agent
-with an explicit `tool_permissions` list that omits them is offered the tool, and the call
-is then blocked ("Tool '...' is not permitted for this agent"). List them explicitly (or
-run unrestricted) for agents that need them.
+Every always-bound tool must also be in `ALWAYS_SAFE_TOOLS` — a bound tool the gate refuses
+just wastes a model round on an error (`test_every_bound_tool_passes_the_permission_gate`).
+`trigger_agent` is a granted capability (it hands text to another agent's run): bound for
+unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 
 | Tool | Description | Availability |
 |------|-------------|--------------|
@@ -26,9 +25,9 @@ run unrestricted) for agents that need them.
 | `fetch_url` | Fetch content from URLs | Always available |
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |
-| `create_file` | Attach an LLM-authored text file (ZWO/CSV/ICS/GPX/…) for download — no code execution | Always bound; must be listed when `tool_permissions` is explicit |
+| `create_file` | Attach an LLM-authored text file (ZWO/CSV/ICS/GPX/…) for download — no code execution | Always available |
 | `request_approval` | Request user approval | Always available |
-| `trigger_agent` | Trigger another agent | Always bound; must be listed when `tool_permissions` is explicit |
+| `trigger_agent` | Trigger another agent | Unrestricted agents, or when listed in `tool_permissions` |
 | `kv_store` | Per-user key-value storage | Always available |
 | `generate_image` | AI image generation | Requires `GEMINI_API_KEY` |
 | `execute_code` | Code execution in sandbox | Requires `CODE_SANDBOX_ENABLED` |
@@ -54,7 +53,7 @@ Short of that, a provider that fails `SEARCH_BREAKER_THRESHOLD` times in a row t
 
 **Permission settings:**
 - `tool_permissions=null` (default): All available tools enabled
-- `tool_permissions=[]`: Only the always-bound tools are offered, and of those only `ALWAYS_SAFE_TOOLS` can actually run
+- `tool_permissions=[]`: Only the always-bound tools
 - `tool_permissions=["todoist", ...]`: The specified tools (when available) + the always-bound tools
 
 `manage_memory` is deliberately NOT "always available": an unattended run that reads the web
