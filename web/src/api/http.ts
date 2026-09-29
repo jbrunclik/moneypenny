@@ -12,7 +12,6 @@ import {
   API_RETRY_JITTER_FACTOR,
   API_RETRYABLE_STATUS_CODES,
   STORAGE_KEY_APP_STATE,
-  STORAGE_KEY_LEGACY_TOKEN,
 } from '../config';
 import { createLogger } from '../utils/logger';
 
@@ -125,8 +124,7 @@ function getToken(): string | null {
       // Ignore parse errors
     }
   }
-  // Fallback to legacy direct token storage
-  return localStorage.getItem(STORAGE_KEY_LEGACY_TOKEN);
+  return null;
 }
 
 interface RequestOptions extends RequestInit {

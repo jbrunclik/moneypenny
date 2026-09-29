@@ -122,7 +122,6 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 | `/api/agents/<id>/conversation/sync` | GET | Sync agent conversation state |
 | `/api/agents/command-center` | GET | Dashboard data |
 | `/api/agents/approvals` | GET | All pending approvals |
-| `/api/agents/evaluate-schedules` | POST | Evaluate all schedules (admin/manual) |
 | `/api/agents/parse-schedule` | POST | Helper to parse/validate cron strings |
 | `/api/agents/enhance-prompt` | POST | AI helper to refine system prompts |
 | `/api/approvals/<id>/approve` | POST | Approve request |

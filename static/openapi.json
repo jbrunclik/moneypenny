@@ -3384,48 +3384,6 @@
         "description": "Updates the last_viewed_at timestamp to reset unread count.\nShould be called when user opens the agent's conversation."
       }
     },
-    "/api/agents/dev/evaluate-schedules": {
-      "post": {
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          }
-        },
-        "tags": [
-          "Agents"
-        ],
-        "summary": "(Dev only) Evaluate and run scheduled agents.",
-        "description": "This endpoint is for local development/testing without systemd timers.\nIt evaluates which agents are due to run based on their cron schedules\nand triggers them.\n\nOnly available in development mode (FLASK_ENV=development)."
-      }
-    },
     "/api/sports/{program}/conversation": {
       "get": {
         "parameters": [

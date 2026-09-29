@@ -746,23 +746,6 @@ describe('API Client', () => {
       );
     });
 
-    it('falls back to legacy token storage', async () => {
-      clearLocalStorage();
-      localStorage.setItem('token', 'legacy-token');
-      global.fetch = mockFetchResponse({ conversations: [] });
-
-      await conversations.list();
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer legacy-token',
-          }),
-        })
-      );
-    });
-
     it('works without token', async () => {
       clearLocalStorage();
       global.fetch = mockFetchResponse({ conversations: [] });

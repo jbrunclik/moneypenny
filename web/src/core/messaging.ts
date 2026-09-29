@@ -905,7 +905,6 @@ function initStreamingRequest(
 // whichever stream finishes first. Entries expire client-side well within
 // the server journal TTL and the map is pruned on every write/read.
 const INFLIGHT_STREAMS_KEY = 'inflight-streams';
-const LEGACY_INFLIGHT_STREAM_KEY = 'inflight-stream';
 const INFLIGHT_STREAM_MAX_AGE_MS = 30 * 60 * 1000; // journal TTL is 1h server-side
 
 interface InflightStream {
@@ -915,8 +914,6 @@ interface InflightStream {
 
 function readInflightStreams(): Record<string, InflightStream> {
   try {
-    // Drop the pre-map single-entry format if still around
-    localStorage.removeItem(LEGACY_INFLIGHT_STREAM_KEY);
     const raw = localStorage.getItem(INFLIGHT_STREAMS_KEY);
     if (!raw) return {};
     const map = JSON.parse(raw) as Record<string, InflightStream>;

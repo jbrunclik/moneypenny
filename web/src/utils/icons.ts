@@ -351,11 +351,6 @@ export const BRAIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 </svg>`;
 
 /**
- * @deprecated Use BRAIN_ICON instead
- */
-export const THINKING_ICON = BRAIN_ICON;
-
-/**
  * Code/terminal icon (for code execution)
  */
 export const CODE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

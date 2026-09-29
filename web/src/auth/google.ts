@@ -145,10 +145,6 @@ export function logout(): void {
 
   store.logout();
 
-  // TODO: Remove legacy token handling after existing JWTs expire (they have 7 day expiry)
-  // Clear any legacy token storage from old app.js
-  localStorage.removeItem('token');
-
   // Disable Google auto-select on next visit
   if (googleInitialized) {
     google.accounts.id.disableAutoSelect();

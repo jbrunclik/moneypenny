@@ -26,9 +26,6 @@ import {
 /** Main app state storage key (Zustand persist) */
 export const STORAGE_KEY_APP_STATE = 'ai-chatbot-storage';
 
-/** Legacy token storage key (for backwards compatibility) */
-export const STORAGE_KEY_LEGACY_TOKEN = 'token';
-
 /** Voice input language preference */
 export const STORAGE_KEY_VOICE_LANG = 'voice-input-lang';
 
