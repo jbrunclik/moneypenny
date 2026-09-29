@@ -91,7 +91,12 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 
 | Module | Purpose |
 |--------|---------|
-| `src/db/models/agent.py` | Database CRUD for agents, approvals, executions |
+| `src/db/models/agent.py` | Database CRUD for agents |
+| `src/db/models/agent_schedule.py` | Cron next-run math, due agents, last/next run updates |
+| `src/db/models/agent_approvals.py` | Approval requests (create, resolve, consume) |
+| `src/db/models/agent_executions.py` | Execution tracking, cooldown, zombie cleanup |
+| `src/db/models/agent_conversation.py` | Agent conversation, unread state, compaction |
+| `src/db/models/agent_stats.py` | Command center, observability stats, spend/budget |
 | `src/api/routes/agents.py` | REST API endpoints |
 | `src/agent/executor.py` | Agent execution engine |
 | `src/agent/permissions.py` | Tool permission checking |

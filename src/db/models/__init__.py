@@ -19,6 +19,11 @@ from pathlib import Path
 from typing import Any, cast
 
 from src.db.models.agent import AgentMixin
+from src.db.models.agent_approvals import AgentApprovalMixin
+from src.db.models.agent_conversation import AgentConversationMixin
+from src.db.models.agent_executions import AgentExecutionMixin
+from src.db.models.agent_schedule import AgentScheduleMixin
+from src.db.models.agent_stats import AgentStatsMixin
 from src.db.models.base import DatabaseBase
 from src.db.models.cache import CacheMixin
 from src.db.models.conversation import ConversationMixin
@@ -72,6 +77,11 @@ class Database(
     SearchMixin,
     SettingsMixin,
     AgentMixin,
+    AgentScheduleMixin,
+    AgentApprovalMixin,
+    AgentExecutionMixin,
+    AgentConversationMixin,
+    AgentStatsMixin,
     KVStoreMixin,
     EmbeddingsMixin,
     ProgramConversationMixin,
