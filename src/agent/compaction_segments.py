@@ -157,18 +157,29 @@ def max_passes(segments: list[Segment]) -> int:
     return max((s.passes for s in segments), default=0)
 
 
-def _transcript(messages: list[dict[str, Any]]) -> str:
+def _transcript(messages: list[dict[str, Any]], role_labels: tuple[str, str]) -> str:
+    user_label, assistant_label = role_labels
     lines = []
     for m in messages:
-        label = "Assistant" if m.get("role") == "assistant" else "User"
+        label = assistant_label if m.get("role") == "assistant" else user_label
         lines.append(f"{label}: {(m.get('content') or '')[:SUMMARY_MESSAGE_MAX_CHARS]}")
     return "\n\n".join(lines)
 
 
 def summarize_segment(
-    messages: list[dict[str, Any]], context: list[str], max_words: int
+    messages: list[dict[str, Any]],
+    context: list[str],
+    max_words: int,
+    *,
+    role_labels: tuple[str, str] = ("User", "Assistant"),
+    intro: str = "Summarize the following part of a conversation concisely.",
+    focus: str = SUMMARY_FOCUS,
 ) -> str | None:
-    """Summarize one chunk of messages from full text (LLM call)."""
+    """Summarize one chunk of messages from full text (LLM call).
+
+    ``role_labels``/``intro``/``focus`` let autonomous-agent compaction reuse
+    this with its own framing (bind them with functools.partial).
+    """
     context_block = ""
     if context:
         joined = "\n\n".join(context)
@@ -178,12 +189,12 @@ def summarize_segment(
             f"{joined}\n\n"
         )
     prompt = (
-        "Summarize the following part of a conversation concisely.\n"
-        f"Focus on:\n{SUMMARY_FOCUS}\n\n"
+        f"{intro}\n"
+        f"Focus on:\n{focus}\n\n"
         f"Keep it under {max_words} words. Write in past tense, in the language of "
         "the conversation.\n\n"
         f"{context_block}"
-        f"Messages to summarize:\n{_transcript(messages)}\n\n"
+        f"Messages to summarize:\n{_transcript(messages, role_labels)}\n\n"
         "Summary:"
     )
     # Via the module so a single patch point (tests, e2e server) covers it

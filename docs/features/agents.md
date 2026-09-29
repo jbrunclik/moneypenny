@@ -346,9 +346,10 @@ Long-running agents can accumulate many messages over time, potentially exceedin
 
 **How it works:**
 1. Before each execution, check if message count exceeds `AGENT_COMPACTION_THRESHOLD` (default: 50)
-2. If over threshold, generate a summary of older messages using a fast LLM
-3. Replace old messages with a single summary message
+2. If over threshold, summarize the older messages with the **segmented** summarizer shared with regular chats ([compaction_segments.py](../../src/agent/compaction_segments.py)): the previous compaction's `[Previous conversation summary]` message is kept verbatim as the first segment, and only the messages after it are summarized - from full text, in batches, with agent framing (`Trigger`/`Agent` labels, agent name and description). Segments merge only past `CONVERSATION_COMPACTION_SUMMARY_MAX_WORDS`. (Previously the prior summary was re-folded into one new summary each time, compounding the loss.)
+3. Replace old messages with a single summary message (the rendered segments)
 4. Keep the most recent `AGENT_COMPACTION_KEEP_RECENT` messages (default: 10)
+5. If summarization fails, compaction is **skipped** (messages kept, retried next run) - it used to delete them behind a placeholder "history was compacted" text
 
 The summary captures:
 - Key actions taken by the agent

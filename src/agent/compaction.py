@@ -6,7 +6,8 @@ summarizing older messages when the conversation grows too long.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from functools import partial
+from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.db.models import db
@@ -92,89 +93,51 @@ def run_summary_model(prompt: str) -> str | None:
         return None
 
 
-def summarize_messages(
-    messages: list[dict[str, str]],
-    prior_summary: str | None = None,
-    *,
-    role_labels: tuple[str, str] = ("User", "Assistant"),
-    focus: str = SUMMARY_FOCUS,
-    intro: str = "Summarize this conversation history concisely.",
-    max_words: int = 500,
-) -> str | None:
-    """Summarize conversation messages into a concise running summary.
+# Marker compact_agent_conversation() puts on the summary message it inserts
+PREVIOUS_SUMMARY_PREFIX = "[Previous conversation summary]\n\n"
 
-    When ``prior_summary`` is provided it is folded in so context accumulates
-    across successive compactions rather than being lost.
+_AGENT_SUMMARY_FOCUS = (
+    "1. Key actions taken by the agent\n"
+    "2. Important information discovered (exact values, names, dates)\n"
+    "3. Ongoing tasks or goals\n"
+    "4. Any errors or issues encountered"
+)
 
-    Args:
-        messages: Messages to summarize, as ``{"role", "content"}`` dicts
-        prior_summary: Existing summary covering earlier messages, if any
-        role_labels: (user_label, assistant_label) used to render the transcript
-        focus: Bulleted guidance on what the summary should capture
-        intro: Opening instruction line
-        max_words: Soft length cap for the summary
 
-    Returns:
-        Summary text, or None if the model produced nothing (caller decides
-        the fallback).
+def _segmented_agent_summary(agent: Agent, messages: list[dict[str, Any]]) -> str | None:
+    """Summary for the messages being compacted away, or None on failure.
+
+    Reuses the segmented summaries of regular chats: the previous compaction's
+    summary message is kept as the first segment (not re-summarized - folding
+    it into a new summary every time compounded the loss), and only the
+    messages after it are summarized, from full text, in batches.
     """
-    user_label, assistant_label = role_labels
-    conversation_text = ""
-    for msg in messages:
-        label = assistant_label if msg["role"] == "assistant" else user_label
-        conversation_text += f"{label}: {msg['content'][:SUMMARY_MESSAGE_MAX_CHARS]}\n\n"
-
-    prior_block = ""
-    if prior_summary:
-        prior_block = (
-            "An earlier part of this conversation was already summarized as:\n"
-            f"{prior_summary}\n\n"
-            "Extend that summary to also cover the new messages below, keeping it "
-            "a single coherent summary (do not drop earlier details).\n\n"
-        )
-
-    prompt = (
-        f"{intro}\n"
-        "Focus on:\n"
-        f"{focus}\n\n"
-        f"Keep the summary under {max_words} words. Write in past tense.\n\n"
-        f"{prior_block}"
-        "Conversation:\n"
-        f"{conversation_text}\n"
-        "Summary:"
+    # Lazy: compaction_segments imports this module for run_summary_model
+    from src.agent.compaction_segments import (
+        Segment,
+        extend_segments,
+        render_segments,
+        summarize_segment,
     )
 
-    return run_summary_model(prompt)
-
-
-def generate_summary(agent: Agent, messages: list[dict[str, str]]) -> str:
-    """Generate a summary of an autonomous agent's conversation using the LLM.
-
-    Args:
-        agent: The agent whose conversation is being summarized
-        messages: List of messages to summarize (role, content dicts)
-
-    Returns:
-        Summary text
-    """
-    summary = summarize_messages(
-        messages,
+    prior: list[Segment] = []
+    start = 0
+    if messages and messages[0]["content"].startswith(PREVIOUS_SUMMARY_PREFIX):
+        prior_text = messages[0]["content"][len(PREVIOUS_SUMMARY_PREFIX) :].strip()
+        if prior_text:
+            prior = [Segment(prior_text, end=1, passes=1)]
+        start = 1
+    summarize = partial(
+        summarize_segment,
         role_labels=("Trigger", "Agent"),
-        focus=(
-            "1. Key actions taken by the agent\n"
-            "2. Important information discovered\n"
-            "3. Ongoing tasks or goals\n"
-            "4. Any errors or issues encountered"
-        ),
         intro=(
-            "Summarize this autonomous agent conversation history concisely.\n"
-            f"Agent: {agent.name}\n"
-            f"Description: {agent.description or 'N/A'}"
+            "Summarize the following part of an autonomous agent's conversation "
+            f"concisely.\nAgent: {agent.name}\nDescription: {agent.description or 'N/A'}"
         ),
+        focus=_AGENT_SUMMARY_FOCUS,
     )
-    if summary:
-        return summary
-    return "Previous conversation history has been compacted due to length."
+    segments = extend_segments(prior, messages, start, len(messages), summarize=summarize)
+    return render_segments(segments) if segments else None
 
 
 def compact_conversation(agent: Agent) -> bool:
@@ -215,8 +178,15 @@ def compact_conversation(agent: Agent) -> bool:
         {"role": m.role.value, "content": m.content} for m in messages_to_summarize
     ]
 
-    # Generate summary
-    summary = generate_summary(agent, messages_as_dicts)
+    summary = _segmented_agent_summary(agent, messages_as_dicts)
+    if not summary:
+        # Compaction DELETES the messages - never do it behind a placeholder.
+        # They stay until a later run summarizes them successfully.
+        logger.warning(
+            "Agent compaction skipped: summary unavailable",
+            extra={"agent_id": agent.id},
+        )
+        return False
 
     # Perform compaction
     deleted_count = db.compact_agent_conversation(
