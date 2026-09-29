@@ -60,7 +60,7 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Code Quality
 
-- [ ] **File-size convention violations (Q3, remainder)** - First pass done (chat_streaming.py -> 4 modules; models/agent.py -> per-entity mixins; routes/agents.py -> CRUD/command-center/approvals/assist; schemas.py -> schemas/ package by feature; client.ts -> http/sse/client; core/messaging.ts -> send/stream/batch/rerun modules, Sep 2026). Remaining over-cap (Aug 2026 counts): prompts.py (1848), SettingsPopup.ts (1661), chat_streaming.py (1211, producer/consumer engine split next), agent.py (1136), client.ts (1085, domain-module split touches every importer), todoist.py (1023), planner_data.py (1015), thumbnails.ts (998).
+- [ ] **File-size convention violations (remainder)** - Sep 30 2026 pass split chat routes/streaming, messaging.ts, store.ts (slices), SettingsPopup.ts, client.ts, conversation.ts, schemas.py, models/agent|message|conversation|user.py, routes/agents|conversations.py, agent.py and the grab-bag test files. Still over 500 lines: thumbnails.ts (1058), planner_data.py (1015), Sidebar.ts (997), SyncManager.ts (923), types/api.ts (920, hand-written types - shrink toward generated-api.ts), graph.py (906), AgentEditor.ts (884), config.py (847, declarative), icons.ts (759, data), garmin.py (723), messages/render.ts (715), google_calendar.py (671), browser.py (666), MessageInput.ts (664), init.ts (647), plus a tail of 500-630-line tool and component modules; tests/unit/test_agents.py (1493) and test_graph.py (1069).
 
 ## Tests & Tooling
 

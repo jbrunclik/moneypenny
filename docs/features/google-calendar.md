@@ -161,8 +161,8 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 - [migrations/0019_add_google_calendar_fields.py](../../migrations/0019_add_google_calendar_fields.py) - Database schema
 
 **Frontend:**
-- [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - UI and OAuth callback handling
-- [client.ts](../../web/src/api/client.ts) - API methods
+- [settings/calendar.ts](../../web/src/components/settings/calendar.ts), [settings/oauth.ts](../../web/src/components/settings/oauth.ts) - UI and OAuth callback handling
+- [api/integrations.ts](../../web/src/api/integrations.ts) - API methods
 - [api.ts](../../web/src/types/api.ts) - Type definitions
 - [popups.css](../../web/src/styles/components/popups.css) - Styles (includes `.login-privacy-link`)
 - [init.ts](../../web/src/core/init.ts) - Login overlay (includes Privacy Policy link)

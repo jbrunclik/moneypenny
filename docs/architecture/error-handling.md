@@ -91,7 +91,7 @@ const value = await showPrompt({
 
 ### API Client Error Handling
 
-The HTTP layer ([api/http.ts](../../web/src/api/http.ts), used by [api/client.ts](../../web/src/api/client.ts); SSE reading in [api/sse.ts](../../web/src/api/sse.ts)) provides:
+The HTTP layer ([api/http.ts](../../web/src/api/http.ts), used by the per-domain modules in [web/src/api/](../../web/src/api/); SSE reading in [api/sse.ts](../../web/src/api/sse.ts)) provides:
 
 1. **Retry logic with exponential backoff** - opt-in per call (`requestWithRetry`), used for idempotent reads
 2. **Request timeouts** - `API_DEFAULT_TIMEOUT_MS` (30s), `API_CHAT_TIMEOUT_MS` (5 min) for chat, and a 30s connect timeout on the streaming POST (`API_CHAT_CONNECT_TIMEOUT_MS`)
@@ -173,7 +173,7 @@ Details: [Reliable Sends](../features/chat-and-streaming.md#reliable-sends-outbo
 - [Toast.ts](../../web/src/components/Toast.ts) - Toast notification component
 - [Modal.ts](../../web/src/components/Modal.ts) - Modal dialog component
 - [api/http.ts](../../web/src/api/http.ts) - `request`, `requestWithRetry`, `ApiError`, timeouts
-- [api/client.ts](../../web/src/api/client.ts) - API methods
+- [web/src/api/](../../web/src/api/) - API methods, one module per domain
 - [messaging.ts](../../web/src/core/messaging.ts), [send-delivery.ts](../../web/src/core/send-delivery.ts), [outbox.ts](../../web/src/core/outbox.ts) - send failure handling
 
 ## See Also

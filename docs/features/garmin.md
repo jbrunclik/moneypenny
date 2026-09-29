@@ -121,8 +121,8 @@ No client ID or secret is required — the user authenticates with their own Gar
 - [migrations/0028_add_garmin_fields.py](../../migrations/0028_add_garmin_fields.py) - Database schema
 
 **Frontend:**
-- [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - Connection UI (email/password form, MFA step)
-- [client.ts](../../web/src/api/client.ts) - API methods
+- [settings/garmin.ts](../../web/src/components/settings/garmin.ts) - Connection UI (email/password form, MFA step)
+- [api/integrations.ts](../../web/src/api/integrations.ts) - API methods
 - [api.ts](../../web/src/types/api.ts) - Type definitions
 - [popups.css](../../web/src/styles/components/popups.css) - Styles
 

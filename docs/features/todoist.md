@@ -127,8 +127,8 @@ TODOIST_API_TIMEOUT=10  # API request timeout in seconds
 - [migrations/0018_add_todoist_fields.py](../../migrations/0018_add_todoist_fields.py) - Database schema
 
 **Frontend:**
-- [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - UI and OAuth callback handling
-- [client.ts](../../web/src/api/client.ts) - API methods
+- [settings/todoist.ts](../../web/src/components/settings/todoist.ts), [settings/oauth.ts](../../web/src/components/settings/oauth.ts) - UI and OAuth callback handling
+- [api/integrations.ts](../../web/src/api/integrations.ts) - API methods
 - [api.ts](../../web/src/types/api.ts) - Type definitions
 - [popups.css](../../web/src/styles/components/popups.css) - Styles
 

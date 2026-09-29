@@ -112,7 +112,7 @@ Messages containing Markdown are automatically converted to WhatsApp-compatible 
 - [config.py](../../src/config.py) - WhatsApp configuration
 
 **Frontend:**
-- [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - Phone number input
+- [settings/notifications.ts](../../web/src/components/settings/notifications.ts) - Phone number input
 - [AgentEditor.ts](../../web/src/components/AgentEditor.ts) - Tool availability gating
 
 **Migration:**
