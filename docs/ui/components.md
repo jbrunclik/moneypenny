@@ -102,7 +102,12 @@ Benefits:
 
 ### State Management
 
-Use Zustand store in [web/src/state/store.ts](../../web/src/state/store.ts):
+Use Zustand store in [../../web/src/state/store.ts](../../web/src/state/store.ts).
+The store is composed from per-domain slices in
+[../../web/src/state/slices/](../../web/src/state/slices/) (one `StateCreator` +
+state/action types per domain); `store.ts` only composes them and owns the
+`persist` config. Add new state to the matching slice; `logout` resets every
+slice via its `initial*Data()` function.
 
 ```typescript
 import { useStore } from './state/store';

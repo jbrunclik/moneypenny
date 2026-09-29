@@ -17,13 +17,14 @@
  *   });
  */
 
-import { useStore, Notification } from '../state/store';
+import { useStore } from '../state/store';
+import type { Notification } from '../state/slices/ui';
 import { hapticError } from '../utils/haptics';
 import { escapeHtml } from '../utils/dom';
 import { CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
 
 // Re-export types for convenience
-export type { Notification } from '../state/store';
+export type { Notification } from '../state/slices/ui';
 
 // Default duration in milliseconds (0 = persistent)
 const DEFAULT_DURATION = 5000;
