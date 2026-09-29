@@ -7917,6 +7917,19 @@
             "description": "ISO 639-1 language code for TTS (e.g., 'en', 'cs')",
             "title": "Language"
           },
+          "stopped_early": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "title": "Stopped Early"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -8162,6 +8175,19 @@
             "default": null,
             "description": "ISO 639-1 language code for TTS (e.g., 'en', 'cs')",
             "title": "Language"
+          },
+          "stopped_early": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "title": "Stopped Early"
           },
           "created_at": {
             "title": "Created At",
@@ -9166,6 +9192,19 @@
             "description": "ISO 639-1 language code for TTS (e.g., 'en', 'cs')",
             "title": "Language"
           },
+          "stopped_early": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "title": "Stopped Early"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -10047,6 +10086,19 @@
             "description": "ISO 639-1 language code for TTS (e.g., 'en', 'cs')",
             "title": "Language"
           },
+          "stopped_early": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "title": "Stopped Early"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -10316,6 +10368,19 @@
             "default": null,
             "description": "ISO 639-1 language code for TTS (e.g., 'en', 'cs')",
             "title": "Language"
+          },
+          "stopped_early": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "title": "Stopped Early"
           },
           "created_at": {
             "title": "Created At",

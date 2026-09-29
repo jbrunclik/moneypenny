@@ -88,6 +88,8 @@ export interface Message {
   sources?: Source[];
   generated_images?: GeneratedImage[];
   language?: string; // ISO 639-1 language code for TTS (e.g., 'en', 'cs')
+  /** Assistant reply cut off by the tool-round cap (server-set) */
+  stopped_early?: boolean;
   created_at: string;
   /** Client-only send state; never sent by the server (absent = delivered) */
   status?: 'pending' | 'failed';
@@ -172,6 +174,7 @@ export type StreamEvent = (
       language?: string; // ISO 639-1 language code for TTS
       title?: string;
       user_message_id?: string; // Real ID of the user message (kept for backwards compatibility)
+      stopped_early?: boolean; // Reply cut off by the tool-round cap
     }
   | { type: 'error'; message: string; code?: string; retryable?: boolean }
 ) & {
@@ -268,6 +271,7 @@ export interface ChatResponse {
   created_at: string;
   title?: string;
   user_message_id?: string; // Real ID of the user message (for updating temp IDs)
+  stopped_early?: boolean; // Reply cut off by the tool-round cap
 }
 
 export interface ErrorResponse {

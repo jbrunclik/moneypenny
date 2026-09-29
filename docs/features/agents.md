@@ -340,6 +340,10 @@ Mechanisms now in place:
 
 Re-run the audit with `journalctl --user -u moneypenny --since "14 days ago" -o cat`, filtering for `LLM requested tool calls` (tool names + count per round) and `Tool round completed` (per-round latency).
 
+**Follow-up audit (Sep 29 2026, 30 days).** 173 distinct turns hit the cap - 3.3% of 5,291 turns; after the Sep 6 nudges it settled at 2-5 a day (one 34-turn spike on Sep 26). Inside capped turns 98% of rounds still carried a single tool call, `web_search` dominant (499 calls, then `fetch_url` 83, `browser` 62). Count distinct capped turns by the FIRST cap line (`"tool_rounds": 6`) - the cap message repeats on every later round, so raw line counts overstate it (271 lines for 173 turns).
+
+**Stopped-early replies.** A turn that hits the cap was told to answer with what it has, so the reply may be partial. It is flagged `stopped_early` - derived from `message_costs.tool_rounds >= AGENT_MAX_TOOL_ROUNDS` (`is_round_capped()` in [api/utils.py](../../src/api/utils.py)), no extra column - on the stream `done` event, the batch response and loaded message lists (`serialize_messages_for_response()`, one query per page). The UI shows "Stopped at the tool-step limit - this answer may be incomplete." with a **Continue** button on the latest reply, which dispatches the existing `message:continue` re-run ([messages/stopped-early.ts](../../web/src/components/messages/stopped-early.ts)).
+
 ## Conversation Compaction
 
 Long-running agents can accumulate many messages over time, potentially exceeding LLM context limits. Compaction automatically summarizes older messages to keep conversations manageable.

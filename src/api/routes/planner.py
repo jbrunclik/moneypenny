@@ -20,6 +20,7 @@ from src.api.schemas import (
     PlannerResetResponse,
     PlannerSyncResponse,
 )
+from src.api.utils import serialize_messages_for_response
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
@@ -34,46 +35,6 @@ api = APIBlueprint("planner", __name__, url_prefix="/api", tag="Planner")
 # ============================================================================
 # Helper Functions
 # ============================================================================
-
-
-def _optimize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]:
-    """Convert Message objects to optimized response format.
-
-    Only includes file metadata (name, type, messageId, fileIndex), not full data.
-    """
-    from src.api.utils import normalize_generated_images
-
-    optimized_messages = []
-    for m in messages:
-        optimized_files = []
-        if m.files:
-            for idx, file in enumerate(m.files):
-                optimized_file = {
-                    "name": file.get("name", ""),
-                    "type": file.get("type", ""),
-                    "messageId": m.id,
-                    "fileIndex": idx,
-                }
-                optimized_files.append(optimized_file)
-
-        msg_data: dict[str, Any] = {
-            "id": m.id,
-            "role": m.role,
-            "content": m.content,
-            "files": optimized_files,
-            "created_at": m.created_at.isoformat(),
-        }
-        if m.sources:
-            msg_data["sources"] = m.sources
-        if m.generated_images:
-            # Normalize generated_images to ensure proper structure
-            # (LLM sometimes returns just strings instead of {"prompt": "..."} objects)
-            msg_data["generated_images"] = normalize_generated_images(m.generated_images)
-        if m.language:
-            msg_data["language"] = m.language
-
-        optimized_messages.append(msg_data)
-    return optimized_messages
 
 
 # ============================================================================
@@ -263,7 +224,7 @@ def get_planner_conversation(user: User) -> dict[str, Any]:
     messages = db.get_messages(conv.id)
 
     # Optimize file data
-    optimized_messages = _optimize_messages_for_response(messages)
+    optimized_messages = serialize_messages_for_response(messages)
 
     logger.info(
         "Planner conversation retrieved",

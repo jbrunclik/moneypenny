@@ -7457,6 +7457,12 @@ export interface components {
              * @default null
              */
             language: string | null;
+            /**
+             * Stopped Early
+             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @default null
+             */
+            stopped_early: boolean | null;
             /** Created At */
             created_at: string;
         };
@@ -7572,6 +7578,12 @@ export interface components {
              * @default null
              */
             language: string | null;
+            /**
+             * Stopped Early
+             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @default null
+             */
+            stopped_early: boolean | null;
             /** Created At */
             created_at: string;
         };
@@ -8114,6 +8126,12 @@ export interface components {
              * @default null
              */
             language: string | null;
+            /**
+             * Stopped Early
+             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @default null
+             */
+            stopped_early: boolean | null;
             /** Created At */
             created_at: string;
         };
@@ -8565,6 +8583,12 @@ export interface components {
              * @default null
              */
             language: string | null;
+            /**
+             * Stopped Early
+             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @default null
+             */
+            stopped_early: boolean | null;
             /** Created At */
             created_at: string;
         };
@@ -8699,6 +8723,12 @@ export interface components {
              * @default null
              */
             language: string | null;
+            /**
+             * Stopped Early
+             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @default null
+             */
+            stopped_early: boolean | null;
             /** Created At */
             created_at: string;
             /**

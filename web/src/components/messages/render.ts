@@ -22,6 +22,7 @@ import { toast } from '../Toast';
 import { renderConversationsList } from '../Sidebar';
 import { createLogger } from '../../utils/logger';
 import { createMessageActions } from './actions';
+import { appendStoppedEarlyNote } from './stopped-early';
 import { renderMessageFiles } from './attachments';
 import { applySendState } from './send-state';
 import { setInputBlockedForApproval } from '../MessageInput';
@@ -437,6 +438,10 @@ export function addMessageToUI(
   }
 
   // Create message actions with all buttons and handlers
+  if (message.role === 'assistant' && message.stopped_early) {
+    appendStoppedEarlyNote(contentWrapper, message.id);
+  }
+
   const actions = createMessageActions(
     message.id,
     message.created_at,

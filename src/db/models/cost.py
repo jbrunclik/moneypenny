@@ -164,6 +164,24 @@ class CostMixin:
                 ),
             }
 
+    def get_round_capped_message_ids(self, message_ids: list[str], min_rounds: int) -> set[str]:
+        """Ids among ``message_ids`` whose turn ran at least ``min_rounds`` tool rounds.
+
+        Used to flag replies cut off by the tool-round cap (one query per page
+        of messages, not per message).
+        """
+        if not message_ids or min_rounds <= 0:
+            return set()
+        placeholders = ",".join("?" * len(message_ids))
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                f"""SELECT message_id FROM message_costs
+                    WHERE message_id IN ({placeholders}) AND tool_rounds >= ?""",  # noqa: S608 - placeholders only
+                (*message_ids, min_rounds),
+            ).fetchall()
+        return {row["message_id"] for row in rows}
+
     def get_conversation_cost(self, conversation_id: str) -> float:
         """Get total cost for a conversation.
 

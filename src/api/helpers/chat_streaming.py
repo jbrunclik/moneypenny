@@ -34,6 +34,7 @@ from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES, _StreamJournal
 from src.api.schemas import MessageRole
 from src.api.utils import (
     build_stream_done_event,
+    is_round_capped,
 )
 from src.config import Config
 from src.db.models import db
@@ -1015,6 +1016,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                     conversation_title=None,
                     user_message_id=context.user_msg.id,
                     language=assistant_msg.language,
+                    stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
                 )
                 try:
                     yield f"data: {json.dumps(done_data)}\n\n"
@@ -1056,6 +1058,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
         conversation_title=save_result.generated_title,
         user_message_id=context.user_msg.id,
         language=save_result.language,
+        stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
     )
 
     # Try to send done event even if client may have disconnected.

@@ -842,7 +842,20 @@ def main() -> None:
                     role = msg.get("role", "user")
                     content = msg.get("content", "")
                     files = msg.get("files")
-                    g.db.add_message(conv.id, role, content, files=files)
+                    added = g.db.add_message(conv.id, role, content, files=files)
+                    # Optional per-turn tool rounds (message_costs), e.g. to
+                    # seed a reply cut off by the tool-round cap
+                    if msg.get("tool_rounds"):
+                        g.db.save_message_cost(
+                            added.id,
+                            conv.id,
+                            user.id,
+                            "e2e",
+                            0,
+                            0,
+                            0.0,
+                            tool_rounds=int(msg["tool_rounds"]),
+                        )
 
                 # Optional running-summary state, as conversation compaction
                 # persists it ({summary, covered_count, generation})

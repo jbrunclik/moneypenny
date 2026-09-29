@@ -15,6 +15,7 @@ import {
 } from '../components/Sidebar';
 import {
   addMessageToUI,
+  appendStoppedEarlyNote,
   renderMessages,
   removeRenderedMessagesFrom,
   addStreamingMessage,
@@ -1572,6 +1573,7 @@ async function handleStreamDone(
     language?: string;
     approval_required?: boolean;
     approval_id?: string;
+    stopped_early?: boolean;
   },
   state: StreamingState,
   convId: string,
@@ -1643,6 +1645,10 @@ async function handleStreamDone(
     'assistant',
     event.language
   );
+  if (event.stopped_early) {
+    const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');
+    if (wrapper) appendStoppedEarlyNote(wrapper, event.id);
+  }
 
   // Scroll to top of message if user was following, otherwise handle image scroll
   const messagesContainer = getElementById<HTMLDivElement>('messages');
@@ -1981,6 +1987,7 @@ async function sendBatchMessage(
       generated_images: response.generated_images,
       files: response.files,
       created_at: response.created_at,
+      stopped_early: response.stopped_early,
     };
 
     const messagesContainer = getElementById<HTMLDivElement>('messages');

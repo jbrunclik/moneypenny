@@ -50,6 +50,42 @@
 }
 
 /* ----------------------------------------
+   Stopped-early note (messages/stopped-early.ts): the reply hit the
+   tool-round cap. Continue is only offered on the latest assistant reply,
+   matching the regenerate/continue action buttons.
+   ---------------------------------------- */
+
+.message-stopped-early {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--warning-text);
+}
+
+.message-stopped-early-continue {
+    display: none;
+    font: inherit;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: 2px var(--space-3);
+    cursor: pointer;
+}
+
+.message.assistant.message--latest-assistant .message-stopped-early-continue {
+    display: inline-flex;
+}
+
+.message-stopped-early-continue:hover {
+    border-color: var(--accent);
+}
+
+/* ----------------------------------------
    Compaction marker (CompactionIndicator.ts)
    Messages the model only sees as a summary are dimmed and followed by a
    divider. Opacity only - layout-affecting effects here disturb auto-scroll.

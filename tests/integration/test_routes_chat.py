@@ -176,6 +176,39 @@ class TestChatBatch:
             {"tool": "garmin_connect", "args": '{"action":"hrv"}', "result": '{"hrv":62}'}
         ]
 
+    def test_flags_reply_cut_off_by_round_cap(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        from src.config import Config
+
+        with (
+            patch("src.api.routes.chat.ChatAgent") as mock_agent_class,
+            patch.object(Config, "AGENT_MAX_TOOL_ROUNDS", 6),
+        ):
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "Partial answer.",
+                [],
+                {"input_tokens": 150, "output_tokens": 100, "tool_rounds": 6},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Research everything"},
+            )
+            listed = client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers)
+
+        assert json.loads(response.data)["stopped_early"] is True
+        messages = json.loads(listed.data)["messages"]
+        assert messages[-1]["stopped_early"] is True
+        assert not messages[0].get("stopped_early")
+
     def test_agent_retitle_applied_in_batch(
         self,
         client: FlaskClient,

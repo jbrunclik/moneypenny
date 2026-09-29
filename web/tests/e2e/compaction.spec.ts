@@ -109,3 +109,32 @@ test.describe('Conversation compaction indicator (mobile)', () => {
     await expect(page.locator('#compaction-popup')).toBeVisible();
   });
 });
+
+test.describe('Reply cut off by the tool-round cap', () => {
+  test('shows a note with Continue on the latest reply only', async ({ page }) => {
+    const response = await page.request.post('/test/seed', {
+      data: {
+        conversations: [
+          {
+            title: 'Long research',
+            messages: [
+              { role: 'user', content: 'Research A' },
+              { role: 'assistant', content: 'Partial A', tool_rounds: 6 },
+              { role: 'user', content: 'Research B' },
+              { role: 'assistant', content: 'Partial B', tool_rounds: 7 },
+            ],
+          },
+        ],
+      },
+    });
+    const { conversation_ids } = (await response.json()) as { conversation_ids: string[] };
+    await page.goto(`/#/conversations/${conversation_ids[0]}`);
+
+    const notes = page.locator('.message-stopped-early');
+    await expect(notes).toHaveCount(2);
+    await expect(notes.first()).toContainText('may be incomplete');
+    // Continue is only offered where a re-run makes sense: the latest reply
+    await expect(notes.first().locator('.message-stopped-early-continue')).toBeHidden();
+    await expect(notes.last().locator('.message-stopped-early-continue')).toBeVisible();
+  });
+});

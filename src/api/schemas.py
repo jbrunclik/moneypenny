@@ -564,6 +564,9 @@ class MessageResponse(BaseModel):
     language: str | None = Field(
         default=None, description="ISO 639-1 language code for TTS (e.g., 'en', 'cs')"
     )
+    stopped_early: bool | None = Field(
+        default=None, description="Reply was cut off by the tool-round cap (offer Continue)"
+    )
     created_at: str
 
 
@@ -578,6 +581,9 @@ class ChatBatchResponse(BaseModel):
     generated_images: list[GeneratedImageResponse] | None = None
     language: str | None = Field(
         default=None, description="ISO 639-1 language code for TTS (e.g., 'en', 'cs')"
+    )
+    stopped_early: bool | None = Field(
+        default=None, description="Reply was cut off by the tool-round cap (offer Continue)"
     )
     created_at: str
     title: str | None = Field(

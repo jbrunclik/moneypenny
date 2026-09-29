@@ -5,6 +5,8 @@ from typing import Any
 
 from flask import Request
 
+from src.api.schemas import MessageRole
+from src.config import Config
 from src.db.models import db
 from src.utils.costs import calculate_total_cost
 from src.utils.logging import get_logger
@@ -106,6 +108,7 @@ def build_chat_response(
     conversation_title: str | None = None,
     user_message_id: str | None = None,
     language: str | None = None,
+    stopped_early: bool = False,
 ) -> dict[str, Any]:
     """Build chat response dictionary for batch endpoint.
 
@@ -141,8 +144,78 @@ def build_chat_response(
         response_data["user_message_id"] = user_message_id
     if language:
         response_data["language"] = language
+    if stopped_early:
+        response_data["stopped_early"] = True
 
     return response_data
+
+
+def is_round_capped(tool_rounds: int) -> bool:
+    """Whether a turn ran into the tool-round cap (the model was told to stop)."""
+    cap = Config.AGENT_MAX_TOOL_ROUNDS
+    return cap > 0 and tool_rounds >= cap
+
+
+def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]:
+    """Convert Message objects to optimized response format.
+
+    Only includes file metadata (name, type, messageId, fileIndex), not full data.
+    Filters out empty placeholder messages that are still being processed by stream.
+    Assistant replies cut off by the tool-round cap get ``stopped_early: true``.
+    Shared by the conversation, planner and program routes (the planner once
+    kept its own copy that lacked the placeholder filter).
+    """
+    # Filter out empty placeholder messages (still being processed by stream)
+    messages = [
+        m
+        for m in messages
+        if not (
+            m.role == MessageRole.ASSISTANT
+            and not m.content
+            and not m.files
+            and not m.sources
+            and not m.generated_images
+        )
+    ]
+
+    capped_ids = db.get_round_capped_message_ids(
+        [m.id for m in messages if m.role == MessageRole.ASSISTANT],
+        Config.AGENT_MAX_TOOL_ROUNDS,
+    )
+
+    optimized_messages = []
+    for m in messages:
+        optimized_files = []
+        if m.files:
+            for idx, file in enumerate(m.files):
+                optimized_file = {
+                    "name": file.get("name", ""),
+                    "type": file.get("type", ""),
+                    "messageId": m.id,
+                    "fileIndex": idx,
+                }
+                optimized_files.append(optimized_file)
+
+        msg_data: dict[str, Any] = {
+            "id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "files": optimized_files,
+            "created_at": m.created_at.isoformat(),
+        }
+        if m.sources:
+            msg_data["sources"] = m.sources
+        if m.generated_images:
+            # Normalize generated_images to ensure proper structure
+            # (LLM sometimes returns just strings instead of {"prompt": "..."} objects)
+            msg_data["generated_images"] = normalize_generated_images(m.generated_images)
+        if m.language:
+            msg_data["language"] = m.language
+        if m.id in capped_ids:
+            msg_data["stopped_early"] = True
+
+        optimized_messages.append(msg_data)
+    return optimized_messages
 
 
 def build_stream_done_event(
@@ -153,6 +226,7 @@ def build_stream_done_event(
     conversation_title: str | None = None,
     user_message_id: str | None = None,
     language: str | None = None,
+    stopped_early: bool = False,
 ) -> dict[str, Any]:
     """Build done event dictionary for streaming endpoint.
 
@@ -164,6 +238,7 @@ def build_stream_done_event(
         conversation_title: Optional conversation title (included if provided)
         user_message_id: Optional user message ID (for updating temp IDs in frontend)
         language: Optional ISO 639-1 language code for TTS
+        stopped_early: Whether the turn hit the tool-round cap
 
     Returns:
         Done event dictionary with type, id, created_at, content, and optional files/sources/generated_images/title/language
@@ -188,6 +263,8 @@ def build_stream_done_event(
         done_data["user_message_id"] = user_message_id
     if language:
         done_data["language"] = language
+    if stopped_early:
+        done_data["stopped_early"] = True
 
     return done_data
 

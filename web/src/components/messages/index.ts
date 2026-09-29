@@ -57,6 +57,7 @@ export {
 
 // Orientation
 export { initOrientationChangeHandler } from './orientation';
+export { appendStoppedEarlyNote } from './stopped-early';
 
 // Utils
 export { updateChatTitle, updateUserMessageId } from './utils';

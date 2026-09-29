@@ -50,6 +50,7 @@ from src.api.schemas import (
 from src.api.utils import (
     build_chat_response,
     calculate_and_save_message_cost,
+    is_round_capped,
 )
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
@@ -544,6 +545,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         conversation_title=generated_title,
         user_message_id=user_msg.id,
         language=language,
+        stopped_early=is_round_capped(usage_info.get("tool_rounds", 0)),
     )
 
     return response_data, 200

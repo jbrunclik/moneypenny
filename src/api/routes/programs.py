@@ -192,7 +192,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
     @require_auth
     def get_conversation(user: User, program: str) -> dict[str, Any]:
         """Get or create the program conversation."""
-        from src.api.routes.planner import _optimize_messages_for_response
+        from src.api.utils import serialize_messages_for_response
 
         # Verify program exists
         programs = _get_programs(user.id, ns)
@@ -205,7 +205,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
         )
 
         messages = db.get_messages(conv.id)
-        optimized_messages = _optimize_messages_for_response(messages)
+        optimized_messages = serialize_messages_for_response(messages)
 
         return {
             "id": conv.id,
