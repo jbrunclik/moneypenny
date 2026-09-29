@@ -101,6 +101,8 @@ class ContextCacheManager:
         # cache_keys with a background creation currently in flight - prevents a
         # thundering herd of concurrent create() calls for the same cache.
         self._creating: set[str] = set()
+        # cache_keys with a background TTL extension in flight
+        self._extending: set[str] = set()
 
     def _get_client(self) -> Any:
         """Lazy-initialize the google.genai Client."""
@@ -148,6 +150,7 @@ class ContextCacheManager:
                             "expires_in": int(entry.expires_at - now),
                         },
                     )
+                    self._maybe_extend(cache_key, entry, now)
                     return entry.cache_name
 
                 if entry and entry.content_hash != content_hash:
@@ -226,6 +229,65 @@ class ContextCacheManager:
         finally:
             with self._lock:
                 self._creating.discard(cache_key)
+
+    def _maybe_extend(self, cache_key: str, entry: CacheEntry, now: float) -> None:
+        """Slide the expiry of a cache that is still in use (caller holds the lock).
+
+        Without this an active cache lapses into the renewal buffer, which is
+        treated as a miss: that request runs uncached and a whole new cache is
+        built. In Sep 2026 36% of rebuilds happened mid-session like that.
+        Extending only on use keeps storage proportional to actual traffic -
+        idle caches still expire (a longer fixed TTL would cost more in
+        storage than the misses it saves).
+        """
+        extend_from = Config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS + (
+            Config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS
+        )
+        if entry.expires_at > now + extend_from or cache_key in self._extending:
+            return
+        self._extending.add(cache_key)
+        threading.Thread(
+            target=self._extend_and_store,
+            args=(cache_key, entry),
+            name=f"ctx-cache-extend-{cache_key[:24]}",
+            daemon=True,
+        ).start()
+
+    def _extend_and_store(self, cache_key: str, entry: CacheEntry) -> None:
+        """Background: extend the cache's TTL, then publish the new expiry."""
+        try:
+            ttl_seconds = Config.CONTEXT_CACHE_TTL_SECONDS
+            if not self._extend_cache(entry.cache_name, ttl_seconds):
+                return
+            extended = CacheEntry(
+                cache_name=entry.cache_name,
+                content_hash=entry.content_hash,
+                created_at=entry.created_at,
+                expires_at=time.time() + ttl_seconds,
+            )
+            with self._lock:
+                # Don't clobber a newer entry published meanwhile
+                if self._caches.get(cache_key) is entry:
+                    self._caches[cache_key] = extended
+            self._store_shared_entry(cache_key, extended)
+            logger.info("context_cache extended", extra={"cache_key": cache_key})
+        finally:
+            with self._lock:
+                self._extending.discard(cache_key)
+
+    def _extend_cache(self, cache_name: str, ttl_seconds: int) -> bool:
+        """Extend a cached content's TTL via the Gemini API (False on failure)."""
+        try:
+            from google.genai import types
+
+            self._get_client().caches.update(
+                name=cache_name,
+                config=types.UpdateCachedContentConfig(ttl=f"{ttl_seconds}s"),
+            )
+            return True
+        except Exception:
+            logger.warning("Context cache extension failed", exc_info=True)
+            return False
 
     def _load_shared_entry(
         self, cache_key: str, content_hash: str, min_expires_at: float

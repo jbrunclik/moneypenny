@@ -318,6 +318,7 @@ class TestContextCacheManager:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         manager = ContextCacheManager()
         tool = self._make_mock_tool()
@@ -344,6 +345,7 @@ class TestContextCacheManager:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         manager = ContextCacheManager()
         tool = self._make_mock_tool()
@@ -373,6 +375,7 @@ class TestContextCacheManager:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         manager = ContextCacheManager()
         tool = self._make_mock_tool()
@@ -410,6 +413,7 @@ class TestContextCacheManager:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         manager = ContextCacheManager()
         tool = self._make_mock_tool()
@@ -438,12 +442,108 @@ class TestContextCacheManager:
 
         assert result2 == "cachedContents/renewed"
 
+    def _seed_entry(
+        self, manager: ContextCacheManager, tool: MagicMock, expires_in: float
+    ) -> CacheEntry:
+        now = time.time()
+        entry = CacheEntry(
+            cache_name="cachedContents/live",
+            content_hash=_compute_content_hash("static prompt", [tool]),
+            created_at=now - 3000,
+            expires_at=now + expires_in,
+        )
+        manager._caches["standard:gemini-3-flash-preview"] = entry
+        return entry
+
+    @staticmethod
+    def _wait_for_extension(manager: ContextCacheManager, timeout: float = 2.0) -> None:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            with manager._lock:
+                if not manager._extending:
+                    return
+            time.sleep(0.01)
+        raise AssertionError("background cache extension did not finish")
+
+    @patch("src.agent.context_cache.Config")
+    def test_hit_near_expiry_extends_ttl_in_background(self, mock_config: MagicMock) -> None:
+        """A cache still in use shortly before its renewal buffer gets its TTL
+        extended (sliding expiry) instead of lapsing into a miss + rebuild -
+        in Sep 2026 36% of rebuilds happened mid-session this way."""
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
+        manager = ContextCacheManager()
+        tool = self._make_mock_tool()
+        self._seed_entry(manager, tool, expires_in=700)  # inside 300+600 window
+
+        with (
+            patch.object(manager, "_extend_cache", return_value=True) as mock_extend,
+            patch.object(manager, "_store_shared_entry") as mock_store,
+            patch(
+                "src.agent.context_cache.get_static_prompt_for_profile",
+                return_value="static prompt",
+            ),
+        ):
+            result = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+            self._wait_for_extension(manager)
+
+        assert result == "cachedContents/live"  # still served - no miss
+        mock_extend.assert_called_once_with("cachedContents/live", 3600)
+        entry = manager._caches["standard:gemini-3-flash-preview"]
+        assert entry.expires_at > time.time() + 3500
+        mock_store.assert_called_once()
+
+    @patch("src.agent.context_cache.Config")
+    def test_no_extension_far_from_expiry(self, mock_config: MagicMock) -> None:
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
+        manager = ContextCacheManager()
+        tool = self._make_mock_tool()
+        self._seed_entry(manager, tool, expires_in=3000)
+
+        with (
+            patch.object(manager, "_extend_cache") as mock_extend,
+            patch(
+                "src.agent.context_cache.get_static_prompt_for_profile",
+                return_value="static prompt",
+            ),
+        ):
+            manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+
+        mock_extend.assert_not_called()
+
+    @patch("src.agent.context_cache.Config")
+    def test_failed_extension_keeps_entry(self, mock_config: MagicMock) -> None:
+        """A failed update leaves the entry alone; normal renewal takes over later."""
+        mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
+        manager = ContextCacheManager()
+        tool = self._make_mock_tool()
+        seeded = self._seed_entry(manager, tool, expires_in=700)
+
+        with (
+            patch.object(manager, "_extend_cache", return_value=False),
+            patch(
+                "src.agent.context_cache.get_static_prompt_for_profile",
+                return_value="static prompt",
+            ),
+        ):
+            result = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
+            self._wait_for_extension(manager)
+
+        assert result == "cachedContents/live"
+        assert manager._caches["standard:gemini-3-flash-preview"] == seeded
+
     @patch("src.agent.context_cache.Config")
     def test_creation_failure_returns_none(self, mock_config: MagicMock) -> None:
         """Cache creation failure should return None (graceful fallback)."""
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         manager = ContextCacheManager()
         tool = self._make_mock_tool()
@@ -481,6 +581,7 @@ class TestContextCacheManager:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         manager = ContextCacheManager()
         tool = self._make_mock_tool()
@@ -547,6 +648,7 @@ class TestSharedCacheRegistry:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         content_hash = _compute_content_hash("static prompt", [_make_tool()])
         mock_shared_registry.get_context_cache_entry.return_value = {
@@ -579,6 +681,7 @@ class TestSharedCacheRegistry:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         mock_shared_registry.get_context_cache_entry.return_value = {
             "cache_name": "cachedContents/stale",
@@ -615,6 +718,7 @@ class TestSharedCacheRegistry:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         manager = ContextCacheManager()
         with (
@@ -643,6 +747,7 @@ class TestSharedCacheRegistry:
         mock_config.GEMINI_API_KEY = "test-key"
         mock_config.CONTEXT_CACHE_TTL_SECONDS = 3600
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
         mock_shared_registry.get_context_cache_entry.side_effect = RuntimeError("db down")
         mock_shared_registry.store_context_cache_entry.side_effect = RuntimeError("db down")

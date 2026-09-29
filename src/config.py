@@ -597,6 +597,11 @@ class Config:
     CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS: int = int(
         os.getenv("CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS", "300")
     )  # 5 min before expiry
+    # A cache used within this many seconds before its renewal buffer gets its
+    # TTL extended (sliding expiry) instead of lapsing into a miss + rebuild
+    CONTEXT_CACHE_EXTEND_AHEAD_SECONDS: int = int(
+        os.getenv("CONTEXT_CACHE_EXTEND_AHEAD_SECONDS", "600")
+    )
 
     # Transient failure retry settings
     # Maximum retries for transient failures (network errors, rate limits)

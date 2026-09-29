@@ -119,6 +119,13 @@ caching affects tracked cost:
   stable prefix (system prompt + tool declarations) with Gemini so it is billed at
   the discounted `cached_input` rate. Implicit Gemini caching was observed **not**
   to hit for this workload, so it cannot be relied on.
+- **Cache lifetime is sliding, not long.** Caches live `CONTEXT_CACHE_TTL_SECONDS`
+  (1 h). A cache used within `CONTEXT_CACHE_EXTEND_AHEAD_SECONDS` (10 min) before
+  its 5-min renewal buffer gets its TTL extended in the background
+  (`caches.update`), so an active session never lapses into a miss + rebuild (36%
+  of the Sep 2026 rebuilds were such mid-session lapses). Do **not** raise the TTL
+  itself: storage is billed per cache-hour, and caching through idle hours costs
+  more than the cold-start misses it would save.
 - **Cached tokens are recorded and discounted.** Cache hits are read from
   `usage_metadata.input_token_details.cache_read`, aggregated as
   `cached_input_tokens` in `usage_info`, and billed at the model's `cached_input`
