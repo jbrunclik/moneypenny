@@ -13,29 +13,36 @@ import pytest
 
 from evals.fakes import FakeTodoist, describe_actions, fake_integrations
 
-TODAY = date.today().isoformat()
-TOMORROW = (date.today() + timedelta(days=1)).isoformat()
 
-TODOIST = {
-    "projects": [{"id": "p1", "name": "Work"}, {"id": "p2", "name": "Personal"}],
-    "sections": [{"id": "s1", "project_id": "p2", "name": "Errands"}],
-    "tasks": [
-        {
-            "id": "t1",
-            "content": "Send invoice",
-            "project_id": "p1",
-            "due": {"date": TODAY},
-            "priority": 4,
-        },
-        {"id": "t2", "content": "Buy milk", "project_id": "p2", "section_id": "s1"},
-        {"id": "t3", "content": "Call dentist", "project_id": "p2", "due": {"date": TOMORROW}},
-    ],
-}
+def _todoist() -> dict:
+    """Fixture dated from the moment the test runs, not from import time
+    (a suite that ran across midnight saw yesterday's "today")."""
+    today = date.today()
+    return {
+        "projects": [{"id": "p1", "name": "Work"}, {"id": "p2", "name": "Personal"}],
+        "sections": [{"id": "s1", "project_id": "p2", "name": "Errands"}],
+        "tasks": [
+            {
+                "id": "t1",
+                "content": "Send invoice",
+                "project_id": "p1",
+                "due": {"date": today.isoformat()},
+                "priority": 4,
+            },
+            {"id": "t2", "content": "Buy milk", "project_id": "p2", "section_id": "s1"},
+            {
+                "id": "t3",
+                "content": "Call dentist",
+                "project_id": "p2",
+                "due": {"date": (today + timedelta(days=1)).isoformat()},
+            },
+        ],
+    }
 
 
 class TestFakeTodoistFilters:
     def test_filters_like_todoist(self) -> None:
-        fake = FakeTodoist(TODOIST)
+        fake = FakeTodoist(_todoist())
         assert [t["id"] for t in fake._filter("today")] == ["t1"]
         assert [t["id"] for t in fake._filter("p1")] == ["t1"]
         assert [t["id"] for t in fake._filter("#Personal")] == ["t2", "t3"]
@@ -45,14 +52,14 @@ class TestFakeTodoistFilters:
 
     def test_rejects_natural_language_like_the_real_api(self) -> None:
         with pytest.raises(Exception, match="search query is incorrect"):
-            FakeTodoist(TODOIST)._filter("tasks due this week")
+            FakeTodoist(_todoist())._filter("tasks due this week")
 
 
 class TestThroughTheRealTools:
     def test_todoist_tool_lists_and_adds(self) -> None:
         from src.agent.tools.todoist import todoist
 
-        with fake_integrations({"todoist": TODOIST}) as fakes:
+        with fake_integrations({"todoist": _todoist()}) as fakes:
             listed = json.loads(todoist.invoke({"action": "list_tasks", "filter_string": "today"}))
             added = json.loads(
                 todoist.invoke(
@@ -72,7 +79,7 @@ class TestThroughTheRealTools:
     def test_bad_filter_reaches_the_tool_guidance(self) -> None:
         from src.agent.tools.todoist import todoist
 
-        with fake_integrations({"todoist": TODOIST}):
+        with fake_integrations({"todoist": _todoist()}):
             parsed = json.loads(
                 todoist.invoke({"action": "list_tasks", "filter_string": "stuff for this week"})
             )
@@ -100,6 +107,6 @@ class TestThroughTheRealTools:
 
 def test_describe_actions_handles_read_only_fakes() -> None:
     """A Garmin fake must not answer `actions` with an API-method stub."""
-    spec = {"garmin": {"data": {}}, "todoist": TODOIST}
+    spec = {"garmin": {"data": {}}, "todoist": _todoist()}
     with fake_integrations(spec) as fakes:
         assert describe_actions(fakes) == "none"
