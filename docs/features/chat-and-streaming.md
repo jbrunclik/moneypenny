@@ -190,7 +190,7 @@ This belt-and-suspenders approach ensures the message content is always availabl
 - [message.py](../../src/db/models/message.py) - `update_message_content()`, `delete_message_by_id()`
 - [stream-recovery.ts](../../web/src/core/stream-recovery.ts) - Two-phase `fetchMessageWithRetry()` (Phase 1: find, Phase 2: content poll)
 - [stream-resume.ts](../../web/src/core/stream-resume.ts) - `handleMissingDoneEvent()`; [stream-session.ts](../../web/src/core/stream-session.ts) - `StreamingState.expectedAssistantMessageId`
-- [conversations.py](../../src/api/routes/conversations.py) - `GET /api/messages/<message_id>` endpoint, placeholder filtering
+- [conversation_messages.py](../../src/api/routes/conversation_messages.py) - `GET /api/messages/<message_id>` endpoint, placeholder filtering
 
 **Other uses for pre-generated IDs:**
 - **Idempotent saves**: The cleanup thread and main generator both use the same ID, preventing duplicates

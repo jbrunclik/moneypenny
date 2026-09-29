@@ -7,7 +7,10 @@ Route Organization:
 - todoist.py: Todoist integration (4 routes)
 - calendar.py: Google Calendar integration (7 routes)
 - garmin.py: Garmin Connect integration (4 routes)
-- conversations.py: Conversation management (9 routes)
+- conversations.py: Conversation list, CRUD, anonymous mode, sync (7 routes)
+- conversation_messages.py: Message fetch/delete, message pages, truncation (4 routes, on conversations.api)
+- conversation_organize.py: Archive, unarchive, pin, archived list (5 routes, on conversations.api)
+- conversation_search.py: Full-text search (1 route, on conversations.api)
 - planner.py: Planner dashboard (4 routes)
 - agents.py: Autonomous agents CRUD and execution (9 routes)
 - agent_command_center.py: Agents command center (1 route, on agents.api)
@@ -31,7 +34,9 @@ from apiflask import APIFlask
 # Import all route modules. agent_approvals, agent_assist and
 # agent_command_center attach their routes to agents.api (one shared "Agents"
 # blueprint keeps a single OpenAPI tag and the original endpoint names), so
-# they are imported only for that side effect.
+# they are imported only for that side effect. conversation_messages,
+# conversation_organize and conversation_search do the same for
+# conversations.api.
 from src.api.routes import (
     agent_approvals,  # noqa: F401
     agent_assist,  # noqa: F401
@@ -40,6 +45,9 @@ from src.api.routes import (
     auth,
     calendar,
     chat,
+    conversation_messages,  # noqa: F401
+    conversation_organize,  # noqa: F401
+    conversation_search,  # noqa: F401
     conversations,
     costs,
     files,

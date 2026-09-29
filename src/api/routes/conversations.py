@@ -1,7 +1,9 @@
-"""Conversation routes: CRUD, search, sync, messages pagination.
+"""Conversation routes: list, CRUD, anonymous mode, sync.
 
-This module handles conversation management including listing, searching,
-creating, updating, deleting conversations and messages.
+Owns the shared "Conversations" blueprint. Search lives in
+conversation_search.py, archive/pin in conversation_organize.py and message
+endpoints in conversation_messages.py; those attach their routes to this
+blueprint.
 """
 
 from datetime import datetime
@@ -12,22 +14,17 @@ from flask import request
 
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.schemas.chat import MessageResponse
 from src.api.schemas.common import PaginationDirection, StatusResponse
 from src.api.schemas.conversations import (
     ConversationDetailPaginatedResponse,
     ConversationResponse,
     ConversationsListPaginatedResponse,
     CreateConversationRequest,
-    MessagesListResponse,
-    SearchResultsResponse,
     SyncResponse,
-    TruncateConversationRequest,
-    TruncateConversationResponse,
     UpdateAnonymousModeRequest,
     UpdateConversationRequest,
 )
-from src.api.utils import normalize_generated_images, serialize_messages_for_response
+from src.api.utils import serialize_messages_for_response
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
@@ -37,16 +34,6 @@ from src.utils.logging import get_logger, log_payload_snippet
 logger = get_logger(__name__)
 
 api = APIBlueprint("conversations", __name__, url_prefix="/api", tag="Conversations")
-
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-
-# ============================================================================
-# Conversation Routes
-# ============================================================================
 
 
 @api.route("/conversations", methods=["GET"])
@@ -120,124 +107,6 @@ def list_conversations(user: User) -> dict[str, Any]:
         "pinned_conversations": [
             _conv_payload(c, message_count, preview)
             for c, message_count, preview in pinned_with_counts
-        ],
-        "pagination": {
-            "next_cursor": next_cursor,
-            "has_more": has_more,
-            "total_count": total_count,
-        },
-    }
-
-
-@api.route("/search", methods=["GET"])
-@api.output(SearchResultsResponse)
-@api.doc(responses=[400, 429])
-@rate_limit_conversations
-@require_auth
-def search_conversations(user: User) -> dict[str, Any]:
-    """Search across all conversations and messages.
-
-    Uses full-text search with BM25 ranking. Searches both conversation
-    titles and message content. Results are ordered by relevance.
-
-    Query parameters:
-    - q: Search query (required, 1-200 characters)
-    - limit: Number of results to return (default: 20, max: 50)
-    - offset: Number of results to skip for pagination (default: 0)
-
-    Returns:
-    - results: Array of search results with conversation info and message snippets
-    - total: Total number of matching results
-    - query: The search query that was executed
-    """
-    query = request.args.get("q", "").strip()
-
-    # Validate query
-    if not query:
-        raise_validation_error("Search query is required", field="q")
-    if len(query) > Config.SEARCH_MAX_QUERY_LENGTH:
-        raise_validation_error(
-            f"Search query too long (max {Config.SEARCH_MAX_QUERY_LENGTH} characters)",
-            field="q",
-        )
-
-    # Parse pagination parameters
-    try:
-        limit = min(int(request.args.get("limit", 20)), Config.SEARCH_MAX_LIMIT)
-        limit = max(1, limit)
-    except ValueError:
-        limit = 20
-
-    try:
-        offset = max(0, int(request.args.get("offset", 0)))
-    except ValueError:
-        offset = 0
-
-    logger.debug(
-        "Search request",
-        extra={"user_id": user.id, "query": query, "limit": limit, "offset": offset},
-    )
-
-    results, total = db.search(user.id, query, limit=limit, offset=offset)
-
-    logger.info(
-        "Search completed",
-        extra={"user_id": user.id, "query": query, "results": len(results), "total": total},
-    )
-
-    return {
-        "results": [
-            {
-                "conversation_id": r.conversation_id,
-                "conversation_title": r.conversation_title,
-                "message_id": r.message_id,
-                "message_snippet": r.message_content,
-                "match_type": r.match_type,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in results
-        ],
-        "total": total,
-        "query": query,
-    }
-
-
-@api.route("/conversations/archived", methods=["GET"])
-@api.output(ConversationsListPaginatedResponse)
-@api.doc(responses=[429])
-@rate_limit_conversations
-@require_auth
-def list_archived_conversations(user: User) -> dict[str, Any]:
-    """List archived conversations with pagination."""
-    limit_param = request.args.get("limit")
-    cursor_param = request.args.get("cursor")
-
-    if limit_param:
-        try:
-            limit = int(limit_param)
-            limit = max(1, min(limit, Config.CONVERSATIONS_MAX_PAGE_SIZE))
-        except ValueError:
-            limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
-    else:
-        limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
-
-    conv_with_counts, next_cursor, has_more, total_count = db.list_archived_conversations_paginated(
-        user.id, limit=limit, cursor=cursor_param
-    )
-
-    return {
-        "conversations": [
-            {
-                "id": c.id,
-                "title": c.title,
-                "model": c.model,
-                "created_at": c.created_at.isoformat(),
-                "updated_at": c.updated_at.isoformat(),
-                "message_count": message_count,
-                "archived": True,
-                "last_message_preview": preview,
-            }
-            for c, message_count, preview in conv_with_counts
         ],
         "pagination": {
             "next_cursor": next_cursor,
@@ -457,286 +326,6 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 
     logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "deleted"}, 200
-
-
-@api.route("/conversations/<conv_id>/archive", methods=["POST"])
-@api.output(StatusResponse)
-@api.doc(responses=[404, 429])
-@rate_limit_conversations
-@require_auth
-def archive_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
-    """Archive a conversation (hide from main list)."""
-    logger.debug("Archiving conversation", extra={"user_id": user.id, "conversation_id": conv_id})
-    if not db.archive_conversation(conv_id, user.id):
-        raise_not_found_error("Conversation")
-
-    logger.info("Conversation archived", extra={"user_id": user.id, "conversation_id": conv_id})
-    return {"status": "archived"}, 200
-
-
-@api.route("/conversations/<conv_id>/pin", methods=["POST"])
-@api.output(StatusResponse)
-@api.doc(responses=[404, 429])
-@rate_limit_conversations
-@require_auth
-def pin_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
-    """Pin a conversation to the top of the sidebar."""
-    if not db.set_conversation_pinned(conv_id, user.id, True):
-        raise_not_found_error("Conversation")
-    logger.info("Conversation pinned", extra={"user_id": user.id, "conversation_id": conv_id})
-    return {"status": "pinned"}, 200
-
-
-@api.route("/conversations/<conv_id>/unpin", methods=["POST"])
-@api.output(StatusResponse)
-@api.doc(responses=[404, 429])
-@rate_limit_conversations
-@require_auth
-def unpin_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
-    """Unpin a conversation."""
-    if not db.set_conversation_pinned(conv_id, user.id, False):
-        raise_not_found_error("Conversation")
-    logger.info("Conversation unpinned", extra={"user_id": user.id, "conversation_id": conv_id})
-    return {"status": "unpinned"}, 200
-
-
-@api.route("/conversations/<conv_id>/unarchive", methods=["POST"])
-@api.output(StatusResponse)
-@api.doc(responses=[404, 429])
-@rate_limit_conversations
-@require_auth
-def unarchive_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
-    """Unarchive a conversation (restore to main list)."""
-    logger.debug("Unarchiving conversation", extra={"user_id": user.id, "conversation_id": conv_id})
-    if not db.unarchive_conversation(conv_id, user.id):
-        raise_not_found_error("Conversation")
-
-    logger.info("Conversation unarchived", extra={"user_id": user.id, "conversation_id": conv_id})
-    return {"status": "unarchived"}, 200
-
-
-@api.route("/messages/<message_id>", methods=["GET"])
-@api.output(MessageResponse)
-@api.doc(responses=[404, 429])
-@rate_limit_conversations
-@require_auth
-def get_message(user: User, message_id: str) -> tuple[dict[str, Any], int]:
-    """Get a single message by ID.
-
-    Fetches a specific message. The message must belong to a conversation
-    owned by the authenticated user. Useful for stream recovery when the
-    connection drops but the message was saved server-side.
-    """
-    logger.debug("Getting message", extra={"user_id": user.id, "message_id": message_id})
-    message = db.get_message_by_id(message_id)
-    if not message:
-        logger.warning(
-            "Message not found",
-            extra={"user_id": user.id, "message_id": message_id},
-        )
-        raise_not_found_error("Message")
-
-    # Verify the message belongs to a conversation owned by this user
-    conv = db.get_conversation(message.conversation_id, user.id)
-    if not conv:
-        logger.warning(
-            "Message belongs to inaccessible conversation",
-            extra={"user_id": user.id, "message_id": message_id},
-        )
-        raise_not_found_error("Message")
-
-    # Convert to response format
-    response = {
-        "id": message.id,
-        "role": message.role,
-        "content": message.content,
-        "created_at": message.created_at.isoformat() if message.created_at else None,
-        "files": message.files,
-        "sources": message.sources,
-        "generated_images": normalize_generated_images(message.generated_images),
-        "language": message.language,
-    }
-
-    logger.debug("Message retrieved", extra={"user_id": user.id, "message_id": message_id})
-    return response, 200
-
-
-@api.route("/conversations/<conv_id>/truncate", methods=["POST"])
-@api.output(TruncateConversationResponse)
-@api.doc(responses=[400, 404, 429])
-@rate_limit_conversations
-@require_auth
-@validate_request(TruncateConversationRequest)
-def truncate_conversation(
-    user: User, data: TruncateConversationRequest, conv_id: str
-) -> tuple[dict[str, int], int]:
-    """Delete a conversation's tail from a given message.
-
-    The shared primitive behind edit-and-resend (inclusive=true: the target
-    message and everything after it) and regenerate (inclusive=false via the
-    single-message DELETE instead). Blobs of deleted messages are removed;
-    cost data is intentionally preserved.
-    """
-    conv = db.get_conversation(conv_id, user.id)
-    if not conv:
-        raise_not_found_error("Conversation")
-
-    target = db.get_message_by_id(data.message_id)
-    if not target or target.conversation_id != conv_id:
-        raise_not_found_error("Message")
-
-    deleted = db.delete_messages_after(conv_id, user.id, data.message_id, data.inclusive)
-    logger.info(
-        "Conversation truncated",
-        extra={
-            "user_id": user.id,
-            "conversation_id": conv_id,
-            "message_id": data.message_id,
-            "inclusive": data.inclusive,
-            "deleted": deleted,
-        },
-    )
-    return {"deleted": deleted}, 200
-
-
-@api.route("/messages/<message_id>", methods=["DELETE"])
-@api.output(StatusResponse)
-@api.doc(responses=[404, 429])
-@rate_limit_conversations
-@require_auth
-def delete_message(user: User, message_id: str) -> tuple[dict[str, str], int]:
-    """Delete a message.
-
-    Deletes a single message and its associated files/thumbnails.
-    The message must belong to a conversation owned by the authenticated user.
-    Cost data is intentionally preserved for accurate reporting.
-    """
-    logger.debug("Deleting message", extra={"user_id": user.id, "message_id": message_id})
-    if not db.delete_message(message_id, user.id):
-        logger.warning(
-            "Message not found for deletion",
-            extra={"user_id": user.id, "message_id": message_id},
-        )
-        raise_not_found_error("Message")
-
-    logger.info("Message deleted", extra={"user_id": user.id, "message_id": message_id})
-    return {"status": "deleted"}, 200
-
-
-@api.route("/conversations/<conv_id>/messages", methods=["GET"])
-@api.output(MessagesListResponse)
-@api.doc(responses=[404, 429])
-@rate_limit_conversations
-@require_auth
-def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
-    """Get paginated messages for a conversation.
-
-    This is a dedicated endpoint for fetching message pages, more efficient
-    than the full conversation endpoint when only messages are needed.
-
-    Query parameters:
-    - limit: Number of messages to return (default: 50, max: 200)
-    - cursor: Cursor for fetching older/newer messages
-    - direction: "older" (default) or "newer" for pagination direction
-    - around_message_id: Load messages around a specific message (for search navigation)
-      When specified, cursor and direction are ignored.
-
-    By default, returns the newest messages.
-    """
-    # Parse pagination parameters
-    limit_param = request.args.get("limit")
-    cursor_param = request.args.get("cursor")
-    direction_param = request.args.get("direction", PaginationDirection.OLDER.value)
-    around_message_id = request.args.get("around_message_id")
-
-    # Validate and clamp limit
-    if limit_param:
-        try:
-            limit = int(limit_param)
-            limit = max(1, min(limit, Config.MESSAGES_MAX_PAGE_SIZE))
-        except ValueError:
-            limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
-    else:
-        limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
-
-    # Validate direction
-    try:
-        direction = PaginationDirection(direction_param)
-    except ValueError:
-        direction = PaginationDirection.OLDER
-
-    logger.debug(
-        "Getting messages",
-        extra={
-            "user_id": user.id,
-            "conversation_id": conv_id,
-            "limit": limit,
-            "cursor": cursor_param,
-            "direction": direction.value,
-            "around_message_id": around_message_id,
-        },
-    )
-
-    # Verify conversation exists and belongs to user
-    conv = db.get_conversation(conv_id, user.id)
-    if not conv:
-        logger.warning(
-            "Conversation not found",
-            extra={"user_id": user.id, "conversation_id": conv_id},
-        )
-        raise_not_found_error("Conversation")
-
-    # Get messages - either around a specific message or with standard pagination
-    if around_message_id:
-        # Load messages around the target message (for search result navigation)
-        # Split the limit between before and after the target
-        before_limit = limit // 2
-        after_limit = limit - before_limit
-        result = db.get_messages_around(
-            conv_id, around_message_id, before_limit=before_limit, after_limit=after_limit
-        )
-        if result is None:
-            logger.warning(
-                "Message not found for around query",
-                extra={
-                    "user_id": user.id,
-                    "conversation_id": conv_id,
-                    "around_message_id": around_message_id,
-                },
-            )
-            raise_not_found_error("Message")
-        messages, pagination = result
-    else:
-        # Standard cursor-based pagination
-        messages, pagination = db.get_messages_paginated(
-            conv_id, limit=limit, cursor=cursor_param, direction=direction
-        )
-
-    logger.info(
-        "Messages retrieved",
-        extra={
-            "user_id": user.id,
-            "conversation_id": conv_id,
-            "message_count": len(messages),
-            "total_messages": pagination.total_count,
-            "has_older": pagination.has_older,
-            "has_newer": pagination.has_newer,
-        },
-    )
-
-    # Optimize file data
-    optimized_messages = serialize_messages_for_response(messages)
-
-    return {
-        "messages": optimized_messages,
-        "pagination": {
-            "older_cursor": pagination.older_cursor,
-            "newer_cursor": pagination.newer_cursor,
-            "has_older": pagination.has_older,
-            "has_newer": pagination.has_newer,
-            "total_count": pagination.total_count,
-        },
-    }, 200
 
 
 @api.route("/conversations/sync", methods=["GET"])
