@@ -19,11 +19,11 @@ to the project's conventions.
    UI → `web/tests/e2e/`. E2E runs the last `make build`, so rebuild before
    Playwright. Visual change? see `/regen-baselines`.
 
-4. **Review.** Run the `code-reviewer` agent after significant changes.
+4. **Review.** After significant changes, invoke `superpowers:requesting-code-review`.
 
 5. **Docs.** Run the `docs-updater` agent. Keep infra details (hostnames,
    server topology) OUT of repo docs — that knowledge lives in private memory.
 
-6. **Finish.** `superpowers:verification-before-completion`, then the
-   `pre-commit` agent (skip it only if in-session lint + tests already passed
-   green).
+6. **Finish.** `superpowers:verification-before-completion`, then
+   `make pre-commit` (lint + all tests; rebuilds before E2E) — check its exit
+   code. Skip it only if lint + the full suite already passed in-session.

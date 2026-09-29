@@ -18,5 +18,5 @@ Fix a bug: $ARGUMENTS
 
 4. **Verify.** Test passes; full suite green (`make test-all`); no new warnings.
 
-5. **Pre-commit.** Run the `pre-commit` agent unless lint + tests already ran
-   green in-session.
+5. **Pre-commit.** `make pre-commit` (check the exit code) unless lint + the
+   full suite already ran green in-session.

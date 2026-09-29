@@ -43,15 +43,15 @@ help:
 	@echo "  test-fe               Run all frontend tests (unit + component + e2e)"
 	@echo "  test-fe-unit          Run frontend unit tests"
 	@echo "  test-fe-component     Run frontend component tests"
-	@echo "  test-fe-e2e           Run frontend E2E tests (Playwright)"
+	@echo "  test-fe-e2e           Build, then run frontend E2E tests (Playwright)"
 	@echo "  test-fe-visual        Run visual regression tests"
-	@echo "  test-fe-visual-update Update visual regression baselines"
+	@echo "  test-fe-visual-update Update local (darwin) visual baselines; CI compares linux ones (/regen-baselines)"
 	@echo "  test-fe-visual-report Open visual test report in browser"
 	@echo "  test-fe-visual-browse Open baseline screenshot directories"
 	@echo "  test-fe-watch         Run frontend tests in watch mode"
 	@echo ""
 	@echo "  test-all              Run all tests (backend + frontend)"
-	@echo "  pre-commit            Run lint + test-all + security scan"
+	@echo "  pre-commit            Run lint + test-all"
 	@echo ""
 	@echo "  audit                 Run dependency vulnerability scan"
 	@echo "  migration             Create new database migration (NAME=xxx)"
@@ -164,7 +164,7 @@ test-fe-unit:
 test-fe-component:
 	cd web && $(NPM) run test:component
 
-test-fe-e2e:
+test-fe-e2e: build
 	@echo "Cleaning up any hanging e2e servers..."
 	@if [ -f .e2e-server.pid ]; then \
 		PID=$$(cat .e2e-server.pid 2>/dev/null); \
@@ -178,10 +178,10 @@ test-fe-e2e:
 	@echo "Running E2E tests..."
 	cd web && $(NPM) run test:e2e
 
-test-fe-visual:
+test-fe-visual: build
 	cd web && $(NPM) run test:visual
 
-test-fe-visual-update:
+test-fe-visual-update: build
 	cd web && $(NPM) run test:visual:update
 
 # Linux baselines (used by CI) - runs the suite in the Playwright Docker
@@ -220,13 +220,8 @@ test-fe-watch:
 # All tests (backend + frontend)
 test-all: test test-fe
 
-# Full pre-commit check: lint + all tests + security scan
+# Full pre-commit check: lint + all tests (E2E rebuilds the frontend first)
 pre-commit: lint test-all
-	@echo ""
-	@echo "Checking for debug statements..."
-	@grep -rn "console\.log\|debugger" web/src/ --include="*.ts" || true
-	@grep -rn "print(" src/ --include="*.py" | grep -v "# noqa" | grep -v "test" || true
-	@echo ""
 	@echo "All pre-commit checks passed!"
 
 # Dependency vulnerability scan

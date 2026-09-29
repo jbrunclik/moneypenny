@@ -2,7 +2,6 @@
 name: test-writer
 description: Test creation specialist. Use for TDD bug fixes or adding test coverage. Knows project test infrastructure, fixtures, and mock patterns.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: sonnet
 ---
 
 You are a test specialist for the Moneypenny project. You create thorough, reliable tests following the project's established patterns.
@@ -20,7 +19,7 @@ You are a test specialist for the Moneypenny project. You create thorough, relia
 ### Backend Test Structure
 - **Unit tests**: `tests/unit/` - Fast, isolated tests for individual functions
 - **Integration tests**: `tests/integration/` - API endpoint tests with Flask test client
-- **Config**: `tests/conftest.py` - Shared fixtures (384 lines)
+- **Config**: `tests/conftest.py` - Shared fixtures; the `app` fixture swaps the global `db` via `use_database()`, so every module sees the isolated test database
 
 ### Frontend Test Structure
 - **Unit tests**: `web/tests/unit/` - Vitest for utility functions
@@ -47,7 +46,7 @@ mock_chat.return_value = ("Response text", [], usage_info, [ai_message])
 yield {"type": "final", "result_messages": [ai_message]}
 ```
 
-**External API mocks**: Always mock external calls (DuckDuckGo, Todoist, Google Calendar, etc.)
+**External API mocks**: Always mock external calls (search providers, Todoist, Garmin, Google Calendar, etc.). Patch the seam the tool calls (e.g. `src.agent.tools.todoist_client.todoist_api_request`), not the tool.
 
 ## Writing Backend Unit Tests
 
@@ -98,22 +97,21 @@ class TestEndpointName:
 ## Writing E2E Tests
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../global-setup';
 
 test.describe('Feature Name', () => {
   test('should do expected behavior', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.expected-element');
-    // Use X-Test-Execution-Id header for test isolation
     await expect(page.locator('.element')).toBeVisible();
   });
 });
 ```
 
 **E2E key details:**
-- E2E server: `web/tests/e2e-server.py` (mock Flask server for tests)
-- Each test gets isolated data via `X-Test-Execution-Id` header
-- Use `timeout 600 npx playwright test` to avoid hangs
+- E2E server: `tests/e2e-server.py` (the real app with Gemini and integrations mocked)
+- Each test gets isolated data via the `X-Test-Execution-Id` header, which `global-setup.ts` sets
+- E2E serves the last `make build` - rebuild after frontend changes
 - Playwright config: `web/playwright.config.ts`
 
 ## Guidelines
@@ -123,4 +121,4 @@ test.describe('Feature Name', () => {
 - **One assertion focus**: Each test should verify one behavior
 - **Mock externals**: Never make real API calls in tests
 - **Follow TDD**: For bug fixes, write failing test first, then fix
-- Run `make lint-fix` after writing tests (formatting)
+- Run `make lint-fix` after writing tests; `make lint` also type-checks `web/tests`
