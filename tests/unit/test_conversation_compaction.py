@@ -318,6 +318,27 @@ class TestSegmentedSummary:
         assert len(result) == 1 + 0 + 4
 
 
+class TestSummarizerInput:
+    def test_tool_outputs_reach_the_summarizer(
+        self, compaction_config: None, mock_db: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Tool results of summarized turns live only in metadata - they must
+        be folded into what the summarizer reads or they vanish with the turn."""
+        seen: list[list[dict[str, Any]]] = []
+
+        def capture(segments: list[Segment], history: list[dict[str, Any]], start: int, end: int):
+            seen.append(history)
+            return [Segment("NEW", end, 1)]
+
+        monkeypatch.setattr(cc, "extend_segments", capture)
+        history = _history(20)
+        history[3]["metadata"] = {"tool_outputs": 'garmin_connect({}) -> {"hrv":62}'}
+        build_compacted_history("u1", "c1", history)
+
+        assert '{"hrv":62}' in seen[0][3]["content"]
+        assert seen[0][3]["content"].startswith("message 3")
+
+
 class TestLegacyState:
     def test_legacy_state_is_served_then_rebuilt_from_scratch(
         self, compaction_config: None, mock_db: MagicMock, fake_extend: FakeExtend

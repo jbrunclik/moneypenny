@@ -133,6 +133,49 @@ class TestChatBatch:
         assert "sources" in data
         assert len(data["sources"]) == 1
 
+    def test_persists_tool_output_digest(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Non-web tool results are digested onto the assistant message so a
+        later turn can recall them without re-calling the tool."""
+        from langchain_core.messages import AIMessage, ToolMessage
+
+        with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            result_msgs = [
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {"name": "garmin_connect", "args": {"action": "hrv"}, "id": "tc-1"}
+                    ],
+                ),
+                ToolMessage(content='{"hrv": 62}', tool_call_id="tc-1", name="garmin_connect"),
+                AIMessage(content="Your HRV is 62."),
+            ]
+            mock_agent.chat_batch.return_value = (
+                "Your HRV is 62.",
+                [],
+                {"input_tokens": 150, "output_tokens": 100},
+                result_msgs,
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "What is my HRV?"},
+            )
+
+        assert response.status_code == 200
+        assistant = test_database.get_messages(test_conversation.id)[-1]
+        assert assistant.tool_outputs == [
+            {"tool": "garmin_connect", "args": '{"action":"hrv"}', "result": '{"hrv":62}'}
+        ]
+
     def test_agent_retitle_applied_in_batch(
         self,
         client: FlaskClient,

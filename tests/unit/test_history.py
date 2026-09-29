@@ -381,6 +381,20 @@ class TestEnrichHistory:
         assert "https://example.com/alpine" in digest
         assert len(digest) <= 300
 
+    def test_assistant_message_gets_tool_outputs(self) -> None:
+        """Non-web tool results (Garmin, Todoist...) survive into later turns
+        as a digest, so follow-ups need not re-call the tool."""
+        msg = self._make_message(
+            "msg-1", MessageRole.ASSISTANT, "Your HRV is 62.", datetime(2024, 6, 15, 14, 30, 0)
+        )
+        msg.tool_outputs = [
+            {"tool": "garmin_connect", "args": '{"action":"hrv"}', "result": '{"hrv":62}'}
+        ]
+        metadata = enrich_history([msg])[0]["metadata"]
+
+        assert metadata["tool_outputs"] == 'garmin_connect({"action":"hrv"}) -> {"hrv":62}'
+        assert "garmin_connect" in metadata["tools_used"]
+
     def test_tool_digest_caps_length_and_sanitizes(self) -> None:
         """Digest must stay compact and must never contain '-->' (it is
         embedded in an HTML-comment MSG_CONTEXT marker)."""

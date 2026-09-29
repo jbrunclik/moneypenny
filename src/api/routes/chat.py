@@ -21,6 +21,7 @@ from src.agent.executor import AgentContext, clear_agent_context, set_agent_cont
 # Agent context imports for interactive agent conversations
 from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.interjection import clear_interjection, save_interjection
+from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
@@ -469,6 +470,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             sources=sources if sources else None,
             generated_images=generated_images_meta if generated_images_meta else None,
             language=language,
+            tool_outputs=build_tool_outputs(result_messages),
         )
 
         # Calculate and save cost (use full_tool_results for image generation cost)

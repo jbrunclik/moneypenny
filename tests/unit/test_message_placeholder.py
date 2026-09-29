@@ -39,6 +39,30 @@ class TestUpdateMessageContent:
         assert updated.generated_images == [{"prompt": "a cat"}]
         assert updated.language == "en"
 
+    def test_tool_outputs_round_trip(
+        self, test_database: "Database", test_conversation: "Conversation"
+    ) -> None:
+        """Tool output digests persist through the placeholder update and reload."""
+        digest = [{"tool": "garmin_connect", "args": "{}", "result": '{"hrv":62}'}]
+        placeholder = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "")
+
+        updated = test_database.update_message_content(
+            placeholder.id, "HRV is 62", tool_outputs=digest
+        )
+
+        assert updated is not None
+        assert updated.tool_outputs == digest
+        assert test_database.get_messages(test_conversation.id)[-1].tool_outputs == digest
+
+    def test_add_message_stores_tool_outputs(
+        self, test_database: "Database", test_conversation: "Conversation"
+    ) -> None:
+        digest = [{"tool": "todoist", "args": "{}", "result": "[]"}]
+        test_database.add_message(
+            test_conversation.id, MessageRole.ASSISTANT, "ok", tool_outputs=digest
+        )
+        assert test_database.get_messages(test_conversation.id)[-1].tool_outputs == digest
+
     def test_returns_none_for_nonexistent_message(
         self, test_database: "Database", test_conversation: "Conversation"
     ) -> None:

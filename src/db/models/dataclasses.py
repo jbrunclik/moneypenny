@@ -81,6 +81,9 @@ class Message:
     generated_images: list[dict[str, str]] | None = None  # Generated image metadata
     has_cost: bool = False  # Whether cost tracking data exists for this message
     language: str | None = None  # ISO 639-1 language code (e.g., "en", "cs") for TTS
+    # Per-call digests of the turn's non-web tool outputs ({tool, args, result}),
+    # rendered into MSG_CONTEXT so later turns can recall them
+    tool_outputs: list[dict[str, str]] | None = None
 
 
 @dataclass

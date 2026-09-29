@@ -489,8 +489,10 @@ Only **stable, message-derived** fields are embedded inline. A recomputed relati
 - `files` - Array of file metadata with `name`, `type`, and `id` (format: `message_id:file_index`)
 
 **For assistant messages:**
-- `tools_used` - Array of tool names used (e.g., `["web_search", "generate_image"]`)
+- `tools_used` - Array of tool names used (e.g., `["web_search", "garmin_connect"]`)
 - `tool_summary` - Human-readable summary (e.g., "searched 3 web sources, generated 1 image")
+- `tool_digest` - Sources the turn read, as "read: Title (url); ..." (enables a precise re-fetch)
+- `tool_outputs` - One line per non-web tool call of that turn, `tool(args) -> head of result` (e.g. `garmin_connect({"action":"hrv"}) -> {"hrv":62}`). A turn's `ToolMessage`s are gone by the next turn; without this a follow-up like "what was my HRV again?" had to re-call the tool. Built at save time by [tool_outputs.py](../../src/agent/tool_outputs.py) and persisted in the `messages.tool_outputs` column (migration 0054): web, image, recall and memory tools are excluded (covered elsewhere), `_full_result`/`_efficiency`/`_degraded` keys are stripped, results are cut to 400 chars and the whole line to ~1,500 chars. Deterministic from persisted data, so the history prefix stays byte-stable. Compaction folds it into the summarizer's input (`[Tool results: ...]`) so the facts survive summarization.
 
 ### Session Gap Detection
 

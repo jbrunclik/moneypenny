@@ -167,6 +167,7 @@ class MessageMixin:
         generated_images: list[dict[str, str]] | None = None,
         language: str | None = None,
         message_id: str | None = None,
+        tool_outputs: list[dict[str, str]] | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -182,6 +183,7 @@ class MessageMixin:
             generated_images: Optional list of generated image metadata (for assistant messages)
             language: Optional ISO 639-1 language code (e.g., "en", "cs") for TTS
             message_id: Optional pre-generated message ID (for streaming recovery)
+            tool_outputs: Optional per-call tool output digests (assistant messages)
 
         Returns:
             The created Message
@@ -204,6 +206,7 @@ class MessageMixin:
         files_json = json.dumps(files_metadata) if files_metadata else None
         sources_json = json.dumps(sources) if sources else None
         generated_images_json = json.dumps(generated_images) if generated_images else None
+        tool_outputs_json = json.dumps(tool_outputs, ensure_ascii=False) if tool_outputs else None
         logger.debug(
             "Adding message",
             extra={
@@ -220,8 +223,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -232,6 +235,7 @@ class MessageMixin:
                     generated_images_json,
                     language,
                     now.isoformat(),
+                    tool_outputs_json,
                 ),
             )
             # Update conversation's updated_at
@@ -256,6 +260,7 @@ class MessageMixin:
             sources=sources,
             generated_images=generated_images,
             language=language,
+            tool_outputs=tool_outputs,
         )
 
     def _schedule_message_embedding(
@@ -311,6 +316,7 @@ class MessageMixin:
                     created_at=datetime.fromisoformat(row["created_at"]),
                     files=json.loads(row["files"]) if row["files"] else [],
                     sources=json.loads(row["sources"]) if row["sources"] else None,
+                    tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,
                     generated_images=json.loads(row["generated_images"])
                     if row["generated_images"]
                     else None,
@@ -406,6 +412,7 @@ class MessageMixin:
                     created_at=datetime.fromisoformat(row["created_at"]),
                     files=json.loads(row["files"]) if row["files"] else [],
                     sources=json.loads(row["sources"]) if row["sources"] else None,
+                    tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,
                     generated_images=json.loads(row["generated_images"])
                     if row["generated_images"]
                     else None,
@@ -551,6 +558,7 @@ class MessageMixin:
                     created_at=datetime.fromisoformat(row["created_at"]),
                     files=json.loads(row["files"]) if row["files"] else [],
                     sources=json.loads(row["sources"]) if row["sources"] else None,
+                    tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,
                     generated_images=json.loads(row["generated_images"])
                     if row["generated_images"]
                     else None,
@@ -599,6 +607,7 @@ class MessageMixin:
                     created_at=datetime.fromisoformat(row["created_at"]),
                     files=json.loads(row["files"]) if row["files"] else [],
                     sources=json.loads(row["sources"]) if row["sources"] else None,
+                    tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,
                     generated_images=json.loads(row["generated_images"])
                     if row["generated_images"]
                     else None,
@@ -627,6 +636,7 @@ class MessageMixin:
                 created_at=datetime.fromisoformat(row["created_at"]),
                 files=json.loads(row["files"]) if row["files"] else [],
                 sources=json.loads(row["sources"]) if row["sources"] else None,
+                tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,
                 generated_images=json.loads(row["generated_images"])
                 if row["generated_images"]
                 else None,
@@ -641,6 +651,7 @@ class MessageMixin:
         sources: list[dict[str, str]] | None = None,
         generated_images: list[dict[str, str]] | None = None,
         language: str | None = None,
+        tool_outputs: list[dict[str, str]] | None = None,
     ) -> Message | None:
         """Update an existing message's content fields.
 
@@ -654,6 +665,7 @@ class MessageMixin:
             sources: Optional list of web sources
             generated_images: Optional list of generated image metadata
             language: Optional ISO 639-1 language code
+            tool_outputs: Optional per-call tool output digests
 
         Returns:
             The updated Message, or None if the message no longer exists
@@ -669,15 +681,25 @@ class MessageMixin:
         files_json = json.dumps(files_metadata) if files_metadata else None
         sources_json = json.dumps(sources) if sources else None
         generated_images_json = json.dumps(generated_images) if generated_images else None
+        tool_outputs_json = json.dumps(tool_outputs, ensure_ascii=False) if tool_outputs else None
         now = datetime.now()
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 """UPDATE messages
-                   SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?
+                   SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?,
+                       tool_outputs = ?
                    WHERE id = ?""",
-                (content, files_json, sources_json, generated_images_json, language, message_id),
+                (
+                    content,
+                    files_json,
+                    sources_json,
+                    generated_images_json,
+                    language,
+                    tool_outputs_json,
+                    message_id,
+                ),
             )
 
             if cursor.rowcount == 0:
@@ -712,6 +734,7 @@ class MessageMixin:
             created_at=datetime.fromisoformat(row["created_at"]),
             files=json.loads(row["files"]) if row["files"] else [],
             sources=json.loads(row["sources"]) if row["sources"] else None,
+            tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,
             generated_images=json.loads(row["generated_images"])
             if row["generated_images"]
             else None,

@@ -344,6 +344,11 @@ class ChatAgent:
         # serialized bytes are stable across turns (prefix-cache safe).
         if metadata.get("tool_digest"):
             meta_dict["tool_digest"] = metadata["tool_digest"]
+        # Head of each non-web tool result from that turn (Garmin, Todoist,
+        # kv_store, code...) - raw ToolMessages are gone by the next turn, so
+        # this is what lets "what was my HRV again?" skip re-calling the tool
+        if metadata.get("tool_outputs"):
+            meta_dict["tool_outputs"] = metadata["tool_outputs"]
 
         # Return with metadata block if we have any metadata
         # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing

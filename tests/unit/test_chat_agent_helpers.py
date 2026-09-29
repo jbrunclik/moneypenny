@@ -2567,6 +2567,17 @@ class TestMsgContextToolDigest:
         assert result.startswith("<!-- MSG_CONTEXT:")
         assert '"tool_digest":"read: Alpine Guide (https://example.com/a)"' in result
 
+    def test_tool_outputs_included_in_msg_context(self) -> None:
+        msg = {
+            "role": "assistant",
+            "content": "HRV 62.",
+            "metadata": {
+                "timestamp": "2024-06-15 14:30 CET",
+                "tool_outputs": 'garmin_connect({}) -> {"hrv":62}',
+            },
+        }
+        assert '"tool_outputs":"garmin_connect({}) -> {\\"hrv\\":62}"' in self._format(msg)
+
     def test_no_digest_key_when_absent(self) -> None:
         msg = {
             "role": "assistant",

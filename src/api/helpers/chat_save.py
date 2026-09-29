@@ -21,6 +21,7 @@ from src.agent.content import (
     extract_image_prompts_from_messages,
     extract_sources_fallback_from_tool_results,
 )
+from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
@@ -130,6 +131,7 @@ def _persist_assistant_message(
     sources: list[dict[str, Any]],
     generated_images_meta: list[dict[str, Any]],
     language: str | None,
+    tool_outputs: list[dict[str, str]] | None = None,
 ) -> Any:
     """UPDATE the stream-start placeholder, or INSERT when it is gone/absent."""
     logger.debug(
@@ -141,6 +143,7 @@ def _persist_assistant_message(
         "sources": sources if sources else None,
         "generated_images": generated_images_meta if generated_images_meta else None,
         "language": language,
+        "tool_outputs": tool_outputs,
     }
     if assistant_message_id:
         assistant_msg = db.update_message_content(assistant_message_id, content, **kwargs)
@@ -259,6 +262,7 @@ def save_message_to_db(
             sources,
             generated_images_meta,
             language,
+            build_tool_outputs(result_messages),
         )
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)

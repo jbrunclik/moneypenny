@@ -219,6 +219,13 @@ def _summary_message(summary: str) -> dict[str, Any]:
     }
 
 
+def _summarizable_content(message: dict[str, Any]) -> str:
+    """Message text plus its tool-output digest, as the summarizer should read it."""
+    content = message.get("content") or ""
+    tool_outputs = (message.get("metadata") or {}).get("tool_outputs")
+    return f"{content}\n[Tool results: {tool_outputs}]" if tool_outputs else content
+
+
 def _spawn_refresh(work: Callable[[], None]) -> None:
     """Run the refresh work on a daemon thread (patchable for tests)."""
     threading.Thread(target=work, daemon=True, name="compaction-summary").start()
@@ -249,8 +256,10 @@ def _schedule_summary_refresh(
     The current turn proceeds with whatever summary state exists; the fresh
     summary lands in kv_store for subsequent turns.
     """
-    # Project eagerly: the worker must not share the caller's history dicts
-    projected = [{"role": m["role"], "content": m["content"]} for m in older]
+    # Project eagerly: the worker must not share the caller's history dicts.
+    # A turn's tool results live only in metadata (tool_outputs) - fold them
+    # into the text so the summary can keep them once the turn is summarized.
+    projected = [{"role": m["role"], "content": _summarizable_content(m)} for m in older]
 
     with _inflight_lock:
         if conversation_id in _inflight_refreshes:
