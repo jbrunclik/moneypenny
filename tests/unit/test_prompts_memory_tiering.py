@@ -42,14 +42,14 @@ class TestMemoryTiering:
     def test_above_threshold_injects_core_and_recent(self, mock_db) -> None:
         threshold = Config.MEMORY_INJECT_FULL_MAX
         recent = Config.MEMORY_INJECT_RECENT_COUNT
-        # Old facts (would only survive via core/recent rules)
-        facts = [_memory(i, category="fact", updated_days_ago=100 + i) for i in range(threshold)]
+        # Old transient context (only survives via the recent rule)
+        facts = [_memory(i, category="context", updated_days_ago=100 + i) for i in range(threshold)]
         core = [
             _memory(900, category="preference", updated_days_ago=300),
             _memory(901, category="goal", updated_days_ago=300),
             _memory(902, category="fact", protected=True, updated_days_ago=300),
         ]
-        fresh = [_memory(950 + i, category="fact", updated_days_ago=0) for i in range(recent)]
+        fresh = [_memory(950 + i, category="context", updated_days_ago=0) for i in range(recent)]
         mock_db.list_memories.return_value = facts + core + fresh
 
         prompt = get_user_memories_list_prompt("user-1")
@@ -60,7 +60,7 @@ class TestMemoryTiering:
         # Most recently updated non-core entries injected
         for memory in fresh:
             assert memory.content in prompt
-        # The oldest plain facts are NOT injected
+        # The oldest context entries are NOT injected
         assert facts[-1].content not in prompt
         # And the model is told how to reach the rest
         assert "more memories exist" in prompt
@@ -70,12 +70,26 @@ class TestMemoryTiering:
     def test_above_threshold_header_shows_shown_count(self, mock_db) -> None:
         total = Config.MEMORY_INJECT_FULL_MAX + 20
         mock_db.list_memories.return_value = [
-            _memory(i, category="fact", updated_days_ago=i) for i in range(total)
+            _memory(i, category="context", updated_days_ago=i) for i in range(total)
         ]
 
         prompt = get_user_memories_list_prompt("user-1")
 
         assert f"of {total}/" in prompt
+
+    @patch("src.agent.prompts.db")
+    def test_old_facts_are_always_injected(self, mock_db) -> None:
+        """Durable facts (family, birthdays, health) are what the memory prompt
+        says never to lose; an old, never-updated fact must not age out of the
+        prompt just because the bank grew past the threshold."""
+        threshold = Config.MEMORY_INJECT_FULL_MAX
+        old_fact = _memory(900, category="fact", updated_days_ago=500)
+        filler = [_memory(i, category="context", updated_days_ago=i) for i in range(threshold)]
+        mock_db.list_memories.return_value = [old_fact, *filler]
+
+        prompt = get_user_memories_list_prompt("user-1")
+
+        assert old_fact.content in prompt
 
 
 class TestMemoryUnicode:

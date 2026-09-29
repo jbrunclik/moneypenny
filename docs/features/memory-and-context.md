@@ -107,8 +107,12 @@ prompt-injection persistence vector. The enforced bounds:
 
 At or below `MEMORY_INJECT_FULL_MAX` memories, every entry is injected each turn
 (original behavior). Above it, only **core** entries (protected + `preference` +
-`goal` categories) plus the `MEMORY_INJECT_RECENT_COUNT` most recently updated
-others are injected; the prompt states how many are hidden and instructs the
+`goal` + `fact` categories) plus the `MEMORY_INJECT_RECENT_COUNT` most recently
+updated others (i.e. transient `context`) are injected. `fact` is core since Sep
+2026: the memory guidance files family, birthdays and health there and says never
+to lose them, so an old, never-updated fact must not age out. (Letting the model set
+`protected` itself was rejected: protected entries are undeletable by the model,
+which would let injected web content plant sticky memories.) The prompt states how many are hidden and instructs the
 model to call the **`search_memory`** tool before claiming it doesn't know
 something about the user. `search_memory` matches by substring AND by embedding
 cosine similarity (`MEMORY_SEARCH_MIN_SIMILARITY`), returning ids so

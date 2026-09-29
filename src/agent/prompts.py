@@ -1228,6 +1228,10 @@ def get_memory_instructions_prompt() -> str:
     )
 
 
+# Memory categories injected even when the bank exceeds MEMORY_INJECT_FULL_MAX
+_ALWAYS_INJECTED_MEMORY_CATEGORIES = frozenset({"preference", "goal", "fact"})
+
+
 def get_user_memories_list_prompt(user_id: str) -> str:
     """Build just the current-memories listing for a user.
 
@@ -1247,14 +1251,19 @@ def get_user_memories_list_prompt(user_id: str) -> str:
     limit = Config.MEMORY_MAX_ENTRIES
 
     # Tiered injection: above the threshold, inject only core entries
-    # (protected + preference + goal) plus the most recently updated others.
+    # (protected + preference + goal + fact) plus the most recently updated
+    # others. Facts are core because the memory guidance files family, birthdays
+    # and health under "fact" and says never to lose them - an old, never-updated
+    # fact must not silently age out. Only transient "context" is recency-limited.
     # Everything is still reachable via the search_memory tool; this bounds
     # the per-turn token cost of a bank approaching MEMORY_MAX_ENTRIES.
     hidden_count = 0
     shown = memories
     if memory_count > Config.MEMORY_INJECT_FULL_MAX:
         core_ids = {
-            mem.id for mem in memories if mem.protected or mem.category in ("preference", "goal")
+            mem.id
+            for mem in memories
+            if mem.protected or mem.category in _ALWAYS_INJECTED_MEMORY_CATEGORIES
         }
         rest = [mem for mem in memories if mem.id not in core_ids]
         recent_ids = {
