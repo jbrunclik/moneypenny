@@ -17,7 +17,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 # A CI run died with a bare 'Segmentation fault (core dumped)' (Jun 2026,
@@ -599,7 +599,7 @@ def main() -> None:
         # Import app after mocks are in place
         from src.app import create_app
         from src.db.blob_store import BlobStore
-        from src.db.models import Database
+        from src.db.models import Database, use_database
 
         # Create template databases with all migrations applied (once at startup)
         print("Creating template databases...")
@@ -634,58 +634,16 @@ def main() -> None:
         proxy_db = ProxyDatabase()
         proxy_blob_store = ProxyBlobStore()
 
-        # Patch database everywhere with proxy
-        stack.enter_context(patch("src.db.models.db", proxy_db))
-        stack.enter_context(patch("src.auth.jwt_auth.db", proxy_db))
-        stack.enter_context(patch("src.api.routes.db", proxy_db))
-        stack.enter_context(patch("src.agent.prompts.db", proxy_db))
-        stack.enter_context(patch("src.agent.prompt_memory.db", proxy_db))
-
-        # Patch database in all route modules (routes are split across multiple files)
-        route_modules = [
-            "agents",
-            "auth",
-            "calendar",
-            "chat",
-            "conversations",
-            "costs",
-            "files",
-            "garmin",
-            "memory",
-            "planner",
-            "push",
-            "settings",
-            "programs",
-            "todoist",
-        ]
-        for module in route_modules:
-            stack.enter_context(patch(f"src.api.routes.{module}.db", proxy_db))
-
-        # Patch database in helper modules and utilities
-        stack.enter_context(patch("src.agent.gemini_files.db", proxy_db))
-        stack.enter_context(patch("src.api.helpers.chat_streaming.db", proxy_db))
-        stack.enter_context(patch("src.api.helpers.chat_save.db", proxy_db))
-        stack.enter_context(patch("src.api.helpers.stream_resume.db", proxy_db))
-        stack.enter_context(patch("src.api.helpers.program_context.db", proxy_db))
-        stack.enter_context(patch("src.api.helpers.validation.db", proxy_db))
-        stack.enter_context(patch("src.api.utils.db", proxy_db))
-        # Bound at import time (conversation_search imports it on tool registration)
-        stack.enter_context(patch("src.agent.conversation_compaction.db", proxy_db))
+        # One swap reaches every module that imported the global db
+        stack.enter_context(use_database(cast(Database, proxy_db)))
 
         # Patch threading.Thread to propagate context (used in chat_streaming helper)
         stack.enter_context(
             patch("src.api.helpers.chat_streaming.threading.Thread", ContextPropagatingThread)
         )
 
-        # Patch blob store everywhere with proxy
+        # get_blob_store() reads this global, so every caller sees the proxy
         stack.enter_context(patch("src.db.blob_store._blob_store", proxy_blob_store))
-        stack.enter_context(
-            patch("src.db.models.helpers.get_blob_store", return_value=proxy_blob_store)
-        )
-        stack.enter_context(
-            patch("src.db.models.message.get_blob_store", return_value=proxy_blob_store)
-        )
-        stack.enter_context(patch("src.api.routes.get_blob_store", return_value=proxy_blob_store))
 
         app = create_app()
         app.config["TESTING"] = True

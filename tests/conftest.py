@@ -96,18 +96,14 @@ def test_database(test_db_path: Path) -> Generator[Database]:
 def test_blob_store(test_blob_path: Path):
     """Create isolated blob store for each test.
 
-    This fixture also patches get_blob_store in models.py so that
-    database operations use the test blob store instance.
+    get_blob_store() reads the module global, so patching it reaches every
+    caller (models, routes, tools).
     """
     from src.db.blob_store import BlobStore
 
     blob_store = BlobStore(db_path=test_blob_path)
 
-    # Patch get_blob_store in models modules so add_message etc. use test blob store
-    with (
-        patch("src.db.models.helpers.get_blob_store", return_value=blob_store),
-        patch("src.db.models.message.get_blob_store", return_value=blob_store),
-    ):
+    with patch("src.db.blob_store._blob_store", blob_store):
         yield blob_store
     # Close connection pool to release resources
     blob_store.close()
@@ -126,52 +122,12 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
     are shared between app routes and test fixtures like test_user.
     """
     with ExitStack() as stack:
-        # Patch database in core modules
-        stack.enter_context(patch("src.db.models.db", test_database))
-        stack.enter_context(patch("src.auth.jwt_auth.db", test_database))
-        stack.enter_context(patch("src.api.routes.db", test_database))
+        # One swap reaches every module that imported the global db
+        from src.db.models import use_database
 
-        # Patch database in all route modules (routes are split across multiple files)
-        route_modules = [
-            "agents",
-            "auth",
-            "calendar",
-            "chat",
-            "conversations",
-            "costs",
-            "files",
-            "garmin",
-            "memory",
-            "planner",
-            "programs",
-            "push",
-            "rouvy",
-            "settings",
-            "todoist",
-        ]
-        for module in route_modules:
-            stack.enter_context(patch(f"src.api.routes.{module}.db", test_database))
-
-        # Patch database in helper modules and utilities
-        stack.enter_context(patch("src.api.helpers.chat_streaming.db", test_database))
-        stack.enter_context(patch("src.api.helpers.chat_save.db", test_database))
-        stack.enter_context(patch("src.api.helpers.stream_resume.db", test_database))
-        stack.enter_context(patch("src.api.helpers.program_context.db", test_database))
-        stack.enter_context(patch("src.api.helpers.validation.db", test_database))
-        stack.enter_context(patch("src.api.utils.db", test_database))
-        # Compaction state (kv_store) is read by the chat paths and the
-        # compaction status route; unpatched, it bound a different database
-        stack.enter_context(patch("src.agent.conversation_compaction.db", test_database))
-
-        # Patch blob store
+        stack.enter_context(use_database(test_database))
+        # get_blob_store() reads this global, so every caller sees the test store
         stack.enter_context(patch("src.db.blob_store._blob_store", test_blob_store))
-        stack.enter_context(
-            patch("src.db.models.helpers.get_blob_store", return_value=test_blob_store)
-        )
-        stack.enter_context(
-            patch("src.db.models.message.get_blob_store", return_value=test_blob_store)
-        )
-        stack.enter_context(patch("src.api.routes.get_blob_store", return_value=test_blob_store))
 
         from src.app import create_app
 

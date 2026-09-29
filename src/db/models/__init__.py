@@ -13,7 +13,10 @@ Usage:
     custom_db = Database(custom_path)
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, cast
 
 from src.db.models.agent import AgentMixin
 from src.db.models.base import DatabaseBase
@@ -91,14 +94,52 @@ class Database(
         super().__init__(db_path)
 
 
+class _DatabaseHandle:
+    """Stable stand-in for the process-wide Database.
+
+    Modules bind ``db`` at import time (``from src.db.models import db``), so
+    rebinding the name reaches none of them - test harnesses used to keep
+    per-module patch lists that drifted (a missed module silently hit the
+    wrong database). Swapping the target here reaches every importer at once.
+    """
+
+    def __init__(self, target: Database) -> None:
+        self.target = target
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.target, name)
+
+
+_handle = _DatabaseHandle(Database())
+
 # Global database instance
-db = Database()
+db = cast(Database, _handle)
+
+
+def set_database(database: Database) -> Database:
+    """Point the global ``db`` at another Database; returns the previous one."""
+    previous = _handle.target
+    _handle.target = database
+    return previous
+
+
+@contextmanager
+def use_database(database: Database) -> Iterator[Database]:
+    """Temporarily point the global ``db`` at ``database`` (tests, harnesses)."""
+    previous = set_database(database)
+    try:
+        yield database
+    finally:
+        set_database(previous)
+
 
 # Re-export all public symbols
 __all__ = [
     # Database class and instance
     "Database",
     "db",
+    "set_database",
+    "use_database",
     # Dataclasses
     "User",
     "Conversation",
