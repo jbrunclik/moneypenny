@@ -67,11 +67,13 @@ from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
 from src.db.models.stream_journal import StreamJournalMixin
 from src.db.models.user import UserMixin
+from src.db.models.user_integrations import UserIntegrationsMixin
 
 
 class Database(
     DatabaseBase,
     UserMixin,
+    UserIntegrationsMixin,
     ConversationMixin,
     ConversationListingMixin,
     ConversationArchiveMixin,
