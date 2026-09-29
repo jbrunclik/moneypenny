@@ -2091,7 +2091,7 @@ class TestRetrieveFile:
 class TestTodoistTool:
     """Tests for todoist tool."""
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
     def test_returns_error_when_not_connected(self, mock_get_token: MagicMock) -> None:
         """Should return error when Todoist is not connected."""
         from src.agent.tools import todoist
@@ -2104,7 +2104,7 @@ class TestTodoistTool:
         assert "error" in parsed
         assert "not connected" in parsed["error"].lower()
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
     def test_returns_error_for_unknown_action(self, mock_get_token: MagicMock) -> None:
         """Should return error for unknown action."""
         from src.agent.tools import todoist
@@ -2117,8 +2117,8 @@ class TestTodoistTool:
         assert "error" in parsed
         assert "Unknown action" in parsed["error"]
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_list_tasks_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully list tasks."""
         from src.agent.tools import todoist
@@ -2142,8 +2142,8 @@ class TestTodoistTool:
         assert len(parsed["tasks"]) == 1
         assert parsed["tasks"][0]["id"] == "task-1"
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_list_tasks_with_filter_uses_filter_endpoint(
         self, mock_api: MagicMock, mock_get_token: MagicMock
     ) -> None:
@@ -2161,8 +2161,8 @@ class TestTodoistTool:
         assert endpoint == "/tasks/filter"
         assert params == {"query": "overdue"}
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_invalid_filter_returns_actionable_guidance(
         self, mock_api: MagicMock, mock_get_token: MagicMock
     ) -> None:
@@ -2186,8 +2186,8 @@ class TestTodoistTool:
         assert "7 days" in parsed["valid_examples"]
         assert "filter" in parsed["error"].lower()
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_list_tasks_without_filter_uses_plain_endpoint(
         self, mock_api: MagicMock, mock_get_token: MagicMock
     ) -> None:
@@ -2204,8 +2204,8 @@ class TestTodoistTool:
         assert endpoint == "/tasks"
         assert "filter" not in params
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_add_task_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully add a task."""
         from src.agent.tools import todoist
@@ -2228,8 +2228,8 @@ class TestTodoistTool:
         assert parsed["action"] == "add_task"
         assert parsed["success"] is True
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_complete_task_success(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully complete a task."""
         from src.agent.tools import todoist
@@ -2248,8 +2248,8 @@ class TestTodoistTool:
         assert parsed["action"] == "complete_task"
         assert parsed["success"] is True
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_list_collaborators_success(
         self, mock_api: MagicMock, mock_get_token: MagicMock
     ) -> None:
@@ -2284,8 +2284,8 @@ class TestTodoistTool:
         assert parsed["collaborators"][0]["id"] == "user-1"
         assert parsed["collaborators"][0]["name"] == "Alice Smith"
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_add_task_with_assignee(self, mock_api: MagicMock, mock_get_token: MagicMock) -> None:
         """Should successfully add a task with assignee."""
         from src.agent.tools import todoist
@@ -2315,8 +2315,8 @@ class TestTodoistTool:
         assert call_args[0][1] == "/tasks"
         assert call_args[1]["data"]["assignee_id"] == "user-1"
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_update_task_with_assignee(
         self, mock_api: MagicMock, mock_get_token: MagicMock
     ) -> None:
@@ -2348,8 +2348,8 @@ class TestTodoistTool:
         assert call_args[0][1] == "/tasks/task-1"
         assert call_args[1]["data"]["assignee_id"] == "user-2"
 
-    @patch("src.agent.tools.todoist._get_todoist_token")
-    @patch("src.agent.tools.todoist._todoist_api_request")
+    @patch("src.agent.tools.todoist_client.get_todoist_token")
+    @patch("src.agent.tools.todoist_client.todoist_api_request")
     def test_list_tasks_includes_assignee_info(
         self, mock_api: MagicMock, mock_get_token: MagicMock
     ) -> None:

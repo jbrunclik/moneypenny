@@ -245,12 +245,12 @@ def fake_integrations(spec: dict[str, Any]) -> Iterator[dict[str, Any]]:
         if "todoist" in spec:
             todo = FakeTodoist(spec["todoist"] or {})
             fakes["todoist"] = todo
-            stack.enter_context(patch("src.agent.tools.todoist._get_todoist_token", lambda: "fake"))
+            stack.enter_context(patch("src.agent.tools.todoist_client.get_todoist_token", lambda: "fake"))
             stack.enter_context(
-                patch("src.agent.tools.todoist._todoist_api_request", todo.api_request)
+                patch("src.agent.tools.todoist_client.todoist_api_request", todo.api_request)
             )
             stack.enter_context(
-                patch("src.agent.tools.todoist._todoist_sync_request", todo.sync_request)
+                patch("src.agent.tools.todoist_client.todoist_sync_request", todo.sync_request)
             )
         if "garmin" in spec:
             g = spec["garmin"] or {}

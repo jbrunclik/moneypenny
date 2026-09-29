@@ -87,7 +87,7 @@ class TestToolsUseIt:
         user(todoist_access_token="revoked", todoist_connected_at=datetime(2026, 8, 1))
         response = MagicMock(status_code=401, text="unauthorized")
         with (
-            patch("src.agent.tools.todoist._get_todoist_token", return_value="revoked"),
+            patch("src.agent.tools.todoist_client.get_todoist_token", return_value="revoked"),
             patch("requests.get", return_value=response),
         ):
             parsed = json.loads(todoist.invoke({"action": "list_projects"}))

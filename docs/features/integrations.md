@@ -122,7 +122,9 @@ TODOIST_API_TIMEOUT=10  # API request timeout in seconds
 - [config.py](../../src/config.py) - Configuration constants
 - [todoist_auth.py](../../src/auth/todoist_auth.py) - OAuth helpers
 - [models/](../../src/db/models/) - User fields and token management methods
-- [tools/todoist.py](../../src/agent/tools/todoist.py) - `todoist()` tool with context helpers
+- [tools/todoist.py](../../src/agent/tools/todoist.py) - `todoist()` tool: argument validation + action dispatch table
+- [tools/todoist_client.py](../../src/agent/tools/todoist_client.py) - HTTP layer (token lookup, REST + Sync API, `TodoistTokenRejectedError`); the single patch point for tests and the eval fakes
+- [tools/todoist_tasks.py](../../src/agent/tools/todoist_tasks.py) / [tools/todoist_projects.py](../../src/agent/tools/todoist_projects.py) - task and project/section actions (task formatting and rejected-filter guidance live with the tasks)
 - [routes/todoist.py](../../src/api/routes/todoist.py) - OAuth endpoints
 - [prompt_texts/productivity.py](../../src/agent/prompt_texts/productivity.py) - `TOOLS_SYSTEM_PROMPT_PRODUCTIVITY` (Todoist/Calendar behavior; action lists live in the tool docstrings)
 - [migrations/0018_add_todoist_fields.py](../../migrations/0018_add_todoist_fields.py) - Database schema
