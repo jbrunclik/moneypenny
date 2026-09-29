@@ -455,6 +455,13 @@ def _degraded_notice(served_by: list[str]) -> str | None:
     )
 
 
+# Returned for searches that worked but matched nothing (web_search, research)
+NO_RESULTS_NOTE = (
+    "No results for this query. Try broader or different wording once, "
+    "or answer from what you know and say that nothing was found."
+)
+
+
 def _search_one(query: str, num_results: int) -> dict[str, Any]:
     """Run a single web search via the configured provider, as a result dict."""
     logger.info(
@@ -470,7 +477,10 @@ def _search_one(query: str, num_results: int) -> dict[str, Any]:
 
     if not search_results:
         logger.warning("No search results found", extra={"query": query})
-        return {"query": query, "results": [], "error": "No results found"}
+        # A legitimate outcome, not a failure: an "error" key here made
+        # self-correction push blind retries (Sep 2026: the most common
+        # tool "error", 29 in 30 days)
+        return {"query": query, "results": [], "note": NO_RESULTS_NOTE}
 
     logger.info(
         "Search completed",

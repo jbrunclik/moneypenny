@@ -19,8 +19,9 @@ class TestRankedUniqueUrls:
             [_result("https://a"), _result("https://c")],
         ]
 
-        ordered = _ranked_unique_urls(["q1", "q2"], per_query=2)
+        ordered, failed = _ranked_unique_urls(["q1", "q2"], per_query=2)
 
+        assert failed == 0
         # Rank-0 results first across queries, dupes dropped
         assert [r["url"] for r in ordered] == ["https://a", "https://b", "https://c"]
 
@@ -33,9 +34,10 @@ class TestRankedUniqueUrls:
             [_result("https://a")],
         ]
 
-        ordered = _ranked_unique_urls(["q1", "q2"], per_query=2)
+        ordered, failed = _ranked_unique_urls(["q1", "q2"], per_query=2)
 
         assert [r["url"] for r in ordered] == ["https://a"]
+        assert failed == 1
 
 
 class TestResearchTool:
@@ -102,6 +104,33 @@ class TestResearchTool:
         many = [f"q{i}" for i in range(Config.WEB_SEARCH_MAX_BATCH_QUERIES + 4)]
         research.invoke({"question": "q", "queries": many})
         assert mock_search.call_count == Config.WEB_SEARCH_MAX_BATCH_QUERIES
+
+    @patch("src.agent.tools.research.search_web")
+    def test_nothing_found_is_a_note_not_an_error(self, mock_search: MagicMock) -> None:
+        """Searches that ran fine but found nothing must not look like a
+        failure (self-correction would push blind retries)."""
+        mock_search.return_value = []
+
+        parsed = json.loads(research.invoke({"question": "q"}))
+
+        assert "error" not in parsed
+        assert parsed["sources"] == []
+        assert "no results" in parsed["note"].lower()
+
+    @patch("src.agent.tools.research.fetch_page_text")
+    @patch("src.agent.tools.research.search_web")
+    def test_question_defaults_to_first_query(
+        self, mock_search: MagicMock, mock_fetch: MagicMock
+    ) -> None:
+        """Every research ToolInvocationError in Sep 2026 was a call with
+        queries but no question - accept it instead of failing the round."""
+        mock_search.return_value = [_result("https://a")]
+        mock_fetch.return_value = ("content", None)
+
+        parsed = json.loads(research.invoke({"queries": ["trek domane specs", "synapse specs"]}))
+
+        assert parsed["question"] == "trek domane specs"
+        assert parsed["sources"]
 
     def test_empty_question_rejected(self) -> None:
         parsed = json.loads(research.invoke({"question": "  "}))

@@ -648,7 +648,11 @@ class TestWebSearch:
         parsed = json.loads(result)
 
         assert parsed["results"] == []
-        assert "error" in parsed  # Should include error message
+        # Empty is a legitimate outcome, not a failure: an "error" key would
+        # trigger self-correction retry guidance (the most common tool
+        # "error" in Sep 2026, 29 of them, driving blind retries)
+        assert "error" not in parsed
+        assert "no results" in parsed["note"].lower()
 
     @patch("src.agent.tools.web.search_web_detailed")
     def test_respects_num_results_limit(self, mock_search: MagicMock) -> None:

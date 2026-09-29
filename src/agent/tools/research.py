@@ -15,7 +15,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.agent.tools.web import fetch_page_text, wrap_untrusted_content
+from src.agent.tools.web import NO_RESULTS_NOTE, fetch_page_text, wrap_untrusted_content
 from src.config import Config
 from src.utils.logging import get_logger
 from src.utils.search_provider import SearchProviderError, is_degraded, search_web
@@ -33,19 +33,24 @@ _UNFETCHED_CANDIDATES = 5
 _MAX_SOURCES_HARD_CAP = 8
 
 
-def _ranked_unique_urls(queries: list[str], per_query: int) -> list[dict[str, str]]:
+def _ranked_unique_urls(queries: list[str], per_query: int) -> tuple[list[dict[str, str]], int]:
     """Interleave results by rank across queries, dedup by URL.
 
     Rank-0 hits of every query come before any rank-1 hit: with multiple query
     angles, each angle's best result matters more than one angle's tail.
+
+    Returns (ordered results, number of queries whose search FAILED) - a
+    failed search and a search that found nothing need different handling.
     """
     per_query_results: list[list[dict[str, str]]] = []
+    failed = 0
     for query in queries:
         try:
             per_query_results.append(search_web(query, per_query))
         except SearchProviderError as e:
             logger.warning("research: search failed", extra={"query": query, "error": str(e)})
             per_query_results.append([])
+            failed += 1
 
     seen: set[str] = set()
     ordered: list[dict[str, str]] = []
@@ -58,7 +63,7 @@ def _ranked_unique_urls(queries: list[str], per_query: int) -> list[dict[str, st
             if url and url not in seen:
                 seen.add(url)
                 ordered.append(results[rank])
-    return ordered
+    return ordered, failed
 
 
 def _fetch_source(candidate: dict[str, str]) -> dict[str, str]:
@@ -80,7 +85,7 @@ def _fetch_source(candidate: dict[str, str]) -> dict[str, str]:
 
 
 @tool
-def research(question: str, queries: list[str] | None = None, max_sources: int = 0) -> str:
+def research(question: str = "", queries: list[str] | None = None, max_sources: int = 0) -> str:
     """Research a question: search the web AND read the top sources in one call.
 
     Prefer this over separate web_search + fetch_url rounds whenever a question
@@ -93,7 +98,7 @@ def research(question: str, queries: list[str] | None = None, max_sources: int =
     the top spec pages for every item come back together in a single round.
 
     Args:
-        question: The question you are trying to answer.
+        question: The question you are trying to answer (defaults to the first query).
         queries: Optional search queries (different phrasings/angles work
             best; for comparisons, one query per compared item). Defaults to
             the question itself. Capped at the web_search batch limit.
@@ -106,8 +111,14 @@ def research(question: str, queries: list[str] | None = None, max_sources: int =
         untrusted data. Cite the URLs you actually use via cite_sources.
     """
     question = (question or "").strip()
+    if not question and queries:
+        # Calls with queries but no question were every research
+        # ToolInvocationError in Sep 2026 - the queries carry the intent
+        question = next((q.strip() for q in queries if q and q.strip()), "")
     if not question:
-        return json.dumps({"error": "question must not be empty.", "retriable": False})
+        return json.dumps(
+            {"error": "question (or at least one query) must not be empty.", "retriable": False}
+        )
 
     # Normalize queries: default to the question, drop blanks/dupes, cap batch
     merged = [question] if not queries else list(queries)
@@ -131,13 +142,24 @@ def research(question: str, queries: list[str] | None = None, max_sources: int =
     # Search deep enough that even a single query yields both the pages to
     # fetch and a tail of snippet-only candidates
     per_query = min(Config.WEB_SEARCH_MAX_RESULTS, n_sources + _UNFETCHED_CANDIDATES)
-    candidates = _ranked_unique_urls(all_queries, per_query)
-    if not candidates:
+    candidates, failed = _ranked_unique_urls(all_queries, per_query)
+    if not candidates and failed == len(all_queries):
         return json.dumps(
             {
-                "error": "All searches failed or returned no results. "
-                "Try different queries or fall back to web_search.",
+                "error": "All searches failed (search providers unavailable). "
+                "Try again shortly or answer from what you know.",
                 "retriable": True,
+            }
+        )
+    if not candidates:
+        # Searches worked but found nothing: a legitimate outcome, NOT an
+        # error - an "error" key would make self-correction push retries
+        return json.dumps(
+            {
+                "question": question,
+                "sources": [],
+                "unfetched": [],
+                "note": NO_RESULTS_NOTE,
             }
         )
 
