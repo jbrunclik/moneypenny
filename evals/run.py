@@ -341,6 +341,14 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
 
     conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
     set_conversation_context(conversation.id, user.id)
+    # Per-turn tool bookkeeping (batching nudges, web_search -> research
+    # upgrade) is keyed by request id; without one it is inert, so evals
+    # used to measure round counts with every efficiency mechanism off
+    import uuid
+
+    from src.agent.tool_results import set_current_request_id
+
+    set_current_request_id(f"eval-{case.id}-{uuid.uuid4().hex[:8]}")
 
     # Attachment fixtures -> the same shape the API layer hands to ChatAgent
     import base64
@@ -411,6 +419,10 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         )
     finally:
         set_conversation_context(None, None)
+        from src.agent.tools.turn_usage import reset_turn_usage
+
+        reset_turn_usage()
+        set_current_request_id(None)
         if is_sports:
             from src.agent.tools import set_sports_context
 
