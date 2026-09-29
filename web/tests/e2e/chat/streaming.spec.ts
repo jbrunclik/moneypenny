@@ -47,18 +47,30 @@ test.describe('Chat - Streaming Mode', () => {
   test('shows a retry status while the model is retried, then clears it', async ({ page }) => {
     await setEmitRetry(page, 1500);
     try {
+      // Record every retry status the page renders. WebKit sometimes hands a
+      // small SSE chunk to the page only when the next one arrives (here: the
+      // first token, 1.5s later), so the status can be rendered and cleared
+      // in the same tick - asserting visibility during the hold was a flake.
+      await page.evaluate(() => {
+        const seen: string[] = [];
+        (window as unknown as { __retryStatuses: string[] }).__retryStatuses = seen;
+        new MutationObserver(() => {
+          const el = document.querySelector('.message.assistant .streaming-retry-status');
+          if (el?.textContent && !seen.includes(el.textContent)) seen.push(el.textContent);
+        }).observe(document.body, { childList: true, subtree: true, characterData: true });
+      });
       await page.fill('#message-input', 'Hello retry');
       await page.click('#send-btn');
-
-      const status = page.locator('.message.assistant .streaming-retry-status');
-      await expect(status).toBeVisible({ timeout: 10000 });
-      await expect(status).toContainText('retrying (attempt 1 of 3)');
 
       // Once tokens flow the status disappears
       await expect(page.locator('.message.assistant')).toContainText('Hello retry', {
         timeout: 20000,
       });
-      await expect(status).toHaveCount(0);
+      await expect(page.locator('.message.assistant .streaming-retry-status')).toHaveCount(0);
+      const statuses = await page.evaluate(
+        () => (window as unknown as { __retryStatuses: string[] }).__retryStatuses
+      );
+      expect(statuses).toEqual([expect.stringContaining('retrying (attempt 1 of 3)')]);
     } finally {
       await setEmitRetry(page, 0);
     }
