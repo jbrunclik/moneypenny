@@ -171,13 +171,7 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
     },
     # Extract-only metadata tools (see tools/metadata.py). They do no work the
     # user asked for, but they DO emit tool_start events, so without an entry
-    # here the trace showed a raw "Used cite_sources" - the single most common
-    # unlabelled pill in the app.
-    "cite_sources": {
-        "label": "Citing sources",
-        "label_past": "Cited sources",
-        "icon": "sources",
-    },
+    # here the trace would show a raw function name.
     "set_conversation_title": {
         "label": "Naming the conversation",
         "label_past": "Renamed the conversation",
@@ -210,7 +204,7 @@ def validate_tool_names() -> None:
 
     Runs at import time. The reverse check is the important one: a tool with no
     metadata entry silently renders in the UI as a raw "Used <function_name>"
-    pill, which is how garmin_connect, kv_store and cite_sources - three of the
+    pill, which is how garmin_connect, kv_store and (the since-removed) cite_sources - three of the
     five most-called tools - ended up unlabelled for months.
     """
     from src.agent.tools import get_all_tool_names, get_available_tools
@@ -587,11 +581,6 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
         return str(tool_args["agent_name"])
     elif tool_name == "request_approval" and tool_args.get("action_description"):
         return _snippet(str(tool_args["action_description"]), 70)
-    elif tool_name == "cite_sources":
-        sources = tool_args.get("sources")
-        if isinstance(sources, list) and sources:
-            return f"{len(sources)} source{'s' if len(sources) != 1 else ''}"
-        return None
     elif tool_name == "set_conversation_title" and tool_args.get("title"):
         return str(tool_args["title"])
     return None

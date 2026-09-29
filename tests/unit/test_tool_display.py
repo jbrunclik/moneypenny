@@ -109,13 +109,6 @@ class TestOtherToolDetails:
             "coffee"
         )
 
-    def test_cite_sources_counts_sources(self) -> None:
-        detail = extract_tool_detail("cite_sources", {"sources": [{"url": "a"}, {"url": "b"}]})
-        assert detail == "2 sources"
-
-    def test_cite_sources_singular(self) -> None:
-        assert extract_tool_detail("cite_sources", {"sources": [{"url": "a"}]}) == "1 source"
-
     def test_title_change_shows_the_new_title(self) -> None:
         detail = extract_tool_detail("set_conversation_title", {"title": "🚴 Sunday ride"})
         assert detail == "🚴 Sunday ride"

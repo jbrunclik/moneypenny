@@ -3,19 +3,26 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 
 from src.agent.tools.delegate import _in_delegate, delegate_task
 
 
 def _mock_chat_agent(mock_agent_class: MagicMock) -> MagicMock:
     """Wire a ChatAgent mock whose chat_batch returns the standard 4-tuple."""
-    cite_call = {
-        "name": "cite_sources",
-        "args": {"sources": [{"title": "Example", "url": "https://example.com"}]},
-        "id": "tc-1",
-    }
-    result_messages = [AIMessage(content="Digest of findings", tool_calls=[cite_call])]
+    research_call = {"name": "research", "args": {"question": "X"}, "id": "tc-1"}
+    research_result = ToolMessage(
+        content=json.dumps(
+            {"sources": [{"title": "Example", "url": "https://example.com", "content": "..."}]}
+        ),
+        tool_call_id="tc-1",
+        name="research",
+    )
+    result_messages = [
+        AIMessage(content="", tool_calls=[research_call]),
+        research_result,
+        AIMessage(content="Digest of findings"),
+    ]
     usage_info = {
         "input_tokens": 1200,
         "output_tokens": 300,
@@ -60,7 +67,7 @@ class TestDelegateTask:
         assert kwargs["system_prompt_override"]
         tool_names = {t.name for t in kwargs["tools"]}
         assert "research" in tool_names
-        assert "cite_sources" in tool_names
+        assert "cite_sources" not in tool_names  # sources come from pages read
         assert "delegate_task" not in tool_names  # no recursion
 
     @patch("src.agent.agent.ChatAgent")

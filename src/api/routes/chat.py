@@ -12,9 +12,8 @@ from flask import Response, request
 from src.agent.agent import ChatAgent
 from src.agent.content import (
     detect_response_language,
-    extract_cited_sources,
     extract_image_prompts_from_messages,
-    extract_sources_fallback_from_tool_results,
+    extract_read_sources,
 )
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 
@@ -410,13 +409,10 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
 
         # Extract metadata from tool calls and deterministic analysis
         clean_response = raw_response
-        sources: list[dict[str, str]] = extract_cited_sources(result_messages)
+        # Source chips = pages the turn read (no cite_sources tool any more)
+        sources: list[dict[str, str]] = extract_read_sources(result_messages)
         generated_images_meta = extract_image_prompts_from_messages(result_messages)
         language = detect_response_language(clean_response)
-
-        # Fallback: if web_search was used but no cite_sources, extract from tool results
-        if not sources and tool_results:
-            sources = extract_sources_fallback_from_tool_results(tool_results)
 
         logger.debug(
             "Extracted metadata",

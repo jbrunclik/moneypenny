@@ -122,7 +122,7 @@ The `chat_batch()` method returns `(response_text, tool_results, usage_info, res
 Image metadata is not parsed from the response text (the old `<!-- METADATA: -->`
 block is gone): `extract_image_prompts_from_messages()` in
 [content.py](../../src/agent/content.py) reads the prompts from the `generate_image`
-tool-call arguments, just as `extract_cited_sources()` reads sources from `cite_sources`.
+tool-call arguments (sources come from the pages the turn read - `extract_read_sources()`).
 
 ### Key Files
 

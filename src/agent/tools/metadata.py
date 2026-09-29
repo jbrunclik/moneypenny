@@ -12,22 +12,7 @@ side effect the model needs the result of does NOT belong here - see
 that reason.
 """
 
-from typing import Any
-
 from langchain_core.tools import tool
-
-
-@tool
-def cite_sources(sources: list[dict[str, Any]]) -> str:
-    """Report which web sources you referenced in your response.
-
-    Call this tool after using web_search or fetch_url to cite the sources
-    you actually used in your response. Only include sources you referenced.
-
-    Args:
-        sources: List of sources. Each dict must have "title" (str) and "url" (str).
-    """
-    return f"Noted {len(sources)} source(s)."
 
 
 @tool
@@ -46,4 +31,6 @@ def set_conversation_title(title: str) -> str:
 
 
 # Tools whose args are extracted post-hoc and whose execution can be skipped.
-EXTRACT_ONLY_TOOL_NAMES = frozenset({"cite_sources", "set_conversation_title"})
+# (cite_sources was removed Sep 2026: source chips now come from the pages a
+# turn read - see content.extract_read_sources)
+EXTRACT_ONLY_TOOL_NAMES = frozenset({"set_conversation_title"})

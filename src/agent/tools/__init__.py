@@ -34,7 +34,6 @@ from src.agent.tools.image_generation import generate_image
 from src.agent.tools.memory import manage_memory, search_memory
 from src.agent.tools.metadata import (
     EXTRACT_ONLY_TOOL_NAMES,
-    cite_sources,
     set_conversation_title,
 )
 from src.agent.tools.places import (
@@ -118,7 +117,6 @@ def get_available_tools() -> list[Any]:
         generate_image,
         retrieve_file,
         create_file,
-        cite_sources,
         set_conversation_title,
         manage_memory,
         search_memory,
@@ -230,7 +228,6 @@ def get_tools_for_request(
             research,
             retrieve_file,
             create_file,
-            cite_sources,
             kv_store,
         ]
 
@@ -314,7 +311,6 @@ _TOOL_MAP: dict[str, Any] = {
     "rouvy_workout": rouvy_workout,
     "trigger_agent": trigger_agent,
     "whatsapp": whatsapp,
-    "cite_sources": cite_sources,
     "manage_memory": manage_memory,
     "search_memory": search_memory,
     "search_conversations": search_conversations,
@@ -377,7 +373,6 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
         research,
         retrieve_file,
         create_file,
-        cite_sources,
     ]
 
     # Add request_approval for sensitive actions
@@ -473,7 +468,6 @@ __all__ = [
     "trigger_agent",
     "request_approval",
     "whatsapp",
-    "cite_sources",
     "set_conversation_title",
     "manage_memory",
     "search_memory",

@@ -68,7 +68,7 @@ class TestShouldContinue:
                 AIMessage(
                     content="Here's my answer.",
                     tool_calls=[
-                        {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
+                        {"name": "set_conversation_title", "args": {"title": "🦀 Rust"}, "id": "1"},
                     ],
                 )
             ],
@@ -87,7 +87,7 @@ class TestShouldContinue:
                 AIMessage(
                     content="Here's my answer.",
                     tool_calls=[
-                        {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
+                        {"name": "set_conversation_title", "args": {"title": "🦀 Rust"}, "id": "1"},
                         {"name": "manage_memory", "args": {"operations": []}, "id": "2"},
                     ],
                 )
@@ -141,7 +141,7 @@ class TestShouldContinue:
                 AIMessage(
                     content=[{"type": "text", "text": "Here is my response."}],
                     tool_calls=[
-                        {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
+                        {"name": "set_conversation_title", "args": {"title": "🦀 Rust"}, "id": "1"},
                     ],
                 )
             ],
@@ -156,7 +156,7 @@ class TestShouldContinue:
                 AIMessage(
                     content="",
                     tool_calls=[
-                        {"name": "cite_sources", "args": {}, "id": "1"},
+                        {"name": "set_conversation_title", "args": {}, "id": "1"},
                         {"name": "web_search", "args": {"query": "test"}, "id": "2"},
                     ],
                 )

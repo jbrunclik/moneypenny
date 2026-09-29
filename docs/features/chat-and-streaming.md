@@ -369,13 +369,13 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 
 ## Web Search Sources
 
-When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are displayed to the user.
+When a turn reads web pages, those pages are shown to the user as sources - automatically, with no citation tool.
 
 ### How it works
 
 1. **Tool returns JSON**: `web_search` returns `{"query": "...", "results": [{title, url, snippet}, ...]}` instead of plain text (`research`, `fetch_url` and the browser also produce citable pages)
-2. **LLM cites via a tool call**: the model calls the metadata-only `cite_sources(sources=[{title, url}])` tool ([tools/metadata.py](../../src/agent/tools/metadata.py)) together with its final answer. Metadata tools are extract-only: `should_continue()` routes to `end` when every tool call in a round is metadata-only, so citing never costs an extra round
-3. **Backend extracts sources**: `extract_cited_sources()` in [content.py](../../src/agent/content.py) reads them from the tool-call arguments. If the model searched but never cited, `extract_sources_fallback_from_tool_results()` recovers them from the raw `web_search` results so sources are not silently lost. (The old text-based `<!-- METADATA: -->` block the LLM appended to its answer is gone - nothing parses response text for metadata any more.)
+2. **Backend derives sources from what was read**: `extract_read_sources()` in [content.py](../../src/agent/content.py) pairs the turn's tool calls with their results: pages `research` actually fetched (not failed fetches or unfetched candidates), successful `fetch_url` calls (titled by URL), `browser` pages, and sources a `delegate_task` subagent returned. A turn that answered from search snippets alone gets the top 5 search results (rank-interleaved) instead. De-duplicated, at most 10.
+3. **Why no citation tool (removed Sep 2026)**: there used to be a `cite_sources` tool meant to ride along with the final answer. In production the model sent it WITHOUT answer text in 687 of 869 tool-using turns (79%, 30 days) despite the prompt forbidding exactly that, so the no-op tool ran and the model was called again just to write the answer - ~49M extra input tokens a month, an extra model call of latency, inflated round counts (false "stopped early" notes, eval round-cap failures) - and it forgot to cite in other turns. Trade-off accepted: chips list every page read, not just the ones the answer relied on. (The old text-based `<!-- METADATA: -->` block is long gone too.)
 4. **Sources stored in DB**: Messages table has a `sources` column (JSON array)
 5. **Sources in API response**: Both batch and streaming responses include `sources` array
 6. **Sources in later turns**: `history.py` turns stored sources into a `tool_digest` ("read: Title (url); ...") in the message's `MSG_CONTEXT`, so the model can re-fetch a page it cited earlier
@@ -384,8 +384,7 @@ When the LLM uses `web_search` or `fetch_url` tools, it cites sources that are d
 ### Key Files
 
 - [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
-- [tools/metadata.py](../../src/agent/tools/metadata.py) - `cite_sources` (extract-only metadata tool)
-- [content.py](../../src/agent/content.py) - `extract_cited_sources()`, `extract_sources_fallback_from_tool_results()`
+- [content.py](../../src/agent/content.py) - `extract_read_sources()`
 - [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
 - [routes/chat.py](../../src/api/routes/chat.py) - Sources included in batch/stream responses
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component

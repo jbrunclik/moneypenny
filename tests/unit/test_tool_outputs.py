@@ -42,7 +42,7 @@ class TestBuildToolOutputs:
         outputs = build_tool_outputs(
             _turn(
                 ("web_search", {"query": "x"}, "{}"),
-                ("cite_sources", {"sources": []}, "Noted"),
+                ("set_conversation_title", {"title": "x"}, "Noted"),
                 ("search_conversations", {"query": "x"}, "Found"),
                 ("generate_image", {"prompt": "cat"}, "{}"),
                 ("todoist", {"action": "list"}, '{"tasks": ["buy milk"]}'),

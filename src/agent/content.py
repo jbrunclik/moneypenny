@@ -8,7 +8,7 @@ import json
 import re
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from src.utils.logging import get_logger
 
@@ -159,7 +159,7 @@ def strip_full_result_from_tool_content(content: str) -> str:
 
 # ============ Structured Metadata Extraction ============
 # These functions replace the old text-based <!-- METADATA: --> parsing.
-# Metadata is now extracted from tool calls (cite_sources) and deterministic
+# Metadata is now extracted from tool calls and tool results, and deterministic
 # server-side analysis. Memory operations are NOT extracted here - manage_memory
 # performs its own writes and reports the outcome to the model.
 
@@ -210,47 +210,115 @@ def extract_image_prompts_from_messages(messages: list[BaseMessage]) -> list[dic
     return prompts
 
 
-def extract_cited_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
-    """Extract cite_sources args from the turn's AIMessages.
+# Source chips per turn: pages actually read, else the top search results
+_MAX_READ_SOURCES = 10
+_MAX_SEARCH_SOURCES = 5
 
-    Reads the structured args directly off the tool calls (no JSON parsing
-    needed - Gemini validates the schema at the API level). Every cite_sources
-    call in the turn is collected: a multi-step turn can cite as it goes, and
-    stopping at the most recent call silently dropped the earlier citations.
 
-    Args:
-        messages: List of LangChain messages from the graph result
+def _json_object(content: Any) -> dict[str, Any] | None:
+    if not isinstance(content, str):
+        return None
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _title_from_url(url: str) -> str:
+    """Readable stand-in title when the tool did not report one."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    host = parsed.netloc.removeprefix("www.")
+    path = parsed.path.rstrip("/")
+    return f"{host}{path}" if host else url
+
+
+def _search_results(data: dict[str, Any]) -> list[list[dict[str, Any]]]:
+    """Result lists of a single ({results}) or batched ({searches}) web_search."""
+    if isinstance(data.get("searches"), list):
+        return [s.get("results") or [] for s in data["searches"] if isinstance(s, dict)]
+    return [data.get("results") or []]
+
+
+def extract_read_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
+    """Source chips for a turn, derived from what its tools actually read.
+
+    Replaces the cite_sources tool: the model sent it WITHOUT answer text in
+    79% of tool-using turns (Sep 2026: 687 of 869), which cost a full extra
+    model round each time (~49M input tokens/month) - and it forgot it in
+    others. Sources are now the pages the turn READ: research pages that
+    were fetched, successful fetch_url calls, browser pages, and sources a
+    delegate_task subagent returned. A turn that answered from search
+    snippets alone gets the top search results (rank-interleaved) instead.
 
     Returns:
-        List of source dicts with "title" and "url", de-duplicated by URL
+        [{"title", "url"}], de-duplicated by URL, at most 10 read pages or
+        5 search results.
     """
-    sources: list[dict[str, str]] = []
-    seen_urls: set[str] = set()
-
+    calls: dict[str, tuple[str, dict[str, Any]]] = {}
     for msg in messages:
-        if not isinstance(msg, AIMessage) or not msg.tool_calls:
+        if isinstance(msg, AIMessage):
+            for tc in msg.tool_calls:
+                call_id = tc.get("id")
+                if call_id:
+                    calls[call_id] = (tc.get("name", ""), tc.get("args") or {})
+
+    read: list[dict[str, str]] = []
+    searched: list[list[dict[str, Any]]] = []
+    for msg in messages:
+        if not isinstance(msg, ToolMessage):
             continue
+        call_name, args = calls.get(msg.tool_call_id, ("", {}))
+        name = msg.name or call_name
+        data = _json_object(msg.content)
+        if name in ("research", "delegate_task") and data:
+            for source in data.get("sources") or []:
+                # research lists failed fetches too; only pages with content were read
+                if isinstance(source, dict) and (name == "delegate_task" or "content" in source):
+                    read.append(source)
+        elif name == "fetch_url":
+            url = args.get("url")
+            failed = data is not None and bool(data.get("error"))
+            if url and msg.content and not failed:
+                read.append({"title": _title_from_url(str(url)), "url": str(url)})
+        elif name == "browser" and data and data.get("success") and data.get("url"):
+            read.append(data)
+        elif name == "web_search" and data:
+            searched.extend(_search_results(data))
 
-        for tc in msg.tool_calls:
-            if tc.get("name") != "cite_sources":
+    def unique(items: list[dict[str, Any]], limit: int) -> list[dict[str, str]]:
+        out: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for item in items:
+            url = item.get("url") or item.get("href")
+            if not url or url in seen:
                 continue
-            for s in tc.get("args", {}).get("sources", []):
-                if not isinstance(s, dict) or "title" not in s or "url" not in s:
-                    continue
-                url = str(s["url"])
-                if url in seen_urls:
-                    continue
-                seen_urls.add(url)
-                sources.append({"title": str(s["title"]), "url": url})
+            seen.add(url)
+            out.append(
+                {"title": str(item.get("title") or _title_from_url(str(url))), "url": str(url)}
+            )
+            if len(out) >= limit:
+                break
+        return out
 
-    return sources
+    if read:
+        return unique(read, _MAX_READ_SOURCES)
+    interleaved = [
+        results[rank]
+        for rank in range(max((len(r) for r in searched), default=0))
+        for results in searched
+        if rank < len(results) and isinstance(results[rank], dict)
+    ]
+    return unique(interleaved, _MAX_SEARCH_SOURCES)
 
 
 def extract_conversation_title(messages: list[BaseMessage]) -> str | None:
     """Extract the title arg from the turn's set_conversation_title calls.
 
     The agent retitles a conversation when its scope has drifted from the
-    current title. Like cite_sources this is an extract-only tool: the args
+    current title. This is an extract-only tool: the args
     are read straight off the AIMessage tool calls. When a multi-step turn
     retitles more than once, the last call wins.
 
@@ -279,60 +347,3 @@ def extract_conversation_title(messages: list[BaseMessage]) -> str | None:
     if len(title) > Config.TITLE_MAX_LENGTH:
         title = title[: Config.TITLE_TRUNCATE_LENGTH] + "..."
     return title
-
-
-def extract_sources_fallback_from_tool_results(
-    tool_results: list[dict[str, Any]],
-) -> list[dict[str, str]]:
-    """Fallback: extract sources from web_search tool results when cite_sources wasn't called.
-
-    If the model used web_search but didn't call cite_sources, this extracts
-    sources from the raw tool results to prevent silent source loss.
-
-    Args:
-        tool_results: List of tool result dicts with 'type' and 'content' keys
-
-    Returns:
-        List of source dicts with "title" and "url"
-    """
-    sources: list[dict[str, str]] = []
-
-    def add(item: Any) -> None:
-        # Providers normalize to {title, url}; "href" is the legacy ddgs shape
-        if not isinstance(item, dict) or "title" not in item:
-            return
-        url = item.get("url") or item.get("href")
-        if url:
-            sources.append({"title": str(item["title"]), "url": str(url)})
-
-    for result in tool_results:
-        if not isinstance(result, dict) or result.get("type") != "tool":
-            continue
-
-        content = result.get("content", "")
-        if not content:
-            continue
-
-        try:
-            data = json.loads(content) if isinstance(content, str) else {}
-        except (json.JSONDecodeError, TypeError):
-            continue
-
-        if isinstance(data, list):
-            for item in data:
-                add(item)
-        elif isinstance(data, dict):
-            # Single web_search: {"results": [...]}
-            for item in data.get("results") or []:
-                add(item)
-            # Batched web_search: {"searches": [{"results": [...]}, ...]}
-            for search in data.get("searches") or []:
-                if isinstance(search, dict):
-                    for item in search.get("results") or []:
-                        add(item)
-            # research / auto-upgraded web_search: only pages actually read
-            for item in data.get("sources") or []:
-                if isinstance(item, dict) and "content" in item:
-                    add(item)
-
-    return sources

@@ -54,9 +54,9 @@ def delegate_task(task: str, expected_output: str = "") -> str:
     # Imported here: delegate -> agent -> tools/__init__ -> delegate would be
     # a circular import at module load time
     from src.agent.agent import ChatAgent
-    from src.agent.content import extract_cited_sources
+    from src.agent.content import extract_read_sources
     from src.agent.prompt_texts.agents import DELEGATE_SYSTEM_PROMPT
-    from src.agent.tools import cite_sources, fetch_url, research, web_search
+    from src.agent.tools import fetch_url, research, web_search
 
     prompt = task.strip()
     if expected_output.strip():
@@ -72,7 +72,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
         subagent = ChatAgent(
             model_name=Config.DELEGATE_MODEL,
             with_tools=True,
-            tools=[research, web_search, fetch_url, cite_sources],
+            tools=[research, web_search, fetch_url],
             enable_context_cache=False,
             system_prompt_override=DELEGATE_SYSTEM_PROMPT,
         )
@@ -83,7 +83,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
     finally:
         _in_delegate.reset(token)
 
-    sources = extract_cited_sources(result_messages)
+    sources = extract_read_sources(result_messages)
     logger.info(
         "delegate_task completed",
         extra={

@@ -12,7 +12,6 @@ from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.metadata import (
     EXTRACT_ONLY_TOOL_NAMES,
-    cite_sources,
     set_conversation_title,
 )
 from src.agent.tools.trigger_agent import trigger_agent
@@ -21,17 +20,16 @@ from src.agent.tools.trigger_agent import trigger_agent
 
 
 class TestMetadataTools:
-    def test_cite_sources_acknowledges_count(self) -> None:
-        result = cite_sources.invoke(
-            {"sources": [{"title": "A", "url": "https://a"}, {"title": "B", "url": "https://b"}]}
-        )
-        assert "2" in result
-
     def test_extract_only_tool_names_match_tools(self) -> None:
         """should_continue routes on this set - it must match the tool names."""
-        assert EXTRACT_ONLY_TOOL_NAMES == frozenset(
-            {cite_sources.name, set_conversation_title.name}
-        )
+        assert EXTRACT_ONLY_TOOL_NAMES == frozenset({set_conversation_title.name})
+
+    def test_cite_sources_is_gone(self) -> None:
+        """Sources are derived from pages read; a citation tool cost an extra
+        model round in 79% of tool-using turns (Sep 2026)."""
+        from src.agent.tools import get_available_tools
+
+        assert "cite_sources" not in {t.name for t in get_available_tools()}
 
     def test_set_conversation_title_acknowledges(self) -> None:
         result = set_conversation_title.invoke({"title": "🦀 Rust Ownership Basics"})

@@ -94,25 +94,32 @@ class TestChatBatch:
         auth_headers: dict[str, str],
         test_conversation: Conversation,
     ) -> None:
-        """Should include sources when web tools are used."""
-        from langchain_core.messages import AIMessage
+        """Pages the turn read become the response's sources (no citation tool)."""
+        from langchain_core.messages import AIMessage, ToolMessage
 
         with patch("src.api.routes.chat.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
-            # Sources are now extracted from cite_sources tool calls in result_messages
             result_msgs = [
                 AIMessage(
-                    content="Based on search results...",
-                    tool_calls=[
+                    content="",
+                    tool_calls=[{"name": "research", "args": {"question": "q"}, "id": "tc-1"}],
+                ),
+                ToolMessage(
+                    content=json.dumps(
                         {
-                            "name": "cite_sources",
-                            "args": {
-                                "sources": [{"title": "Test Source", "url": "https://example.com"}]
-                            },
-                            "id": "tc-1",
+                            "sources": [
+                                {
+                                    "title": "Test Source",
+                                    "url": "https://example.com",
+                                    "content": "x",
+                                }
+                            ]
                         }
-                    ],
-                )
+                    ),
+                    tool_call_id="tc-1",
+                    name="research",
+                ),
+                AIMessage(content="Based on search results..."),
             ]
             mock_agent.chat_batch.return_value = (
                 "Based on search results...",
@@ -130,8 +137,7 @@ class TestChatBatch:
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert "sources" in data
-        assert len(data["sources"]) == 1
+        assert data["sources"] == [{"title": "Test Source", "url": "https://example.com"}]
 
     def test_persists_tool_output_digest(
         self,

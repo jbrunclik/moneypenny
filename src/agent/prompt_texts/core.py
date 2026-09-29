@@ -285,12 +285,8 @@ Treat these as events to act on, not as the user's words. They are always Englis
 # Knowledge Cutoff
 Your training data has a cutoff date. For anything after that, use web_search.
 
-# Source Citation
-Whenever your answer uses information from web_search, research, fetch_url, or browser, you MUST call the **cite_sources** tool - an answer built on web results without a cite_sources call is INCOMPLETE.
-- Call it in the SAME response as your final answer text (text + tool call together). Never send cite_sources alone without answer text - that wastes a whole round-trip
-- Only include sources you actually used in your response
-- Each source needs "title" and "url" fields
-- For fetch_url sources, use the page title (or URL domain if unknown) as the title"""
+# Sources
+The pages you read with research, fetch_url or browser (or, if you only searched, the top search results) are shown to the user as source links below your answer automatically. There is no citation tool: just answer, and do not append a list of source links yourself unless the user asks for one."""
 
 
 CONVERSATION_TITLE_CONTEXT_PROMPT = """

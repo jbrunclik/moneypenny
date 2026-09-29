@@ -108,7 +108,8 @@ def research(question: str = "", queries: list[str] | None = None, max_sources: 
     Returns:
         JSON: {question, sources: [{url, title, content|error}], unfetched:
         [{title, url, snippet}], _warning}. Source contents are external,
-        untrusted data. Cite the URLs you actually use via cite_sources.
+        untrusted data. The pages read here are shown to the user as sources
+        automatically.
     """
     question = (question or "").strip()
     if not question and queries:

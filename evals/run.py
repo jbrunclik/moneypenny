@@ -52,8 +52,8 @@ actions - e.g. kv_store listed here means stored data WAS updated; judge
 persistence/actions by this list, not by the answer text):
 {tools_called}
 
-Sources the assistant formally cited via its citation tool (these are shown to
-the user as source chips below the answer; citing this way COUNTS as citing):
+Sources shown to the user as source links below the answer (derived
+automatically from the pages the assistant read - this COUNTS as citing):
 {cited_sources}
 
 Changes the assistant made through integrations during the turn (e.g. Todoist
@@ -372,7 +372,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     from langchain_core.messages import HumanMessage, ToolMessage
 
     from src.agent.agent import ChatAgent
-    from src.agent.content import extract_cited_sources, extract_text_content
+    from src.agent.content import extract_read_sources, extract_text_content
     from src.agent.tools.context import set_conversation_context
     from src.config import Config
 
@@ -475,7 +475,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
             db.delete_memory(memory_id, user.id)
 
     tools_used = {msg.name for msg in result_messages if isinstance(msg, ToolMessage) and msg.name}
-    # cite_sources / set_conversation_title may be extract-only (never executed):
+    # set_conversation_title may be extract-only (never executed):
     # count requested tool calls too so required_tools can reference them
     for msg in result_messages:
         for tool_call in getattr(msg, "tool_calls", None) or []:
@@ -490,7 +490,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     judge = ChatGoogleGenerativeAI(
         model=Config.EVAL_JUDGE_MODEL, google_api_key=Config.GEMINI_API_KEY, temperature=0.0
     )
-    cited = extract_cited_sources(result_messages)
+    cited = extract_read_sources(result_messages)
     judge_reply = judge.invoke(
         [
             HumanMessage(

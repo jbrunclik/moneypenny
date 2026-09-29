@@ -5,10 +5,8 @@ from unittest.mock import patch
 from src.agent.content import (
     clean_tool_call_json,
     detect_response_language,
-    extract_cited_sources,
     extract_conversation_title,
     extract_image_prompts_from_messages,
-    extract_sources_fallback_from_tool_results,
     extract_text_content,
     extract_thinking_and_text,
     strip_full_result_from_tool_content,
@@ -452,154 +450,6 @@ class TestExtractImagePromptsFromMessages:
         assert result[1]["prompt"] == "a dog"
 
 
-class TestExtractCitedSources:
-    """Tests for extract_cited_sources function."""
-
-    def test_extracts_sources_from_cite_sources(self) -> None:
-        """Should extract sources from cite_sources tool call."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="Here's what I found.",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {
-                            "sources": [
-                                {"title": "Example", "url": "https://example.com"},
-                                {"title": "Test", "url": "https://test.com"},
-                            ]
-                        },
-                        "id": "1",
-                    }
-                ],
-            )
-        ]
-        sources = extract_cited_sources(messages)
-        assert len(sources) == 2
-        assert sources[0]["title"] == "Example"
-        assert sources[1]["url"] == "https://test.com"
-
-    def test_ignores_non_citation_tool_calls(self) -> None:
-        """Should return nothing for tool calls that are not cite_sources."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="I'll remember that.",
-                tool_calls=[
-                    {
-                        "name": "manage_memory",
-                        "args": {"operations": [{"action": "add", "content": "User likes pizza"}]},
-                        "id": "1",
-                    }
-                ],
-            )
-        ]
-        assert extract_cited_sources(messages) == []
-
-    def test_collects_citations_from_every_ai_message(self) -> None:
-        """A multi-step turn can cite as it goes; none of it may be dropped.
-
-        Regression: extraction used to stop at the most recent AIMessage with a
-        metadata tool call, so citations made earlier in a tool loop vanished.
-        """
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="Searching.",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {"sources": [{"title": "First", "url": "https://first.com"}]},
-                        "id": "1",
-                    }
-                ],
-            ),
-            AIMessage(
-                content="And now the answer.",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {"sources": [{"title": "Second", "url": "https://second.com"}]},
-                        "id": "2",
-                    }
-                ],
-            ),
-        ]
-        sources = extract_cited_sources(messages)
-        assert [s["title"] for s in sources] == ["First", "Second"]
-
-    def test_deduplicates_repeated_urls(self) -> None:
-        """The same source cited twice should appear once."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="One",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {"sources": [{"title": "Same", "url": "https://same.com"}]},
-                        "id": "1",
-                    }
-                ],
-            ),
-            AIMessage(
-                content="Two",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {"sources": [{"title": "Same again", "url": "https://same.com"}]},
-                        "id": "2",
-                    }
-                ],
-            ),
-        ]
-        sources = extract_cited_sources(messages)
-        assert len(sources) == 1
-        assert sources[0]["title"] == "Same"
-
-    def test_no_metadata_tools(self) -> None:
-        """Should return an empty list when no metadata tools are called."""
-        from langchain_core.messages import AIMessage
-
-        messages = [AIMessage(content="Just a response.", tool_calls=[])]
-        assert extract_cited_sources(messages) == []
-
-    def test_empty_messages(self) -> None:
-        """Should return an empty list for empty messages."""
-        assert extract_cited_sources([]) == []
-
-    def test_skips_invalid_sources(self) -> None:
-        """Should skip source dicts that are missing title or url."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="Response",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {
-                            "sources": [
-                                {"title": "Valid", "url": "https://valid.com"},
-                                {"title": "Missing URL"},  # No url
-                                {"url": "https://no-title.com"},  # No title
-                            ]
-                        },
-                        "id": "1",
-                    }
-                ],
-            )
-        ]
-        sources = extract_cited_sources(messages)
-        assert len(sources) == 1
-        assert sources[0]["title"] == "Valid"
-
-
 class TestExtractConversationTitle:
     """Tests for extract_conversation_title function."""
 
@@ -650,8 +500,8 @@ class TestExtractConversationTitle:
                 content="Response",
                 tool_calls=[
                     {
-                        "name": "cite_sources",
-                        "args": {"sources": [{"title": "T", "url": "https://t.com"}]},
+                        "name": "web_search",
+                        "args": {"query": "t"},
                         "id": "1",
                     }
                 ],
@@ -712,121 +562,6 @@ class TestExtractConversationTitle:
         assert result is not None
         assert result.endswith("...")
         assert len(result) == Config.TITLE_TRUNCATE_LENGTH + 3
-
-
-class TestExtractSourcesFallbackFromToolResults:
-    """Tests for extract_sources_fallback_from_tool_results function."""
-
-    def test_extracts_from_web_search_list_results(self) -> None:
-        """Should extract sources from web_search tool results (list format)."""
-        import json
-
-        tool_results = [
-            {
-                "type": "tool",
-                "content": json.dumps(
-                    [
-                        {"title": "Result 1", "href": "https://example.com/1", "body": "..."},
-                        {"title": "Result 2", "href": "https://example.com/2", "body": "..."},
-                    ]
-                ),
-            }
-        ]
-        sources = extract_sources_fallback_from_tool_results(tool_results)
-        assert len(sources) == 2
-        assert sources[0]["title"] == "Result 1"
-        assert sources[0]["url"] == "https://example.com/1"
-
-    def test_extracts_from_dict_with_results_array(self) -> None:
-        """Should extract sources from tool results with nested results array."""
-        import json
-
-        tool_results = [
-            {
-                "type": "tool",
-                "content": json.dumps(
-                    {
-                        "results": [
-                            {"title": "Result 1", "href": "https://example.com/1"},
-                        ]
-                    }
-                ),
-            }
-        ]
-        sources = extract_sources_fallback_from_tool_results(tool_results)
-        assert len(sources) == 1
-        assert sources[0]["title"] == "Result 1"
-
-    def test_extracts_current_web_search_url_shape(self) -> None:
-        """Providers normalize to {title, url, snippet}; the fallback only knew
-        the old "href" shape, so it silently recovered nothing."""
-        import json
-
-        tool_results = [
-            {
-                "type": "tool",
-                "content": json.dumps(
-                    {"query": "q", "results": [{"title": "A", "url": "https://a", "snippet": "s"}]}
-                ),
-            }
-        ]
-        assert extract_sources_fallback_from_tool_results(tool_results) == [
-            {"title": "A", "url": "https://a"}
-        ]
-
-    def test_extracts_batched_searches(self) -> None:
-        import json
-
-        content = json.dumps(
-            {
-                "searches": [
-                    {"query": "a", "results": [{"title": "A", "url": "https://a"}]},
-                    {"query": "b", "results": [{"title": "B", "url": "https://b"}]},
-                ]
-            }
-        )
-        sources = extract_sources_fallback_from_tool_results([{"type": "tool", "content": content}])
-        assert [s["url"] for s in sources] == ["https://a", "https://b"]
-
-    def test_extracts_read_research_sources_only(self) -> None:
-        """research (and auto-upgraded web_search) reports pages it READ under
-        sources; failed fetches and unfetched candidates are not citations."""
-        import json
-
-        content = json.dumps(
-            {
-                "sources": [
-                    {"title": "Read", "url": "https://read", "content": "..."},
-                    {"title": "Broken", "url": "https://broken", "error": "HTTP 403"},
-                ],
-                "unfetched": [{"title": "Later", "url": "https://later"}],
-            }
-        )
-        sources = extract_sources_fallback_from_tool_results([{"type": "tool", "content": content}])
-        assert sources == [{"title": "Read", "url": "https://read"}]
-
-    def test_returns_empty_for_non_search_results(self) -> None:
-        """Should return empty list for non-search tool results."""
-        import json
-
-        tool_results = [
-            {
-                "type": "tool",
-                "content": json.dumps({"success": True, "message": "Image generated"}),
-            }
-        ]
-        sources = extract_sources_fallback_from_tool_results(tool_results)
-        assert sources == []
-
-    def test_returns_empty_for_empty_results(self) -> None:
-        """Should return empty list for empty tool results."""
-        assert extract_sources_fallback_from_tool_results([]) == []
-
-    def test_handles_invalid_json(self) -> None:
-        """Should handle invalid JSON in tool results gracefully."""
-        tool_results = [{"type": "tool", "content": "not json"}]
-        sources = extract_sources_fallback_from_tool_results(tool_results)
-        assert sources == []
 
 
 class TestStripFullResultFromToolContent:
@@ -1838,12 +1573,12 @@ class TestCleanupAndSave:
 class TestSmartRouting:
     """Tests for should_continue() smart routing in graph.py.
 
-    Verifies that extract-only tool calls (cite_sources) route to "end" while
+    Verifies that extract-only tool calls (set_conversation_title) route to "end" while
     real tool calls - including manage_memory - route to "tools".
     """
 
     def test_metadata_only_routes_to_end(self) -> None:
-        """cite_sources-only tool calls should route to 'end'."""
+        """set_conversation_title-only tool calls should route to 'end'."""
         from langchain_core.messages import AIMessage
 
         from src.agent.graph import AgentState, should_continue
@@ -1852,7 +1587,9 @@ class TestSmartRouting:
             "messages": [
                 AIMessage(
                     content="Answer.",
-                    tool_calls=[{"name": "cite_sources", "args": {"sources": []}, "id": "1"}],
+                    tool_calls=[
+                        {"name": "set_conversation_title", "args": {"title": "🦀 Rust"}, "id": "1"}
+                    ],
                 )
             ]
         }
@@ -1897,7 +1634,7 @@ class TestSmartRouting:
                 AIMessage(
                     content="Done.",
                     tool_calls=[
-                        {"name": "cite_sources", "args": {"sources": []}, "id": "1"},
+                        {"name": "set_conversation_title", "args": {"title": "🦀 Rust"}, "id": "1"},
                         {"name": "manage_memory", "args": {"operations": []}, "id": "2"},
                     ],
                 )
@@ -1933,7 +1670,7 @@ class TestSmartRouting:
                     content="",
                     tool_calls=[
                         {"name": "web_search", "args": {"query": "test"}, "id": "1"},
-                        {"name": "cite_sources", "args": {"sources": []}, "id": "2"},
+                        {"name": "set_conversation_title", "args": {"title": "🦀 Rust"}, "id": "2"},
                     ],
                 )
             ]
@@ -2234,54 +1971,6 @@ class TestMetadataToolEdgeCases:
     that could cause extraction failures.
     """
 
-    def test_extract_metadata_with_non_ai_messages(self) -> None:
-        """Should safely skip non-AIMessage objects."""
-        from langchain_core.messages import HumanMessage, ToolMessage
-
-        messages = [
-            HumanMessage(content="Hello"),
-            ToolMessage(content="Result", tool_call_id="1"),
-        ]
-        assert extract_cited_sources(messages) == []
-
-    def test_extract_metadata_cite_sources_missing_args(self) -> None:
-        """cite_sources with empty args should return empty sources."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="Response",
-                tool_calls=[{"name": "cite_sources", "args": {}, "id": "1"}],
-            )
-        ]
-        assert extract_cited_sources(messages) == []
-
-    def test_extract_metadata_sources_non_dict_items(self) -> None:
-        """Sources list containing non-dict items should be filtered out."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="Response",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {
-                            "sources": [
-                                "not a dict",
-                                42,
-                                {"title": "Valid", "url": "https://valid.com"},
-                            ]
-                        },
-                        "id": "1",
-                    }
-                ],
-            )
-        ]
-        sources = extract_cited_sources(messages)
-        assert len(sources) == 1
-        assert sources[0]["title"] == "Valid"
-
     def test_extract_image_prompts_missing_prompt_arg(self) -> None:
         """generate_image without 'prompt' arg should be skipped."""
         from langchain_core.messages import AIMessage
@@ -2306,47 +1995,6 @@ class TestMetadataToolEdgeCases:
         messages = [HumanMessage(content="Generate a cat")]
         result = extract_image_prompts_from_messages(messages)
         assert result == []
-
-    def test_extract_metadata_keeps_citations_from_all_ai_messages(self) -> None:
-        """Citations from every AIMessage in the turn are kept, not just the last."""
-        from langchain_core.messages import AIMessage
-
-        messages = [
-            AIMessage(
-                content="First turn",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {"sources": [{"title": "Old", "url": "https://old.com"}]},
-                        "id": "1",
-                    }
-                ],
-            ),
-            AIMessage(
-                content="Second turn",
-                tool_calls=[
-                    {
-                        "name": "cite_sources",
-                        "args": {"sources": [{"title": "New", "url": "https://new.com"}]},
-                        "id": "2",
-                    }
-                ],
-            ),
-        ]
-        sources = extract_cited_sources(messages)
-        assert [s["title"] for s in sources] == ["Old", "New"]
-
-    def test_sources_fallback_handles_non_list_content(self) -> None:
-        """Fallback should handle tool results with string content."""
-        tool_results = [{"type": "tool", "content": '"just a string"'}]
-        sources = extract_sources_fallback_from_tool_results(tool_results)
-        assert sources == []
-
-    def test_sources_fallback_handles_empty_content(self) -> None:
-        """Fallback should handle tool results with empty content."""
-        tool_results = [{"type": "tool", "content": ""}]
-        sources = extract_sources_fallback_from_tool_results(tool_results)
-        assert sources == []
 
     def test_detect_language_handles_whitespace_only(self) -> None:
         """Language detection should return None for whitespace-only text."""

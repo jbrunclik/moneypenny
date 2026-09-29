@@ -4,6 +4,6 @@ user: What is the current price of Bitcoin in USD?
 expect:
   rubric: >
     The answer gives a concrete, plausibly current BTC/USD price (a number)
-    and cites at least one source (cite_sources call counts). Acknowledging
+    and cites at least one source (the automatic source links count). Acknowledging
     fluctuation or giving date context is a bonus, not required.
   required_tools: [research, web_search]

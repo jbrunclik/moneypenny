@@ -16,10 +16,9 @@ from typing import Any
 from src.agent.agent import generate_title
 from src.agent.content import (
     detect_response_language,
-    extract_cited_sources,
     extract_conversation_title,
     extract_image_prompts_from_messages,
-    extract_sources_fallback_from_tool_results,
+    extract_read_sources,
 )
 from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
@@ -69,13 +68,10 @@ def _extract_stream_metadata(
     conv_id: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
     """Extract sources, image prompts and language from the turn."""
-    sources: list[dict[str, Any]] = list(extract_cited_sources(result_messages))
+    # Source chips = pages the turn read (no cite_sources tool any more)
+    sources: list[dict[str, Any]] = list(extract_read_sources(result_messages))
     generated_images_meta = extract_image_prompts_from_messages(result_messages)
     language = detect_response_language(content)
-
-    # Fallback: if web_search was used but no cite_sources, extract from tool results
-    if not sources and tools:
-        sources = extract_sources_fallback_from_tool_results(tools)
 
     logger.debug(
         "Extracted metadata from stream",

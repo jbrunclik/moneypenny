@@ -138,7 +138,7 @@ def create_chat_model(
 def should_continue(state: AgentState) -> Literal["tools", "end"]:
     """Decide whether to continue to tools or end the conversation.
 
-    When all tool calls in the final message are extract-only (cite_sources)
+    When all tool calls in the final message are extract-only (set_conversation_title)
     AND the LLM already produced text, routes to "end" instead of "tools" to
     avoid an extra LLM round-trip. Those tool call args are read from the
     AIMessage in post-processing, so executing them would be a no-op.
@@ -408,7 +408,7 @@ def check_tool_results(
             f"You have used {tool_rounds} tool rounds. Be efficient from here: "
             "consolidate remaining lookups (batch queries, prefer the research "
             "tool over separate fetches) and aim to answer within the next "
-            "round or two. Call cite_sources TOGETHER with your final answer."
+            "round or two."
         )
         if use_cache:
             nudge_content = f"[SYSTEM GUIDANCE]\n{nudge_content}\n[/SYSTEM GUIDANCE]"
