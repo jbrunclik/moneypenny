@@ -1,6 +1,6 @@
 import { escapeHtml } from '../../utils/dom';
 import { BELL_ICON, SUNRISE_ICON, PHONE_ICON } from '../../utils/icons';
-import { settings } from '../../api/client';
+import { settings } from '../../api/settings';
 import {
   type PushState,
   enablePush,

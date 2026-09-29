@@ -5,7 +5,7 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { conversations } from '../api/client';
+import { conversations } from '../api/conversations';
 import { toast } from '../components/Toast';
 import { getElementById } from '../utils/dom';
 import type { Conversation } from '../types/api';

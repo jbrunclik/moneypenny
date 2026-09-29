@@ -13,7 +13,7 @@ import {
 } from '@/utils/thumbnails';
 
 // Mock the files API
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/files', () => ({
   files: {
     fetchThumbnail: vi.fn(),
   },

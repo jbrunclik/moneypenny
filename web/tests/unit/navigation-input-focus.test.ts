@@ -30,12 +30,15 @@ vi.mock('@/utils/logger', () => ({
   }),
 }));
 
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/planner', () => ({
   planner: {
     getDashboard: vi.fn(),
     getConversation: vi.fn(),
     reset: vi.fn(),
   },
+}));
+
+vi.mock('@/api/agents', () => ({
   agents: {
     getCommandCenter: vi.fn(),
     get: vi.fn(),
@@ -155,7 +158,8 @@ vi.mock('@/core/sync-banner', () => ({
 }));
 
 import { useStore } from '@/state/store';
-import { planner, agents } from '@/api/client';
+import { agents } from '@/api/agents';
+import { planner } from '@/api/planner';
 import { getElementById } from '@/utils/dom';
 
 describe('Navigation Input Visibility', () => {

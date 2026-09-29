@@ -6,13 +6,19 @@ import { useStore } from '@/state/store';
 import type { AgentStatsBlock, Conversation, ConversationSummary, SyncResponse } from '@/types/api';
 
 // Mock the API client
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/conversations', () => ({
   conversations: {
     sync: vi.fn(),
   },
+}));
+
+vi.mock('@/api/planner', () => ({
   planner: {
     sync: vi.fn(),
   },
+}));
+
+vi.mock('@/api/agents', () => ({
   agents: {
     list: vi.fn(),
     get: vi.fn(),
@@ -46,7 +52,8 @@ vi.mock('@/components/Toast', () => ({
 
 // Import after mocks are set up
 import { SyncManager, type SyncManagerCallbacks } from '@/sync/SyncManager';
-import { conversations as conversationsApi, planner as plannerApi } from '@/api/client';
+import { conversations as conversationsApi } from '@/api/conversations';
+import { planner as plannerApi } from '@/api/planner';
 import { toast } from '@/components/Toast';
 
 const EMPTY_AGENT_STATS: AgentStatsBlock = {

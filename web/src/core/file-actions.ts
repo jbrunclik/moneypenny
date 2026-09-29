@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '../utils/logger';
-import { files } from '../api/client';
+import { files } from '../api/files';
 import { toast } from '../components/Toast';
 import { CHECK_ICON } from '../utils/icons';
 import { hapticTick } from '../utils/haptics';

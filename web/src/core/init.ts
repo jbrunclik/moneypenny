@@ -5,7 +5,9 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { conversations, models, config, todoist, calendar } from '../api/client';
+import { models, config } from '../api/app';
+import { conversations } from '../api/conversations';
+import { todoist, calendar } from '../api/integrations';
 import { initToast, toast } from '../components/Toast';
 import { initModal } from '../components/Modal';
 import { initGoogleSignIn, renderGoogleButton, checkAuth } from '../auth/google';

@@ -3,7 +3,7 @@
  * integrations. Called on app initialization (only while a flow is in
  * progress) to finish the connection and reopen Settings.
  */
-import { todoist, calendar } from '../../api/client';
+import { todoist, calendar } from '../../api/integrations';
 import { toast } from '../Toast';
 import { useStore } from '../../state/store';
 import { renderConversationsList } from '../Sidebar';

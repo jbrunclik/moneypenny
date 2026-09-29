@@ -1,6 +1,6 @@
 import { escapeHtml } from '../../utils/dom';
 import { CHECK_ICON, WARNING_ICON, CALENDAR_ICON, STAR_ICON } from '../../utils/icons';
-import { calendar } from '../../api/client';
+import { calendar } from '../../api/integrations';
 import { toast } from '../Toast';
 import type { Calendar, CalendarStatus } from '../../types/api';
 import { useStore } from '../../state/store';

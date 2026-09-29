@@ -9,7 +9,7 @@
  */
 
 import { useStore } from '../state/store';
-import { search as searchApi } from '../api/client';
+import { search as searchApi } from '../api/search';
 import { SEARCH_ICON, CLOSE_ICON } from '../utils/icons';
 import { getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';

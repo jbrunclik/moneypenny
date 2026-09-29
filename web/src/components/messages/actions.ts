@@ -2,7 +2,7 @@
  * Message action buttons (copy, delete, speak, cost, sources) and their handlers.
  */
 
-import { costs } from '../../api/client';
+import { costs } from '../../api/costs';
 import { toast } from '../Toast';
 import { createLogger } from '../../utils/logger';
 import {

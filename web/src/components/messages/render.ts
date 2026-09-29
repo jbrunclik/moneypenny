@@ -17,7 +17,7 @@ import { checkScrollButtonVisibility } from '../ScrollToBottom';
 import { renderWelcomeMessageHtml } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON } from '../../utils/icons';
 import { useStore } from '../../state/store';
-import { agents } from '../../api/client';
+import { agents } from '../../api/agents';
 import { toast } from '../Toast';
 import { renderConversationsList } from '../Sidebar';
 import { createLogger } from '../../utils/logger';

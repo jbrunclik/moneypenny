@@ -88,7 +88,7 @@ Users can abort an ongoing streaming response by clicking the stop button.
 
 **Key files:**
 - [store.ts](../../web/src/state/store.ts) - `streamingConversationId` state
-- [client.ts](../../web/src/api/client.ts) - Abort handling
+- [api/chat.ts](../../web/src/api/chat.ts) - Abort handling
 - [MessageInput.ts](../../web/src/components/MessageInput.ts) - Button transformation
 - [active-requests.ts](../../web/src/core/active-requests.ts) - Abort flow (per-request AbortControllers, `swapAbortController`)
 
@@ -290,7 +290,7 @@ A message send used to be pure optimism: a DOM-only bubble, no store entry, noth
 **Invariants:**
 
 - The double-send guard (`getActiveRequest`) must run **before** the optimistic render in `sendMessage` — a bubble with no request behind it is exactly the original bug.
-- The initial streaming POST has a **30s connect timeout even with an external AbortController** (`API_CHAT_CONNECT_TIMEOUT_MS` in [client.ts](../../web/src/api/client.ts)); passing a controller used to disable all timeouts.
+- The initial streaming POST has a **30s connect timeout even with an external AbortController** (`API_CHAT_CONNECT_TIMEOUT_MS` in [api/chat.ts](../../web/src/api/chat.ts)); passing a controller used to disable all timeouts.
 - `markSendFailed` no-ops once the outbox entry is confirmed — a mid-stream failure after delivery must not flag the *user* message as unsent (that path belongs to stream recovery above).
 - Image `data-pending` (lightbox gating) keys off `message.status`, not ID shape — there are no `temp-` message IDs anymore (conversations still use `temp-` IDs).
 

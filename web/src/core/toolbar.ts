@@ -4,7 +4,8 @@
  */
 
 import { useStore } from '../state/store';
-import { conversations, costs } from '../api/client';
+import { conversations } from '../api/conversations';
+import { costs } from '../api/costs';
 import { toast } from '../components/Toast';
 import { updateMonthlyCost } from '../components/Sidebar';
 import { updateCompactionIndicator } from '../components/CompactionIndicator';

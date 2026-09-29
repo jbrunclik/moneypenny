@@ -9,7 +9,7 @@
  * Subsequent version checks use the /api/version endpoint.
  */
 
-import { version } from '../api/client';
+import { version } from '../api/app';
 import { useStore } from '../state/store';
 import { CLOSE_ICON, REFRESH_ICON } from '../utils/icons';
 import { createLogger } from '../utils/logger';

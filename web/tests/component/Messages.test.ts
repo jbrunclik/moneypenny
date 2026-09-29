@@ -10,7 +10,7 @@ import { useStore } from '@/state/store';
 import type { Message, User } from '@/types/api';
 
 // Mock the costs API
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/costs', () => ({
   costs: {
     getMessageCost: vi.fn().mockResolvedValue({
       cost_usd: 0.001,

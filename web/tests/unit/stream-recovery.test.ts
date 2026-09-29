@@ -6,7 +6,7 @@ import { useStore } from '@/state/store';
 import type { Conversation, Message } from '@/types/api';
 
 // Mock the API client
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/conversations', () => ({
   conversations: {
     getMessage: vi.fn(),
     get: vi.fn(),
@@ -86,7 +86,7 @@ import {
   getPendingRecovery,
   attemptRecovery,
 } from '@/core/stream-recovery';
-import { conversations as conversationsApi } from '@/api/client';
+import { conversations as conversationsApi } from '@/api/conversations';
 import { ApiError } from '@/api/http';
 import { toast } from '@/components/Toast';
 import {

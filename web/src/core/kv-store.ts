@@ -5,7 +5,8 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { kvStore, memories } from '../api/client';
+import { kvStore } from '../api/kv-store';
+import { memories } from '../api/memories';
 import { toast } from '../components/Toast';
 import {
   setActiveConversation,

@@ -340,4 +340,45 @@ function requestWithProgress<T>(
   });
 }
 
-export { ApiError, getToken, request, requestWithRetry, requestWithProgress };
+/**
+ * fetch with a connect timeout: aborts when response HEADERS don't arrive
+ * within timeoutMs. The timer is cleared once headers arrive, so slow bodies
+ * (large files, long-lived streams) are unaffected. A hang before the first
+ * byte otherwise never settles - no error, no result, stuck UI.
+ */
+async function fetchWithConnectTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  externalController?: AbortController
+): Promise<Response> {
+  const controller = externalController ?? new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut && error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('Request timed out.', 0, {
+        code: 'TIMEOUT',
+        retryable: true,
+        isTimeout: true,
+      });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export {
+  ApiError,
+  fetchWithConnectTimeout,
+  getToken,
+  request,
+  requestWithRetry,
+  requestWithProgress,
+};

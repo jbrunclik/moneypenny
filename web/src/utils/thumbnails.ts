@@ -1,4 +1,4 @@
-import { files } from '../api/client';
+import { files } from '../api/files';
 import { getElementById, scrollToBottom, scrollToElementTop, isScrolledToBottom, cancelSmoothScroll } from './dom';
 import { onMessagesScroll, offMessagesScroll } from './scroll-manager';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';

@@ -6,7 +6,8 @@ import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
-import { costs, conversations as conversationsApi } from '../api/client';
+import { conversations as conversationsApi } from '../api/conversations';
+import { costs } from '../api/costs';
 import { createLogger } from '../utils/logger';
 import { getSyncManager } from '../sync/SyncManager';
 import { isSearchResultsVisible, renderSearchResults } from './SearchResults';

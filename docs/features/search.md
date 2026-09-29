@@ -101,7 +101,7 @@ When navigating to a search result in a large conversation, the app uses `around
 - `scrollToAndHighlightMessage()` in [search.ts](../../web/src/core/search.ts) - Orchestrates the navigation
 - `loadAllRemainingNewerMessages()` in [messages/pagination.ts](../../web/src/components/messages/pagination.ts) - Loads all newer messages before send
 - `get_messages_around()` in [models/](../../src/db/models/) - Backend method for centered pagination
-- `getMessagesAround()` in [client.ts](../../web/src/api/client.ts) - Frontend API method
+- `getMessagesAround()` in [api/conversations.ts](../../web/src/api/conversations.ts) - Frontend API method
 
 ## Configuration
 
@@ -140,7 +140,7 @@ LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200 // Scroll threshold for loading newer mes
 - [SearchInput.ts](../../web/src/components/SearchInput.ts) - Search input component with debounce
 - [SearchResults.ts](../../web/src/components/SearchResults.ts) - Results display and subscription
 - [store.ts](../../web/src/state/store.ts) - Search state management
-- [client.ts](../../web/src/api/client.ts) - `search.query()` API method
+- [api/search.ts](../../web/src/api/search.ts) - `search.query()` API method
 - [api.ts](../../web/src/types/api.ts) - Type definitions
 - [search.ts](../../web/src/core/search.ts) - Navigation and highlight logic
 - [config.ts](../../web/src/config.ts) - Configuration constants

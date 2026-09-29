@@ -4,14 +4,14 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
-import { costs } from '@/api/client';
+import { costs } from '@/api/costs';
 import type { Conversation, ConversationCompactionResponse } from '@/types/api';
 import {
   applyCompactionMarkers,
   updateCompactionIndicator,
 } from '@/components/CompactionIndicator';
 
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/costs', () => ({
   costs: { getConversationCompaction: vi.fn() },
 }));
 

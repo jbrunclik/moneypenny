@@ -15,7 +15,7 @@ import {
 import type { Conversation, User } from '@/types/api';
 
 // Mock the costs API
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/costs', () => ({
   costs: {
     getMonthlyCost: vi.fn().mockResolvedValue({ formatted: '10.50 CZK' }),
   },

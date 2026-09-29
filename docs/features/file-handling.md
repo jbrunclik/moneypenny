@@ -107,7 +107,7 @@ When sending messages with file attachments, upload progress renders as a conic-
 
 ### Implementation Details
 
-- `requestWithProgress<T>()` in [client.ts](../../web/src/api/client.ts) wraps XHR for upload progress tracking
+- `requestWithProgress<T>()` in [api/http.ts](../../web/src/api/http.ts) wraps XHR for upload progress tracking
 - `chat.sendBatch()` accepts optional `onUploadProgress` callback, uses XHR when files are present
 - `showUploadProgress(indeterminate?)`, `hideUploadProgress()`, `updateUploadProgress()` in [MessageInput.ts](../../web/src/components/MessageInput.ts)
 - `uploadProgress` state in Zustand store (not currently used for display, but available for future use)
@@ -115,7 +115,7 @@ When sending messages with file attachments, upload progress renders as a conic-
 
 ### Key Files
 
-- [client.ts](../../web/src/api/client.ts) - `requestWithProgress()` XHR wrapper
+- [api/http.ts](../../web/src/api/http.ts) - `requestWithProgress()` XHR wrapper
 - [MessageInput.ts](../../web/src/components/MessageInput.ts) - Progress UI functions
 - [batch-send.ts](../../web/src/core/batch-send.ts) / [stream-send.ts](../../web/src/core/stream-send.ts) - Integration in `sendBatchMessage()` and `sendStreamingMessage()`
 - [buttons.css](../../web/src/styles/components/buttons.css) - `.uploading` / `.processing` ring styles
@@ -167,7 +167,7 @@ If the server dies while generating thumbnails, pending thumbnails would be stuc
 - [background_thumbnails.py](../../src/utils/background_thumbnails.py) - ThreadPoolExecutor, queue functions, `generate_and_save_thumbnail()` shared helper
 - [images.py](../../src/utils/images.py) - `generate_thumbnail()`, `process_image_files_sync()` for tool outputs
 - [routes/files.py](../../src/api/routes/files.py) - Thumbnail endpoint with 202 response and stale recovery
-- [client.ts](../../web/src/api/client.ts) - `fetchThumbnail()` with polling and exponential backoff
+- [api/files.ts](../../web/src/api/files.ts) - `fetchThumbnail()` with polling and exponential backoff
 - [config.ts](../../web/src/config.ts) - Frontend polling configuration
 
 ### Testing

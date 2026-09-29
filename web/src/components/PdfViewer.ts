@@ -7,7 +7,7 @@
  * Pages render fit-to-width into a vertically scrolling column; the
  * toolbar tracks the visible page and offers download and close.
  */
-import { files } from '../api/client';
+import { files } from '../api/files';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';

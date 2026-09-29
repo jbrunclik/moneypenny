@@ -6,7 +6,7 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { conversations, messages } from '../api/client';
+import { conversations, messages } from '../api/conversations';
 import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import { hideLoadingIndicator, removeRenderedMessagesFrom } from '../components/messages';

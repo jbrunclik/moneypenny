@@ -11,7 +11,7 @@
  * (iOS 16.4+); see isIosWithoutStandalone() for the settings hint.
  */
 
-import { push as pushApi } from '../api/client';
+import { push as pushApi } from '../api/push';
 import { createLogger } from '../utils/logger';
 import { useStore } from '../state/store';
 import { getSyncManager } from '../sync/SyncManager';

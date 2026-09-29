@@ -3,7 +3,8 @@
  * Allows creating and editing autonomous agents.
  */
 
-import { agents, aiAssist, settings } from '../api/client';
+import { agents, aiAssist } from '../api/agents';
+import { settings } from '../api/settings';
 import { useStore } from '../state/store';
 import { toast } from './Toast';
 import { escapeHtml } from '../utils/dom';

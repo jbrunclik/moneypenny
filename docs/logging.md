@@ -401,7 +401,7 @@ logger.debug("Processing complete")
 
 ### Frontend
 
-**API Client** ([../../web/src/api/client.ts](../web/src/api/client.ts)):
+**API Client** ([web/src/api/http.ts](../web/src/api/http.ts), used by the per-domain modules in `web/src/api/`):
 - Request/response logging
 - Retry attempts
 - Timeout events

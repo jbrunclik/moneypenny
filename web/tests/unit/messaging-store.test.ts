@@ -7,12 +7,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
 import type { Conversation } from '@/types/api';
 
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/chat', () => ({
   chat: {
     stream: vi.fn(),
     sendBatch: vi.fn(),
     resumeStream: vi.fn(),
   },
+}));
+
+vi.mock('@/api/conversations', () => ({
   conversations: {
     get: vi.fn(),
     create: vi.fn(),
@@ -135,7 +138,7 @@ vi.mock('@/components/messages/edit', () => ({
 }));
 
 import { sendMessage } from '@/core/messaging';
-import { chat } from '@/api/client';
+import { chat } from '@/api/chat';
 
 const CONV_ID = 'conv-1';
 

@@ -5,7 +5,7 @@
 import { getElementById } from '../../utils/dom';
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { observeThumbnail } from '../../utils/thumbnails';
-import { conversations } from '../../api/client';
+import { conversations } from '../../api/conversations';
 import { useStore } from '../../state/store';
 import { createLogger } from '../../utils/logger';
 import {

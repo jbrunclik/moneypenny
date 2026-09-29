@@ -10,7 +10,9 @@
  * - Visibility-aware polling (pauses when tab hidden)
  */
 
-import { conversations as conversationsApi, planner as plannerApi, agents as agentsApi } from '../api/client';
+import { agents as agentsApi } from '../api/agents';
+import { conversations as conversationsApi } from '../api/conversations';
+import { planner as plannerApi } from '../api/planner';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';

@@ -5,7 +5,7 @@
  * navigation.
  */
 import { getElementById } from '../utils/dom';
-import { files } from '../api/client';
+import { files } from '../api/files';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';

@@ -5,7 +5,7 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { planner } from '../api/client';
+import { planner } from '../api/planner';
 import { toast } from '../components/Toast';
 import {
   setActiveConversation,

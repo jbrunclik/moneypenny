@@ -5,7 +5,8 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { agents, conversations, messages } from '../api/client';
+import { agents } from '../api/agents';
+import { conversations, messages } from '../api/conversations';
 import { toast } from '../components/Toast';
 import { showConfirm, showPrompt } from '../components/Modal';
 import { resumeInflightStreamIfAny } from './stream-resume';

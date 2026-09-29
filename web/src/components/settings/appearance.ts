@@ -1,6 +1,6 @@
 import { escapeHtml } from '../../utils/dom';
 import { SUN_ICON, MOON_ICON, MONITOR_ICON, LANGUAGE_ICON } from '../../utils/icons';
-import { settings } from '../../api/client';
+import { settings } from '../../api/settings';
 import { toast } from '../Toast';
 import {
   type ColorScheme,

@@ -2,7 +2,7 @@ import type { GeneratedImage } from '../types/api';
 import { escapeHtml } from '../utils/dom';
 import { SPARKLES_ICON } from '../utils/icons';
 import { createPopup, type PopupInstance } from './InfoPopup';
-import { costs } from '../api/client';
+import { costs } from '../api/costs';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('imagegen');

@@ -9,7 +9,7 @@
  * 4. Update UI with recovered content or show error
  */
 
-import { conversations as conversationsApi } from '../api/client';
+import { conversations as conversationsApi } from '../api/conversations';
 import { ApiError } from '../api/http';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';

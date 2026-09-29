@@ -1,5 +1,5 @@
 import { CHECK_ICON, WARNING_ICON, CHECKLIST_ICON } from '../../utils/icons';
-import { todoist } from '../../api/client';
+import { todoist } from '../../api/integrations';
 import { toast } from '../Toast';
 import type { TodoistStatus } from '../../types/api';
 import { useStore } from '../../state/store';

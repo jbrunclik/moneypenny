@@ -9,7 +9,7 @@
 import { useStore } from '../state/store';
 import { SEND_AUTO_RETRY_DELAY_MS } from '../config';
 import { createLogger } from '../utils/logger';
-import { conversations } from '../api/client';
+import { conversations } from '../api/conversations';
 import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import {

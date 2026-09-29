@@ -15,7 +15,7 @@ vi.mock('@/core/sync-banner', () => ({
   reloadCurrentConversation: vi.fn(),
 }));
 
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/push', () => ({
   push: {},
 }));
 

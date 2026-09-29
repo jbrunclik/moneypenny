@@ -1,5 +1,5 @@
 import { EDIT_ICON } from '../../utils/icons';
-import { settings } from '../../api/client';
+import { settings } from '../../api/settings';
 import { toast } from '../Toast';
 import type { UserSettings } from '../../types/api';
 import { log, showSavedIndicator } from './shared';

@@ -172,7 +172,7 @@ outside production. Backfill for pre-existing rows:
 **Frontend:**
 - [KVStorePage.ts](../../web/src/components/KVStorePage.ts) - the Data page: memory list, delete,
   protect, and a "Recently deleted" section with restore
-- [client.ts](../../web/src/api/client.ts) - `memories.*` API methods
+- [api/memories.ts](../../web/src/api/memories.ts) - `memories.*` API methods
 - [api.ts](../../web/src/types/api.ts) - `Memory`, `MemoriesResponse` types
 - [tool_display.py](../../src/agent/tool_display.py) - memory writes appear in the tool trace
   ("remembered 2, updated 1") so the user sees them as they happen
@@ -262,7 +262,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 **Frontend:**
 - [settings/instructions.ts](../../web/src/components/settings/instructions.ts) - Custom instructions textarea, character count, save on blur
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Gear icon button in user actions
-- [client.ts](../../web/src/api/client.ts) - `settings.get()`, `settings.update()` API methods
+- [api/settings.ts](../../web/src/api/settings.ts) - `settings.get()`, `settings.update()` API methods
 - [api.ts](../../web/src/types/api.ts) - `UserSettings` type
 - [icons.ts](../../web/src/utils/icons.ts) - `SETTINGS_ICON`
 - [popups.css](../../web/src/styles/components/popups.css) - Styles

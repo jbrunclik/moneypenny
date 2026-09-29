@@ -5,7 +5,8 @@
  */
 import { getElementById } from '../utils/dom';
 import { SETTINGS_ICON, CLOSE_ICON } from '../utils/icons';
-import { settings, todoist, calendar, garmin, rouvy } from '../api/client';
+import { todoist, calendar, garmin, rouvy } from '../api/integrations';
+import { settings } from '../api/settings';
 import { type PushState, getPushState } from '../core/push';
 import {
   getStoredColorScheme,

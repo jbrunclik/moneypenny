@@ -2,7 +2,7 @@
  * File attachments rendering for messages (images, videos, and documents).
  */
 
-import { files as filesApi } from '../../api/client';
+import { files as filesApi } from '../../api/files';
 import { escapeHtml } from '../../utils/dom';
 import { observeThumbnail } from '../../utils/thumbnails';
 import { getFileIcon, DOWNLOAD_ICON } from '../../utils/icons';

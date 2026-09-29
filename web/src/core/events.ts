@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '../utils/logger';
-import { costs } from '../api/client';
+import { costs } from '../api/costs';
 import { toast } from '../components/Toast';
 import { openCostHistory } from '../components/CostHistoryPopup';
 import { logout } from '../auth/google';

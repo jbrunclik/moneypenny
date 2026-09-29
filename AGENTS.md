@@ -56,7 +56,8 @@ imports; eslint --fix). `PreToolUse` blocks hand-edits to generated files
   `db/models/` (SQL lives only here), `auth/`, `utils/`, `config.py` (all env vars
   and model definitions).
 - `web/src/` — `core/` (messaging, conversation, sync), `components/`,
-  `state/store.ts` (Zustand), `api/client.ts`, `types/`, `styles/`.
+  `state/store.ts` (Zustand, slices in `state/slices/`), `api/` (one module per
+  domain), `types/`, `styles/`.
 - `tests/` (backend unit + integration, `e2e-server.py`), `web/tests/` (unit,
   component, E2E, visual), `evals/` (cases + integration fakes), `migrations/` (yoyo).
 

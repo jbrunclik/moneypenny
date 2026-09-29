@@ -1,5 +1,5 @@
 import { CHECK_ICON, WARNING_ICON, ACTIVITY_ICON } from '../../utils/icons';
-import { garmin } from '../../api/client';
+import { garmin } from '../../api/integrations';
 import { ApiError } from '../../api/http';
 import { toast } from '../Toast';
 import type { GarminStatus } from '../../types/api';

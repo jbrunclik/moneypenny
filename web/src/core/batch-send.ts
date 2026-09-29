@@ -4,7 +4,7 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { chat } from '../api/client';
+import { chat } from '../api/chat';
 import { ApiError } from '../api/http';
 import {
   addMessageToUI,

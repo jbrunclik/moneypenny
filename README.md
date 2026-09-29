@@ -425,7 +425,7 @@ moneypenny/
 │       ├── core/                 # Conversation, messaging, programs, toolbar, kv-store
 │       ├── components/           # UI modules (messages/, dashboards, popups)
 │       ├── state/store.ts        # Zustand store
-│       ├── api/client.ts         # Typed fetch wrapper
+│       ├── api/                  # Typed fetch wrapper + per-domain modules
 │       ├── types/                # Hand-written + OpenAPI-generated types
 │       ├── sync/                 # Multi-device sync manager
 │       ├── gestures/             # Touch handlers

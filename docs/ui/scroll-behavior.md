@@ -313,7 +313,7 @@ The scroll behavior is the most annoyance-sensitive UX area (regressions here hu
 
 **Frontend State:**
 - [../../web/src/state/store.ts](../../web/src/state/store.ts) - Pagination state management
-- [../../web/src/api/client.ts](../../web/src/api/client.ts) - Pagination API methods
+- [../../web/src/api/conversations.ts](../../web/src/api/conversations.ts) - Pagination API methods
 - [../../web/src/config.ts](../../web/src/config.ts) - Frontend configuration
 
 ## Testing

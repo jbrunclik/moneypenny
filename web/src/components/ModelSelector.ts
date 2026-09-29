@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById } from '../utils/dom';
 import { useStore } from '../state/store';
-import { conversations as conversationsApi } from '../api/client';
+import { conversations as conversationsApi } from '../api/conversations';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { CHECK_ICON } from '../utils/icons';
