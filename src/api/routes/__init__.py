@@ -9,7 +9,10 @@ Route Organization:
 - garmin.py: Garmin Connect integration (4 routes)
 - conversations.py: Conversation management (9 routes)
 - planner.py: Planner dashboard (4 routes)
-- agents.py: Autonomous agents (11 routes)
+- agents.py: Autonomous agents CRUD and execution (9 routes)
+- agent_command_center.py: Agents command center (1 route, on agents.api)
+- agent_approvals.py: Agent approval requests (3 routes, on agents.api)
+- agent_assist.py: Agent AI assist - schedule parsing, prompt enhancer (2 routes, on agents.api)
 - chat.py: Chat endpoints (2 routes)
 - files.py: File serving (2 routes)
 - costs.py: Cost tracking (4 routes)
@@ -20,13 +23,19 @@ Route Organization:
 - sports.py: Sports tracking (5 routes)
 - language.py: Language learning (5 routes)
 
-Total: 74 endpoints across 16 modules
+Total: 74 endpoints across 19 modules
 """
 
 from apiflask import APIFlask
 
-# Import all route modules
+# Import all route modules. agent_approvals, agent_assist and
+# agent_command_center attach their routes to agents.api (one shared "Agents"
+# blueprint keeps a single OpenAPI tag and the original endpoint names), so
+# they are imported only for that side effect.
 from src.api.routes import (
+    agent_approvals,  # noqa: F401
+    agent_assist,  # noqa: F401
+    agent_command_center,  # noqa: F401
     agents,
     auth,
     calendar,

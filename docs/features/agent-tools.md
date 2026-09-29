@@ -116,7 +116,7 @@ When adding a new tool for autonomous agents, update these locations:
 1. **`src/agent/tools/<tool_name>.py`** - Tool implementation with `@tool` decorator
 2. **`src/agent/tools/__init__.py`** - Register in `get_tools_for_request()`, add `is_<tool>_available()` function
 3. **`src/agent/tool_display.py`** - Add to `TOOL_METADATA` (icon, present/past labels) **and** a branch in `extract_tool_detail()` so the pill says *what* the tool did, not just that it ran. A tool with no metadata renders as a raw `Used <function_name>` with a generic brain icon; `validate_tool_names()` logs a warning at import for any bindable tool that is missing an entry, and `tests/unit/test_tool_display.py` fails the build. Tools bound only in specific contexts (planner, programs, autonomous agents) must also be listed in `_CONDITIONAL_TOOLS`.
-4. **`src/api/routes/agents.py`** - Add to `_PROMPT_TOOL_DESCRIPTIONS` dict for prompt enhancer
+4. **`src/api/routes/agent_assist.py`** - Add to `_PROMPT_TOOL_DESCRIPTIONS` dict for prompt enhancer
 
 **Frontend (required):**
 
@@ -130,7 +130,7 @@ When adding a new tool for autonomous agents, update these locations:
 
 **For integration tools requiring user connection:**
 
-9. **`src/api/routes/agents.py`** - Add `_is_<tool>_connected_for_user(user)` function that checks both app config AND user connection status
+9. **`src/api/routes/agent_assist.py`** - Add `_is_<tool>_connected_for_user(user)` function that checks both app config AND user connection status
 
 **Documentation:**
 

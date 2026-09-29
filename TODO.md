@@ -60,7 +60,7 @@ Actionable work only. Tags (S/A/C/X/F/Q/T = June 2026 audit rounds 1-2, R = roun
 
 ## Code Quality
 
-- [ ] **File-size convention violations (Q3, remainder)** - First pass done (chat_streaming.py -> 4 modules; client.ts -> http/sse/client; core/messaging.ts -> send/stream/batch/rerun modules, Sep 2026). Remaining over-cap (Aug 2026 counts): prompts.py (1848), SettingsPopup.ts (1661), schemas.py (1575, declarative), models/agent.py (1510), chat_streaming.py (1211, producer/consumer engine split next), routes/agents.py (1174), agent.py (1136), client.ts (1085, domain-module split touches every importer), todoist.py (1023), planner_data.py (1015), thumbnails.ts (998).
+- [ ] **File-size convention violations (Q3, remainder)** - First pass done (chat_streaming.py -> 4 modules; models/agent.py -> per-entity mixins; routes/agents.py -> CRUD/command-center/approvals/assist; client.ts -> http/sse/client; core/messaging.ts -> send/stream/batch/rerun modules, Sep 2026). Remaining over-cap (Aug 2026 counts): prompts.py (1848), SettingsPopup.ts (1661), schemas.py (1575, declarative), chat_streaming.py (1211, producer/consumer engine split next), agent.py (1136), client.ts (1085, domain-module split touches every importer), todoist.py (1023), planner_data.py (1015), thumbnails.ts (998).
 
 ## Tests & Tooling
 

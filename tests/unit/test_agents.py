@@ -382,9 +382,9 @@ class TestAgentDatabaseOperations:
 
     def test_agent_to_response_conversion(self, sample_agent):
         """Test agent-to-response conversion."""
-        from src.api.routes.agents import _agent_to_response
+        from src.api.helpers.agent_responses import agent_to_response
 
-        response = _agent_to_response(sample_agent, unread_count=5, has_pending_approval=True)
+        response = agent_to_response(sample_agent, unread_count=5, has_pending_approval=True)
 
         assert response["id"] == "agent-123"
         assert response["name"] == "Test Agent"
@@ -394,9 +394,9 @@ class TestAgentDatabaseOperations:
 
     def test_execution_to_response_conversion(self, sample_execution):
         """Test execution-to-response conversion."""
-        from src.api.routes.agents import _execution_to_response
+        from src.api.helpers.agent_responses import execution_to_response
 
-        response = _execution_to_response(sample_execution)
+        response = execution_to_response(sample_execution)
 
         assert response["id"] == "exec-123"
         assert response["agent_id"] == "agent-123"
@@ -405,9 +405,9 @@ class TestAgentDatabaseOperations:
 
     def test_approval_to_response_conversion(self, sample_approval):
         """Test approval-to-response conversion."""
-        from src.api.routes.agents import _approval_to_response
+        from src.api.helpers.agent_responses import approval_to_response
 
-        response = _approval_to_response(sample_approval, "Test Agent")
+        response = approval_to_response(sample_approval, "Test Agent")
 
         assert response["id"] == "approval-123"
         assert response["agent_name"] == "Test Agent"

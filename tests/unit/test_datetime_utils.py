@@ -34,7 +34,7 @@ class TestAgentTimestampSerialization:
     """Agent-subsystem API responses must carry explicit UTC offsets."""
 
     def test_agent_response_timestamps_are_utc_aware(self) -> None:
-        from src.api.routes.agents import _agent_to_response
+        from src.api.helpers.agent_responses import agent_to_response
         from src.db.models.dataclasses import Agent
 
         agent = Agent(
@@ -54,7 +54,7 @@ class TestAgentTimestampSerialization:
             last_run_at=datetime(2026, 6, 10, 11, 0, 0),
             next_run_at=datetime(2026, 6, 11, 12, 0, 0),
         )
-        data = _agent_to_response(agent, daily_spending=0.0)
+        data = agent_to_response(agent, daily_spending=0.0)
         for field in ("created_at", "updated_at", "last_run_at", "next_run_at"):
             assert data[field].endswith("+00:00"), field
 

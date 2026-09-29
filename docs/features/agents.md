@@ -97,7 +97,11 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 | `src/db/models/agent_executions.py` | Execution tracking, cooldown, zombie cleanup |
 | `src/db/models/agent_conversation.py` | Agent conversation, unread state, compaction |
 | `src/db/models/agent_stats.py` | Command center, observability stats, spend/budget |
-| `src/api/routes/agents.py` | REST API endpoints |
+| `src/api/routes/agents.py` | REST API: agent CRUD and execution |
+| `src/api/routes/agent_command_center.py` | REST API: command center dashboard |
+| `src/api/routes/agent_approvals.py` | REST API: approval list/approve/reject |
+| `src/api/routes/agent_assist.py` | REST API: AI assist (schedule parsing, prompt enhancer) |
+| `src/api/helpers/agent_responses.py` | Agent/execution/approval response dicts |
 | `src/agent/executor.py` | Agent execution engine |
 | `src/agent/permissions.py` | Tool permission checking |
 | `src/agent/compaction.py` | Conversation compaction logic |
@@ -393,7 +397,8 @@ other views, the input area must be restored. This is handled by `ensureInputAre
 ## Key Files
 
 - [executor.py](../../src/agent/executor.py) - `execute_agent()`, agent context, trigger chain
-- [routes/agents.py](../../src/api/routes/agents.py) - REST endpoints, `_PROMPT_TOOL_DESCRIPTIONS`
+- [routes/agents.py](../../src/api/routes/agents.py) - REST endpoints (CRUD, execution)
+- [routes/agent_assist.py](../../src/api/routes/agent_assist.py) - AI assist endpoints, `_PROMPT_TOOL_DESCRIPTIONS`
 - [models/agent.py](../../src/db/models/agent.py) - agents, approvals, executions
 - [dev_scheduler.py](../../src/agent/dev_scheduler.py) / [run_agent_scheduler.py](../../scripts/run_agent_scheduler.py) - scheduling
 - [CommandCenter.ts](../../web/src/components/CommandCenter.ts), [AgentEditor.ts](../../web/src/components/AgentEditor.ts), [core/agents.ts](../../web/src/core/agents.ts) - UI

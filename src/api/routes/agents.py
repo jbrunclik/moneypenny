@@ -1,7 +1,9 @@
-"""Autonomous agents routes: CRUD, command center, approvals.
+"""Autonomous agents routes: CRUD and execution.
 
 This module handles autonomous agents that run on cron schedules,
 require approval for dangerous operations, and can trigger each other.
+Sibling modules agent_command_center, agent_approvals and agent_assist attach
+their routes to this module's blueprint (one "Agents" OpenAPI tag).
 """
 
 from __future__ import annotations
@@ -11,116 +13,26 @@ from typing import Any
 
 from apiflask import APIBlueprint
 
-from src.agent.content import extract_text_content
-from src.agent.daily_briefing import resolve_agent_system_prompt
-from src.agent.tools.google_calendar import is_google_calendar_available
-from src.agent.tools.todoist import is_todoist_available
-from src.agent.tools.whatsapp import is_whatsapp_available
 from src.api.errors import raise_not_found_error, raise_validation_error
+from src.api.helpers.agent_responses import agent_to_response, execution_to_response
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas import (
     AgentConversationSyncResponse,
     AgentExecutionsListResponse,
     AgentResponse,
     AgentsListResponse,
-    CommandCenterResponse,
     CreateAgentRequest,
-    EnhancePromptRequest,
-    EnhancePromptResponse,
-    MessageRole,
-    ParseScheduleRequest,
-    ParseScheduleResponse,
-    PendingApprovalsResponse,
     StatusResponse,
     TriggerAgentResponse,
     UpdateAgentRequest,
 )
 from src.auth.jwt_auth import require_auth
-from src.config import Config
-from src.db.models import Agent, AgentExecution, ApprovalRequest, User, db
-from src.utils.costs import convert_currency, format_cost
-from src.utils.datetime_utils import to_utc_iso
+from src.db.models import User, db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 api = APIBlueprint("agents", __name__, url_prefix="/api", tag="Agents")
-
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-
-def _agent_to_response(
-    agent: Agent,
-    unread_count: int = 0,
-    has_pending_approval: bool = False,
-    has_error: bool = False,
-    last_execution_status: str | None = None,
-    daily_spending: float | None = None,
-) -> dict[str, Any]:
-    """Convert an Agent object to response dict."""
-    # Get daily spending if not provided
-    if daily_spending is None:
-        daily_spending = db.get_agent_daily_spending(agent.id)
-
-    return {
-        "id": agent.id,
-        "name": agent.name,
-        "description": agent.description,
-        "system_prompt": agent.system_prompt,
-        "schedule": agent.schedule,
-        "timezone": agent.timezone,
-        "enabled": agent.enabled,
-        "tool_permissions": agent.tool_permissions,
-        "model": agent.model,
-        "conversation_id": agent.conversation_id,
-        "last_run_at": to_utc_iso(agent.last_run_at) if agent.last_run_at else None,
-        "next_run_at": to_utc_iso(agent.next_run_at) if agent.next_run_at else None,
-        "created_at": to_utc_iso(agent.created_at),
-        "updated_at": to_utc_iso(agent.updated_at),
-        "budget_limit": agent.budget_limit,
-        "fresh_context": agent.fresh_context,
-        "system_type": agent.system_type,
-        # Resolved prompt for display: equals system_prompt unless the
-        # agent is system-managed and on the stock (NULL) prompt
-        "effective_system_prompt": resolve_agent_system_prompt(agent),
-        "daily_spending": daily_spending,
-        "has_pending_approval": has_pending_approval,
-        "has_error": has_error,
-        "unread_count": unread_count,
-        "last_execution_status": last_execution_status,
-    }
-
-
-def _execution_to_response(execution: AgentExecution) -> dict[str, Any]:
-    """Convert an AgentExecution object to response dict."""
-    return {
-        "id": execution.id,
-        "agent_id": execution.agent_id,
-        "status": execution.status,
-        "trigger_type": execution.trigger_type,
-        "triggered_by_agent_id": execution.triggered_by_agent_id,
-        "started_at": to_utc_iso(execution.started_at),
-        "completed_at": to_utc_iso(execution.completed_at) if execution.completed_at else None,
-        "error_message": execution.error_message,
-    }
-
-
-def _approval_to_response(approval: ApprovalRequest, agent_name: str) -> dict[str, Any]:
-    """Convert an ApprovalRequest object to response dict."""
-    return {
-        "id": approval.id,
-        "agent_id": approval.agent_id,
-        "agent_name": agent_name,
-        "tool_name": approval.tool_name,
-        "tool_args": approval.tool_args,
-        "description": approval.description,
-        "status": approval.status,
-        "created_at": to_utc_iso(approval.created_at),
-        "resolved_at": to_utc_iso(approval.resolved_at) if approval.resolved_at else None,
-    }
 
 
 # ============================================================================
@@ -145,7 +57,7 @@ def list_agents(user: User) -> dict[str, Any]:
     spending = db.get_agents_daily_spending(user.id)
 
     agents_response = [
-        _agent_to_response(
+        agent_to_response(
             item["agent"],
             item["unread_count"],
             item["has_pending_approval"],
@@ -218,7 +130,7 @@ def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
 
     logger.info("Agent created", extra={"agent_id": agent.id, "user_id": user.id})
 
-    return _agent_to_response(agent)
+    return agent_to_response(agent)
 
 
 @api.route("/agents/<agent_id>", methods=["GET"])
@@ -239,7 +151,7 @@ def get_agent(user: User, agent_id: str) -> dict[str, Any]:
     last_exec_status = db.get_last_execution_status(agent.id)
     has_error = last_exec_status == "failed"
 
-    return _agent_to_response(agent, unread_count, has_pending, has_error, last_exec_status)
+    return agent_to_response(agent, unread_count, has_pending, has_error, last_exec_status)
 
 
 @api.route("/agents/<agent_id>/conversation/sync", methods=["GET"])
@@ -363,7 +275,7 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
     last_exec_status = db.get_last_execution_status(agent.id)
     has_error = last_exec_status == "failed"
 
-    return _agent_to_response(agent, unread_count, has_pending, has_error, last_exec_status)
+    return agent_to_response(agent, unread_count, has_pending, has_error, last_exec_status)
 
 
 @api.route("/agents/<agent_id>", methods=["DELETE"])
@@ -487,7 +399,7 @@ def trigger_agent(user: User, agent_id: str) -> dict[str, Any]:
         execution = executions[0]
 
     return {
-        "execution": _execution_to_response(execution),
+        "execution": execution_to_response(execution),
         "message": message,
     }
 
@@ -508,532 +420,5 @@ def get_agent_executions(user: User, agent_id: str) -> dict[str, Any]:
     executions = db.get_agent_executions(agent.id, limit=20)
 
     return {
-        "executions": [_execution_to_response(e) for e in executions],
+        "executions": [execution_to_response(e) for e in executions],
     }
-
-
-# ============================================================================
-# Command Center Routes
-# ============================================================================
-
-
-@api.route("/agents/command-center", methods=["GET"])
-@api.output(CommandCenterResponse)
-@api.doc(responses=[401])
-@require_auth
-def get_command_center(user: User) -> dict[str, Any]:
-    """Get command center dashboard data.
-
-    Returns aggregated data for the agents command center:
-    - agents: All agents with unread counts and pending status
-    - pending_approvals: All pending approval requests
-    - recent_executions: Recent execution history
-    - total_unread: Total unread messages across all agents
-    - agents_waiting: Number of agents blocked on approval
-    """
-    logger.debug("Fetching command center data", extra={"user_id": user.id})
-
-    data = db.get_command_center_data(user.id)
-
-    # Convert to response format
-    agents_response = []
-    for agent_data in data["agents"]:
-        agents_response.append(
-            _agent_to_response(
-                agent_data["agent"],
-                agent_data["unread_count"],
-                agent_data["has_pending_approval"],
-                agent_data["has_error"],
-                agent_data["last_execution_status"],
-            )
-        )
-
-    approvals_response = []
-    for approval_data in data["pending_approvals"]:
-        approvals_response.append(
-            _approval_to_response(
-                approval_data["approval"],
-                approval_data["agent_name"],
-            )
-        )
-
-    executions_response = [_execution_to_response(e) for e in data["recent_executions"]]
-
-    # Observability: runs + cost over the trailing week, per agent and total
-    raw_stats = db.get_agent_observability_stats(user.id, days=7)
-    per_agent = []
-    total_runs = total_completed = total_failed = 0
-    total_cost_usd = 0.0
-    for agent_id, stats in raw_stats["per_agent"].items():
-        cost_display = format_cost(
-            convert_currency(stats["cost_usd"], Config.COST_CURRENCY), Config.COST_CURRENCY
-        )
-        per_agent.append({"agent_id": agent_id, "cost_display": cost_display, **stats})
-        total_runs += stats["runs"]
-        total_completed += stats["completed"]
-        total_failed += stats["failed"]
-        total_cost_usd += stats["cost_usd"]
-
-    stats_block = {
-        "days": raw_stats["days"],
-        "total_runs": total_runs,
-        "total_completed": total_completed,
-        "total_failed": total_failed,
-        "total_cost_usd": total_cost_usd,
-        "total_cost_display": format_cost(
-            convert_currency(total_cost_usd, Config.COST_CURRENCY), Config.COST_CURRENCY
-        ),
-        "per_agent": per_agent,
-    }
-
-    return {
-        "agents": agents_response,
-        "pending_approvals": approvals_response,
-        "recent_executions": executions_response,
-        "total_unread": data["total_unread"],
-        "agents_waiting": data["agents_waiting"],
-        "agents_with_errors": data["agents_with_errors"],
-        "stats": stats_block,
-    }
-
-
-# ============================================================================
-# Approval Routes
-# ============================================================================
-
-
-@api.route("/agents/approvals", methods=["GET"])
-@api.output(PendingApprovalsResponse)
-@api.doc(responses=[401])
-@require_auth
-def list_pending_approvals(user: User) -> dict[str, Any]:
-    """Get all pending approval requests.
-
-    Returns pending approvals with agent names for display.
-    """
-    approvals = db.get_pending_approvals(user.id)
-
-    approvals_response = []
-    for approval in approvals:
-        agent = db.get_agent(approval.agent_id, user.id)
-        agent_name = agent.name if agent else "Unknown Agent"
-        approvals_response.append(_approval_to_response(approval, agent_name))
-
-    return {"pending_approvals": approvals_response}
-
-
-@api.route("/approvals/<approval_id>/approve", methods=["POST"])
-@api.output(StatusResponse)
-@api.doc(responses=[401, 404])
-@rate_limit_conversations
-@require_auth
-def approve_request(user: User, approval_id: str) -> dict[str, Any]:
-    """Approve a pending approval request.
-
-    Marks the request as approved and resumes the agent execution.
-    The agent will continue with a message indicating the action was approved.
-    """
-    logger.info(
-        "Approving request",
-        extra={"user_id": user.id, "approval_id": approval_id},
-    )
-
-    # First, get the approval request details before resolving
-    approval = db.get_approval_request(approval_id, user.id)
-    if not approval:
-        raise_not_found_error("Approval request")
-
-    # Get the agent
-    agent = db.get_agent(approval.agent_id, user.id)
-    if not agent:
-        raise_not_found_error("Agent")
-
-    # Resolve the approval
-    resolved = db.resolve_approval(approval_id, user.id, approved=True)
-    if not resolved:
-        raise_not_found_error("Approval request")
-
-    # Resume agent execution with a message about the approved action
-    # Create a new execution record for the resumed run
-    execution = db.create_execution(
-        agent_id=agent.id,
-        trigger_type="manual",  # Resuming after approval
-    )
-
-    # Execute the agent with a message indicating the approved action
-    from src.agent.executor import execute_agent
-
-    resume_message = f"[Action approved: {approval.description}]"
-
-    # Add the approval confirmation to the conversation first
-    if agent.conversation_id:
-        db.add_message(
-            agent.conversation_id,
-            MessageRole.USER,
-            resume_message,
-        )
-
-    result, error_msg = execute_agent(agent, user, "manual", execution.id)
-
-    if result is True:
-        db.update_execution(execution.id, status="completed")
-    elif result == "waiting_approval":
-        # Agent needs another approval (shouldn't happen in normal flow)
-        pass
-    else:
-        db.update_execution(execution.id, status="failed", error_message=error_msg)
-
-    logger.info(
-        "Approval processed and agent resumed",
-        extra={
-            "approval_id": approval_id,
-            "agent_id": agent.id,
-            "result": str(result),
-        },
-    )
-
-    return {"status": "approved"}
-
-
-@api.route("/approvals/<approval_id>/reject", methods=["POST"])
-@api.output(StatusResponse)
-@api.doc(responses=[401, 404])
-@rate_limit_conversations
-@require_auth
-def reject_request(user: User, approval_id: str) -> dict[str, Any]:
-    """Reject a pending approval request.
-
-    Marks the request as rejected. The agent will not perform
-    the requested action. Adds a rejection message to the conversation.
-    """
-    logger.info(
-        "Rejecting request",
-        extra={"user_id": user.id, "approval_id": approval_id},
-    )
-
-    # Get the approval details before resolving
-    approval = db.get_approval_request(approval_id, user.id)
-    if not approval:
-        raise_not_found_error("Approval request")
-
-    # Get the agent to find the conversation
-    agent = db.get_agent(approval.agent_id, user.id)
-
-    # Resolve the approval
-    resolved = db.resolve_approval(approval_id, user.id, approved=False)
-    if not resolved:
-        raise_not_found_error("Approval request")
-
-    # Add rejection message to the conversation
-    if agent and agent.conversation_id:
-        rejection_message = f"[Action rejected: {approval.description}]"
-        db.add_message(
-            agent.conversation_id,
-            MessageRole.USER,
-            rejection_message,
-        )
-
-    # Update any waiting_approval execution to failed
-    executions = db.get_agent_executions(approval.agent_id, limit=1)
-    if executions and executions[0].status == "waiting_approval":
-        db.update_execution(
-            executions[0].id,
-            status="failed",
-            error_message="Action rejected by user",
-        )
-
-    return {"status": "rejected"}
-
-
-# ============================================================================
-# AI Assist Routes
-# ============================================================================
-
-
-_PROMPT_TOOL_DESCRIPTIONS: dict[str, str] = {
-    "web_search": "Search the open web for current information, news, stats, and references.",
-    "fetch_url": "Download the raw content of a specific URL (articles, docs, JSON) for analysis.",
-    "retrieve_file": "Read files that the user previously uploaded in this conversation.",
-    "generate_image": "Create or edit images through Gemini based on detailed prompts or references.",
-    "execute_code": "Run short Python code in an isolated sandbox for data wrangling or calculations.",
-    "request_approval": "Pause execution and ask the user for approval before sensitive work.",
-    "trigger_agent": "Trigger another autonomous agent and optionally pass along instructions.",
-    "todoist": "Create, update, and organize Todoist tasks, sections, and projects.",
-    "google_calendar": "Read or modify Google Calendar events, attendees, and reminders.",
-    "whatsapp": "Send WhatsApp notifications to the user with concise summaries and links.",
-    "kv_store": "Persist and retrieve key-value data across conversations and executions.",
-}
-
-_PROMPT_BASE_TOOL_ORDER = [
-    "web_search",
-    "fetch_url",
-    "retrieve_file",
-    "generate_image",
-    "execute_code",
-    "request_approval",
-    "trigger_agent",
-]
-
-
-def _is_todoist_connected_for_user(user: User) -> bool:
-    """Return True if Todoist is configured at app level AND connected for this user."""
-    return bool(is_todoist_available() and user.todoist_access_token)
-
-
-def _is_calendar_connected_for_user(user: User) -> bool:
-    """Return True if Google Calendar is configured at app level AND connected for this user."""
-    return bool(is_google_calendar_available() and user.google_calendar_access_token)
-
-
-def _is_whatsapp_enabled_for_user(user: User) -> bool:
-    """Return True if WhatsApp is configured at app level AND user has set their phone."""
-    return bool(is_whatsapp_available() and user.whatsapp_phone)
-
-
-def _resolve_requested_tools(user: User, tool_permissions: list[str] | None) -> list[str]:
-    """Resolve optional tools based on explicit permissions or available integrations.
-
-    When tool_permissions is None, auto-detect based on user's actual connections.
-    When tool_permissions is provided, return them (filtering will happen in maybe_add).
-    """
-    if tool_permissions is None:
-        # Auto-detect based on user's actual connections (not just app config)
-        tools: list[str] = []
-        if _is_todoist_connected_for_user(user):
-            tools.append("todoist")
-        if _is_calendar_connected_for_user(user):
-            tools.append("google_calendar")
-        if _is_whatsapp_enabled_for_user(user):
-            tools.append("whatsapp")
-        return tools
-
-    # Filter duplicates while preserving order
-    seen: set[str] = set()
-    filtered: list[str] = []
-    for tool in tool_permissions:
-        if tool not in seen:
-            filtered.append(tool)
-            seen.add(tool)
-    return filtered
-
-
-def _format_tool_prompt_section(user: User, tool_permissions: list[str] | None) -> str:
-    """Build a bullet list describing the tools available to the agent.
-
-    Only includes tools that are:
-    1. Available at app level (config/env vars set)
-    2. Connected for this specific user (for integration tools)
-    """
-    added: set[str] = set()
-    lines: list[str] = []
-
-    def maybe_add(tool_name: str) -> None:
-        if tool_name in added:
-            return
-        description = _PROMPT_TOOL_DESCRIPTIONS.get(tool_name)
-        if not description:
-            return
-
-        # Respect runtime availability (app-level config)
-        if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
-            return
-        if tool_name == "generate_image" and not Config.GEMINI_API_KEY:
-            return
-
-        # Check user-level connections for integration tools
-        if tool_name == "todoist" and not _is_todoist_connected_for_user(user):
-            return
-        if tool_name == "google_calendar" and not _is_calendar_connected_for_user(user):
-            return
-        if tool_name == "whatsapp" and not _is_whatsapp_enabled_for_user(user):
-            return
-
-        lines.append(f"- {tool_name}: {description}")
-        added.add(tool_name)
-
-    for base_tool in _PROMPT_BASE_TOOL_ORDER:
-        maybe_add(base_tool)
-
-    for tool in _resolve_requested_tools(user, tool_permissions):
-        maybe_add(tool)
-
-    # Include any additional tools from the request that are not in the preferred order
-    if tool_permissions:
-        for tool in tool_permissions:
-            maybe_add(tool)
-
-    return "\n".join(lines)
-
-
-@api.route("/ai-assist/parse-schedule", methods=["POST"])
-@api.input(ParseScheduleRequest)
-@api.output(ParseScheduleResponse)
-@api.doc(responses=[400, 401])
-@rate_limit_conversations
-@require_auth
-def parse_schedule(user: User, json_data: ParseScheduleRequest) -> dict[str, Any]:
-    """Parse natural language schedule description into cron expression.
-
-    Uses an LLM to convert user-friendly schedule descriptions
-    (e.g., "every weekday at 9am") into standard cron expressions.
-    """
-    import json
-    import re
-
-    from langchain_core.messages import HumanMessage
-    from langchain_google_genai import ChatGoogleGenerativeAI
-
-    logger.info(
-        "Parsing schedule",
-        extra={"user_id": user.id, "input": json_data.natural_language[:100]},
-    )
-
-    try:
-        # Use direct LLM call without system prompt overhead
-        # This is a simple task that doesn't need tools or memory
-        model = ChatGoogleGenerativeAI(
-            model=Config.DEFAULT_MODEL,
-            google_api_key=Config.GEMINI_API_KEY,
-            temperature=0.1,  # Low temperature for consistent parsing
-        )
-
-        prompt = f"""Convert this natural language schedule description to a cron expression.
-
-Schedule: "{json_data.natural_language}"
-Timezone context: {json_data.timezone}
-
-Respond with ONLY a JSON object in this exact format:
-{{"cron": "<5-part cron expression>", "explanation": "<human readable description>"}}
-
-For example:
-- "every day at 9am" -> {{"cron": "0 9 * * *", "explanation": "Every day at 9:00 AM"}}
-- "weekdays at 8:30am" -> {{"cron": "30 8 * * 1-5", "explanation": "Monday through Friday at 8:30 AM"}}
-- "first monday of month at noon" -> {{"cron": "0 12 1-7 * 1", "explanation": "First Monday of each month at 12:00 PM"}}
-
-Use standard 5-part cron format: minute hour day-of-month month day-of-week"""
-
-        response = model.invoke([HumanMessage(content=prompt)])
-        response_text = extract_text_content(response.content)
-
-        # Extract JSON from response (handle potential markdown code blocks)
-        json_match = re.search(r"\{[^{}]*\}", response_text)
-        if json_match:
-            result = json.loads(json_match.group())
-            cron = result.get("cron")
-            explanation = result.get("explanation")
-
-            # Validate the cron expression
-            if cron:
-                from croniter import croniter
-
-                try:
-                    croniter(cron)
-                    return {"cron": cron, "explanation": explanation, "error": None}
-                except Exception:
-                    return {
-                        "cron": None,
-                        "explanation": None,
-                        "error": "Generated invalid cron expression",
-                    }
-
-        return {"cron": None, "explanation": None, "error": "Could not parse schedule"}
-
-    except Exception as e:
-        logger.warning(f"Schedule parsing failed: {e}", exc_info=True)
-        return {"cron": None, "explanation": None, "error": str(e)}
-
-
-@api.route("/ai-assist/enhance-prompt", methods=["POST"])
-@api.input(EnhancePromptRequest)
-@api.output(EnhancePromptResponse)
-@api.doc(responses=[400, 401])
-@rate_limit_conversations
-@require_auth
-def enhance_prompt(user: User, json_data: EnhancePromptRequest) -> dict[str, Any]:
-    """Enhance an agent's system prompt using AI.
-
-    Takes the current prompt and agent context, then suggests
-    improvements for clarity, completeness, and effectiveness.
-    """
-    from langchain_core.messages import HumanMessage
-    from langchain_google_genai import ChatGoogleGenerativeAI
-
-    logger.info(
-        "Enhancing prompt",
-        extra={"user_id": user.id, "agent_name": json_data.agent_name},
-    )
-
-    try:
-        import json
-
-        # Use direct LLM call without system prompt overhead
-        # This is a simple task that doesn't need tools or memory
-        model = ChatGoogleGenerativeAI(
-            model=Config.DEFAULT_MODEL,
-            google_api_key=Config.GEMINI_API_KEY,
-            temperature=0.7,  # Moderate temperature for creative improvement
-        )
-
-        tool_section = _format_tool_prompt_section(user, json_data.tool_permissions)
-        tool_section_text = (
-            f"\nTools available to this agent:\n{tool_section}\n\nInclude guidance on how the agent should use these tools when relevant.\n"
-            if tool_section
-            else ""
-        )
-
-        prompt = f"""Improve this autonomous agent's system prompt to be clearer and more effective.
-
-Agent name: {json_data.agent_name}
-
-Current prompt:
----
-{json_data.prompt}
----
-{tool_section_text}
-Provide an enhanced version that:
-1. Has clear, actionable goals
-2. Specifies any constraints or limitations
-3. Defines success criteria where appropriate
-4. Uses concise, direct language
-5. Reflects how the agent should leverage the tools listed above when applicable
-
-Respond with ONLY a JSON object in this exact format:
-{{"enhanced_prompt": "<the improved prompt text>", "error": null}}
-
-If the prompt cannot be improved (too vague, empty, or inappropriate), return:
-{{"enhanced_prompt": null, "error": "<explanation of the issue>"}}"""
-
-        response = model.invoke([HumanMessage(content=prompt)])
-        response_text = extract_text_content(response.content)
-
-        # Clean up response - remove markdown code blocks if present
-        text = response_text.strip()
-        if text.startswith("```"):
-            lines = text.split("\n")
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            text = "\n".join(lines).strip()
-
-        # Parse JSON response
-        try:
-            result = json.loads(text)
-            enhanced = result.get("enhanced_prompt")
-            error = result.get("error")
-
-            if error:
-                return {"enhanced_prompt": None, "error": error}
-            if enhanced:
-                return {"enhanced_prompt": enhanced, "error": None}
-        except json.JSONDecodeError:
-            # If JSON parsing fails, the response might be plain text
-            # Use it as the enhanced prompt
-            if text and not text.startswith("{"):
-                return {"enhanced_prompt": text, "error": None}
-
-        return {"enhanced_prompt": None, "error": "Could not enhance prompt"}
-
-    except Exception as e:
-        logger.warning(f"Prompt enhancement failed: {e}", exc_info=True)
-        return {"enhanced_prompt": None, "error": str(e)}
