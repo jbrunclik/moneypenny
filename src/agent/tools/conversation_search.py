@@ -76,7 +76,7 @@ def _format_results(
     for _message_id, conv_id, content, created_at, title in semantic_rows:
         try:
             date = datetime.fromisoformat(created_at).strftime("%Y-%m-%d")
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             date = "unknown date"
         where = (
             _CURRENT_CONVERSATION_LABEL

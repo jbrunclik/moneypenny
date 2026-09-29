@@ -117,7 +117,7 @@ def _coerce_id(val: Any) -> int | None:
     """Coerce a step_id/block_id (possibly a string) to int, else None."""
     try:
         return int(val) if val is not None else None
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 

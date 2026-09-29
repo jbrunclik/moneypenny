@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
-import type { Conversation, ConversationSummary, SyncResponse } from '@/types/api';
+import type { AgentStatsBlock, Conversation, ConversationSummary, SyncResponse } from '@/types/api';
 
 // Mock the API client
 vi.mock('@/api/client', () => ({
@@ -48,6 +48,16 @@ vi.mock('@/components/Toast', () => ({
 import { SyncManager, type SyncManagerCallbacks } from '@/sync/SyncManager';
 import { conversations as conversationsApi, planner as plannerApi } from '@/api/client';
 import { toast } from '@/components/Toast';
+
+const EMPTY_AGENT_STATS: AgentStatsBlock = {
+  days: 7,
+  total_runs: 0,
+  total_completed: 0,
+  total_failed: 0,
+  total_cost_usd: 0,
+  total_cost_display: '$0.00',
+  per_agent: [],
+};
 
 // Helper to reset store state
 function resetStore() {
@@ -1107,7 +1117,7 @@ describe('SyncManager', () => {
       await syncManager.start();
 
       // Verify initialLoadTime is set
-      const firstSyncTime = (syncManager as any).initialLoadTime;
+      const firstSyncTime = (syncManager as unknown as { initialLoadTime: string }).initialLoadTime;
       expect(firstSyncTime).toBe(serverTime1);
 
       // Second full sync (e.g., after tab hidden >5 minutes)
@@ -1120,7 +1130,7 @@ describe('SyncManager', () => {
       await syncManager.fullSync();
 
       // initialLoadTime should still be the original value
-      const secondSyncTime = (syncManager as any).initialLoadTime;
+      const secondSyncTime = (syncManager as unknown as { initialLoadTime: string }).initialLoadTime;
       expect(secondSyncTime).toBe(serverTime1); // Still the first sync time, not the second
     });
 
@@ -1165,7 +1175,7 @@ describe('SyncManager', () => {
       expect(oldConv).toBeUndefined();
 
       // But message count should be tracked for when it does get loaded via pagination
-      const trackedCount = (syncManager as any).localMessageCounts.get('old-conv');
+      const trackedCount = (syncManager as unknown as { localMessageCounts: Map<string, number> }).localMessageCounts.get('old-conv');
       expect(trackedCount).toBe(10);
     });
 
@@ -1434,6 +1444,8 @@ describe('Agent State Management', () => {
             unread_count: 5,
             has_pending_approval: false,
             has_error: false,
+            fresh_context: false,
+            daily_spending: 0,
           },
         ],
         pending_approvals: [],
@@ -1441,6 +1453,7 @@ describe('Agent State Management', () => {
         total_unread: 5,
         agents_waiting: 0,
         agents_with_errors: 0,
+        stats: EMPTY_AGENT_STATS,
       });
 
       // Verify data is set
@@ -1463,6 +1476,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 0,
+        stats: EMPTY_AGENT_STATS,
       });
 
       // Verify lastFetch is set
@@ -1494,6 +1508,8 @@ describe('Agent State Management', () => {
             unread_count: 3,
             has_pending_approval: true,
             has_error: false,
+            fresh_context: false,
+            daily_spending: 0,
           },
         ],
         pending_approvals: [
@@ -1503,6 +1519,7 @@ describe('Agent State Management', () => {
             agent_name: 'My Agent',
             description: 'Send email?',
             tool_name: 'send_email',
+            status: 'pending' as const,
             created_at: '2024-01-01T00:00:00Z',
           },
         ],
@@ -1510,6 +1527,7 @@ describe('Agent State Management', () => {
         total_unread: 3,
         agents_waiting: 1,
         agents_with_errors: 0,
+        stats: EMPTY_AGENT_STATS,
       };
 
       useStore.getState().setCommandCenterData(data);
@@ -1532,6 +1550,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 0,
+        stats: EMPTY_AGENT_STATS,
       });
 
       const after = Date.now();
@@ -1551,6 +1570,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 0,
+        stats: EMPTY_AGENT_STATS,
       });
 
       // Verify it's set
@@ -1574,6 +1594,7 @@ describe('Agent State Management', () => {
         total_unread: 10,
         agents_waiting: 0,
         agents_with_errors: 0,
+        stats: EMPTY_AGENT_STATS,
       });
 
       expect(useStore.getState().commandCenterData?.total_unread).toBe(10);
@@ -1587,6 +1608,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 2,
         agents_with_errors: 0,
+        stats: EMPTY_AGENT_STATS,
       });
 
       expect(useStore.getState().commandCenterData?.agents_waiting).toBe(2);
@@ -1600,6 +1622,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 1,
+        stats: EMPTY_AGENT_STATS,
       });
 
       expect(useStore.getState().commandCenterData?.agents_with_errors).toBe(1);

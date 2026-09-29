@@ -33,7 +33,7 @@ def _get_fernet() -> Fernet | None:
         return None
     try:
         return Fernet(key.encode())
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         logger.error(
             "TOKEN_ENCRYPTION_KEY is not a valid Fernet key - token "
             "encryption is DISABLED. Generate one with: make token-key"

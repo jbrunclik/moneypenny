@@ -489,8 +489,8 @@ describe('Store - Models', () => {
   describe('setModels', () => {
     it('sets models and default model', () => {
       const models: Model[] = [
-        { id: 'model-1', name: 'Model 1' },
-        { id: 'model-2', name: 'Model 2' },
+        { id: 'model-1', name: 'Model 1', short_name: 'M1' },
+        { id: 'model-2', name: 'Model 2', short_name: 'M2' },
       ];
       useStore.getState().setModels(models, 'model-2');
 
@@ -995,6 +995,8 @@ describe('Store - Planner', () => {
         overdue_tasks: [],
         todoist_connected: true,
         calendar_connected: false,
+        garmin_connected: false,
+        weather_connected: false,
         server_time: '2024-01-01T00:00:00Z',
       };
       useStore.getState().setPlannerDashboard(dashboard);
@@ -1008,6 +1010,8 @@ describe('Store - Planner', () => {
         overdue_tasks: [],
         todoist_connected: true,
         calendar_connected: false,
+        garmin_connected: false,
+        weather_connected: false,
         server_time: '2024-01-01T00:00:00Z',
       });
       useStore.getState().setPlannerDashboard(null);
@@ -1038,6 +1042,8 @@ describe('Store - Planner', () => {
         overdue_tasks: [],
         todoist_connected: true,
         calendar_connected: false,
+        garmin_connected: false,
+        weather_connected: false,
         server_time: '2024-01-01T00:00:00Z',
       };
       useStore.getState().setPlannerDashboard(dashboard);
@@ -1058,6 +1064,8 @@ describe('Store - Planner', () => {
         overdue_tasks: [],
         todoist_connected: true,
         calendar_connected: false,
+        garmin_connected: false,
+        weather_connected: false,
         server_time: '2024-01-01T00:00:00Z',
       });
       useStore.getState().setPlannerConversation({

@@ -1,6 +1,7 @@
 /**
  * E2E tests for conversation management
  */
+import { deflateSync } from 'zlib';
 import { test, expect } from '../global-setup';
 import { TEST_IMAGES } from '../fixtures/test-images';
 
@@ -79,22 +80,7 @@ function generatePngBuffer(width: number, height: number, color: string = 'red')
     }
   }
 
-  // Compress image data (simple zlib compression - for minimal PNG, we can use a basic approach)
-  // For simplicity, we'll use Node's zlib if available, otherwise create minimal compressed data
-  let compressedData: Buffer;
-  try {
-    const zlib = require('zlib');
-    compressedData = zlib.deflateSync(imageData);
-  } catch {
-    // Fallback: create minimal valid deflate stream
-    // This is a simplified approach - in practice you'd use proper compression
-    compressedData = Buffer.concat([
-      Buffer.from([0x78, 0x9c]), // zlib header
-      imageData,
-      // Adler-32 checksum (simplified)
-      writeUInt32BE(1), // placeholder
-    ]);
-  }
+  const compressedData = deflateSync(imageData);
 
   const idatChunk = createChunk('IDAT', compressedData);
   const iendChunk = createChunk('IEND', Buffer.alloc(0));
@@ -102,13 +88,6 @@ function generatePngBuffer(width: number, height: number, color: string = 'red')
   return Buffer.concat([pngSignature, ihdrChunk, idatChunk, iendChunk]);
 }
 
-/**
- * Generate a larger PNG image buffer (400x400) for realistic testing.
- * This creates an image that will actually require scrolling.
- */
-function generateLargePngBuffer(): Buffer {
-  return generatePngBuffer(400, 400, 'red');
-}
 
 test.describe('Conversations', () => {
   test.beforeEach(async ({ page }) => {
@@ -274,14 +253,12 @@ test.describe('Conversations', () => {
     await expect(page.locator('.conversation-item-wrapper')).toHaveCount(2);
 
     // Intercept the API call for loading the first conversation to add delay
-    let apiCallPending = false;
     let resolveApiCall: () => void;
     const apiCallPromise = new Promise<void>((resolve) => {
       resolveApiCall = resolve;
     });
 
     await page.route(`**/api/conversations/${convId}`, async (route) => {
-      apiCallPending = true;
       // Wait until the test allows the response to complete
       await apiCallPromise;
       // Continue with the real response

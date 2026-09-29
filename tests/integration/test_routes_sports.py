@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from src.db.models import Database, User
 
 
-def _setup_program(test_database: "Database", user_id: str, program_id: str = "pushups") -> None:
+def _setup_program(test_database: Database, user_id: str, program_id: str = "pushups") -> None:
     """Helper to set up a program in KV store."""
     programs = [
         {
@@ -53,8 +53,8 @@ class TestListPrograms:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should return programs and indicate which have conversations."""
         _setup_program(test_database, test_user.id)
@@ -72,8 +72,8 @@ class TestListPrograms:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should show has_conversation=False for programs without conversations."""
         _setup_program(test_database, test_user.id)
@@ -100,8 +100,8 @@ class TestCreateProgram:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should create a new program."""
         response = client.post(
@@ -122,8 +122,8 @@ class TestCreateProgram:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should create unique slugs for duplicate names."""
         client.post(
@@ -166,8 +166,8 @@ class TestDeleteProgram:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should delete program, conversation, and KV data."""
         _setup_program(test_database, test_user.id)
@@ -220,8 +220,8 @@ class TestGetSportsConversation:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should create conversation if it doesn't exist."""
         _setup_program(test_database, test_user.id)
@@ -237,8 +237,8 @@ class TestGetSportsConversation:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should return existing conversation with messages."""
         _setup_program(test_database, test_user.id)
@@ -277,8 +277,8 @@ class TestResetSportsConversation:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_database: "Database",
-        test_user: "User",
+        test_database: Database,
+        test_user: User,
     ) -> None:
         """Should clear messages and return success."""
         _setup_program(test_database, test_user.id)

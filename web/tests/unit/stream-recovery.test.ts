@@ -97,7 +97,6 @@ import {
   addMessageToUI,
 } from '@/components/messages';
 import { getElementById, scrollToBottom } from '@/utils/dom';
-import { getSyncManager } from '@/sync/SyncManager';
 import { hideNewMessagesAvailableBanner } from '@/core/sync-banner';
 
 // Helper to reset store state
@@ -153,7 +152,6 @@ function createMessage(id: string, content: string): Message {
 
 describe('stream-recovery', () => {
   const mockGetMessage = conversationsApi.getMessage as ReturnType<typeof vi.fn>;
-  const mockGetConversation = conversationsApi.get as ReturnType<typeof vi.fn>;
   const mockToastLoading = toast.loading as ReturnType<typeof vi.fn>;
   const mockToastSuccess = toast.success as ReturnType<typeof vi.fn>;
   const mockToastWarning = toast.warning as ReturnType<typeof vi.fn>;

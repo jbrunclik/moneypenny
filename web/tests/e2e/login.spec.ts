@@ -80,7 +80,6 @@ test.describe('Login Screen', () => {
     // Try to click on an element that would be behind the overlay
     // The overlay should capture the click instead
     const overlay = page.locator('#login-overlay');
-    const newChatBtn = page.locator('#new-chat-btn');
 
     // Verify overlay is on top
     const overlayZIndex = await overlay.evaluate((el) => {

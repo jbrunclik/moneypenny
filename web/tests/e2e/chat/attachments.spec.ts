@@ -369,7 +369,7 @@ test.describe('Chat - Narrow Viewport Toolbar', () => {
 });
 
 test.describe('Chat - Video Upload', () => {
-  const attachVideo = async (page: import('../../global-setup').Page) => {
+  const attachVideo = async (page: import('@playwright/test').Page) => {
     const { readFileSync } = await import('fs');
     const mp4Buffer = readFileSync('../tests/fixtures/tiny.mp4');
     const fileChooserPromise = page.waitForEvent('filechooser');

@@ -44,7 +44,7 @@ def cookies_to_jar(session_json: str) -> dict[str, str]:
     """Convert a stored cookie blob into an httpx-compatible name->value map."""
     try:
         cookies = json.loads(session_json)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return {}
     if not isinstance(cookies, list):
         return {}
@@ -61,7 +61,7 @@ def merge_cookie_values(session_json: str, updates: Mapping[str, str]) -> str:
     """
     try:
         cookies = json.loads(session_json)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         cookies = []
     if not isinstance(cookies, list):
         cookies = []

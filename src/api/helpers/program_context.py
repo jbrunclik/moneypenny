@@ -33,7 +33,7 @@ def load_sports_context(user_id: str, program_id: str) -> dict[str, Any] | None:
         return None
     try:
         programs = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return None
 
     program = next((p for p in programs if p.get("id") == program_id), None)
@@ -69,7 +69,7 @@ def load_language_context(user_id: str, program_id: str) -> dict[str, Any] | Non
         return None
     try:
         programs = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return None
 
     program = next((p for p in programs if p.get("id") == program_id), None)

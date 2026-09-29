@@ -45,7 +45,7 @@ def _get_saved_place(name: str) -> dict[str, Any] | None:
         return None
     try:
         data = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return None
     if isinstance(data, dict) and "lon" in data and "lat" in data:
         return data
@@ -206,7 +206,7 @@ def list_places() -> str:
             lines.append(
                 f"- {key}: {data.get('address', '')} ({data.get('lon')}, {data.get('lat')})"
             )
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             lines.append(f"- {key}: (unreadable entry - re-save it to fix)")
     return "\n".join(lines)
 

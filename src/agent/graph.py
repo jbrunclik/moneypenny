@@ -310,7 +310,7 @@ def _tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
     if isinstance(msg.content, str):
         try:
             data = json.loads(msg.content)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return None
         if isinstance(data, dict) and data.get("error"):
             return str(data["error"])[:200], bool(data.get("retriable", True))
@@ -814,7 +814,7 @@ def create_chat_graph(
 # request id rides a contextvar, not the graph), so it is safe to compile once
 # per signature and share across requests and threads.
 
-_compiled_graph_cache: "OrderedDict[tuple[Any, ...], Any]" = OrderedDict()
+_compiled_graph_cache: OrderedDict[tuple[Any, ...], Any] = OrderedDict()
 _compiled_graph_lock = threading.Lock()
 
 

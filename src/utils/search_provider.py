@@ -161,12 +161,12 @@ def _breaker_state(provider: str) -> tuple[int, float]:
         return 0, 0.0
     try:
         fails = int(raw)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return 0, 0.0
     last_raw = db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_last_key(provider))
     try:
         last = float(last_raw) if last_raw else 0.0
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         last = 0.0
     return fails, last
 

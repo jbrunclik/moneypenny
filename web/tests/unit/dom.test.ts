@@ -471,7 +471,7 @@ describe('scrollToBottom (smooth) yields to an external scroll', () => {
   });
 
   function scroller(): HTMLElement & { setScrollHeight(h: number): void } {
-    const el = document.createElement('div') as HTMLElement & { setScrollHeight(h: number): void };
+    const el = document.createElement('div') as unknown as HTMLElement & { setScrollHeight(h: number): void };
     let height = 2000;
     Object.defineProperty(el, 'scrollHeight', { get: () => height, configurable: true });
     el.setScrollHeight = (h: number) => {

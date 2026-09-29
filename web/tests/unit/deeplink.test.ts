@@ -70,15 +70,15 @@ describe('getConversationIdFromHash', () => {
 
   beforeEach(() => {
     // Reset location mock
-    delete (window as Record<string, unknown>).location;
-    (window as Record<string, unknown>).location = {
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = {
       ...originalLocation,
       hash: '',
     };
   });
 
   afterEach(() => {
-    (window as Record<string, unknown>).location = originalLocation;
+    (window as unknown as Record<string, unknown>).location = originalLocation;
   });
 
   it('returns conversation ID from hash', () => {
@@ -109,8 +109,8 @@ describe('setConversationHash', () => {
 
   beforeEach(() => {
     // Reset location mock
-    delete (window as Record<string, unknown>).location;
-    (window as Record<string, unknown>).location = {
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = {
       ...originalLocation,
       hash: '',
       pathname: '/',
@@ -120,7 +120,7 @@ describe('setConversationHash', () => {
   });
 
   afterEach(() => {
-    (window as Record<string, unknown>).location = originalLocation;
+    (window as unknown as Record<string, unknown>).location = originalLocation;
     pushStateSpy.mockRestore();
     replaceStateSpy.mockRestore();
   });
@@ -161,8 +161,8 @@ describe('clearConversationHash', () => {
   const originalLocation = window.location;
 
   beforeEach(() => {
-    delete (window as Record<string, unknown>).location;
-    (window as Record<string, unknown>).location = {
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = {
       ...originalLocation,
       hash: '#/conversations/conv-123',
       pathname: '/',
@@ -171,7 +171,7 @@ describe('clearConversationHash', () => {
   });
 
   afterEach(() => {
-    (window as Record<string, unknown>).location = originalLocation;
+    (window as unknown as Record<string, unknown>).location = originalLocation;
     replaceStateSpy.mockRestore();
   });
 
@@ -186,8 +186,8 @@ describe('setPlannerHash', () => {
   let pushStateSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    delete (window as Record<string, unknown>).location;
-    (window as Record<string, unknown>).location = {
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = {
       ...originalLocation,
       hash: '',
       pathname: '/',
@@ -196,7 +196,7 @@ describe('setPlannerHash', () => {
   });
 
   afterEach(() => {
-    (window as Record<string, unknown>).location = originalLocation;
+    (window as unknown as Record<string, unknown>).location = originalLocation;
     pushStateSpy.mockRestore();
   });
 
@@ -218,8 +218,8 @@ describe('initDeepLinking and cleanupDeepLinking', () => {
   let removeEventListenerSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    delete (window as Record<string, unknown>).location;
-    (window as Record<string, unknown>).location = {
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = {
       ...originalLocation,
       hash: '',
     };
@@ -229,7 +229,7 @@ describe('initDeepLinking and cleanupDeepLinking', () => {
 
   afterEach(() => {
     cleanupDeepLinking();
-    (window as Record<string, unknown>).location = originalLocation;
+    (window as unknown as Record<string, unknown>).location = originalLocation;
     addEventListenerSpy.mockRestore();
     removeEventListenerSpy.mockRestore();
   });
@@ -299,8 +299,8 @@ describe('hashchange event handling', () => {
   const originalLocation = window.location;
 
   beforeEach(() => {
-    delete (window as Record<string, unknown>).location;
-    (window as Record<string, unknown>).location = {
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = {
       ...originalLocation,
       hash: '',
     };
@@ -308,7 +308,7 @@ describe('hashchange event handling', () => {
 
   afterEach(() => {
     cleanupDeepLinking();
-    (window as Record<string, unknown>).location = originalLocation;
+    (window as unknown as Record<string, unknown>).location = originalLocation;
   });
 
   it('calls callback with conversation ID on hashchange', async () => {

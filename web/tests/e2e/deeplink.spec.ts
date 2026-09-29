@@ -329,11 +329,9 @@ test.describe('Deep Linking - Edge Cases', () => {
     await page.goto('/#');
     await page.waitForSelector('#new-chat-btn');
 
-    // Should show home view
-    const welcomeMessage = page.locator('.welcome-message');
-    // Welcome message shows if no conversation is selected
-    // But we might have conversations from previous tests in the sidebar
-    // so just check we don't have an error
+    // Should show home view. The welcome message only shows when no
+    // conversation is selected, and earlier tests may have left some in the
+    // sidebar, so just check there is no error.
     const toasts = page.locator('.toast-error');
     await expect(toasts).toHaveCount(0);
   });

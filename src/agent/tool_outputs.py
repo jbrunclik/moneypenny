@@ -64,7 +64,7 @@ def _compact_result(content: Any) -> str:
         return "[non-text result]"
     try:
         data = json.loads(content)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return " ".join(content.split())
     if isinstance(data, dict):
         data = {k: v for k, v in data.items() if k not in _INTERNAL_KEYS}

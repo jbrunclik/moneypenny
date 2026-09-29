@@ -74,7 +74,7 @@ def _get_valid_calendar_access_token(user: User) -> str | None:
 
     try:
         return get_valid_access_token(user.id)
-    except (GoogleCalendarTokenRevoked, GoogleCalendarTransientError):
+    except GoogleCalendarTokenRevoked, GoogleCalendarTransientError:
         raise
     except GoogleCalendarAuthError as e:
         logger.error(

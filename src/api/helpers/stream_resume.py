@@ -55,7 +55,7 @@ class _StreamJournal:
         event["seq"] = self._seq
         try:
             serialized = json.dumps(event)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             serialized = json.dumps({"type": event.get("type", "unknown"), "seq": self._seq})
         self._buffer.append((self._seq, serialized))
         if (

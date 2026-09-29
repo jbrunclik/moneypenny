@@ -207,7 +207,7 @@ def list_backups(db_path: Path) -> list[tuple[Path, int, datetime]]:
             backup_time = datetime.strptime(timestamp_str, "%Y%m%d-%H%M%S").replace(tzinfo=UTC)
             size = backup_file.stat().st_size
             backups.append((backup_file, size, backup_time))
-        except (ValueError, OSError):
+        except ValueError, OSError:
             continue
 
     # Sort by timestamp, newest first

@@ -1,7 +1,8 @@
 /**
  * Shared fixtures and utilities for chat E2E tests
  */
-import { test as base, expect, Page } from '../../global-setup';
+import type { Page } from '@playwright/test';
+import { expect } from '../../global-setup';
 import { Buffer } from 'buffer';
 
 /**

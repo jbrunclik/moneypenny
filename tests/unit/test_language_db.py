@@ -18,14 +18,14 @@ class TestGetLanguageConversation:
     """Tests for get_language_conversation."""
 
     def test_returns_none_when_no_conversation(
-        self, test_database: "Database", test_user: "User"
+        self, test_database: Database, test_user: User
     ) -> None:
         """Should return None if no language conversation exists."""
         result = test_database.get_program_conversation("language", test_user.id, "spanish")
         assert result is None
 
     def test_returns_conversation_when_exists(
-        self, test_database: "Database", test_user: "User"
+        self, test_database: Database, test_user: User
     ) -> None:
         """Should return the conversation when it exists."""
         test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
@@ -35,7 +35,7 @@ class TestGetLanguageConversation:
         assert result.language_program == "spanish"
 
     def test_different_programs_are_independent(
-        self, test_database: "Database", test_user: "User"
+        self, test_database: Database, test_user: User
     ) -> None:
         """Different programs should have separate conversations."""
         test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
@@ -46,7 +46,7 @@ class TestGetLanguageConversation:
 class TestGetOrCreateLanguageConversation:
     """Tests for get_or_create_language_conversation."""
 
-    def test_creates_new_conversation(self, test_database: "Database", test_user: "User") -> None:
+    def test_creates_new_conversation(self, test_database: Database, test_user: User) -> None:
         """Should create a new conversation for a program."""
         conv = test_database.get_or_create_program_conversation("language", test_user.id, "french")
         assert conv.is_language is True
@@ -54,15 +54,13 @@ class TestGetOrCreateLanguageConversation:
         assert conv.user_id == test_user.id
         assert "french" in conv.title.lower()
 
-    def test_returns_existing_conversation(
-        self, test_database: "Database", test_user: "User"
-    ) -> None:
+    def test_returns_existing_conversation(self, test_database: Database, test_user: User) -> None:
         """Should return existing conversation on second call."""
         conv1 = test_database.get_or_create_program_conversation("language", test_user.id, "german")
         conv2 = test_database.get_or_create_program_conversation("language", test_user.id, "german")
         assert conv1.id == conv2.id
 
-    def test_uses_default_model(self, test_database: "Database", test_user: "User") -> None:
+    def test_uses_default_model(self, test_database: Database, test_user: User) -> None:
         """Should use default model when none specified."""
         from src.config import Config
 
@@ -71,14 +69,14 @@ class TestGetOrCreateLanguageConversation:
         )
         assert conv.model == Config.DEFAULT_MODEL
 
-    def test_uses_specified_model(self, test_database: "Database", test_user: "User") -> None:
+    def test_uses_specified_model(self, test_database: Database, test_user: User) -> None:
         """Should use specified model when provided."""
         conv = test_database.get_or_create_program_conversation(
             "language", test_user.id, "korean", model="custom-model"
         )
         assert conv.model == "custom-model"
 
-    def test_user_isolation(self, test_database: "Database", test_user: "User") -> None:
+    def test_user_isolation(self, test_database: Database, test_user: User) -> None:
         """Different users should have independent conversations."""
         user2 = test_database.get_or_create_user(
             email="other@example.com", name="Other", picture=""
@@ -94,13 +92,13 @@ class TestResetLanguageConversation:
     """Tests for reset_language_conversation."""
 
     def test_returns_none_when_no_conversation(
-        self, test_database: "Database", test_user: "User"
+        self, test_database: Database, test_user: User
     ) -> None:
         """Should return None if conversation doesn't exist."""
         result = test_database.reset_program_conversation("language", test_user.id, "nonexistent")
         assert result is None
 
-    def test_deletes_messages(self, test_database: "Database", test_user: "User") -> None:
+    def test_deletes_messages(self, test_database: Database, test_user: User) -> None:
         """Should delete all messages but keep the conversation."""
         conv = test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
         test_database.add_message(
@@ -132,12 +130,12 @@ class TestResetLanguageConversation:
 class TestListLanguageConversations:
     """Tests for list_language_conversations."""
 
-    def test_empty_list(self, test_database: "Database", test_user: "User") -> None:
+    def test_empty_list(self, test_database: Database, test_user: User) -> None:
         """Should return empty list when no conversations exist."""
         result = test_database.list_program_conversations("language", test_user.id)
         assert result == []
 
-    def test_lists_all_programs(self, test_database: "Database", test_user: "User") -> None:
+    def test_lists_all_programs(self, test_database: Database, test_user: User) -> None:
         """Should list all language conversations for the user."""
         test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
         test_database.get_or_create_program_conversation("language", test_user.id, "french")
@@ -147,7 +145,7 @@ class TestListLanguageConversations:
         programs = {c.language_program for c in result}
         assert programs == {"spanish", "french"}
 
-    def test_excludes_other_users(self, test_database: "Database", test_user: "User") -> None:
+    def test_excludes_other_users(self, test_database: Database, test_user: User) -> None:
         """Should only return conversations for the specified user."""
         user2 = test_database.get_or_create_user(
             email="other@example.com", name="Other", picture=""
@@ -163,15 +161,13 @@ class TestListLanguageConversations:
 class TestDeleteLanguageConversation:
     """Tests for delete_language_conversation."""
 
-    def test_returns_false_when_not_found(
-        self, test_database: "Database", test_user: "User"
-    ) -> None:
+    def test_returns_false_when_not_found(self, test_database: Database, test_user: User) -> None:
         """Should return False if conversation doesn't exist."""
         result = test_database.delete_program_conversation("language", test_user.id, "nonexistent")
         assert result is False
 
     def test_deletes_conversation_and_messages(
-        self, test_database: "Database", test_user: "User"
+        self, test_database: Database, test_user: User
     ) -> None:
         """Should delete the conversation and all its messages."""
         conv = test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
@@ -192,9 +188,7 @@ class TestDeleteLanguageConversation:
         messages = test_database.get_messages(conv.id)
         assert len(messages) == 0
 
-    def test_does_not_affect_other_programs(
-        self, test_database: "Database", test_user: "User"
-    ) -> None:
+    def test_does_not_affect_other_programs(self, test_database: Database, test_user: User) -> None:
         """Deleting one program should not affect others."""
         test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
         test_database.get_or_create_program_conversation("language", test_user.id, "french")

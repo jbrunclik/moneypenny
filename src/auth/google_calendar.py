@@ -169,7 +169,7 @@ def compute_token_expiry(expires_in: Any) -> datetime:
     """Convert Google's expires_in to an absolute expiry, refreshing early."""
     try:
         seconds = int(expires_in)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         seconds = 3600
     # Subtract one minute to refresh proactively
     seconds = max(60, seconds - 60)

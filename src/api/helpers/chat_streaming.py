@@ -829,7 +829,7 @@ def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
             "expected_assistant_message_id": context.expected_assistant_msg_id,
         }
         yield f"data: {json.dumps(event_data)}\n\n"
-    except (BrokenPipeError, ConnectionError, OSError):
+    except BrokenPipeError, ConnectionError, OSError:
         pass
 
 
@@ -917,7 +917,7 @@ def _handle_queue_error(context: _StreamContext, error: Exception) -> Generator[
     error_data = _build_error_data(error)
     try:
         yield f"data: {json.dumps(error_data)}\n\n"
-    except (BrokenPipeError, ConnectionError, OSError):
+    except BrokenPipeError, ConnectionError, OSError:
         pass
 
 
@@ -1022,7 +1022,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                 )
                 try:
                     yield f"data: {json.dumps(done_data)}\n\n"
-                except (BrokenPipeError, ConnectionError, OSError):
+                except BrokenPipeError, ConnectionError, OSError:
                     pass
             return
 

@@ -83,7 +83,7 @@ def set_value(user: User, namespace: str, key: str, json_data: KVSetRequest) -> 
     # Validate that value is valid JSON
     try:
         json.loads(json_data.value)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         raise_validation_error("Value must be valid JSON")
 
     db.kv_set(user.id, namespace, key, json_data.value)

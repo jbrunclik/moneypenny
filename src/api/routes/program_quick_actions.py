@@ -82,7 +82,7 @@ def sanitize_quick_actions(raw: Any) -> list[dict[str, Any]]:
     for entry in raw:
         try:
             item = QuickActionItem.model_validate(entry)
-        except (ValidationError, TypeError):
+        except ValidationError, TypeError:
             logger.warning("Dropping malformed quick action", extra={"entry": repr(entry)[:200]})
             continue
         result.append(item.model_dump())

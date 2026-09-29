@@ -245,7 +245,9 @@ def fake_integrations(spec: dict[str, Any]) -> Iterator[dict[str, Any]]:
         if "todoist" in spec:
             todo = FakeTodoist(spec["todoist"] or {})
             fakes["todoist"] = todo
-            stack.enter_context(patch("src.agent.tools.todoist_client.get_todoist_token", lambda: "fake"))
+            stack.enter_context(
+                patch("src.agent.tools.todoist_client.get_todoist_token", lambda: "fake")
+            )
             stack.enter_context(
                 patch("src.agent.tools.todoist_client.todoist_api_request", todo.api_request)
             )

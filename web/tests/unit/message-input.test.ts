@@ -41,7 +41,7 @@ describe('isIOSPWA', () => {
 
   // Helper to mock navigator.standalone (iOS Safari property)
   function mockStandalone(value: boolean | undefined): void {
-    const nav = window.navigator as Record<string, unknown>;
+    const nav = window.navigator as unknown as Record<string, unknown>;
     if (value === undefined) {
       delete nav.standalone;
     } else {

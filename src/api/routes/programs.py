@@ -64,7 +64,7 @@ def _get_programs(user_id: str, namespace: str) -> list[dict[str, Any]]:
     try:
         result: list[dict[str, Any]] = json.loads(raw)
         return result
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return []
 
 

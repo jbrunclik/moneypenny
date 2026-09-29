@@ -124,7 +124,7 @@ def kv_store(
         # Validate JSON
         try:
             json.loads(value)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return "Error: Value must be valid JSON."
         # Check key count limit
         current_count = db.kv_count(user_id, namespace)
@@ -143,7 +143,7 @@ def kv_store(
             return f"Error: Value too large ({len(value)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
         try:
             patch = json.loads(value)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return "Error: Value must be valid JSON."
         if not isinstance(patch, dict):
             return "Error: 'merge' requires a JSON object. Use 'set' to replace a non-object value."
@@ -156,7 +156,7 @@ def kv_store(
         else:
             try:
                 decoded = json.loads(stored)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 return (
                     f"Error: Stored value for '{key}' is not valid JSON. Use 'set' to replace it."
                 )

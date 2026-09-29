@@ -50,7 +50,7 @@ def _get_cached_uri(message_id: str, file_index: int) -> str | None:
         entry = json.loads(raw)
         if utcnow_naive().isoformat() < entry["expires_at"]:
             return str(entry["uri"])
-    except (json.JSONDecodeError, KeyError, TypeError):
+    except json.JSONDecodeError, KeyError, TypeError:
         pass
     return None
 

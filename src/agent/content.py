@@ -153,7 +153,7 @@ def strip_full_result_from_tool_content(content: str) -> str:
             data_for_llm = {k: v for k, v in data.items() if k != "_full_result"}
             return json.dumps(data_for_llm)
         return content
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return content
 
 
@@ -220,7 +220,7 @@ def _json_object(content: Any) -> dict[str, Any] | None:
         return None
     try:
         data = json.loads(content)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return None
     return data if isinstance(data, dict) else None
 

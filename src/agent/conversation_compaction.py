@@ -169,7 +169,7 @@ def _load_state(user_id: str, conversation_id: str) -> _State:
         return _State()
     try:
         return _parse_state(json.loads(raw))
-    except (ValueError, TypeError, AttributeError, KeyError):
+    except ValueError, TypeError, AttributeError, KeyError:
         logger.warning(
             "Discarding malformed compaction state",
             extra={"conversation_id": conversation_id},

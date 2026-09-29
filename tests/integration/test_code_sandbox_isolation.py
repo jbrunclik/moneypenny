@@ -22,7 +22,7 @@ def _sandbox_runnable() -> bool:
             check=False,
         )
         return result.returncode == 0 and bool(result.stdout.strip())
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except FileNotFoundError, subprocess.TimeoutExpired:
         return False
 
 

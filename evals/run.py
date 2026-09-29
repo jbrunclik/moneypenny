@@ -182,7 +182,7 @@ def parse_judge_response(text: str) -> tuple[int, bool, str]:
             bool(data.get("pass", False)),
             str(data.get("reasoning", "")),
         )
-    except (json.JSONDecodeError, TypeError, ValueError):
+    except json.JSONDecodeError, TypeError, ValueError:
         return 0, False, f"judge reply unparseable: {text[:120]}"
 
 

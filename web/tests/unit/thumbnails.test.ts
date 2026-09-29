@@ -10,10 +10,7 @@ import {
   markProgrammaticScrollEnd,
   isProgrammaticScrollActive,
   programmaticScrollToBottom,
-  getThumbnailObserver,
 } from '@/utils/thumbnails';
-import { files } from '@/api/client';
-import { isScrolledToBottom } from '@/utils/dom';
 
 // Mock the files API
 vi.mock('@/api/client', () => ({

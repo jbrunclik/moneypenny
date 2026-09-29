@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from src.db.models import Database, User
 
 
-def _seed(test_database: "Database", user_id: str, program: dict) -> None:
+def _seed(test_database: Database, user_id: str, program: dict) -> None:
     test_database.kv_set(user_id, "sports", "programs", json.dumps([program]))
 
 
@@ -33,7 +33,7 @@ ACTION = {
 
 class TestListIncludesQuickActions:
     def test_legacy_program_gets_defaults(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         _seed(test_database, test_user.id, LEGACY_PROGRAM)
         resp = client.get("/api/sports/programs", headers=auth_headers)
@@ -41,14 +41,14 @@ class TestListIncludesQuickActions:
         assert resp.get_json()["programs"][0]["quick_actions"] == QUICK_ACTION_DEFAULTS["sports"]
 
     def test_stored_actions_are_returned(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         _seed(test_database, test_user.id, {**LEGACY_PROGRAM, "quick_actions": [ACTION]})
         resp = client.get("/api/sports/programs", headers=auth_headers)
         assert resp.get_json()["programs"][0]["quick_actions"] == [ACTION]
 
     def test_language_namespace_has_its_own_defaults(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         test_database.kv_set(test_user.id, "language", "programs", json.dumps([LEGACY_PROGRAM]))
         resp = client.get("/api/language/programs", headers=auth_headers)
@@ -57,7 +57,7 @@ class TestListIncludesQuickActions:
 
 class TestCreateSeedsDefaults:
     def test_create_returns_and_persists_defaults(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         resp = client.post(
             "/api/sports/programs",
@@ -84,7 +84,7 @@ class TestUpdateQuickActions:
         assert resp.status_code == 404
 
     def test_put_replaces_list_and_returns_program(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         _seed(test_database, test_user.id, LEGACY_PROGRAM)
         resp = client.put(
@@ -101,7 +101,7 @@ class TestUpdateQuickActions:
         assert stored[0]["quick_actions"] == [ACTION]
 
     def test_put_empty_list_clears_defaults(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         _seed(test_database, test_user.id, LEGACY_PROGRAM)
         client.put(
@@ -113,7 +113,7 @@ class TestUpdateQuickActions:
         assert resp.get_json()["programs"][0]["quick_actions"] == []
 
     def test_put_rejects_over_limits(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         _seed(test_database, test_user.id, LEGACY_PROGRAM)
         too_many = [{**ACTION, "id": f"a{i}"} for i in range(13)]
@@ -131,7 +131,7 @@ class TestUpdateQuickActions:
         assert resp.status_code == 400
 
     def test_corrupt_stored_actions_are_dropped_on_read(
-        self, client: FlaskClient, auth_headers: dict, test_database: "Database", test_user: "User"
+        self, client: FlaskClient, auth_headers: dict, test_database: Database, test_user: User
     ) -> None:
         _seed(
             test_database,

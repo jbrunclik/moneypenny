@@ -11,7 +11,8 @@ import { v4 as uuidv4 } from 'uuid';
 export const test = base.extend<{
   testExecutionId: string;
 }>({
-  testExecutionId: async ({ }, use) => {
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires destructuring
+  testExecutionId: async ({}, use) => {
     const id = uuidv4();
     await use(id);
   },

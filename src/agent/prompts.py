@@ -72,7 +72,7 @@ def _get_saved_places_lines(user_id: str | None) -> list[str]:
     for key, value in db.kv_list(user_id, "places"):
         try:
             address = json.loads(value).get("address", "")
-        except (json.JSONDecodeError, TypeError, AttributeError):
+        except json.JSONDecodeError, TypeError, AttributeError:
             address = ""
         lines.append(f"- {key}: {address}" if address else f"- {key}")
     return lines

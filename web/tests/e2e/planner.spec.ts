@@ -384,7 +384,7 @@ test.describe('Planner - UI State Management', () => {
 
     // Check initial model selector state (should show default model)
     const modelSelector = page.locator('#current-model-name');
-    const initialModel = await modelSelector.textContent();
+    await modelSelector.textContent();
 
     // Navigate to planner
     const plannerEntry = page.locator('.planner-entry');
