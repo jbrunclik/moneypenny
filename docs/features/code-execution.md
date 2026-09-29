@@ -140,7 +140,7 @@ with SandboxSession(lang='python') as s:
 
 ## Testing
 
-- Unit: [test_sandbox_sessions.py](../../tests/unit/test_sandbox_sessions.py), `execute_code` cases in [test_tools.py](../../tests/unit/test_tools.py)
+- Unit: [test_sandbox_sessions.py](../../tests/unit/test_sandbox_sessions.py), `execute_code` cases in [test_code_execution.py](../../tests/unit/test_code_execution.py)
 - Integration: [test_code_sandbox_isolation.py](../../tests/integration/test_code_sandbox_isolation.py) (needs Docker)
 
 ## See Also

@@ -95,7 +95,7 @@ HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
 
 ### Testing
 
-- Unit tests: `TestFormatMessageWithMetadata` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
+- Unit tests: `TestFormatMessageWithMetadata` in [test_agent_messages.py](../../tests/unit/test_agent_messages.py)
 - Unit tests: [test_history.py](../../tests/unit/test_history.py) - comprehensive tests for enrichment functions
 - Unit tests: [test_tool_outputs.py](../../tests/unit/test_tool_outputs.py) - digest building, bounds, exclusions
 

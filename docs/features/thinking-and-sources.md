@@ -120,7 +120,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 
 ### Testing
 
-- Backend unit tests: `TestExtractThinkingAndText` in [test_chat_agent_helpers.py](../../tests/unit/test_chat_agent_helpers.py)
+- Backend unit tests: `TestExtractThinkingAndText` in [test_content_text.py](../../tests/unit/test_content_text.py)
 - Frontend unit tests: [thinking-indicator.test.ts](../../web/tests/unit/thinking-indicator.test.ts), [thinking-state.test.ts](../../web/tests/unit/thinking-state.test.ts), [streaming-retry-status.test.ts](../../web/tests/unit/streaming-retry-status.test.ts)
 - Backend: [test_retry_status.py](../../tests/unit/test_retry_status.py), [test_tool_display.py](../../tests/unit/test_tool_display.py)
 - E2E tests: "Chat - Thinking Indicator" describe block in [thinking-indicator.spec.ts](../../web/tests/e2e/chat/thinking-indicator.spec.ts)
