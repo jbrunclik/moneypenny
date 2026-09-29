@@ -1101,6 +1101,29 @@ describe('Store - Message updates', () => {
     ...(status ? { status } : {}),
   });
 
+  describe('appendMessage', () => {
+    it('is idempotent by message id (recovery + completion both append)', () => {
+      const store = useStore.getState();
+      store.setMessages('c1', [msg('m1')], {
+        older_cursor: null,
+        newer_cursor: null,
+        has_older: false,
+        has_newer: false,
+        total_count: 1,
+      });
+      store.appendMessage('c1', msg('m2'));
+      store.appendMessage('c1', msg('m3'));
+      store.appendMessage('c1', { ...msg('m2'), content: 'final' });
+
+      const messages = useStore.getState().getMessages('c1');
+      expect(messages.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
+      // The later append wins, in place
+      expect(messages[1].content).toBe('final');
+      // Only genuinely new messages count towards the total
+      expect(useStore.getState().getMessagesPagination('c1')?.totalCount).toBe(3);
+    });
+  });
+
   describe('updateMessage', () => {
     it('patches a message in place', () => {
       const store = useStore.getState();

@@ -269,6 +269,7 @@ export interface ChatResponse {
   files?: FileMetadata[];
   sources?: Source[];
   generated_images?: GeneratedImage[];
+  language?: string; // ISO 639-1 language code for TTS
   created_at: string;
   title?: string;
   user_message_id?: string; // Real ID of the user message (for updating temp IDs)

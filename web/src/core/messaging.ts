@@ -756,10 +756,9 @@ async function submitMessageEdit(convId: string, messageId: string, newText: str
     return;
   }
   useStore.getState().truncateMessagesFrom(convId, messageId);
-  // Remove the edited message and its tail from the DOM directly. A full
-  // re-render from the store would wipe every streamed assistant bubble - they
-  // are rendered to the DOM but never appended to the in-session store - so the
-  // conversation appeared to lose all agent replies until reload.
+  // Remove the edited message and its tail from the DOM directly instead of
+  // re-rendering the whole list from the store (cheaper, and keeps the
+  // surviving bubbles' state - scroll position, loaded thumbnails)
   removeRenderedMessagesFrom(messageId);
 
   // Re-send through the normal pipeline (outbox, retry, streaming) by
@@ -1347,7 +1346,7 @@ async function tryResumeStream(
         }
         if (event.type === 'done') {
           await handleStreamDone(
-            event as Parameters<typeof handleStreamDone>[0],
+            event as unknown as StreamDoneEvent,
             state,
             convId,
             tempUserMessageId
@@ -1563,24 +1562,46 @@ async function handleMissingDoneEvent(
   // If not recovered, the recovery module already handled showing error UI
 }
 
+/** Payload of the stream's terminal `done` event (the saved assistant message). */
+interface StreamDoneEvent {
+  id: string;
+  created_at: string;
+  content?: string;
+  user_message_id?: string;
+  sources?: Source[];
+  generated_images?: GeneratedImage[];
+  files?: FileMetadata[];
+  title?: string;
+  language?: string;
+  approval_required?: boolean;
+  approval_id?: string;
+  stopped_early?: boolean;
+}
+
+/**
+ * The store Message for a completed streamed reply - the same data the
+ * finalized bubble renders. The server's saved content wins; the streamed
+ * text covers a done event that carries none.
+ */
+function assistantMessageFromDone(event: StreamDoneEvent, streamedContent: string): Message {
+  return {
+    id: event.id,
+    role: 'assistant',
+    content: event.content || streamedContent,
+    created_at: event.created_at,
+    sources: event.sources,
+    generated_images: event.generated_images,
+    files: event.files,
+    language: event.language,
+    stopped_early: event.stopped_early,
+  };
+}
+
 /**
  * Handle stream done event.
  */
 async function handleStreamDone(
-  event: {
-    id: string;
-    created_at: string;
-    content?: string;
-    user_message_id?: string;
-    sources?: Source[];
-    generated_images?: GeneratedImage[];
-    files?: FileMetadata[];
-    title?: string;
-    language?: string;
-    approval_required?: boolean;
-    approval_id?: string;
-    stopped_early?: boolean;
-  },
+  event: StreamDoneEvent,
   state: StreamingState,
   convId: string,
   tempUserMessageId: string
@@ -1605,6 +1626,7 @@ async function handleStreamDone(
     // triggering a pointless recovery round and a wrong local message count.
     state.messageSuccessful = true;
     clearPendingRecovery(convId);
+    useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
     if (event.title) {
       updateConversationTitle(convId, event.title);
     }
@@ -1651,6 +1673,7 @@ async function handleStreamDone(
     'assistant',
     event.language
   );
+  useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
   if (event.stopped_early) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');
     if (wrapper) appendStoppedEarlyNote(wrapper, event.id);
@@ -1786,7 +1809,7 @@ async function sendStreamingMessage(
 
       // Handle done event specially (async)
       if (event.type === 'done') {
-        await handleStreamDone(event as Parameters<typeof handleStreamDone>[0], state, convId, tempUserMessageId);
+        await handleStreamDone(event as unknown as StreamDoneEvent, state, convId, tempUserMessageId);
         continue;
       }
 
@@ -1969,6 +1992,21 @@ async function sendBatchMessage(
       updateUserMessageId(tempUserMessageId, response.user_message_id);
     }
 
+    const assistantMessage: Message = {
+      id: response.id,
+      role: 'assistant',
+      content: response.content,
+      sources: response.sources,
+      generated_images: response.generated_images,
+      files: response.files,
+      language: response.language,
+      created_at: response.created_at,
+      stopped_early: response.stopped_early,
+    };
+    // The store is authoritative for the conversation's messages - record
+    // the reply whether or not it gets rendered below
+    useStore.getState().appendMessage(convId, assistantMessage);
+
     // Check if conversation is still current before updating UI
     const store = useStore.getState();
     const isCurrentConversation = store.currentConversation?.id === convId;
@@ -1984,17 +2022,6 @@ async function sendBatchMessage(
     hideLoadingIndicator();
     hideUploadProgress();
     useStore.getState().setUploadProgress(null);
-
-    const assistantMessage: Message = {
-      id: response.id,
-      role: 'assistant',
-      content: response.content,
-      sources: response.sources,
-      generated_images: response.generated_images,
-      files: response.files,
-      created_at: response.created_at,
-      stopped_early: response.stopped_early,
-    };
 
     const messagesContainer = getElementById<HTMLDivElement>('messages');
     if (messagesContainer) {

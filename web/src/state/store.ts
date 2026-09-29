@@ -719,6 +719,16 @@ export const useStore = create<AppState>()(
         set((state) => {
           const existing = state.messages.get(convId) || [];
           const newMessages = new Map(state.messages);
+          // Idempotent by id: a reply can complete via more than one path
+          // (live done event, journal resume, poll recovery) - the later
+          // append replaces the earlier one in place instead of duplicating
+          const index = existing.findIndex((m) => m.id === message.id);
+          if (index !== -1) {
+            const replaced = [...existing];
+            replaced[index] = message;
+            newMessages.set(convId, replaced);
+            return { messages: newMessages };
+          }
           newMessages.set(convId, [...existing, message]);
           // Update total count in pagination
           const pag = state.messagesPagination.get(convId);

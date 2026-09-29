@@ -437,6 +437,24 @@ async function updateUIWithRecoveredMessage(
   const contextEl = getStreamingMessageElement(convId);
   const messageEl = contextEl && contextEl.isConnected ? contextEl : null;
 
+  // Keep the store authoritative whichever DOM branch renders it below
+  // (appendMessage is idempotent by id, so a late done event can't duplicate)
+  const recovered: Message | null = message.content
+    ? {
+      id: message.id,
+      role: 'assistant',
+      content: message.content,
+      created_at: message.created_at,
+      sources: message.sources as Source[] | undefined,
+      generated_images: message.generated_images as GeneratedImage[] | undefined,
+      files: message.files as FileMetadata[] | undefined,
+      language: message.language,
+    }
+    : null;
+  if (recovered) {
+    useStore.getState().appendMessage(convId, recovered);
+  }
+
   if (messageEl && message.content) {
     // A successful recovery supersedes any earlier error styling (R15)
     messageEl.classList.remove('message-incomplete');
@@ -511,27 +529,11 @@ async function updateUIWithRecoveredMessage(
           'assistant',
           message.language
         );
-      } else {
+      } else if (recovered) {
         // No existing element found - add new message
         log.info('No streaming element in DOM, adding recovered message', { conversationId: convId });
-
-        const messageObj: Message = {
-          id: message.id,
-          role: 'assistant',
-          content: message.content,
-          created_at: message.created_at,
-          sources: message.sources as Source[] | undefined,
-          generated_images: message.generated_images as GeneratedImage[] | undefined,
-          files: message.files as FileMetadata[] | undefined,
-          language: message.language,
-        };
-
-        addMessageToUI(messageObj, container);
+        addMessageToUI(recovered, container);
         lockOlderQuizBlocks(container);
-
-        // Also update the store's messages
-        const store = useStore.getState();
-        store.appendMessage(convId, messageObj);
       }
 
       // Scroll to show the message
