@@ -269,6 +269,23 @@ export function focusMessageInput(): void {
 }
 
 /**
+ * Return focus to the composer once a send settles (a user send, or a
+ * program view's proactive first message) - unless the user has meanwhile
+ * moved into another text field (started a search, opened a quick-action
+ * form while the reply was finalizing): stealing focus then sent their
+ * keystrokes into the composer.
+ */
+export function refocusMessageInputAfterSend(): void {
+  const active = document.activeElement as HTMLElement | null;
+  const editingElsewhere =
+    !!active &&
+    active.id !== 'message-input' &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+  if (editingElsewhere) return;
+  focusMessageInput();
+}
+
+/**
  * Up-arrow history: fill the EMPTY composer with the last user message of
  * the current conversation (terminal-style recall). Returns whether a
  * recall happened - callers use it to decide preventDefault.

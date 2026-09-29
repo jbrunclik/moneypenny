@@ -44,6 +44,7 @@ import {
   ensureInputAreaVisible,
   hideInputArea,
   focusMessageInput,
+  refocusMessageInputAfterSend,
   shouldAutoFocusInput,
 } from '../components/MessageInput';
 import { sendMessage } from './messaging';
@@ -254,7 +255,7 @@ export async function navigateToSportsProgram(programId: string): Promise<void> 
     }
 
     if (shouldAutoFocusInput()) {
-      focusMessageInput();
+      refocusMessageInputAfterSend();
     }
   } catch (error) {
     log.error('Failed to load sports conversation', { error });

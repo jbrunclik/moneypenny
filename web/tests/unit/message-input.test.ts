@@ -836,3 +836,31 @@ describe('focusMessageInput', () => {
     expect(document.activeElement?.id).toBe('message-input');
   });
 });
+
+describe('refocusMessageInputAfterSend', () => {
+  beforeEach(() => {
+    document.body.innerHTML =
+      '<textarea id="message-input"></textarea><input id="search-input"><button id="other-btn">x</button>';
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('focuses the composer when nothing else is being edited', async () => {
+    const { refocusMessageInputAfterSend } = await import('@/components/MessageInput');
+    document.getElementById('other-btn')!.focus();
+    refocusMessageInputAfterSend();
+    expect(document.activeElement?.id).toBe('message-input');
+  });
+
+  it('does not steal focus from another text field the user moved to', async () => {
+    // A send settles (stream finalize, cost/title fetches) after the reply
+    // is visible; a user who already started typing a search lost focus
+    // mid-typing and the keystrokes landed in the composer
+    const { refocusMessageInputAfterSend } = await import('@/components/MessageInput');
+    document.getElementById('search-input')!.focus();
+    refocusMessageInputAfterSend();
+    expect(document.activeElement?.id).toBe('search-input');
+  });
+});

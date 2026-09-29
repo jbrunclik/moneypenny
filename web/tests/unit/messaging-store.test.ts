@@ -70,6 +70,7 @@ vi.mock('@/components/MessageInput', () => ({
   getMessageInput: vi.fn(() => 'hello'),
   clearMessageInput: vi.fn(),
   focusMessageInput: vi.fn(),
+  refocusMessageInputAfterSend: vi.fn(),
   setInputLoading: vi.fn(),
   shouldAutoFocusInput: vi.fn(() => false),
   showUploadProgress: vi.fn(),

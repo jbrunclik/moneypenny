@@ -135,6 +135,7 @@ const mockEnsureInputAreaVisible = vi.fn(() => {
 
 vi.mock('@/components/MessageInput', () => ({
   focusMessageInput: vi.fn(),
+  refocusMessageInputAfterSend: vi.fn(),
   shouldAutoFocusInput: vi.fn(() => true),
   ensureInputAreaVisible: mockEnsureInputAreaVisible,
 }));

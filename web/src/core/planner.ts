@@ -35,6 +35,7 @@ import { setCurrentConversationForBlobs } from '../utils/thumbnails';
 import {
   ensureInputAreaVisible,
   focusMessageInput,
+  refocusMessageInputAfterSend,
   shouldAutoFocusInput,
 } from '../components/MessageInput';
 
@@ -197,7 +198,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
 
     // Focus input after successful render (respects iOS auto-focus preferences)
     if (shouldAutoFocusInput()) {
-      focusMessageInput();
+      refocusMessageInputAfterSend();
     }
   } catch (error) {
     log.error('Failed to load planner', { error });

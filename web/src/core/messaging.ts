@@ -28,7 +28,7 @@ import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import {
   getMessageInput,
   clearMessageInput,
-  focusMessageInput,
+  refocusMessageInputAfterSend,
   setInputLoading,
   shouldAutoFocusInput,
 } from '../components/MessageInput';
@@ -384,7 +384,7 @@ export async function dispatchSend(convId: string, entry: SendEntry): Promise<vo
     await handleSendFailure(convId, entry.id, error);
   } finally {
     if (shouldAutoFocusInput()) {
-      focusMessageInput();
+      refocusMessageInputAfterSend();
     }
   }
 }
