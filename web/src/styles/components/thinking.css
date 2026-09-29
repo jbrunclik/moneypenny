@@ -318,3 +318,11 @@
         max-width: 180px;
     }
 }
+
+/* Transient model error being retried (messages/streaming.ts) - sits next
+   to the re-rendered trace so updates to the trace do not wipe it */
+.streaming-retry-status {
+    margin-top: var(--space-1);
+    font-size: var(--font-size-xs);
+    color: var(--warning-text);
+}

@@ -969,7 +969,9 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
             yield f"data: {json.dumps(item)}\n\n"
         except (BrokenPipeError, ConnectionError, OSError) as e:
             context.mark_disconnected(e, "streaming (approval_required)")
-    elif event_type in ("thinking", "tool_start", "tool_end", "token"):
+    # "retry" (transient model error being retried) is forwarded but not
+    # journaled: it is a momentary status a resumed client need not replay
+    elif event_type in ("thinking", "tool_start", "tool_end", "token", "retry"):
         if event_type == "token":
             context.partial_content += item.get("text", "")
         try:

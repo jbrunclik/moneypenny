@@ -23,6 +23,7 @@ from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
@@ -214,6 +215,26 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
             msg.content = msg.content[:max_chars] + AGED_TRUNCATION_MARKER
 
 
+def _emit_retry_status(error: Exception, attempt: int) -> None:
+    """Tell the stream a transient model error is being retried.
+
+    The backoff can add up to ~70 s per model call; without a status the turn
+    looked hung. Written to LangGraph's custom stream (forwarded as a `retry`
+    SSE event); outside a streaming run there is no writer and this is a no-op.
+    """
+    try:
+        writer = get_stream_writer()
+        writer(
+            {
+                "type": "retry",
+                "attempt": attempt + 1,
+                "max_retries": Config.AGENT_MAX_RETRIES,
+            }
+        )
+    except Exception:
+        logger.debug("No stream writer for retry status", exc_info=True)
+
+
 def chat_node(
     state: AgentState,
     model: ChatGoogleGenerativeAI,
@@ -239,7 +260,7 @@ def chat_node(
             "model": model.model_name if hasattr(model, "model_name") else "unknown",
         },
     )
-    response = with_retry(model.invoke)(messages)
+    response = with_retry(model.invoke, on_retry=_emit_retry_status)(messages)
 
     # Log tool calls if present
     if isinstance(response, AIMessage) and response.tool_calls:

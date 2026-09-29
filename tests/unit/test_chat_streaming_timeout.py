@@ -161,6 +161,16 @@ def test_handle_queue_event_accumulates_token_text() -> None:
     assert ctx.partial_content == "hello"
 
 
+def test_handle_queue_event_forwards_retry_status() -> None:
+    """Transient-error retries reach the client as an SSE event (not journaled)."""
+    from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
+
+    ctx = _make_ctx()
+    out = list(_handle_queue_event(ctx, {"type": "retry", "attempt": 2, "max_retries": 3}))
+    assert out == ['data: {"type": "retry", "attempt": 2, "max_retries": 3}\n\n']
+    assert "retry" not in _JOURNALED_EVENT_TYPES
+
+
 def test_consumer_handles_producer_timeout_marker() -> None:
     """Tokens then a {'type':'timeout'} marker -> partial content saved + event."""
     ctx = _make_ctx(

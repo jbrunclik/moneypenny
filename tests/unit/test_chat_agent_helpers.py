@@ -2093,7 +2093,8 @@ class TestToolEventCallIdKeying:
 
         agent = ChatAgent.__new__(ChatAgent)
         agent.graph = MagicMock()
-        agent.graph.stream.return_value = iter(events)
+        # stream_mode=["messages", "custom"] yields (mode, payload) pairs
+        agent.graph.stream.return_value = iter(("messages", event) for event in events)
         agent._build_messages = MagicMock(return_value=[])  # type: ignore[method-assign]
         return list(agent.stream_chat_events(text="hi"))
 

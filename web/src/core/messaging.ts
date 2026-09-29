@@ -25,6 +25,7 @@ import {
   updateStreamingToolStart,
   updateStreamingToolDetail,
   updateStreamingToolEnd,
+  updateStreamingRetryStatus,
   cleanupStreamingContext,
   getStreamingMessageElement,
   showLoadingIndicator,
@@ -1147,6 +1148,14 @@ function processStreamEvent(
         updateStreamingToolDetail(event.tool as string, event.detail as string);
       }
       store.updateActiveRequestContent(convId, state.fullContent, deepCopyThinkingState(state.thinkingState));
+      break;
+
+    case 'retry':
+      // Transient Gemini error being retried server-side: show it instead
+      // of a silent stall (not part of the persisted thinking trace)
+      if (isCurrentConversation) {
+        updateStreamingRetryStatus(event.attempt as number, event.max_retries as number | undefined);
+      }
       break;
 
     case 'tool_end':

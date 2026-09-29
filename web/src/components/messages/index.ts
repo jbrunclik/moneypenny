@@ -36,6 +36,7 @@ export {
   updateStreamingToolStart,
   updateStreamingToolDetail,
   updateStreamingToolEnd,
+  updateStreamingRetryStatus,
 } from './streaming';
 
 // Loading indicators

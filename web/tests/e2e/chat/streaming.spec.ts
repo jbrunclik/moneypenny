@@ -10,6 +10,7 @@ import {
   resetStreamDelay,
   setMockResponse,
   clearMockResponse,
+  setEmitRetry,
 } from './fixtures';
 
 test.describe('Chat - Streaming Mode', () => {
@@ -41,6 +42,26 @@ test.describe('Chat - Streaming Mode', () => {
     // Toggle on
     await streamBtn.click();
     await expect(streamBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('shows a retry status while the model is retried, then clears it', async ({ page }) => {
+    await setEmitRetry(page, 1500);
+    try {
+      await page.fill('#message-input', 'Hello retry');
+      await page.click('#send-btn');
+
+      const status = page.locator('.message.assistant .streaming-retry-status');
+      await expect(status).toBeVisible({ timeout: 10000 });
+      await expect(status).toContainText('retrying (attempt 1 of 3)');
+
+      // Once tokens flow the status disappears
+      await expect(page.locator('.message.assistant')).toContainText('Hello retry', {
+        timeout: 20000,
+      });
+      await expect(status).toHaveCount(0);
+    } finally {
+      await setEmitRetry(page, 0);
+    }
   });
 
   test('streams response tokens progressively via SSE', async ({ page }) => {

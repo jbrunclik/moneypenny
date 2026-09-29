@@ -114,6 +114,8 @@ DEFAULT_CONFIG = {
     "batch_delay_ms": 0,
     "custom_response": None,
     "emit_thinking": False,
+    # Emit a transient-error "retry" status first and hold it this long (ms)
+    "emit_retry_hold_ms": 0,
     "search_results": None,
     "search_total": 0,
     # Planner mock config
@@ -429,6 +431,11 @@ def create_mock_stream_chat_events() -> Any:
             response_text = f"{prefix}{message[:100]}"
 
         delay_s = MOCK_CONFIG["stream_delay_ms"] / 1000
+
+        # Optionally simulate a transient model error being retried
+        if MOCK_CONFIG.get("emit_retry_hold_ms"):
+            yield {"type": "retry", "attempt": 1, "max_retries": 3}
+            time.sleep(MOCK_CONFIG["emit_retry_hold_ms"] / 1000)
 
         # Optionally yield a thinking event (based on mock config or message content)
         if "think" in message.lower() or MOCK_CONFIG.get("emit_thinking"):
@@ -931,6 +938,15 @@ def main() -> None:
             emit = data.get("emit", True)
             MOCK_CONFIG["emit_thinking"] = emit
             return {"status": "set", "emit_thinking": emit}, 200
+
+        @test_bp.route("/test/set-emit-retry", methods=["POST"])
+        def set_emit_retry() -> tuple[dict[str, Any], int]:
+            from flask import request
+
+            data = request.get_json() or {}
+            hold_ms = int(data.get("hold_ms", 0))
+            MOCK_CONFIG["emit_retry_hold_ms"] = hold_ms
+            return {"status": "set", "emit_retry_hold_ms": hold_ms}, 200
 
         @test_bp.route("/test/set-batch-delay", methods=["POST"])
         def set_batch_delay() -> tuple[dict[str, Any], int]:

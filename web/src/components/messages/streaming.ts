@@ -387,6 +387,7 @@ function autoScrollForStreaming(): void {
  */
 export function updateStreamingThinking(thinkingText?: string): void {
   if (!currentStreamingContext) return;
+  clearStreamingRetryStatus();
 
   if (thinkingText) {
     addThinkingToTrace(currentStreamingContext.thinkingState, thinkingText);
@@ -414,6 +415,7 @@ export function updateStreamingToolStart(
   metadata?: ToolMetadata
 ): void {
   if (!currentStreamingContext) return;
+  clearStreamingRetryStatus();
 
   addToolStartToTrace(currentStreamingContext.thinkingState, toolName, detail, metadata);
 
@@ -462,6 +464,36 @@ export function updateStreamingToolEnd(toolName: string): void {
   autoScrollForStreaming();
 }
 
+const RETRY_STATUS_CLASS = 'streaming-retry-status';
+
+/**
+ * Show that a transient model error (Gemini 503/429) is being retried.
+ *
+ * The backoff can run tens of seconds; without this the turn looked hung.
+ * Lives next to (not inside) the re-rendered trace, and is cleared as soon
+ * as the model makes progress (thinking, tool call, token) or the turn ends.
+ */
+export function updateStreamingRetryStatus(attempt: number, maxRetries?: number): void {
+  if (!currentStreamingContext) return;
+  const indicator = currentStreamingContext.thinkingIndicator;
+  let status = indicator.querySelector<HTMLElement>(`.${RETRY_STATUS_CLASS}`);
+  if (!status) {
+    status = document.createElement('div');
+    status.className = RETRY_STATUS_CLASS;
+    indicator.appendChild(status);
+  }
+  const progress = maxRetries ? ` (attempt ${attempt} of ${maxRetries})` : '';
+  status.textContent = `The model is busy - retrying${progress}…`;
+  autoScrollForStreaming();
+}
+
+/** Remove the retry status line, if shown. */
+export function clearStreamingRetryStatus(): void {
+  currentStreamingContext?.thinkingIndicator
+    .querySelector(`.${RETRY_STATUS_CLASS}`)
+    ?.remove();
+}
+
 /**
  * Update streaming message content
  */
@@ -469,6 +501,7 @@ export function updateStreamingMessage(
   messageEl: HTMLElement,
   content: string
 ): void {
+  clearStreamingRetryStatus();
   const contentEl = messageEl.querySelector('.message-content');
   if (!contentEl) return;
 
@@ -527,6 +560,8 @@ export function finalizeStreamingMessage(
 
   // Capture whether user was following before cleaning up context
   let wasFollowing = false;
+
+  clearStreamingRetryStatus();
 
   // Finalize thinking indicator and clean up streaming context
   if (currentStreamingContext && currentStreamingContext.element === messageEl) {

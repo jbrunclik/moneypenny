@@ -158,5 +158,12 @@ export async function setEmitThinking(page: Page, emit: boolean): Promise<void> 
   await page.request.post('/test/set-emit-thinking', { data: { emit } });
 }
 
+/**
+ * Emit a transient-error "retry" status at stream start, held for holdMs (0 = off)
+ */
+export async function setEmitRetry(page: Page, holdMs: number): Promise<void> {
+  await page.request.post('/test/set-emit-retry', { data: { hold_ms: holdMs } });
+}
+
 // Re-export test and expect from global-setup
 export { test, expect } from '../../global-setup';

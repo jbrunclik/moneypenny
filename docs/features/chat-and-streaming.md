@@ -222,7 +222,7 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 **Invariants (violating these re-introduces fixed bugs):**
 
-- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`.) The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
+- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`.) The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
 - **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
 - The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [messaging.ts](../../web/src/core/messaging.ts) / [conversation.ts](../../web/src/core/conversation.ts).
 
@@ -276,6 +276,7 @@ During streaming responses, the app shows a thinking indicator at the top of ass
    - `{"type": "thinking", "text": "..."}` - Accumulated thinking text (if `include_thoughts=True`)
    - `{"type": "tool_start", "tool": "web_search", "detail": "search query"}` - Tool starting with details
    - `{"type": "tool_end", "tool": "web_search"}` - When a tool finishes
+   - `{"type": "retry", "attempt": 2, "max_retries": 3}` - A transient model error (Gemini 503/429) is being retried with backoff. Emitted by the chat node's `with_retry(..., on_retry=_emit_retry_status)` through LangGraph's custom stream (`stream_chat_events` uses `stream_mode=["messages", "custom"]`, so events arrive as `(mode, payload)` pairs) and shown as "The model is busy - retrying…" in the thinking indicator until the model makes progress. Without it the backoff (up to ~70 s per call) looked like a hang.
    - `{"type": "token", "text": "..."}` - Regular content tokens
    - `{"type": "final", ...}` - Final result with metadata
 

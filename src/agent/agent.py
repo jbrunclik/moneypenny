@@ -857,11 +857,21 @@ class ChatAgent:
         config = get_graph_config()
         turn_started = time.monotonic()
         try:
-            for event in self.graph.stream(
+            for mode, event in self.graph.stream(
                 cast(Any, {"messages": messages}),
                 config=config,
-                stream_mode="messages",
+                # "custom" carries node-written statuses (transient-error
+                # retries) that must reach the client while the node sleeps
+                stream_mode=["messages", "custom"],
             ):
+                if mode == "custom":
+                    if isinstance(event, dict) and event.get("type") == "retry":
+                        yield {
+                            "type": "retry",
+                            "attempt": event.get("attempt"),
+                            "max_retries": event.get("max_retries"),
+                        }
+                    continue
                 # Guard clause: a non-tuple event must not fall through to the
                 # processing below with an unbound/stale message_chunk
                 if not (isinstance(event, tuple) and len(event) >= 1):
