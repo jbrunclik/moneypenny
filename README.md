@@ -446,10 +446,11 @@ Detailed docs live in [`docs/`](docs/README.md):
 
 | Topic | |
 |---|---|
-| Agents & tools | [features/agents.md](docs/features/agents.md) |
+| Agents & tools | [features/agents.md](docs/features/agents.md), [features/agent-tools.md](docs/features/agent-tools.md) |
+| Agent loop & context | [architecture/agent-graph.md](docs/architecture/agent-graph.md), [architecture/conversation-context.md](docs/architecture/conversation-context.md) |
 | Memory & context | [features/memory-and-context.md](docs/features/memory-and-context.md) |
 | Chat & streaming | [features/chat-and-streaming.md](docs/features/chat-and-streaming.md) |
-| Integrations | [features/integrations.md](docs/features/integrations.md) |
+| Integrations | [features/integrations.md](docs/features/integrations.md) (index of per-integration pages) |
 | Language learning | [features/language-learning.md](docs/features/language-learning.md) |
 | Search | [features/search.md](docs/features/search.md) |
 | Sync | [features/sync.md](docs/features/sync.md) |

@@ -327,6 +327,6 @@ conversations, and without integration tools (Todoist, Google Calendar).
 
 ## See Also
 
-- [Integrations](integrations.md) - Todoist and Google Calendar tools disabled in anonymous mode
-- [Chat and Streaming](chat-and-streaming.md) - System prompt construction
+- [Integrations](integrations.md) - integration tools disabled in anonymous mode
+- [Conversation Context](../architecture/conversation-context.md) - history enrichment and compaction
 - [Testing Guide](../testing.md) - Testing patterns for memory and context features

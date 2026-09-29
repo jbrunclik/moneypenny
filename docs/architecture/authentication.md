@@ -153,6 +153,6 @@ FLASK_ENV=development                             # Skip auth in dev mode
 
 ## See Also
 
-- [Rate Limiting](api-design.md#rate-limiting) - Per-user rate limiting using authenticated user ID
+- [Rate Limiting](rate-limiting.md) - Per-user rate limiting using authenticated user ID
 - [Integrations](../features/integrations.md) - OAuth flows for Todoist and Google Calendar (separate from Sign-In)
-- [Error Handling](api-design.md#error-handling) - Auth error responses
+- [Error Handling](error-handling.md) - Auth error responses

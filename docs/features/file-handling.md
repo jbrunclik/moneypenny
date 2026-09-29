@@ -1,77 +1,8 @@
 # File Handling
 
-This document covers image generation, code execution, file uploads, clipboard paste, and upload progress features.
+Files users attach (paste, compression, upload progress, thumbnails, video) and how the agent reads them back (`retrieve_file`), plus copy-to-clipboard. Files the agent produces are covered in [Image Generation](image-generation.md) and [Code Execution Sandbox](code-execution.md).
 
-## Image Generation
-
-The app can generate images using Gemini's image generation model (`gemini-3-pro-image`).
-
-### How it works
-
-1. **Tool available**: `generate_image(prompt, aspect_ratio, image_size, use_search, reference_images, history_image_message_id, history_image_file_index)` tool in [tools/image_generation.py](../../src/agent/tools/image_generation.py)
-2. **Tool returns JSON**: Returns `{"prompt": "...", "image": {"data": "base64...", "mime_type": "image/png"}}`
-3. **LLM appends metadata**: System prompt instructs LLM to include `"generated_images": [{"prompt": "..."}]` in the metadata block
-4. **Backend extracts images**: `extract_generated_images_from_tool_results()` in [routes/chat.py](../../src/api/routes/chat.py) parses tool results
-5. **Images stored as files**: Generated images are stored as file attachments on the message
-6. **Metadata stored in DB**: Messages table has a `generated_images` column (JSON array)
-7. **UI shows sparkles button**: A sparkles icon appears in message actions when generated images exist, opening a popup showing the prompt used and the cost of image generation (excluding prompt tokens)
-
-### Aspect Ratios
-
-Supported: `1:1` (default), `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `4:5`, `5:4`, `21:9`
-
-### Resolution and Search Grounding
-
-- **`image_size`**: `1K` (default), `2K`, `4K` (case-insensitive; the API itself rejects lowercase `k`). 1K and 2K both produce 1120 image tokens (~$0.134); 4K produces 2000 (~$0.24). Output is always JPEG, roughly 0.5 MB at 1K, 3–4 MB at 2K, and ~11 MB at 4K.
-- **`use_search`**: adds the Google Search tool to the request so the image can reflect real-world or current facts. Search requests are free up to 5,000/month (shared across Gemini 3.x models), so they are not tracked as a cost.
-- **Large references are downscaled**: when a stored image is reused via `history_image_*`, anything with a longest edge above `IMAGE_REFERENCE_MAX_EDGE_PX` (default 2048) is resized and re-encoded as JPEG before being sent inline. A 4K image is ~15 MB as base64, and Gemini's inline request limit is ~20 MB.
-- **Not available on the Developer API**: `output_mime_type` / compression (Vertex only). The model also has no masks, denoise strength, seeds, negative prompts, or ControlNet/FaceID. Edits regenerate the whole image, so the system prompt tells the agent to spell out what must stay unchanged when a person's likeness matters.
-
-### Image-to-Image Editing
-
-Users can upload images and ask the LLM to modify them. The uploaded images are passed to the Gemini image generation API as reference images.
-
-**How it works:**
-1. User uploads an image and requests a modification (e.g., "make me look like a wizard")
-2. LLM recognizes this as an image editing task
-3. LLM calls `generate_image(prompt="...", reference_images="all")` to include the uploaded image
-4. The tool retrieves uploaded images from a context variable set by the routes
-5. Images are passed to Gemini's `generate_content` API alongside the text prompt
-6. Gemini generates a modified version of the image
-
-**reference_images parameter options:**
-- `"all"` - Include all uploaded images
-- `"0"` - Include only the first uploaded image
-- `"0,1"` - Include specific images by index (comma-separated)
-- `None` - Generate from scratch (no reference images)
-
-**Context variable pattern:**
-- `set_current_message_files(files)` is called in [routes/chat.py](../../src/api/routes/chat.py) before the agent runs
-- `get_current_message_files()` is called by the tool to access uploaded files
-- Only image files (MIME type starting with `image/`) are used as references
-- Non-image files (PDFs, text) are filtered out
-
-### History Image References
-
-The LLM can reference images from earlier in the conversation history using the `history_image_*` parameters or the `retrieve_file` tool. File IDs are provided in the conversation history metadata.
-
-**How it works:**
-1. Each user message with files includes a `files` array in metadata with `id` in format `"message_id:file_index"`
-2. LLM extracts the message_id and file_index from the history metadata
-3. LLM calls `generate_image(prompt="...", history_image_message_id="msg-xxx", history_image_file_index=0)`
-4. The tool retrieves the image from blob storage (or legacy base64) using conversation context
-5. Image is passed to Gemini's API as a reference image
-
-**history_image parameters:**
-- `history_image_message_id` - The message ID containing the historical image
-- `history_image_file_index` - The file index within that message (default: 0)
-
-**Context variable pattern for history:**
-- `set_conversation_context(conversation_id, user_id)` is called in [routes/chat.py](../../src/api/routes/chat.py) before the agent runs
-- `get_conversation_context()` returns the current conversation/user IDs for ownership verification
-- The tool verifies the message belongs to the current conversation before retrieving
-
-### File Retrieval Tool
+## File Retrieval Tool
 
 The `retrieve_file` tool allows the LLM to access any file from the conversation history using IDs from history metadata.
 
@@ -107,173 +38,6 @@ The `id` format is `"message_id:file_index"` which maps directly to the tool par
 - Verifies message belongs to the current conversation
 - Verifies conversation belongs to the current user
 - Returns error for unauthorized access attempts
-
-### Tool Result Handling
-
-Tool results (including generated images) are returned from both `chat_batch()` and `stream_chat()` methods but are **not persisted** to the database. This is intentional:
-1. **Prevents state bloat**: Generated images are large base64 blobs that would grow the state rapidly
-2. **Ensures fresh tool calls**: If tool results were persisted, the LLM might skip calling `generate_image` for follow-up requests, thinking the tool was already called
-3. **Conversation context is sufficient**: The human/AI message history stored in the `messages` table provides enough context for multi-turn conversations
-
-The `chat_batch()` method returns `(response_text, tool_results, usage_info, result_messages)`. The batch and streaming endpoints extract images from `tool_results` for storage, then discard the tool results themselves.
-
-### Metadata Extraction
-
-Image metadata is not parsed from the response text (the old `<!-- METADATA: -->`
-block is gone): `extract_image_prompts_from_messages()` in
-[content.py](../../src/agent/content.py) reads the prompts from the `generate_image`
-tool-call arguments (sources come from the pages the turn read - `extract_read_sources()`).
-
-### Key Files
-
-- [tools/image_generation.py](../../src/agent/tools/image_generation.py) - `generate_image()` tool with `reference_images` and `history_image_*` parameters
-- [tools/file_retrieval.py](../../src/agent/tools/file_retrieval.py) - `retrieve_file()` tool
-- [tools/context.py](../../src/agent/tools/context.py) - Context variable helpers
-- [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - System prompt with image editing and file retrieval instructions
-- [models/](../../src/db/models/) - `Message.generated_images` field
-- [routes/chat.py](../../src/api/routes/chat.py) - Sets files and conversation context before agent call, image extraction from tool results
-- [ImageGenPopup.ts](../../web/src/components/ImageGenPopup.ts) - Popup showing generation info
-- [InfoPopup.ts](../../web/src/components/InfoPopup.ts) - Generic popup component used by both sources and image gen
-- [messages/actions.ts](../../web/src/components/messages/actions.ts) - Sparkles button rendering
-
-## Code Execution Sandbox
-
-The app can execute Python code in a secure Docker sandbox using [llm-sandbox](https://github.com/vndee/llm-sandbox).
-
-### How it works
-
-1. **Tool available**: `execute_code(code)` tool in [tools/code_execution.py](../../src/agent/tools/code_execution.py)
-2. **Docker sandbox**: Code runs in an isolated container with no network access
-3. **Custom image**: Uses a pre-built Docker image with fonts and libraries pre-installed for faster execution
-4. **File output**: Code saves files to `/output/` directory, which are extracted and returned
-5. **Automatic plots**: Matplotlib plots are captured automatically via llm-sandbox
-6. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
-
-### Custom Docker Image
-
-For optimal performance, the app uses a custom Docker image with pre-installed dependencies:
-
-**Building the image:**
-```bash
-make sandbox-image
-```
-
-This builds `moneypenny-sandbox:local` with:
-- DejaVu fonts for Unicode support in PDF generation (fpdf2)
-- All Python libraries pre-installed (numpy, pandas, matplotlib, etc.)
-- Compiler tools (gcc, g++) for native extensions
-
-**Benefits:**
-- **Faster execution**: No runtime font installation (~2-5s saved per fpdf execution)
-- **Faster library loading**: Pre-installed libraries avoid pip install overhead
-- **Reliability**: No risk of apt-get or pip failures during execution
-
-**Automatic cleanup:**
-- `make sandbox-image` removes old image versions to prevent bloat
-- Each build replaces the previous `moneypenny-sandbox:local` image
-
-### Security Constraints
-
-- **No network**: Containers run with `--network none` (default in llm-sandbox)
-- **No host access**: Code cannot access files outside the container
-- **Resource limits**: Configurable timeout (30s default), memory limit (512MB default)
-- **Per-conversation sessions**: Containers are reused across `execute_code`
-  calls within a conversation ([sandbox_sessions.py](../../src/agent/tools/sandbox_sessions.py):
-  LRU pool, `CODE_SANDBOX_MAX_SESSIONS` per worker, idle TTL
-  `CODE_SANDBOX_SESSION_TTL_SECONDS`). Files in `/work/` persist across calls;
-  variables do NOT (each run is a fresh Python process); `/output/` is cleared
-  at the start of every run. Without a conversation context the session is
-  ephemeral (created and destroyed per call, the old behavior).
-
-### Configuration
-
-```bash
-CODE_SANDBOX_ENABLED=true                    # Enable/disable (default: true)
-CODE_SANDBOX_IMAGE=moneypenny-sandbox:local  # Custom Docker image (required)
-CODE_SANDBOX_TIMEOUT=30                      # Execution timeout in seconds
-CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
-CODE_SANDBOX_CPU_LIMIT=1.0                   # CPU limit (1.0 = 1 core)
-CODE_SANDBOX_MAX_SESSIONS=2                  # Pooled sessions per worker
-CODE_SANDBOX_SESSION_TTL_SECONDS=900         # Idle session lifetime
-```
-
-The sandbox container runs with **networking disabled** and the memory/CPU
-limits above. Available Python libraries are baked into the Docker image
-([docker/code-sandbox/Dockerfile](../../docker/code-sandbox/Dockerfile)) -
-runtime installation is not possible without network. To add a library, add it
-to the Dockerfile and rebuild with `make sandbox-image`.
-
-### Deployment
-
-Each deployment environment must build the custom image:
-
-```bash
-# Initial setup
-make setup
-make sandbox-image
-
-# Update .env
-CODE_SANDBOX_IMAGE=moneypenny-sandbox:local
-
-# On updates (if Dockerfile changed)
-make sandbox-image
-```
-
-**Note:** The custom image is required. The base Python image lacks pre-installed fonts and libraries, causing code execution to fail or perform poorly.
-
-### File Output Pattern (uses `_full_result` to save tokens)
-
-The tool uses the same `_full_result` pattern as `generate_image` to avoid sending large file data back to the LLM:
-
-1. **Wrapped execution**: User code is wrapped to create `/output/` directory and list files after execution
-2. **File extraction**: Files are extracted via `session.copy_from_runtime()` to temp files
-3. **LLM sees metadata only**: Response includes file metadata (name, type, size) but NOT the base64 data
-4. **Full data in `_full_result`**: Actual file data is stored in `_full_result.files` for server-side extraction
-5. **Server extracts files**: `extract_code_output_files_from_tool_results()` extracts files from `_full_result`
-6. **Stored as attachments**: Files are attached to the assistant message like any other file upload
-
-**Token optimization:**
-- Without this pattern: Each 100KB file would add ~130K tokens to the next request
-- With this pattern: LLM only sees ~50 tokens of metadata per file
-
-### Example Use Cases
-
-- Mathematical calculations (sympy for symbolic math)
-- Data analysis (pandas, numpy)
-- Charts and visualizations (matplotlib)
-- PDF document generation (reportlab)
-- JSON/CSV data transformation
-
-### Graceful Degradation
-
-- If Docker is not available, the tool returns an error message
-- Docker availability is checked once and cached
-- The tool is only added to the available tools list if `CODE_SANDBOX_ENABLED=true`
-
-### Key Files
-
-- [code_execution.py](../../src/agent/tools/code_execution.py) - `execute_code()` tool, `is_code_sandbox_available()`, `_check_docker_available()`
-- [Dockerfile](../../docker/code-sandbox/Dockerfile) - Custom Docker image with pre-installed fonts and libraries
-- [Makefile](../../Makefile) - `sandbox-image` target for building custom image
-- [images.py](../../src/utils/images.py) - `extract_code_output_files_from_tool_results()` for file extraction
-- [config.py](../../src/config.py) - `CODE_SANDBOX_*` configuration options
-- [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - System prompt with code execution instructions
-- [routes/chat.py](../../src/api/routes/chat.py) - Extracts and attaches code output files to messages
-
-### Testing Locally
-
-```bash
-# Ensure Docker is running
-docker info
-
-# Test the sandbox manually
-python -c "
-from llm_sandbox import SandboxSession
-with SandboxSession(lang='python') as s:
-    result = s.run('print(1+1)')
-    print(result.stdout)
-"
-```
 
 ## Clipboard Paste
 
@@ -413,7 +177,7 @@ If the server dies while generating thumbnails, pending thumbnails would be stuc
 
 ## Copy to Clipboard
 
-The app provides copy-to-clipboard functionality at two levels.
+The app provides copy-to-clipboard functionality at two levels. (User-facing summary: [UI Features](ui-features.md#copy-to-clipboard).)
 
 ### Features
 
@@ -465,7 +229,7 @@ Users can upload short videos (iPhone/Android camera or library) and consult the
 ### How it works
 
 1. **Upload**: `video/mp4`, `video/quicktime`, `video/webm` up to 100MB (`MAX_VIDEO_FILE_SIZE`) ride the normal base64 chat request; the file input's `accept` offers camera capture on mobile. Magic-byte validation has a container-signature fallback (`ftyp`/EBML) because some libmagic builds detect video only via `from_file`, not `from_buffer`.
-2. **Gemini Files API bridge**: Gemini's inline request limit is ~20MB, so videos are uploaded to the Files API before the agent runs (`attach_gemini_file_uris()` in [gemini_files.py](../../src/agent/gemini_files.py)), polled to `ACTIVE`, and sent as `{"type": "media", "file_uri", "mime_type"}` blocks. The `file_uri` (48h lifetime) is cached in `kv_store` under user `_system`, namespace `gemini_files`, key `message_id:file_index`, TTL 47h.
+2. **Gemini Files API bridge**: Gemini's inline request limit is ~20MB, so videos are uploaded to the Files API before the agent runs (`attach_gemini_file_uris()` in [gemini_files.py](../../src/agent/gemini_files.py), called when the user message is saved), polled to `ACTIVE`, and sent as `{"type": "media", "file_uri", "mime_type"}` blocks. The `file_uri` (48h lifetime) is cached in `kv_store` under user `_system`, namespace `gemini_files`, key `message_id:file_index`, TTL 47h.
 3. **Follow-up turns**: the video is attached only on its upload turn. History carries metadata only (`"type": "video"` + `retrieve_file` id); the system prompt tells the model to call `retrieve_file`, which reuses the cached URI or re-uploads from blob storage.
 4. **Upload failure**: `attach_gemini_file_uris` never raises — the message content gets a text notice instead so the model can tell the user.
 
@@ -473,7 +237,7 @@ Users can upload short videos (iPhone/Android camera or library) and consult the
 
 Attachments are not permanent storage: **videos are kept 7 days, images and all other files 30 days** (`VIDEO_RETENTION_DAYS` / `IMAGE_RETENTION_DAYS` / `FILE_RETENTION_DAYS`). Implemented in [file_retention.py](../../src/utils/file_retention.py):
 
-- **Production**: the `moneypenny-file-cleanup` systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) daily at 02:30 (installed by `make deploy`), consistent with the other scheduled jobs (backup, vacuum, defrag, currency, agent scheduler).
+- **Production**: a daily systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) (installed by `make deploy`), consistent with the other scheduled jobs - see [Scheduled Jobs](../architecture/scheduled-jobs.md).
 - **Development**: the dev scheduler loop calls `run_file_cleanup_if_due()` (at most one sweep per day, tracked via a `kv_store` stamp under `_system`/`file_cleanup`).
 - The sweep deletes full-size blobs and stale Gemini URI cache entries. **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
 - Expiry is *age-derived* everywhere, so behavior is correct even before the sweep runs: history metadata marks files `"expired": true`, `retrieve_file` returns a clear "cleaned up" error, and the file endpoint returns **410 Gone** (`ErrorCode.GONE`).
@@ -494,10 +258,10 @@ FILE_RETENTION_DAYS=30
 ### Key Files
 
 - [gemini_files.py](../../src/agent/gemini_files.py) - Files API bridge + kv URI cache
-- [file_retention.py](../../src/utils/file_retention.py) - retention policy + sweep; [cleanup_files.py](../../scripts/cleanup_files.py) + systemd timer run it
+- [file_retention.py](../../src/utils/file_retention.py) - retention policy + sweep; [cleanup_files.py](../../scripts/cleanup_files.py) runs it on a timer
 - [file_retrieval.py](../../src/agent/tools/file_retrieval.py) - video branch + expiry errors
 - [agent.py](../../src/agent/agent.py) - `_build_message_content()` media blocks
-- [routes/chat.py](../../src/api/routes/chat.py) - `attach_gemini_file_uris()` call sites
+- [chat_turn.py](../../src/api/helpers/chat_turn.py) - `attach_gemini_file_uris()` call site (user message save, both chat modes)
 - [routes/files.py](../../src/api/routes/files.py) - 410 Gone gate
 - [attachments.ts](../../web/src/components/messages/attachments.ts) - tap-to-load player
 
@@ -509,6 +273,8 @@ FILE_RETENTION_DAYS=30
 
 ## See Also
 
-- [Chat and Streaming](chat-and-streaming.md) - Web search sources, thinking indicators
+- [Image Generation](image-generation.md) - `generate_image`, image-to-image editing
+- [Code Execution Sandbox](code-execution.md) - `execute_code` and its output files
+- [API Design](../architecture/api-design.md#two-phase-file-validation) - file validation, magic bytes
+- [Database](../architecture/database.md#blob-storage) - Blob storage for files and thumbnails
 - [UI Features](ui-features.md) - Input toolbar, file upload UI
-- [Architecture: Database](../architecture/database.md) - Blob storage for files and thumbnails

@@ -7,9 +7,13 @@ This directory contains detailed documentation for the Moneypenny project, organ
 ### Features (`features/`)
 Feature-specific documentation covering user-facing functionality:
 
-- **[agents.md](features/agents.md)** - Autonomous agents with cron scheduling, approval workflow, Command Center UI, agent-to-agent communication, K/V store (also used by sports tracking)
-- **[chat-and-streaming.md](features/chat-and-streaming.md)** - Gemini API integration, streaming responses, thinking indicators, web search sources, tool forcing
-- **[file-handling.md](features/file-handling.md)** - Image generation (including image-to-image editing), code execution sandbox, file uploads, clipboard paste, upload progress, background thumbnail generation
+- **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention
+- **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool
+- **[chat-and-streaming.md](features/chat-and-streaming.md)** - Chat turn lifecycle (shared turn setup, streaming producer/consumer/finalize), stop, placeholder recovery, resumable streams, outbox, frontend send / re-run / retry
+- **[thinking-and-sources.md](features/thinking-and-sources.md)** - Thinking indicator and tool trace, retry status line, automatic source chips
+- **[file-handling.md](features/file-handling.md)** - `retrieve_file`, clipboard paste, client-side image compression, upload progress, background thumbnails, copy to clipboard, video uploads and file retention
+- **[image-generation.md](features/image-generation.md)** - `generate_image`: aspect ratios, resolution, image-to-image editing, history image references
+- **[code-execution.md](features/code-execution.md)** - `execute_code` Docker sandbox: custom image, security limits, per-conversation sessions, output files
 - **[voice-and-tts.md](features/voice-and-tts.md)** - Voice input (speech-to-text), text-to-speech
 - **[search.md](features/search.md)** - Full-text search with SQLite FTS5, O(1) message navigation
 - **[sync.md](features/sync.md)** - Real-time synchronization across devices/tabs with timestamp-based polling
@@ -27,7 +31,11 @@ System design and architectural decisions:
 
 - **[authentication.md](architecture/authentication.md)** - Google Sign-In, JWT token handling, token refresh, @require_auth decorator
 - **[database.md](architecture/database.md)** - Blob storage, connection pooling, indexes, performance monitoring, vacuum, backup, best practices
-- **[api-design.md](architecture/api-design.md)** - OpenAPI documentation, rate limiting, request validation (including magic bytes), comprehensive error handling
+- **[api-design.md](architecture/api-design.md)** - OpenAPI documentation and type generation, route organization, request validation (including magic bytes)
+- **[rate-limiting.md](architecture/rate-limiting.md)** - Flask-Limiter categories, key strategy, headers, decorators
+- **[error-handling.md](architecture/error-handling.md)** - Standard error format and codes, frontend toasts/modals, API client timeouts, failed chat sends
+- **[agent-graph.md](architecture/agent-graph.md)** - LangGraph loop: chat node retries and the `retry` event, tool node, self-correction, mid-run steering, tool round economics, stopped-early replies
+- **[conversation-context.md](architecture/conversation-context.md)** - History enrichment (MSG_CONTEXT), tool-output digests, segmented conversation compaction, agent compaction
 - **[streaming-metadata.md](architecture/streaming-metadata.md)** - MSG_CONTEXT stripping in the stream, placeholder messages and client-side stream recovery
 - **[scheduled-jobs.md](architecture/scheduled-jobs.md)** - Time-scheduled work: systemd timers in production, dev_scheduler loop in development, job inventory, how to add a new job
 
@@ -62,6 +70,7 @@ User interface patterns and implementations:
 - [File Handling](features/file-handling.md) - Working with files and images
 - [Database](architecture/database.md) - Database architecture and best practices
 - [API Design](architecture/api-design.md) - API patterns and validation
+- [Agent Graph](architecture/agent-graph.md) - The agent loop behind every turn
 - [Testing](testing.md) - How to write and run tests
 
 ### For New Developers
@@ -87,7 +96,8 @@ Common debugging scenarios:
 - **Mobile/PWA issues**: See [Mobile and PWA](ui/mobile-and-pwa.md) - iOS Safari gotchas
 - **Authentication errors**: See [Authentication](architecture/authentication.md) - Error codes and handling
 - **Database performance**: See [Database](architecture/database.md) - Slow query logging, indexes
-- **API errors**: See [API Design](architecture/api-design.md) - Error handling patterns
+- **API errors**: See [Error Handling](architecture/error-handling.md) - Error format and frontend handling
+- **Agent loops, retries, round cap**: See [Agent Graph](architecture/agent-graph.md)
 - **Stream dropped / reply missing after reload**: See [Streaming](architecture/streaming-metadata.md) and the resume section of [Chat and Streaming](features/chat-and-streaming.md)
 
 ## Documentation Guidelines

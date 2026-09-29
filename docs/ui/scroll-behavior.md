@@ -10,6 +10,7 @@ Scroll behavior in the Moneypenny is complex and carefully designed to handle mu
 - [Streaming Auto-Scroll](#streaming-auto-scroll)
 - [Programmatic Scroll Wrapper](#programmatic-scroll-wrapper)
 - [Cursor-Based Pagination](#cursor-based-pagination)
+- [Auto-Scroll Rules (Aug 2026 audit)](#auto-scroll-rules-aug-2026-audit)
 - [Race Conditions and Edge Cases](#race-conditions-and-edge-cases)
 - [Key Files](#key-files)
 - [Testing](#testing)
@@ -63,7 +64,7 @@ When a new message with images is added (via `sendBatchMessage()` or `finalizeSt
 
 - Checks if the message has images that need loading (images without `previewUrl`)
 - Checks if user was already at the bottom (`isScrolledToBottom()`)
-- If both conditions are true: enables `scrollOnImageLoad()` so images are tracked when observed
+- If both conditions are true: calls `enableScrollOnImageLoad()` so images are tracked when observed
 - **Batch mode**: Message is added via `addMessageToUI()` (images are created and observed synchronously)
 - **Streaming mode**: Images are added via `renderMessageFiles()` in `finalizeStreamingMessage()` (images are created and observed synchronously)
 - Scrolls to bottom immediately (non-smooth) to ensure images are visible
@@ -257,6 +258,19 @@ The app uses cursor-based pagination for both conversations and messages to effi
 - `LOAD_MORE_THRESHOLD_PX`: Distance from bottom to trigger loading more conversations (200px)
 - `LOAD_OLDER_MESSAGES_THRESHOLD_PX`: Distance from top to trigger loading older messages (200px)
 - `INFINITE_SCROLL_DEBOUNCE_MS`: Scroll handler debounce (100ms)
+
+## Auto-Scroll Rules (Aug 2026 audit)
+
+The scroll behavior is the most annoyance-sensitive UX area (regressions here hurt daily use more than visual bugs). Key mechanics after the Aug 2026 audit:
+
+- **One follow threshold**: every "is the user following?" decision uses `SCROLL_USER_DETECTION_THRESHOLD_PX` (200px) — `SCROLL_BOTTOM_THRESHOLD_PX` aliases it and `isScrolledToBottom` defaults to it. Don't introduce new distance constants for the same question.
+- **Streaming pause** ([streaming.ts](../../web/src/components/messages/streaming.ts)): wheel/touchmove pause immediately; the scroll handler additionally pauses on **direction** (an upward, non-programmatic move landing away from the bottom) to cover scrollbar drags and keyboard scrolling. Never pause on position alone — streaming growth changes `scrollHeight` and produced false positives historically.
+- **Scroll-button tap re-arms follow synchronously** (`setOnJumpToBottom` hook) — the debounced position-based resume can miss while tokens grow `scrollHeight` during the smooth animation. While paused mid-stream, the button becomes a labeled "New messages" pill.
+- **End-of-turn repositioning is length-conditional** (`RESPONSE_JUMP_MIN_VIEWPORT_RATIO`): responses taller than ~one viewport jump to their top (read-from-start); shorter ones finish at the bottom. The batch path pins the bottom **instantly** — `scrollToBottom`'s smooth animator has no user-interference abort and fights user scrolls for its whole run (unlike `scrollToElementTop`, which aborts on external movement).
+- **`overflow-anchor: none` on `.messages`**: scroll anchoring is manual (pagination prepend compensation + image-load adjustment); browser anchoring on top of it double-adjusted.
+- **Mobile keyboard** ([core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts)): the fixed 100vh layout means keyboards OVERLAY the page. The visualViewport overlap becomes `--keyboard-inset` (shrinks `html/body` height) and the messages view re-pins to the bottom when the user was following. Guards: pinch zoom (`scale !== 1`), no editable element focused, overlaps under `KEYBOARD_INSET_MIN_PX`.
+- **Thinking-trace collapse compensation**: finalizing the trace shrinks content above a reader scrolled below it — `finalizeThinkingIndicator` measures the height delta and restores `scrollTop`.
+- **Don't touch** `scheduleScrollAfterImageLoad` in [thumbnails.ts](../../web/src/utils/thumbnails.ts) without a confirmed bug — it's correct-by-heavy-defense with dedicated regression E2E tests (2-image races in conversation.spec.ts).
 
 ## Race Conditions and Edge Cases
 

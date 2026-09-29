@@ -76,7 +76,7 @@ For existing messages without language data:
 
 - [tts.ts](../../web/src/core/tts.ts) - `speakMessage()`, `findVoiceForLanguage()`, `initTTSVoices()`, `getTextContentForTTS()`
 - [messages/actions.ts](../../web/src/components/messages/actions.ts) - Speak button in `createMessageActions()`
-- [utils.py](../../src/api/utils.py) - `extract_language_from_metadata()`
+- [content.py](../../src/agent/content.py) - `detect_response_language()` (server-side langdetect on the reply)
 - [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - System prompt text
 - [messages.css](../../web/src/styles/components/messages.css) - `.message-speak-btn` styles
 - [icons.ts](../../web/src/utils/icons.ts) - `SPEAKER_ICON`, `STOP_ICON`
@@ -84,4 +84,4 @@ For existing messages without language data:
 ## See Also
 
 - [UI Features](ui-features.md) - Input toolbar, microphone button
-- [Chat and Streaming](chat-and-streaming.md) - Metadata extraction
+- [Thinking Indicator and Source Chips](thinking-and-sources.md) - response metadata (sources) and the streamed trace

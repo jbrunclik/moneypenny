@@ -1,6 +1,6 @@
 # Chat and Streaming
 
-This document covers the chat system, streaming responses, thinking indicators, web search sources, and tool usage.
+How a chat turn runs end to end: request setup shared by batch and streaming, the SSE pipeline and its recovery paths (placeholder, resume, outbox), and the frontend send / re-run flows. The agent loop itself is in [Agent Graph](../architecture/agent-graph.md), what it sees of the past in [Conversation Context](../architecture/conversation-context.md), and the thinking trace and source chips in [Thinking Indicator and Source Chips](thinking-and-sources.md).
 
 ## Gemini API Integration
 
@@ -20,6 +20,54 @@ Use `extract_text_content()` in [content.py](../../src/agent/content.py) to norm
 ### Parameters
 - `thinking_level`: Controls reasoning (minimal/low/medium/high)
 - Temperature: Keep at 1.0 (Gemini 3 default)
+
+## Chat Turn Lifecycle
+
+Chat endpoints ([routes/chat.py](../../src/api/routes/chat.py), all under `/api`):
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /conversations/<id>/chat/batch` | One request, one complete reply |
+| `POST /conversations/<id>/chat/stream` | Same turn over SSE |
+| `POST /conversations/<id>/chat/interject` | Mid-run steering: guidance for the turn that is running (see [Agent Graph](../architecture/agent-graph.md#self-correction-node)) |
+| `GET /conversations/<id>/chat/stream/<message_id>/resume?after_seq=N` | Replay + tail an in-flight stream ([Resumable Streams](#resumable-streams)) |
+
+Both chat modes share one turn setup in [chat_turn.py](../../src/api/helpers/chat_turn.py).
+They used to carry separate copies that drifted (batch built agent goals without
+`resolve_agent_system_prompt()`, never cleared contextvars when the turn raised, and the
+streaming producer re-set a hand-picked subset of them):
+
+1. **`prepare_turn(user, data, conv_id)`** → `PreparedTurn`: loads the conversation,
+   ORs the persisted and requested anonymous-mode flags, validates files, dedupes
+   `client_message_id` (409 on a repeat), saves the user message (or, for a re-run,
+   resolves the anchor message - no new row), clears any stale interjection, and builds
+   the enriched history.
+2. **`build_turn_context(user, turn, request_id)`** → `TurnContext`: planner dashboard,
+   sports/language program context, interactive-agent context, and the compacted history
+   ([Conversation Context](../architecture/conversation-context.md)).
+3. **`TurnContext.apply()` / `clear()`** own **every** per-turn contextvar (request id,
+   message files, conversation, location, planner dashboard, agent context, sports /
+   language program). Contextvars do not cross threads, so the streaming producer calls
+   `apply()` again in its own thread. A new contextvar a tool reads must be added to
+   both methods - see [Agent Tools](agent-tools.md#three-layers-decide-tool-availability).
+4. `create_agent()` + `agent_call_kwargs()` build the `ChatAgent` and its arguments.
+
+**Batch** (`chat_batch`): `apply()` → `ChatAgent.chat_batch()` → `save_message_to_db()`
+([chat_save.py](../../src/api/helpers/chat_save.py)) → `build_chat_response()` →
+`clear()` in `finally`.
+
+**Streaming** (`chat_stream`): `create_stream_generator(user, turn, ctx)` returns the SSE
+generator. The work is split three ways:
+
+| Module | Role |
+|--------|------|
+| [stream_producer.py](../../src/api/helpers/stream_producer.py) | `stream_events()` runs the agent in a background thread (`turn.apply()`, then `stream_chat_events()`), journals and queues events; `cleanup_and_save()` saves the turn when the client-facing generator could not |
+| [chat_streaming.py](../../src/api/helpers/chat_streaming.py) | Consumer: `_StreamContext`, the `user_message_saved` event + placeholder, queue relay with keepalives, timeout and error handling |
+| [stream_finalize.py](../../src/api/helpers/stream_finalize.py) | `_finalize_stream()` saves the turn and sends `done`; `_finalize_approval_stream()` for agent turns paused for approval |
+
+Both paths put `stopped_early` on the reply when the turn hit the tool-round cap
+([Stopped-Early Replies](../architecture/agent-graph.md#stopped-early-replies)).
+
 
 ## Streaming Architecture
 
@@ -138,6 +186,7 @@ This belt-and-suspenders approach ensures the message content is always availabl
 
 **Key files:**
 - [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `_StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`, placeholder lifecycle
+- [stream_finalize.py](../../src/api/helpers/stream_finalize.py) - `_finalize_stream()` fills the placeholder and builds `done`
 - [message.py](../../src/db/models/message.py) - `update_message_content()`, `delete_message_by_id()`
 - [stream-recovery.ts](../../web/src/core/stream-recovery.ts) - Two-phase `fetchMessageWithRetry()` (Phase 1: find, Phase 2: content poll)
 - [stream-resume.ts](../../web/src/core/stream-resume.ts) - `handleMissingDoneEvent()`; [stream-session.ts](../../web/src/core/stream-session.ts) - `StreamingState.expectedAssistantMessageId`
@@ -151,8 +200,8 @@ This belt-and-suspenders approach ensures the message content is always availabl
 ### Generator vs Cleanup Thread Synchronization
 
 The streaming architecture has two paths that can save the assistant message:
-1. **Generator path**: The main streaming generator calls `_finalize_stream()` when complete
-2. **Cleanup thread path**: A background thread waits for the stream and saves if needed
+1. **Generator path**: The main streaming generator calls `_finalize_stream()` ([stream_finalize.py](../../src/api/helpers/stream_finalize.py)) when complete
+2. **Cleanup thread path**: `cleanup_and_save()` ([stream_producer.py](../../src/api/helpers/stream_producer.py)) waits for the producer thread and saves if needed
 
 This dual-path design ensures messages are saved even if the client disconnects, but creates a race
 condition where both paths might try to save the same message simultaneously.
@@ -191,21 +240,22 @@ Generator thread                    Cleanup thread
 If the generator hangs or crashes, the cleanup thread has a timeout
 (`STREAM_CLEANUP_WAIT_DELAY`) after which it will acquire the lock and save if `saved=False`.
 
-**Key file:** [chat_streaming.py](../../src/api/helpers/chat_streaming.py)
+**Key files:** [chat_streaming.py](../../src/api/helpers/chat_streaming.py) (`_StreamContext`), [stream_producer.py](../../src/api/helpers/stream_producer.py) (`cleanup_and_save()`)
 
 ### Streaming Data Flow (components that change together)
 
-The producer/consumer pipeline in [chat_streaming.py](../../src/api/helpers/chat_streaming.py) has several parts that are tightly coupled — changing the shape of streamed events or the accumulated state means updating **all** of them in lockstep, or the stream silently loses data:
+The producer/consumer pipeline (see [Chat Turn Lifecycle](#chat-turn-lifecycle)) has several parts that are tightly coupled — changing the shape of streamed events or the accumulated state means updating **all** of them in lockstep, or the stream silently loses data:
 
 ```
-stream_events() → event_queue → _process_event_queue() → _handle_queue_event() → _finalize_stream() → save_message_to_db()
+stream_events()        → event_queue → _process_event_queue() → _handle_queue_event() → _finalize_stream()   → save_message_to_db()
+(stream_producer.py)                   (chat_streaming.py)                               (stream_finalize.py)   (chat_save.py)
 ```
 
-1. `_StreamContext` class — holds the accumulated state (content, thinking, IDs, journal) for the stream
-2. `stream_events()` — the producer thread that runs the LangGraph stream and pushes events onto `event_queue`
+1. `_StreamContext` class ([chat_streaming.py](../../src/api/helpers/chat_streaming.py)) — holds the accumulated state (content, thinking, IDs, journal) for the stream
+2. `stream_events()` ([stream_producer.py](../../src/api/helpers/stream_producer.py)) — the producer thread: `turn.apply()`, runs `stream_chat_events()`, journals and pushes events onto `event_queue`
 3. `_handle_queue_event()` — translates each queued event into the client-facing SSE payload
-4. `_finalize_stream()` — final processing / `done` event after the queue drains
-5. `_StreamContext.start_threads()` — starts the producer (and cleanup) threads
+4. `_finalize_stream()` / `_finalize_approval_stream()` ([stream_finalize.py](../../src/api/helpers/stream_finalize.py)) — final processing / `done` event after the queue drains
+5. `_StreamContext.start_threads()` — starts the producer and the `cleanup_and_save()` thread
 6. `save_message_to_db()` in [chat_save.py](../../src/api/helpers/chat_save.py) — persists the assistant message (`result_messages: list[Any]` of LangChain `BaseMessage` objects)
 7. All mock return values in the integration tests (they stub these return types)
 
@@ -217,7 +267,7 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 **Why DB-backed?** A resume request may land on a **different gunicorn worker** than the one still generating, so an in-memory buffer would be invisible to it. Persisting to SQLite makes the journal cross-worker.
 
-**Resume endpoint.** `GET /conversations/<conv_id>/chat/stream/<message_id>/resume?after_seq=N` (`chat_stream_resume` in [routes/chat.py](../../src/api/routes/chat.py), generator `stream_resume_events` in [stream_resume.py](../../src/api/helpers/stream_resume.py)). It replays journaled rows with `seq > after_seq`, then tails the journal until the producer's `stream_end` marker, then waits briefly for the saved message and synthesizes a `done` event from it. If the placeholder is gone (failed turn) or the stream stalls with no terminal marker, it emits `{"type": "error", "code": "RESUME_FAILED"}`.
+**Resume endpoint.** `GET /api/conversations/<conv_id>/chat/stream/<message_id>/resume?after_seq=N` (`chat_stream_resume` in [routes/chat.py](../../src/api/routes/chat.py), generator `stream_resume_events` in [stream_resume.py](../../src/api/helpers/stream_resume.py)). It replays journaled rows with `seq > after_seq`, then tails the journal until the producer's `stream_end` marker, then waits briefly for the saved message and synthesizes a `done` event from it. If the placeholder is gone (failed turn) or the stream stalls with no terminal marker, it emits `{"type": "error", "code": "RESUME_FAILED"}`.
 
 **Client reconnect.** `tryResumeStream` in [stream-resume.ts](../../web/src/core/stream-resume.ts) tracks `state.lastSeq` from each `event.seq` and reconnects with `after_seq=lastSeq`. This is what makes mobile network handoffs (wifi ↔ cellular, backgrounding) recover live progress instead of only polling for the final message.
 
@@ -231,7 +281,7 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 A message send used to be pure optimism: a DOM-only bubble, no store entry, nothing surfaced on failure — a send that died with the connection looked delivered and vanished on reload. The send pipeline (Aug 2026) makes delivery explicit:
 
-**Idempotent sends.** The client generates the user message UUID (`crypto.randomUUID()`) and sends it as `client_message_id` in both chat POSTs. The server uses it as the message row ID (`db.add_message(message_id=...)` — no migration needed) and `_dedupe_client_message_id` in [routes/chat.py](../../src/api/routes/chat.py) returns **409 CONFLICT** with the message id when it already exists in the conversation (validation error if it exists elsewhere). Retries therefore can never duplicate a message; a 409 on retry means "it actually landed" and triggers a refetch-reconcile instead of an error.
+**Idempotent sends.** The client generates the user message UUID (`crypto.randomUUID()`) and sends it as `client_message_id` in both chat POSTs. The server uses it as the message row ID (`db.add_message(message_id=...)` — no migration needed) and `_dedupe_client_message_id` in [chat_turn.py](../../src/api/helpers/chat_turn.py) returns **409 CONFLICT** with the message id when it already exists in the conversation (validation error if it exists elsewhere). Retries therefore can never duplicate a message; a 409 on retry means "it actually landed" and triggers a refetch-reconcile instead of an error.
 
 **Send outbox** ([core/outbox.ts](../../web/src/core/outbox.ts)). Every outgoing message is written to the Zustand store (`status: 'pending'`) and persisted to localStorage before any network I/O. Delivery is confirmed by the **first SSE event** (streaming) or the response (batch) → entry dropped, status cleared. On failure the entry flips to `failed`. Reconciliation (`reconcileOutboxWithServer`, called at every conversation-load site in [conversation.ts](../../web/src/core/conversation.ts)) compares outbox entries against server messages: confirmed → dropped, in-flight in this session → rendered pending, otherwise → rendered failed with retry/discard.
 
@@ -244,159 +294,16 @@ A message send used to be pure optimism: a DOM-only bubble, no store entry, noth
 - `markSendFailed` no-ops once the outbox entry is confirmed — a mid-stream failure after delivery must not flag the *user* message as unsent (that path belongs to stream recovery above).
 - Image `data-pending` (lightbox gating) keys off `message.status`, not ID shape — there are no `temp-` message IDs anymore (conversations still use `temp-` IDs).
 
-### Auto-Scroll System
+### Auto-Scroll
 
-The scroll behavior is the most annoyance-sensitive UX area (regressions here hurt daily use more than visual bugs). Key mechanics after the Aug 2026 audit:
-
-- **One follow threshold**: every "is the user following?" decision uses `SCROLL_USER_DETECTION_THRESHOLD_PX` (200px) — `SCROLL_BOTTOM_THRESHOLD_PX` aliases it and `isScrolledToBottom` defaults to it. Don't introduce new distance constants for the same question.
-- **Streaming pause** ([streaming.ts](../../web/src/components/messages/streaming.ts)): wheel/touchmove pause immediately; the scroll handler additionally pauses on **direction** (an upward, non-programmatic move landing away from the bottom) to cover scrollbar drags and keyboard scrolling. Never pause on position alone — streaming growth changes `scrollHeight` and produced false positives historically.
-- **Scroll-button tap re-arms follow synchronously** (`setOnJumpToBottom` hook) — the debounced position-based resume can miss while tokens grow `scrollHeight` during the smooth animation. While paused mid-stream, the button becomes a labeled "New messages" pill.
-- **End-of-turn repositioning is length-conditional** (`RESPONSE_JUMP_MIN_VIEWPORT_RATIO`): responses taller than ~one viewport jump to their top (read-from-start); shorter ones finish at the bottom. The batch path pins the bottom **instantly** — `scrollToBottom`'s smooth animator has no user-interference abort and fights user scrolls for its whole run (unlike `scrollToElementTop`, which aborts on external movement).
-- **`overflow-anchor: none` on `.messages`**: scroll anchoring is manual (pagination prepend compensation + image-load adjustment); browser anchoring on top of it double-adjusted.
-- **Mobile keyboard** ([core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts)): the fixed 100vh layout means keyboards OVERLAY the page. The visualViewport overlap becomes `--keyboard-inset` (shrinks `html/body` height) and the messages view re-pins to the bottom when the user was following. Guards: pinch zoom (`scale !== 1`), no editable element focused, overlaps under `KEYBOARD_INSET_MIN_PX`.
-- **Thinking-trace collapse compensation**: finalizing the trace shrinks content above a reader scrolled below it — `finalizeThinkingIndicator` measures the height delta and restores `scrollTop`.
-- **Don't touch** `scheduleScrollAfterImageLoad` in [thumbnails.ts](../../web/src/utils/thumbnails.ts) without a confirmed bug — it's correct-by-heavy-defense with dedicated regression E2E tests (2-image races in conversation.spec.ts).
-
-## Thinking Indicator
-
-During streaming responses, the app shows a thinking indicator at the top of assistant messages to provide feedback about the model's internal processing and tool usage.
-
-### Design Principles
-
-- **Streaming only**: The indicator only appears during streaming mode, not when loading historical messages
-- **No persistence**: Thinking state and tool activity are NOT stored in the database
-- **Singleton thinking**: There's exactly ONE thinking item that accumulates all thinking text, updated in real-time
-- **Live updates**: Thinking text is visible and updates during streaming, not just in finalized view
-- **Full trace**: Shows thinking (singleton) + all tool events with details
-- **Rich details**: Shows full thinking text, search queries, URLs, and image prompts
-- **Auto-collapse**: When the message finishes, the indicator collapses into a "Show details" toggle
-
-### How it works
-
-1. **Backend streaming**: `stream_chat_events()` in [agent.py](../../src/agent/agent.py) yields structured events:
-   - `{"type": "thinking", "text": "..."}` - Accumulated thinking text (if `include_thoughts=True`)
-   - `{"type": "tool_start", "tool": "web_search", "detail": "search query"}` - Tool starting with details
-   - `{"type": "tool_end", "tool": "web_search"}` - When a tool finishes
-   - `{"type": "retry", "attempt": 2, "max_retries": 3}` - A transient model error (Gemini 503/429) is being retried with backoff. Emitted by the chat node's `with_retry(..., on_retry=_emit_retry_status)` through LangGraph's custom stream (`stream_chat_events` uses `stream_mode=["messages", "custom"]`, so events arrive as `(mode, payload)` pairs) and shown as "The model is busy - retrying…" in the thinking indicator until the model makes progress. Without it the backoff (up to ~70 s per call) looked like a hang.
-   - `{"type": "token", "text": "..."}` - Regular content tokens
-   - `{"type": "final", ...}` - Final result with metadata
-
-2. **SSE forwarding**: [routes/chat.py](../../src/api/routes/chat.py) forwards these events via Server-Sent Events
-
-3. **Frontend handling**: [stream-events.ts](../../web/src/core/stream-events.ts) parses events and calls:
-   - `updateStreamingThinking(text)` for thinking events (with full accumulated text)
-   - `updateStreamingToolStart(tool, detail)` for tool_start events (with optional detail)
-   - `updateStreamingToolEnd()` for tool_end events
-
-4. **UI rendering**: [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) manages the indicator:
-   - Maintains a trace of all thinking/tool events with details
-   - Shows animated "Thinking" with brain icon and dots during thinking
-   - Shows tool icons, labels, and details (query/URL/prompt) with animated dots during execution
-   - Shows checkmark when tools complete
-   - Collapses into an expandable "Show details" toggle when message finishes
-
-### Tool labels and details
-
-The indicator uses user-friendly labels and shows relevant details for tools:
-- `web_search` → "Searching the web" + search query → "Searched" + query (finalized)
-- `fetch_url` → "Fetching page" + URL → "Fetched" + URL (finalized)
-- `generate_image` → "Generating image" + prompt → "Generated image" + prompt (finalized)
-- `execute_code` → "Running code" + first line of code → "Ran code" (finalized)
-
-### Trace State Management
-
-The thinking state tracks a full trace of events:
-
-```typescript
-interface ThinkingTraceItem {
-  type: 'thinking' | 'tool';
-  label: string;
-  detail?: string;  // thinking text, search query, URL, or prompt
-  completed: boolean;
-}
-```
-
-**Singleton thinking behavior:**
-- The trace is initialized with ONE thinking item at index 0
-- All thinking updates go to this same item (detail gets replaced, not appended)
-- When a tool starts, thinking is marked `completed: true` but remains in place
-- If more thinking comes after a tool, the same thinking item is updated and marked `completed: false`
-- This ensures there's always exactly one thinking item showing accumulated/latest thinking text
-
-**Example trace progression:**
-1. Initial: `[{type: 'thinking', completed: false}]`
-2. Thinking arrives: `[{type: 'thinking', detail: "Analyzing...", completed: false}]`
-3. Tool starts: `[{type: 'thinking', detail: "Analyzing...", completed: true}, {type: 'tool', label: 'web_search', ...}]`
-4. More thinking: `[{type: 'thinking', detail: "New analysis...", completed: false}, {type: 'tool', ...}]`
-
-### Display States
-
-- **Streaming**: Shows full trace with active item at the bottom (for auto-scroll). Active items show animated dots
-- **Finalized**: Collapses into toggle button. Clicking expands to show full trace with thinking first, then tools
-
-### Trace Ordering
-
-During streaming, thinking stays at the end of the trace (for auto-scroll). Tools are inserted before thinking. When finalized, trace is reordered: thinking first, then tools (logical reading order).
-
-### Markdown Support
-
-Thinking text is rendered with markdown formatting for better readability (lists, code blocks, emphasis, etc.).
-
-### Gemini Thinking Support
-
-The Gemini API supports a `include_thoughts=True` parameter that returns thinking content in the response. When enabled:
-- `ChatGoogleGenerativeAI` is initialized with `include_thoughts=True`
-- Response chunks may contain parts with `{'type': 'thinking', 'thinking': "..."}` format
-- `extract_thinking_and_text()` separates thinking content from regular text
-- Thinking text is accumulated across chunks and emitted as updates
-- The backend yields `{"type": "thinking", "text": accumulated_text}` events during streaming
-
-### Key Files
-
-- [agent.py](../../src/agent/agent.py) - `stream_chat_events()`, `ChatAgent` class
-- [content.py](../../src/agent/content.py) - `extract_thinking_and_text()`
-- [routes/chat.py](../../src/api/routes/chat.py) - SSE streaming with thinking/tool events
-- [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
-- [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
-- [messages/streaming.ts](../../web/src/components/messages/streaming.ts) - Streaming state management
-- [stream-events.ts](../../web/src/core/stream-events.ts) - Event handling ([thinking-state.ts](../../web/src/core/thinking-state.ts) keeps the per-stream trace)
-- [thinking.css](../../web/src/styles/components/thinking.css) - Styles and animations
-
-### Testing
-
-- Backend unit tests: `TestExtractThinkingAndText` in [test_content_text.py](../../tests/unit/test_content_text.py)
-- Frontend unit tests: [thinking-indicator.test.ts](../../web/tests/unit/thinking-indicator.test.ts)
-- E2E tests: "Chat - Thinking Indicator" describe block in [thinking-indicator.spec.ts](../../web/tests/e2e/chat/thinking-indicator.spec.ts)
-
-## Web Search Sources
-
-When a turn reads web pages, those pages are shown to the user as sources - automatically, with no citation tool.
-
-### How it works
-
-1. **Tool returns JSON**: `web_search` returns `{"query": "...", "results": [{title, url, snippet}, ...]}` instead of plain text (`research`, `fetch_url` and the browser also produce citable pages)
-2. **Backend derives sources from what was read**: `extract_read_sources()` in [content.py](../../src/agent/content.py) pairs the turn's tool calls with their results: pages `research` actually fetched (not failed fetches or unfetched candidates), successful `fetch_url` calls (titled by URL), `browser` pages, and sources a `delegate_task` subagent returned. A turn that answered from search snippets alone gets the top 5 search results (rank-interleaved) instead. De-duplicated, at most 10.
-3. **Why no citation tool (removed Sep 2026)**: there used to be a `cite_sources` tool meant to ride along with the final answer. In production the model sent it WITHOUT answer text in 687 of 869 tool-using turns (79%, 30 days) despite the prompt forbidding exactly that, so the no-op tool ran and the model was called again just to write the answer - ~49M extra input tokens a month, an extra model call of latency, inflated round counts (false "stopped early" notes, eval round-cap failures) - and it forgot to cite in other turns. Trade-off accepted: chips list every page read, not just the ones the answer relied on. (The old text-based `<!-- METADATA: -->` block is long gone too.)
-4. **Sources stored in DB**: Messages table has a `sources` column (JSON array)
-5. **Sources in API response**: Both batch and streaming responses include `sources` array
-6. **Sources in later turns**: `history.py` turns stored sources into a `tool_digest` ("read: Title (url); ...") in the message's `MSG_CONTEXT`, so the model can re-fetch a page it cited earlier
-7. **UI shows sources button**: A globe icon appears in message actions when sources exist, opening a popup with clickable links
-
-### Key Files
-
-- [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
-- [content.py](../../src/agent/content.py) - `extract_read_sources()`
-- [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
-- [routes/chat.py](../../src/api/routes/chat.py) - Sources included in batch/stream responses
-- [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
-- [messages/actions.ts](../../web/src/components/messages/actions.ts) - Sources button rendering
+Scroll behavior during and after a turn (follow threshold, streaming pause, end-of-turn repositioning, mobile keyboard) is documented in [Scroll Behavior](../ui/scroll-behavior.md#auto-scroll-rules-aug-2026-audit).
 
 ## Force Tools System
 
 The `forceTools` state in Zustand allows forcing specific tools to be used. Currently only `web_search` is exposed via UI, but the system supports any tool name. The force tools instruction is added to the system prompt when tools are specified.
 
 - Frontend: `store.forceTools: string[]` with `toggleForceTool(tool)` and `clearForceTools()`
-- Backend: `force_tools` parameter in `/chat/batch` and `/chat/stream` endpoints
+- Backend: `force_tools` parameter on the `chat/batch` and `chat/stream` endpoints
 - Agent: `get_force_tools_prompt()` in [prompts.py](../../src/agent/prompts.py)
 
 ## Conversation and Message Patterns
@@ -431,22 +338,20 @@ Conversations are created locally with `temp-` prefixed ID and only persisted to
 
 **Key files:**
 - [conversation.ts](../../web/src/core/conversation.ts) - `createConversation()`, `isTempConversation()`
-- [messaging.ts](../../web/src/core/messaging.ts) - `sendMessage()` handles temp → real ID conversion
+- [messaging.ts](../../web/src/core/messaging.ts) - `persistTempConversation()` creates the real conversation on first send
 
 ### User Message ID Handling
 
-User messages are initially created with temp IDs (`temp-{timestamp}`) in the frontend. The backend returns the real message ID via:
-- **Streaming mode**: `user_message_saved` SSE event
-- **Batch mode**: `user_message_id` field in response
+The client generates the user message ID (`crypto.randomUUID()`, sent as `client_message_id`) and the server stores the row under it, so a normal send's ID is final from the start. The server still echoes the ID - `user_message_saved` SSE event (streaming) or `user_message_id` (batch) - and `updateUserMessageId()` swaps it into the DOM: a no-op for normal sends, needed for re-runs, whose `rerun-*` anchor maps to an existing message.
 
-Images with temp message IDs are marked with `data-pending="true"` and show `cursor: wait` until the real ID is available.
+Images in a message that is not yet confirmed (`message.status` pending) carry `data-pending="true"` and show `cursor: wait`.
 
 ### Concurrent Request Handling
 
 The app supports multiple active requests across different conversations simultaneously. Requests continue processing in the background even when users switch conversations.
 
 **Key implementation:**
-- Active requests tracked per conversation in `activeRequests` map
+- Active requests tracked per conversation in the store's `activeRequests` map (UI snapshot); the AbortControllers live in [active-requests.ts](../../web/src/core/active-requests.ts)
 - Requests only update UI if their conversation is still current
 - Server-side: cleanup threads ensure messages are saved even if client disconnects
 
@@ -464,167 +369,66 @@ When switching away from a conversation with an active request and back, the UI 
 
 A module-level `pendingConversationId` variable in [conversation.ts](../../web/src/core/conversation.ts) tracks which conversation the user most recently clicked. When an API call completes, we check if it matches - if not, the user navigated elsewhere and we cancel the operation.
 
-## History Enrichment
+## Frontend Send, Re-run and Retry
 
-Conversation history is enriched with contextual metadata before being sent to the LLM. This helps the model understand temporal context, reference historical files, and know which tools were used.
+The send path is split by responsibility in `web/src/core/`:
 
-### Context Format
+| Module | Role |
+|--------|------|
+| [messaging.ts](../../web/src/core/messaging.ts) | `sendMessage()` from the composer: double-send guard, temp-conversation persistence, optimistic user bubble + outbox entry, then `dispatchSend()`; while a reply in that conversation is still running, routes the text (no attachments) to [steering.ts](../../web/src/core/steering.ts) (interject) instead. Owns dispatch-level failure handling (`handleSendFailure`: 409 reconcile, one silent auto-retry on transient errors, then `markSendFailed` + toast) |
+| [stream-send.ts](../../web/src/core/stream-send.ts) / [batch-send.ts](../../web/src/core/batch-send.ts) | `sendStreamingMessage()` / `sendBatchMessage()`: one turn in each mode |
+| [stream-session.ts](../../web/src/core/stream-session.ts), [stream-events.ts](../../web/src/core/stream-events.ts), [stream-done.ts](../../web/src/core/stream-done.ts) | Per-stream state, per-event handling, the terminal `done` event |
+| [stream-resume.ts](../../web/src/core/stream-resume.ts), [stream-recovery.ts](../../web/src/core/stream-recovery.ts), [inflight-streams.ts](../../web/src/core/inflight-streams.ts) | Journal resume, poll recovery, reload-resume |
+| [send-delivery.ts](../../web/src/core/send-delivery.ts), [outbox.ts](../../web/src/core/outbox.ts) | Delivery state (`confirmDelivery`, `markSendFailed`, auto-retry claim) and the persisted outbox |
+| [active-requests.ts](../../web/src/core/active-requests.ts) | AbortControllers per in-flight request (stop button, logout) |
+| [rerun.ts](../../web/src/core/rerun.ts) | Actions on already-sent messages (below) |
+| [response-scroll.ts](../../web/src/core/response-scroll.ts), [thinking-state.ts](../../web/src/core/thinking-state.ts) | End-of-turn scroll, per-stream thinking trace |
 
-Each historical message includes a JSON context block using `<!-- MSG_CONTEXT: -->` format (distinct from response `<!-- METADATA: -->`):
+**Actions on sent messages** ([rerun.ts](../../web/src/core/rerun.ts)). Message components
+dispatch document events; `initOutboxHandlers()` (called once from init) handles them.
+All except retry/discard refuse to run while the conversation has an active request.
 
-```
-<!-- MSG_CONTEXT: {"timestamp":"2024-06-15 14:30 CET","files":[{"name":"report.pdf","type":"PDF","id":"msg-abc123:0"}]} -->
-Can you analyze this data?
-```
+| Event | Action |
+|-------|--------|
+| `outbox:retry` | `retryFailedMessage()` re-dispatches the outbox entry through `dispatchSend()` (idempotent via `client_message_id`; a manual retry re-arms the auto-retry) |
+| `outbox:discard` | Drops the outbox entry and the bubble |
+| `message:regenerate` | Deletes the last assistant reply, then re-runs with `rerun_mode: "regenerate"` |
+| `message:continue` | Re-runs with `rerun_mode: "continue"` - also what the stopped-early note's **Continue** button dispatches |
+| `message:edit` | Inline edit; saving truncates the conversation from that message (server first), then re-sends the edited text through the normal `sendMessage()` pipeline |
 
-Note: The distinct marker prevents the LLM from echoing history context in its responses.
+A re-run sends an empty message plus `rerun_mode` through the usual streaming or batch
+path, with a `rerun-<timestamp>` anchor id in place of a user message id (no optimistic
+bubble or outbox entry exists, so send-state updates are no-ops). Server side,
+`_resolve_rerun()` in [chat_turn.py](../../src/api/helpers/chat_turn.py) inserts no user
+message: `regenerate` requires the conversation to end with a user message and re-answers
+it; `continue` requires a trailing assistant reply and sends a continue instruction.
 
-Only **stable, message-derived** fields are embedded inline. A recomputed relative time ("3 hours ago") is deliberately omitted because it would change every historical message's serialized bytes on each turn, defeating Gemini's implicit prefix caching of the history. The model derives elapsed time from the absolute `timestamp` plus the current time provided in the dynamic context block. For the same reason, in cached mode the per-request dynamic context (`[CONTEXT]`) is appended at the **tail** (just before the current user message) rather than the head, so the stable history forms a reusable prefix.
+There is no draft store: an unsent message stays visible as a failed bubble with
+Retry / Discard (see [Reliable Sends](#reliable-sends-outbox)).
 
-### Enrichment Fields
+**Testing:** [rerun.spec.ts](../../web/tests/e2e/chat/rerun.spec.ts) ("Chat - Regenerate /
+Continue / Edit"), [send-failure.spec.ts](../../web/tests/e2e/chat/send-failure.spec.ts)
+("Send Failure Handling", "Send Auto-Retry"), "Chat - Message Retry" in
+[message-actions.spec.ts](../../web/tests/e2e/chat/message-actions.spec.ts),
+[messaging-store.test.ts](../../web/tests/unit/messaging-store.test.ts),
+[test_routes_chat_turn.py](../../tests/integration/test_routes_chat_turn.py).
 
-**For all messages:**
-- `timestamp` - Absolute timestamp with timezone (e.g., "2024-06-15 14:30 CET")
-- `session_gap` - Present when resuming after a gap (e.g., "2 days")
+## Key Files
 
-**For user messages:**
-- `files` - Array of file metadata with `name`, `type`, and `id` (format: `message_id:file_index`)
-
-**For assistant messages:**
-- `tools_used` - Array of tool names used (e.g., `["web_search", "garmin_connect"]`)
-- `tool_summary` - Human-readable summary (e.g., "searched 3 web sources, generated 1 image")
-- `tool_digest` - Sources the turn read, as "read: Title (url); ..." (enables a precise re-fetch)
-- `tool_outputs` - One line per non-web tool call of that turn, `tool(args) -> head of result` (e.g. `garmin_connect({"action":"hrv"}) -> {"hrv":62}`). A turn's `ToolMessage`s are gone by the next turn; without this a follow-up like "what was my HRV again?" had to re-call the tool. Built at save time by [tool_outputs.py](../../src/agent/tool_outputs.py) and persisted in the `messages.tool_outputs` column (migration 0054): web, image, recall and memory tools are excluded (covered elsewhere), `_full_result`/`_efficiency`/`_degraded` keys are stripped, results are cut to 400 chars and the whole line to ~1,500 chars. Deterministic from persisted data, so the history prefix stays byte-stable. Compaction folds it into the summarizer's input (`[Tool results: ...]`) so the facts survive summarization.
-  - **Retention trade-off (accepted Sep 2026):** tool results used to be ephemeral; now their heads are stored with the message and re-sent to the model while the message is in the verbatim window (then folded into the summary). That includes health metrics (Garmin) and third-party data such as calendar attendee emails. Untrusted text inside a result (an invite description, a task title) is likewise re-exposed each turn - `-->` is neutralized so it cannot break out of the MSG_CONTEXT comment, but its instructions are not. Add a tool to `_EXCLUDED_TOOLS` in `tool_outputs.py` if its outputs should stay ephemeral.
-
-### Session Gap Detection
-
-When messages are more than `HISTORY_SESSION_GAP_HOURS` apart (default: 4 hours), a session gap indicator is included. This helps the LLM understand context breaks in the conversation.
-
-### File References
-
-The compact `id` format (`message_id:file_index`) allows the LLM to directly reference historical files:
-- `retrieve_file(message_id="msg-abc123", file_index=0)` - to analyze a file
-- `generate_image(history_image_message_id="msg-abc123", history_image_file_index=0)` - to edit an image
-
-### Configuration
-
-```bash
-# .env
-HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
-```
-
-### Key Files
-
-- [history.py](../../src/agent/history.py) - `enrich_history()`, timestamp/file/tool formatting functions
-- [agent.py](../../src/agent/agent.py) - `_format_message_with_metadata()`, `_build_messages()`
-- [routes/chat.py](../../src/api/routes/chat.py) - Integration in batch and stream endpoints
-- [config.py](../../src/config.py) - `HISTORY_SESSION_GAP_HOURS` configuration
-
-### Testing
-
-- Unit tests: `TestFormatMessageWithMetadata` in [test_agent_messages.py](../../tests/unit/test_agent_messages.py)
-- Unit tests: [test_history.py](../../tests/unit/test_history.py) - comprehensive tests for enrichment functions
-
-## Conversation Compaction (cost control)
-
-Long chats re-send their entire history to the LLM on every turn, so cost grows ~O(n²) over a conversation. [conversation_compaction.py](../../src/agent/conversation_compaction.py) bounds the history *sent to the model* on regular (non-agent) conversations by replacing older turns with a running summary while keeping recent turns verbatim.
-
-**Key properties:**
-- **Non-destructive** — unlike the autonomous-agent path in [compaction.py](../../src/agent/compaction.py), the full message history stays in the database for display. Only the enriched history handed to the agent is compacted.
-- **Segmented, from full text** — the summary is a list of segments ([compaction_segments.py](../../src/agent/compaction_segments.py)). Each batch of `CONVERSATION_COMPACTION_RESUMMARIZE_BATCH` messages is summarized **once**, from full message text (8k chars/message cap), into a segment of ~`CONVERSATION_COMPACTION_SEGMENT_WORDS` words that is appended. Only when the total exceeds `CONVERSATION_COMPACTION_SUMMARY_MAX_WORDS` are two adjacent segments merged — always the pair with the fewest passes (oldest first), so merge depth grows logarithmically. Appending keeps the summary's prefix stable between refreshes (friendly to prefix caching).
-- **Lazy & off the request path** — state is persisted in `kv_store` (namespace `conv_compaction`, key = `conversation_id`; DB-backed, safe across the 4 gunicorn workers) and refreshed on a background thread; the current turn uses whatever state already exists.
-- **Failure-safe** — a failed refresh never drops context (prior segments + the un-summarized middle, or the full history when there is no summary yet) and backs off exponentially (30 min doubling to 1 day, `failures`/`retry_after` in the state) instead of retrying every turn. `run_summary_model` logs the finish/block reason when the model returns no text.
-- **Recall fallback** — the summary message ends with `SUMMARY_RECALL_HINT`, and `search_conversations` includes this conversation's *summarized* messages (`summarized_message_ids()`), so exact details the summary dropped stay reachable.
-
-**Why segments (Sep 2026 measurement):** the previous design re-folded a single summary into itself every 10 messages under a 500-word cap and truncated each message to 500 chars — the summarizer saw ~25% of the text it replaced and a 449-message chat had been through ~42 passes. A fact-recall probe on 7 real conversations (facts extracted from sampled exchanges, judged answerable from the summary alone) scored: old design 55%, segments 150 words/1,200 cap 73%, **segments 250 words/2,500 cap 86%** (174 facts). Cost of the chosen budget: ~$0.011 per 10-message refresh and ~3k extra input tokens per compacted turn — roughly +$8–9/month at current usage. The summarizer runs with `thinking_level=LOW` (`run_summary_model`): on 3 of the conversations LOW scored 81–92% vs 74–88% at the API default while cutting summarizer cost ~30% (thinking tokens were ~85% of its output spend).
-
-**Legacy state:** pre-segment `{summary, covered_count[, generation]}` values are served as a single segment and rebuilt from full text (chunked to fit the cap) on the conversation's next turn.
-
-`build_compacted_history(user_id, conversation_id, history)` returns `[summary_message] + uncovered_middle + recent` once the history exceeds the threshold, otherwise the input unchanged. It is wired into both the batch route ([routes/chat.py](../../src/api/routes/chat.py)) and the stream path (`_StreamContext.setup_context()` in [chat_streaming.py](../../src/api/helpers/chat_streaming.py)), gated on `not is_autonomous`.
-
-**Configuration:**
-- `CONVERSATION_COMPACTION_ENABLED` (default: `true`)
-- `CONVERSATION_COMPACTION_THRESHOLD` (default: `30`) — message count above which compaction kicks in
-- `CONVERSATION_COMPACTION_KEEP_RECENT` (default: `12`) — recent messages always kept verbatim
-- `CONVERSATION_COMPACTION_RESUMMARIZE_BATCH` (default: `10`) — messages per new segment
-- `CONVERSATION_COMPACTION_TOKEN_THRESHOLD` (default: `60000`) — estimated-token trigger
-- `CONVERSATION_COMPACTION_SEGMENT_WORDS` (default: `250`) / `CONVERSATION_COMPACTION_SUMMARY_MAX_WORDS` (default: `2500`) — segment size and total cap (the per-turn cost knob)
-
-**Depth tracking & UI:** the state is `{segments: [{text, end, passes}], covered_count}`; the displayed depth (`generation`) is the deepest segment's `passes`. Legacy states report their recorded or estimated generation (`generation_estimated`) until rebuilt. `get_compaction_status()` mirrors `build_compacted_history`'s gating without side effects and backs `GET /api/conversations/<id>/compaction` ([routes/costs.py](../../src/api/routes/costs.py)): whether the next turn is compacted, how many leading messages the summary replaces (`boundary_message_id` = the last one), the depth and the summary text. The frontend shows it as a header chip, an in-list divider and a popup (see [Compaction indicator](../ui/components.md#compaction-indicator)). The summary refreshes in the background, so right after a batch boundary the indicator can show the previous state until the chip next refreshes (end of the following turn or reload).
-
-**Testing:** [test_conversation_compaction.py](../../tests/unit/test_conversation_compaction.py), [test_compaction_segments.py](../../tests/unit/test_compaction_segments.py), [test_conversation_search_tool.py](../../tests/unit/test_conversation_search_tool.py) (summarized-part search), [test_routes_costs.py](../../tests/integration/test_routes_costs.py) (route), `web/tests/unit/compaction-indicator.test.ts`, `web/tests/e2e/compaction.spec.ts` (`/test/seed` accepts a per-conversation `compaction` state).
-
-## LangGraph Agent Graph
-
-The chat agent is implemented as a LangGraph state machine in [graph.py](../../src/agent/graph.py).
-
-### Graph Flow
-
-```
-START -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
-                                 -> "end": END
-```
-
-Without tools: `START -> chat -> END`
-
-Multi-step planning is the model's own job (Gemini native thinking; see the
-optional `thinking_level` key on `Config.MODELS` entries). The old
-classifier + plan-node subsystem was removed in Aug 2026 after telemetry
-showed a 1.9% fire rate at 1.6-2.4s added latency — git history has the
-implementation if it's ever needed again.
-
-### Self-Correction Node
-
-After tool execution, `check_tool_results()` inspects `ToolMessage` results for errors before returning control to the LLM.
-
-**How it works:**
-
-1. Scans the latest batch of `ToolMessage` objects (stops at the preceding `AIMessage`)
-2. Detects errors **structurally** in `_tool_message_error()` ([graph.py](../../src/agent/graph.py)): `status == "error"` (set by the ToolNode exception handler and the permission-blocked path) or a JSON object with a truthy `"error"` key (the envelope every tool returns on failure). It deliberately **never** substring-matches content - matching `"Error:"`/`"failed"` false-positived on legitimate results, e.g. a fetched page that describes a failure. Tools mark permanent failures (integration not configured, invalid action) with `"retriable": false`, which skips pointless retries
-3. On a retriable error with retries remaining: increments `tool_retries`, injects guidance telling the LLM to try a different approach
-4. On error after max retries (or a non-retriable one): injects guidance telling the LLM to give up gracefully and explain the issue
-   - Guidance is a `SystemMessage`, or a `HumanMessage` wrapped in `[SYSTEM GUIDANCE]` markers in cached mode (LangChain drops mid-conversation system messages there)
-5. On success: resets `tool_retries` to 0
-6. Always routes back to the `chat` node - the LLM decides the next step
-
-The `ToolNode` is created with `handle_tool_errors=_handle_tool_errors` (a callable, **not** `True`) so ordinary tool exceptions become `ToolMessage` errors rather than crashes, while control-flow exceptions still propagate.
-
-> **Pitfall — never pass `handle_tool_errors=True`.** With `True`, LangGraph's `ToolNode` catches *every* `Exception` subclass and converts it into an error `ToolMessage` (`status="error"`). That silently swallows control-flow exceptions too: `ApprovalRequestedException` (raised by the autonomous-agent approval flow) never reached the executor, so runs *completed* instead of pausing in `waiting_approval`, and self-correction told the model to retry — producing duplicate approval records. The fix is the `_handle_tool_errors(e)` callable in [graph.py](../../src/agent/graph.py): it re-raises `ApprovalRequestedException` and returns the default error-template string for everything else. (LangGraph's own `interrupt()` uses `GraphBubbleUp`, which the framework exempts — the native alternative.)
->
-> **Lesson:** when an exception must cross a framework boundary (`ToolNode`, `executor.map`, `graph.stream`), write the regression test through a **real compiled graph**, not a mocked node — tests that mocked `execute_agent` never exercised this propagation boundary, and the `except` in the streaming layer was dead code until the exception actually started arriving. Fixing propagation can also unmask latent bugs in the previously-dead catch paths.
-
-**Configuration:**
-- `AGENT_MAX_TOOL_RETRIES`: Max consecutive tool failures before giving up (default: `2`)
-
-### Graph State (no checkpointer)
-
-The chat graph is **stateless across requests**. Every invoke receives the full message list to send (built from the DB history, then compacted — see [Conversation Compaction](#conversation-compaction-cost-control)), so no LangGraph checkpointer is attached.
-
-This is deliberate: `AgentState.messages` uses the `add_messages` reducer, which *appends* input messages to any existing thread state and dedups only by message `id`. Since freshly built history messages have no `id`, attaching a persistent checkpointer keyed by `conversation_id` made every follow-up turn **accumulate and duplicate** the entire history — for regular chat *and* autonomous agents (nothing in the code ever resumed a thread; agent approvals re-run `execute_agent` fresh from the DB). `compile_graph()` therefore just calls `graph.compile()`, and within-request multi-step state (the tool loop) is held in memory during the invoke.
-
-### AgentState Fields
-
-```python
-class AgentState(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]  # Messages for this invoke
-    tool_retries: int   # Consecutive tool failure count (reset to 0 on success)
-    tool_rounds: int    # Tool-execution rounds this turn (soft cap nudges the model to answer)
-```
-
-### Key Files
-
-- [graph.py](../../src/agent/graph.py) - Graph construction, all nodes and routers
-- [agent.py](../../src/agent/agent.py) - `ChatAgent`, `stream_chat_events()`, `chat_batch()`
-- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_MAX_TOOL_ROUNDS`
-
-### Testing
-
-- Unit tests: [test_graph.py](../../tests/unit/test_graph.py) - self-correction, planning, and graph structure
+- [routes/chat.py](../../src/api/routes/chat.py) - chat endpoints
+- [chat_turn.py](../../src/api/helpers/chat_turn.py) - `prepare_turn()`, `build_turn_context()`, `TurnContext`
+- [stream_producer.py](../../src/api/helpers/stream_producer.py), [chat_streaming.py](../../src/api/helpers/chat_streaming.py), [stream_finalize.py](../../src/api/helpers/stream_finalize.py) - streaming producer / consumer / finalize
+- [chat_save.py](../../src/api/helpers/chat_save.py) - `save_message_to_db()`, title resolution
+- [stream_resume.py](../../src/api/helpers/stream_resume.py) - stream journal and resume
+- [agent.py](../../src/agent/agent.py) - `ChatAgent.chat_batch()`, `stream_chat_events()`
+- [web/src/core/](../../web/src/core/) - send, stream, resume and re-run modules (table above)
 
 ## See Also
 
-- [File Handling](file-handling.md) - Image generation, code execution, file uploads
+- [Agent Graph](../architecture/agent-graph.md) - the agent loop, retries, tool rounds
+- [Conversation Context](../architecture/conversation-context.md) - history enrichment and compaction
+- [Thinking Indicator and Source Chips](thinking-and-sources.md) - streamed trace and sources
+- [Streaming Metadata](../architecture/streaming-metadata.md) - MSG_CONTEXT stripping, client-side recovery
+- [File Handling](file-handling.md) - uploads, thumbnails, video
 - [UI Features](ui-features.md) - Input toolbar, message sending behavior
-- [Memory and Context](memory-and-context.md) - User memories and custom instructions
-- [Testing](../testing.md) - E2E tests for chat functionality
+- [Frontend and E2E Testing](../testing/frontend.md) - chat E2E specs

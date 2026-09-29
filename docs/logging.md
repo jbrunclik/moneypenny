@@ -438,6 +438,6 @@ logger.debug("Processing complete")
 
 ## See Also
 
-- [API Design](architecture/api-design.md) - Error responses and request handling
+- [Error Handling](architecture/error-handling.md) - Error responses; [API Design](architecture/api-design.md) - request handling
 - [Testing](testing.md) - Log output in tests
 - [Deployment](deployment.md) - Production logging configuration

@@ -231,6 +231,6 @@ STREAM_CLEANUP_WAIT_DELAY = 1.0      # Delay before checking if message was save
 
 ## See Also
 
-- [Image Generation](file-handling.md#image-generation) - Image generation costs
+- [Image Generation](image-generation.md) - Image generation costs
 - [Database Schema](../architecture/database.md) - Cost table schema
 - [Testing Guide](../testing.md) - Testing cost tracking
