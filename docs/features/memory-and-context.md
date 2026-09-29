@@ -260,7 +260,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - [routes/chat.py](../../src/api/routes/chat.py) - Passes `custom_instructions` to agent
 
 **Frontend:**
-- [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - Settings popup with textarea, character count, save button
+- [settings/instructions.ts](../../web/src/components/settings/instructions.ts) - Custom instructions textarea, character count, save on blur
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Gear icon button in user actions
 - [client.ts](../../web/src/api/client.ts) - `settings.get()`, `settings.update()` API methods
 - [api.ts](../../web/src/types/api.ts) - `UserSettings` type

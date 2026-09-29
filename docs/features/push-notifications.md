@@ -61,7 +61,7 @@ are already in place.
   `disablePush()` / `getPushState()` / `sendTestNotification()`.
   States: `subscribed`, `not-subscribed`, `denied`, `ios-needs-install`,
   `server-disabled`, `unsupported`.
-- `web/src/components/SettingsPopup.ts` — Notifications section
+- `web/src/components/settings/notifications.ts` — Notifications section
   rendering per state, with enable/disable toggle and test send.
 
 ### Payload

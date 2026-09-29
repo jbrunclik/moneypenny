@@ -314,7 +314,7 @@ The app supports three color scheme options: Light, Dark, and System (default).
 ### Key Files
 
 - [theme.ts](../../web/src/utils/theme.ts) - Theme utility functions
-- [SettingsPopup.ts](../../web/src/components/SettingsPopup.ts) - Color scheme selector UI
+- [settings/appearance.ts](../../web/src/components/settings/appearance.ts) - Color scheme selector UI
 - [variables.css](../../web/src/styles/variables.css) - CSS custom properties for both themes
 - [icons.ts](../../web/src/utils/icons.ts) - `SUN_ICON`, `MOON_ICON`, `MONITOR_ICON` for theme options
 - [init.ts](../../web/src/core/init.ts) - Early theme initialization to prevent flash of wrong theme

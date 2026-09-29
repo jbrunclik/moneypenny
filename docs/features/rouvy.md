@@ -59,7 +59,7 @@ login) and per-user connect state. Available to the sports agent (not excluded).
 - Auth/login: [src/auth/rouvy_auth.py](../../src/auth/rouvy_auth.py)
 - Client + tool: [src/agent/tools/rouvy.py](../../src/agent/tools/rouvy.py)
 - Routes: [src/api/routes/rouvy.py](../../src/api/routes/rouvy.py) (`/auth/rouvy/connect|status|disconnect`)
-- Settings UI: `renderRouvySection` in [web/src/components/SettingsPopup.ts](../../web/src/components/SettingsPopup.ts)
+- Settings UI: [web/src/components/settings/rouvy.ts](../../web/src/components/settings/rouvy.ts)
 - DB columns: migration `0052_add_rouvy_fields.py`
 
 ## Non-goals

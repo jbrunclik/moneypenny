@@ -535,15 +535,16 @@ export async function init(): Promise<void> {
     hideLoginOverlay();
     // Check for integration OAuth callbacks
     // OAuth callbacks only matter mid-flow (state keys set when the flow
-    // started); gate the SettingsPopup import on them so boot stays lean.
-    // Key literals must match TODOIST_STATE_KEY / CALENDAR_STATE_KEY there.
+    // started); gate the settings OAuth import on them so boot stays lean.
+    // Key literals must match TODOIST_STATE_KEY / CALENDAR_STATE_KEY in
+    // components/settings/{todoist,calendar}.ts.
     if (
       sessionStorage.getItem('todoist-oauth-state') ||
       sessionStorage.getItem('calendar-oauth-state')
     ) {
-      const settings = await import('../components/SettingsPopup');
-      await settings.checkTodoistOAuthCallback();
-      await settings.checkCalendarOAuthCallback();
+      const oauth = await import('../components/settings/oauth');
+      await oauth.checkTodoistOAuthCallback();
+      await oauth.checkCalendarOAuthCallback();
     }
     await loadInitialData(initialRoute);
   } else {
