@@ -53,7 +53,7 @@
     "highlight.js": "^11.9.0",
     "katex": "^0.18.7",
     "marked": "^18.0.13",
-    "mediabunny": "^1.55.2",
+    "mediabunny": "^1.60.0",
     "pdfjs-dist": "^6.3.289",
     "uuid": "^14.0.2",
     "zustand": "^5.0.15"
