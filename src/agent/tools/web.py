@@ -394,31 +394,29 @@ GROUNDING_DIRECTIVE = (
 )
 
 
-def _batching_nudge(search_round: int) -> str | None:
-    """Escalating "stop drip-feeding searches" note for repeat searches in a turn.
+_ESCALATED_NOTE = (
+    "This was your 2nd+ separate web_search this turn, so it was run as research: "
+    "the top pages below were already read for you. Answer from them if you can; "
+    "if you still need other angles, pass them ALL in one web_search(queries=[...]) call."
+)
 
-    Returned in the tool result rather than the system prompt on purpose: the
-    Sep 2026 audit showed the model reliably ignores standing prompt guidance
-    about batching (99% of its searches were single-query, one per round) but
-    acts on directives that arrive attached to a result it just read.
+
+def _escalate_to_research(query: str) -> str:
+    """Run a repeat single-query search as research (search + read top pages).
+
+    Sep 2026 audit: result-attached "batch your searches" nudges did not move
+    traffic (63% of search turns still ran 2+ separate search rounds). Handing
+    back the pages already read removes the follow-up fetch round and usually
+    the next search too. Never refuses, so a dependent follow-up still works.
     """
-    if search_round < 2:
-        return None
-    if search_round == 2:
-        return (
-            "EFFICIENCY: this is your 2nd separate web_search this turn. Each extra "
-            "round re-sends the entire conversation to you, which is slow and "
-            f"expensive. If you need more angles, pass them ALL in one "
-            f"web_search(queries=[...]) call (up to {Config.WEB_SEARCH_MAX_BATCH_QUERIES}). "
-            "If you need to READ pages rather than skim snippets, call research "
-            "instead - it searches and reads in a single round."
-        )
-    return (
-        f"EFFICIENCY: you have now run {search_round} separate web_search rounds this "
-        "turn. Do NOT issue another single-query web_search. Either put every "
-        "remaining query into ONE web_search(queries=[...]) call, or call research "
-        "to search and read in one round, or answer with what you already have."
+    from src.agent.tools.research import run_research  # research imports this module
+
+    payload = json.loads(
+        run_research(question=query, max_sources=Config.WEB_SEARCH_ESCALATE_MAX_SOURCES)
     )
+    if "sources" in payload:
+        payload["_escalated"] = _ESCALATED_NOTE
+    return json.dumps(payload)
 
 
 def _chained_fetch_nudge() -> str | None:
@@ -558,7 +556,10 @@ def web_search(
 
     # Counted per CALL, not per query: batching is exactly the behaviour we
     # want, so a five-query call is one search round, not five.
-    nudge = _batching_nudge(record_tool_call("web_search"))
+    search_round = record_tool_call("web_search")
+
+    if len(all_queries) == 1 and search_round >= 2:
+        return _escalate_to_research(all_queries[0])
 
     if len(all_queries) == 1:
         single: dict[str, Any] = {
@@ -567,8 +568,6 @@ def web_search(
             "_grounding": GROUNDING_DIRECTIVE,
         }
         degraded = _degraded_notice(_take_served_by([single]))
-        if nudge:
-            single["_efficiency"] = nudge
         if degraded:
             single["_degraded"] = degraded
         return json.dumps(single)
@@ -582,8 +581,6 @@ def web_search(
         "_warning": _SEARCH_WARNING,
         "_grounding": GROUNDING_DIRECTIVE,
     }
-    if nudge:
-        response["_efficiency"] = nudge
     if degraded:
         response["_degraded"] = degraded
     if dropped > 0:

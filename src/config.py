@@ -374,6 +374,9 @@ class Config:
     # to bundle independent searches into one round instead of sequential
     # rounds that each re-send the whole conversation)
     WEB_SEARCH_MAX_BATCH_QUERIES = 5
+    # From the 2nd single-query web_search in a turn, run it as research and read
+    # this many top pages (the text nudges measurably did not reduce rounds)
+    WEB_SEARCH_ESCALATE_MAX_SOURCES: int = int(os.getenv("WEB_SEARCH_ESCALATE_MAX_SOURCES", "3"))
 
     # Research tool (search + fetch top sources in one tool round)
     RESEARCH_MAX_SOURCES = 5

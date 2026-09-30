@@ -21,7 +21,7 @@ from src.agent.tools.turn_usage import (
     record_tool_call,
     reset_turn_usage,
 )
-from src.agent.tools.web import _batching_nudge, _chained_fetch_nudge
+from src.agent.tools.web import _chained_fetch_nudge
 
 
 @pytest.fixture
@@ -62,19 +62,9 @@ class TestTurnUsage:
 
 
 class TestBatchingNudge:
-    def test_first_search_is_not_nudged(self) -> None:
-        assert _batching_nudge(1) is None
-
-    def test_second_search_suggests_batching_and_research(self) -> None:
-        nudge = _batching_nudge(2)
-        assert nudge is not None
-        assert "queries=[...]" in nudge
-        assert "research" in nudge
-
-    def test_third_search_escalates_to_a_prohibition(self) -> None:
-        nudge = _batching_nudge(3)
-        assert nudge is not None
-        assert "Do NOT" in nudge
+    # The escalating 2nd/3rd-search text nudges were removed Sep 30 2026 (measured
+    # no effect); a repeat single search now runs as research - see
+    # tests/unit/test_search_escalation.py
 
     def test_batched_call_counts_as_one_search(self, turn) -> None:
         """A five-query call is the desired behaviour, so it must not self-nudge."""
@@ -87,18 +77,6 @@ class TestBatchingNudge:
             result = json.loads(web_search.invoke({"queries": ["a", "b", "c", "d", "e"]}))
         assert len(result["searches"]) == 5
         assert "_efficiency" not in result
-
-    def test_repeat_single_searches_attach_a_nudge(self, turn) -> None:
-        from src.agent.tools.web import web_search
-
-        with patch(
-            "src.agent.tools.web._search_one",
-            side_effect=lambda q, n: {"query": q, "results": []},
-        ):
-            first = json.loads(web_search.invoke({"query": "one"}))
-            second = json.loads(web_search.invoke({"query": "two"}))
-        assert "_efficiency" not in first
-        assert "EFFICIENCY" in second["_efficiency"]
 
     def test_chained_fetch_nudge_only_after_a_search(self, turn) -> None:
         assert _chained_fetch_nudge() is None

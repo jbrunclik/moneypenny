@@ -116,6 +116,11 @@ def research(question: str = "", queries: list[str] | None = None, max_sources: 
         untrusted data. The pages read here are shown to the user as sources
         automatically.
     """
+    return run_research(question, queries, max_sources)
+
+
+def run_research(question: str = "", queries: list[str] | None = None, max_sources: int = 0) -> str:
+    """research without the tool wrapper (also used by web_search escalation)."""
     question = (question or "").strip()
     if not question and queries:
         # Calls with queries but no question were every research

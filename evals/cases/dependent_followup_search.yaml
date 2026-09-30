@@ -1,0 +1,13 @@
+id: dependent_followup_search
+description: >
+  A follow-up search that depends on the first one's result must still work
+  when the repeat search is escalated to research
+user: >
+  Who won the most recent men's Tour de France, and roughly how many people
+  live in the town or city where that rider was born?
+expect:
+  rubric: >
+    Names the most recent men's Tour de France winner and their birthplace,
+    and gives an approximate population for that birthplace, attributed to
+    sources; says so if a figure could not be verified.
+  required_tools: [web_search, research]

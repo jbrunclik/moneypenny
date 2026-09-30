@@ -286,7 +286,9 @@ def extract_read_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
         call_name, args = calls.get(msg.tool_call_id, ("", {}))
         name = msg.name or call_name
         data = _json_object(msg.content)
-        if name in ("research", "delegate_task") and data:
+        # An escalated repeat web_search returns research-shaped sources
+        escalated = name == "web_search" and data is not None and "_escalated" in data
+        if (name in ("research", "delegate_task") or escalated) and data:
             for source in data.get("sources") or []:
                 # research lists failed fetches too; only pages with content were read
                 if isinstance(source, dict) and (name == "delegate_task" or "content" in source):

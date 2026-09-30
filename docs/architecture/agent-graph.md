@@ -136,9 +136,9 @@ A Sep 2026 audit of 14 days of production logs found the agent doing exactly the
 Mechanisms now in place:
 
 - **`src/agent/tools/turn_usage.py`** — counts tool calls per turn, keyed by request id (the tool node runs calls on a thread pool, so a contextvar would not survive). Returns 0 without a request context, so evals and unit tests are unaffected.
-- **Escalating search nudges** — `web_search` attaches an `_efficiency` directive from the 2nd separate call in a turn; by the 3rd it forbids another single-query search. Counted per *call*, so a 5-query batch is one round and never self-nudges. `fetch_url` nudges toward `research` when a search already ran this turn.
+- **Search escalation** (Sep 30 2026, replacing the Sep 6 `_efficiency` text nudges, which measurably did not move traffic) — from the 2nd single-query `web_search` in a turn, `web_search` runs the query as `research` (search + read the top `WEB_SEARCH_ESCALATE_MAX_SOURCES` pages, default 3) and returns research-shaped JSON with an `_escalated` note pointing at batched `queries=[...]`. It never refuses, so a dependent follow-up search still works. Counted per *call*: the first search and any batched call are unchanged. `fetch_url` still attaches a nudge toward `research` when a search already ran this turn.
 - **Composite actions** — `garmin_connect(action="get_readiness_snapshot")` returns readiness + sleep + HRV + stats + training status + recent activities in one concurrent fetch, replacing five sequential calls. `kv_store(action="merge", ...)` deep-merges server-side, replacing get-then-set.
-- **Browser batches** — `browser(actions=[...])` runs a known navigate/type/click sequence in one round, and page-changing actions return the page's interactive `elements` with selectors so the next step needs no screenshot/`extract` round (see [Agent Tools](../features/agent-tools.md#batches)). Unlike the search nudges this is still steered by the prompt and docstring.
+- **Browser batches** — `browser(actions=[...])` runs a known navigate/type/click sequence in one round, and page-changing actions return the page's interactive `elements` with selectors so the next step needs no screenshot/`extract` round (see [Agent Tools](../features/agent-tools.md#batches)). Unlike search escalation this is still steered by the prompt and docstring.
 - **Concurrency inside tools** — batched `web_search` queries and Garmin's per-activity breakdowns fan out in a thread pool, so batching does not just trade LLM round-trips for provider round-trips. Garmin sub-fetches run under `copy_context()` because the helpers read conversation contextvars.
 - **Session caching** — `garmin.login()` re-fetches profile + settings on every call (two extra HTTP round trips). `src/agent/tools/garmin_session.py` caches the client per user, fingerprinting the stored token on each lookup so a reconnect invalidates every worker immediately; tokens are written back only when garth actually rotates them.
 - **Per-round timing** — `Tool round completed` logs tool names, outcomes, result sizes and `elapsed_ms`. Before this, tool latency could only be inferred by diffing timestamps of surrounding LLM calls.
@@ -146,6 +146,8 @@ Mechanisms now in place:
 Re-run the audit from the production host's application logs (14+ days), filtering for `LLM requested tool calls` (tool names + count per round) and `Tool round completed` (per-round latency); treat rounds of one request id as one turn.
 
 **Follow-up audit (Sep 29 2026, 30 days).** 173 distinct turns hit the cap - 3.3% of 5,291 turns; after the Sep 6 nudges it settled at 2-5 a day (one 34-turn spike on Sep 26). Inside capped turns 98% of rounds still carried a single tool call, `web_search` dominant (499 calls, then `fetch_url` 83, `browser` 62). Count distinct capped turns by the FIRST cap line (`"tool_rounds": 6`) - the cap message repeats on every later round, so raw line counts overstate it (271 lines for 173 turns).
+
+**Follow-up audit (Sep 30 2026).** Production before the Sep 6 nudges (Aug 26-Sep 6, 12 days) vs after (Sep 7-30, 24 days): single-call rounds 95.6% -> 96.0%; `web_search` turns with 2+ separate search rounds 67% -> 63%; average rounds per tool-using turn 2.68 -> 2.68; cap hits 2.9% -> 3.1% of turns; search -> fetch chains 5.5 -> 4.8 a day. Only the structural change moved: `kv_store` get-then-set pairs 5.2 -> 3.1 a day once `merge` shipped. The text nudges did not change behaviour, hence search escalation. Evals (2 runs after vs 6 before): tool rounds on the 32 tool-using cases -4%; `cz_batched_lookups` 2-6 rounds (avg 4.3, often over its cap of 3) -> 3, 3; `web_lookup_cited` -> 1, 1; `cz_local_lookup` -> 1, 1; the new `dependent_followup_search` case passes; about +6% cost per case from the extra page reads. Re-measure in production after ~14 days with the same method: rounds ≤90 s apart count as one turn, rounds from `LLM requested tool calls` lines, distinct cap hits from `Tool round cap reached` with `tool_rounds == max_rounds`.
 
 **Round cap and nudges.** `check_tool_results` injects a one-time efficiency reminder at `AGENT_TOOL_ROUNDS_SOFT_NUDGE` rounds (default 4) and, from `AGENT_MAX_TOOL_ROUNDS` (default 6) on, guidance to answer with what it has instead of calling more tools. The cap is soft - `AGENT_RECURSION_LIMIT` is the hard backstop.
 
@@ -175,16 +177,17 @@ A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is con
 - [agent.py](../../src/agent/agent.py) - `ChatAgent`, `stream_chat_events()`, `chat_batch()`
 - [retry.py](../../src/agent/retry.py) - `with_retry`, `is_transient_error`
 - [interjection.py](../../src/agent/interjection.py) - mid-run steering carrier
-- [tools/turn_usage.py](../../src/agent/tools/turn_usage.py) - per-turn tool-call counts behind the search nudges
+- [tools/turn_usage.py](../../src/agent/tools/turn_usage.py) - per-turn tool-call counts behind search escalation and the fetch nudge
 - [api/utils.py](../../src/api/utils.py) - `is_round_capped()`
 - [messages/stopped-early.ts](../../web/src/components/messages/stopped-early.ts) - stopped-early note + Continue
-- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_MAX_TOOL_ROUNDS`, `AGENT_TOOL_ROUNDS_SOFT_NUDGE`, `AGENT_AGED_TOOL_RESULT_MAX_CHARS`, `AGENT_MAX_RETRIES`, `AGENT_RETRY_*`
+- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_MAX_TOOL_ROUNDS`, `AGENT_TOOL_ROUNDS_SOFT_NUDGE`, `AGENT_AGED_TOOL_RESULT_MAX_CHARS`, `AGENT_MAX_RETRIES`, `AGENT_RETRY_*`, `WEB_SEARCH_ESCALATE_MAX_SOURCES`
 
 ## Testing
 
 - [test_graph.py](../../tests/unit/test_graph.py) - self-correction, routing, graph structure
 - [test_retry.py](../../tests/unit/test_retry.py), [test_retry_status.py](../../tests/unit/test_retry_status.py) - backoff and the `retry` event; `web/tests/unit/streaming-retry-status.test.ts` for the UI line
-- [test_tool_efficiency.py](../../tests/unit/test_tool_efficiency.py) - nudges and composite actions
+- [test_tool_efficiency.py](../../tests/unit/test_tool_efficiency.py) - fetch nudge, per-call search counting and composite actions
+- [test_search_escalation.py](../../tests/unit/test_search_escalation.py) - repeat single-query `web_search` runs as `research`
 - [test_stopped_early.py](../../tests/unit/test_stopped_early.py), `web/tests/unit/stopped-early.test.ts` - stopped-early flag and note
 - [test_routes_interject.py](../../tests/integration/test_routes_interject.py) - mid-run steering
 

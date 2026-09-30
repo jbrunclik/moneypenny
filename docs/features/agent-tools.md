@@ -20,7 +20,7 @@ unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 
 | Tool | Description | Availability |
 |------|-------------|--------------|
-| `web_search` | Web search queries | Always available |
+| `web_search` | Web search queries; a repeat single-query call in a turn runs as `research` | Always available |
 | `research` | Composite search + fetch top pages in one round | Always available |
 | `fetch_url` | Fetch content from URLs | Always available |
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
@@ -49,6 +49,8 @@ unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 A provider that reports **terminal exhaustion** - out of credits for the billing period, not merely busy - is benched immediately and not probed again until the period rolls over. The providers signal this differently and the adapters map each one: Brave `402` (`Usage limit exceeded`), Tavily `432` (plan limit), Exa `402` (out of credits); their `429`s all mean ordinary rate limiting and stay transient. Linkup is the exception - it returns `429` for both and exposes nothing to tell them apart, so it falls back to the threshold below. Conflating the two previously cost a daily half-open probe against an already-dry provider for the rest of the month, each probe charging a real search a failed round-trip before falling through.
 
 Short of that, a provider that fails `SEARCH_BREAKER_THRESHOLD` times in a row trips a per-provider **circuit breaker** and is skipped until a half-open probe window (`SEARCH_BREAKER_PROBE_SECONDS`) elapses. The failure count is an atomic `kv_increment` on an integer key (`breaker:<provider>:<period>`), with the last-failure timestamp in a separate `breaker-last:...` key — split out so the count stays a true atomic increment rather than a read-modify-write JSON blob, since production runs multiple gunicorn workers that can record failures concurrently.
+
+**Search escalation.** The first `web_search` in a turn and every batched `queries=[...]` call behave normally. From the 2nd single-query call, `web_search` runs the query as `research` (reading the top `WEB_SEARCH_ESCALATE_MAX_SOURCES` pages, default 3) and returns research-shaped JSON with an `_escalated` note, so the pages count as read for source chips. It never refuses. Rationale and numbers: [Tool Round Economics](../architecture/agent-graph.md#tool-round-economics).
 
 `is_degraded()` is the single definition of "serving from the fallback": true only when *every configured* metered provider is unavailable (quota spent, breaker tripped, or keyless). A single provider erroring and falling through to the next one is not degradation. The operator (first `ALLOWED_EMAILS` entry) gets a push notification only on genuine degradation, deduped to once per day — a transient provider blip no longer trips the alert or burns that day's dedupe slot. While degraded, `web_search` results carry a `_degraded` directive pointing the model at `research` instead of repeating a thin-snippet search, and `research`'s default source count rises to `Config.RESEARCH_DEGRADED_MAX_SOURCES` (fetched page content compensates for ddgs's weaker ranking and short snippets); an explicit `max_sources` from the caller still wins. Backfill/inspect usage with `python scripts/seed_search_usage.py [provider count]`.
 
