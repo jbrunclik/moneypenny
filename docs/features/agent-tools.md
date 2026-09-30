@@ -27,7 +27,7 @@ unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 | `retrieve_file` | Retrieve files from conversations | Always available |
 | `create_file` | Attach an LLM-authored text file (ZWO/CSV/ICS/GPX/…) for download — no code execution | Always available |
 | `request_approval` | Request user approval | Always available |
-| `trigger_agent` | Trigger another agent | Unrestricted agents, or when listed in `tool_permissions` |
+| `trigger_agent` | Trigger another agent | Unrestricted agents, or when granted ("Other agents" in the agent editor) |
 | `kv_store` | Per-user key-value storage | Always available |
 | `generate_image` | AI image generation | Requires `GEMINI_API_KEY` |
 | `execute_code` | Code execution in sandbox | Requires `CODE_SANDBOX_ENABLED` |

@@ -38,6 +38,7 @@ const BASE_TOOLS = [
   { id: 'google_calendar', name: 'Google Calendar', description: 'Create and manage calendar events', icon: CALENDAR_ICON },
   { id: 'garmin_connect', name: 'Garmin', description: 'Read sleep and readiness data', icon: ACTIVITY_ICON },
   { id: 'whatsapp', name: 'WhatsApp', description: 'Send notifications via WhatsApp', icon: PHONE_ICON },
+  { id: 'trigger_agent', name: 'Other agents', description: 'Hand a task to another of your agents', icon: ROBOT_ICON },
 ];
 
 // Agents created with tool_permissions = null are unrestricted (every

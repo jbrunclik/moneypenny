@@ -419,6 +419,26 @@ test.describe('Agents - Agent Creation', () => {
     const nameInput = page.getByLabel('Name *');
     await expect(nameInput).toBeFocused();
   });
+
+  test('granting "Other agents" saves trigger_agent in the permissions', async ({ page }) => {
+    await setCommandCenterData(page, { agents: [] });
+
+    await page.goto('/#/agents');
+    await page.waitForSelector('.command-center');
+    await page.locator('.btn-new-agent').click();
+    const modal = page.getByRole('dialog', { name: 'Create Agent' });
+    await expect(modal).toBeVisible();
+
+    await page.getByLabel('Name *').fill('Coordinator');
+    await page.click('.tool-permission-card:has(input[value="trigger_agent"])');
+
+    const createRequest = page.waitForRequest(
+      (req) => req.method() === 'POST' && new URL(req.url()).pathname === '/api/agents'
+    );
+    await modal.getByRole('button', { name: 'Create Agent' }).click();
+    const body = (await createRequest).postDataJSON() as { tool_permissions: string[] | null };
+    expect(body.tool_permissions).toContain('trigger_agent');
+  });
 });
 
 test.describe('Agents - Agent Actions', () => {
