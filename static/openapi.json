@@ -3937,6 +3937,57 @@
         "summary": "Unarchive a conversation (restore to main list)."
       }
     },
+    "/api/conversations/{conv_id}/chat/stop": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Stop the running chat turn",
+        "description": "Ask the in-flight turn of this conversation to stop at its next checkpoint (cross-worker via kv_store). The stream then ends with a done event carrying stop_reason 'user' and the partial reply saved. Harmless when no turn is running."
+      }
+    },
     "/api/conversations/{conv_id}/chat/batch": {
       "post": {
         "parameters": [

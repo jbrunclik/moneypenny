@@ -10,6 +10,7 @@ from typing import NoReturn
 from apiflask import APIBlueprint
 from flask import Response, request
 
+from src.agent.cancellation import request_stop
 from src.agent.interjection import save_interjection
 from src.api.errors import raise_llm_error, raise_not_found_error, raise_server_error
 from src.api.helpers.chat_save import save_message_to_db
@@ -220,6 +221,30 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
         extra={"user_id": user.id, "conversation_id": conv_id, "length": len(text)},
     )
     return {"status": "interjected"}
+
+
+@api.route("/conversations/<conv_id>/chat/stop", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(
+    summary="Stop the running chat turn",
+    description=(
+        "Ask the in-flight turn of this conversation to stop at its next "
+        "checkpoint (cross-worker via kv_store). The stream then ends with a "
+        "done event carrying stop_reason 'user' and the partial reply saved. "
+        "Harmless when no turn is running."
+    ),
+    responses=[401, 404],
+)
+@rate_limit_chat
+@require_auth
+def chat_stop(user: User, conv_id: str) -> dict[str, str]:
+    """Request that the running turn stops."""
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        raise_not_found_error("Conversation")
+    request_stop(user.id, conv_id)
+    logger.info("Stop requested", extra={"user_id": user.id, "conversation_id": conv_id})
+    return {"status": "stopping"}
 
 
 @api.route("/conversations/<conv_id>/chat/stream/<message_id>/resume", methods=["GET"])
