@@ -571,6 +571,9 @@ class Config:
     # the model to answer with what it has instead of calling more tools. The
     # nudge is soft (the recursion limit is the hard backstop); 0 disables it.
     AGENT_MAX_TOOL_ROUNDS: int = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "6"))
+    # Server-side Stop: how often the running turn checks for a stop request
+    # (kv flag written by POST /chat/stop, possibly on another worker)
+    CANCEL_POLL_INTERVAL_SECONDS: float = float(os.getenv("CANCEL_POLL_INTERVAL_SECONDS", "0.5"))
     # Gentle efficiency reminder injected once at this round count (0 = off).
     # Fires well before the hard cap so the model consolidates instead of
     # drip-feeding single tool calls; the cap remains the stop signal.
