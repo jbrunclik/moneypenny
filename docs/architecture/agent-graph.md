@@ -153,6 +153,20 @@ Re-run the audit from the production host's application logs (14+ days), filteri
 
 A turn that hits the cap was told to answer with what it has, so the reply may be partial. It is flagged `stopped_early` - derived from `message_costs.tool_rounds >= AGENT_MAX_TOOL_ROUNDS` (`is_round_capped()` in [api/utils.py](../../src/api/utils.py)), no extra column - on the stream `done` event, the batch response and loaded message lists (`serialize_messages_for_response()`, one query per page). The UI shows "Stopped at the tool-step limit - this answer may be incomplete." with a **Continue** button on the latest reply, which dispatches the existing `message:continue` re-run ([messages/stopped-early.ts](../../web/src/components/messages/stopped-early.ts)).
 
+## Stop Checkpoints
+
+Pressing Stop ends the turn server-side ([cancellation.py](../../src/agent/cancellation.py); flow in [Chat and Streaming](../features/chat-and-streaming.md#stop-streaming)). The turn's `CancelToken` is looked up by request id, and these checkpoints read it:
+
+| Checkpoint | Effect |
+|---|---|
+| Token loop in `ChatAgent.stream_chat_events` | Stops consuming model output; the text so far becomes the reply and the `final` event carries `stop_reason: "user"` |
+| Start of `chat_node` | No further model call |
+| Start of `check_tool_results` | The round that just finished is the last one |
+| `execute_code` (cancel callback) | Kills the running user program in the session container |
+| Browser batches (`run_batch`) | No further steps |
+
+A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is control flow: `_handle_tool_errors` re-raises it (an error ToolMessage would let the turn continue), and `delegate_task` re-raises it past its broad exception handler, so a subagent's checkpoint ends the parent turn. `stream_chat_events` catches it and finishes the turn normally with the partial text. Autonomous runs and batch mode have no registered token, so every checkpoint is a no-op there. Tools without a checkpoint (search, fetch, integrations) run to completion - bounded by `TOOL_TIMEOUT` - and the next checkpoint ends the turn.
+
 ## Key Files
 
 - [graph.py](../../src/agent/graph.py) - graph construction, `chat_node`, `check_tool_results`, tool node, graph cache

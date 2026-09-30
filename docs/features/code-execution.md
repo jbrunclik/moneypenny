@@ -72,6 +72,10 @@ with `make sandbox-image`. `TestSandboxLibraryListsMatchImage` in
 either list drifts from the Dockerfile (the model skips a library it was not
 told about, or wastes a round on an import that fails).
 
+## Stop
+
+Pressing Stop while `execute_code` runs kills the user's program (SIGKILL to the `/sandbox/*.py` process, found by scanning `/proc` from Python as root - the slim image has no `pkill`) through a cancel callback registered around `session.run`. The session container and `/work` survive, so later calls in the conversation still see saved files. See [Agent Graph - Stop Checkpoints](../architecture/agent-graph.md#stop-checkpoints).
+
 ## Office Files
 
 The image ships python-docx, python-pptx and openpyxl (image label

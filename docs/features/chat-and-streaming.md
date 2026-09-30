@@ -73,18 +73,17 @@ Both paths put `stopped_early` on the reply when the turn hit the tool-round cap
 
 ### Stop Streaming
 
-Users can abort an ongoing streaming response by clicking the stop button.
+Clicking the stop button ends the turn **on the server** within about a second, keeps the text produced so far, and bills no further work.
 
 **How it works:**
 
 1. **Button transformation**: When streaming starts for the current conversation, the send button transforms to a stop button (red square icon with `.btn-stop` class)
-2. **State tracking**: `streamingConversationId` in Zustand store tracks which conversation is streaming
-3. **Abort mechanism**: Clicking stop calls `abortController.abort()` on the streaming fetch request
-4. **Stream cancellation**: The API client catches `AbortError` and re-throws it so the caller can handle cleanup
-5. **UI cleanup**: The streaming assistant message element is removed from the DOM immediately
-6. **User feedback**: A toast notification confirms "Response stopped."
-
-**Note on partial messages**: When the user aborts, the backend cleanup thread may still save a partial message to the database. These partial messages are intentionally NOT deleted automatically - users can clean them up later using the message delete button. This simpler approach avoids complex timing issues with backend cleanup threads and race conditions.
+2. **Stop request**: once `user_message_saved` has arrived (the server has the turn), Stop sends `POST /api/conversations/<id>/chat/stop` and **keeps reading the stream** (`requestServerStop()` in [stream-session.ts](../../web/src/core/stream-session.ts), registered on the live stream and on the reload-resume reader via `setStopHandler()`). Before that ack there is nothing server-side to stop, so Stop aborts the reader as a failed send
+3. **Cross-worker signal**: the route writes a kv flag (namespace `cancel`, key = conversation id) - it may land on a different gunicorn worker than the one running the turn. The producer thread owns a `CancelToken` registered by request id; a poller thread checks the flag every `CANCEL_POLL_INTERVAL_SECONDS` (0.5) and cancels the token ([cancellation.py](../../src/agent/cancellation.py)). The flag is cleared synchronously before the producer starts (a Stop sent after the previous turn ended cannot cancel this one) and again at turn end
+4. **Checkpoints** end the turn - the token stream, `chat_node`, `check_tool_results`, `execute_code`, browser batches; see [Agent Graph - Stop Checkpoints](../architecture/agent-graph.md#stop-checkpoints)
+5. **Save**: the `final` event carries `stop_reason: "user"`; the normal save path stores the partial reply (or "Stopped before answering." when nothing streamed yet) and records `messages.stop_reason`. Cost covers the tokens actually used
+6. **UI**: the `done` event (and the resume endpoint's done, and loaded message lists) carries `stop_reason: "user"`; the reply shows the stopped-early note labelled "Stopped." with **Continue** (the existing `rerun_mode: "continue"`). A "Response stopped." toast confirms
+7. **Fallback**: if no `done` arrives within `STOP_DONE_GRACE_MS` (5 s, [config.ts](../../web/src/config.ts)) the reader is aborted; the partial bubble stays (marked incomplete) and sync later loads the saved message
 
 **Key files:**
 - [store.ts](../../web/src/state/store.ts) - `streamingConversationId` state

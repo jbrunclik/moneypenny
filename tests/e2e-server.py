@@ -450,11 +450,20 @@ def create_mock_stream_chat_events() -> Any:
                 time.sleep(delay_s * 2)  # Simulate tool execution
                 yield {"type": "tool_end", "tool": tool}
 
-        # Stream tokens word-by-word
+        # Stream tokens word-by-word; honour server-side Stop like the real
+        # stream_chat_events (checked per chunk, partial text is the reply)
+        from src.agent.cancellation import STOP_REASON_USER, is_cancelled
+
         words = response_text.split()
+        streamed = ""
+        stop_reason = None
         for i, word in enumerate(words):
+            if is_cancelled():
+                stop_reason = STOP_REASON_USER
+                break
             # Add space before word (except first)
             token = f" {word}" if i > 0 else word
+            streamed += token
             yield {"type": "token", "text": token}
             time.sleep(delay_s)
 
@@ -466,13 +475,16 @@ def create_mock_stream_chat_events() -> Any:
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens,
         }
-        yield {
+        final: dict[str, Any] = {
             "type": "final",
-            "content": response_text,
+            "content": streamed if stop_reason else response_text,
             "metadata": {},
             "tool_results": [],
             "usage_info": usage_info,
         }
+        if stop_reason:
+            final["stop_reason"] = stop_reason
+        yield final
 
     return mock_stream_chat_events
 

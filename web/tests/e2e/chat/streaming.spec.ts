@@ -501,44 +501,28 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(sendBtn).toHaveAttribute('title', 'Send message');
   });
 
-  test('clicking stop button aborts stream and shows toast', async ({ page }) => {
-    // Type a message
+  test('stop keeps the partial reply with a Stopped note', async ({ page }) => {
     await page.fill('#message-input', 'Tell me a very long story please');
-
-    // Click send
     await page.click('#send-btn');
+    const assistant = page.locator('.message.assistant');
+    await expect(assistant).toBeVisible({ timeout: 5000 });
+    // Wait for real streamed text (the mock echoes the prompt), not the
+    // loading placeholder: Stop before the server acked the turn is a plain abort
+    await expect(assistant.locator('.message-content')).toContainText('Tell me', { timeout: 10000 });
 
-    // Wait for streaming to start (assistant message appears)
-    const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
-
-    // Click the stop button - use selector with class to ensure atomicity
-    // This waits for the button to have btn-stop class before clicking
-    // Use force:true to skip stability check (button has pulsing animation)
     await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
 
-    // Toast should appear confirming the action
-    const toast = page.locator('.toast-info');
-    await expect(toast).toBeVisible({ timeout: 3000 });
-    await expect(toast).toContainText('Response stopped');
+    await expect(page.locator('.toast-info')).toContainText('Response stopped');
+    const note = assistant.locator('.message-stopped-early');
+    await expect(note).toContainText('Stopped.', { timeout: 5000 });
+    await expect(note.locator('.message-stopped-early-continue')).toBeVisible();
+    await expect(page.locator('#send-btn')).toHaveClass(/btn-send/);
 
-    // The streaming assistant message should be removed from UI
-    // Wait a moment for cleanup
-    await page.waitForTimeout(500);
-
-    // After abort, only user message should remain (assistant message removed)
-    // Note: The user message still exists
-    const userMessage = page.locator('.message.user');
-    await expect(userMessage).toBeVisible();
-
-    // Assistant message should be removed (or the count should be 0)
-    const assistantMessages = page.locator('.message.assistant');
-    await expect(assistantMessages).toHaveCount(0);
-
-    // Send button should revert to send mode
-    const sendBtn = page.locator('#send-btn');
-    await expect(sendBtn).toHaveClass(/btn-send/);
-    await expect(sendBtn).not.toHaveClass(/btn-stop/);
+    const partial = await assistant.locator('.message-content').innerText();
+    await page.reload();
+    const reloaded = page.locator('.message.assistant');
+    await expect(reloaded.locator('.message-stopped-early')).toContainText('Stopped.');
+    await expect(reloaded.locator('.message-content')).toHaveText(partial);
   });
 
   test('stop button does not appear in batch mode', async ({ page }) => {
