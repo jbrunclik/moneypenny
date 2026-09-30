@@ -15,7 +15,6 @@ import uuid
 from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
-from src.agent.cancellation import clear_stop_request
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.stream_finalize import _finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save, stream_events
@@ -55,12 +54,6 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
         # Initialize context
         context = _StreamContext(user=user, conv=turn.conv, user_msg=turn.user_msg, turn=ctx)
         ctx.apply()
-
-        # A Stop that arrived after the previous turn ended must not cancel
-        # this one. Cleared HERE, synchronously before the producer starts:
-        # the client only sends Stop after user_message_saved, so no Stop for
-        # this turn can be wiped by it.
-        clear_stop_request(context.user_id, context.conv_id)
 
         # Start background threads
         context.start_threads()
@@ -396,7 +389,8 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
             context.mark_disconnected(e, "streaming (approval_required)")
     # "retry" (transient model error being retried) is forwarded but not
     # journaled: it is a momentary status a resumed client need not replay
-    elif event_type in ("thinking", "tool_start", "tool_end", "token", "retry"):
+    # "stopping" (server-side Stop acknowledged) is likewise a momentary status
+    elif event_type in ("thinking", "tool_start", "tool_end", "token", "retry", "stopping"):
         if event_type == "token":
             context.partial_content += item.get("text", "")
         try:

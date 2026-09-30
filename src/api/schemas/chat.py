@@ -25,6 +25,16 @@ class ClientLocation(BaseModel):
     timestamp_ms: int | None = Field(default=None, ge=0)
 
 
+class StopChatRequest(BaseModel):
+    """Schema for POST /api/conversations/<conv_id>/chat/stop.
+
+    Names the turn to stop by its assistant message id (from the stream's
+    user_message_saved event), so a Stop never hits a different turn.
+    """
+
+    message_id: str = Field(..., min_length=1, max_length=64)
+
+
 class InterjectRequest(BaseModel):
     """Schema for POST /api/conversations/<conv_id>/chat/interject.
 

@@ -525,6 +525,24 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(reloaded.locator('.message-content')).toHaveText(partial);
   });
 
+  test('Continue after Stop streams the rest of the answer', async ({ page }) => {
+    await page.fill('#message-input', 'Tell me a very long story please');
+    await page.click('#send-btn');
+    const assistant = page.locator('.message.assistant');
+    await expect(assistant.locator('.message-content')).toContainText('Tell me', { timeout: 10000 });
+    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+    await expect(assistant.locator('.message-stopped-early')).toContainText('Stopped.', { timeout: 5000 });
+
+    await setStreamDelay(page, 10);
+    await setMockResponse(page, 'and the rest of the story');
+    await assistant.locator('.message-stopped-early-continue').click();
+
+    await expect(page.locator('.message.assistant')).toHaveCount(2, { timeout: 20000 });
+    await expect(page.locator('.message.assistant').last()).toContainText('and the rest of the story');
+    await expect(page.locator('.message.user')).toHaveCount(1);
+    await clearMockResponse(page);
+  });
+
   test('stop button does not appear in batch mode', async ({ page }) => {
     // Disable streaming for batch mode
     await disableStreaming(page);
@@ -571,34 +589,29 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(sendBtn).not.toHaveClass(/btn-stop/);
   });
 
-  test('abort handles quick stop during thinking phase', async ({ page }) => {
-    // beforeEach already sets a slow stream delay (500ms)
-    // Type a message that triggers thinking
+  test('stop during the thinking phase keeps the turn with a Stopped note', async ({ page }) => {
     await page.fill('#message-input', 'Let me think about this');
-
-    // Click send
     await page.click('#send-btn');
 
-    // Wait for assistant message to appear
-    const assistantMessage = page.locator('.message.assistant');
-    await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+    // The thinking event arrives only after the server acked the turn
+    // (user_message_saved), so Stop here is a server-side stop
+    const assistant = page.locator('.message.assistant');
+    await expect(assistant).toContainText('Let me think about this...', { timeout: 10000 });
 
-    // Click stop button - use selector with class to ensure atomicity
-    // Use force:true to skip stability check (button has pulsing animation)
     await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
 
-    // Should show toast
-    const toast = page.locator('.toast-info');
-    await expect(toast).toBeVisible({ timeout: 3000 });
-    await expect(toast).toContainText('Response stopped');
+    await expect(page.locator('.toast-info')).toContainText('Response stopped');
+    await expect(assistant.locator('.message-stopped-early')).toContainText('Stopped.', { timeout: 5000 });
+    await expect(page.locator('#send-btn')).toHaveClass(/btn-send/);
 
-    // Assistant message should be removed
-    await expect(assistantMessage).toHaveCount(0, { timeout: 2000 });
-
-    // Button should revert
-    const sendBtn = page.locator('#send-btn');
-    await expect(sendBtn).toHaveClass(/btn-send/);
-    // afterEach resets stream delay to default
+    // Whatever was produced before the Stop landed (nothing, or the first
+    // words) is what was saved: a reload shows the same reply
+    const replyText = (el: string) => el.replace('Show details', '').trim();
+    const live = replyText(await assistant.locator('.message-content').innerText());
+    await page.reload();
+    const reloaded = page.locator('.message.assistant');
+    await expect(reloaded.locator('.message-stopped-early')).toContainText('Stopped.', { timeout: 10000 });
+    expect(replyText(await reloaded.locator('.message-content').innerText())).toBe(live);
   });
 });
 
@@ -840,5 +853,31 @@ test.describe('Chat - End-of-stream repositioning', () => {
       return container.scrollHeight - container.scrollTop - container.clientHeight;
     });
     expect(distanceFromBottom).toBeLessThan(50);
+  });
+});
+
+test.describe('Chat - Stop Streaming on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('stop keeps the partial reply with a Stopped note', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+    // Below the mobile breakpoint new-chat lives in the sidebar
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+    await setStreamDelay(page, 1000);
+
+    await page.fill('#message-input', 'Tell me a very long story please');
+    await page.click('#send-btn');
+    const assistant = page.locator('.message.assistant');
+    await expect(assistant.locator('.message-content')).toContainText('Tell me', { timeout: 10000 });
+
+    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+
+    const note = assistant.locator('.message-stopped-early');
+    await expect(note).toContainText('Stopped.', { timeout: 5000 });
+    await expect(note.locator('.message-stopped-early-continue')).toBeVisible();
+    await resetStreamDelay(page);
   });
 });

@@ -86,7 +86,8 @@ def test_stale_stop_flag_does_not_cancel_the_next_turn(
     test_user: User,
     test_conversation: Conversation,
 ) -> None:
-    cancellation.request_stop(test_user.id, test_conversation.id)  # Stop after the last turn
+    # A Stop for the previous turn (its message id) that arrived after it ended
+    cancellation.request_stop(test_user.id, test_conversation.id, "previous-turn-message")
     seen: dict[str, bool] = {}
 
     def stream(*_a: Any, **_k: Any) -> Generator[dict[str, Any]]:
@@ -99,19 +100,27 @@ def test_stale_stop_flag_does_not_cancel_the_next_turn(
 
     assert seen["cancelled"] is False
     assert "stop_reason" not in done
-    assert cancellation.stop_requested(test_user.id, test_conversation.id) is False
+
+
+def _placeholder_id(test_database: Database, conv_id: str) -> str:
+    """The streaming turn's assistant message id (placeholder saved before streaming)."""
+    return [m for m in test_database.get_messages(conv_id) if m.role.value == "assistant"][-1].id
 
 
 def test_stop_flag_cancels_the_running_turn(
     client: FlaskClient,
     auth_headers: dict[str, str],
+    test_database: Database,
     test_user: User,
     test_conversation: Conversation,
 ) -> None:
     seen: dict[str, bool] = {}
+    ids: dict[str, str] = {}
 
     def stream(*_a: Any, **_k: Any) -> Generator[dict[str, Any]]:
-        cancellation.request_stop(test_user.id, test_conversation.id)  # the /stop route's write
+        ids["msg"] = _placeholder_id(test_database, test_conversation.id)
+        # the /stop route's write, for THIS turn
+        cancellation.request_stop(test_user.id, test_conversation.id, ids["msg"])
         for _ in range(100):
             if cancellation.is_cancelled():
                 break
@@ -123,4 +132,44 @@ def test_stop_flag_cancels_the_running_turn(
         _run_turn(client, auth_headers, test_conversation.id, stream)
 
     assert seen["cancelled"] is True
-    assert cancellation.stop_requested(test_user.id, test_conversation.id) is False
+    # The producer clears its own flag in its finally, just after it signals
+    # the consumer that the stream ended - allow it a moment
+    for _ in range(100):
+        if not cancellation.stop_requested(test_user.id, test_conversation.id, ids["msg"]):
+            break
+        time.sleep(0.01)
+    assert cancellation.stop_requested(test_user.id, test_conversation.id, ids["msg"]) is False
+
+
+def test_stop_during_a_silent_tool_is_acknowledged_at_once(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    """No events flow while a tool runs; the client must still learn the Stop
+    landed (else its 5 s grace abort always fires during long tools)."""
+
+    def stream(*_a: Any, **_k: Any) -> Generator[dict[str, Any]]:
+        msg_id = _placeholder_id(test_database, test_conversation.id)
+        cancellation.request_stop(test_user.id, test_conversation.id, msg_id)
+        time.sleep(0.5)  # a tool running: the producer yields nothing meanwhile
+        yield _final("Partial", stop_reason="user")
+
+    with patch("src.config.Config.CANCEL_POLL_INTERVAL_SECONDS", 0.02):
+        with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
+            agent = MagicMock()
+            agent.stream_chat_events = stream
+            agent_class.return_value = agent
+            body = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                json={"message": "Search a lot"},
+                headers=auth_headers,
+            ).get_data(as_text=True)
+
+    types = [
+        json.loads(line[6:])["type"] for line in body.splitlines() if line.startswith("data: ")
+    ]
+    assert "stopping" in types
+    assert types.index("stopping") < types.index("done")

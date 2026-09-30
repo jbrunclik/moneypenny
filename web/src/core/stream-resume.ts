@@ -209,7 +209,7 @@ function findResumableMessage(convId: string): { messageId: string; placeholder:
  * Returns whether the reply was delivered, or 'stopped' when the user
  * stopped it mid-resume.
  */
-async function deliverResumedTurn(
+export async function deliverResumedTurn(
   state: StreamingState,
   convId: string,
   messageId: string,
@@ -222,7 +222,14 @@ async function deliverResumedTurn(
     if (error instanceof Error && error.name === 'AbortError') {
       // User stopped the resumed turn - terminal, no recovery
       log.info('Reload-resume aborted by user', { conversationId: convId });
-      (getStreamingMessageElement(convId) ?? messageEl).remove();
+      const bubble = getStreamingMessageElement(convId) ?? messageEl;
+      if (state.stopRequested) {
+        // Server-side stop whose done never arrived in time: the partial is
+        // (or will be) saved - keep it, as the live stream does
+        bubble.classList.add('message-incomplete');
+      } else {
+        bubble.remove();
+      }
       toast.info('Response stopped.');
       clearPendingRecovery(convId);
       return 'stopped';

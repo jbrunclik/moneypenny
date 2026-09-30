@@ -16,7 +16,7 @@ from src.api.errors import raise_llm_error, raise_not_found_error, raise_server_
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.chat_turn import build_turn_context, prepare_turn
 from src.api.rate_limiting import rate_limit_chat
-from src.api.schemas.chat import ChatBatchResponse, ChatRequest, InterjectRequest
+from src.api.schemas.chat import ChatBatchResponse, ChatRequest, InterjectRequest, StopChatRequest
 from src.api.schemas.common import MessageRole, StatusResponse
 from src.api.utils import build_chat_response, is_round_capped
 from src.api.validation import validate_request
@@ -229,7 +229,8 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
     summary="Stop the running chat turn",
     description=(
         "Ask the in-flight turn of this conversation to stop at its next "
-        "checkpoint (cross-worker via kv_store). The stream then ends with a "
+        "checkpoint (cross-worker via kv_store). message_id names the turn "
+        "(its assistant message id from user_message_saved). The stream then ends with a "
         "done event carrying stop_reason 'user' and the partial reply saved. "
         "Harmless when no turn is running."
     ),
@@ -237,13 +238,17 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
 )
 @rate_limit_chat
 @require_auth
-def chat_stop(user: User, conv_id: str) -> dict[str, str]:
+@validate_request(StopChatRequest)
+def chat_stop(user: User, data: StopChatRequest, conv_id: str) -> dict[str, str]:
     """Request that the running turn stops."""
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
         raise_not_found_error("Conversation")
-    request_stop(user.id, conv_id)
-    logger.info("Stop requested", extra={"user_id": user.id, "conversation_id": conv_id})
+    request_stop(user.id, conv_id, data.message_id)
+    logger.info(
+        "Stop requested",
+        extra={"user_id": user.id, "conversation_id": conv_id, "message_id": data.message_id},
+    )
     return {"status": "stopping"}
 
 

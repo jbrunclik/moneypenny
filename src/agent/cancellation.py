@@ -12,6 +12,10 @@ appears. Checkpoints only read the token - no DB access on the hot path.
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from typing import Any
+from uuid import UUID
+
+from langchain_core.callbacks import BaseCallbackHandler
 
 from src.agent.tool_results import get_current_request_id
 from src.db.models import db
@@ -96,6 +100,27 @@ def raise_if_cancelled() -> None:
         raise TurnCancelled
 
 
+class CancelOnToken(BaseCallbackHandler):
+    """Abort a model call mid-stream once the turn is cancelled.
+
+    LangGraph runs graph nodes on a background executor: when the consumer
+    stops reading, closing the graph stream WAITS for the running node, so a
+    model call would run (and bill) to completion. Raising from the token
+    callback inside the node's thread ends the provider stream instead.
+    """
+
+    raise_error = True  # propagate instead of logging and continuing
+
+    def on_llm_new_token(
+        self,
+        token: str | list[str | dict[str, Any]],
+        *,
+        run_id: UUID,
+        **kwargs: Any,
+    ) -> None:
+        raise_if_cancelled()
+
+
 @contextmanager
 def on_cancel(fn: Callable[[], None]) -> Iterator[None]:
     """Run ``fn`` if the turn is cancelled while inside the block."""
@@ -110,17 +135,26 @@ def on_cancel(fn: Callable[[], None]) -> Iterator[None]:
         token.remove_callback(fn)
 
 
-def request_stop(user_id: str, conv_id: str) -> None:
-    db.kv_set(user_id, KV_NAMESPACE, conv_id, "1")
+# The flag's VALUE names the turn (its assistant message id): an older turn
+# of the same conversation that is still running server-side (its client
+# aborted before the server acked it) must neither react to, nor clear, a
+# Stop meant for the current turn - and a Stop sent after a turn ended can
+# never match the next one.
 
 
-def stop_requested(user_id: str, conv_id: str) -> bool:
-    return bool(db.kv_get(user_id, KV_NAMESPACE, conv_id))
+def request_stop(user_id: str, conv_id: str, message_id: str) -> None:
+    db.kv_set(user_id, KV_NAMESPACE, conv_id, message_id)
 
 
-def clear_stop_request(user_id: str, conv_id: str) -> None:
+def stop_requested(user_id: str, conv_id: str, message_id: str) -> bool:
+    return bool(db.kv_get(user_id, KV_NAMESPACE, conv_id) == message_id)
+
+
+def clear_stop_request(user_id: str, conv_id: str, message_id: str) -> None:
+    """Drop the flag if it is this turn's (another turn's Stop stays)."""
     try:
-        db.kv_delete(user_id, KV_NAMESPACE, conv_id)
+        if stop_requested(user_id, conv_id, message_id):
+            db.kv_delete(user_id, KV_NAMESPACE, conv_id)
     except Exception:
         logger.debug("Stop flag clear failed", exc_info=True)
 

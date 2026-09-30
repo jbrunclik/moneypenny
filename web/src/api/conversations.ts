@@ -204,9 +204,12 @@ export const conversations = {
     });
   },
 
-  /** Ask the running turn to stop server-side (its partial reply is kept). */
-  async stop(id: string): Promise<void> {
-    await request<{ status: string }>(`/api/conversations/${id}/chat/stop`, { method: 'POST' });
+  /** Ask the running turn (named by its assistant message id) to stop server-side. */
+  async stop(id: string, messageId: string): Promise<void> {
+    await request<{ status: string }>(`/api/conversations/${id}/chat/stop`, {
+      method: 'POST',
+      body: JSON.stringify({ message_id: messageId }),
+    });
   },
 
   /** Steer a turn that is currently generating (picked up between tool rounds). */

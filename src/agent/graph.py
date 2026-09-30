@@ -21,14 +21,16 @@ import time
 from collections import OrderedDict
 from typing import Annotated, Any, Literal, TypedDict
 
+from langchain_core.callbacks import BaseCallbackManager
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
-from src.agent.cancellation import TurnCancelled, raise_if_cancelled
+from src.agent.cancellation import CancelOnToken, TurnCancelled, raise_if_cancelled
 from src.agent.content import extract_text_content, strip_full_result_from_tool_content
 from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
@@ -240,6 +242,7 @@ def chat_node(
     state: AgentState,
     model: ChatGoogleGenerativeAI,
     use_cache: bool = False,
+    config: RunnableConfig | None = None,
 ) -> dict[str, list[BaseMessage]]:
     """Process messages and generate a response.
 
@@ -264,7 +267,7 @@ def chat_node(
             "model": model.model_name if hasattr(model, "model_name") else "unknown",
         },
     )
-    response = with_retry(model.invoke, on_retry=_emit_retry_status)(messages)
+    response = with_retry(_invoke_model, on_retry=_emit_retry_status)(model, messages, config)
 
     # Log tool calls if present
     if isinstance(response, AIMessage) and response.tool_calls:
@@ -293,6 +296,32 @@ def chat_node(
             logger.debug("No usage_metadata attribute found on AIMessage")
 
     return {"messages": [response]}
+
+
+def _invoke_model(
+    model: ChatGoogleGenerativeAI, messages: list[BaseMessage], config: RunnableConfig | None
+) -> BaseMessage:
+    """One model call that Stop can abort mid-stream (checked per attempt and per token)."""
+    raise_if_cancelled()
+    return model.invoke(messages, config=_with_cancel_callback(config))
+
+
+def _with_cancel_callback(config: RunnableConfig | None) -> RunnableConfig:
+    """The node's config plus CancelOnToken, KEEPING the inherited callbacks.
+
+    Replacing them (config={"callbacks": [...]} or with_config) drops
+    LangGraph's streaming handler: the model then answers without streaming
+    and no tokens reach the client.
+    """
+    config = config or {}
+    inherited = config.get("callbacks")
+    handler = CancelOnToken()
+    if isinstance(inherited, BaseCallbackManager):
+        callbacks: Any = inherited.copy()
+        callbacks.add_handler(handler, inherit=True)
+    else:
+        callbacks = [*(inherited or []), handler]
+    return {**config, "callbacks": callbacks}
 
 
 def _tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
@@ -784,7 +813,10 @@ def create_chat_graph(
     graph: StateGraph[AgentState] = StateGraph(AgentState)
 
     # Add the chat node
-    graph.add_node("chat", lambda state: chat_node(state, model, use_cache=use_cache))
+    graph.add_node(
+        "chat",
+        lambda state, config: chat_node(state, model, use_cache=use_cache, config=config),
+    )
 
     if with_tools and active_tools:
         # Add tool node with stripping of large results and error handling

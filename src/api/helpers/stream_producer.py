@@ -86,12 +86,14 @@ def _close_thread_db_connections() -> None:
         logger.debug("Closing thread-local blob connection failed", exc_info=True)
 
 
-def _poll_stop_flag(token: CancelToken, user_id: str, conv_id: str, done: threading.Event) -> None:
-    """Poller thread: cancel the turn's token once POST /chat/stop set the flag."""
+def _poll_stop_flag(
+    token: CancelToken, user_id: str, conv_id: str, message_id: str, done: threading.Event
+) -> None:
+    """Poller thread: cancel the turn's token once POST /chat/stop named this turn."""
     try:
         run_poller(
             token,
-            lambda: stop_requested(user_id, conv_id),
+            lambda: stop_requested(user_id, conv_id, message_id),
             done,
             Config.CANCEL_POLL_INTERVAL_SECONDS,
         )
@@ -125,15 +127,19 @@ def stream_events(
     turn.apply()
     # Server-side Stop: a token for this request, flipped by a poller when
     # the stop route's kv flag appears (the route may run on another worker)
-    token = register_token(turn.request_id)
+    stop_key = journal_message_id or turn.request_id  # the turn's assistant message id
     turn_done = threading.Event()
-    threading.Thread(
-        target=_poll_stop_flag,
-        args=(token, user_id, conv_id, turn_done),
-        daemon=True,
-        name="stop-poller",
-    ).start()
     try:
+        token = register_token(turn.request_id)
+        # Tell the client at once that the Stop landed: no events flow while
+        # a tool runs, and its grace abort must not fire during long tools
+        token.add_callback(lambda: event_queue.put({"type": "stopping"}))
+        threading.Thread(
+            target=_poll_stop_flag,
+            args=(token, user_id, conv_id, stop_key, turn_done),
+            daemon=True,
+            name="stop-poller",
+        ).start()
         logger.debug(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
         )
@@ -249,7 +255,7 @@ def stream_events(
     finally:
         turn_done.set()
         unregister_token(turn.request_id)
-        clear_stop_request(user_id, conv_id)
+        clear_stop_request(user_id, conv_id, stop_key)
         if journal:
             journal.finish()
         # Close thread-local DB connections so the pool doesn't leak them

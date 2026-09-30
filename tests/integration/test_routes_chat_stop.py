@@ -15,16 +15,30 @@ class TestChatStop:
         test_conversation: Conversation,
     ) -> None:
         response = client.post(
-            f"/api/conversations/{test_conversation.id}/chat/stop", headers=auth_headers
+            f"/api/conversations/{test_conversation.id}/chat/stop",
+            json={"message_id": "msg-1"},
+            headers=auth_headers,
         )
         assert response.status_code == 200
         assert response.get_json() == {"status": "stopping"}
-        assert stop_requested(test_user.id, test_conversation.id) is True
+        assert stop_requested(test_user.id, test_conversation.id, "msg-1") is True
+
+    def test_requires_the_turns_message_id(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_conversation: Conversation
+    ) -> None:
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/stop", json={}, headers=auth_headers
+        )
+        assert response.status_code == 400
 
     def test_rejects_unknown_conversation(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
-        response = client.post("/api/conversations/nonexistent/chat/stop", headers=auth_headers)
+        response = client.post(
+            "/api/conversations/nonexistent/chat/stop",
+            json={"message_id": "msg-1"},
+            headers=auth_headers,
+        )
         assert response.status_code == 404
 
     def test_requires_auth(self, client: FlaskClient, test_conversation: Conversation) -> None:

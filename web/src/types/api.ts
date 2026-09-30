@@ -164,6 +164,7 @@ export type StreamEvent = (
   | { type: 'tool_detail'; tool: string; detail: string }
   | { type: 'tool_end'; tool: string }
   | { type: 'retry'; attempt: number; max_retries?: number } // Transient model error being retried
+  | { type: 'stopping' } // Server-side Stop acknowledged; done follows at the next checkpoint
   | { type: 'user_message_saved'; user_message_id: string } // Sent early so lightbox works during streaming
   | { type: 'timeout'; message?: string } // Server-side CHAT_TIMEOUT hit; partial content saved
   | {

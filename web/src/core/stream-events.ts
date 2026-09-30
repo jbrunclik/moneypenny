@@ -19,7 +19,7 @@ import {
 } from '../components/messages';
 import type { ToolMetadata } from '../types/api';
 import { persistInflightStream } from './inflight-streams';
-import type { StreamingState } from './stream-session';
+import { acknowledgeServerStop, type StreamingState } from './stream-session';
 import { deepCopyThinkingState, updateLocalThinkingState } from './thinking-state';
 
 const log = createLogger('messaging');
@@ -156,6 +156,11 @@ export function processStreamEvent(
     case 'tool_detail':
     case 'tool_end':
       handleTraceEvent(event, state, convId, isCurrentConversation);
+      break;
+
+    case 'stopping':
+      // Server-side Stop acknowledged: the done event follows at the next checkpoint
+      acknowledgeServerStop(state);
       break;
 
     case 'retry':

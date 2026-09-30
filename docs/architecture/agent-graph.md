@@ -160,10 +160,12 @@ Pressing Stop ends the turn server-side ([cancellation.py](../../src/agent/cance
 | Checkpoint | Effect |
 |---|---|
 | Token loop in `ChatAgent.stream_chat_events` | Stops consuming model output; the text so far becomes the reply and the `final` event carries `stop_reason: "user"` |
-| Start of `chat_node` | No further model call |
+| Start of `chat_node`, each retry attempt, and every streamed token of the model call (`CancelOnToken` callback) | No further model call; a running one is aborted mid-stream |
 | Start of `check_tool_results` | The round that just finished is the last one |
 | `execute_code` (cancel callback) | Kills the running user program in the session container |
 | Browser batches (`run_batch`) | No further steps |
+
+The per-token check matters: LangGraph runs nodes on a background executor, and closing the graph stream **waits** for the running node - without aborting inside the node thread, a Stop would block until the model finished (every token billed). `chat_node` merges `CancelOnToken` into its *inherited* callback manager (`_with_cancel_callback`); replacing the callbacks instead drops LangGraph's streaming handler and the model stops streaming. Remaining latency: time to the first token, and a retry backoff already sleeping.
 
 A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is control flow: `_handle_tool_errors` re-raises it (an error ToolMessage would let the turn continue), and `delegate_task` re-raises it past its broad exception handler, so a subagent's checkpoint ends the parent turn. `stream_chat_events` catches it and finishes the turn normally with the partial text. Autonomous runs and batch mode have no registered token, so every checkpoint is a no-op there. Tools without a checkpoint (search, fetch, integrations) run to completion - bounded by `TOOL_TIMEOUT` - and the next checkpoint ends the turn.
 

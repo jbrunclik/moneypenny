@@ -102,12 +102,24 @@ export function requestServerStop(convId: string, state: StreamingState): boolea
   if (state.stopRequested) return true;
   if (!state.expectedAssistantMessageId) return false;
   state.stopRequested = true;
-  conversations.stop(convId).catch((error: unknown) => {
+  conversations.stop(convId, state.expectedAssistantMessageId).catch((error: unknown) => {
     log.warn('Server stop request failed - aborting reader', { conversationId: convId, error });
     state.activeAbortController?.abort();
   });
   state.stopTimer = setTimeout(() => state.activeAbortController?.abort(), STOP_DONE_GRACE_MS);
   return true;
+}
+
+/**
+ * The server acknowledged the Stop ("stopping" event): the done event follows
+ * at the turn's next checkpoint - possibly after a long tool - so the grace
+ * abort must not cut it off.
+ */
+export function acknowledgeServerStop(state: StreamingState): void {
+  if (state.stopTimer) {
+    clearTimeout(state.stopTimer);
+    state.stopTimer = undefined;
+  }
 }
 
 /**
