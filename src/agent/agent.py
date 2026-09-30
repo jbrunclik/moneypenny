@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
+from src.agent.cancellation import STOP_REASON_USER, TurnCancelled, is_cancelled
 from src.agent.content import final_response_text
 from src.agent.context_cache import CacheProfile
 from src.agent.message_content import build_message_content, history_to_messages
@@ -456,15 +457,27 @@ class ChatAgent:
 
         config = get_graph_config()
         turn_started = time.monotonic()
+        stop_reason: str | None = None
+        stream = self.graph.stream(
+            cast(Any, {"messages": messages}),
+            config=config,
+            # "custom" carries node-written statuses (transient-error
+            # retries) that must reach the client while the node sleeps
+            stream_mode=["messages", "custom"],
+        )
         try:
-            for mode, event in self.graph.stream(
-                cast(Any, {"messages": messages}),
-                config=config,
-                # "custom" carries node-written statuses (transient-error
-                # retries) that must reach the client while the node sleeps
-                stream_mode=["messages", "custom"],
-            ):
+            for mode, event in stream:
+                # Server-side Stop: stop consuming model output at once; the
+                # text so far is the reply (a token read, no DB access)
+                if is_cancelled():
+                    raise TurnCancelled
                 yield from processor.process(mode, event)
+        except TurnCancelled:
+            stop_reason = STOP_REASON_USER
+            logger.info(
+                "Turn stopped by user",
+                extra={"accumulated_response_length": len(processor.full_response)},
+            )
         except RuntimeError as e:
             # Handle executor shutdown gracefully (e.g., during server restart)
             # Python's ThreadPoolExecutor raises generic RuntimeError with specific messages
@@ -482,5 +495,11 @@ class ChatAgent:
             else:
                 # Re-raise other RuntimeErrors
                 raise
+        finally:
+            # Stop the graph run (a generator) when we leave early; plain
+            # iterables have nothing to close
+            close = getattr(stream, "close", None)
+            if close is not None:
+                close()
 
-        yield from processor.finish(turn_started)
+        yield from processor.finish(turn_started, stop_reason=stop_reason)

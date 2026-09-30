@@ -28,6 +28,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
+from src.agent.cancellation import TurnCancelled, raise_if_cancelled
 from src.agent.content import extract_text_content, strip_full_result_from_tool_content
 from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
@@ -246,6 +247,9 @@ def chat_node(
     check_tool_results (both are bound via lambda in create_chat_graph and
     the flag documents which mode the graph was built for).
     """
+    # Server-side Stop: never start another model call once Stop was pressed
+    raise_if_cancelled()
+
     messages = list(state["messages"])
 
     # Shrink tool results the model already consumed in this turn (they are
@@ -332,6 +336,9 @@ def check_tool_results(
     When use_cache is True, guidance is sent as HumanMessage (not SystemMessage)
     because LangChain drops mid-conversation SystemMessages in cached mode.
     """
+    # Server-side Stop: the round that just finished is the last one
+    raise_if_cancelled()
+
     messages = state["messages"]
     tool_retries = state.get("tool_retries", 0)
     max_retries = Config.AGENT_MAX_TOOL_RETRIES
@@ -495,6 +502,8 @@ def _handle_tool_errors(e: Exception) -> str:
 
     ApprovalRequestedException is control flow, not an error: it must propagate
     to the executor/streaming handler so the run pauses in waiting_approval.
+    TurnCancelled (the user pressed Stop) likewise must end the turn, not become
+    an error ToolMessage the model then reacts to.
     handle_tool_errors=True would swallow it into an error ToolMessage
     (verified on langgraph 1.0.5), silently completing the run instead.
 
@@ -503,7 +512,7 @@ def _handle_tool_errors(e: Exception) -> str:
     """
     from src.agent.tools.request_approval import ApprovalRequestedException
 
-    if isinstance(e, ApprovalRequestedException):
+    if isinstance(e, (ApprovalRequestedException, TurnCancelled)):
         raise e
     return f"Error: {e!r}\n Please fix your mistakes."
 

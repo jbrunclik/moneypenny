@@ -290,7 +290,9 @@ class StreamEventProcessor:
                 self.token_yield_count += 1
                 yield {"type": "token", "text": text_content}
 
-    def finish(self, turn_started: float) -> Iterator[dict[str, Any]]:
+    def finish(
+        self, turn_started: float, stop_reason: str | None = None
+    ) -> Iterator[dict[str, Any]]:
         """Flush held-back text, then the final event with the turn's totals."""
         # Handle any remaining carryover (wasn't part of a marker)
         carryover = self.msg_context.carryover
@@ -321,13 +323,16 @@ class StreamEventProcessor:
         )
 
         # Final yield with all accumulated data
-        yield {
+        final: dict[str, Any] = {
             "type": "final",
             "content": clean_content,
             "tool_results": self.tool_results,
             "usage_info": usage_info,
             "result_messages": self.all_messages,
         }
+        if stop_reason:
+            final["stop_reason"] = stop_reason
+        yield final
 
 
 def iter_token_stream(

@@ -17,6 +17,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agent.cancellation import TurnCancelled
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
@@ -77,6 +78,8 @@ def delegate_task(task: str, expected_output: str = "") -> str:
             system_prompt_override=DELEGATE_SYSTEM_PROMPT,
         )
         response_text, _tool_results, usage_info, result_messages = subagent.chat_batch(text=prompt)
+    except TurnCancelled:
+        raise  # the user pressed Stop: end the parent turn, not just this tool
     except Exception as e:
         logger.error("delegate_task failed", extra={"error": str(e)}, exc_info=True)
         return json.dumps({"error": f"Delegated task failed: {e}"})
