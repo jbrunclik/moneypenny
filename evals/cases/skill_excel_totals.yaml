@@ -1,0 +1,11 @@
+id: skill_excel_totals
+description: An Excel request loads the office-documents skill (formulas, formatting)
+user: >
+  Turn this into an Excel sheet with a totals row: rent 18000, food 9000,
+  transport 2500, internet 600 (CZK per month).
+requires: [code_sandbox]
+expect:
+  rubric: >
+    An .xlsx file is produced via execute_code with the four items, a totals
+    row (ideally a SUM formula), and the reply states the total of 30100 CZK.
+  required_tools: [load_skill]

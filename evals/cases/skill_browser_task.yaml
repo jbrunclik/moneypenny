@@ -1,0 +1,11 @@
+id: skill_browser_task
+description: A multi-step browser task loads the browser-tactics skill first
+user: >
+  Open example.com in the browser, follow its "More information" link and
+  tell me the title of the page it leads to.
+requires: [browser]
+expect:
+  rubric: >
+    Uses the browser to open example.com and follow the link, and reports the
+    destination page's title.
+  required_tools: [load_skill]

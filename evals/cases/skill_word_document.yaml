@@ -1,0 +1,11 @@
+id: skill_word_document
+description: A Word document request loads the office-documents skill before writing code
+user: >
+  Make me a Word document with a packing list for a 5-day mountain hike:
+  a title, sections for clothing, food and gear, and a table of what to pack.
+requires: [code_sandbox]
+expect:
+  rubric: >
+    A .docx file is produced via execute_code (not a PDF or markdown) using
+    real headings and a table, and the reply says what the document contains.
+  required_tools: [load_skill]

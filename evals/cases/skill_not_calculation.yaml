@@ -1,0 +1,7 @@
+id: skill_not_calculation
+description: A plain calculation must not load a skill
+user: "What is 17.5% of 38420? Exact value please."
+requires: [code_sandbox]
+expect:
+  rubric: The answer is 6723.5.
+  forbidden_tools: [load_skill]

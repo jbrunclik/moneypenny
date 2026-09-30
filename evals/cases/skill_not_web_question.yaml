@@ -1,0 +1,6 @@
+id: skill_not_web_question
+description: A factual web question must not load a skill
+user: "Who is the current president of Czechia?"
+expect:
+  rubric: Answers with the current president of the Czech Republic.
+  forbidden_tools: [load_skill]

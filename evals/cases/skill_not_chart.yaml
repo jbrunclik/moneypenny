@@ -1,0 +1,7 @@
+id: skill_not_chart
+description: A chart request must not load an office/PDF skill
+user: "Plot y = x^2 for x from -5 to 5."
+requires: [code_sandbox]
+expect:
+  rubric: A plot of the parabola is produced via execute_code.
+  forbidden_tools: [load_skill]

@@ -1,0 +1,14 @@
+id: skill_not_todoist_add
+description: Adding one task must not load the weekly-planning skill
+integrations:
+  todoist:
+    projects:
+      - {id: p2, name: Personal}
+    sections:
+      - {id: s2, project_id: p2, name: Errands}
+    tasks: []
+user: "Add 'buy bike chain lube' to my Todoist."
+expect:
+  rubric: Creates one Todoist task for buying bike chain lube and confirms briefly.
+  required_tools: [todoist]
+  forbidden_tools: [load_skill]
