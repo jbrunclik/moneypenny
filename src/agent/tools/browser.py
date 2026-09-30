@@ -168,6 +168,8 @@ def browser(
     Pass EITHER `action` (one action) OR `actions` (a batch). Never enter passwords or
     credentials into web forms.
 
+    Before the first browser call of a task, call load_skill('browser-tactics').
+
     Actions:
     - navigate: Go to a URL. Requires `url`. Returns page title and URL.
     - click: Click an element. Requires `selector` (CSS selector).

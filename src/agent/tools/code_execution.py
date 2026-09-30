@@ -427,6 +427,8 @@ def execute_code(code: str) -> str:
     - Creating charts and plots (matplotlib) - returned as base64 images
     - Generating PDF documents (reportlab, fpdf2)
     - Generating Word, PowerPoint and Excel files (python-docx, python-pptx, openpyxl)
+      (for Word/PowerPoint/Excel or PDF output, call load_skill('office-documents') /
+      load_skill('pdf-documents') first)
     - Image processing (pillow)
     - Text parsing and processing
     - JSON/CSV data transformation
