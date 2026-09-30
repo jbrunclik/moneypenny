@@ -15,7 +15,12 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.agent.tools.web import NO_RESULTS_NOTE, fetch_page_text, wrap_untrusted_content
+from src.agent.tools.web import (
+    GROUNDING_DIRECTIVE,
+    NO_RESULTS_NOTE,
+    fetch_page_text,
+    wrap_untrusted_content,
+)
 from src.config import Config
 from src.utils.logging import get_logger
 from src.utils.search_provider import SearchProviderError, is_degraded, search_web
@@ -184,5 +189,6 @@ def research(question: str = "", queries: list[str] | None = None, max_sources: 
         "sources": sources,
         "unfetched": unfetched,
         "_warning": _RESEARCH_WARNING,
+        "_grounding": GROUNDING_DIRECTIVE,
     }
     return json.dumps(response)
