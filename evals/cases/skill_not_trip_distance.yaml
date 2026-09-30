@@ -1,0 +1,6 @@
+id: skill_not_trip_distance
+description: A plain distance question must not load the trip-itinerary skill
+user: "How far is it from Prague to Brno by car?"
+expect:
+  rubric: Gives the driving distance (about 200-210 km) and typical drive time (about 2 hours).
+  forbidden_tools: [load_skill]

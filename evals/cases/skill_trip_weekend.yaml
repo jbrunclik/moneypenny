@@ -1,0 +1,12 @@
+id: skill_trip_weekend
+description: Planning a family trip loads the trip-itinerary skill before proposing a plan
+user: >
+  Plan a weekend trip to the Krkonoše mountains for our family, two kids aged
+  6 and 9, we'll go by car from Brno on Saturday morning and come back Sunday
+  evening.
+expect:
+  rubric: >
+    A day-by-day, time-blocked plan with realistic travel times from Brno,
+    kid-appropriate activities and breaks, and a weather plan B; it notes
+    anything to book or check (opening hours).
+  required_tools: [load_skill]

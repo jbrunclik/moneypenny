@@ -1,0 +1,20 @@
+---
+name: product-research
+description: Recommending products to buy or shops to buy from (what to get, which model, where it is cheapest or in stock). Load BEFORE recommending any product or shop.
+---
+# Product research and shopping help
+
+## 1. Pin down the need first
+- Budget, where they can buy (country/shipping region, preferred or excluded shops), size/fit/compatibility (model, dimensions, standards), must-have features, and deadline.
+- Use what memory and this conversation already say; ask at most 2-3 short questions for what is missing, then research.
+
+## 2. Recommend only what you verified
+- Use `research` / `fetch_url` on live pages: every recommended item must be confirmed on a real product page that you read in this turn - it exists, it is the right category and spec, it ships to the user's region, and it is in stock.
+- Never invent products, shops, prices or links. Never name a shop or price you did not read on a page in this turn - leave it out, or list it explicitly as unverified.
+- Prefer shops the user can actually order from; for Czech users check Czech/EU shops first (e.g. Alza, Heureka for price comparison, the brand's own shop).
+
+## 3. Present a decision, not a catalogue
+- 2-4 options in a comparison table: name, price (with currency and date), where to buy (direct link), key differences, and the catch.
+- Then one clear recommendation and why, tied to their stated needs.
+- If nothing fits the constraints, say so and name the constraint to relax (budget, shop, feature).
+- ALWAYS end with a short **Verified** line: what you confirmed on pages read this turn (shops, prices, stock - with today's date) and what you could not verify (a page that did not load, a price or stock status not shown). Never skip it, even when everything checked out.

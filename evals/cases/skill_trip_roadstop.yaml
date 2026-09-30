@@ -1,0 +1,11 @@
+id: skill_trip_roadstop
+description: On-the-road logistics loads the trip-itinerary skill
+user: >
+  It's 11:30 and we're driving from Prague to Vienna; we just passed Jihlava.
+  Where should we stop for lunch with kids in the next hour?
+expect:
+  rubric: >
+    Suggests concrete lunch stops that are on or near the D1/route south of
+    Jihlava, open at lunchtime and kid-friendly, with the approximate detour,
+    and does not invent places.
+  required_tools: [load_skill]

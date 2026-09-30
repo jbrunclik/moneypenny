@@ -1,0 +1,11 @@
+id: skill_product_headphones
+description: A product recommendation loads the product-research skill first
+user: >
+  I need noise-cancelling headphones for the train commute, budget up to
+  6000 CZK, ideally buyable in a Czech shop. What should I get?
+expect:
+  rubric: >
+    Recommends 2-4 specific real models within budget in a comparison (price in
+    CZK, where to buy, key differences) with one clear pick, and does not invent
+    products or shops.
+  required_tools: [load_skill]

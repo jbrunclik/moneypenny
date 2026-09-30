@@ -7,7 +7,14 @@ import pytest
 from src.agent import skills
 from src.constants import SKILL_MAX_BODY_CHARS, SKILL_MAX_DESCRIPTION_CHARS
 
-EXPECTED = {"browser-tactics", "office-documents", "pdf-documents", "weekly-planning"}
+EXPECTED = {
+    "browser-tactics",
+    "office-documents",
+    "pdf-documents",
+    "product-research",
+    "trip-itinerary",
+    "weekly-planning",
+}
 
 
 def _write(tmp_path: Path, name: str, text: str) -> Path:

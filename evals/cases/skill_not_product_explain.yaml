@@ -1,0 +1,6 @@
+id: skill_not_product_explain
+description: Explaining what a tool is for must not load the product-research skill
+user: "What is a torque wrench used for?"
+expect:
+  rubric: Explains that a torque wrench applies a specific, measured torque to a fastener, with a typical example.
+  forbidden_tools: [load_skill]
