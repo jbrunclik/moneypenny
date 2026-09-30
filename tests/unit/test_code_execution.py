@@ -390,3 +390,34 @@ class TestSandboxLibraryListsMatchImage:
 
     def test_image_has_office_document_libraries(self) -> None:
         assert {"python-docx", "python-pptx", "openpyxl"} <= self._image_packages()
+
+
+class TestCancelKillsUserCode:
+    def test_cancel_during_run_kills_the_user_process(self) -> None:
+        from src.agent import cancellation
+        from src.agent.tool_results import set_current_request_id
+
+        set_current_request_id("req-code")
+        token = cancellation.register_token("req-code")
+        session = MagicMock()
+
+        def run(_code: str) -> MagicMock:
+            token.cancel()  # Stop pressed while the code runs
+            return MagicMock(exit_code=137, stdout="", stderr="")
+
+        session.run.side_effect = run
+        pool = MagicMock()
+        pool.session.return_value.__enter__.return_value = session
+        try:
+            with (
+                patch("src.agent.tools.code_execution._check_docker_available", return_value=True),
+                patch("src.agent.tools.code_execution.get_sandbox_pool", return_value=pool),
+                patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True),
+            ):
+                execute_code.invoke({"code": "import time; time.sleep(30)"})
+        finally:
+            cancellation.unregister_token("req-code")
+            set_current_request_id(None)
+
+        kill_call = session.container.exec_run.call_args
+        assert kill_call.kwargs["user"] == "root"

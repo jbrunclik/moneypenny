@@ -10,6 +10,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agent.cancellation import on_cancel, raise_if_cancelled
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.agent.tools.sandbox_sessions import get_sandbox_pool
@@ -129,6 +130,27 @@ def _probe_docker_available() -> bool:
         )
 
     return _docker_available
+
+
+# Kills the user's program inside a live session container without touching
+# PID 1 or the container: /work must survive a Stop. No procps in the slim
+# image, so scan /proc from Python (always present in the image).
+_KILL_USER_CODE = (
+    "import os\n"
+    "me = os.getpid()\n"
+    "for p in filter(str.isdigit, os.listdir('/proc')):\n"
+    "    try:\n"
+    "        if int(p) != me and b'/sandbox/' in open(f'/proc/{p}/cmdline', 'rb').read():\n"
+    "            os.kill(int(p), 9)\n"
+    "    except OSError:\n"
+    "        pass\n"
+)
+
+
+def _kill_user_code(session: Any) -> None:
+    """Cancel callback: SIGKILL the running user program (Stop pressed)."""
+    logger.info("Stop requested - killing sandbox user code")
+    session.container.exec_run(["python", "-c", _KILL_USER_CODE], user="root")
 
 
 def is_code_sandbox_available() -> bool:
@@ -499,8 +521,12 @@ def execute_code(code: str) -> str:
                 extra={"pooled": conversation_id is not None},
             )
 
-            # Libraries are pre-installed in the image - run the code directly
-            result = session.run(wrapped_code)
+            # Libraries are pre-installed in the image - run the code directly.
+            # Server-side Stop kills the running program (not the container:
+            # /work must survive) and the turn ends at the next checkpoint.
+            raise_if_cancelled()
+            with on_cancel(lambda: _kill_user_code(session)):
+                result = session.run(wrapped_code)
 
             # Parse output and extract files
             stdout = result.stdout or ""

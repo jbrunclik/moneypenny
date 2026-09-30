@@ -16,6 +16,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
+from src.agent.cancellation import is_cancelled
 from src.agent.tools.url_safety import validate_public_url
 from src.agent.tools.web import wrap_untrusted_content
 from src.config import Config
@@ -168,6 +169,9 @@ def run_batch(worker: _Worker, conversation_id: str, steps: list[BrowserStep]) -
     done: list[dict[str, Any]] = []
     last: dict[str, Any] = {}
     for index, step in enumerate(steps):
+        # Server-side Stop: no further steps once the user pressed Stop
+        if is_cancelled():
+            return _batch_summary(done, last, failed=(index, "Stopped by the user."))
         if _now() > deadline:
             error = (
                 f"Batch time budget ({Config.BROWSER_BATCH_TIMEOUT_SECONDS}s) ran out "

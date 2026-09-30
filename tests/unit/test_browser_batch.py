@@ -137,6 +137,29 @@ class TestBatchExecution:
         assert parsed["failed_step"] == 2
         assert parsed["completed"] == 2
 
+    def test_stops_between_steps_when_cancelled(self, worker: MagicMock) -> None:
+        from src.agent import cancellation
+        from src.agent.tool_results import set_current_request_id
+
+        set_current_request_id("req-batch")
+        token = cancellation.register_token("req-batch")
+
+        def execute(fn: str, **kw: Any) -> dict[str, Any]:
+            if fn == "type":
+                token.cancel()
+            return _ok()
+
+        worker.execute.side_effect = execute
+        try:
+            result = json.loads(browser.invoke({"actions": LOGIN_STEPS}))
+        finally:
+            cancellation.unregister_token("req-batch")
+            set_current_request_id(None)
+
+        assert _fn_names(worker) == ["navigate", "type"]
+        assert result["failed_step"] == 2
+        assert result["error"] == "Stopped by the user."
+
     def test_stops_when_the_batch_time_budget_runs_out(self, worker: MagicMock) -> None:
         clock = iter([0.0, 0.0, 1000.0])
         with patch("src.agent.tools.browser_steps._now", side_effect=lambda: next(clock)):
