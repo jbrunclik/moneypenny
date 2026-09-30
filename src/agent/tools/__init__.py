@@ -51,6 +51,7 @@ from src.agent.tools.planner import (
 from src.agent.tools.request_approval import ApprovalRequestedException, request_approval
 from src.agent.tools.research import research
 from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
+from src.agent.tools.skills import load_skill
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
 from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
@@ -117,6 +118,7 @@ def get_available_tools() -> list[Any]:
         generate_image,
         retrieve_file,
         create_file,
+        load_skill,
         set_conversation_title,
         manage_memory,
         search_memory,
@@ -228,6 +230,7 @@ def get_tools_for_request(
             research,
             retrieve_file,
             create_file,
+            load_skill,
             kv_store,
         ]
 
@@ -303,6 +306,7 @@ _TOOL_MAP: dict[str, Any] = {
     "generate_image": generate_image,
     "retrieve_file": retrieve_file,
     "create_file": create_file,
+    "load_skill": load_skill,
     "execute_code": execute_code,
     "todoist": todoist,
     "google_calendar": google_calendar,
@@ -373,6 +377,7 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
         research,
         retrieve_file,
         create_file,
+        load_skill,
     ]
 
     # Add request_approval for sensitive actions
@@ -459,6 +464,7 @@ __all__ = [
     "execute_code",
     "retrieve_file",
     "create_file",
+    "load_skill",
     "todoist",
     "google_calendar",
     "garmin_connect",

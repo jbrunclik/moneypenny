@@ -131,6 +131,9 @@ class TestOtherToolDetails:
         detail = extract_tool_detail("browser", {"actions": steps})
         assert detail == "navigate: https://example.com/login → type → click"
 
+    def test_load_skill_shows_the_skill_name(self) -> None:
+        assert extract_tool_detail("load_skill", {"name": "office-documents"}) == "office-documents"
+
     def test_unknown_tool_yields_no_detail(self) -> None:
         assert extract_tool_detail("not_a_tool", {"anything": 1}) is None
 

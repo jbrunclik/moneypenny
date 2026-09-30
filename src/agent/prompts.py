@@ -35,6 +35,7 @@ from src.agent.prompt_texts.language import LANGUAGE_TUTOR_SYSTEM_PROMPT
 from src.agent.prompt_texts.planner import PLANNER_SYSTEM_PROMPT
 from src.agent.prompt_texts.productivity import TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
 from src.agent.prompt_texts.sports import SPORTS_TRAINER_SYSTEM_PROMPT
+from src.agent.skills import skills_index_prompt
 from src.agent.tools.context import get_location_context
 from src.config import Config
 from src.db.models import db
@@ -222,6 +223,7 @@ def get_static_prompt_for_profile(profile: str) -> str:
     prompt = BASE_SYSTEM_PROMPT
     # All profiles get base tools
     prompt += TOOLS_SYSTEM_PROMPT_BASE
+    prompt += skills_index_prompt()
     # Places docs are env-stable (key presence), so the cached prefix stays stable
     if is_mapy_configured():
         prompt += TOOLS_SYSTEM_PROMPT_PLACES
@@ -389,6 +391,7 @@ def get_system_prompt(
     if with_tools and get_available_tools():
         # Always include base tools documentation
         prompt += TOOLS_SYSTEM_PROMPT_BASE
+        prompt += skills_index_prompt()
         # Include places/routing docs only when the Mapy.com key is configured
         if is_mapy_configured():
             prompt += TOOLS_SYSTEM_PROMPT_PLACES

@@ -36,6 +36,7 @@ _PROMPT_TOOL_DESCRIPTIONS: dict[str, str] = {
     "google_calendar": "Read or modify Google Calendar events, attendees, and reminders.",
     "whatsapp": "Send WhatsApp notifications to the user with concise summaries and links.",
     "kv_store": "Persist and retrieve key-value data across conversations and executions.",
+    "load_skill": "Load detailed built-in instructions for a specific kind of task (office files, PDFs, browser tactics, weekly planning).",
 }
 
 _PROMPT_BASE_TOOL_ORDER = [

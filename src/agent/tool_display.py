@@ -153,6 +153,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Created a file",
         "icon": "file",
     },
+    "load_skill": {
+        "label": "Reading instructions",
+        "label_past": "Read instructions",
+        "icon": "file",
+    },
     "retrieve_file": {
         "label": "Opening a file",
         "label_past": "Opened a file",
@@ -584,6 +589,8 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
         return _format_places_detail(tool_name, tool_args)
     elif tool_name == "whatsapp" and tool_args.get("message"):
         return _snippet(str(tool_args["message"]), 60)
+    elif tool_name == "load_skill" and tool_args.get("name"):
+        return str(tool_args["name"])
     elif tool_name == "create_file" and tool_args.get("filename"):
         return str(tool_args["filename"])
     elif tool_name == "retrieve_file" and tool_args.get("message_id"):
