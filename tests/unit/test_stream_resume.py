@@ -158,6 +158,18 @@ class TestStreamResumeEvents:
         assert [e["type"] for e in events] == ["done"]
         assert events[0]["content"] == "late answer"
 
+    def test_done_carries_stop_reason_of_a_stopped_turn(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """A client resuming a stopped turn must see "Stopped" too."""
+        from src.api.helpers.stream_resume import stream_resume_events
+
+        msg_id = self._make_message(test_database, test_user, content="partial")
+        test_database.set_message_stop_reason(msg_id, "user")
+        events = _drain_sse(stream_resume_events(msg_id, after_seq=0))
+        assert events[0]["type"] == "done"
+        assert events[0]["stop_reason"] == "user"
+
     def test_resume_failed_when_placeholder_deleted(
         self, monkeypatch: pytest.MonkeyPatch, test_database: Database
     ) -> None:

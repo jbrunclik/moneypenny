@@ -23,4 +23,5 @@ def row_to_message(row: sqlite3.Row) -> Message:
         tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,
         generated_images=json.loads(row["generated_images"]) if row["generated_images"] else None,
         language=row["language"],
+        stop_reason=row["stop_reason"] if "stop_reason" in row.keys() else None,
     )

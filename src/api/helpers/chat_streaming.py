@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
+from src.agent.cancellation import clear_stop_request
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.stream_finalize import _finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save, stream_events
@@ -54,6 +55,12 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
         # Initialize context
         context = _StreamContext(user=user, conv=turn.conv, user_msg=turn.user_msg, turn=ctx)
         ctx.apply()
+
+        # A Stop that arrived after the previous turn ended must not cancel
+        # this one. Cleared HERE, synchronously before the producer starts:
+        # the client only sends Stop after user_message_saved, so no Stop for
+        # this turn can be wiped by it.
+        clear_stop_request(context.user_id, context.conv_id)
 
         # Start background threads
         context.start_threads()
@@ -128,6 +135,8 @@ class _StreamContext:
         self.result_messages: list[Any] = []
         self.tool_results: list[dict[str, Any]] = []
         self.usage_info: dict[str, Any] = {}
+        # "user" when the turn was stopped server-side (partial reply kept)
+        self.stop_reason: str | None = None
         self.client_connected = True
 
         # Pre-generate assistant message ID for streaming recovery
@@ -142,7 +151,7 @@ class _StreamContext:
         # final_results is shared between generator and cleanup thread:
         # - "ready": True when stream completed and results are available
         # - "saved": True when message has been saved (prevents duplicate saves)
-        self.final_results: dict[str, Any] = {"ready": False, "saved": False}
+        self.final_results: dict[str, Any] = {"ready": False, "saved": False, "stop_reason": None}
         # Lock to prevent race condition between generator and cleanup thread saves
         self.save_lock = threading.Lock()
         # Event that generator sets when it has finished its save attempt (or decided not to save)
@@ -189,6 +198,7 @@ class _StreamContext:
                     self.stream_request_id,
                     self.client_connected,
                     self.expected_assistant_msg_id,
+                    stop_reason=self.final_results.get("stop_reason"),
                 ),
             ),
             daemon=True,
@@ -370,6 +380,7 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
         context.result_messages = item.get("result_messages", [])
         context.tool_results = item.get("tool_results", [])
         context.usage_info = item.get("usage_info", {})
+        context.stop_reason = item.get("stop_reason")
     elif event_type == "approval_required":
         # Store approval info in context for finalization
         context.approval_info = {

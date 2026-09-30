@@ -117,6 +117,8 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
             done["generated_images"] = msg.generated_images
         if msg.language:
             done["language"] = msg.language
+        if getattr(msg, "stop_reason", None):
+            done["stop_reason"] = msg.stop_reason
         return done
 
     while time.monotonic() < deadline:

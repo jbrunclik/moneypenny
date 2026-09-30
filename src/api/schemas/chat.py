@@ -113,6 +113,10 @@ class MessageResponse(BaseModel):
     stopped_early: bool | None = Field(
         default=None, description="Reply was cut off by the tool-round cap (offer Continue)"
     )
+    stop_reason: Literal["user"] | None = Field(
+        default=None,
+        description="Why the reply ended early: 'user' = stopped by the user (offer Continue)",
+    )
     created_at: str
 
 
@@ -130,6 +134,10 @@ class ChatBatchResponse(BaseModel):
     )
     stopped_early: bool | None = Field(
         default=None, description="Reply was cut off by the tool-round cap (offer Continue)"
+    )
+    stop_reason: Literal["user"] | None = Field(
+        default=None,
+        description="Why the reply ended early: 'user' = stopped by the user (offer Continue)",
     )
     created_at: str
     title: str | None = Field(

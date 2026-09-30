@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.agent.cancellation import STOPPED_EMPTY_TEXT
 from src.agent.content import (
     detect_response_language,
     extract_conversation_title,
@@ -221,6 +222,7 @@ def save_message_to_db(
     client_connected: bool,
     assistant_message_id: str | None = None,
     mode: str = "stream",
+    stop_reason: str | None = None,
 ) -> SaveResult | None:
     """Save message to database. Called from batch, generator and cleanup thread.
 
@@ -240,6 +242,7 @@ def save_message_to_db(
         client_connected: Whether client is still connected (for logging)
         assistant_message_id: Pre-generated message ID for streaming recovery
         mode: "batch" or "stream" (recorded with the cost)
+        stop_reason: "user" when the user pressed Stop (partial reply kept)
 
     Returns:
         SaveResult with extracted data for building done event, or None on error.
@@ -254,6 +257,9 @@ def save_message_to_db(
         # A turn that only produced files still needs visible text
         if not content and all_generated_files:
             content = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
+        # Stopped before any text: keep the turn visible so Continue works
+        if stop_reason and not content.strip():
+            content = STOPPED_EMPTY_TEXT
         assistant_msg = _persist_assistant_message(
             conv_id,
             user_id,
@@ -265,6 +271,8 @@ def save_message_to_db(
             language,
             build_tool_outputs(result_messages),
         )
+        if stop_reason:
+            db.set_message_stop_reason(assistant_msg.id, stop_reason)
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)
         calculate_and_save_message_cost(

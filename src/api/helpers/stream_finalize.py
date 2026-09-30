@@ -71,6 +71,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
             context.stream_request_id,
             context.client_connected,
             context.expected_assistant_msg_id,
+            stop_reason=context.stop_reason,
         )
 
         # Mark as saved so cleanup thread knows not to save again

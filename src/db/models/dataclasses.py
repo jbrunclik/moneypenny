@@ -84,6 +84,8 @@ class Message:
     # Per-call digests of the turn's non-web tool outputs ({tool, args, result}),
     # rendered into MSG_CONTEXT so later turns can recall them
     tool_outputs: list[dict[str, str]] | None = None
+    # Why the reply ended early: "user" = the user pressed Stop (None otherwise)
+    stop_reason: str | None = None
 
 
 @dataclass

@@ -146,6 +146,9 @@ def build_chat_response(
         response_data["language"] = language
     if stopped_early:
         response_data["stopped_early"] = True
+    stop_reason = getattr(assistant_msg, "stop_reason", None)
+    if stop_reason:
+        response_data["stop_reason"] = stop_reason
 
     return response_data
 
@@ -218,6 +221,8 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
             msg_data["language"] = m.language
         if m.id in capped_ids:
             msg_data["stopped_early"] = True
+        if m.stop_reason:
+            msg_data["stop_reason"] = m.stop_reason
 
         optimized_messages.append(msg_data)
     return optimized_messages
@@ -270,6 +275,9 @@ def build_stream_done_event(
         done_data["language"] = language
     if stopped_early:
         done_data["stopped_early"] = True
+    stop_reason = getattr(assistant_msg, "stop_reason", None)
+    if stop_reason:
+        done_data["stop_reason"] = stop_reason
 
     return done_data
 

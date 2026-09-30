@@ -182,3 +182,33 @@ class TestCleanupAndSave:
 
         # save_func should NOT be called since ready=False
         save_func.assert_not_called()
+
+
+class TestCleanupSavePassesStopReason:
+    def test_cleanup_save_keeps_stop_reason(self) -> None:
+        """Client gone (grace abort): the cleanup save must still mark the reply stopped."""
+        from unittest.mock import MagicMock, patch
+
+        from src.api.helpers import chat_streaming
+
+        context = chat_streaming._StreamContext(
+            user=MagicMock(id="u1"),
+            conv=MagicMock(id="c1", model="m"),
+            user_msg=MagicMock(id="um1"),
+            turn=MagicMock(message_text="hi", request_id="r1"),
+        )
+        captured: list[tuple] = []
+        with patch.object(chat_streaming.threading, "Thread") as thread_cls:
+            thread_cls.side_effect = lambda **kw: captured.append(kw.get("args", ())) or MagicMock()
+            context.start_threads()
+        save_callable = captured[1][-1]  # cleanup_and_save(..., save_fn)
+        context.final_results.update(
+            clean_content="Partial",
+            result_messages=[],
+            tool_results=[],
+            usage_info={},
+            stop_reason="user",
+        )
+        with patch.object(chat_streaming, "save_message_to_db") as save:
+            save_callable()
+        assert save.call_args.kwargs["stop_reason"] == "user"

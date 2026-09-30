@@ -13,6 +13,14 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from src.agent.cancellation import (
+    CancelToken,
+    clear_stop_request,
+    register_token,
+    run_poller,
+    stop_requested,
+    unregister_token,
+)
 from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
@@ -78,6 +86,19 @@ def _close_thread_db_connections() -> None:
         logger.debug("Closing thread-local blob connection failed", exc_info=True)
 
 
+def _poll_stop_flag(token: CancelToken, user_id: str, conv_id: str, done: threading.Event) -> None:
+    """Poller thread: cancel the turn's token once POST /chat/stop set the flag."""
+    try:
+        run_poller(
+            token,
+            lambda: stop_requested(user_id, conv_id),
+            done,
+            Config.CANCEL_POLL_INTERVAL_SECONDS,
+        )
+    finally:
+        _close_thread_db_connections()
+
+
 def stream_events(
     agent: ChatAgent,
     event_queue: queue.Queue[dict[str, Any] | None | Exception],
@@ -102,6 +123,16 @@ def stream_events(
     # Contextvars don't cross threads: re-set the turn's (agent context for
     # kv_store and permission checks, request id for tool results, ...)
     turn.apply()
+    # Server-side Stop: a token for this request, flipped by a poller when
+    # the stop route's kv flag appears (the route may run on another worker)
+    token = register_token(turn.request_id)
+    turn_done = threading.Event()
+    threading.Thread(
+        target=_poll_stop_flag,
+        args=(token, user_id, conv_id, turn_done),
+        daemon=True,
+        name="stop-poller",
+    ).start()
     try:
         logger.debug(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
@@ -119,6 +150,7 @@ def stream_events(
                     final_results["result_messages"] = event.get("result_messages", [])
                     final_results["tool_results"] = event.get("tool_results", [])
                     final_results["usage_info"] = event.get("usage_info", {})
+                    final_results["stop_reason"] = event.get("stop_reason")
                     final_results["ready"] = True
                 if journal and event.get("type") in _JOURNALED_EVENT_TYPES:
                     journal.record(event)
@@ -215,6 +247,9 @@ def stream_events(
         event_queue.put(RuntimeError(f"stream producer killed: {e!r}"))
         raise
     finally:
+        turn_done.set()
+        unregister_token(turn.request_id)
+        clear_stop_request(user_id, conv_id)
         if journal:
             journal.finish()
         # Close thread-local DB connections so the pool doesn't leak them

@@ -331,6 +331,16 @@ class MessageMixin:
 
             return row_to_message(row)
 
+    def set_message_stop_reason(self, message_id: str, stop_reason: str) -> None:
+        """Record why an assistant reply ended early (e.g. "user" for Stop)."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "UPDATE messages SET stop_reason = ? WHERE id = ?",
+                (stop_reason, message_id),
+            )
+            conn.commit()
+
     def update_message_content(
         self,
         message_id: str,

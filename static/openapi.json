@@ -7939,6 +7939,20 @@
             "description": "Reply was cut off by the tool-round cap (offer Continue)",
             "title": "Stopped Early"
           },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "const": "user",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
+            "title": "Stop Reason"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -8197,6 +8211,20 @@
             "default": null,
             "description": "Reply was cut off by the tool-round cap (offer Continue)",
             "title": "Stopped Early"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "const": "user",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
+            "title": "Stop Reason"
           },
           "created_at": {
             "title": "Created At",
@@ -9214,6 +9242,20 @@
             "description": "Reply was cut off by the tool-round cap (offer Continue)",
             "title": "Stopped Early"
           },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "const": "user",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
+            "title": "Stop Reason"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -10108,6 +10150,20 @@
             "description": "Reply was cut off by the tool-round cap (offer Continue)",
             "title": "Stopped Early"
           },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "const": "user",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
+            "title": "Stop Reason"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -10390,6 +10446,20 @@
             "default": null,
             "description": "Reply was cut off by the tool-round cap (offer Continue)",
             "title": "Stopped Early"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "const": "user",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
+            "title": "Stop Reason"
           },
           "created_at": {
             "title": "Created At",

@@ -4902,6 +4902,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/chat/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the running chat turn
+         * @description Ask the in-flight turn of this conversation to stop at its next checkpoint (cross-worker via kv_store). The stream then ends with a done event carrying stop_reason 'user' and the partial reply saved. Harmless when no turn is running.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/chat/batch": {
         parameters: {
             query?: never;
@@ -7402,6 +7461,12 @@ export interface components {
              * @default null
              */
             stopped_early: boolean | null;
+            /**
+             * Stop Reason
+             * @description Why the reply ended early: 'user' = stopped by the user (offer Continue)
+             * @default null
+             */
+            stop_reason: "user" | null;
             /** Created At */
             created_at: string;
         };
@@ -7523,6 +7588,12 @@ export interface components {
              * @default null
              */
             stopped_early: boolean | null;
+            /**
+             * Stop Reason
+             * @description Why the reply ended early: 'user' = stopped by the user (offer Continue)
+             * @default null
+             */
+            stop_reason: "user" | null;
             /** Created At */
             created_at: string;
         };
@@ -8071,6 +8142,12 @@ export interface components {
              * @default null
              */
             stopped_early: boolean | null;
+            /**
+             * Stop Reason
+             * @description Why the reply ended early: 'user' = stopped by the user (offer Continue)
+             * @default null
+             */
+            stop_reason: "user" | null;
             /** Created At */
             created_at: string;
         };
@@ -8528,6 +8605,12 @@ export interface components {
              * @default null
              */
             stopped_early: boolean | null;
+            /**
+             * Stop Reason
+             * @description Why the reply ended early: 'user' = stopped by the user (offer Continue)
+             * @default null
+             */
+            stop_reason: "user" | null;
             /** Created At */
             created_at: string;
         };
@@ -8668,6 +8751,12 @@ export interface components {
              * @default null
              */
             stopped_early: boolean | null;
+            /**
+             * Stop Reason
+             * @description Why the reply ended early: 'user' = stopped by the user (offer Continue)
+             * @default null
+             */
+            stop_reason: "user" | null;
             /** Created At */
             created_at: string;
             /**
