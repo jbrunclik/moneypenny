@@ -22,7 +22,7 @@ dev = [
     "types-PyYAML>=6.0.12.20260906",
     "pytest>=9.1.1",
     "pytest-cov>=4.0",
-    "pytest-mock>=3.0",
+    "pytest-mock>=3.15.1",
 ]
 
 [tool.ruff]
