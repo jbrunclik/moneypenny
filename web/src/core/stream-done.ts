@@ -14,6 +14,7 @@ import {
   updateUserMessageId,
 } from '../components/messages';
 import { getElementById } from '../utils/dom';
+import { toast } from '../components/Toast';
 import type { FileMetadata, GeneratedImage, Message, Source } from '../types/api';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
@@ -37,6 +38,7 @@ export interface StreamDoneEvent {
   approval_required?: boolean;
   approval_id?: string;
   stopped_early?: boolean;
+  stop_reason?: 'user';
 }
 
 /**
@@ -55,6 +57,7 @@ export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent
     files: event.files,
     language: event.language,
     stopped_early: event.stopped_early,
+    stop_reason: event.stop_reason,
   };
 }
 
@@ -114,9 +117,10 @@ function finalizeDoneBubble(
     event.language
   );
   useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
-  if (event.stopped_early) {
+  const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'round_cap' : null;
+  if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');
-    if (wrapper) appendStoppedEarlyNote(wrapper, event.id);
+    if (wrapper) appendStoppedEarlyNote(wrapper, event.id, reason);
   }
   return wasFollowing;
 }
@@ -161,6 +165,9 @@ export async function handleStreamDone(
 
   if (event.user_message_id) {
     updateUserMessageId(tempUserMessageId, event.user_message_id);
+  }
+  if (state.stopRequested) {
+    toast.info('Response stopped.');
   }
 
   const isCurrentConversation = useStore.getState().currentConversation?.id === convId;

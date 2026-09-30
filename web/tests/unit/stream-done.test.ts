@@ -44,6 +44,14 @@ describe('assistantMessageFromDone', () => {
     expect(assistantMessageFromDone({ id: 'a1', created_at: 'x' }, 'streamed').content).toBe('streamed');
     expect(assistantMessageFromDone({ id: 'a1', created_at: 'x', content: '' }, 'streamed').content).toBe('streamed');
   });
+
+  it('carries stop_reason into the store message', () => {
+    const msg = assistantMessageFromDone(
+      { id: 'm1', created_at: '2026-09-30T10:00:00Z', content: 'Partial', stop_reason: 'user' },
+      'Partial'
+    );
+    expect(msg.stop_reason).toBe('user');
+  });
 });
 
 describe('hasVisibleContent', () => {

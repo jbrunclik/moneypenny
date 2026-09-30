@@ -14,6 +14,8 @@ import { hideUploadProgress, showUploadProgress } from '../components/MessageInp
 import type { ThinkingState } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 import { notifyTurnFinished } from './attention';
+import { conversations } from '../api/conversations';
+import { STOP_DONE_GRACE_MS } from '../config';
 import { trackRequest, untrackRequest } from './active-requests';
 import { markStreamForRecovery } from './stream-recovery';
 import { createThinkingState } from './thinking-state';
@@ -38,6 +40,10 @@ export interface StreamingState {
   /** The controller wired to the CURRENT reader (initial stream or a resume
    * attempt) - the stop button and the proactive bg/fg abort target this */
   activeAbortController?: AbortController;
+  /** Stop was sent to the server; a done event with stop_reason 'user' is expected */
+  stopRequested?: boolean;
+  /** Grace timer that aborts the reader if that done event never arrives */
+  stopTimer?: ReturnType<typeof setTimeout>;
   /** Count of token events received (for debugging) */
   tokenCount?: number;
 }
@@ -84,6 +90,24 @@ export function registerStreamRequest(
   // Mark streaming state
   getSyncManager()?.setConversationStreaming(convId, true);
   useStore.getState().setStreamingConversation(convId);
+}
+
+/**
+ * Stop pressed: once the server has the turn (user_message_saved gave us the
+ * assistant id), ask it to stop and keep reading - the done event brings the
+ * saved partial reply. Before that, return false so Stop aborts the reader.
+ * Shared by the live stream and the reload-resume reader.
+ */
+export function requestServerStop(convId: string, state: StreamingState): boolean {
+  if (state.stopRequested) return true;
+  if (!state.expectedAssistantMessageId) return false;
+  state.stopRequested = true;
+  conversations.stop(convId).catch((error: unknown) => {
+    log.warn('Server stop request failed - aborting reader', { conversationId: convId, error });
+    state.activeAbortController?.abort();
+  });
+  state.stopTimer = setTimeout(() => state.activeAbortController?.abort(), STOP_DONE_GRACE_MS);
+  return true;
 }
 
 /**

@@ -17,6 +17,8 @@ export interface ActiveRequest {
   conversationId: string;
   type: 'stream' | 'batch';
   abortController?: AbortController;
+  /** Graceful stop (server-side); returns false when it cannot, so Stop aborts instead */
+  onStop?: () => boolean;
 }
 
 const activeRequests = new Map<string, ActiveRequest>();
@@ -66,9 +68,22 @@ export function abortAllStreamingRequests(): void {
 export function handleStopStreaming(): void {
   const currentConvId = useStore.getState().currentConversation?.id;
   if (currentConvId) {
+    const live = [...activeRequests.values()].find(
+      (r) => r.conversationId === currentConvId && r.type === 'stream'
+    );
+    if (live?.onStop?.()) return;
     const aborted = abortStreamingRequest(currentConvId);
     if (!aborted) {
       log.warn('No streaming request found to abort', { conversationId: currentConvId });
+    }
+  }
+}
+
+/** Give the conversation's live stream a graceful-stop handler (server-side stop). */
+export function setStopHandler(convId: string, handler: () => boolean): void {
+  for (const request of activeRequests.values()) {
+    if (request.conversationId === convId && request.type === 'stream') {
+      request.onStop = handler;
     }
   }
 }

@@ -12,7 +12,7 @@ import { toast } from '../components/Toast';
 import { addStreamingMessage, getStreamingMessageElement } from '../components/messages';
 import { getElementById } from '../utils/dom';
 import { getSyncManager } from '../sync/SyncManager';
-import { swapAbortController } from './active-requests';
+import { setStopHandler, swapAbortController } from './active-requests';
 import { clearInflightStream, readInflightStream } from './inflight-streams';
 import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './stream-recovery';
 import { handleStreamDone, type StreamDoneEvent } from './stream-done';
@@ -21,6 +21,7 @@ import {
   cleanupStreamingRequest,
   createStreamingState,
   registerStreamRequest,
+  requestServerStop,
   setupStreamLifecycleListeners,
   type StreamingState,
 } from './stream-session';
@@ -281,6 +282,7 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
   // path can re-create this bubble with the accumulated content
   const requestId = `resume-${convId}-${Date.now()}`;
   registerStreamRequest(convId, requestId, abortController);
+  setStopHandler(convId, () => requestServerStop(convId, state));
 
   // Same bg/fg handling as a live stream: the resume reader can die in an
   // iOS background stint too
@@ -290,6 +292,7 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
   try {
     delivered = (await deliverResumedTurn(state, convId, messageId, messageEl)) === true;
   } finally {
+    if (state.stopTimer) clearTimeout(state.stopTimer);
     cleanupLifecycleListeners();
     // The localStorage entry survives until HERE (terminal outcome): clearing
     // it up front meant a second reload mid-resume found nothing and silently

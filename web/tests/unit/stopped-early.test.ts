@@ -56,4 +56,13 @@ describe('appendStoppedEarlyNote', () => {
     appendStoppedEarlyNote(el, 'm1');
     expect(el.lastElementChild?.classList.contains('message-stopped-early')).toBe(true);
   });
+
+  it('labels a user stop as stopped, still offering Continue', () => {
+    const el = wrapper();
+    appendStoppedEarlyNote(el, 'm1', 'user');
+    const note = el.querySelector('.message-stopped-early');
+    expect(note?.textContent).toContain('Stopped.');
+    expect(note?.textContent).not.toContain('tool-step limit');
+    expect(el.querySelector('.message-stopped-early-continue')).not.toBeNull();
+  });
 });

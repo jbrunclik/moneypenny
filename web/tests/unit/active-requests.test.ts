@@ -1,12 +1,13 @@
 /**
  * Unit tests for active request (abort handle) tracking
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
 import {
   abortAllStreamingRequests,
   abortStreamingRequest,
   handleStopStreaming,
+  setStopHandler,
   swapAbortController,
   trackRequest,
   untrackRequest,
@@ -62,5 +63,29 @@ describe('active-requests', () => {
     expect(a.signal.aborted).toBe(true);
     expect(readInflightStream('c1')).toBeNull();
     expect(abortStreamingRequest('c1')).toBe(false);
+  });
+
+  it('lets the stream stop gracefully when its handler accepts', () => {
+    const controller = new AbortController();
+    trackRequest('r1', { conversationId: 'c1', type: 'stream', abortController: controller });
+    const handler = vi.fn(() => true);
+    setStopHandler('c1', handler);
+    useStore.setState({ currentConversation: { id: 'c1' } as never });
+
+    handleStopStreaming();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(controller.signal.aborted).toBe(false);
+  });
+
+  it('aborts immediately when the turn has not started', () => {
+    const controller = new AbortController();
+    trackRequest('r1', { conversationId: 'c1', type: 'stream', abortController: controller });
+    setStopHandler('c1', () => false);
+    useStore.setState({ currentConversation: { id: 'c1' } as never });
+
+    handleStopStreaming();
+
+    expect(controller.signal.aborted).toBe(true);
   });
 });

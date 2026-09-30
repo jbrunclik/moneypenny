@@ -90,6 +90,8 @@ export interface Message {
   language?: string; // ISO 639-1 language code for TTS (e.g., 'en', 'cs')
   /** Assistant reply cut off by the tool-round cap (server-set) */
   stopped_early?: boolean;
+  /** Why the reply ended early: 'user' = the user pressed Stop (server-set) */
+  stop_reason?: 'user';
   created_at: string;
   /** Client-only send state; never sent by the server (absent = delivered) */
   status?: 'pending' | 'failed';
@@ -176,6 +178,7 @@ export type StreamEvent = (
       title?: string;
       user_message_id?: string; // Real ID of the user message (kept for backwards compatibility)
       stopped_early?: boolean; // Reply cut off by the tool-round cap
+      stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
     }
   | { type: 'error'; message: string; code?: string; retryable?: boolean }
 ) & {
@@ -274,6 +277,7 @@ export interface ChatResponse {
   title?: string;
   user_message_id?: string; // Real ID of the user message (for updating temp IDs)
   stopped_early?: boolean; // Reply cut off by the tool-round cap
+  stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
 }
 
 export interface ErrorResponse {

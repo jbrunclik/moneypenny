@@ -6,18 +6,28 @@
  * partial. The server flags it `stopped_early`; this note says so and offers
  * Continue, which reuses the existing continue re-run. CSS shows the button
  * only on the latest assistant reply, where a re-run makes sense.
+ * The same note marks replies the user stopped (server stop_reason "user").
  */
 
 const NOTE_CLASS = 'message-stopped-early';
 
+const NOTE_TEXT: Record<'round_cap' | 'user', string> = {
+  round_cap: 'Stopped at the tool-step limit - this answer may be incomplete.',
+  user: 'Stopped.',
+};
+
 /** Insert the note before the message actions (idempotent). */
-export function appendStoppedEarlyNote(contentWrapper: HTMLElement, messageId: string): void {
+export function appendStoppedEarlyNote(
+  contentWrapper: HTMLElement,
+  messageId: string,
+  reason: 'round_cap' | 'user' = 'round_cap'
+): void {
   if (contentWrapper.querySelector(`.${NOTE_CLASS}`)) return;
 
   const note = document.createElement('div');
   note.className = NOTE_CLASS;
   const text = document.createElement('span');
-  text.textContent = 'Stopped at the tool-step limit - this answer may be incomplete.';
+  text.textContent = NOTE_TEXT[reason];
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'message-stopped-early-continue';

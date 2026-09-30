@@ -10,6 +10,7 @@ import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import { hideUploadProgress } from '../components/MessageInput';
 import type { ClientLocation, FileUpload, StreamEvent } from '../types/api';
+import { setStopHandler } from './active-requests';
 import { clearInflightStream } from './inflight-streams';
 import { confirmDelivery, markSendFailed } from './send-delivery';
 import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './stream-recovery';
@@ -19,6 +20,7 @@ import { handleMissingDoneEvent, tryResumeStream } from './stream-resume';
 import {
   cleanupStreamingRequest,
   initStreamingRequest,
+  requestServerStop,
   setupStreamLifecycleListeners,
   type StreamingState,
 } from './stream-session';
@@ -150,6 +152,14 @@ async function recoverAfterStreamError(
 async function handleStreamFailure(send: StreamSend, error: unknown): Promise<void> {
   const { convId, tempUserMessageId, state } = send;
   if (error instanceof Error && error.name === 'AbortError' && !state.resumeViaAbort) {
+    if (state.stopRequested) {
+      // Server-side stop whose done event never arrived in time: the partial
+      // is (or will be) saved - keep the bubble; sync replaces it later
+      state.messageEl.classList.add('message-incomplete');
+      toast.info('Response stopped.');
+      clearPendingRecovery(convId);
+      return;
+    }
     // Stopped before the server confirmed receipt: surface as a failed
     // send (retry-able); reconciliation resolves it if it actually landed
     markSendFailed(convId, tempUserMessageId);
@@ -210,6 +220,7 @@ export async function sendStreamingMessage(
     setUserMessageUploading(tempUserMessageId, true);
   }
   const send: StreamSend = { convId, tempUserMessageId, hasFiles, state };
+  setStopHandler(convId, () => requestServerStop(convId, state));
 
   // Mark for recovery on mobile background/lock; proactively resume on return
   const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
@@ -229,6 +240,7 @@ export async function sendStreamingMessage(
   } catch (error) {
     await handleStreamFailure(send, error);
   } finally {
+    if (state.stopTimer) clearTimeout(state.stopTimer);
     cleanupLifecycleListeners();
     // Safety net: never leave the user bubble pulsing or the assistant
     // bubble hidden if the request died before the first event

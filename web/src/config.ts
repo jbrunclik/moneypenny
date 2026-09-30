@@ -45,6 +45,9 @@ export const API_CHAT_TIMEOUT_MS = 5 * MS_PER_MINUTE;
 /** Timeout for individual stream reads (1 minute, backend sends keepalives every 15s) */
 export const API_STREAM_READ_TIMEOUT_MS = 1 * MS_PER_MINUTE;
 
+/** After a server-side Stop, how long to wait for the done event before aborting the reader */
+export const STOP_DONE_GRACE_MS = 5 * MS_PER_SECOND;
+
 /** Timeout for the initial chat POST to respond (before any stream event arrives) */
 export const API_CHAT_CONNECT_TIMEOUT_MS = 30 * MS_PER_SECOND;
 
