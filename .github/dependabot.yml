@@ -22,9 +22,10 @@ updates:
         versions: [">=7.0.0"]
       # @playwright/test 1.62.x ships a webkit build that never completes page
       # load, hanging every webkit E2E test (chromium is fine). Pinned to 1.61.1.
-      # Remove this once a newer Playwright fixes the webkit regression.
+      # 1.63.0 still hangs (Sep 30 2026: all 4 webkit shards hit the 30 min job
+      # timeout). Listed per minor so each new release still gets a try.
       - dependency-name: "@playwright/test"
-        versions: ["1.62.x"]
+        versions: ["1.62.x", "1.63.x"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
