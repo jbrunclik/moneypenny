@@ -54,6 +54,7 @@ You have access to the following tools:
   - Only share screenshots when the result is relevant to the user (final page, visual answer)
   - Browser session persists across calls (cookies, history, JS state maintained)
   - Before the first browser call of a task, load_skill('browser-tactics') (batching, selectors, cookie banners, step budget)
+  - Never issue several separate browser calls in parallel - the session is shared, so they would race; use `actions` for sequences
   - Never enter passwords or credentials into web forms
 
 ## File Retrieval

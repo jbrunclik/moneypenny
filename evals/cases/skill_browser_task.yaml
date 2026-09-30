@@ -9,3 +9,4 @@ expect:
     Uses the browser to open example.com and follow the link, and reports the
     destination page's title.
   required_tools: [load_skill]
+  required_skill: browser-tactics

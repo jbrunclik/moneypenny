@@ -202,7 +202,9 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
             break
 
     for msg in messages[:last_tool_call_idx]:
-        if not isinstance(msg, ToolMessage):
+        # A loaded skill is instructions for the whole turn, not consumed data:
+        # truncating it would drop exactly the guidance later rounds need
+        if not isinstance(msg, ToolMessage) or msg.name == "load_skill":
             continue
         if isinstance(msg.content, list):
             logger.info(

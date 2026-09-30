@@ -10,3 +10,4 @@ expect:
     kid-appropriate activities and breaks, and a weather plan B; it notes
     anything to book or check (opening hours).
   required_tools: [load_skill]
+  required_skill: trip-itinerary

@@ -9,3 +9,4 @@ expect:
     A .docx file is produced via execute_code (not a PDF or markdown) using
     real headings and a table, and the reply says what the document contains.
   required_tools: [load_skill]
+  required_skill: office-documents

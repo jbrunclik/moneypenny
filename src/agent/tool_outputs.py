@@ -25,6 +25,8 @@ from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
 # - image generation: covered by generated_images
 # - recall tools: they re-read data that is already persisted and re-searchable
 # - memory writes: their outcome is stated in the reply
+# - load_skill: repo-authored instructions - re-sending them in every later
+#   turn's MSG_CONTEXT would crowd out the digests that matter
 _EXCLUDED_TOOLS = EXTRACT_ONLY_TOOL_NAMES | frozenset(
     {
         "web_search",
@@ -38,6 +40,7 @@ _EXCLUDED_TOOLS = EXTRACT_ONLY_TOOL_NAMES | frozenset(
         "manage_memory",
         "retrieve_file",
         "request_approval",
+        "load_skill",  # repo-authored instructions, not user data
     }
 )
 

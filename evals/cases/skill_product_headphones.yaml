@@ -9,3 +9,4 @@ expect:
     CZK, where to buy, key differences) with one clear pick, and does not invent
     products or shops.
   required_tools: [load_skill]
+  required_skill: product-research

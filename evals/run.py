@@ -76,6 +76,9 @@ class EvalCase:
     required_tools: list[str] = field(default_factory=list)  # any-of
     forbidden_tools: list[str] = field(default_factory=list)
     max_tool_rounds: int = 0  # 0 = no limit
+    # load_skill must have been called with THIS skill name (required_tools
+    # only proves some load_skill call happened)
+    required_skill: str | None = None
     # Prior turns for multi-turn cases: [{role, content[, metadata]}] - metadata
     # is the enriched-history dict (e.g. tool_outputs) the model sees in MSG_CONTEXT
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -147,6 +150,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 required_tools=list(expect.get("required_tools") or []),
                 forbidden_tools=list(expect.get("forbidden_tools") or []),
                 max_tool_rounds=int(expect.get("max_tool_rounds") or 0),
+                required_skill=expect.get("required_skill"),
                 history=[
                     {
                         "role": str(h["role"]),
@@ -225,9 +229,28 @@ def _usd(amount: float) -> str:
     return f"${amount:.4f}" if amount < 0.01 else f"${amount:.2f}"
 
 
-def deterministic_failures(case: EvalCase, tools_used: set[str], tool_rounds: int) -> list[str]:
+def skills_loaded_in(messages: list[Any]) -> set[str]:
+    """Skill names passed to load_skill calls in the turn's messages."""
+    return {
+        str(call.get("args", {}).get("name", ""))
+        for msg in messages
+        for call in getattr(msg, "tool_calls", None) or []
+        if call.get("name") == "load_skill"
+    }
+
+
+def deterministic_failures(
+    case: EvalCase,
+    tools_used: set[str],
+    tool_rounds: int,
+    skills_loaded: set[str] | None = None,
+) -> list[str]:
     """Rule-based checks that need no LLM. required_tools is any-of."""
     failures: list[str] = []
+    if case.required_skill and case.required_skill not in (skills_loaded or set()):
+        failures.append(
+            f"skill {case.required_skill!r} was not loaded ({sorted(skills_loaded or set()) or 'none'})"
+        )
     if case.required_tools and not (set(case.required_tools) & tools_used):
         failures.append(
             f"none of the required tools {case.required_tools} were used ({sorted(tools_used) or 'no tools'})"
@@ -483,7 +506,9 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
                 tools_used.add(tool_call["name"])
 
     tool_rounds = int(usage.get("tool_rounds", 0))
-    failures = deterministic_failures(case, tools_used, tool_rounds)
+    failures = deterministic_failures(
+        case, tools_used, tool_rounds, skills_loaded=skills_loaded_in(result_messages)
+    )
 
     from langchain_google_genai import ChatGoogleGenerativeAI
 

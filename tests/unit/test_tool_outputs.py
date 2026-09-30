@@ -51,6 +51,18 @@ class TestBuildToolOutputs:
         assert outputs is not None
         assert [o["tool"] for o in outputs] == ["todoist"]
 
+    def test_skips_load_skill(self) -> None:
+        """Skill bodies are repo text: re-sending them in every later turn's
+        MSG_CONTEXT would crowd out the digests that matter."""
+        outputs = build_tool_outputs(
+            _turn(
+                ("load_skill", {"name": "weekly-planning"}, "Skill: weekly-planning\n..."),
+                ("todoist", {"action": "list"}, '{"tasks": ["buy milk"]}'),
+            )
+        )
+        assert outputs is not None
+        assert [o["tool"] for o in outputs] == ["todoist"]
+
     def test_none_without_tool_calls(self) -> None:
         assert build_tool_outputs([HumanMessage(content="hi"), AIMessage(content="hello")]) is None
         assert build_tool_outputs(_turn(("web_search", {}, "{}"))) is None

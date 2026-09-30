@@ -9,3 +9,4 @@ expect:
     An .xlsx file is produced via execute_code with the four items, a totals
     row (ideally a SUM formula), and the reply states the total of 30100 CZK.
   required_tools: [load_skill]
+  required_skill: office-documents

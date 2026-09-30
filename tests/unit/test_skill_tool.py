@@ -57,3 +57,36 @@ def test_recipes_moved_out_of_the_prompt() -> None:
         assert marker in skills.get_skill(name).body  # type: ignore[union-attr]
     assert "load_skill('office-documents')" in TOOLS_SYSTEM_PROMPT_BASE
     assert "load_skill('pdf-documents')" in TOOLS_SYSTEM_PROMPT_BASE
+
+
+def test_loaded_skill_is_never_aged_mid_turn() -> None:
+    """Aging truncates consumed results over AGENT_AGED_TOOL_RESULT_MAX_CHARS;
+    a skill read in round 1 must still be whole in round 3."""
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+    from src.agent.graph import _age_consumed_tool_messages
+    from src.config import Config
+
+    body = "x" * (Config.AGENT_AGED_TOOL_RESULT_MAX_CHARS * 2)
+    messages = [
+        HumanMessage(content="log in and check"),
+        AIMessage(content="", tool_calls=[{"name": "load_skill", "args": {}, "id": "c1"}]),
+        ToolMessage(content=body, tool_call_id="c1", name="load_skill"),
+        AIMessage(content="", tool_calls=[{"name": "browser", "args": {}, "id": "c2"}]),
+        ToolMessage(content="{}", tool_call_id="c2", name="browser"),
+    ]
+    _age_consumed_tool_messages(messages)
+    assert messages[2].content == body
+
+
+def test_parallel_browser_guardrail_stays_always_on() -> None:
+    from src.agent.prompt_texts.core import TOOLS_SYSTEM_PROMPT_BASE
+
+    assert "Never issue several separate browser calls in parallel" in TOOLS_SYSTEM_PROMPT_BASE
+
+
+def test_weekly_planning_does_not_claim_the_morning_briefing() -> None:
+    """The scheduled Daily Briefing agent ("You produce a short morning
+    briefing") must not be steered into the weekly planning session."""
+    description = skills.get_skill("weekly-planning").description  # type: ignore[union-attr]
+    assert "briefing" not in description.lower()

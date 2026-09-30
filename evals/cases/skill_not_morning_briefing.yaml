@@ -1,0 +1,14 @@
+id: skill_not_morning_briefing
+description: A daily morning briefing must not load the weekly-planning skill
+integrations:
+  todoist:
+    projects:
+      - {id: p1, name: Work}
+    sections:
+      - {id: s1, project_id: p1, name: Active}
+    tasks:
+      - {id: t1, content: "Send quarterly report", project_id: p1, section_id: s1}
+user: "Give me my short morning briefing for today."
+expect:
+  rubric: A short briefing for today (under ~250 words) covering today's tasks; not a weekly retrospective or planning session.
+  forbidden_tools: [load_skill]

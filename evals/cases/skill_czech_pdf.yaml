@@ -10,3 +10,4 @@ expect:
     intact (a Unicode font such as DejaVu is used), and the reply confirms it
     in Czech.
   required_tools: [load_skill]
+  required_skill: pdf-documents

@@ -1,6 +1,6 @@
 ---
 name: weekly-planning
-description: The weekly strategic planning session with Todoist and Google Calendar ("weekly review", "planning session", "plan my week", "briefing"). Load BEFORE starting one.
+description: The weekly strategic planning session with Todoist and Google Calendar ("weekly review", "weekly planning session", "plan my week"). Load BEFORE starting one.
 ---
 ## Weekly Strategic Planning ("review", "briefing", "planning session")
 1. **Current state**: events (past 3 days + next 7 days) and tasks (overdue | today | next 7 days)

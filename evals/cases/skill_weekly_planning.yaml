@@ -18,3 +18,4 @@ expect:
     what is coming, asks about priorities for the week) rather than a generic
     reply.
   required_tools: [load_skill]
+  required_skill: weekly-planning

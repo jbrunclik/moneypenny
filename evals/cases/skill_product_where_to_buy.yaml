@@ -11,3 +11,4 @@ expect:
     stock status as fact unless it was confirmed in the turn's research, and
     anything it could not confirm is labelled as unverified.
   required_tools: [load_skill]
+  required_skill: product-research

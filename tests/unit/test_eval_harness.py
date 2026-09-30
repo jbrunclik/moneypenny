@@ -83,6 +83,7 @@ class TestDeterministicFailures:
             required_tools=expect.get("required_tools", []),  # type: ignore[arg-type]
             forbidden_tools=expect.get("forbidden_tools", []),  # type: ignore[arg-type]
             max_tool_rounds=expect.get("max_tool_rounds", 0),  # type: ignore[arg-type]
+            required_skill=expect.get("required_skill"),  # type: ignore[arg-type]
         )
 
     def test_required_tools_any_of(self) -> None:
@@ -94,6 +95,35 @@ class TestDeterministicFailures:
         case = self._case(forbidden_tools=["web_search"])
         assert deterministic_failures(case, {"web_search"}, tool_rounds=1)
         assert deterministic_failures(case, set(), tool_rounds=0) == []
+
+    def test_required_skill_must_be_the_one_loaded(self) -> None:
+        case = self._case(required_skill="office-documents")
+        assert (
+            deterministic_failures(
+                case, {"load_skill"}, tool_rounds=1, skills_loaded={"office-documents"}
+            )
+            == []
+        )
+        assert deterministic_failures(
+            case, {"load_skill"}, tool_rounds=1, skills_loaded={"pdf-documents"}
+        )
+        assert deterministic_failures(case, set(), tool_rounds=0)
+
+    def test_skills_loaded_are_read_from_tool_call_args(self) -> None:
+        from langchain_core.messages import AIMessage
+
+        from evals.run import skills_loaded_in
+
+        messages = [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "load_skill", "args": {"name": "office-documents"}, "id": "1"},
+                    {"name": "execute_code", "args": {"code": "x"}, "id": "2"},
+                ],
+            )
+        ]
+        assert skills_loaded_in(messages) == {"office-documents"}
 
     def test_max_tool_rounds(self) -> None:
         case = self._case(max_tool_rounds=2)

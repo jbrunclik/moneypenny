@@ -9,3 +9,4 @@ expect:
     Jihlava, open at lunchtime and kid-friendly, with the approximate detour,
     and does not invent places.
   required_tools: [load_skill]
+  required_skill: trip-itinerary
