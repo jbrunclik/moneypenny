@@ -31,3 +31,8 @@ BYTES_PER_MB = 1024 * BYTES_PER_KB
 
 # Tokens per million (for cost calculation)
 TOKENS_PER_MILLION = 1_000_000
+# =============================================================================
+# Skills (src/agent/skills/<name>/SKILL.md)
+# =============================================================================
+SKILL_MAX_DESCRIPTION_CHARS = 300  # index entry - always in the prompt
+SKILL_MAX_BODY_CHARS = 12_000  # ~3k tokens per load
