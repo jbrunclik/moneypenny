@@ -197,6 +197,6 @@ def _batch_summary(
     summary: dict[str, Any] = {"success": failed is None, "completed": len(done), "steps": done}
     if failed is not None:
         summary.update(failed_step=failed[0], error=failed[1], hint=_FAILED_STEP_HINT)
-    page = {k: last[k] for k in ("title", "url", "elements") if k in last}
+    page: dict[str, Any] = {k: last[k] for k in ("title", "url", "elements") if k in last}
     summary.update(frame_page_text(page))
     return summary
