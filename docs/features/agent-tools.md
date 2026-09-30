@@ -8,7 +8,7 @@ Interactive chat binds every available tool (`get_tools_for_request()`); autonom
 get `get_tools_for_agent()`, filtered by the agent's `tool_permissions`. Two lists matter:
 
 - **Always bound** for every agent: `web_search`, `fetch_url`, `research`, `retrieve_file`,
-  `create_file`, `request_approval`, `kv_store`.
+  `create_file`, `load_skill`, `request_approval`, `kv_store`.
 - **`ALWAYS_SAFE_TOOLS`** ([permissions.py](../../src/agent/permissions.py)) skip the
   call-time permission check: every always-bound tool, plus the read-only places tools
   `search_places`, `get_route`, `list_places`.
@@ -26,6 +26,7 @@ unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |
 | `create_file` | Attach an LLM-authored text file (ZWO/CSV/ICS/GPX/…) for download — no code execution | Always available |
+| `load_skill` | Return a built-in skill's instructions ([Skills](#skills)) | Always available |
 | `request_approval` | Request user approval | Always available |
 | `trigger_agent` | Trigger another agent | Unrestricted agents, or when granted ("Other agents" in the agent editor) |
 | `kv_store` | Per-user key-value storage | Always available |
@@ -106,6 +107,57 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   (including page titles/URLs) as data, never instructions, and to be cautious
   about high-impact actions driven solely by fetched content. This is a
   mitigation, not a guarantee.
+- **Grounding directive**: `GROUNDING_DIRECTIVE` in
+  [web.py](../../src/agent/tools/web.py) ("only state specifics that appear in
+  these results; say you could not verify the rest") rides on the results
+  themselves: a `_grounding` field on `web_search` (single and batched) and
+  `research`, and a trusted `[...]` note appended after the untrusted-content
+  markers of `fetch_url` HTML/text results. The always-on "Evidence Honesty"
+  section of [core.py](../../src/agent/prompt_texts/core.py) adds the same rule
+  (unread prices, stock, hours, dates are unverified). Measured effect so far
+  is nil on the known-failing eval probe `skill_product_where_to_buy`: the
+  model still mixes dealers and prices from its own knowledge into verified
+  results without labelling them. Tests:
+  [test_grounding_directive.py](../../tests/unit/test_grounding_directive.py).
+
+## Skills
+
+Recipe-level instructions the agent loads on demand instead of carrying them in
+every prompt. Each skill is `src/agent/skills/<name>/SKILL.md` with frontmatter
+`name` (lowercase-hyphenated, equal to the directory) and `description`; the
+loader in [skills/__init__.py](../../src/agent/skills/__init__.py) parses
+and validates every file at import (limits `SKILL_MAX_DESCRIPTION_CHARS` and
+`SKILL_MAX_BODY_CHARS` in [constants.py](../../src/constants.py)), so a broken
+skill fails CI, not a chat turn. Design:
+[skills spec](../superpowers/specs/2026-09-30-skills-design.md).
+
+- **Index**: `skills_index_prompt()` (one line per description) is appended
+  right after `TOOLS_SYSTEM_PROMPT_BASE` in both prompt paths
+  (`get_static_prompt_for_profile()` and `get_system_prompt()` in
+  [prompts.py](../../src/agent/prompts.py)). It is byte-stable, so it is part
+  of the cached prefix.
+- **Body**: reaches the model only as the result of `load_skill(name)`
+  ([tools/skills.py](../../src/agent/tools/skills.py)), i.e. after the cached
+  prefix, so loading never breaks the context cache. The tool is always bound
+  (chat and autonomous agents) and in `ALWAYS_SAFE_TOOLS`; an unknown name
+  returns the list of valid ones.
+- **Built-in skills**: `office-documents`, `pdf-documents`, `browser-tactics`,
+  `weekly-planning` (recipes moved out of the always-on prompt; one-line
+  `load_skill(...)` pointers remain there and in the `execute_code`/`browser`
+  docstrings), plus `trip-itinerary` and `product-research` (new, from a
+  conversation sweep).
+
+**Adding a skill:**
+
+1. Create `src/agent/skills/<name>/SKILL.md`; write the description as a
+   directive ("Load BEFORE ...") naming the tasks that should trigger it.
+2. Add the name to `EXPECTED` in [test_skills.py](../../tests/unit/test_skills.py).
+3. Add should-trigger eval cases (`required_tools: [load_skill]`) and
+   should-not cases (`forbidden_tools: [load_skill]`) under `evals/cases/skill_*`.
+4. Meet the gate: at least 90% load rate on should-trigger runs, no loads on
+   should-not runs, and the full eval suite holds. Evidence at launch: the
+   moved recipes loaded 25/25, should-not 0/20, suite 48/50 twice vs a 49/47
+   baseline.
 
 ## Adding a New Tool
 
@@ -328,6 +380,7 @@ If Playwright or Chromium is not installed, the tool returns a graceful error me
 
 - [tools/__init__.py](../../src/agent/tools/__init__.py) - `get_available_tools()`, `get_tools_for_request()`, `get_tools_for_agent()`
 - [permissions.py](../../src/agent/permissions.py) - `ALWAYS_SAFE_TOOLS`, `check_tool_permission()`
+- [skills/](../../src/agent/skills/) - `SKILL.md` files, loader, `skills_index_prompt()`
 - [tool_display.py](../../src/agent/tool_display.py) - `TOOL_METADATA`, `_CONDITIONAL_TOOLS`
 - [search_provider.py](../../src/utils/search_provider.py) - quota-aware search chain and breakers
 - [chat_turn.py](../../src/api/helpers/chat_turn.py) - `TurnContext.apply()` / `clear()`

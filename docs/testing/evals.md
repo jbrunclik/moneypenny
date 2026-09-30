@@ -107,6 +107,16 @@ listed to the judge as "integration changes":
   to Settings. Control: with the pre-fix "Garmin not connected" message it
   scores 1/5, with the current message 5/5.
 
+Skill cases (Sep 2026) - `skill_*` cases guard the
+[skills](../features/agent-tools.md#skills) trigger gate. Should-trigger cases
+(`skill_excel_totals`, `skill_czech_pdf`, `skill_trip_weekend`, ...) require
+`load_skill`; should-not cases (`skill_not_*`) forbid it. A new or changed skill
+needs at least 90% loads on its should-trigger runs, zero loads on should-not
+runs, and an unchanged suite pass rate. `skill_product_where_to_buy` is a
+known-failing honesty probe: the skill loads every time, but the answer mixes
+dealers and prices from the model's own knowledge into verified results
+without labelling them (the grounding directive has not fixed it yet).
+
 Note: each case runs under its own request id. Before Sep 29 2026 it did not,
 which left the per-turn efficiency nudges (turn_usage) inert - round counts
 from earlier runs were measured with every nudge off.

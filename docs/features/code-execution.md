@@ -80,8 +80,10 @@ Pressing Stop while `execute_code` runs kills the user's program (SIGKILL to the
 
 The image ships python-docx, python-pptx and openpyxl (image label
 `moneypenny.version=1.1`), so the agent can return real Word, PowerPoint and
-Excel files rather than a PDF or markdown. The "Office files" bullet of the
-Code Execution prompt section tells it to use the real format whenever the user
+Excel files rather than a PDF or markdown. The Code Execution prompt section
+keeps only one-line pointers; the recipes live in the `office-documents` and
+`pdf-documents` [skills](agent-tools.md#skills), loaded on demand. The
+`office-documents` skill tells it to use the real format whenever the user
 wants an editable document, with real structure (built-in heading/list styles,
 real tables, slide layouts with title placeholders), Excel formatting (bold
 header, frozen panes, column widths, number formats, formulas where values
