@@ -403,13 +403,14 @@ def execute_code(code: str) -> str:
     - Mathematical calculations (numpy, scipy, sympy)
     - Data analysis and manipulation (pandas, numpy)
     - Creating charts and plots (matplotlib) - returned as base64 images
-    - Generating PDF documents (reportlab)
+    - Generating PDF documents (reportlab, fpdf2)
+    - Generating Word, PowerPoint and Excel files (python-docx, python-pptx, openpyxl)
     - Image processing (pillow)
     - Text parsing and processing
     - JSON/CSV data transformation
 
     ## Pre-installed Libraries
-    numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab
+    numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz
 
     ## Limitations
     - NO network access (cannot fetch URLs, APIs, or download anything)

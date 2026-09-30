@@ -80,9 +80,12 @@ This runs `pip install playwright` and `playwright install chromium --with-deps`
 **Configuration (`.env`):**
 ```bash
 BROWSER_ENABLED=true                 # Enable/disable (default: true)
-BROWSER_SESSION_TTL_SECONDS=600      # Idle session cleanup (default: 600 s)
-BROWSER_MAX_CONCURRENT_SESSIONS=5    # Max simultaneous sessions (default: 5)
+BROWSER_SESSION_TTL_SECONDS=300      # Idle session cleanup (default: 300 s)
+BROWSER_MAX_CONCURRENT_SESSIONS=3    # Max simultaneous sessions (default: 3)
 BROWSER_PAGE_TIMEOUT_MS=30000        # Per-action timeout (default: 30 000 ms)
+BROWSER_MAX_BATCH_ACTIONS=10         # Max steps in one batched call (default: 10)
+BROWSER_BATCH_TIMEOUT_SECONDS=60     # Wall-clock budget per batch (default: 60 s)
+BROWSER_PAGE_STATE_MAX_ELEMENTS=40   # Elements summarized after an action (default: 40)
 ```
 
 **Disabling:**

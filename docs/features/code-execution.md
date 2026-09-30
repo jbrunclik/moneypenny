@@ -9,7 +9,7 @@ The app can execute Python code in a secure Docker sandbox using [llm-sandbox](h
 3. **Custom image**: Uses a pre-built Docker image with fonts and libraries pre-installed for faster execution
 4. **File output**: Code saves files to `/output/` directory, which are extracted and returned
 5. **Automatic plots**: Matplotlib plots are captured automatically via llm-sandbox
-6. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
+6. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz
 
 ## Custom Docker Image
 
@@ -63,7 +63,26 @@ The sandbox container runs with **networking disabled** and the memory/CPU
 limits above. Available Python libraries are baked into the Docker image
 ([docker/code-sandbox/Dockerfile](../../docker/code-sandbox/Dockerfile)) -
 runtime installation is not possible without network. To add a library, add it
-to the Dockerfile and rebuild with `make sandbox-image`.
+to the Dockerfile's `pip install` list **and** to both package lists the model
+sees - the "Pre-installed" line of the Code Execution section in
+[prompt_texts/core.py](../../src/agent/prompt_texts/core.py) and the
+"Pre-installed Libraries" section of the `execute_code` docstring - then rebuild
+with `make sandbox-image`. `TestSandboxLibraryListsMatchImage` in
+[test_code_execution.py](../../tests/unit/test_code_execution.py) fails when
+either list drifts from the Dockerfile (the model skips a library it was not
+told about, or wastes a round on an import that fails).
+
+## Office Files
+
+The image ships python-docx, python-pptx and openpyxl (image label
+`moneypenny.version=1.1`), so the agent can return real Word, PowerPoint and
+Excel files rather than a PDF or markdown. The "Office files" bullet of the
+Code Execution prompt section tells it to use the real format whenever the user
+wants an editable document, with real structure (built-in heading/list styles,
+real tables, slide layouts with title placeholders), Excel formatting (bold
+header, frozen panes, column widths, number formats, formulas where values
+should update), and a descriptive filename under `/output/`. Files come back
+through the normal [file output pattern](#file-output-pattern-uses-_full_result-to-save-tokens).
 
 ## Deployment
 
@@ -80,6 +99,11 @@ CODE_SANDBOX_IMAGE=moneypenny-sandbox:local
 # On updates (if Dockerfile changed)
 make sandbox-image
 ```
+
+`make update` does **not** rebuild the sandbox image. After a Dockerfile change
+(e.g. the 1.1 office libraries), run `make sandbox-image` on the production host
+as well, or the running image keeps the old library set while the prompt
+already advertises the new one.
 
 **Note:** The custom image is required. The base Python image lacks pre-installed fonts and libraries, causing code execution to fail or perform poorly.
 
@@ -103,7 +127,8 @@ The tool uses the same `_full_result` pattern as `generate_image` to avoid sendi
 - Mathematical calculations (sympy for symbolic math)
 - Data analysis (pandas, numpy)
 - Charts and visualizations (matplotlib)
-- PDF document generation (reportlab)
+- PDF document generation (reportlab, fpdf2)
+- Word, PowerPoint and Excel files (python-docx, python-pptx, openpyxl)
 - JSON/CSV data transformation
 
 ## Graceful Degradation
@@ -141,7 +166,8 @@ with SandboxSession(lang='python') as s:
 ## Testing
 
 - Unit: [test_sandbox_sessions.py](../../tests/unit/test_sandbox_sessions.py), `execute_code` cases in [test_code_execution.py](../../tests/unit/test_code_execution.py)
-- Integration: [test_code_sandbox_isolation.py](../../tests/integration/test_code_sandbox_isolation.py) (needs Docker)
+- Unit: `TestSandboxLibraryListsMatchImage` in [test_code_execution.py](../../tests/unit/test_code_execution.py) keeps the prompt and docstring package lists equal to the Dockerfile
+- Integration: [test_code_sandbox_isolation.py](../../tests/integration/test_code_sandbox_isolation.py) (needs Docker), [test_code_sandbox_office_files.py](../../tests/integration/test_code_sandbox_office_files.py) (writes real `.docx`/`.pptx`/`.xlsx` in the sandbox; skips without Docker or the image)
 
 ## See Also
 

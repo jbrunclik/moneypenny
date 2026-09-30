@@ -207,21 +207,21 @@ The `browser` tool gives the LangGraph agent full browser automation capabilitie
 
 ### How it works
 
-All Playwright operations run on a dedicated daemon thread (`_BrowserWorker`) because Playwright's sync API is greenlet-based and cannot be used from arbitrary threads (including Flask/Gunicorn worker threads). The tool function dispatches commands to the worker via a `queue.Queue` and blocks until the result is returned.
+All Playwright operations run on a dedicated daemon thread (`BrowserWorker` in [browser_worker.py](../../src/agent/tools/browser_worker.py)) because Playwright's sync API is greenlet-based and cannot be used from arbitrary threads (including Flask/Gunicorn worker threads). The tool function dispatches commands to the worker via a `queue.Queue` and blocks until the result is returned.
 
-1. On first use per process, `_get_worker()` lazily creates the `_BrowserWorker`, which starts a daemon thread, initialises `sync_playwright`, and launches a headless Chromium instance
+1. On first use per process, `get_worker()` lazily creates the `BrowserWorker`, which starts a daemon thread, initialises `sync_playwright`, and launches a headless Chromium instance
 2. Subsequent tool calls dispatch `_WorkerCommand` objects to the worker's queue; the calling thread blocks on `result_event` until the worker signals completion
 3. Each conversation gets its own `BrowserContext` (isolated cookies, JS state, history)
 4. A separate `browser-session-cleanup` daemon thread runs every 60 s, evicting sessions idle beyond `BROWSER_SESSION_TTL_SECONDS`
 5. If `BROWSER_MAX_CONCURRENT_SESSIONS` is reached, the oldest session is evicted before creating a new one
-6. All URLs are validated against an SSRF blocklist before any navigation
+6. All URLs are validated against an SSRF blocklist before any navigation (every step of a batch, before the batch starts)
 7. `atexit` registers `_shutdown_worker()` to gracefully close the browser on process exit
 
 ### Actions
 
 | Action | Required params | Description |
 |--------|----------------|-------------|
-| `navigate` | `url` | Go to a URL; returns page title and URL |
+| `navigate` | `url` | Go to a URL; returns page title, URL and `elements` |
 | `click` | `selector` | Click an element by CSS selector |
 | `type` | `selector`, `text` | Fill a form field |
 | `screenshot` | — | Take a JPEG screenshot (returns multimodal image content) |
@@ -231,6 +231,46 @@ All Playwright operations run on a dedicated daemon thread (`_BrowserWorker`) be
 | `close` | — | Close the session for the current conversation and free resources |
 
 Any action accepts `screenshot=True` to append a screenshot to the result.
+
+### Batches
+
+The tool takes **either** `action` (one action, the params above) **or**
+`actions: list[BrowserStep]` (a batch); passing both or neither is an error.
+A batch runs a known sequence (navigate -> type -> click) in one tool call
+instead of one [tool round](../architecture/agent-graph.md#tool-round-economics)
+per step. The logic lives in [browser_steps.py](../../src/agent/tools/browser_steps.py):
+
+- Batchable actions: `navigate`, `click`, `type`, `scroll`, `back`, `extract`.
+  `screenshot` and `close` are not - use `screenshot=True` on the call instead
+  (one screenshot after the last step), and call `close` on its own.
+- `validate_batch()` checks the whole batch before anything runs: at most
+  `BROWSER_MAX_BATCH_ACTIONS` steps, each passing the same `validate_action()`
+  (required params, SSRF check) as a single call.
+- `run_batch()` runs the steps in order on the worker (`worker_kwargs()` builds
+  each command) and stops at the first failing step. The result carries
+  `completed`, per-step `steps`, and on failure `failed_step`, `error` and a
+  `hint` not to re-run the steps that already ran; plus the last page's
+  `title`, `url` and `elements`.
+- A wall-clock budget (`BROWSER_BATCH_TIMEOUT_SECONDS`) is checked before each
+  step; a step already running is bounded by its own page timeout.
+- The tool trace shows a batch as `navigate: <url> → type → click`
+  (`extract_tool_detail()` in [tool_display.py](../../src/agent/tool_display.py)).
+- The autonomous-agent permission check sees `action="batch"` with the list of
+  step URLs.
+
+### Page state
+
+`navigate`, `click`, `type`, `scroll` and `back` return `elements`: up to
+`BROWSER_PAGE_STATE_MAX_ELEMENTS` visible interactive elements (links, buttons,
+inputs, selects, textareas, ARIA buttons/links, contenteditable), each as
+`{role, label, selector}` with a selector Playwright accepts (`#id`,
+`[name=...]`, `[aria-label=...]` or `:has-text(...)`). A selector that would match several elements (radio groups sharing a `name`, repeated "Learn more" buttons) becomes `:nth-match(<selector>, N)`, so every emitted selector resolves to exactly one element under Playwright's strict mode. It is collected by
+`PAGE_STATE_JS` via `BrowserWorker._page_state()`, which is best effort (a
+failure yields `[]`, never a failed action). Input values are never read, since
+they may hold passwords. `frame_page_text()` wraps the element list, like
+extracted `content`, as untrusted web content. It lets the model act on a new
+page without a screenshot or `extract` round. Batch results carry `elements`
+only for the final page, not per step.
 
 ### Screenshot sharing
 
@@ -258,6 +298,9 @@ All URLs are validated before navigation. Blocked ranges include loopback (`127.
 | `BROWSER_SESSION_TTL_SECONDS` | `300` | Seconds of inactivity before a session is closed |
 | `BROWSER_MAX_CONCURRENT_SESSIONS` | `3` | Maximum simultaneous browser sessions |
 | `BROWSER_PAGE_TIMEOUT_MS` | `30000` | Default Playwright timeout per action (ms) |
+| `BROWSER_MAX_BATCH_ACTIONS` | `10` | Maximum steps in one `actions` batch |
+| `BROWSER_BATCH_TIMEOUT_SECONDS` | `60` | Wall-clock budget for a batch, checked before each step |
+| `BROWSER_PAGE_STATE_MAX_ELEMENTS` | `40` | Maximum `elements` returned after a page-changing action |
 
 ### Setup
 
@@ -269,14 +312,17 @@ If Playwright or Chromium is not installed, the tool returns a graceful error me
 
 ### Key files
 
-- [src/agent/tools/browser.py](../../src/agent/tools/browser.py) - Full implementation: `_BrowserWorker` daemon thread, `BrowserSession` dataclass, queue-based dispatch, SSRF validation, screenshot modes, action handlers
-- [src/config.py](../../src/config.py) - `BROWSER_ENABLED`, `BROWSER_SESSION_TTL_SECONDS`, `BROWSER_MAX_CONCURRENT_SESSIONS`, `BROWSER_PAGE_TIMEOUT_MS`
+- [src/agent/tools/browser.py](../../src/agent/tools/browser.py) - The `browser` tool: availability probe, argument validation dispatch, single vs batch paths, screenshot modes, error results
+- [src/agent/tools/browser_worker.py](../../src/agent/tools/browser_worker.py) - `BrowserWorker` daemon thread, `BrowserSession` dataclass, queue-based dispatch, action handlers, session cleanup
+- [src/agent/tools/browser_steps.py](../../src/agent/tools/browser_steps.py) - `BrowserStep` model, `validate_action()`, `validate_batch()`, `worker_kwargs()`, `run_batch()`, `frame_page_text()`, `PAGE_STATE_JS`
+- [src/config.py](../../src/config.py) - `BROWSER_*` settings (table above)
 - [src/agent/tools/__init__.py](../../src/agent/tools/__init__.py) - `is_browser_available()` registration
-- [src/agent/tool_display.py](../../src/agent/tool_display.py) - UI metadata (icon, label)
+- [src/agent/tool_display.py](../../src/agent/tool_display.py) - UI metadata (icon, label) and the trace detail for single actions and batches
 
 ### Testing
 
-- Unit tests: [tests/unit/test_browser.py](../../tests/unit/test_browser.py)
+- Unit tests: [tests/unit/test_browser.py](../../tests/unit/test_browser.py), [tests/unit/test_browser_batch.py](../../tests/unit/test_browser_batch.py) (batch validation and execution against a mocked worker)
+- Integration: [tests/integration/test_browser_page_state.py](../../tests/integration/test_browser_page_state.py) runs `PAGE_STATE_JS` in real Chromium (skips without it): visible elements only, no input values, the element cap, and every emitted selector resolving to exactly one element
 
 ## Key Files
 

@@ -52,12 +52,13 @@ You have access to the following tools:
   - Use internal screenshots freely for navigation and understanding the page
   - Only share screenshots when the result is relevant to the user (final page, visual answer)
   - Browser session persists across calls (cookies, history, JS state maintained)
-  - Call ONE action per turn — do not call multiple browser actions simultaneously
+  - Batch known sequences: when you already know the steps (navigate to a known URL, fill a field, click submit), send them as ONE call with `actions=[...]` instead of one call per step. On an unfamiliar page, look first (navigate returns the page's `elements` with ready-to-use selectors), then batch the rest
+  - Never issue several separate browser calls in parallel - the session is shared, so they would race; use `actions` for sequences
   - Never enter passwords or credentials into web forms
   - If a click or action fails with a timeout, do NOT retry the same selector. Take a screenshot
     to reassess, try a different selector, or fall back to `extract` to get the page content as text
   - **Turn budget**: Each tool call uses a graph step. You have ~20 tool calls per request before
-    hitting the limit. Plan your browsing efficiently — navigate, screenshot to assess, then act.
+    hitting the limit. Plan your browsing efficiently — navigate, read the returned `elements`, then batch the actions.
     Do not spend more than 3-4 browser actions on a single page. If stuck, use `extract` instead
   - Cookie banners and consent dialogs are common — if they block interaction, try clicking
     common accept buttons (e.g., `#accept`, `.consent-accept`, `button:has-text("Accept")`).
@@ -91,7 +92,7 @@ You have access to the following tools:
 ## Code Execution
 - **execute_code**: Execute Python code in a secure sandbox. Use for calculations, data processing, generating files/charts.
   - Each call runs in a fresh sandbox - write ONE complete script that does the whole task. Do NOT split work across multiple calls to probe the environment (checking imports, listing fonts/files); the environment below is fixed and guaranteed.
-  - Pre-installed: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2
+  - Pre-installed: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz
   - Save files to `/output/` directory to return them (e.g., PDFs, images)
   - NO network access, NO access to user's local files
   - 30 second timeout, 512MB memory limit
@@ -106,6 +107,11 @@ You have access to the following tools:
     pdf.cell(0, 10, 'Příliš žluťoučký kůň')  # Czech text works!
     pdf.output('/output/document.pdf')
     ```
+  - **Office files** - when the user wants Word, PowerPoint or Excel (or an editable document they will send, print or change later), produce the real format, not a PDF or markdown:
+    - Word `.docx` -> python-docx (`import docx`); PowerPoint `.pptx` -> python-pptx (`import pptx`); Excel `.xlsx` -> openpyxl (or pandas `to_excel` for plain tables)
+    - Use real structure, not manual formatting: built-in heading styles (`doc.add_heading`), list styles (`style='List Bullet'`), real tables (`doc.add_table`, table style `'Light Grid Accent 1'`); slide layouts with title placeholders; one idea per slide, at most ~6 short bullets
+    - Excel: bold header row, freeze panes below it (`ws.freeze_panes = 'A2'`), sensible column widths, number formats for money/dates/percent, and write formulas (`'=SUM(B2:B9)'`) where the user would expect them to update
+    - Save to `/output/` with a descriptive filename (e.g. `/output/trip-budget.xlsx`) and tell the user what the file contains
 
 # CRITICAL: How to Use Tools Correctly
 Use your native function-calling capability - never write tool calls as JSON text in your response.

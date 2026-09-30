@@ -122,6 +122,15 @@ class TestOtherToolDetails:
         detail = extract_tool_detail("whatsapp", {"message": "Dinner at 7?"})
         assert detail == "Dinner at 7?"
 
+    def test_browser_batch_lists_its_steps(self) -> None:
+        steps = [
+            {"action": "navigate", "url": "https://example.com/login"},
+            {"action": "type", "selector": "#user", "text": "x"},
+            {"action": "click", "selector": "#go"},
+        ]
+        detail = extract_tool_detail("browser", {"actions": steps})
+        assert detail == "navigate: https://example.com/login → type → click"
+
     def test_unknown_tool_yields_no_detail(self) -> None:
         assert extract_tool_detail("not_a_tool", {"anything": 1}) is None
 

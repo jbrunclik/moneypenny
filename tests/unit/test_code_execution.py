@@ -354,3 +354,39 @@ class TestIsCodeSandboxAvailable:
     def test_returns_true_when_available(self, mock_check: MagicMock) -> None:
         """Should return True when sandbox is enabled and Docker is available."""
         assert is_code_sandbox_available() is True
+
+
+class TestSandboxLibraryListsMatchImage:
+    """The prompt and tool docstring promise exactly what the image installs.
+
+    The model is told "the environment is fixed - do not probe it", so a
+    library missing from the list goes unused and a listed-but-absent one
+    fails at run time.
+    """
+
+    @staticmethod
+    def _image_packages() -> set[str]:
+        from pathlib import Path
+
+        dockerfile = Path(__file__).parents[2] / "docker/code-sandbox/Dockerfile"
+        text = dockerfile.read_text()
+        pip_block = text.split("pip install --no-cache-dir", 1)[1].split("\n\n", 1)[0]
+        return {tok for tok in pip_block.replace("\\", " ").split() if tok and tok != "&&"}
+
+    @staticmethod
+    def _listed(line: str) -> set[str]:
+        return {name.strip() for name in line.split(":", 1)[1].split(",") if name.strip()}
+
+    def test_prompt_lists_every_installed_package(self) -> None:
+        from src.agent.prompt_texts.core import TOOLS_SYSTEM_PROMPT_BASE
+
+        line = next(ln for ln in TOOLS_SYSTEM_PROMPT_BASE.splitlines() if "Pre-installed:" in ln)
+        assert self._listed(line) == self._image_packages()
+
+    def test_docstring_lists_every_installed_package(self) -> None:
+        doc = execute_code.description
+        section = doc.split("## Pre-installed Libraries", 1)[1].strip().splitlines()[0]
+        assert self._listed(f"x:{section}") == self._image_packages()
+
+    def test_image_has_office_document_libraries(self) -> None:
+        assert {"python-docx", "python-pptx", "openpyxl"} <= self._image_packages()

@@ -421,6 +421,15 @@ def _format_places_detail(tool_name: str, tool_args: dict[str, Any]) -> str | No
     return None
 
 
+def _format_browser_step(step: dict[str, Any]) -> str:
+    action = str(step.get("action"))
+    if action == "navigate" and "url" in step:
+        return f"navigate: {step['url']}"
+    if action in ("click", "type") and "selector" in step:
+        return f"{action}: {str(step['selector'])[:50]}"
+    return action
+
+
 def _snippet(text: str, limit: int) -> str:
     """First line of `text`, truncated to `limit` chars with an ellipsis."""
     line = text.strip().split("\n", 1)[0]
@@ -534,13 +543,15 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
         if isinstance(batched, list):
             parts.extend(str(q) for q in batched)
         return " | ".join(parts)
+    elif tool_name == "browser" and isinstance(tool_args.get("actions"), list):
+        steps = [s for s in tool_args["actions"] if isinstance(s, dict)]
+        if not steps:
+            return None
+        return " → ".join(
+            [_format_browser_step(steps[0])] + [str(s.get("action")) for s in steps[1:]]
+        )
     elif tool_name == "browser" and "action" in tool_args:
-        action = str(tool_args["action"])
-        if action == "navigate" and "url" in tool_args:
-            return f"navigate: {tool_args['url']}"
-        if action in ("click", "type") and "selector" in tool_args:
-            return f"{action}: {str(tool_args['selector'])[:50]}"
-        return action
+        return _format_browser_step(tool_args)
     elif tool_name == "fetch_url" and "url" in tool_args:
         return str(tool_args["url"])
     elif tool_name == "generate_image" and "prompt" in tool_args:

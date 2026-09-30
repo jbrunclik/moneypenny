@@ -28,9 +28,11 @@ RUN pip install --no-cache-dir \
     beautifulsoup4 \
     lxml \
     openpyxl \
+    python-docx \
+    python-pptx \
     python-dateutil \
     pytz
 
 # Add labels to identify our custom image and enable cleanup of old versions
 LABEL moneypenny.sandbox=true \
-      moneypenny.version=1.0
+      moneypenny.version=1.1

@@ -464,6 +464,13 @@ class Config:
     BROWSER_SESSION_TTL_SECONDS: int = int(os.getenv("BROWSER_SESSION_TTL_SECONDS", "300"))
     BROWSER_MAX_CONCURRENT_SESSIONS: int = int(os.getenv("BROWSER_MAX_CONCURRENT_SESSIONS", "3"))
     BROWSER_PAGE_TIMEOUT_MS: int = int(os.getenv("BROWSER_PAGE_TIMEOUT_MS", "30000"))
+    # Batched actions (browser_steps.py): max steps per call, and a wall-clock
+    # budget checked before each step. With one step bounded by the page
+    # timeout, the worst case stays under STREAM_RESUME_STALL_SECONDS.
+    BROWSER_MAX_BATCH_ACTIONS: int = int(os.getenv("BROWSER_MAX_BATCH_ACTIONS", "10"))
+    BROWSER_BATCH_TIMEOUT_SECONDS: int = int(os.getenv("BROWSER_BATCH_TIMEOUT_SECONDS", "60"))
+    # Visible interactive elements summarized after page-changing actions
+    BROWSER_PAGE_STATE_MAX_ELEMENTS: int = int(os.getenv("BROWSER_PAGE_STATE_MAX_ELEMENTS", "40"))
 
     # Code execution sandbox settings
     CODE_SANDBOX_ENABLED: bool = os.getenv("CODE_SANDBOX_ENABLED", "true").lower() == "true"

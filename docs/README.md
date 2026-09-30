@@ -8,7 +8,7 @@ This directory contains detailed documentation for the Moneypenny project, organ
 Feature-specific documentation covering user-facing functionality:
 
 - **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention
-- **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool
+- **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool (action batches, page state)
 - **[chat-and-streaming.md](features/chat-and-streaming.md)** - Chat turn lifecycle (shared turn setup, streaming producer/consumer/finalize), stop, placeholder recovery, resumable streams, outbox, frontend send / re-run / retry
 - **[thinking-and-sources.md](features/thinking-and-sources.md)** - Thinking indicator and tool trace, retry status line, automatic source chips
 - **[file-handling.md](features/file-handling.md)** - `retrieve_file`, clipboard paste, client-side image compression, upload progress, background thumbnails, copy to clipboard, video uploads and file retention
