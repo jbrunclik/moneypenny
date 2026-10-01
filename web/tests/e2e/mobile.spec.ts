@@ -33,6 +33,36 @@ test.describe('Mobile - iPhone', () => {
     await expect(chip).toHaveText('');
   });
 
+  test('a deleted conversation can be restored from the trash', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Restore me on mobile');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
+
+    await page.click('#menu-btn');
+    await page.locator('.conversation-item-wrapper').first().hover();
+    await page.locator('[data-delete-id]').first().click({ force: true });
+    await page.locator('.modal-container:not(.modal-hidden) .modal-confirm').click();
+    await expect(page.locator('.conversation-item-wrapper[data-conv-id]')).toHaveCount(0);
+
+    await page.goto('/#/trash');
+    await page.click('#menu-btn', { force: true });
+    const row = page.locator('.conversation-item-wrapper[data-trash-id]');
+    await expect(row).toHaveCount(1, { timeout: 20000 });
+    // Swipe actions only show on (hover: none) touch devices; this viewport
+    // still hovers, so use the row actions like the delete test above
+    await row.hover();
+    await row.locator('.conversation-actions [data-restore-id]').click({ force: true });
+    await expect(page.locator('.conversations-empty')).toContainText('Trash is empty');
+
+    await page.locator('[data-trash-back]').click();
+    await expect(page.locator('.conversation-item-wrapper[data-conv-id]')).toHaveCount(1);
+  });
+
   test('sidebar is hidden by default', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#sidebar');

@@ -18,6 +18,7 @@ import { ARCHIVE_ICON, DELETE_ICON, EDIT_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_I
 import { createConversation, selectConversation } from './conversation';
 import { deleteConversation, renameConversation, togglePinConversation } from './conversation-actions';
 import { archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView } from './archive';
+import { restoreConversation, deleteConversationForever, emptyTrash, navigateToTrash, leaveTrashView } from './trash';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';
@@ -122,6 +123,11 @@ export function setupEventListeners(): void {
     if (target.closest('.user-menu-archive')) {
       closeUserMenu();
       navigateToArchive();
+      return;
+    }
+    if (target.closest('.user-menu-trash')) {
+      closeUserMenu();
+      navigateToTrash();
       return;
     }
     if (target.closest('#settings-btn')) {
@@ -240,6 +246,41 @@ export function setupEventListeners(): void {
         resetSwipeStates();
         unarchiveConversation(id);
       }
+      return;
+    }
+
+    // Trash view: restore, delete forever, empty, back
+    const restoreBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-restore-id]');
+    if (restoreBtn) {
+      e.stopPropagation();
+      const id = restoreBtn.dataset.restoreId;
+      if (id) {
+        resetSwipeStates();
+        void restoreConversation(id);
+      }
+      return;
+    }
+
+    const deleteForeverBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-delete-forever-id]');
+    if (deleteForeverBtn) {
+      e.stopPropagation();
+      const id = deleteForeverBtn.dataset.deleteForeverId;
+      if (id) {
+        resetSwipeStates();
+        void deleteConversationForever(id);
+      }
+      return;
+    }
+
+    if ((e.target as HTMLElement).closest('[data-empty-trash]')) {
+      e.stopPropagation();
+      void emptyTrash();
+      return;
+    }
+
+    if ((e.target as HTMLElement).closest('[data-trash-back]')) {
+      e.stopPropagation();
+      leaveTrashView();
       return;
     }
 

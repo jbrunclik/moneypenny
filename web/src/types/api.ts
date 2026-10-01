@@ -58,6 +58,9 @@ export interface Conversation {
   // Archive state
   archived?: boolean; // True if conversation is archived (hidden from main list)
   pinned?: boolean; // Pinned to the top of the sidebar
+  // Trash state (only set on conversations from the trash listing)
+  deleted_at?: string | null; // When it was moved to the trash
+  purge_at?: string | null; // When the server deletes it for good
   // Sync-related fields
   unreadCount?: number; // Number of unread messages from other devices
   hasExternalUpdate?: boolean; // True if conversation was updated externally while viewing

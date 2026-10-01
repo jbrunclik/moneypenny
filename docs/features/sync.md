@@ -158,6 +158,8 @@ When fullSync returns conversations beyond the initial paginated load (e.g., use
 Full sync compares local conversation IDs with server response:
 - Conversations missing from server are removed from local state
 - Shows toast if user was viewing a deleted conversation
+- A conversation moved to the [trash](ui-features.md#trash) on another device counts as deleted: sync
+  queries filter `deleted_at IS NULL`, so it simply stops appearing
 
 ## Edge Cases Handled
 
@@ -224,7 +226,7 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 ## Future Optimizations
 
-- Consider soft delete (`deleted_at` column) for more efficient delete detection
+- Use the `deleted_at` column (added for the trash) to report deletions incrementally instead of via full-sync ID comparison
 - BroadcastChannel for multi-tab coordination if needed
 
 ## See Also

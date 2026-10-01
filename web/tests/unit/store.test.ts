@@ -37,6 +37,14 @@ function resetStore() {
       isLoadingMore: false,
     },
     isArchiveView: false,
+    trashedConversations: [],
+    trashPagination: {
+      nextCursor: null,
+      hasMore: false,
+      totalCount: 0,
+      isLoadingMore: false,
+    },
+    isTrashView: false,
   });
 }
 
@@ -1225,5 +1233,34 @@ describe('Store - truncateMessagesFrom', () => {
     store.appendMessage('c1', { id: 'm1', role: 'user', content: 'x', created_at: '' });
     store.truncateMessagesFrom('c1', 'nope');
     expect(useStore.getState().getMessages('c1')).toHaveLength(1);
+  });
+});
+
+describe('Store - Trash', () => {
+  beforeEach(() => resetStore());
+
+  it('adds and removes trashed conversations, keeping the count', () => {
+    const store = useStore.getState();
+    store.setTrashedConversations([createConversation('1', 'One')], createPagination(false, 1));
+    store.addTrashedConversation(createConversation('2', 'Two'));
+    expect(useStore.getState().trashPagination.totalCount).toBe(2);
+    useStore.getState().removeTrashedConversation('1');
+    expect(useStore.getState().trashedConversations.map((c) => c.id)).toEqual(['2']);
+    expect(useStore.getState().trashPagination.totalCount).toBe(1);
+  });
+
+  it('clearTrash empties list and count', () => {
+    useStore.getState().setTrashedConversations([createConversation('1', 'One')], createPagination(false, 1));
+    useStore.getState().clearTrash();
+    expect(useStore.getState().trashedConversations).toEqual([]);
+    expect(useStore.getState().trashPagination.totalCount).toBe(0);
+  });
+
+  it('logout resets trash state', () => {
+    useStore.getState().setTrashedConversations([createConversation('1', 'One')], createPagination(false, 1));
+    useStore.getState().setIsTrashView(true);
+    useStore.getState().logout();
+    expect(useStore.getState().trashedConversations).toEqual([]);
+    expect(useStore.getState().isTrashView).toBe(false);
   });
 });

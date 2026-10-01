@@ -418,6 +418,72 @@ test.describe('Conversation deletion', () => {
     const convItems = page.locator('.conversation-item-wrapper');
     await expect(convItems).toHaveCount(1);
   });
+
+  test('delete moves to trash and Undo restores', async ({ page }) => {
+    const convItem = page.locator('.conversation-item-wrapper').first();
+    await convItem.hover();
+    await convItem.locator('.conversation-delete').click();
+    const modal = page.locator('.modal-container:not(.modal-hidden)');
+    await expect(modal).toContainText('Move this conversation to the trash');
+    await modal.locator('.modal-confirm').click();
+
+    await expect(page.locator('.conversation-item-wrapper')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.locator('.conversation-item-wrapper[data-conv-id]')).toHaveCount(1);
+  });
+
+  test('trash view restores, deletes forever, and empties', async ({ page }) => {
+    const liveRows = page.locator('.conversation-item-wrapper[data-conv-id]');
+    const trashRows = page.locator('.conversation-item-wrapper[data-trash-id]');
+    const confirmModal = () =>
+      page.locator('.modal-container:not(.modal-hidden) .modal-confirm').click();
+    const deleteFirstLive = async () => {
+      const remaining = await liveRows.count();
+      await liveRows.first().hover();
+      await liveRows.first().locator('.conversation-delete').click();
+      await confirmModal();
+      await expect(liveRows).toHaveCount(remaining - 1);
+    };
+    const createConversation = async (text: string) => {
+      await page.click('#new-chat-btn');
+      await page.fill('#message-input', text);
+      await page.click('#send-btn');
+      await expect(page.locator('.message.assistant')).toHaveCount(1, { timeout: 20000 });
+    };
+
+    // Delete -> open Trash from the user menu -> restore
+    await deleteFirstLive();
+    await page.click('#user-menu-btn');
+    await page.locator('.user-menu-trash').click();
+    await expect(page.locator('.trash-view-header')).toBeVisible();
+    await expect(trashRows).toHaveCount(1);
+    await expect(trashRows.locator('.trash-days-left')).toContainText('days left');
+    await trashRows.first().hover();
+    await trashRows.first().locator('.conversation-actions [data-restore-id]').click();
+    await expect(page.locator('.conversations-empty')).toContainText('Trash is empty');
+
+    // Back -> delete again -> deep link to the trash -> Delete forever
+    await page.locator('[data-trash-back]').click();
+    await deleteFirstLive();
+    await page.goto('/#/trash');
+    await expect(trashRows).toHaveCount(1, { timeout: 20000 });
+    await trashRows.first().hover();
+    await trashRows.first().locator('.conversation-actions [data-delete-forever-id]').click();
+    await confirmModal();
+    await expect(page.locator('.conversations-empty')).toContainText('Trash is empty');
+
+    // Two more deletions -> Empty trash
+    await page.locator('[data-trash-back]').click();
+    await createConversation('Second');
+    await createConversation('Third');
+    await deleteFirstLive();
+    await deleteFirstLive();
+    await page.goto('/#/trash');
+    await expect(trashRows).toHaveCount(2, { timeout: 20000 });
+    await page.locator('[data-empty-trash]').click();
+    await confirmModal();
+    await expect(page.locator('.conversations-empty')).toContainText('Trash is empty');
+  });
 });
 
 test.describe('Conversation rename', () => {

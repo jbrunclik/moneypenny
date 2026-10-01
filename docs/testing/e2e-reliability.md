@@ -188,6 +188,10 @@ by guessing):
   the `_matches_video_signature()` fallback in
   [src/utils/files.py](../../src/utils/files.py). Hand-crafted `ftyp` headers are
   not enough; use real (tiny, ffmpeg-generated) fixtures under `tests/fixtures/`.
+- **Swipe actions need `(hover: none)`**: sidebar swipe actions only render under the
+  `(hover: none)` media query, so desktop Chromium at a 375px mobile viewport never shows
+  them. Mobile-viewport specs there use the hover row actions (`row.hover()`) instead (see
+  the trash test in `web/tests/e2e/mobile.spec.ts`).
 - **Stop button never satisfies Playwright actionability**: `#send-btn.btn-stop`
   has an infinite CSS pulse animation, so use `click({ force: true })` and assert
   the resulting effect rather than the button state.

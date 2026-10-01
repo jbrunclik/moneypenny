@@ -81,6 +81,7 @@ import { isTempConversation } from './conversation';
 import { loadDeepLinkedConversation, handleDeepLinkNavigation } from './conversation-deeplink';
 import { deleteMessage } from './conversation-actions';
 import { navigateToArchive } from './archive';
+import { navigateToTrash, loadTrashedConversations } from './trash';
 import { navigateToPlanner, leavePlannerView } from './planner';
 import { navigateToSports, navigateToSportsProgram } from './sports';
 import { navigateToLanguage, navigateToLanguageProgram } from './language';
@@ -341,6 +342,11 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     loadArchivedConversations().catch(() => {
       // Ignore errors - archive section is optional
     });
+    // Trash count for the user-menu badge (skipped when the trash view
+    // itself is the initial route - navigateToTrash loads it)
+    if (!initialRoute?.isTrash) {
+      void loadTrashedConversations();
+    }
 
     // Handle initial route from URL hash BEFORE starting sync manager
     // This prevents false "new messages available" banners for the deep-linked conversation
@@ -366,6 +372,8 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       }
     } else if (initialRoute?.isArchive) {
       navigateToArchive();
+    } else if (initialRoute?.isTrash) {
+      navigateToTrash();
     } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {
       await loadDeepLinkedConversation(initialRoute.conversationId);
     }
@@ -571,6 +579,7 @@ export async function init(): Promise<void> {
         isSports: route.type === 'sports',
         isLanguage: route.type === 'language',
         isArchive: route.type === 'archive',
+        isTrash: route.type === 'trash',
       };
       await loadInitialData(initialRoute);
     } catch (error) {

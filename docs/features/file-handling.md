@@ -239,7 +239,7 @@ Attachments are not permanent storage: **videos are kept 7 days, images and all 
 
 - **Production**: a daily systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) (installed by `make deploy`), consistent with the other scheduled jobs - see [Scheduled Jobs](../architecture/scheduled-jobs.md).
 - **Development**: the dev scheduler loop calls `run_file_cleanup_if_due()` (at most one sweep per day, tracked via a `kv_store` stamp under `_system`/`file_cleanup`).
-- The sweep deletes full-size blobs and stale Gemini URI cache entries. **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
+- The sweep deletes full-size blobs and stale Gemini URI cache entries, and purges conversations trashed more than `TRASH_RETENTION_DAYS` ago (see [Trash](ui-features.md#trash)). **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
 - Expiry is *age-derived* everywhere, so behavior is correct even before the sweep runs: history metadata marks files `"expired": true`, `retrieve_file` returns a clear "cleaned up" error, and the file endpoint returns **410 Gone** (`ErrorCode.GONE`).
 
 ### Playback

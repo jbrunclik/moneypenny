@@ -786,6 +786,37 @@
     justify-content: center;
 }
 
+/* ----------------------------------------
+   Trash View (reuses the archive view header/rows)
+   ---------------------------------------- */
+
+.trash-empty-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.trash-empty-btn:hover {
+    color: var(--error);
+    background-color: var(--bg-hover);
+}
+
+/* Trash rows have two hover actions (restore, delete forever) */
+.trash-item:hover .conversation-text {
+    margin-right: 56px;
+}
+
+.conversations-empty .trash-empty-hint {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-top: var(--space-1);
+}
+
 /* Unarchive button in archived items */
 .conversation-unarchive {
     background: none;

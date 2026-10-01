@@ -2,6 +2,7 @@ import type { User } from '../../types/api';
 import type { AppSlice } from '../store';
 import { initialAgentsData } from './agents';
 import { initialArchiveData } from './archive';
+import { initialTrashData } from './trash';
 import { initialConversationsData } from './conversations';
 import { initialLanguageData } from './language';
 import { initialMessagesData } from './messages';
@@ -46,6 +47,7 @@ export const createAuthSlice: AppSlice<AuthSlice> = (set) => ({
       ...initialPlannerData(),
       ...initialAgentsData(),
       ...initialArchiveData(),
+      ...initialTrashData(),
       ...initialStorageData(),
       ...initialSportsData(),
       ...initialLanguageData(),

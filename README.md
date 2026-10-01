@@ -113,6 +113,7 @@ Built for a household of a few users, deployed on a single box.
 - **Real-time sync**: multi-device and multi-tab, with unread badges
 - **Infinite scroll**: cursor-based pagination for conversations and messages
 - **Archive**, rename, delete (an action sheet on mobile, with a configurable swipe quick action), and one-click copy of any message
+- **Trash**: deleted conversations can be restored (or undone from the toast) for 14 days before they are purged
 
 <p align="center">
   <img src="web/tests/visual/search.visual.ts-snapshots/search-results-list-chromium-darwin.png" alt="Full-text search results" width="320">
@@ -203,6 +204,7 @@ knobs worth knowing about:
 | Area | Variables |
 |---|---|
 | Uploads | `MAX_FILE_SIZE`, `MAX_FILES_PER_MESSAGE`, `ALLOWED_FILE_TYPES` |
+| Retention | `VIDEO_RETENTION_DAYS`, `IMAGE_RETENTION_DAYS`, `FILE_RETENTION_DAYS`, `TRASH_RETENTION_DAYS` |
 | Code sandbox | `CODE_SANDBOX_ENABLED`, `CODE_SANDBOX_IMAGE`, `CODE_SANDBOX_TIMEOUT`, `CODE_SANDBOX_MEMORY_LIMIT`, `CODE_SANDBOX_CPU_LIMIT` |
 | Browser tool | `BROWSER_ENABLED`, `BROWSER_SESSION_TTL_SECONDS`, `BROWSER_MAX_CONCURRENT_SESSIONS`, `BROWSER_PAGE_TIMEOUT_MS` |
 | Long-term memory | `MEMORY_MAX_ENTRIES`, `MEMORY_MAX_ENTRY_CHARS`, `MEMORY_WARNING_THRESHOLD`, `MEMORY_MAX_OPS_PER_CALL`, `MEMORY_SOFT_DELETE_RETENTION_DAYS`, `MEMORY_DEFRAG_THRESHOLD`, `MEMORY_DEFRAG_MODEL` |

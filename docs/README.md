@@ -29,7 +29,7 @@ Feature-specific documentation covering user-facing functionality:
 - **[location.md](features/location.md)** - Places search and routing (Mapy.com), device location sharing, saved places, location-aware prompt context and briefing
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
 - **[cost-tracking.md](features/cost-tracking.md)** - Token usage tracking, image generation costs, currency rates, monthly aggregation
-- **[ui-features.md](features/ui-features.md)** - Input toolbar, conversation management, deep linking, version banner, color scheme, clipboard operations, sports training programs UI
+- **[ui-features.md](features/ui-features.md)** - Input toolbar, conversation management and trash, deep linking, version banner, color scheme, clipboard operations, sports training programs UI
 
 ### Architecture (`architecture/`)
 System design and architectural decisions:

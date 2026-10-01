@@ -412,6 +412,11 @@ test.describe('Deep link - Archived conversations', () => {
 });
 
 test.describe('Deep link - Archive view', () => {
+  test('#/trash opens the trash view directly', async ({ page }) => {
+    await page.goto('/#/trash');
+    await expect(page.locator('.trash-view-header')).toBeVisible({ timeout: 20000 });
+  });
+
   test('#/archive opens the archive view directly', async ({ page }) => {
     await page.goto('/#/archive');
     await expect(page.locator('.archive-view-header')).toBeVisible({ timeout: 20000 });

@@ -11,6 +11,7 @@ import { costs } from '../api/costs';
 import { createLogger } from '../utils/logger';
 import { getSyncManager } from '../sync/SyncManager';
 import { isSearchResultsVisible, renderSearchResults } from './SearchResults';
+import { renderTrashEntry, renderTrashView } from './TrashView';
 import {
   LOAD_MORE_THRESHOLD_PX,
   INFINITE_SCROLL_DEBOUNCE_MS,
@@ -175,6 +176,18 @@ export function renderConversationsList(): void {
     return;
   }
 
+  // If trash view is active, render trash view instead
+  if (useStore.getState().isTrashView) {
+    lastRenderedListHtml = '';
+    renderTrashView(container);
+    return;
+  }
+
+  // Archive/trash menu entry counts change on archive/delete - refresh them
+  // before the empty/loading early returns below
+  renderArchiveEntry();
+  renderTrashEntry();
+
   const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, isSportsView, isLanguageView, isStorageView, commandCenterData } = useStore.getState();
 
   // A conversation row is highlighted only in the plain chat view - special
@@ -289,9 +302,6 @@ export function renderConversationsList(): void {
     lastRenderedFirstChild = container.firstElementChild;
     ensureListTabStop(container);
   }
-
-  // Render archive entry in its own pinned container (always visible, not scrolled)
-  renderArchiveEntry();
 
   // Set up infinite scroll if not already set up
   setupInfiniteScroll(container);
@@ -457,6 +467,9 @@ export function renderUserInfo(): void {
       <button class="user-menu-item user-menu-archive hidden" role="menuitem" data-route="archive">
         ${ARCHIVE_ICON}<span>Archive</span><span class="archive-count">0</span>
       </button>
+      <button class="user-menu-item user-menu-trash hidden" role="menuitem" data-route="trash">
+        ${DELETE_ICON}<span>Trash</span><span class="archive-count trash-count">0</span>
+      </button>
       <button id="cost-history-btn" class="user-menu-item" role="menuitem">
         ${COST_ICON}<span>Cost history</span>
       </button>
@@ -480,8 +493,9 @@ export function renderUserInfo(): void {
       log.warn('Failed to fetch monthly cost', { error });
     });
 
-  // Re-apply archive badge state (the menu was just re-rendered)
+  // Re-apply archive/trash badge state (the menu was just re-rendered)
   renderArchiveEntry();
+  renderTrashEntry();
 }
 
 /**

@@ -559,3 +559,6 @@ export const LOG_LEVEL: LogLevel = (() => {
  * specifics is noticeably degraded.
  */
 export const COMPACTION_DEEP_GENERATION = 3;
+
+/** Days a deleted conversation stays restorable (mirrors the server's TRASH_RETENTION_DAYS default; the trash view shows the server's purge_at) */
+export const TRASH_RETENTION_DAYS = 14;

@@ -243,6 +243,45 @@ describe('API Client', () => {
         );
       });
     });
+
+    describe('trash', () => {
+      it('listTrash GETs /trash with pagination params', async () => {
+        global.fetch = mockFetchResponse({
+          conversations: [{ id: 'c1', title: 'T', model: 'm', created_at: '', updated_at: '', message_count: 2 }],
+          pagination: { next_cursor: null, has_more: false, total_count: 1 },
+        });
+        const result = await conversations.listTrash(10, 'cur');
+        expect(fetch).toHaveBeenCalledWith('/api/conversations/trash?limit=10&cursor=cur', expect.anything());
+        expect(result.conversations[0].messageCount).toBe(2);
+      });
+
+      it('restore POSTs to /restore', async () => {
+        global.fetch = mockFetchResponse({ status: 'restored' });
+        await conversations.restore('c1');
+        expect(fetch).toHaveBeenCalledWith(
+          '/api/conversations/c1/restore',
+          expect.objectContaining({ method: 'POST' })
+        );
+      });
+
+      it('deletePermanently DELETEs /permanent', async () => {
+        global.fetch = mockFetchResponse({ status: 'deleted' });
+        await conversations.deletePermanently('c1');
+        expect(fetch).toHaveBeenCalledWith(
+          '/api/conversations/c1/permanent',
+          expect.objectContaining({ method: 'DELETE' })
+        );
+      });
+
+      it('emptyTrash returns the deleted count', async () => {
+        global.fetch = mockFetchResponse({ deleted: 3 });
+        expect(await conversations.emptyTrash()).toBe(3);
+        expect(fetch).toHaveBeenCalledWith(
+          '/api/conversations/trash',
+          expect.objectContaining({ method: 'DELETE' })
+        );
+      });
+    });
   });
 
   describe('chat', () => {

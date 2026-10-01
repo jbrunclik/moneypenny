@@ -32,6 +32,7 @@ import {
 } from './conversation';
 import { switchToConversation } from './conversation-switch';
 import { navigateToArchive, leaveArchiveView } from './archive';
+import { navigateToTrash, leaveTrashView } from './trash';
 import { leavePlannerView, navigateToPlanner } from './planner';
 import { leaveStorageView, navigateToStorage } from './kv-store';
 import { leaveSportsView, navigateToSportsProgram, navigateToSports } from './sports';
@@ -160,6 +161,7 @@ interface DeepLinkViews {
   isSports?: boolean;
   isLanguage?: boolean;
   isArchive?: boolean;
+  isTrash?: boolean;
 }
 
 /**
@@ -183,6 +185,8 @@ function navigateToViewFromHash(views: DeepLinkViews): boolean {
   } else if (views.isArchive) {
     // Back/forward to #/archive
     navigateToArchive();
+  } else if (views.isTrash) {
+    navigateToTrash();
   } else if (views.isLanguage) {
     const languageProgramId = getLanguageProgramFromHash();
     if (languageProgramId) {
@@ -217,6 +221,9 @@ function leaveViewsForHashNavigation(): void {
   if (store.isArchiveView) {
     leaveArchiveView();
   }
+  if (store.isTrashView) {
+    leaveTrashView();
+  }
 }
 
 /**
@@ -241,10 +248,10 @@ function showHomeFromHash(store: ReturnType<typeof useStore.getState>): void {
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean): void {
+export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean, isTrash?: boolean): void {
   log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports, isLanguage });
 
-  if (navigateToViewFromHash({ isPlanner, isAgents, isStorage, isSports, isLanguage, isArchive })) {
+  if (navigateToViewFromHash({ isPlanner, isAgents, isStorage, isSports, isLanguage, isArchive, isTrash })) {
     return;
   }
 

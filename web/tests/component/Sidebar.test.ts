@@ -395,6 +395,41 @@ describe('Sidebar', () => {
       expect(archiveItem?.classList.contains('hidden')).toBe(true);
     });
 
+    it('re-renders the trash entry badge on list render (after a delete)', () => {
+      useStore.setState({
+        user: createUser(),
+        conversations: [createConversation('1', 'Active Chat')],
+        trashedConversations: [],
+        trashPagination: { nextCursor: null, hasMore: false, totalCount: 0, isLoadingMore: false },
+      });
+      renderUserInfo();
+      expect(document.querySelector('.user-menu-trash')?.classList.contains('hidden')).toBe(true);
+
+      // A delete adds the row to the trash store, then re-renders the list only
+      useStore.getState().addTrashedConversation(createConversation('2', 'Deleted'));
+      renderConversationsList();
+
+      const trashItem = document.querySelector('.user-menu-trash');
+      expect(trashItem?.classList.contains('hidden')).toBe(false);
+      expect(trashItem?.querySelector('.trash-count')?.textContent).toBe('1');
+    });
+
+    it('re-renders the trash entry badge when the last conversation was deleted', () => {
+      useStore.setState({
+        user: createUser(),
+        conversations: [createConversation('1', 'Only Chat')],
+        trashedConversations: [],
+        trashPagination: { nextCursor: null, hasMore: false, totalCount: 0, isLoadingMore: false },
+      });
+      renderUserInfo();
+
+      useStore.getState().addTrashedConversation(createConversation('1', 'Only Chat'));
+      useStore.setState({ conversations: [] });
+      renderConversationsList();
+
+      expect(document.querySelector('.user-menu-trash')?.classList.contains('hidden')).toBe(false);
+    });
+
     it('renders archive view with back button and items when isArchiveView is true', () => {
       useStore.setState({
         conversations: [createConversation('1', 'Active')],

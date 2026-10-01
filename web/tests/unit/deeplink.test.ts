@@ -237,21 +237,28 @@ describe('initDeepLinking and cleanupDeepLinking', () => {
   it('returns null conversationId when no conversation in hash', () => {
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toEqual({ conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false });
+    expect(result).toEqual({ conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false });
   });
 
   it('returns conversation ID when present in hash', () => {
     window.location.hash = '#/conversations/conv-123';
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toEqual({ conversationId: 'conv-123', isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false });
+    expect(result).toEqual({ conversationId: 'conv-123', isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false });
+  });
+
+  it('returns trash route info when on trash hash', () => {
+    window.location.hash = '#/trash';
+    const callback = vi.fn();
+    const result = initDeepLinking(callback);
+    expect(result).toEqual({ conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: true });
   });
 
   it('returns planner route info when on planner hash', () => {
     window.location.hash = '#/planner';
     const callback = vi.fn();
     const result = initDeepLinking(callback);
-    expect(result).toEqual({ conversationId: null, isPlanner: true, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false });
+    expect(result).toEqual({ conversationId: null, isPlanner: true, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false });
   });
 
   it('registers hashchange listener', () => {
@@ -322,7 +329,7 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith('conv-456', false, false, false, false, false, false);
+    expect(callback).toHaveBeenCalledWith('conv-456', false, false, false, false, false, false, false);
   });
 
   it('calls callback with null for non-conversation hash', async () => {
@@ -336,7 +343,18 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith(null, false, false, false, false, false, false);
+    expect(callback).toHaveBeenCalledWith(null, false, false, false, false, false, false, false);
+  });
+
+  it('calls callback with isTrash=true for trash hash', async () => {
+    const callback = vi.fn();
+    initDeepLinking(callback);
+
+    window.location.hash = '#/trash';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(callback).toHaveBeenCalledWith(null, false, false, false, false, false, false, true);
   });
 
   it('calls callback with isPlanner=true for planner hash', async () => {
@@ -350,7 +368,7 @@ describe('hashchange event handling', () => {
     // Wait for async handling
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    expect(callback).toHaveBeenCalledWith(null, true, false, false, false, false, false);
+    expect(callback).toHaveBeenCalledWith(null, true, false, false, false, false, false, false);
   });
 
   it('ignores hashchange during programmatic updates', async () => {

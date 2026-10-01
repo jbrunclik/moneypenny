@@ -2,6 +2,7 @@ import { create, type StateCreator } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import { createAgentsSlice, type AgentsSlice } from './slices/agents';
 import { createArchiveSlice, type ArchiveSlice } from './slices/archive';
+import { createTrashSlice, type TrashSlice } from './slices/trash';
 import { createAuthSlice, type AuthSlice } from './slices/auth';
 import { createConversationsSlice, type ConversationsSlice } from './slices/conversations';
 import { createLanguageSlice, type LanguageSlice } from './slices/language';
@@ -25,6 +26,7 @@ export type AppState = AuthSlice &
   PlannerSlice &
   AgentsSlice &
   ArchiveSlice &
+  TrashSlice &
   StorageSlice &
   SportsSlice &
   LanguageSlice;
@@ -49,6 +51,7 @@ export const useStore = create<AppState>()(
         ...createPlannerSlice(...a),
         ...createAgentsSlice(...a),
         ...createArchiveSlice(...a),
+        ...createTrashSlice(...a),
         ...createStorageSlice(...a),
         ...createSportsSlice(...a),
         ...createLanguageSlice(...a),

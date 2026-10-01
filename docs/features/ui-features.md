@@ -194,14 +194,83 @@ The sidebar displays a list of conversations with hover actions for rename and d
 
 - **Desktop**: Hover over a conversation to reveal action buttons, click the trash icon to delete
 - **Mobile**: Swipe left on a conversation to reveal delete button
-- Shows a confirmation modal before deleting
+- Deleting moves the conversation to the [trash](#trash): the confirm modal reads "Move this
+  conversation to the trash? You can restore it for 14 days.", and a "Moved to trash." toast offers **Undo**
 - Cost data is intentionally preserved after deletion for accurate reporting
+
+### Trash
+
+Regular chats are soft-deleted: `DELETE /api/conversations/<id>` sets `conversations.deleted_at`
+([migration 0056](../../migrations/0056_add_conversation_trash.py)) and returns `{"status": "trashed"}`.
+The conversation stays restorable for `TRASH_RETENTION_DAYS` (default 14), then is purged for good.
+
+**Bypasses the trash**: agent, planner, sports and language conversations are still hard-deleted
+(`{"status": "deleted"}`); they are owned by their feature, not the chat list.
+
+**Hidden everywhere**: every user-facing query filters `deleted_at IS NULL` - the list, pinned and archived
+lists, `get_conversation`, rename/archive/pin, [sync](sync.md#delete-detection),
+[full-text search](search.md) and semantic recall (`get_message_rows_for_ids`). The search index is left
+alone on trash/restore (search filters at query time), so restore needs no reindex.
+
+**Database** - `ConversationTrashMixin` in [conversation_trash.py](../../src/db/models/conversation_trash.py):
+
+| Method | Behavior |
+|--------|----------|
+| `trash_conversation()` | Idempotent; a retried delete keeps the original `deleted_at` |
+| `restore_conversation()` | Idempotent; `archived`/`pinned` untouched, so an archived chat returns to the archive |
+| `list_trashed_conversations_paginated()` | Most recently deleted first, cursor-paginated |
+| `delete_trashed_conversation()` / `empty_trash()` | Permanent delete of one / all trashed rows (rows, then blobs) |
+| `purge_trashed_conversations(retention_days)` | Deletes rows trashed longer ago than the retention window |
+
+**API** - [conversation_trash.py](../../src/api/routes/conversation_trash.py), on the shared `Conversations` blueprint:
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/conversations/trash` | Paginated list; items carry `deleted_at` and a server-computed `purge_at` |
+| `POST /api/conversations/<id>/restore` | Restore (404 if not in the trash) |
+| `DELETE /api/conversations/<id>/permanent` | Delete one trashed conversation forever |
+| `DELETE /api/conversations/trash` | Empty the trash; returns `{"deleted": n}` |
+
+**Purge**: the daily file-cleanup sweep (`cleanup_expired_files()` in
+[file_retention.py](../../src/utils/file_retention.py)) also calls `purge_trashed_conversations()`, reported
+as `conversations_purged`. It runs on a timer in production and via the dev scheduler locally - see
+[Scheduled Jobs](../architecture/scheduled-jobs.md).
+
+```bash
+TRASH_RETENTION_DAYS=14   # days a deleted conversation stays restorable
+```
+
+**Frontend**: the user menu has a **Trash** entry with a count (hidden while the trash is empty); it opens a sidebar full-view like the archive
+(`#/trash` deep link) with per-row Restore / Delete forever, "N days left" labels, and Empty trash.
+State lives in the trash slice ([trash.ts](../../web/src/state/slices/trash.ts)), actions in
+[core/trash.ts](../../web/src/core/trash.ts), rendering in [TrashView.ts](../../web/src/components/TrashView.ts).
+
+Pitfalls:
+
+- **Trash rows carry `data-trash-id`, not `data-conv-id`**, so the sidebar's click delegation can't open them.
+- **Menu badges refresh before the early returns**: `renderConversationsList()` calls `renderArchiveEntry()` /
+  `renderTrashEntry()` before its empty/loading early returns. They used to run at the end, so a render that
+  hit an early return (e.g. deleting the last chat) left a stale count.
+- **Locally trashed rows have an estimated `purge_at`** (now + the frontend `TRASH_RETENTION_DAYS` in
+  [config.ts](../../web/src/config.ts)); `navigateToTrash()` always reloads to get the server's value.
+- **Web and server retention are separate settings**: the confirm-dialog text uses the frontend constant,
+  so change both if you change `TRASH_RETENTION_DAYS`.
 
 ### Key Files
 
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversation list rendering, rename/delete handlers
-- [conversation-actions.ts](../../web/src/core/conversation-actions.ts) - `renameConversation()` function
+- [conversation-actions.ts](../../web/src/core/conversation-actions.ts) - `renameConversation()`, `deleteConversation()` (trash + Undo)
+- [core/trash.ts](../../web/src/core/trash.ts), [TrashView.ts](../../web/src/components/TrashView.ts) - Trash actions and view
 - [Modal.ts](../../web/src/components/Modal.ts) - `showPrompt()` and `showConfirm()` dialogs
+
+### Testing
+
+- Backend: [test_db_conversation_trash.py](../../tests/integration/test_db_conversation_trash.py),
+  [test_routes_conversation_trash.py](../../tests/integration/test_routes_conversation_trash.py),
+  purge in [test_file_retention.py](../../tests/unit/test_file_retention.py)
+- Frontend: [trash-actions.test.ts](../../web/tests/unit/trash-actions.test.ts),
+  [TrashView.test.ts](../../web/tests/component/TrashView.test.ts); E2E trash flows in
+  [conversation.spec.ts](../../web/tests/e2e/conversation.spec.ts) and [mobile.spec.ts](../../web/tests/e2e/mobile.spec.ts)
 
 ---
 
@@ -232,6 +301,7 @@ The app supports hash-based routing (`#/conversations/{conversationId}`) for dee
 | Click "New Chat" | `pushState("")` - clears hash | Added to history |
 | Temp conversation persisted | `replaceState(#/conversations/{id})` | Replaces empty hash |
 | Conversation deleted | `replaceState("")` - clears hash | No new entry |
+| Open Trash (user menu) | `#/trash` | Added to history |
 
 ### Edge Cases Handled
 

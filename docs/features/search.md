@@ -37,6 +37,8 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 
 Database triggers keep the search index in sync when conversations/messages are created, updated, or deleted. See [migrations/0015_add_full_text_search.py](../../migrations/0015_add_full_text_search.py).
 
+Moving a conversation to the [trash](ui-features.md#trash) does not touch the index: the search query joins `conversations` and filters `c.deleted_at IS NULL`, so restoring needs no reindex. Rows leave the index only when the conversation is permanently deleted (purge, delete forever, empty trash).
+
 ## How It Works
 
 ### Search Flow

@@ -108,7 +108,7 @@ are the configured `OnCalendar` value (before any `RandomizedDelaySec`).
 |-----|----------|--------|------------|
 | Agent scheduler | Every minute (`*:*:00`, `OnBootSec=30`) | [`run_agent_scheduler.py`](../../scripts/run_agent_scheduler.py) | Yes — `run_scheduled_agents()` |
 | Database backup | Daily 02:00 (+30m jitter) | [`backup_databases.py`](../../scripts/backup_databases.py) | No |
-| File cleanup | Daily 02:30 | [`cleanup_files.py`](../../scripts/cleanup_files.py) | Yes — `run_file_cleanup_if_due()` |
+| File cleanup (+ trash purge) | Daily 02:30 | [`cleanup_files.py`](../../scripts/cleanup_files.py) | Yes — `run_file_cleanup_if_due()` |
 | Database vacuum | Weekly Sun 03:00 (+1h jitter) | [`vacuum_databases.py`](../../scripts/vacuum_databases.py) | No |
 | Memory defrag | Daily 03:30 (+30m jitter) | [`defragment_memories.py`](../../scripts/defragment_memories.py) | No |
 | Currency rates | Daily 04:00 (+30m jitter) | [`update_currency_rates.py`](../../scripts/update_currency_rates.py) | No |

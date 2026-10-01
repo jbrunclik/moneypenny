@@ -1,5 +1,5 @@
 /**
- * Conversations API: list/sync/CRUD, message pages, archive, and single-message operations.
+ * Conversations API: list/sync/CRUD, message pages, archive, trash, and single-message operations.
  */
 import {
   PaginationDirection,
@@ -146,7 +146,7 @@ export const conversations = {
   },
 
   async delete(id: string): Promise<void> {
-    // DELETE is idempotent (deleting already deleted = same result), safe to retry
+    // Moves to the trash; idempotent server-side, safe to retry
     await request<{ status: string }>(`/api/conversations/${id}`, {
       method: 'DELETE',
       retry: true,
@@ -204,6 +204,28 @@ export const conversations = {
     });
   },
 
+  async restore(id: string): Promise<void> {
+    // Idempotent server-side (restoring a live conversation is a no-op), safe to retry
+    await request<{ status: string }>(`/api/conversations/${id}/restore`, {
+      method: 'POST',
+      retry: true,
+    });
+  },
+
+  async deletePermanently(id: string): Promise<void> {
+    // Not retried: a retry after a lost response would 404
+    await request<{ status: string }>(`/api/conversations/${id}/permanent`, {
+      method: 'DELETE',
+    });
+  },
+
+  async emptyTrash(): Promise<number> {
+    const data = await request<{ deleted: number }>('/api/conversations/trash', {
+      method: 'DELETE',
+    });
+    return data.deleted;
+  },
+
   /** Ask the running turn (named by its assistant message id) to stop server-side. */
   async stop(id: string, messageId: string): Promise<void> {
     await request<{ status: string }>(`/api/conversations/${id}/chat/stop`, {
@@ -230,6 +252,26 @@ export const conversations = {
     const query = params.toString();
     const data = await requestWithRetry<ConversationsResponse>(
       `/api/conversations/archived${query ? `?${query}` : ''}`
+    );
+    return {
+      conversations: data.conversations.map((conv) => ({
+        ...conv,
+        messageCount: (conv as { message_count?: number }).message_count,
+      })),
+      pagination: data.pagination,
+    };
+  },
+
+  async listTrash(
+    limit?: number,
+    cursor?: string | null
+  ): Promise<{ conversations: Conversation[]; pagination: ConversationsPagination }> {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit.toString());
+    if (cursor) params.set('cursor', cursor);
+    const query = params.toString();
+    const data = await requestWithRetry<ConversationsResponse>(
+      `/api/conversations/trash${query ? `?${query}` : ''}`
     );
     return {
       conversations: data.conversations.map((conv) => ({

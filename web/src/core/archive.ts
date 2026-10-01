@@ -86,6 +86,7 @@ export async function unarchiveConversation(convId: string): Promise<void> {
  */
 export function navigateToArchive(): void {
   const store = useStore.getState();
+  store.setIsTrashView(false);
   store.setIsArchiveView(true);
   setArchiveHash();
 

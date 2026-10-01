@@ -98,8 +98,8 @@ approximate - check the module when it matters.
 - [routes/memory.py](../../src/api/routes/memory.py) - User memory management (5)
 - [routes/settings.py](../../src/api/routes/settings.py) - User settings (2)
 - [routes/conversations.py](../../src/api/routes/conversations.py) - Conversation list, CRUD, anonymous mode, sync (7); owns the shared `Conversations` blueprint that
-  [conversation_messages.py](../../src/api/routes/conversation_messages.py) (messages, truncate, 4), [conversation_organize.py](../../src/api/routes/conversation_organize.py) (archive, pins, 5)
-  and [conversation_search.py](../../src/api/routes/conversation_search.py) (1) attach their routes to
+  [conversation_messages.py](../../src/api/routes/conversation_messages.py) (messages, truncate, 4), [conversation_organize.py](../../src/api/routes/conversation_organize.py) (archive, pins, 5),
+  [conversation_search.py](../../src/api/routes/conversation_search.py) (1) and [conversation_trash.py](../../src/api/routes/conversation_trash.py) (trash, 4) attach their routes to
 - [routes/chat.py](../../src/api/routes/chat.py) - batch, stream, interject, stream resume (4) - see [Chat and Streaming](../features/chat-and-streaming.md)
 - [routes/files.py](../../src/api/routes/files.py) - File serving, thumbnails (2)
 - [routes/costs.py](../../src/api/routes/costs.py) - Cost tracking, compaction status (5)

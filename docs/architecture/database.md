@@ -41,6 +41,7 @@ Blobs are stored with keys that encode the message and file index:
 - Falls back to legacy `thumbnail` field in files JSON
 
 **4. Conversation deletion**:
+- A user delete first only sets `deleted_at` (the [trash](../features/ui-features.md#trash)); blobs go when the trash entry is purged, deleted forever, or emptied
 - Uses `delete_by_prefixes()` to delete all blobs for all messages in a single SQL query (batched deletion)
 
 ### Indexing
@@ -148,6 +149,7 @@ The following indexes are defined to optimize common query patterns:
 - `idx_conversations_user_id` - For filtering by user
 - `idx_conversations_user_id_updated_at` - Composite index for `list_conversations()` (filter + sort)
 - `idx_conversations_user_archived` - Composite index for archive filtering `(user_id, archived)`
+- `idx_conversations_user_deleted` - Composite index for trash filtering `(user_id, deleted_at)`
 
 ### Messages Table
 

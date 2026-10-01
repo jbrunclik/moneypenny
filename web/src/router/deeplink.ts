@@ -19,7 +19,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('deeplink');
 
 /** Route types supported by the router */
-type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'archive' | 'unknown';
+type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'archive' | 'trash' | 'unknown';
 
 /** Parsed route information */
 interface ParsedRoute {
@@ -28,7 +28,7 @@ interface ParsedRoute {
 }
 
 /** Callback when hash changes to a conversation, planner, agents, storage, sports, or language */
-type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean) => void;
+type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean, isTrash?: boolean) => void;
 
 // Module state
 let hashChangeCallback: HashChangeCallback | null = null;
@@ -59,6 +59,11 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   // Match /archive route (archived conversations view)
   if (cleanHash === '/archive') {
     return { type: 'archive' };
+  }
+
+  // Match /trash route (deleted conversations view)
+  if (cleanHash === '/trash') {
+    return { type: 'trash' };
   }
 
   // Match /storage route
@@ -204,6 +209,26 @@ export function setArchiveHash(): void {
   }
 
   log.debug('Setting archive hash', { from: currentHash });
+
+  isIgnoringHashChange = true;
+  history.pushState(null, '', newHash);
+  setTimeout(() => {
+    isIgnoringHashChange = false;
+  }, 0);
+}
+
+/**
+ * Set the URL hash to the trash route.
+ */
+export function setTrashHash(): void {
+  const newHash = '#/trash';
+  const currentHash = window.location.hash;
+
+  if (currentHash === newHash) {
+    return;
+  }
+
+  log.debug('Setting trash hash', { from: currentHash });
 
   isIgnoringHashChange = true;
   history.pushState(null, '', newHash);
@@ -367,22 +392,24 @@ function handleHashChange(): void {
 
   if (hashChangeCallback) {
     if (route.type === 'planner') {
-      hashChangeCallback(null, true, false, false, false, false, false);
+      hashChangeCallback(null, true, false, false, false, false, false, false);
     } else if (route.type === 'agents') {
-      hashChangeCallback(null, false, true, false, false, false, false);
+      hashChangeCallback(null, false, true, false, false, false, false, false);
     } else if (route.type === 'storage') {
-      hashChangeCallback(null, false, false, true, false, false, false);
+      hashChangeCallback(null, false, false, true, false, false, false, false);
     } else if (route.type === 'sports') {
-      hashChangeCallback(null, false, false, false, true, false, false);
+      hashChangeCallback(null, false, false, false, true, false, false, false);
     } else if (route.type === 'language') {
-      hashChangeCallback(null, false, false, false, false, true, false);
+      hashChangeCallback(null, false, false, false, false, true, false, false);
     } else if (route.type === 'archive') {
-      hashChangeCallback(null, false, false, false, false, false, true);
+      hashChangeCallback(null, false, false, false, false, false, true, false);
+    } else if (route.type === 'trash') {
+      hashChangeCallback(null, false, false, false, false, false, false, true);
     } else if (route.type === 'conversation' && route.conversationId) {
-      hashChangeCallback(route.conversationId, false, false, false, false, false, false);
+      hashChangeCallback(route.conversationId, false, false, false, false, false, false, false);
     } else {
       // Home or unknown route - pass null to indicate no conversation selected
-      hashChangeCallback(null, false, false, false, false, false, false);
+      hashChangeCallback(null, false, false, false, false, false, false, false);
     }
   }
 }
@@ -396,6 +423,7 @@ export interface InitialRoute {
   isSports: boolean;
   isLanguage: boolean;
   isArchive: boolean;
+  isTrash: boolean;
 }
 
 /**
@@ -418,37 +446,42 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
 
   if (initialRoute.type === 'planner') {
     log.info('Initial route is planner');
-    return { conversationId: null, isPlanner: true, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false };
+    return { conversationId: null, isPlanner: true, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false };
   }
 
   if (initialRoute.type === 'agents') {
     log.info('Initial route is agents');
-    return { conversationId: null, isPlanner: false, isAgents: true, isStorage: false, isSports: false, isLanguage: false, isArchive: false };
+    return { conversationId: null, isPlanner: false, isAgents: true, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false };
   }
 
   if (initialRoute.type === 'storage') {
     log.info('Initial route is storage');
-    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: true, isSports: false, isLanguage: false, isArchive: false };
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: true, isSports: false, isLanguage: false, isArchive: false, isTrash: false };
   }
 
   if (initialRoute.type === 'sports') {
     log.info('Initial route is sports');
-    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: true, isLanguage: false, isArchive: false };
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: true, isLanguage: false, isArchive: false, isTrash: false };
   }
 
   if (initialRoute.type === 'language') {
     log.info('Initial route is language');
-    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: true, isArchive: false };
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: true, isArchive: false, isTrash: false };
+  }
+
+  if (initialRoute.type === 'trash') {
+    log.info('Initial route is trash');
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: true };
   }
 
   if (initialRoute.type === 'archive') {
     log.info('Initial route is archive');
-    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: true };
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: true, isTrash: false };
   }
 
   if (initialRoute.type === 'conversation' && initialRoute.conversationId) {
     log.info('Initial route has conversation', { conversationId: initialRoute.conversationId });
-    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false };
+    return { conversationId: initialRoute.conversationId, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false };
   }
 
   // Check if the hash contains a temp conversation ID and clear it
@@ -459,7 +492,7 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
     clearConversationHash();
   }
 
-  return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false };
+  return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false };
 }
 
 /**

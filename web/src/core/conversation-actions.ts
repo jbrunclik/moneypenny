@@ -11,10 +11,12 @@ import { renderConversationsList } from '../components/Sidebar';
 import { renderMessages, updateChatTitle } from '../components/messages';
 import { clearConversationHash } from '../router/deeplink';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
-import { APP_NAME } from '../config';
+import { APP_NAME, TRASH_RETENTION_DAYS } from '../config';
+import { MS_PER_DAY } from '../constants';
 import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost } from './toolbar';
 import { isTempConversation } from './conversation';
+import { restoreConversation } from './trash';
 
 const log = createLogger('conversation');
 
@@ -41,13 +43,14 @@ export function removeConversationFromUI(convId: string): void {
 }
 
 /**
- * Delete a conversation.
+ * Delete a conversation: moves it to the trash (restorable for
+ * TRASH_RETENTION_DAYS), with an Undo toast.
  */
 export async function deleteConversation(convId: string): Promise<void> {
   const confirmed = await showConfirm({
-    title: 'Delete Conversation',
-    message: 'Are you sure you want to delete this conversation? This cannot be undone.',
-    confirmLabel: 'Delete',
+    title: 'Move to trash',
+    message: `Move this conversation to the trash? You can restore it for ${TRASH_RETENTION_DAYS} days.`,
+    confirmLabel: 'Move to trash',
     cancelLabel: 'Cancel',
     danger: true,
   });
@@ -60,19 +63,39 @@ export async function deleteConversation(convId: string): Promise<void> {
     return;
   }
 
-  // Check if the conversation is archived
+  // Archived rows are tracked by list membership (main-list rows carry no
+  // flag). An open chat in neither loaded list (an older archived chat
+  // opened from search) falls back to currentConversation, which carries it.
   const store = useStore.getState();
-  const isArchived = store.archivedConversations.some(c => c.id === convId);
+  const archivedConv = store.archivedConversations.find((c) => c.id === convId);
+  const current = store.currentConversation?.id === convId ? store.currentConversation : undefined;
+  const found = archivedConv ?? store.conversations.find((c) => c.id === convId) ?? current;
+  const isArchived = archivedConv !== undefined || found?.archived === true;
+  const conv = found ? { ...found, archived: isArchived } : undefined;
 
   try {
     await conversations.delete(convId);
 
-    if (isArchived) {
-      store.removeArchivedConversation(convId);
-      renderConversationsList();
-    } else {
-      removeConversationFromUI(convId);
+    // Into the trash store before the re-render below, so the menu badge
+    // counts it. purge_at is a local estimate; opening the trash view
+    // reloads the server's value.
+    if (conv) {
+      const deletedAt = new Date();
+      const purgeAt = new Date(deletedAt.getTime() + TRASH_RETENTION_DAYS * MS_PER_DAY);
+      store.addTrashedConversation({
+        ...conv,
+        deleted_at: deletedAt.toISOString(),
+        purge_at: purgeAt.toISOString(),
+      });
     }
+    if (archivedConv) {
+      store.removeArchivedConversation(convId);
+    }
+    // Also clears the open chat when it was the deleted one (archived or not)
+    removeConversationFromUI(convId);
+    toast.success('Moved to trash.', {
+      action: { label: 'Undo', onClick: () => restoreConversation(convId, conv) },
+    });
   } catch (error) {
     log.error('Failed to delete conversation', { error, conversationId: convId });
     toast.error('Failed to delete conversation. Please try again.');
