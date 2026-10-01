@@ -36,7 +36,7 @@ garminconnect>=0.3.16
 croniter>=6.2.4
 
 # Web Push notifications (VAPID)
-pywebpush>=2.3.0
+pywebpush>=2.5.0
 
 # Token encryption at rest (also a pywebpush transitive dep, pinned
 # explicitly because token_crypto imports it directly)
