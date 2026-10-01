@@ -1,7 +1,8 @@
 """Conversation database operations mixin.
 
 Conversation CRUD and counts. Paginated listings and sync queries live in
-conversation_listing.py, archive/pin in conversation_archive.py.
+conversation_listing.py, archive/pin in conversation_archive.py, trash in
+conversation_trash.py.
 """
 
 from __future__ import annotations
@@ -80,7 +81,7 @@ class ConversationMixin:
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT * FROM conversations WHERE id = ? AND user_id = ?",
+                "SELECT * FROM conversations WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
                 (conv_id, user_id),
             ).fetchone()
 
@@ -107,6 +108,7 @@ class ConversationMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT * FROM conversations WHERE user_id = ?
+                       AND deleted_at IS NULL
                        ORDER BY updated_at DESC""",
                     (user_id,),
                 ).fetchall()
@@ -117,6 +119,7 @@ class ConversationMixin:
                        AND (is_planning = 0 OR is_planning IS NULL)
                        AND (is_agent = 0 OR is_agent IS NULL)
                        AND (archived = 0 OR archived IS NULL)
+                       AND deleted_at IS NULL
                        AND (is_sports = 0 OR is_sports IS NULL)
                        AND (is_language = 0 OR is_language IS NULL)
                        ORDER BY updated_at DESC""",
@@ -175,7 +178,8 @@ class ConversationMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                f"UPDATE conversations SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
+                f"UPDATE conversations SET {', '.join(updates)} WHERE id = ? AND user_id = ?"
+                " AND deleted_at IS NULL",
                 tuple(params),
             )
             conn.commit()
@@ -257,7 +261,7 @@ class ConversationMixin:
                           c.is_planning, COUNT(m.id) as message_count
                    FROM conversations c
                    LEFT JOIN messages m ON m.conversation_id = c.id
-                   WHERE c.id = ?
+                   WHERE c.id = ? AND c.deleted_at IS NULL
                    GROUP BY c.id""",
                 (conversation_id,),
             ).fetchone()

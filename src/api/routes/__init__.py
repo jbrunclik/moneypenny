@@ -11,6 +11,7 @@ Route Organization:
 - conversation_messages.py: Message fetch/delete, message pages, truncation (4 routes, on conversations.api)
 - conversation_organize.py: Archive, unarchive, pin, archived list (5 routes, on conversations.api)
 - conversation_search.py: Full-text search (1 route, on conversations.api)
+- conversation_trash.py: Trash list, restore, permanent delete, empty (4 routes, on conversations.api)
 - planner.py: Planner dashboard (4 routes)
 - agents.py: Autonomous agents CRUD and execution (9 routes)
 - agent_command_center.py: Agents command center (1 route, on agents.api)
@@ -26,7 +27,7 @@ Route Organization:
 - sports.py: Sports tracking (5 routes)
 - language.py: Language learning (5 routes)
 
-Total: 74 endpoints across 19 modules
+Total: 78 endpoints across 20 modules
 """
 
 from apiflask import APIFlask
@@ -35,8 +36,8 @@ from apiflask import APIFlask
 # agent_command_center attach their routes to agents.api (one shared "Agents"
 # blueprint keeps a single OpenAPI tag and the original endpoint names), so
 # they are imported only for that side effect. conversation_messages,
-# conversation_organize and conversation_search do the same for
-# conversations.api.
+# conversation_organize, conversation_search and conversation_trash do the
+# same for conversations.api.
 from src.api.routes import (
     agent_approvals,  # noqa: F401
     agent_assist,  # noqa: F401
@@ -48,6 +49,7 @@ from src.api.routes import (
     conversation_messages,  # noqa: F401
     conversation_organize,  # noqa: F401
     conversation_search,  # noqa: F401
+    conversation_trash,  # noqa: F401
     conversations,
     costs,
     files,

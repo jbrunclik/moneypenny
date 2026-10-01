@@ -107,7 +107,8 @@ class EmbeddingsMixin:
                 f"""SELECT m.id, m.conversation_id, m.content, m.created_at, c.title
                     FROM messages m
                     JOIN conversations c ON c.id = m.conversation_id
-                    WHERE c.user_id = ? AND m.id IN ({placeholders})""",  # noqa: S608 - placeholders only
+                    WHERE c.user_id = ? AND c.deleted_at IS NULL
+                      AND m.id IN ({placeholders})""",  # noqa: S608 - placeholders only
                 (user_id, *message_ids),
             )
             rows = cursor.fetchall()

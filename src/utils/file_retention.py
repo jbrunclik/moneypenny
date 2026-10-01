@@ -6,6 +6,9 @@ types (PDFs, text, JSON, CSV) for FILE_RETENTION_DAYS. Expiry is derived
 from message age, so callers (history labeling, retrieve_file, file routes)
 stay truthful even before the physical sweep has run.
 
+The same sweep purges conversations trashed more than TRASH_RETENTION_DAYS
+ago.
+
 The sweep itself runs via systemd timer in production
 (moneypenny-file-cleanup.timer -> scripts/cleanup_files.py) and via the dev
 scheduler loop in development.
@@ -52,7 +55,7 @@ def retention_note(mime_type: str) -> str:
 
 
 def cleanup_expired_files() -> dict[str, int]:
-    """Delete expired attachment blobs and their Gemini URI cache entries.
+    """Delete expired attachment blobs, their Gemini URI cache entries, and expired trash.
 
     Thumbnails are intentionally kept so old conversations still render a
     placeholder. Idempotent: deleting an already-deleted blob is a no-op.
@@ -88,6 +91,11 @@ def cleanup_expired_files() -> dict[str, int]:
                     counts["files_deleted"] += 1
             if mime_type.startswith("video/"):
                 delete_cached_file_uri(msg.id, idx)
+
+    # Trashed conversations past their retention window go for good
+    counts["conversations_purged"] = models.db.purge_trashed_conversations(
+        Config.TRASH_RETENTION_DAYS
+    )
 
     if any(counts.values()):
         logger.info("File retention sweep completed", extra=counts)

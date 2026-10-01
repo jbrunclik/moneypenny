@@ -315,17 +315,29 @@ def update_anonymous_mode(
 @rate_limit_conversations
 @require_auth
 def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
-    """Delete a conversation."""
+    """Move a conversation to the trash.
+
+    Agent and program conversations (planner, sports, language) have no
+    trash view and are deleted immediately, as before.
+    """
     logger.debug("Deleting conversation", extra={"user_id": user.id, "conversation_id": conv_id})
-    if not db.delete_conversation(conv_id, user.id):
+    conv = db.get_conversation(conv_id, user.id)
+    if conv and (conv.is_agent or conv.is_planning or conv.is_sports or conv.is_language):
+        db.delete_conversation(conv_id, user.id)
+        logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
+        return {"status": "deleted"}, 200
+
+    # get_conversation hides trashed rows; trash_conversation is idempotent,
+    # so a retried DELETE of an already-trashed conversation still succeeds
+    if not db.trash_conversation(conv_id, user.id):
         logger.warning(
             "Conversation not found for deletion",
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
         raise_not_found_error("Conversation")
 
-    logger.info("Conversation deleted", extra={"user_id": user.id, "conversation_id": conv_id})
-    return {"status": "deleted"}, 200
+    logger.info("Conversation trashed", extra={"user_id": user.id, "conversation_id": conv_id})
+    return {"status": "trashed"}, 200
 
 
 @api.route("/conversations/sync", methods=["GET"])

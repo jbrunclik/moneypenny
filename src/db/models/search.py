@@ -104,7 +104,7 @@ class SearchMixin:
                 FROM search_index si
                 JOIN conversations c ON c.id = si.conversation_id
                 LEFT JOIN messages m ON m.id = si.message_id
-                WHERE si.user_id = ? AND search_index MATCH ?
+                WHERE si.user_id = ? AND search_index MATCH ? AND c.deleted_at IS NULL
                 ORDER BY rank ASC, message_created_at DESC NULLS LAST
                 """,
                 (user_id, fts_query),

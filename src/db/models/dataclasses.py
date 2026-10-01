@@ -65,6 +65,8 @@ class Conversation:
     # No memory read/write and no integration tools. Persisted so the setting
     # survives a page reload instead of silently reverting to off.
     anonymous_mode: bool = False
+    # Set while the conversation is in the trash (NULL = live)
+    deleted_at: datetime | None = None
 
 
 @dataclass

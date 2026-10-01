@@ -1816,6 +1816,66 @@
         "summary": "List all available Google Calendars for the current user."
       }
     },
+    "/api/conversations/trash": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationsListPaginatedResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "List conversations in the trash, most recently deleted first."
+      },
+      "delete": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyTrashResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Permanently delete every conversation in the trash."
+      }
+    },
     "/api/kv/{namespace}": {
       "get": {
         "parameters": [
@@ -2528,7 +2588,8 @@
         "tags": [
           "Conversations"
         ],
-        "summary": "Delete a conversation."
+        "summary": "Move a conversation to the trash.",
+        "description": "Agent and program conversations (planner, sports, language) have no\ntrash view and are deleted immediately, as before."
       }
     },
     "/api/ai-assist/parse-schedule": {
@@ -3664,6 +3725,56 @@
         "summary": "Archive a conversation (hide from main list)."
       }
     },
+    "/api/conversations/{conv_id}/restore": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Restore a conversation from the trash (back to the list or archive it was in)."
+      }
+    },
     "/api/approvals/{approval_id}/approve": {
       "post": {
         "parameters": [
@@ -3937,6 +4048,56 @@
         "summary": "Unarchive a conversation (restore to main list)."
       }
     },
+    "/api/conversations/{conv_id}/permanent": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Permanently delete a conversation that is in the trash."
+      }
+    },
     "/api/conversations/{conv_id}/chat/stop": {
       "post": {
         "parameters": [
@@ -3985,7 +4146,7 @@
           "Chat"
         ],
         "summary": "Stop the running chat turn",
-        "description": "Ask the in-flight turn of this conversation to stop at its next checkpoint (cross-worker via kv_store). The stream then ends with a done event carrying stop_reason 'user' and the partial reply saved. Harmless when no turn is running."
+        "description": "Ask the in-flight turn of this conversation to stop at its next checkpoint (cross-worker via kv_store). message_id names the turn (its assistant message id from user_message_saved). The stream then ends with a done event carrying stop_reason 'user' and the partial reply saved. Harmless when no turn is running."
       }
     },
     "/api/conversations/{conv_id}/chat/batch": {
@@ -6650,6 +6811,30 @@
             ],
             "default": null,
             "title": "Last Message Preview"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          },
+          "purge_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Purge At"
           }
         },
         "required": [
@@ -6794,6 +6979,30 @@
             ],
             "default": null,
             "title": "Last Message Preview"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          },
+          "purge_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Purge At"
           }
         },
         "required": [
@@ -7737,6 +7946,21 @@
           }
         },
         "title": "CalendarListResponse",
+        "type": "object"
+      },
+      "EmptyTrashResponse": {
+        "description": "Result of emptying the trash.",
+        "properties": {
+          "deleted": {
+            "description": "Number of conversations permanently deleted",
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "EmptyTrashResponse",
         "type": "object"
       },
       "KVKeysResponse.KVKeyItem": {

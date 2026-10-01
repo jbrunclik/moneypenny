@@ -68,6 +68,14 @@ class ConversationResponse(BaseModel):
     archived: bool | None = None
     pinned: bool | None = None
     last_message_preview: str | None = None
+    deleted_at: str | None = None  # Set for conversations in the trash
+    purge_at: str | None = None  # When a trashed conversation is deleted for good
+
+
+class EmptyTrashResponse(BaseModel):
+    """Result of emptying the trash."""
+
+    deleted: int = Field(..., description="Number of conversations permanently deleted")
 
 
 class ConversationDetailResponse(BaseModel):

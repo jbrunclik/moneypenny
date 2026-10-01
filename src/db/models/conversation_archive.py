@@ -34,7 +34,8 @@ class ConversationArchiveMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                "UPDATE conversations SET archived = 1, updated_at = ? WHERE id = ? AND user_id = ?",
+                "UPDATE conversations SET archived = 1, updated_at = ? WHERE id = ? AND user_id = ?"
+                " AND deleted_at IS NULL",
                 (now, conv_id, user_id),
             )
             conn.commit()
@@ -49,7 +50,8 @@ class ConversationArchiveMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                "UPDATE conversations SET pinned = ? WHERE id = ? AND user_id = ?",
+                "UPDATE conversations SET pinned = ? WHERE id = ? AND user_id = ?"
+                " AND deleted_at IS NULL",
                 (1 if pinned else 0, conv_id, user_id),
             )
             conn.commit()
@@ -69,6 +71,7 @@ class ConversationArchiveMixin:
                    LEFT JOIN messages m ON m.conversation_id = c.id
                    WHERE c.user_id = ? AND c.pinned = 1
                      AND (c.archived = 0 OR c.archived IS NULL)
+                     AND c.deleted_at IS NULL
                      AND (c.is_agent = 0 OR c.is_agent IS NULL)
                      AND (c.is_planning = 0 OR c.is_planning IS NULL)
                    GROUP BY c.id
@@ -83,7 +86,8 @@ class ConversationArchiveMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                "UPDATE conversations SET archived = 0, updated_at = ? WHERE id = ? AND user_id = ?",
+                "UPDATE conversations SET archived = 0, updated_at = ? WHERE id = ? AND user_id = ?"
+                " AND deleted_at IS NULL",
                 (now, conv_id, user_id),
             )
             conn.commit()
@@ -103,7 +107,7 @@ class ConversationArchiveMixin:
             total_row = self._execute_with_timing(
                 conn,
                 """SELECT COUNT(*) as count FROM conversations
-                   WHERE user_id = ? AND archived = 1""",
+                   WHERE user_id = ? AND archived = 1 AND deleted_at IS NULL""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
@@ -119,7 +123,7 @@ class ConversationArchiveMixin:
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
-                       WHERE c.user_id = ? AND c.archived = 1
+                       WHERE c.user_id = ? AND c.archived = 1 AND c.deleted_at IS NULL
                          AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
@@ -136,7 +140,7 @@ class ConversationArchiveMixin:
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
                        FROM conversations c
                        LEFT JOIN messages m ON m.conversation_id = c.id
-                       WHERE c.user_id = ? AND c.archived = 1
+                       WHERE c.user_id = ? AND c.archived = 1 AND c.deleted_at IS NULL
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
                        LIMIT ?""",

@@ -5,6 +5,7 @@ Deletes expired attachment blobs from blob storage (videos older than
 VIDEO_RETENTION_DAYS, images older than IMAGE_RETENTION_DAYS, other files
 older than FILE_RETENTION_DAYS) along with their cached Gemini Files API
 URIs. Thumbnails are kept so old conversations still render placeholders.
+Also purges conversations trashed more than TRASH_RETENTION_DAYS ago.
 
 Usage:
     python scripts/cleanup_files.py
@@ -39,6 +40,7 @@ def main() -> int:
             "videos_deleted": counts["videos_deleted"],
             "images_deleted": counts["images_deleted"],
             "files_deleted": counts["files_deleted"],
+            "conversations_purged": counts["conversations_purged"],
         },
     )
     return 0

@@ -2509,6 +2509,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List conversations in the trash, most recently deleted first. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Permanently delete every conversation in the trash. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmptyTrashResponse"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kv/{namespace}": {
         parameters: {
             query?: never;
@@ -3283,7 +3357,11 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        /** Delete a conversation. */
+        /**
+         * Move a conversation to the trash.
+         * @description Agent and program conversations (planner, sports, language) have no
+         *     trash view and are deleted immediately, as before.
+         */
         delete: {
             parameters: {
                 query?: never;
@@ -4581,6 +4659,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a conversation from the trash (back to the list or archive it was in). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals/{approval_id}/approve": {
         parameters: {
             query?: never;
@@ -4902,6 +5036,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/permanent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Permanently delete a conversation that is in the trash. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/chat/stop": {
         parameters: {
             query?: never;
@@ -4913,7 +5103,7 @@ export interface paths {
         put?: never;
         /**
          * Stop the running chat turn
-         * @description Ask the in-flight turn of this conversation to stop at its next checkpoint (cross-worker via kv_store). The stream then ends with a done event carrying stop_reason 'user' and the partial reply saved. Harmless when no turn is running.
+         * @description Ask the in-flight turn of this conversation to stop at its next checkpoint (cross-worker via kv_store). message_id names the turn (its assistant message id from user_message_saved). The stream then ends with a done event carrying stop_reason 'user' and the partial reply saved. Harmless when no turn is running.
          */
         post: {
             parameters: {
@@ -6775,6 +6965,16 @@ export interface components {
              * @default null
              */
             last_message_preview: string | null;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+            /**
+             * Purge At
+             * @default null
+             */
+            purge_at: string | null;
         };
         /**
          * ConversationsPaginationResponse
@@ -6848,6 +7048,16 @@ export interface components {
              * @default null
              */
             last_message_preview: string | null;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+            /**
+             * Purge At
+             * @default null
+             */
+            purge_at: string | null;
         };
         /**
          * PlannerResetResponse
@@ -7366,6 +7576,17 @@ export interface components {
              * @default null
              */
             error: string | null;
+        };
+        /**
+         * EmptyTrashResponse
+         * @description Result of emptying the trash.
+         */
+        EmptyTrashResponse: {
+            /**
+             * Deleted
+             * @description Number of conversations permanently deleted
+             */
+            deleted: number;
         };
         /**
          * KVKeyItem

@@ -289,13 +289,14 @@ class TestDeleteConversation:
         auth_headers: dict[str, str],
         test_conversation: Conversation,
     ) -> None:
-        """Should delete conversation."""
+        """Should move the conversation to the trash."""
         response = client.delete(
             f"/api/conversations/{test_conversation.id}",
             headers=auth_headers,
         )
 
         assert response.status_code == 200
+        assert response.get_json()["status"] == "trashed"
 
         # Verify it's gone
         get_response = client.get(

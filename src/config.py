@@ -245,6 +245,8 @@ class Config:
     VIDEO_RETENTION_DAYS: int = int(os.getenv("VIDEO_RETENTION_DAYS", "7"))
     IMAGE_RETENTION_DAYS: int = int(os.getenv("IMAGE_RETENTION_DAYS", "30"))
     FILE_RETENTION_DAYS: int = int(os.getenv("FILE_RETENTION_DAYS", "30"))  # PDFs, text, etc.
+    # Deleted conversations stay restorable in the trash this long
+    TRASH_RETENTION_DAYS: int = int(os.getenv("TRASH_RETENTION_DAYS", "14"))
     MAX_FILES_PER_MESSAGE: int = int(os.getenv("MAX_FILES_PER_MESSAGE", "10"))
     DEFAULT_ALLOWED_FILE_TYPES: str = (
         "image/png,image/jpeg,image/gif,image/webp,image/heic,image/heif,"

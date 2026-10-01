@@ -64,7 +64,8 @@ class ConversationListingMixin:
                    WHERE user_id = ?
                      AND (is_planning = 0 OR is_planning IS NULL)
                      AND (is_agent = 0 OR is_agent IS NULL)
-                     AND (archived = 0 OR archived IS NULL)""",
+                     AND (archived = 0 OR archived IS NULL)
+                     AND deleted_at IS NULL""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
@@ -82,6 +83,7 @@ class ConversationListingMixin:
                          AND (is_planning = 0 OR is_planning IS NULL)
                          AND (is_agent = 0 OR is_agent IS NULL)
                          AND (archived = 0 OR archived IS NULL)
+                         AND deleted_at IS NULL
                          AND (updated_at < ? OR (updated_at = ? AND id < ?))
                        ORDER BY updated_at DESC, id DESC
                        LIMIT ?""",
@@ -95,6 +97,7 @@ class ConversationListingMixin:
                          AND (is_planning = 0 OR is_planning IS NULL)
                          AND (is_agent = 0 OR is_agent IS NULL)
                          AND (archived = 0 OR archived IS NULL)
+                         AND deleted_at IS NULL
                        ORDER BY updated_at DESC, id DESC
                        LIMIT ?""",
                     (user_id, limit + 1),
@@ -138,7 +141,8 @@ class ConversationListingMixin:
                    WHERE user_id = ?
                      AND (is_planning = 0 OR is_planning IS NULL)
                      AND (is_agent = 0 OR is_agent IS NULL)
-                     AND (archived = 0 OR archived IS NULL)""",
+                     AND (archived = 0 OR archived IS NULL)
+                     AND deleted_at IS NULL""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
@@ -159,6 +163,7 @@ class ConversationListingMixin:
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
+                         AND c.deleted_at IS NULL
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
                          AND (c.pinned = 0 OR c.pinned IS NULL)
@@ -182,6 +187,7 @@ class ConversationListingMixin:
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
+                         AND c.deleted_at IS NULL
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
                          AND (c.pinned = 0 OR c.pinned IS NULL)
@@ -244,6 +250,7 @@ class ConversationListingMixin:
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
+                         AND c.deleted_at IS NULL
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
                        GROUP BY c.id
@@ -301,6 +308,7 @@ class ConversationListingMixin:
                          AND (c.is_planning = 0 OR c.is_planning IS NULL)
                          AND (c.is_agent = 0 OR c.is_agent IS NULL)
                          AND (c.archived = 0 OR c.archived IS NULL)
+                         AND c.deleted_at IS NULL
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
                        GROUP BY c.id

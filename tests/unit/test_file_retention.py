@@ -158,7 +158,12 @@ class TestCleanupExpiredMedia:
         _seed(db, blob_store, conv_id, "video/mp4", days_old=8)
         cleanup_expired_files()
         counts = cleanup_expired_files()
-        assert counts == {"videos_deleted": 0, "images_deleted": 0, "files_deleted": 0}
+        assert counts == {
+            "videos_deleted": 0,
+            "images_deleted": 0,
+            "files_deleted": 0,
+            "conversations_purged": 0,
+        }
 
 
 class TestRunIfDue:
@@ -171,3 +176,29 @@ class TestRunIfDue:
         db, _, _ = seeded_env
         assert run_file_cleanup_if_due() is True
         assert db.kv_get("_system", "file_cleanup", "last_run") is not None
+
+
+class TestTrashPurge:
+    def test_sweep_purges_expired_trash(self, seeded_env) -> None:
+        db, _, conv_id = seeded_env
+        user_id = db.get_or_create_user(email="t@example.com", name="T").id
+        db.trash_conversation(conv_id, user_id)
+        with db._pool.get_connection() as conn:
+            conn.execute(
+                "UPDATE conversations SET deleted_at = ? WHERE id = ?",
+                ((datetime.now() - timedelta(days=15)).isoformat(), conv_id),
+            )
+            conn.commit()
+
+        counts = cleanup_expired_files()
+
+        assert counts["conversations_purged"] == 1
+        assert db.list_trashed_conversations_paginated(user_id)[3] == 0
+
+    def test_sweep_keeps_recent_trash(self, seeded_env) -> None:
+        db, _, conv_id = seeded_env
+        user_id = db.get_or_create_user(email="t@example.com", name="T").id
+        db.trash_conversation(conv_id, user_id)
+
+        assert cleanup_expired_files()["conversations_purged"] == 0
+        assert db.list_trashed_conversations_paginated(user_id)[3] == 1
