@@ -52,7 +52,7 @@
     "dompurify": "^3.4.16",
     "highlight.js": "^11.12.0",
     "katex": "^0.18.9",
-    "marked": "^18.0.13",
+    "marked": "^18.0.14",
     "mediabunny": "^1.60.0",
     "pdfjs-dist": "^6.3.289",
     "uuid": "^14.0.2",
