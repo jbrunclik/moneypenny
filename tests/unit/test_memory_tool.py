@@ -121,6 +121,44 @@ class TestUpdateOperation:
         assert f"updated id={memory.id}" in result
         assert database.list_memories(user.id)[0].content == "Likes green tea"
 
+    def test_oversized_update_steers_to_a_separate_memory(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        """Prod logs (Oct 2026): 74 of 272 updates were over the limit, mostly
+        catch-all memories absorbing unrelated facts - steer to 'add' instead."""
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+        oversized = "x" * (Config.MEMORY_MAX_ENTRY_CHARS + 1)
+
+        result = _invoke([{"action": "update", "id": memory.id, "content": oversized}])
+
+        assert "REJECTED (update)" in result
+        assert "one topic" in result
+        assert "'add'" in result
+        assert database.list_memories(user.id)[0].content == "Likes tea"
+
+    def test_update_near_the_limit_suggests_add(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        """An update that succeeds but fills most of the entry gets the same nudge."""
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+        near = "x" * int(Config.MEMORY_MAX_ENTRY_CHARS * Config.MEMORY_ENTRY_NEAR_LIMIT_RATIO)
+
+        result = _invoke([{"action": "update", "id": memory.id, "content": near}])
+
+        assert f"updated id={memory.id}" in result
+        assert f"{len(near)}/{Config.MEMORY_MAX_ENTRY_CHARS} chars" in result
+        assert "'add'" in result
+
+    def test_small_update_has_no_nudge(self, memory_context: tuple[Database, User]) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+
+        result = _invoke([{"action": "update", "id": memory.id, "content": "Likes green tea"}])
+
+        assert "'add'" not in result
+
     def test_unknown_id_is_reported(self, memory_context: tuple[Database, User]) -> None:
         """A stale ID must surface, not vanish into the logs."""
         _invoke([{"action": "add", "content": "Anything", "category": "fact"}])

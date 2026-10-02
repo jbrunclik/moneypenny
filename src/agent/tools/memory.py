@@ -41,6 +41,20 @@ def _reject(action: str, reason: str) -> str:
     return f"REJECTED ({action}): {reason}"
 
 
+# Steering rides on the tool RESULT (prompt rules were measured to be
+# ignored): oversized and near-full entries were catch-alls absorbing
+# unrelated facts, and each forced rewrite dropped details
+_ONE_TOPIC_HINT = "Keep one topic per memory: save a new fact as its own memory with 'add'."
+
+
+def _too_long(action: str, content: str) -> str:
+    return _reject(
+        action,
+        f"content is {len(content)} chars, limit is {Config.MEMORY_MAX_ENTRY_CHARS}. "
+        f"{_ONE_TOPIC_HINT} Otherwise store a shorter, denser version.",
+    )
+
+
 def _apply_add(user_id: str, conversation_id: str | None, op: dict[str, Any]) -> str:
     """Add a memory, reporting the new ID or why it was refused."""
     content = str(op.get("content") or "").strip()
@@ -51,11 +65,7 @@ def _apply_add(user_id: str, conversation_id: str | None, op: dict[str, Any]) ->
         # Memories are injected into EVERY request, so oversized writes are
         # unbounded context growth and an injection-persistence vector (A2).
         # Rejected rather than truncated - a half-stored fact is worse than none.
-        return _reject(
-            "add",
-            f"content is {len(content)} chars, limit is {Config.MEMORY_MAX_ENTRY_CHARS}. "
-            "Store a shorter, denser version.",
-        )
+        return _too_long("add", content)
 
     category = op.get("category")
     if category is not None and category not in VALID_CATEGORIES:
@@ -97,11 +107,7 @@ def _apply_update(user_id: str, op: dict[str, Any]) -> str:
         return _reject("update", f"missing 'content' for id={memory_id}")
 
     if len(content) > Config.MEMORY_MAX_ENTRY_CHARS:
-        return _reject(
-            "update",
-            f"content is {len(content)} chars, limit is {Config.MEMORY_MAX_ENTRY_CHARS}. "
-            "Store a shorter, denser version.",
-        )
+        return _too_long("update", content)
 
     category = op.get("category")
     if category is not None and category not in VALID_CATEGORIES:
@@ -119,6 +125,9 @@ def _apply_update(user_id: str, op: dict[str, Any]) -> str:
 
     logger.info("Memory updated via tool", extra={"user_id": user_id, "memory_id": memory_id})
     embed_and_store_async(user_id, "memory", memory_id, content)
+    limit = Config.MEMORY_MAX_ENTRY_CHARS
+    if len(content) >= limit * Config.MEMORY_ENTRY_NEAR_LIMIT_RATIO:
+        return f"updated id={memory_id} ({len(content)}/{limit} chars). {_ONE_TOPIC_HINT}"
     return f"updated id={memory_id}"
 
 

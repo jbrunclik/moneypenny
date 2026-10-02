@@ -96,7 +96,7 @@ prompt-injection persistence vector. The enforced bounds:
 | Setting | Default | Purpose |
 |---|---|---|
 | `MEMORY_MAX_ENTRIES` | 200 | Bank size; also the number shown to the LLM |
-| `MEMORY_MAX_ENTRY_CHARS` | 500 | Per-entry size; oversized writes are rejected, not truncated |
+| `MEMORY_MAX_ENTRY_CHARS` | 1000 | Per-entry size; oversized writes are rejected, not truncated. The rejection, and a successful update that leaves an entry at 80%+ of the cap, tell the model to keep one topic per memory and `add` new facts (Oct 2026: at 500, 74 of 272 updates were rejected and catch-all rewrites dropped details) |
 | `MEMORY_WARNING_THRESHOLD` | 80% of max | Point at which the LLM is told to consolidate |
 | `MEMORY_MAX_OPS_PER_CALL` | 10 | Per-call write budget, bounding a mass rewrite |
 | `MEMORY_SOFT_DELETE_RETENTION_DAYS` | 7 | Recovery window for deleted memories |

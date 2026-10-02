@@ -456,7 +456,12 @@ class Config:
     # both what the LLM is told in the prompt and what add operations enforce.
     # Keeping one number avoids the LLM self-throttling at a limit the store
     # does not enforce (or vice versa).
-    MEMORY_MAX_ENTRY_CHARS: int = int(os.getenv("MEMORY_MAX_ENTRY_CHARS", "500"))
+    # Raised from 500 (Oct 2026): 74 of 272 updates hit the old cap and the
+    # forced rewrites silently dropped details
+    MEMORY_MAX_ENTRY_CHARS: int = int(os.getenv("MEMORY_MAX_ENTRY_CHARS", "1000"))
+    # An update leaving an entry at this share of the cap gets a nudge to save
+    # new topics as separate memories (catch-all memories were the lossy ones)
+    MEMORY_ENTRY_NEAR_LIMIT_RATIO = 0.8
     MEMORY_MAX_ENTRIES: int = int(os.getenv("MEMORY_MAX_ENTRIES", "200"))
     # Point at which the LLM is nudged to consolidate rather than keep adding.
     # Defaults to 80% of the cap so the two stay in step when the cap changes.
