@@ -1,0 +1,13 @@
+id: cz_date_weekday
+description: Date arithmetic from the supplied current date (sweep - users correct the day or year)
+user: "jaky den v tydnu bude za 10 dni? a kolik dni zbyva do Vanoc?"
+expect:
+  rubric: >
+    Today is {today_weekday} {today}. Answers in Czech that in 10 days it will
+    be {in_10_days_weekday} ({in_10_days}), and gives the number of days left
+    until Christmas Eve (24 December) of this year, or next year's if it has
+    passed - either 24 Dec or 25 Dec counts if stated. Weekday and day count
+    must be correct for today's date; an answer that hedges about not knowing
+    today's date fails.
+  forbidden_tools: [web_search, research, delegate_task]
+  max_tool_rounds: 1

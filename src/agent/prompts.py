@@ -296,7 +296,7 @@ def get_dynamic_prompt_parts(
     from datetime import datetime
 
     now = datetime.now().astimezone()
-    parts: list[str] = [f"Current date and time: {now.strftime('%Y-%m-%d %H:%M %Z')}"]
+    parts: list[str] = [f"Current date and time: {now.strftime('%A %Y-%m-%d %H:%M %Z')}"]
 
     user_context = get_user_context(user_name, user_id)
     if user_context:
@@ -375,7 +375,7 @@ def get_system_prompt(
 
     # Include timezone info using astimezone() to get local timezone
     now = datetime.now().astimezone()
-    date_context = f"\n\nCurrent date and time: {now.strftime('%Y-%m-%d %H:%M %Z')}"
+    date_context = f"\n\nCurrent date and time: {now.strftime('%A %Y-%m-%d %H:%M %Z')}"
 
     prompt = BASE_SYSTEM_PROMPT
 

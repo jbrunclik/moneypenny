@@ -5,6 +5,7 @@ Gemini API and happens via `make eval`, never in CI.
 """
 
 import json
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -48,6 +49,20 @@ expect:
         assert case.required_tools == ["research", "web_search"]
         assert case.forbidden_tools == []
         assert case.requires == []
+
+    def test_rubric_date_placeholders_resolved(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "dated.yaml",
+            "id: dated\nuser: hi\nexpect:\n"
+            "  rubric: Today is {today_weekday} {today}; in 10 days is {in_10_days_weekday}.\n",
+        )
+
+        rubric = load_cases(tmp_path)[0].rubric
+
+        today = date.today()
+        later = today + timedelta(days=10)
+        assert rubric == (f"Today is {today:%A} {today.isoformat()}; in 10 days is {later:%A}.")
 
     def test_missing_rubric_rejected(self, tmp_path: Path) -> None:
         _write_case(tmp_path, "bad.yaml", "id: bad\nuser: hi\nexpect: {}\n")

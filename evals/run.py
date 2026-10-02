@@ -108,7 +108,8 @@ class EvalCase:
 
 def _resolve_dates(value: Any) -> Any:
     """Replace {today}, {tomorrow}, {yesterday}, {in_N_days}, {N_days_ago}
-    placeholders in fixture strings, so date-relative fixtures stay valid."""
+    placeholders in fixture strings, so date-relative fixtures stay valid.
+    A `_weekday` suffix ({today_weekday}) gives the English weekday name."""
     from datetime import date, timedelta
 
     if isinstance(value, dict):
@@ -119,19 +120,26 @@ def _resolve_dates(value: Any) -> Any:
         return value
     today = date.today()
 
+    def resolve(placeholder: str) -> date | None:
+        if placeholder == "today":
+            return today
+        if placeholder == "tomorrow":
+            return today + timedelta(days=1)
+        if placeholder == "yesterday":
+            return today - timedelta(days=1)
+        if m := re.fullmatch(r"in_(\d+)_days", placeholder):
+            return today + timedelta(days=int(m.group(1)))
+        if m := re.fullmatch(r"(\d+)_days_ago", placeholder):
+            return today - timedelta(days=int(m.group(1)))
+        return None
+
     def sub(match: re.Match[str]) -> str:
         placeholder = match.group(1)
-        if placeholder == "today":
-            return today.isoformat()
-        if placeholder == "tomorrow":
-            return (today + timedelta(days=1)).isoformat()
-        if placeholder == "yesterday":
-            return (today - timedelta(days=1)).isoformat()
-        if m := re.fullmatch(r"in_(\d+)_days", placeholder):
-            return (today + timedelta(days=int(m.group(1)))).isoformat()
-        if m := re.fullmatch(r"(\d+)_days_ago", placeholder):
-            return (today - timedelta(days=int(m.group(1)))).isoformat()
-        return match.group(0)
+        weekday = placeholder.endswith("_weekday")
+        day = resolve(placeholder.removesuffix("_weekday"))
+        if day is None:
+            return match.group(0)
+        return day.strftime("%A") if weekday else day.isoformat()
 
     return re.sub(r"\{([a-z0-9_]+)\}", sub, value)
 
@@ -150,7 +158,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 description=str(data.get("description", "")),
                 user=str(data["user"]),
                 requires=list(data.get("requires") or []),
-                rubric=str(expect["rubric"]),
+                rubric=_resolve_dates(str(expect["rubric"])),
                 required_tools=list(expect.get("required_tools") or []),
                 forbidden_tools=list(expect.get("forbidden_tools") or []),
                 max_tool_rounds=int(expect.get("max_tool_rounds") or 0),

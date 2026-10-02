@@ -1,0 +1,12 @@
+id: cz_date_recent_event
+description: An event after the training cutoff but before today is in the past (sweep - "it's not 2024")
+user: "jak dopadlo mistrovstvi sveta v hokeji 2026?"
+expect:
+  rubric: >
+    Today is {today}. The 2026 Ice Hockey World Championship (May 2026) is in
+    the past. The answer looks it up and reports the result in Czech (who won
+    the final, ideally how Czechia did). It fails if it says the tournament
+    has not happened yet, is in the future, or answers about a different
+    year's championship.
+  required_tools: [research, web_search, fetch_url]
+  forbidden_tools: [delegate_task]
