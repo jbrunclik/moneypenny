@@ -38,6 +38,7 @@ import { renderChatHeader } from '../components/ChatHeader';
 import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
+import { selectConversation } from './conversation';
 import { APP_NAME, COMMAND_CENTER_CACHE_MS } from '../config';
 
 const log = createLogger('agents');
@@ -278,9 +279,6 @@ async function handleAgentSelect(agentId: string): Promise<void> {
   try {
     const agent = await agents.get(agentId);
     if (agent.conversation_id) {
-      // Import selectConversation to navigate to the agent's conversation
-      // dynamic: breaks import cycle (conversation.ts statically imports agents.ts)
-      const { selectConversation } = await import('./conversation');
       await selectConversation(agent.conversation_id);
     } else {
       toast.error('Agent has no conversation.');
