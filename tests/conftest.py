@@ -24,6 +24,9 @@ os.environ["ALLOWED_EMAILS"] = "test@example.com,allowed@example.com"
 # The db.add_message embedding hook must never call the live embedding API
 # from tests; hook tests opt back in via monkeypatch on Config.
 os.environ["EMBEDDINGS_ENABLED"] = "false"
+# The post-answer grounding check must never call the live API from tests;
+# its own tests opt back in via monkeypatch on Config.
+os.environ["GROUNDING_CHECK_ENABLED"] = "false"
 
 
 # -----------------------------------------------------------------------------

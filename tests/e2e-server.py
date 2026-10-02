@@ -39,6 +39,9 @@ os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-e2e-testing"
 os.environ["ALLOWED_EMAILS"] = "*"  # Allow all emails in E2E tests
 os.environ["LOG_LEVEL"] = "WARNING"  # Reduce noise during E2E tests
+# The post-answer grounding check must never call the live API from tests;
+# its own tests opt back in via monkeypatch on Config.
+os.environ["GROUNDING_CHECK_ENABLED"] = "false"
 os.environ["EMBEDDINGS_ENABLED"] = "false"  # No live embedding calls from E2E
 os.environ["RATE_LIMITING_ENABLED"] = "false"  # Disable rate limiting for parallel tests
 

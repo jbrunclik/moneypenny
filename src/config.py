@@ -395,6 +395,18 @@ class Config:
     # Model for delegate_task subagents (context-isolated research runs).
     # `or` (not a getenv default): a copied .env.example sets it to "".
     DELEGATE_MODEL: str = os.getenv("DELEGATE_MODEL") or DEFAULT_MODEL
+    # Post-answer grounding check (src/agent/grounding_check.py): after a turn
+    # that used web tools, a cheap model lists answer specifics the turn's
+    # sources don't support, and a one-line note names them.
+    GROUNDING_CHECK_ENABLED: bool = os.getenv("GROUNDING_CHECK_ENABLED", "true").lower() == "true"
+    GROUNDING_CHECK_MODEL: str = os.getenv("GROUNDING_CHECK_MODEL") or "gemini-3.5-flash-lite"
+    GROUNDING_CHECK_MAX_SOURCE_CHARS: int = int(
+        os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")
+    )
+    GROUNDING_CHECK_MAX_ITEMS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEMS", "5"))
+    GROUNDING_CHECK_TIMEOUT_SECONDS: float = float(
+        os.getenv("GROUNDING_CHECK_TIMEOUT_SECONDS", "8")
+    )
 
     # Judge model for the eval harness (evals/run.py, `make eval`). Pro by
     # default: judging quality matters more than judge cost (a few calls/run).
