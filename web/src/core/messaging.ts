@@ -7,7 +7,7 @@
  */
 
 import { useStore } from '../state/store';
-import { SEND_AUTO_RETRY_DELAY_MS } from '../config';
+import { SEND_AUTO_RETRY_DELAY_MS, SEND_CONFLICT_REPLY_POLL_DELAYS_MS } from '../config';
 import { createLogger } from '../utils/logger';
 import { conversations } from '../api/conversations';
 import { ApiError } from '../api/http';
@@ -415,16 +415,18 @@ function toastSendError(error: unknown): void {
  */
 async function handleSendFailure(convId: string, messageId: string, error: unknown): Promise<void> {
   log.error('Failed to send message', { error, conversationId: convId, messageId });
-  hideLoadingIndicator();
 
-  // 409 CONFLICT: a previous attempt already delivered this message. Confirm
-  // locally and refetch so the assistant response (if any) appears.
+  // 409 CONFLICT: a previous attempt already delivered this message, and its
+  // turn may still be running. Confirm locally and keep the spinner up until
+  // the reply appears.
   if (error instanceof ApiError && error.status === 409) {
     log.info('Send already delivered (409), reconciling', { conversationId: convId, messageId });
     confirmDelivery(convId, messageId);
-    await refreshConversationMessages(convId);
+    await waitForReconciledReply(convId, messageId);
+    hideLoadingIndicator();
     return;
   }
+  hideLoadingIndicator();
 
   if (error instanceof Error && error.name === 'AbortError') {
     markSendFailed(convId, messageId);
@@ -453,10 +455,24 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
 }
 
 /**
- * Refetch a conversation's messages from the server and re-render if it is
- * still the current conversation. Used after a 409 reconcile.
+ * Refetch until the server has a reply to `messageId`, or the poll schedule
+ * runs out (the next sync then picks the reply up).
  */
-async function refreshConversationMessages(convId: string): Promise<void> {
+async function waitForReconciledReply(convId: string, messageId: string): Promise<void> {
+  if (await refreshConversationMessages(convId, messageId)) return;
+  for (const delayMs of SEND_CONFLICT_REPLY_POLL_DELAYS_MS) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (await refreshConversationMessages(convId, messageId)) return;
+  }
+  log.warn('No reply after 409 reconcile', { conversationId: convId, messageId });
+}
+
+/**
+ * Refetch a conversation's messages from the server and re-render if it is
+ * still the current conversation. Used after a 409 reconcile. Returns whether
+ * an assistant reply follows `messageId`.
+ */
+async function refreshConversationMessages(convId: string, messageId: string): Promise<boolean> {
   try {
     const response = await conversations.get(convId);
     const merged = reconcileOutboxWithServer(convId, response.messages);
@@ -464,7 +480,10 @@ async function refreshConversationMessages(convId: string): Promise<void> {
     if (useStore.getState().currentConversation?.id === convId) {
       renderMessages(merged, { hasPendingApproval: response.has_pending_approval });
     }
+    const sentAt = merged.findIndex((m) => m.id === messageId);
+    return sentAt >= 0 && merged.slice(sentAt + 1).some((m) => m.role === 'assistant');
   } catch (refreshError) {
     log.warn('Failed to refresh conversation after reconcile', { refreshError, conversationId: convId });
+    return false;
   }
 }

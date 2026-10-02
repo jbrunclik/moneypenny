@@ -144,6 +144,8 @@ import { sendMessage } from '@/core/messaging';
 import { chat } from '@/api/chat';
 import { conversations } from '@/api/conversations';
 import { toast } from '@/components/Toast';
+import { hideLoadingIndicator } from '@/components/messages';
+import { ApiError } from '@/api/http';
 
 const CONV_ID = 'conv-1';
 
@@ -310,6 +312,38 @@ describe('messaging keeps the store authoritative', () => {
     const assistants = assistantMessages();
     expect(assistants).toHaveLength(1);
     expect(assistants[0]).toMatchObject({ role: 'assistant', ...DONE_FIELDS, stopped_early: false });
+  });
+
+  it('keeps waiting after a 409 until the original turn saves its reply', async () => {
+    // The first attempt landed and is still running server-side; the retry
+    // got 409. One refetch right away finds no reply yet - the user must not
+    // be left looking at their message with no reply and no spinner.
+    vi.useFakeTimers();
+    try {
+      useStore.setState({ streamingEnabled: false });
+      vi.mocked(chat.sendBatch).mockRejectedValue(new ApiError('Already received', 409));
+      const userOnly = () => useStore.getState().getMessages(CONV_ID).filter((m) => m.role === 'user');
+      const reply = { id: 'assistant-9', role: 'assistant', content: 'Done', created_at: '2024-01-01T00:00:09Z' };
+      const page = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 2 };
+      vi.mocked(conversations.get)
+        .mockImplementationOnce(async () => ({ ...conversation(), messages: userOnly(), message_pagination: page }) as never)
+        .mockImplementation(
+          async () => ({ ...conversation(), messages: [...userOnly(), reply], message_pagination: page }) as never
+        );
+
+      const sent = sendMessage();
+      await vi.runAllTimersAsync();
+      await sent;
+
+      expect(conversations.get).toHaveBeenCalledTimes(2);
+      expect(assistantMessages()).toEqual([expect.objectContaining({ id: 'assistant-9' })]);
+      // The spinner went away only once the reply was there
+      const hideOrder = vi.mocked(hideLoadingIndicator).mock.invocationCallOrder.at(-1) ?? 0;
+      const lastGet = vi.mocked(conversations.get).mock.invocationCallOrder.at(-1) ?? 0;
+      expect(hideOrder).toBeGreaterThan(lastGet);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('appends the batch reply even when the user switched away', async () => {

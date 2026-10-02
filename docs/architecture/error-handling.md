@@ -137,7 +137,10 @@ outbox:
    or `sendBatchMessage()` ([batch-send.ts](../../web/src/core/batch-send.ts)); both
    re-throw failures to it.
 2. `handleSendFailure()` classifies the error: a **409** means an earlier attempt already
-   landed (`client_message_id` dedupe) - confirm delivery and refetch; an abort marks the
+   landed (`client_message_id` dedupe) - confirm delivery and keep refetching on
+   `SEND_CONFLICT_REPLY_POLL_DELAYS_MS` (spinner up) until a reply follows the message.
+   The original turn is often still running: a single refetch left the message with no
+   reply and no spinner, and users resent it (Oct 2026 log check); an abort marks the
    message failed; a transient network error or connect timeout gets **one silent
    auto-retry** after `SEND_AUTO_RETRY_DELAY_MS`; anything else calls `markSendFailed()`
    ([send-delivery.ts](../../web/src/core/send-delivery.ts)) and toasts.

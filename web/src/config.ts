@@ -54,6 +54,16 @@ export const API_CHAT_CONNECT_TIMEOUT_MS = 30 * MS_PER_SECOND;
 /** Delay before the single automatic retry of a transient send failure */
 export const SEND_AUTO_RETRY_DELAY_MS = 2 * MS_PER_SECOND;
 
+/**
+ * Refetch schedule after a send's 409 ("already received"): the first attempt
+ * landed and its turn may still be running, so keep looking for the reply
+ * (about 3 min in total) instead of refetching once and leaving the message
+ * unanswered - users resent it.
+ */
+export const SEND_CONFLICT_REPLY_POLL_DELAYS_MS = [
+  1_000, 2_000, 3_000, 5_000, 5_000, 10_000, 10_000, 10_000, 15_000, 15_000, 15_000, 30_000, 30_000, 30_000,
+];
+
 /** Debounce for persisting the composer draft while typing */
 export const DRAFT_SAVE_DEBOUNCE_MS = 300;
 
