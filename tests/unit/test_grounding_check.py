@@ -10,7 +10,6 @@ from src.agent import grounding_check
 from src.agent.grounding_check import (
     GroundingVerdict,
     UnverifiedItem,
-    append_unverified_note,
     collect_web_sources,
     find_unverified,
 )
@@ -57,26 +56,6 @@ class TestCollectWebSources:
         sources = collect_web_sources([_tool("research", "x" * 500)], 100)
 
         assert sources == "x" * 100
-
-
-class TestAppendUnverifiedNote:
-    def test_no_items_leaves_answer_unchanged(self) -> None:
-        assert append_unverified_note("Answer.", [], "cs") == "Answer."
-
-    def test_czech_note(self) -> None:
-        result = append_unverified_note("Odpověď.\n", ["VeloRama", "12 990 Kč"], "cs")
-
-        assert result == (
-            "Odpověď.\n\n_Neověřeno ve zdrojích, které jsem teď četl: VeloRama, 12 990 Kč._"
-        )
-
-    def test_english_note_for_other_and_unknown_languages(self) -> None:
-        for language in ("en", "de", None):
-            result = append_unverified_note("Answer.", ["VeloRama"], language)
-
-            assert result == (
-                "Answer.\n\n_Not confirmed in the sources I read for this answer: VeloRama._"
-            )
 
 
 def _verdict(*items: tuple[str, str]) -> GroundingVerdict:

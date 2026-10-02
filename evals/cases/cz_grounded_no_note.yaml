@@ -1,12 +1,11 @@
 id: cz_grounded_no_note
-description: Grounding-check precision - a fully sourced answer gets no "not confirmed" note
+description: Grounding-check precision - a fully sourced answer gets no "unverified" markers
 user: "jaky je dnes kurz eura podle CNB?"
 expect:
   rubric: >
     Gives today's (or the latest published) Czech National Bank EUR/CZK rate,
-    taken from a source it read this turn. It FAILS if the answer ends with a
-    "Neověřeno ve zdrojích..." or "Not confirmed in the sources..." note: a
-    single rate read from the CNB page is fully supported, so such a note is a
-    false flag.
+    taken from a source it read this turn. It FAILS if any part of the answer
+    carries a "_(neověřeno)_" or "_(unverified)_" marker: a single rate read
+    from the CNB page is fully supported, so any marker is a false flag.
   required_tools: [research, web_search, fetch_url]
   forbidden_tools: [delegate_task]

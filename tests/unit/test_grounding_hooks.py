@@ -17,18 +17,25 @@ _ANSWER = "Buy it at VeloRama, it is a good shop."
 @pytest.fixture
 def flag(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     monkeypatch.setattr(Config, "GROUNDING_CHECK_ENABLED", True)
-    fake = MagicMock(return_value=GroundingResult(items=["VeloRama"], kinds=["shop"], usage=_USAGE))
+    fake = MagicMock(
+        return_value=GroundingResult(
+            items=["VeloRama"],
+            kinds=["shop"],
+            false_claims=["it is a good shop."],
+            usage=_USAGE,
+        )
+    )
     monkeypatch.setattr(grounding_check, "find_unverified", fake)
     return fake
 
 
 class TestApplyGrounding:
-    def test_appends_note_and_records_usage(self, flag: MagicMock) -> None:
+    def test_marks_in_place_and_records_usage(self, flag: MagicMock) -> None:
         usage_info: dict[str, Any] = {"input_tokens": 1}
 
         text = apply_grounding(_ANSWER, [], usage_info)
 
-        assert text.endswith("_Not confirmed in the sources I read for this answer: VeloRama._")
+        assert text == "Buy it at VeloRama _(unverified)_, it is a good shop. _(unverified)_"
         assert usage_info["grounding_usage"] == _USAGE
 
     def test_nothing_flagged_leaves_text_and_usage(self, flag: MagicMock) -> None:
@@ -55,7 +62,7 @@ class TestAgentHooks:
         agent._build_messages = MagicMock(return_value=[])  # type: ignore[method-assign]
         return agent
 
-    def test_batch_answer_carries_the_note(self, flag: MagicMock) -> None:
+    def test_batch_answer_carries_the_markers(self, flag: MagicMock) -> None:
         agent = self._agent()
         agent.graph.invoke.return_value = {
             "messages": [
@@ -66,10 +73,10 @@ class TestAgentHooks:
 
         response, _tools, usage_info, _msgs = agent.chat_batch(text="where?")
 
-        assert response.endswith("VeloRama._")
+        assert response.startswith("Buy it at VeloRama _(unverified)_,")
         assert usage_info["grounding_usage"] == _USAGE
 
-    def test_stream_final_carries_the_note(self, flag: MagicMock) -> None:
+    def test_stream_final_carries_the_markers(self, flag: MagicMock) -> None:
         agent = self._agent()
         events = [
             (
@@ -82,5 +89,5 @@ class TestAgentHooks:
 
         final = [e for e in agent.stream_chat_events(text="where?") if e["type"] == "final"][0]
 
-        assert final["content"].endswith("VeloRama._")
+        assert final["content"].startswith("Buy it at VeloRama _(unverified)_,")
         assert final["usage_info"]["grounding_usage"] == _USAGE

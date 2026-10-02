@@ -3,8 +3,8 @@
 The Sep 2026 conversation sweep's most common correction was stale or invented
 specifics, and prompt rules (GROUNDING_DIRECTIVE, the unverified-specifics rule)
 were measured to have no effect. So after a turn that used web tools, a cheap
-model compares the answer with what the turn actually read, and a one-line note
-names the specifics the sources don't support. See
+model compares the answer with what the turn actually read, and the specifics
+the sources don't support are marked in place (src/agent/grounding_markers.py). See
 docs/superpowers/specs/2026-10-02-grounding-check-design.md.
 """
 
@@ -22,6 +22,7 @@ from src.agent.content import (
     extract_text_content,
     strip_echoed_msg_context,
 )
+from src.agent.grounding_markers import mark_unverified
 from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
 from src.config import Config
 from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
@@ -32,11 +33,6 @@ logger = get_logger(__name__)
 WEB_TOOL_NAMES = frozenset({"research", "web_search", "fetch_url", "browser"})
 
 _SOURCE_SEPARATOR = "\n\n---\n\n"
-
-_NOTE_TEMPLATES = {
-    "cs": "_Neověřeno ve zdrojích, které jsem teď četl: {items}._",
-    "en": "_Not confirmed in the sources I read for this answer: {items}._",
-}
 
 
 class UnverifiedItem(BaseModel):
@@ -88,14 +84,6 @@ def collect_web_sources(result_messages: list[BaseMessage], max_chars: int) -> s
         parts.append(text[:remaining])
         total += len(parts[-1])
     return _SOURCE_SEPARATOR.join(reversed(parts))
-
-
-def append_unverified_note(answer: str, items: list[str], language: str | None) -> str:
-    """The answer plus a one-line note naming unverified items (none: unchanged)."""
-    if not items:
-        return answer
-    template = _NOTE_TEMPLATES.get(language or "", _NOTE_TEMPLATES["en"])
-    return f"{answer.rstrip()}\n\n{template.format(items=', '.join(items))}"
 
 
 # The user's message is context, not evidence of a web fact; a cap keeps a
@@ -228,7 +216,7 @@ def apply_grounding(
     usage_info: dict[str, Any],
     stop_reason: str | None = None,
 ) -> str:
-    """The answer with an unverified-specifics note if needed; records verifier usage.
+    """The answer with unverified specifics marked in place; records verifier usage.
 
     Called by ChatAgent for both batch and streamed turns so evals see exactly
     what users see. `find_unverified` is looked up on the module at call time,
@@ -237,4 +225,5 @@ def apply_grounding(
     result = find_unverified(answer, result_messages, stop_reason)
     if result.usage:
         usage_info["grounding_usage"] = result.usage
-    return append_unverified_note(answer, result.items, detect_response_language(answer))
+    language = detect_response_language(answer)
+    return mark_unverified(answer, result.items, result.false_claims, language)
