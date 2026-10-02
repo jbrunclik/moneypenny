@@ -199,7 +199,47 @@ describe('Toast - Component', () => {
     expect(store.getState().notifications[0].duration).toBe(5000);
   });
 
-  it('uses persistent duration (0) for toasts with actions', async () => {
+  it('keeps warning toasts with actions persistent', async () => {
+    const { useStore: store } = await import('@/state/store');
+    const { initToast, showToast } = await import('@/components/Toast');
+    initToast();
+
+    showToast({
+      type: 'warning',
+      message: 'Something needs you',
+      action: { label: 'Fix', onClick: () => {} },
+    });
+
+    expect(store.getState().notifications[0].duration).toBe(0);
+  });
+
+  it('auto-hides success and info toasts with actions after the action duration', async () => {
+    const { useStore: store } = await import('@/state/store');
+    const { initToast, showToast } = await import('@/components/Toast');
+    const { TOAST_ACTION_DURATION_MS } = await import('@/config');
+    initToast();
+
+    showToast({ type: 'success', message: 'Moved to trash.', action: { label: 'Undo', onClick: () => {} } });
+    showToast({ type: 'info', message: 'Heads up', action: { label: 'Open', onClick: () => {} } });
+
+    const durations = store.getState().notifications.map((n) => n.duration);
+    expect(durations).toEqual([TOAST_ACTION_DURATION_MS, TOAST_ACTION_DURATION_MS]);
+    expect(TOAST_ACTION_DURATION_MS).toBe(8000);
+  });
+
+  it('dismisses an Undo toast on its own', async () => {
+    const { useStore: store } = await import('@/state/store');
+    const { initToast, toast } = await import('@/components/Toast');
+    const { TOAST_ACTION_DURATION_MS, TOAST_EXIT_ANIMATION_MS } = await import('@/config');
+    initToast();
+
+    toast.success('Conversation archived.', { action: { label: 'Undo', onClick: () => {} } });
+    vi.advanceTimersByTime(TOAST_ACTION_DURATION_MS + TOAST_EXIT_ANIMATION_MS);
+
+    expect(store.getState().notifications).toHaveLength(0);
+  });
+
+  it('uses persistent duration (0) for error toasts with actions', async () => {
     const { useStore: store } = await import('@/state/store');
     const { initToast, showToast } = await import('@/components/Toast');
     initToast();

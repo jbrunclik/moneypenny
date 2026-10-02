@@ -284,6 +284,13 @@ export const SMOOTH_SCROLL_DISTANCE_FACTOR = 0.5;
 /** Default toast notification display duration */
 export const TOAST_DEFAULT_DURATION_MS = 5 * MS_PER_SECOND;
 
+/**
+ * Display duration for success/info toasts that carry an action (e.g. Undo):
+ * long enough to reach the button, short enough not to pile up. Error and
+ * warning toasts with an action stay until dismissed - they need the user.
+ */
+export const TOAST_ACTION_DURATION_MS = 8 * MS_PER_SECOND;
+
 /** Toast exit animation duration */
 export const TOAST_EXIT_ANIMATION_MS = 200;
 

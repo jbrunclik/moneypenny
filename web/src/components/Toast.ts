@@ -22,6 +22,7 @@ import type { Notification } from '../state/slices/ui';
 import { hapticError } from '../utils/haptics';
 import { escapeHtml } from '../utils/dom';
 import { CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
+import { TOAST_ACTION_DURATION_MS } from '../config';
 
 // Re-export types for convenience
 export type { Notification } from '../state/slices/ui';
@@ -84,6 +85,19 @@ function cleanupToastTimeouts(): void {
 }
 
 /**
+ * How long a toast stays when the caller doesn't say.
+ *
+ * A problem that offers a fix (error/warning + Retry/Refresh) stays until
+ * dismissed - the user still needs to act. A confirmation that offers an
+ * optional action (success/info + Undo) auto-hides, just a bit later than
+ * a plain toast so the button is reachable.
+ */
+function defaultDuration(type: Notification['type'], hasAction: boolean): number {
+  if (!hasAction) return DEFAULT_DURATION;
+  return type === 'error' || type === 'warning' ? 0 : TOAST_ACTION_DURATION_MS;
+}
+
+/**
  * Show a toast notification.
  */
 export function showToast(options: {
@@ -93,7 +107,7 @@ export function showToast(options: {
   duration?: number;
 }): string {
   const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-  const duration = options.duration ?? (options.action ? 0 : DEFAULT_DURATION);
+  const duration = options.duration ?? defaultDuration(options.type, options.action !== undefined);
 
   // Errors are rare and important - back them with a haptic buzz
   if (options.type === 'error') hapticError();

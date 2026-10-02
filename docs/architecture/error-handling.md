@@ -63,7 +63,12 @@ toast.info('Processing...');
 ```
 
 - Auto-dismiss after 5 seconds by default
-- Persistent if action button is provided
+- With an action button, the type decides: **error/warning** toasts (Retry,
+  Refresh, Reload) stay until dismissed - something is still broken and needs
+  the user. **success/info** toasts (Undo) auto-hide after
+  `TOAST_ACTION_DURATION_MS` (8 s) - the action is optional and must not pile up
+- An explicit `duration` always wins (`0` = persistent, e.g. offline warning,
+  loading toasts that the caller dismisses itself)
 - Top-center positioning (doesn't interfere with input)
 
 ### Modal Dialogs
