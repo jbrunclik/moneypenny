@@ -88,6 +88,7 @@ import { navigateToLanguage, navigateToLanguageProgram } from './language';
 import { navigateToAgents, initAgents } from './agents';
 import { navigateToStorage } from './kv-store';
 import { showNewMessagesAvailableBanner } from './sync-banner';
+import { installAvatarFallback } from '../utils/avatar';
 
 const log = createLogger('init');
 
@@ -461,6 +462,9 @@ export async function init(): Promise<void> {
 
   const app = getElementById<HTMLDivElement>('app');
   if (!app) return;
+
+  // Before any avatar renders: a dead Google photo URL falls back to initials
+  installAvatarFallback();
 
   // Render app shell
   app.innerHTML = renderAppShell();

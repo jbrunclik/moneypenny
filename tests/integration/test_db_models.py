@@ -43,6 +43,27 @@ class TestUserOperations:
         assert user1.id == user2.id
         assert user2.name == "First Name"  # Original name preserved
 
+    def test_refresh_google_profile_updates_changed_fields(self, test_database: Database) -> None:
+        user = test_database.get_or_create_user("a@example.com", "Old", "https://x/old.jpg")
+
+        refreshed = test_database.refresh_google_profile(user, "New", "https://x/new.jpg")
+
+        assert (refreshed.name, refreshed.picture) == ("New", "https://x/new.jpg")
+        stored = test_database.get_user_by_id(user.id)
+        assert stored is not None
+        assert (stored.name, stored.picture) == ("New", "https://x/new.jpg")
+
+    def test_refresh_google_profile_keeps_values_google_did_not_send(
+        self, test_database: Database
+    ) -> None:
+        """No picture in the token, or the email standing in for a missing
+        name, must not wipe what is stored."""
+        user = test_database.get_or_create_user("a@example.com", "Real Name", "https://x/p.jpg")
+
+        refreshed = test_database.refresh_google_profile(user, "a@example.com", None)
+
+        assert (refreshed.name, refreshed.picture) == ("Real Name", "https://x/p.jpg")
+
     def test_get_user_by_id(self, test_database: Database, test_user: User) -> None:
         """Should find user by ID."""
         found_user = test_database.get_user_by_id(test_user.id)

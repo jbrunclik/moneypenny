@@ -71,6 +71,10 @@ def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
         name=user_info.get("name", email),
         picture=user_info.get("picture"),
     )
+    # get_or_create_user keeps a stored row as is; pick up a changed photo/name
+    user = db.refresh_google_profile(
+        user, name=user_info.get("name", email), picture=user_info.get("picture")
+    )
 
     # Generate JWT token
     token = create_token(user)

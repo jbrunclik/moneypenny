@@ -48,6 +48,27 @@ class TestGoogleAuthRoute:
         data = json.loads(response.data)
         assert data["user"]["id"] == test_user.id
 
+    def test_login_refreshes_a_changed_google_profile(
+        self,
+        client: FlaskClient,
+        mock_google_tokeninfo: MagicMock,
+        test_database,
+    ) -> None:
+        """The avatar and name were stored once at first login and never
+        refreshed; a fresh Google login must pick up a new photo/name."""
+        test_database.get_or_create_user(
+            email="test@example.com", name="Old Name", picture="https://example.com/old.jpg"
+        )
+
+        response = client.post("/auth/google", json={"credential": "valid-google-token"})
+
+        data = json.loads(response.data)
+        assert data["user"]["picture"] == "https://example.com/pic.jpg"
+        assert data["user"]["name"] == "Test User"
+        stored = test_database.get_user_by_id(data["user"]["id"])
+        assert stored.picture == "https://example.com/pic.jpg"
+        assert stored.name == "Test User"
+
     def test_missing_token(self, client: FlaskClient) -> None:
         """Should return 400 when token is missing."""
         response = client.post("/auth/google", json={})

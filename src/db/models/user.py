@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from dataclasses import replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -158,6 +159,27 @@ class UserMixin:
                 raise RuntimeError(f"User with email {email} should exist but was not found")
             logger.debug("User found", extra={"user_id": row["id"], "email": email})
             return self._row_to_user(row)
+
+    def refresh_google_profile(self, user: User, name: str, picture: str | None) -> User:
+        """Store the name and avatar from a fresh Google login if they changed.
+
+        Both were written once at first login and never refreshed. Values
+        Google did not send are kept: a missing picture, or the email the
+        login route substitutes for a missing name.
+        """
+        new_name = name if name and name != user.email else user.name
+        new_picture = picture or user.picture
+        if (new_name, new_picture) == (user.name, user.picture):
+            return user
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "UPDATE users SET name = ?, picture = ? WHERE id = ?",
+                (new_name, new_picture, user.id),
+            )
+            conn.commit()
+        logger.info("Google profile refreshed", extra={"user_id": user.id})
+        return replace(user, name=new_name, picture=new_picture)
 
     def get_user_by_id(self, user_id: str) -> User | None:
         """Get a user by their ID."""
