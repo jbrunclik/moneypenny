@@ -36,6 +36,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Chat & UI
 
+- [ ] **Retrying a failed send drops its attachments** (Oct 2 2026, reported) - Retry on a failed message resends the text but not the files. Seam: `web/src/core/outbox.ts`. Attachments survive only in memory (`sessionFiles`), and are persisted for reload only under `OUTBOX_PERSIST_MAX_FILE_CHARS` and when localStorage has quota (`writeStore` strips them otherwise, setting `filesDropped`). Reproduce first: in-session retry vs. retry after reload vs. large files. Then fix the in-session path. For the persisted case, choose between storing attachments in IndexedDB and telling the user to re-attach (`filesDropped` is set but not surfaced).
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
 - [ ] **Mermaid diagrams in markdown** (Sep 30 2026 Desktop-parity review) - render ```` ```mermaid ```` blocks client-side, lazy-loaded as its own vendor chunk like KaTeX; fall back to the code block on parse errors; theme for light/dark.
 - [ ] **Export conversation as Markdown** (Aug 2026 UX batch) - per-conversation action (action sheet / chat header) downloading the full history as .md: titles, roles, timestamps, code blocks preserved; attachments referenced by filename.
