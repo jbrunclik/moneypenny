@@ -177,6 +177,46 @@ class TestFindUnverified:
         assert result.items == []
         assert result.usage is None
 
+    def test_keeps_literal_false_claims_capped(
+        self, fake_verifier: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_FALSE_CLAIMS", 1)
+        answer = _ANSWER + " Ceny jsem ověřil na webu VeloRama. Sklad potvrzen."
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[],
+                false_claims=[
+                    "Ceny jsem ověřil na webu VeloRama.",
+                    "Sklad potvrzen.",
+                    "A claim the answer never made.",
+                ],
+            ),
+            _USAGE,
+        )
+
+        result = find_unverified(answer, _WEB_TURN)
+
+        assert result.false_claims == ["Ceny jsem ověřil na webu VeloRama."]
+
+    def test_drops_false_claims_not_in_the_answer(self, fake_verifier: MagicMock) -> None:
+        fake_verifier.return_value = (
+            GroundingVerdict(unsupported=[], false_claims=["Invented sentence."]),
+            _USAGE,
+        )
+
+        assert find_unverified(_ANSWER, _WEB_TURN).false_claims == []
+
+    def test_drops_items_over_the_length_cap(
+        self, fake_verifier: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A whole sentence came back as an "item" in a live probe (Oct 2026);
+        # only false_claims may be sentences
+        monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_ITEM_CHARS", 20)
+        long_item = "Brompton koupíte u Bike Prague (32 990 Kč)"
+        fake_verifier.return_value = (_verdict((long_item, "other"), ("VeloRama", "shop")), _USAGE)
+
+        assert find_unverified(_ANSWER, _WEB_TURN).items == ["VeloRama"]
+
     def test_schema_miss_keeps_usage(self, fake_verifier: MagicMock) -> None:
         usage = {"model": "m", "input_tokens": 900, "output_tokens": 5, "cached_input_tokens": 0}
         fake_verifier.return_value = (None, usage)

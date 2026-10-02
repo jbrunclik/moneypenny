@@ -14,7 +14,9 @@ Do NOT list:
 - anything the ANSWER already marks as unverified, approximate or an estimate
 - a specific the SOURCES state in other words, other formatting or another language
 
-When unsure, do not list it. Copy each item exactly as it is written in the ANSWER.
+Also list, as false_claims, every sentence in which the ANSWER says it verified, checked or confirmed something that the SOURCES do not support. Copy the whole sentence exactly as written.
+
+When unsure, do not list it. Copy each item exactly as it is written in the ANSWER; an item is a name, price, date or figure, never a whole sentence.
 Return an empty list when everything is supported.
 
 KNOWN (always supported - never list these):

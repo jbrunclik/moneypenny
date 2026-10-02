@@ -411,6 +411,10 @@ class Config:
         os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")
     )
     GROUNDING_CHECK_MAX_ITEMS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEMS", "8"))
+    GROUNDING_CHECK_MAX_FALSE_CLAIMS: int = int(os.getenv("GROUNDING_CHECK_MAX_FALSE_CLAIMS", "3"))
+    # Items are names/prices/dates; anything longer is a sentence the verifier
+    # mis-filed (only false claims may be sentences)
+    GROUNDING_CHECK_MAX_ITEM_CHARS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEM_CHARS", "80"))
     GROUNDING_CHECK_TIMEOUT_SECONDS: float = float(
         os.getenv("GROUNDING_CHECK_TIMEOUT_SECONDS", "10")
     )

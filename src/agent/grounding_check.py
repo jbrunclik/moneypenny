@@ -50,14 +50,20 @@ class GroundingVerdict(BaseModel):
     """The verifier's structured output."""
 
     unsupported: list[UnverifiedItem] = Field(default_factory=list)
+    false_claims: list[str] = Field(
+        default_factory=list,
+        description="Sentences, exactly as written, where the answer claims it verified "
+        "something the sources do not support",
+    )
 
 
 @dataclass
 class GroundingResult:
-    """Items to name in the note, their kinds (logged only), and verifier usage."""
+    """Items and false claims to mark, item kinds (logged only), and verifier usage."""
 
     items: list[str] = field(default_factory=list)
     kinds: list[str] = field(default_factory=list)
+    false_claims: list[str] = field(default_factory=list)
     usage: dict[str, Any] | None = None
 
 
@@ -145,22 +151,39 @@ def _run_verifier(
     return (parsed if isinstance(parsed, GroundingVerdict) else None), usage
 
 
-def _keep_items(verdict: GroundingVerdict | None, answer: str) -> tuple[list[str], list[str]]:
-    """Items that literally appear in the answer, de-duplicated, capped."""
-    if verdict is None:
-        return [], []
+def _literal(texts: list[str], answer: str, cap: int, max_chars: int | None = None) -> list[int]:
+    """Indexes of texts that appear literally in the answer, de-duplicated, capped."""
     haystack = answer.casefold()
-    items: list[str] = []
-    kinds: list[str] = []
-    for item in verdict.unsupported:
-        text = item.text.strip()
-        if not text or text.casefold() not in haystack or text in items:
+    kept: list[int] = []
+    seen: set[str] = set()
+    for index, raw in enumerate(texts):
+        text = raw.strip()
+        if not text or text in seen or text.casefold() not in haystack:
             continue
-        items.append(text)
-        kinds.append(item.kind)
-        if len(items) >= Config.GROUNDING_CHECK_MAX_ITEMS:
+        if max_chars is not None and len(text) > max_chars:
+            continue
+        seen.add(text)
+        kept.append(index)
+        if len(kept) >= cap:
             break
-    return items, kinds
+    return kept
+
+
+def _keep(verdict: GroundingVerdict | None, answer: str) -> tuple[list[str], list[str], list[str]]:
+    """(items, kinds, false_claims) that may be marked in the answer."""
+    if verdict is None:
+        return [], [], []
+    texts = [item.text for item in verdict.unsupported]
+    idx = _literal(
+        texts, answer, Config.GROUNDING_CHECK_MAX_ITEMS, Config.GROUNDING_CHECK_MAX_ITEM_CHARS
+    )
+    claims = verdict.false_claims
+    kept_claims = _literal(claims, answer, Config.GROUNDING_CHECK_MAX_FALSE_CLAIMS)
+    return (
+        [texts[i].strip() for i in idx],
+        [verdict.unsupported[i].kind for i in idx],
+        [claims[i].strip() for i in kept_claims],
+    )
 
 
 def find_unverified(
@@ -184,18 +207,19 @@ def find_unverified(
             "Grounding check failed", exc_info=True, extra={"source_chars": len(sources)}
         )
         return GroundingResult()
-    items, kinds = _keep_items(verdict, answer)
+    items, kinds, false_claims = _keep(verdict, answer)
     logger.info(
         "Grounding check",
         extra={
             "flagged_count": len(items),
+            "false_claim_count": len(false_claims),
             "kinds": kinds,
             "source_chars": len(sources),
             "duration_ms": round((time.monotonic() - started) * 1000),
             "parsed": verdict is not None,
         },
     )
-    return GroundingResult(items=items, kinds=kinds, usage=usage)
+    return GroundingResult(items=items, kinds=kinds, false_claims=false_claims, usage=usage)
 
 
 def apply_grounding(
