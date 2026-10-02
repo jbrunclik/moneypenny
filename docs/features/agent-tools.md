@@ -116,11 +116,79 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   `research`, and a trusted `[...]` note appended after the untrusted-content
   markers of `fetch_url` HTML/text results. The always-on "Evidence Honesty"
   section of [core.py](../../src/agent/prompt_texts/core.py) adds the same rule
-  (unread prices, stock, hours, dates are unverified). Measured effect so far
-  is nil on the known-failing eval probe `skill_product_where_to_buy`: the
-  model still mixes dealers and prices from its own knowledge into verified
-  results without labelling them. Tests:
+  (unread prices, stock, hours, dates are unverified). Measured effect: none
+  (`skill_product_where_to_buy` stayed at 1/5; the model still mixed dealers
+  and prices from its own knowledge into verified results). The
+  [grounding check](#grounding-check) below is what fixed it. Tests:
   [test_grounding_directive.py](../../tests/unit/test_grounding_directive.py).
+
+## Grounding Check
+
+Because prompt rules did not work, a check runs after the answer, outside the
+model ([grounding_check.py](../../src/agent/grounding_check.py), design:
+[spec](../superpowers/specs/2026-10-02-grounding-check-design.md)).
+
+- **Trigger**: `apply_grounding()` is called by `ChatAgent` at the end of
+  `chat_batch` and on the `final` event of `stream_chat_events`
+  ([agent.py](../../src/agent/agent.py)), so evals see what users see. It runs
+  only when the turn has a web tool result (`WEB_TOOL_NAMES`: `research`,
+  `web_search`, `fetch_url`, `browser`), the answer is non-empty, and the turn
+  was not stopped. Every other turn skips it at zero cost.
+- **Verifier**: one structured call (`GroundingVerdict`, temperature 0) to
+  `GROUNDING_CHECK_MODEL`, prompt in
+  [grounding.py](../../src/agent/prompt_texts/grounding.py). Inputs: the
+  turn's web results, newest first, up to the source cap, plus known facts
+  (today's date and the user's message) that always count as supported. It
+  returns unsupported specifics (shops, places, prices, hours, dates, figures)
+  and false claims (sentences saying it verified something the sources do not
+  support). Only items found literally in the answer are kept.
+- **Markers**: [grounding_markers.py](../../src/agent/grounding_markers.py)
+  deterministically inserts `_(neověřeno)_` (Czech) or `_(unverified)_` (any
+  other language) after each item at every occurrence, after closing emphasis,
+  inside table cells, and at the end of each false-claim sentence. Link
+  targets, bare URLs and autolinks, inline code and fenced code blocks are
+  never touched, and an item already followed by a marker is not marked again.
+  The marked text arrives in `done.content` about 1-3 s after streaming ends;
+  the client re-renders the bubble when `done.content` differs from the
+  streamed text (`doneContentToRender` in `web/src/core/stream-done.ts`), and
+  it is saved as the message content.
+- **Scope**: skipped inside `delegate_task` subagents (the parent's answer is
+  the one users see). This turn's non-web tool results (calendar, Garmin,
+  memory...) count as known facts, so stating them is never flagged.
+- **Cost**: about $0.004 per web turn. Verifier usage goes into
+  `usage_info["grounding_usage"]` and is priced at the verifier's rates by
+  `calculate_grounding_cost()` ([utils.py](../../src/api/utils.py)) into
+  `message_costs`.
+- **Fail-open**: on timeout, API or schema error it logs "Grounding check
+  failed" and returns the answer unchanged.
+- **Telemetry**: one "Grounding check" log line per check with
+  `flagged_count`, `false_claim_count`, `kinds`, `source_chars`,
+  `duration_ms`, `parsed`.
+
+| Config (`src/config.py`) | Default | Purpose |
+|---|---|---|
+| `GROUNDING_CHECK_ENABLED` | `true` | Kill switch |
+| `GROUNDING_CHECK_MODEL` | `gemini-3.5-flash-lite` | Verifier model (priced only, not user-selectable) |
+| `GROUNDING_CHECK_MAX_SOURCE_CHARS` | `60000` | Source text cap, most recent kept |
+| `GROUNDING_CHECK_MAX_ITEMS` | `8` | Max flagged items |
+| `GROUNDING_CHECK_MAX_FALSE_CLAIMS` | `3` | Max flagged false-claim sentences |
+| `GROUNDING_CHECK_MAX_ITEM_CHARS` | `80` | Longer items are dropped (only false claims may be sentences) |
+| `GROUNDING_CHECK_TIMEOUT_SECONDS` | `10` | Floored at `GEMINI_MIN_REQUEST_DEADLINE_SECONDS` (10) |
+
+Pitfalls learned:
+- An end-of-answer note listing the items was measured not to work: the eval
+  judge still read the main text and tables as fact, and the answer's own
+  "Verified: ..." sentences contradicted the note. Hence in-place markers and
+  the false-claims list.
+- The Gemini API rejects deadlines under 10 s, so a shorter timeout made every
+  check fail open (silently, apart from the warning).
+- Without known facts the verifier flagged today's date (which the model gets
+  from the system prompt) under a fully sourced answer.
+
+Tests: [test_grounding_check.py](../../tests/unit/test_grounding_check.py),
+[test_grounding_markers.py](../../tests/unit/test_grounding_markers.py),
+[test_grounding_hooks.py](../../tests/unit/test_grounding_hooks.py),
+[test_grounding_cost.py](../../tests/unit/test_grounding_cost.py).
 
 ## Skills
 

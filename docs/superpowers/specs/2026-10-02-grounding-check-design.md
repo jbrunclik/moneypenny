@@ -47,7 +47,7 @@ New module `src/agent/grounding_check.py`:
 It is called in the agent layer, so evals see exactly what users see:
 
 - at the end of `ChatAgent.chat_batch`, after `final_response_text`;
-- in the stream path just before the `final` event is yielded (`stream_events.py`).
+- in the stream path, on the `final` event (`ChatAgent.stream_chat_events` in `agent.py`).
 
 Autonomous agents run through `ChatAgent` and get it too. The save path
 (`save_message_to_db`) is deliberately not the hook: evals call `chat_batch`
@@ -67,8 +67,10 @@ taken from the most recent result backwards, up to `GROUNDING_CHECK_MAX_SOURCE_C
 (default 60000), since later results usually matter most.
 
 **Streaming:** tokens stream as today. The check runs after the last token, so
-`done` arrives about 1-3 s later. `done.content` already replaces the streamed text
-on the client, so the markers appear there with no frontend change.
+`done` arrives about 1-3 s later. The client re-renders the bubble from `done.content`
+whenever it differs from the streamed text (`doneContentToRender` in
+`web/src/core/stream-done.ts`). Before the final review it did that only when no
+tokens had streamed, so streamed answers showed markers only after a reload.
 
 ## Verifier
 

@@ -119,16 +119,21 @@ the same date placeholders as `integrations` (plus a `_weekday` suffix, e.g.
   from the supplied date, and a post-cutoff event treated as past. Both
   already passed 3/3 before the date-authority rule; they are regression
   guards, not reproductions of the sweep's date corrections.
+- `cz_grounded_no_note` — precision guard for the
+  [grounding check](../features/agent-tools.md#grounding-check): a fully
+  sourced CNB-rate answer must carry no `_(neověřeno)_` marker. 4/5 at ship.
 
 Skill cases (Sep 2026) - `skill_*` cases guard the
 [skills](../features/agent-tools.md#skills) trigger gate. Should-trigger cases
 (`skill_excel_totals`, `skill_czech_pdf`, `skill_trip_weekend`, ...) require
 `load_skill`; should-not cases (`skill_not_*`) forbid it. A new or changed skill
 needs at least 90% loads on its should-trigger runs, zero loads on should-not
-runs, and an unchanged suite pass rate. `skill_product_where_to_buy` is a
-known-failing honesty probe: the skill loads every time, but the answer mixes
-dealers and prices from the model's own knowledge into verified results
-without labelling them (the grounding directive has not fixed it yet).
+runs, and an unchanged suite pass rate. `skill_product_where_to_buy` is an
+honesty probe: the skill loads every time, but the answer mixed dealers and
+prices from the model's own knowledge into verified results without labelling
+them. The grounding directive did not help (1/5); with the
+[grounding check](../features/agent-tools.md#grounding-check) marking those
+specifics in place it passes 4/5.
 
 Note: each case runs under its own request id. Before Sep 29 2026 it did not,
 which left the per-turn efficiency nudges (turn_usage) inert - round counts
