@@ -421,3 +421,64 @@ class TestCancelKillsUserCode:
 
         kill_call = session.container.exec_run.call_args
         assert kill_call.kwargs["user"] == "root"
+
+
+class TestExecuteCodeStop:
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
+    def test_stop_before_the_run_ends_the_turn_not_an_error(
+        self, mock_get_pool: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """A Stop that lands before the program starts must raise TurnCancelled,
+        not come back as an "execution error" result the model reads."""
+        import pytest
+
+        from src.agent import cancellation
+        from src.agent.cancellation import TurnCancelled
+        from src.agent.tool_results import set_current_request_id
+
+        fake_session = MagicMock()
+        pool = MagicMock()
+        pool.session.return_value.__enter__ = MagicMock(return_value=fake_session)
+        pool.session.return_value.__exit__ = MagicMock(return_value=False)
+        mock_get_pool.return_value = pool
+
+        set_current_request_id("req-code-stop")
+        cancellation.register_token("req-code-stop").cancel()
+        try:
+            with pytest.raises(TurnCancelled):
+                execute_code.invoke({"code": "print(1)"})
+        finally:
+            cancellation.unregister_token("req-code-stop")
+            set_current_request_id(None)
+
+        fake_session.run.assert_not_called()
+
+
+class TestKillUserCode:
+    def test_kill_does_not_block_the_cancel_callback(self) -> None:
+        """The kill runs from the stop poller's cancel callbacks: a slow or
+        hung Docker exec must not hold that thread."""
+        import threading
+        import time
+
+        from src.agent.tools.code_execution import _kill_user_code
+
+        release = threading.Event()
+        called = threading.Event()
+
+        def slow_exec(*_args: object, **_kwargs: object) -> None:
+            called.set()
+            release.wait(5)
+
+        session = MagicMock()
+        session.container.exec_run.side_effect = slow_exec
+        started = time.monotonic()
+        try:
+            _kill_user_code(session)
+            elapsed = time.monotonic() - started
+            assert called.wait(2)
+        finally:
+            release.set()
+        assert elapsed < 0.5

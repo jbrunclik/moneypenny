@@ -142,6 +142,8 @@ vi.mock('@/components/messages/edit', () => ({
 
 import { sendMessage } from '@/core/messaging';
 import { chat } from '@/api/chat';
+import { conversations } from '@/api/conversations';
+import { toast } from '@/components/Toast';
 
 const CONV_ID = 'conv-1';
 
@@ -190,6 +192,21 @@ describe('messaging keeps the store authoritative', () => {
       streamingConversationId: null,
       forceTools: [],
     });
+  });
+
+  it('does not steer a turn that is stopping', async () => {
+    // Stop was sent: interjected text would be saved but never answered
+    useStore.getState().setActiveRequest(CONV_ID, {
+      conversationId: CONV_ID,
+      type: 'stream',
+      stopping: true,
+    });
+
+    await sendMessage();
+
+    expect(conversations.interject).not.toHaveBeenCalled();
+    expect(chat.stream).not.toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('stopping'));
   });
 
   it('appends the streamed assistant reply to the store on done', async () => {

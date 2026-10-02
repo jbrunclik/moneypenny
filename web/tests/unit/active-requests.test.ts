@@ -65,6 +65,28 @@ describe('active-requests', () => {
     expect(abortStreamingRequest('c1')).toBe(false);
   });
 
+  it('marks the conversation stopping once a graceful stop is accepted', () => {
+    trackRequest('r1', { conversationId: 'c1', type: 'stream', abortController: new AbortController() });
+    useStore.getState().setActiveRequest('c1', { conversationId: 'c1', type: 'stream' });
+    setStopHandler('c1', () => true);
+    useStore.setState({ currentConversation: { id: 'c1' } as never });
+
+    handleStopStreaming();
+
+    expect(useStore.getState().getActiveRequest('c1')?.stopping).toBe(true);
+  });
+
+  it('does not mark stopping when Stop falls back to aborting', () => {
+    trackRequest('r1', { conversationId: 'c1', type: 'stream', abortController: new AbortController() });
+    useStore.getState().setActiveRequest('c1', { conversationId: 'c1', type: 'stream' });
+    setStopHandler('c1', () => false);
+    useStore.setState({ currentConversation: { id: 'c1' } as never });
+
+    handleStopStreaming();
+
+    expect(useStore.getState().getActiveRequest('c1')?.stopping).toBeFalsy();
+  });
+
   it('lets the stream stop gracefully when its handler accepts', () => {
     const controller = new AbortController();
     trackRequest('r1', { conversationId: 'c1', type: 'stream', abortController: controller });

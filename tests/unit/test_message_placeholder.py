@@ -54,6 +54,31 @@ class TestUpdateMessageContent:
         assert updated.tool_outputs == digest
         assert test_database.get_messages(test_conversation.id)[-1].tool_outputs == digest
 
+    def test_stop_reason_saved_with_the_content(
+        self, test_database: Database, test_conversation: Conversation
+    ) -> None:
+        """A stopped reply's content and stop_reason land in one write."""
+        placeholder = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "")
+
+        updated = test_database.update_message_content(
+            placeholder.id, "Partial", stop_reason="user"
+        )
+
+        assert updated is not None
+        assert updated.stop_reason == "user"
+
+    def test_add_message_stores_stop_reason(
+        self, test_database: Database, test_conversation: Conversation
+    ) -> None:
+        """Placeholder deleted mid-turn: the INSERT fallback keeps stop_reason too."""
+        message = test_database.add_message(
+            test_conversation.id, MessageRole.ASSISTANT, "Partial", stop_reason="user"
+        )
+
+        saved = test_database.get_message_by_id(message.id)
+        assert saved is not None
+        assert saved.stop_reason == "user"
+
     def test_add_message_stores_tool_outputs(
         self, test_database: Database, test_conversation: Conversation
     ) -> None:

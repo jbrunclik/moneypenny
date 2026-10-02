@@ -185,6 +185,7 @@ class MessageMixin:
         language: str | None = None,
         message_id: str | None = None,
         tool_outputs: list[dict[str, str]] | None = None,
+        stop_reason: str | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -201,6 +202,7 @@ class MessageMixin:
             language: Optional ISO 639-1 language code (e.g., "en", "cs") for TTS
             message_id: Optional pre-generated message ID (for streaming recovery)
             tool_outputs: Optional per-call tool output digests (assistant messages)
+            stop_reason: "user" when the user pressed Stop (partial reply kept)
 
         Returns:
             The created Message
@@ -231,8 +233,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -244,6 +246,7 @@ class MessageMixin:
                     language,
                     now.isoformat(),
                     tool_outputs_json,
+                    stop_reason,
                 ),
             )
             # Update conversation's updated_at
@@ -331,16 +334,6 @@ class MessageMixin:
 
             return row_to_message(row)
 
-    def set_message_stop_reason(self, message_id: str, stop_reason: str) -> None:
-        """Record why an assistant reply ended early (e.g. "user" for Stop)."""
-        with self._pool.get_connection() as conn:
-            self._execute_with_timing(
-                conn,
-                "UPDATE messages SET stop_reason = ? WHERE id = ?",
-                (stop_reason, message_id),
-            )
-            conn.commit()
-
     def update_message_content(
         self,
         message_id: str,
@@ -350,6 +343,7 @@ class MessageMixin:
         generated_images: list[dict[str, str]] | None = None,
         language: str | None = None,
         tool_outputs: list[dict[str, str]] | None = None,
+        stop_reason: str | None = None,
     ) -> Message | None:
         """Update an existing message's content fields.
 
@@ -364,6 +358,7 @@ class MessageMixin:
             generated_images: Optional list of generated image metadata
             language: Optional ISO 639-1 language code
             tool_outputs: Optional per-call tool output digests
+            stop_reason: "user" when the user pressed Stop (partial reply kept)
 
         Returns:
             The updated Message, or None if the message no longer exists
@@ -380,7 +375,7 @@ class MessageMixin:
                 conn,
                 """UPDATE messages
                    SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?,
-                       tool_outputs = ?
+                       tool_outputs = ?, stop_reason = ?
                    WHERE id = ?""",
                 (
                     content,
@@ -389,6 +384,7 @@ class MessageMixin:
                     generated_images_json,
                     language,
                     tool_outputs_json,
+                    stop_reason,
                     message_id,
                 ),
             )

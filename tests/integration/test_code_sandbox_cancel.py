@@ -32,3 +32,34 @@ def test_stop_kills_sleep_and_keeps_work_dir() -> None:
     after = json.loads(execute_code.invoke({"code": "print(open('/work/keep.txt').read())"}))
     assert elapsed < 10
     assert "kept" in after["stdout"]
+
+
+_LIST_SLEEPERS = (
+    "import os\n"
+    "n = sum(open(f'/proc/{p}/cmdline', 'rb').read().startswith(b'sleep')"
+    " for p in os.listdir('/proc') if p.isdigit())\n"
+    "print(f'sleepers: {n}')"
+)
+
+
+@pytest.mark.skipif(not _sandbox_runnable(), reason="Docker or sandbox image unavailable")
+def test_stop_kills_child_processes_of_user_code() -> None:
+    """A child without /sandbox/ in its argv (here `sleep`) must die too, or it
+    lingers in the pooled container after the turn ended."""
+    from src.agent.tools.code_execution import execute_code
+
+    set_conversation_context("conv-cancel-child", "user-cancel-test")
+    set_current_request_id("req-live-child")
+    token = cancellation.register_token("req-live-child")
+    try:
+        threading.Timer(2.0, token.cancel).start()
+        started = time.monotonic()
+        execute_code.invoke({"code": "import subprocess; subprocess.run(['sleep', '30'])"})
+        elapsed = time.monotonic() - started
+    finally:
+        cancellation.unregister_token("req-live-child")
+
+    set_current_request_id("req-live-child-2")
+    after = json.loads(execute_code.invoke({"code": _LIST_SLEEPERS}))
+    assert elapsed < 10
+    assert after["stdout"].strip() == "sleepers: 0"

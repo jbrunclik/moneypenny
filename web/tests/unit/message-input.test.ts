@@ -12,6 +12,7 @@ import {
   hideUploadProgress,
   updateUploadProgress,
   focusMessageInput,
+  updateSendButtonState,
 } from '@/components/MessageInput';
 import { MOBILE_BREAKPOINT_PX } from '@/config';
 import { useStore } from '@/state/store';
@@ -862,5 +863,44 @@ describe('refocusMessageInputAfterSend', () => {
     document.getElementById('search-input')!.focus();
     refocusMessageInputAfterSend();
     expect(document.activeElement?.id).toBe('search-input');
+  });
+});
+
+describe('Stop button while stopping', () => {
+  let sendBtn: HTMLButtonElement;
+  let input: HTMLTextAreaElement;
+
+  beforeEach(() => {
+    sendBtn = document.createElement('button');
+    sendBtn.id = 'send-btn';
+    input = document.createElement('textarea');
+    input.id = 'message-input';
+    document.body.append(sendBtn, input);
+    useStore.setState({
+      currentConversation: { id: 'c1' } as never,
+      activeRequests: new Map([['c1', { conversationId: 'c1', type: 'stream' as const }]]),
+    });
+  });
+
+  afterEach(() => {
+    sendBtn.remove();
+    input.remove();
+    useStore.setState({ activeRequests: new Map(), currentConversation: null });
+  });
+
+  it('is enabled before Stop and disabled with a Stopping label after', () => {
+    updateSendButtonState();
+    expect(sendBtn.classList.contains('btn-stop')).toBe(true);
+    expect(sendBtn.disabled).toBe(false);
+
+    useStore.setState({
+      activeRequests: new Map([['c1', { conversationId: 'c1', type: 'stream' as const, stopping: true }]]),
+    });
+    updateSendButtonState();
+
+    expect(sendBtn.classList.contains('btn-stop')).toBe(true);
+    expect(sendBtn.disabled).toBe(true);
+    expect(sendBtn.title).toBe('Stopping…');
+    expect(sendBtn.getAttribute('aria-label')).toBe('Stopping…');
   });
 });

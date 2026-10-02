@@ -9,6 +9,7 @@ best-effort - journal failures never break the live stream.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from collections.abc import Generator
 from typing import Any
@@ -27,6 +28,7 @@ _JOURNALED_EVENT_TYPES = {
     "tool_end",
     "approval_required",
     "timeout",
+    "stopping",
 }
 
 
@@ -36,7 +38,8 @@ class _StreamJournal:
     Enables resume-after-disconnect: the producer journals every client-facing
     event with a monotonic seq; the resume endpoint replays rows after the
     client's last seen seq and continues live. Persistence is best-effort -
-    journal failures never break the live stream.
+    journal failures never break the live stream. Thread-safe: the Stop
+    acknowledgement is recorded from the stop-poller thread.
     """
 
     def __init__(self, message_id: str) -> None:
@@ -44,6 +47,7 @@ class _StreamJournal:
         self._seq = 0
         self._buffer: list[tuple[int, str]] = []
         self._last_flush = time.monotonic()
+        self._lock = threading.RLock()
         try:
             db.journal_cleanup(Config.STREAM_JOURNAL_TTL_SECONDS)
         except Exception:
@@ -51,34 +55,38 @@ class _StreamJournal:
 
     def record(self, event: dict[str, Any]) -> None:
         """Assign a seq to the event, buffer it, flush opportunistically."""
-        self._seq += 1
-        event["seq"] = self._seq
-        try:
-            serialized = json.dumps(event)
-        except TypeError, ValueError:
-            serialized = json.dumps({"type": event.get("type", "unknown"), "seq": self._seq})
-        self._buffer.append((self._seq, serialized))
-        if (
-            len(self._buffer) >= Config.STREAM_JOURNAL_FLUSH_EVENTS
-            or time.monotonic() - self._last_flush >= Config.STREAM_JOURNAL_FLUSH_INTERVAL_SECONDS
-        ):
-            self.flush()
+        with self._lock:
+            self._seq += 1
+            event["seq"] = self._seq
+            try:
+                serialized = json.dumps(event)
+            except TypeError, ValueError:
+                serialized = json.dumps({"type": event.get("type", "unknown"), "seq": self._seq})
+            self._buffer.append((self._seq, serialized))
+            if (
+                len(self._buffer) >= Config.STREAM_JOURNAL_FLUSH_EVENTS
+                or time.monotonic() - self._last_flush
+                >= Config.STREAM_JOURNAL_FLUSH_INTERVAL_SECONDS
+            ):
+                self.flush()
 
     def flush(self) -> None:
-        buffer, self._buffer = self._buffer, []
-        self._last_flush = time.monotonic()
-        if not buffer:
-            return
-        try:
-            db.journal_append_events(self.message_id, buffer)
-        except Exception:
-            logger.warning("Stream journal flush failed", exc_info=True)
+        with self._lock:
+            buffer, self._buffer = self._buffer, []
+            self._last_flush = time.monotonic()
+            if not buffer:
+                return
+            try:
+                db.journal_append_events(self.message_id, buffer)
+            except Exception:
+                logger.warning("Stream journal flush failed", exc_info=True)
 
     def finish(self) -> None:
         """Mark the stream as over (resume endpoint stops tailing on this)."""
-        self._seq += 1
-        self._buffer.append((self._seq, json.dumps({"type": "stream_end", "seq": self._seq})))
-        self.flush()
+        with self._lock:
+            self._seq += 1
+            self._buffer.append((self._seq, json.dumps({"type": "stream_end", "seq": self._seq})))
+            self.flush()
 
 
 def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:

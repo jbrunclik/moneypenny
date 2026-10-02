@@ -22,6 +22,8 @@ export interface ActiveRequestState {
   // Streaming-specific state
   content?: string;
   thinkingState?: ThinkingState;
+  /** Stop was sent to the server; the turn ends at its next checkpoint */
+  stopping?: boolean;
 }
 
 export type ActiveView = 'chat' | 'planner' | 'agents' | 'storage' | 'sports' | 'language';

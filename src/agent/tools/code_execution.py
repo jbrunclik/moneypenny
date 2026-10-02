@@ -10,7 +10,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.agent.cancellation import on_cancel, raise_if_cancelled
+from src.agent.cancellation import TurnCancelled, on_cancel, raise_if_cancelled
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.agent.tools.sandbox_sessions import get_sandbox_pool
@@ -133,24 +133,48 @@ def _probe_docker_available() -> bool:
 
 
 # Kills the user's program inside a live session container without touching
-# PID 1 or the container: /work must survive a Stop. No procps in the slim
-# image, so scan /proc from Python (always present in the image).
+# the container: /work must survive a Stop. Spares PID 1 (docker-init), its
+# oldest child (the container's keep-alive command) and itself; everything
+# else is user code - exec'd programs, their children (whatever their argv)
+# and orphans re-parented to PID 1. No procps in the slim image, so scan
+# /proc from Python (always present in the image).
 _KILL_USER_CODE = (
     "import os\n"
     "me = os.getpid()\n"
+    "procs = {}\n"
     "for p in filter(str.isdigit, os.listdir('/proc')):\n"
     "    try:\n"
-    "        if int(p) != me and b'/sandbox/' in open(f'/proc/{p}/cmdline', 'rb').read():\n"
-    "            os.kill(int(p), 9)\n"
+    "        stat = open(f'/proc/{p}/stat').read().rsplit(')', 1)[1].split()\n"
+    "        procs[int(p)] = (int(stat[1]), int(stat[19]))\n"
+    "    except OSError:\n"
+    "        pass\n"
+    "init_children = [p for p, (ppid, _) in procs.items() if ppid == 1]\n"
+    "keep = {1, me}\n"
+    "if init_children:\n"
+    "    keep.add(min(init_children, key=lambda p: procs[p][1]))\n"
+    "for p in procs.keys() - keep:\n"
+    "    try:\n"
+    "        os.kill(p, 9)\n"
     "    except OSError:\n"
     "        pass\n"
 )
 
 
 def _kill_user_code(session: Any) -> None:
-    """Cancel callback: SIGKILL the running user program (Stop pressed)."""
+    """Cancel callback: SIGKILL the running user program (Stop pressed).
+
+    Runs on its own daemon thread: callbacks run on the stop poller, and a
+    slow or hung Docker exec must not hold it.
+    """
     logger.info("Stop requested - killing sandbox user code")
-    session.container.exec_run(["python", "-c", _KILL_USER_CODE], user="root")
+
+    def _kill() -> None:
+        try:
+            session.container.exec_run(["python", "-c", _KILL_USER_CODE], user="root")
+        except Exception:
+            logger.warning("Sandbox kill on Stop failed", exc_info=True)
+
+    threading.Thread(target=_kill, daemon=True, name="sandbox-kill").start()
 
 
 def is_code_sandbox_available() -> bool:
@@ -584,6 +608,8 @@ def execute_code(code: str) -> str:
 
             return json.dumps(response)
 
+    except TurnCancelled:
+        raise  # Stop pressed: end the turn, not an error result
     except TimeoutError:
         logger.warning("Code execution timed out")
         return json.dumps(

@@ -348,7 +348,13 @@ export async function sendMessage(): Promise<void> {
   // history) instead of queueing a new turn. Attachments can't steer - keep
   // the old blocking behavior for them. Must run BEFORE the optimistic
   // render: a bubble with no request behind it looks sent but never was.
-  if (useStore.getState().getActiveRequest(conv.id)) {
+  const activeRequest = useStore.getState().getActiveRequest(conv.id);
+  if (activeRequest) {
+    // Steering a turn that is ending would save a message nobody answers
+    if (activeRequest.stopping) {
+      toast.info('The response is stopping - send again in a moment.');
+      return;
+    }
     if (files.length > 0) {
       toast.info('Please wait for the current response before sending attachments.');
       return;

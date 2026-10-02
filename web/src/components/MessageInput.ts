@@ -127,10 +127,9 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
       // Per-conversation: stop mode only when THIS conversation has an active
       // stream (streamingConversationId alone clobbers with concurrent streams)
       const currentConvId = state.currentConversation?.id;
-      const activeStream =
-        currentConvId !== undefined &&
-        state.activeRequests.get(currentConvId)?.type === 'stream';
-      return { activeStream, currentConvId };
+      const request = currentConvId !== undefined ? state.activeRequests.get(currentConvId) : undefined;
+      const activeStream = request?.type === 'stream';
+      return { activeStream, currentConvId, stopping: request?.stopping === true };
     },
     () => {
       // Recompute mode from stream state AND composer content - typed text
@@ -138,7 +137,8 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
       updateSendButtonState();
     },
     {
-      equalityFn: (a, b) => a.activeStream === b.activeStream && a.currentConvId === b.currentConvId,
+      equalityFn: (a, b) =>
+        a.activeStream === b.activeStream && a.currentConvId === b.currentConvId && a.stopping === b.stopping,
       fireImmediately: true,
     }
   );
@@ -347,6 +347,13 @@ export function hideInputArea(): void {
 }
 
 /** Whether the CURRENT conversation has an active streaming request. */
+/** Stop was sent for the current conversation's turn and it has not ended yet. */
+function isCurrentConversationStopping(): boolean {
+  const state = useStore.getState();
+  const currentConvId = state.currentConversation?.id;
+  return currentConvId !== undefined && state.activeRequests.get(currentConvId)?.stopping === true;
+}
+
 function hasActiveStreamForCurrentConversation(): boolean {
   const state = useStore.getState();
   const currentConvId = state.currentConversation?.id;
@@ -389,7 +396,14 @@ export function updateSendButtonState(): void {
   if (effectiveStop !== isStopMode) {
     updateSendButtonMode(effectiveStop);
   }
-  if (!effectiveStop) {
+  if (effectiveStop) {
+    // A second Stop does nothing until the turn ends - say so
+    const stopping = isCurrentConversationStopping();
+    const label = stopping ? 'Stopping…' : 'Stop generating';
+    sendBtn.disabled = stopping;
+    sendBtn.title = label;
+    sendBtn.setAttribute('aria-label', label);
+  } else {
     sendBtn.disabled = isLoading || (!hasContent && !hasFiles);
   }
 }
@@ -408,8 +422,6 @@ function updateSendButtonMode(showStop: boolean): void {
     sendBtn.innerHTML = STOP_ICON;
     sendBtn.classList.add('btn-stop');
     sendBtn.classList.remove('btn-send');
-    sendBtn.title = 'Stop generating';
-    sendBtn.disabled = false; // Stop button is always enabled
     log.debug('Send button switched to stop mode');
   } else {
     // Switch back to send mode
@@ -417,6 +429,7 @@ function updateSendButtonMode(showStop: boolean): void {
     sendBtn.classList.remove('btn-stop');
     sendBtn.classList.add('btn-send');
     sendBtn.title = 'Send message';
+    sendBtn.setAttribute('aria-label', 'Send message');
     // Re-check enabled state based on input content
     updateSendButtonState();
     log.debug('Send button switched to send mode');
@@ -580,7 +593,7 @@ export function hideUploadProgress(): void {
 
   sendBtn.classList.remove('uploading', 'processing');
   sendBtn.style.removeProperty('--progress');
-  sendBtn.setAttribute('aria-label', isStopMode ? 'Stop generating' : 'Send message');
+  sendBtn.setAttribute('aria-label', sendBtn.title || 'Send message');
 }
 
 /**

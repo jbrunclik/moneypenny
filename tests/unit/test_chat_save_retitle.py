@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from langchain_core.messages import AIMessage
 
+from src.agent.cancellation import STOPPED_EMPTY_TEXT
 from src.api.helpers.chat_save import _resolve_title_update
 from src.config import Config
 
@@ -46,6 +47,16 @@ class TestResolveTitleUpdate:
             result = _resolve_title_update("c1", "u1", "hi", "hello", [])
         assert result == "🐍 Python Help"
         mock_db.update_conversation.assert_called_once_with("c1", "u1", title="🐍 Python Help")
+
+    def test_stop_placeholder_is_not_title_material(self) -> None:
+        """Stopped before answering: title from the user's message alone."""
+        with (
+            patch("src.api.helpers.chat_save.db") as mock_db,
+            patch("src.api.helpers.chat_save.generate_title", return_value="🐍 Python Help") as gen,
+        ):
+            mock_db.get_conversation.return_value = _conv(Config.DEFAULT_CONVERSATION_TITLE)
+            _resolve_title_update("c1", "u1", "help with python", STOPPED_EMPTY_TEXT, [])
+        gen.assert_called_once_with("help with python", "")
 
     def test_agent_retitle_updates_stale_title(self) -> None:
         """A set_conversation_title call on a non-default title is applied."""

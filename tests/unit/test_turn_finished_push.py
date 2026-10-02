@@ -54,6 +54,32 @@ class TestCleanupThreadNotifies:
         assert args.kwargs["url"] == "/#/conversations/conv-1"
         assert args.kwargs["tag"] == "turn-conv-1"
 
+    def test_stopped_reply_saved_without_push(self) -> None:
+        """The user pressed Stop - they were watching; no "answer ready" nudge."""
+        final_results = {
+            "ready": True,
+            "saved": False,
+            "clean_content": "Partial",
+            "stop_reason": "user",
+        }
+        done_event = threading.Event()
+        done_event.set()
+        save_func = MagicMock()
+
+        with patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push:
+            cleanup_and_save(
+                _finished_thread(),
+                final_results,
+                threading.Lock(),
+                done_event,
+                "conv-1",
+                "user-1",
+                save_func,
+            )
+
+        save_func.assert_called_once()
+        mock_push.assert_not_called()
+
     def test_generator_already_saved_no_push(self) -> None:
         """Normal path: the generator saved and delivered - no nudge."""
         final_results = {"ready": True, "saved": True, "clean_content": "x"}

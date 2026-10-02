@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import queue
+import threading
 from typing import TYPE_CHECKING
 
 import pytest
@@ -102,6 +103,58 @@ class TestProducerJournaling:
         assert [e.get("seq") for e in live if e.get("type") == "token"] == [1, 2]
 
 
+class _StopDuringToolAgent:
+    """Fake agent: Stop lands while a tool runs (the poller thread cancels)."""
+
+    def stream_chat_events(self, *args: object, **kwargs: object):
+        from src.agent import cancellation
+
+        yield {"type": "tool_start", "tool": "research"}
+        token = cancellation._current_token()
+        assert token is not None
+        poller = threading.Thread(target=token.cancel)
+        poller.start()
+        poller.join()
+        yield {
+            "type": "final",
+            "content": "",
+            "result_messages": [],
+            "tool_results": [],
+            "usage_info": {},
+            "stop_reason": "user",
+        }
+
+
+class TestStoppingJournaled:
+    def test_stopping_event_is_journaled_for_resumed_readers(
+        self, test_database: Database, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A reload-resumed reader must see the Stop acknowledgement too, or
+        its grace abort fires during a long tool."""
+        from src.api.helpers import stream_producer, stream_resume
+
+        monkeypatch.setattr(stream_resume, "db", test_database)
+        monkeypatch.setattr(stream_producer, "db", test_database)
+
+        stream_producer.stream_events(
+            _StopDuringToolAgent(),
+            queue.Queue(),
+            {"ready": False, "saved": False},
+            TurnContext(
+                request_id="req-stop",
+                conv_id="conv-1",
+                user_id="user-1",
+                message_text="hello",
+                user_name="Alice",
+            ),
+            journal_message_id="assist-msg-stop",
+        )
+
+        parsed = [json.loads(e) for _, e in test_database.journal_get_events("assist-msg-stop", 0)]
+        assert [p["type"] for p in parsed] == ["tool_start", "stopping", "stream_end"]
+        assert [p["seq"] for p in parsed] == [1, 2, 3]
+
+
 # ============ Resume Generator ============
 
 
@@ -164,8 +217,8 @@ class TestStreamResumeEvents:
         """A client resuming a stopped turn must see "Stopped" too."""
         from src.api.helpers.stream_resume import stream_resume_events
 
-        msg_id = self._make_message(test_database, test_user, content="partial")
-        test_database.set_message_stop_reason(msg_id, "user")
+        msg_id = self._make_message(test_database, test_user)
+        test_database.update_message_content(msg_id, "partial", stop_reason="user")
         events = _drain_sse(stream_resume_events(msg_id, after_seq=0))
         assert events[0]["type"] == "done"
         assert events[0]["stop_reason"] == "user"

@@ -131,9 +131,17 @@ def stream_events(
     turn_done = threading.Event()
     try:
         token = register_token(turn.request_id)
+
         # Tell the client at once that the Stop landed: no events flow while
-        # a tool runs, and its grace abort must not fire during long tools
-        token.add_callback(lambda: event_queue.put({"type": "stopping"}))
+        # a tool runs, and its grace abort must not fire during long tools.
+        # Journaled too, so a reader resumed after a reload learns it as well
+        def _ack_stop() -> None:
+            event: dict[str, Any] = {"type": "stopping"}
+            if journal:
+                journal.record(event)
+            event_queue.put(event)
+
+        token.add_callback(_ack_stop)
         threading.Thread(
             target=_poll_stop_flag,
             args=(token, user_id, conv_id, stop_key, turn_done),
@@ -329,10 +337,12 @@ def cleanup_and_save(
                 save_func()
                 final_results["saved"] = True
                 # The turn finished but no client was connected to see it
-                # (typically mobile screen lock) - nudge the user's devices
-                _notify_response_ready(
-                    user_id, conv_id, str(final_results.get("clean_content") or "")
-                )
+                # (typically mobile screen lock) - nudge the user's devices.
+                # Not after Stop: the user was there and ended it themselves
+                if not final_results.get("stop_reason"):
+                    _notify_response_ready(
+                        user_id, conv_id, str(final_results.get("clean_content") or "")
+                    )
             elif generator_finished:
                 logger.debug(
                     "Generator completed, cleanup thread not needed",

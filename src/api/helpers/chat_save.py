@@ -129,6 +129,7 @@ def _persist_assistant_message(
     generated_images_meta: list[dict[str, Any]],
     language: str | None,
     tool_outputs: list[dict[str, str]] | None = None,
+    stop_reason: str | None = None,
 ) -> Any:
     """UPDATE the stream-start placeholder, or INSERT when it is gone/absent."""
     logger.debug(
@@ -141,6 +142,7 @@ def _persist_assistant_message(
         "generated_images": generated_images_meta if generated_images_meta else None,
         "language": language,
         "tool_outputs": tool_outputs,
+        "stop_reason": stop_reason,
     }
     if assistant_message_id:
         assistant_msg = db.update_message_content(assistant_message_id, content, **kwargs)
@@ -182,7 +184,9 @@ def _resolve_title_update(
                 "Auto-generating conversation title from stream",
                 extra={"user_id": user_id, "conversation_id": conv_id},
             )
-            new_title = generate_title(message_text, content)
+            # The Stop placeholder says nothing about the topic
+            reply = "" if content == STOPPED_EMPTY_TEXT else content
+            new_title = generate_title(message_text, reply)
         elif conv.is_sports or conv.is_language or conv.is_planning:
             return None
         else:
@@ -270,9 +274,8 @@ def save_message_to_db(
             generated_images_meta,
             language,
             build_tool_outputs(result_messages),
+            stop_reason,
         )
-        if stop_reason:
-            db.set_message_stop_reason(assistant_msg.id, stop_reason)
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)
         calculate_and_save_message_cost(

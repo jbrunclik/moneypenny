@@ -71,7 +71,12 @@ export function handleStopStreaming(): void {
     const live = [...activeRequests.values()].find(
       (r) => r.conversationId === currentConvId && r.type === 'stream'
     );
-    if (live?.onStop?.()) return;
+    if (live?.onStop?.()) {
+      // Until the done event clears the request, Stop shows "Stopping…"
+      const request = useStore.getState().getActiveRequest(currentConvId);
+      if (request) useStore.getState().setActiveRequest(currentConvId, { ...request, stopping: true });
+      return;
+    }
     const aborted = abortStreamingRequest(currentConvId);
     if (!aborted) {
       log.warn('No streaming request found to abort', { conversationId: currentConvId });

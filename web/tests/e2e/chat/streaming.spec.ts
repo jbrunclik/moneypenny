@@ -525,6 +525,25 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(reloaded.locator('.message-content')).toHaveText(partial);
   });
 
+  test('Stop shows a disabled Stopping state until the turn ends', async ({ page }) => {
+    // Slow words widen the window between the click and the next server checkpoint
+    await setStreamDelay(page, 3000);
+    await page.fill('#message-input', 'Tell me a very long story please');
+    await page.click('#send-btn');
+    const assistant = page.locator('.message.assistant');
+    // Real streamed text (the mock reply's first words), not the loading placeholder
+    await expect(assistant.locator('.message-content')).toContainText('This is', { timeout: 10000 });
+
+    const sendBtn = page.locator('#send-btn');
+    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+
+    await expect(sendBtn).toHaveAttribute('title', 'Stopping…');
+    await expect(sendBtn).toBeDisabled();
+    await expect(assistant.locator('.message-stopped-early')).toContainText('Stopped.', { timeout: 10000 });
+    await expect(sendBtn).toHaveClass(/btn-send/);
+    await expect(sendBtn).toHaveAttribute('title', 'Send message');
+  });
+
   test('Continue after Stop streams the rest of the answer', async ({ page }) => {
     await page.fill('#message-input', 'Tell me a very long story please');
     await page.click('#send-btn');

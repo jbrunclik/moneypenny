@@ -112,7 +112,8 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                 "error": str(e),
             },
         )
-        _notify_response_ready(context.user_id, context.conv_id, assistant_msg.content or "")
+        if not context.stop_reason:
+            _notify_response_ready(context.user_id, context.conv_id, assistant_msg.content or "")
 
 
 def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:

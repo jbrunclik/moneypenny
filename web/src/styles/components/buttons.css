@@ -232,6 +232,15 @@
     background-color: var(--error-hover);
 }
 
+/* Stop sent, waiting for the turn to end ("Stopping…"): still and dimmed.
+   The pulse animates opacity, so it must stop for .btn:disabled to show */
+.btn-stop:disabled,
+.btn-stop:disabled:hover {
+    animation: none;
+    background-color: var(--error);
+    cursor: default;
+}
+
 /* ----------------------------------------
    Upload Progress Ring (on send/stop button)
    ----------------------------------------

@@ -164,7 +164,7 @@ Pressing Stop ends the turn server-side ([cancellation.py](../../src/agent/cance
 | Token loop in `ChatAgent.stream_chat_events` | Stops consuming model output; the text so far becomes the reply and the `final` event carries `stop_reason: "user"` |
 | Start of `chat_node`, each retry attempt, and every streamed token of the model call (`CancelOnToken` callback) | No further model call; a running one is aborted mid-stream |
 | Start of `check_tool_results` | The round that just finished is the last one |
-| `execute_code` (cancel callback) | Kills the running user program in the session container |
+| `execute_code` (cancel callback) | Kills the running user program in the session container - every process except PID 1 (`docker-init`), its oldest child (the keep-alive command) and the killer, so children and orphans of user code die too; the exec runs on its own daemon thread, never the stop poller. A Stop before the run starts raises `TurnCancelled` (re-raised past the tool's broad `except`) |
 | Browser batches (`run_batch`) | No further steps |
 
 The per-token check matters: LangGraph runs nodes on a background executor, and closing the graph stream **waits** for the running node - without aborting inside the node thread, a Stop would block until the model finished (every token billed). `chat_node` merges `CancelOnToken` into its *inherited* callback manager (`_with_cancel_callback`); replacing the callbacks instead drops LangGraph's streaming handler and the model stops streaming. Remaining latency: time to the first token, and a retry backoff already sleeping.
