@@ -602,9 +602,21 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     }
 
 
+# Metered search providers' keys, blanked for evals so the chain falls through
+# to the unmetered ddgs fallback. The local .env holds the same keys as prod,
+# and eval usage is counted only in the throwaway DB - so eval searches spent
+# the family's real monthly quota while prod's counters never saw them.
+EVAL_BLANKED_SEARCH_KEYS = (
+    "BRAVE_SEARCH_API_KEY",
+    "TAVILY_API_KEY",
+    "EXA_API_KEY",
+    "LINKUP_API_KEY",
+)
+
+
 def isolate_environment() -> None:
-    """Isolated temp DB + prod API key, BEFORE importing src.* (Config reads env
-    at import). Migrations run automatically on Database init. Called by the
+    """Isolated temp DB + prod Gemini key + ddgs-only web search, BEFORE
+    importing src.* (Config reads env at import). Migrations run automatically on Database init. Called by the
     main process and by every worker, so each owns its own database."""
     from dotenv import load_dotenv
 
@@ -612,6 +624,8 @@ def isolate_environment() -> None:
     db_dir = tempfile.mkdtemp(prefix="evals-")
     os.environ["DATABASE_PATH"] = str(Path(db_dir) / "eval.db")
     os.environ["EMBEDDINGS_ENABLED"] = "false"  # keep eval runs cheap and focused
+    for key in EVAL_BLANKED_SEARCH_KEYS:
+        os.environ[key] = ""
 
 
 def execute_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:

@@ -5,6 +5,7 @@ Gemini API and happens via `make eval`, never in CI.
 """
 
 import json
+import os
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -350,3 +351,31 @@ class TestInCaseOrder:
     def test_finished_results_follow_case_order(self) -> None:
         done = {"c": {"id": "c"}, "a": {"id": "a"}}
         assert [r["id"] for r in in_case_order(_cases("a", "b", "c"), done)] == ["a", "c"]
+
+
+class TestEvalSearchIsolation:
+    """Evals must never spend the metered search quota: they load the real
+    .env (same keys as prod) but count usage in a throwaway DB, so prod's
+    quota counters never saw eval searches (Oct 2026)."""
+
+    def test_metered_search_keys_are_blanked(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import dotenv
+
+        from evals.run import EVAL_BLANKED_SEARCH_KEYS, isolate_environment
+
+        monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **kw: True)
+        monkeypatch.setenv("DATABASE_PATH", "unused")
+        monkeypatch.setenv("EMBEDDINGS_ENABLED", "true")
+        for key in EVAL_BLANKED_SEARCH_KEYS:
+            monkeypatch.setenv(key, "real-key")
+
+        isolate_environment()
+
+        assert all(os.environ[key] == "" for key in EVAL_BLANKED_SEARCH_KEYS)
+
+    def test_every_metered_provider_is_covered(self) -> None:
+        from evals.run import EVAL_BLANKED_SEARCH_KEYS
+        from src.utils import search_provider
+
+        metered = [p for p in search_provider._PROVIDERS if p.monthly_quota() is not None]
+        assert len(EVAL_BLANKED_SEARCH_KEYS) == len(metered)

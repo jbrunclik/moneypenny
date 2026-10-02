@@ -22,6 +22,12 @@ of CI or `make test`.
 2. `evals/run.py` creates an isolated temp database (migrations apply
    automatically) and an eval user, then runs each case through
    `ChatAgent.chat_batch` with the production `DEFAULT_MODEL`.
+   Web search is `ddgs` only: the metered providers' keys are blanked
+   (`EVAL_BLANKED_SEARCH_KEYS`), because the local `.env` holds the same
+   keys as prod and eval usage was counted only in the throwaway database -
+   until Oct 2 2026 every eval search spent the real monthly quota unseen by
+   prod's counters. Results before that date were measured on Brave/Tavily
+   search results, so compare pass rates across the switch with care.
 3. Deterministic checks run first: `required_tools` (any-of), `forbidden_tools`,
    `max_tool_rounds`.
 4. An LLM judge (`EVAL_JUDGE_MODEL`, default Gemini Pro) scores the response
