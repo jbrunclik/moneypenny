@@ -119,6 +119,16 @@ TOOL_CALL_JSON_PATTERN = re.compile(
 )
 
 
+# The model sometimes echoes the <!-- MSG_CONTEXT: {...} --> prefix it sees on
+# history messages; the streaming path strips it, so it is not answer text.
+ECHOED_MSG_CONTEXT_PATTERN = re.compile(r"<!--\s*MSG_CONTEXT:.*?-->", re.DOTALL)
+
+
+def strip_echoed_msg_context(text: str) -> str:
+    """Remove echoed MSG_CONTEXT comments from model output."""
+    return ECHOED_MSG_CONTEXT_PATTERN.sub("", text)
+
+
 def clean_tool_call_json(response: str) -> str:
     """Remove tool call JSON artifacts that sometimes leak into LLM response text.
 

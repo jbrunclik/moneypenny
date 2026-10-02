@@ -76,6 +76,26 @@ class TestShouldContinue:
         }
         assert should_continue(state) == "end"
 
+    def test_echoed_msg_context_alone_is_not_text(self) -> None:
+        """An echoed MSG_CONTEXT comment is stripped before saving.
+
+        Routing it to "end" as if it were an answer saved an empty reply
+        (Aug 2026, traced from a duplicate send); the tools must run so the
+        model gets another turn to actually answer.
+        """
+        state: AgentState = {
+            "messages": [
+                AIMessage(
+                    content='<!-- MSG_CONTEXT: {"timestamp": "2026-08-28 20:50 CEST"} -->\n',
+                    tool_calls=[
+                        {"name": "set_conversation_title", "args": {"title": "🦀 Rust"}, "id": "1"},
+                    ],
+                )
+            ],
+            "tool_retries": 0,
+        }
+        assert should_continue(state) == "tools"
+
     def test_routes_to_tools_when_memory_write_accompanies_text(self) -> None:
         """manage_memory must reach the tool node even alongside a text answer.
 

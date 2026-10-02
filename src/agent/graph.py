@@ -31,7 +31,11 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
 from src.agent.cancellation import CancelOnToken, TurnCancelled, raise_if_cancelled
-from src.agent.content import extract_text_content, strip_full_result_from_tool_content
+from src.agent.content import (
+    extract_text_content,
+    strip_echoed_msg_context,
+    strip_full_result_from_tool_content,
+)
 from src.agent.retry import with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import get_available_tools
@@ -159,8 +163,10 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
         if all(tc["name"] in EXTRACT_ONLY_TOOL_NAMES for tc in last_message.tool_calls):
             # If LLM already generated text alongside metadata tools,
-            # skip execution - args are extracted in post-processing
-            if extract_text_content(last_message.content).strip():
+            # skip execution - args are extracted in post-processing. An
+            # echoed MSG_CONTEXT is stripped before saving, so it is no answer.
+            text = strip_echoed_msg_context(extract_text_content(last_message.content))
+            if text.strip():
                 return "end"
             # No text generated - execute tools so LLM gets another
             # turn to produce a text response
