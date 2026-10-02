@@ -132,6 +132,13 @@ conn.close()
 
 Keep `faulthandler.enable()` in `tests/e2e-server.py` - its traceback dump is what made this diagnosable.
 
+**Same crash, other path (Oct 2026):** `close_all()` closed every pooled connection from the
+calling thread, including one a live thread was mid-statement on. Test teardown
+(`db.close()`) raced the previous request's still-running stream thread inside
+`journal_append_events` and segfaulted the backend CI job. `close_all()` now skips
+connections owned by other live threads. Each one's finalizer closes it when the thread exits.
+Rule: never close a sqlite connection from a thread other than its live owner.
+
 ### Key Files
 
 - [connection_pool.py](../../src/utils/connection_pool.py) - `ConnectionPool` class (see `_release_connection` / `close_thread_connection` identity guards)

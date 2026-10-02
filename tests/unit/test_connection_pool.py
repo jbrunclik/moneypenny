@@ -165,3 +165,39 @@ class TestIdentRecyclingSafety:
         ConnectionPool._release_connection(pool._lock, pool._connections, ident, conn)
 
         assert ident not in pool._connections
+
+
+class TestCloseAllWithLiveThreads:
+    """close_all() must not pull a connection out from under a running thread."""
+
+    def test_live_thread_keeps_its_connection(self, tmp_path: Path) -> None:
+        """A test's db teardown runs close_all() while the previous request's
+        stream thread can still be writing; closing its connection from the
+        main thread mid-statement segfaulted sqlite3 on CI (Oct 2026, inside
+        journal_append_events). The live thread's own finalizer closes it.
+        """
+        pool = ConnectionPool(tmp_path / "test.db")
+        acquired = threading.Event()
+        closed = threading.Event()
+        errors: list[Exception] = []
+
+        def worker() -> None:
+            with pool.get_connection() as conn:
+                conn.execute("CREATE TABLE t (x INTEGER)")
+                acquired.set()
+                closed.wait(timeout=5)
+                try:
+                    conn.execute("INSERT INTO t VALUES (1)")
+                    conn.commit()
+                except Exception as e:
+                    errors.append(e)
+
+        t = threading.Thread(target=worker)
+        t.start()
+        assert acquired.wait(timeout=5)
+
+        pool.close_all()
+        closed.set()
+        t.join(timeout=5)
+
+        assert errors == []

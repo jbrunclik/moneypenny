@@ -233,14 +233,23 @@ class ConnectionPool:
         """Close all connections in the pool.
 
         Call this on application shutdown.
+
+        Connections owned by OTHER live threads are left to their thread's
+        finalizer: closing one from here while that thread is mid-statement
+        segfaults sqlite3 (seen on CI when a test's db teardown raced the
+        previous request's still-running stream thread).
         """
+        current = threading.get_ident()
+        alive_thread_ids = {t.ident for t in threading.enumerate()}
         with self._lock:
-            for _thread_id, conn in list(self._connections.items()):
+            for thread_id, conn in list(self._connections.items()):
+                if thread_id != current and thread_id in alive_thread_ids:
+                    continue
+                self._connections.pop(thread_id, None)
                 try:
                     conn.close()
                 except sqlite3.Error:
                     pass
-            self._connections.clear()
 
         # Also clear the thread-local storage for the current thread
         if hasattr(self._local, "connection"):
