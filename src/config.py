@@ -404,6 +404,10 @@ class Config:
     # stalled model call. Generous: the slowest legitimate cases (delegate /
     # research) run ~80s.
     EVAL_CASE_TIMEOUT_SECONDS: float = float(os.getenv("EVAL_CASE_TIMEOUT_SECONDS", "300"))
+    # Cases run in parallel worker processes (evals/pool.py). Kept small:
+    # every case makes live Gemini calls (plus search), and rate limits and
+    # search-provider fallthrough get worse under load.
+    EVAL_WORKERS: int = int(os.getenv("EVAL_WORKERS", "4"))
 
     # Embeddings for semantic recall (memories + past conversations).
     # Vectors stored in the embeddings table; brute-force cosine search.

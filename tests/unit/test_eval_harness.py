@@ -12,9 +12,11 @@ import pytest
 from evals.run import (
     EvalCase,
     deterministic_failures,
+    in_case_order,
     load_cases,
     parse_judge_response,
     run_with_timeout,
+    select_cases,
     write_results,
 )
 
@@ -300,3 +302,36 @@ class TestIncrementalResults:
         out = tmp_path / "run.json"
         write_results(out, [{"id": "a", "pass": True, "cost_usd": 0.03}])
         assert json.loads(out.read_text())["cost"]["total_usd"] == 0.03
+
+
+def _cases(*ids: str) -> list[EvalCase]:
+    return [EvalCase(id=i, description="", user="hi", rubric="r") for i in ids]
+
+
+class TestSelectCases:
+    """--only takes several ids or globs, so reruns share one process start."""
+
+    def test_no_patterns_keeps_every_case(self) -> None:
+        cases = _cases("a", "b")
+        assert select_cases(cases, []) == cases
+
+    def test_several_ids_and_globs_keep_case_order(self) -> None:
+        cases = _cases("code_exec", "skill_pdf", "skill_trip", "web_search")
+        picked = select_cases(cases, ["web_search", "skill_*"])
+        assert [c.id for c in picked] == ["skill_pdf", "skill_trip", "web_search"]
+
+    def test_comma_separated_patterns(self) -> None:
+        picked = select_cases(_cases("a", "b", "c"), ["a,c"])
+        assert [c.id for c in picked] == ["a", "c"]
+
+    def test_a_pattern_matching_nothing_is_an_error(self) -> None:
+        with pytest.raises(ValueError, match="typo"):
+            select_cases(_cases("a"), ["a", "typo"])
+
+
+class TestInCaseOrder:
+    """Workers finish out of order; the report and results file must not."""
+
+    def test_finished_results_follow_case_order(self) -> None:
+        done = {"c": {"id": "c"}, "a": {"id": "a"}}
+        assert [r["id"] for r in in_case_order(_cases("a", "b", "c"), done)] == ["a", "c"]

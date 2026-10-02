@@ -124,13 +124,25 @@ from earlier runs were measured with every nudge off.
 ## Commands
 
 ```bash
-make eval                                  # all cases
+make eval                                  # all cases, EVAL_WORKERS (4) in parallel
 .venv/bin/python evals/run.py --only code_exec   # one case
+.venv/bin/python evals/run.py --only 'skill_*,code_exec' --workers 2   # ids/globs, comma-separated or repeated
 ```
+
+Cases run on a pool of worker **processes** ([pool.py](../../evals/pool.py)),
+not threads: `fake_integrations` patches module attributes process-wide, and
+seeded memories and past conversations belong to the one eval user, so
+cases sharing a process would see each other's state. Each worker owns an
+isolated temp database and runs its cases one at a time; the results file
+and the report stay in case order. A `--only` pattern that matches nothing
+is an error. Keep the pool small: every case makes live Gemini and search
+calls, and search-provider fallthrough ("Search provider failed, trying
+next") gets more frequent under load.
 
 ## Key files
 
 - [evals/run.py](../../evals/run.py) - runner, case loading, judge
+- [evals/pool.py](../../evals/pool.py) - parallel worker processes
 - [evals/cases/](../../evals/cases/) - golden cases
 - [tests/unit/test_eval_harness.py](../../tests/unit/test_eval_harness.py) - unit tests for the pure pieces
-- [config.py](../../src/config.py) - `EVAL_JUDGE_MODEL`
+- [config.py](../../src/config.py) - `EVAL_JUDGE_MODEL`, `EVAL_CASE_TIMEOUT_SECONDS`, `EVAL_WORKERS`

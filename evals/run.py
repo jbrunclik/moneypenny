@@ -15,12 +15,16 @@ in the summary, and persisted under "cost" in the results JSON so runs stay
 comparable - a prompt change that holds the pass rate while doubling spend
 is a regression that pass counts alone will not show.
 
+Cases run in parallel worker processes (--workers, default EVAL_WORKERS),
+each with its own temp database; results are reported in case order.
+
 Usage:
     make eval
-    python evals/run.py [--only CASE_ID] [--cases evals/cases]
+    python evals/run.py [--only 'ID_OR_GLOB[,...]'] [--workers N] [--cases evals/cases]
 """
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -172,6 +176,26 @@ def load_cases(directory: Path) -> list[EvalCase]:
             )
         )
     return cases
+
+
+def select_cases(cases: list[EvalCase], patterns: list[str]) -> list[EvalCase]:
+    """Cases matching any id or glob (comma-separated allowed), in case order.
+
+    No patterns keeps every case. A pattern that matches nothing is an error -
+    a typo must not silently shrink a rerun.
+    """
+    wanted = [p.strip() for raw in patterns for p in raw.split(",") if p.strip()]
+    if not wanted:
+        return cases
+    unmatched = [p for p in wanted if not any(fnmatch.fnmatchcase(c.id, p) for c in cases)]
+    if unmatched:
+        raise ValueError(f"no case matches: {', '.join(unmatched)}")
+    return [c for c in cases if any(fnmatch.fnmatchcase(c.id, p) for p in wanted)]
+
+
+def in_case_order(cases: list[EvalCase], done: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Finished results in case order (workers finish out of order)."""
+    return [done[c.id] for c in cases if c.id in done]
 
 
 def parse_judge_response(text: str) -> tuple[int, bool, str]:
@@ -567,14 +591,10 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     }
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cases", default=str(Path(__file__).parent / "cases"))
-    parser.add_argument("--only", help="run a single case id")
-    args = parser.parse_args()
-
-    # Isolated temp DB + prod API key, BEFORE importing src.* (config reads env
-    # at import). Migrations run automatically on Database init.
+def isolate_environment() -> None:
+    """Isolated temp DB + prod API key, BEFORE importing src.* (Config reads env
+    at import). Migrations run automatically on Database init. Called by the
+    main process and by every worker, so each owns its own database."""
     from dotenv import load_dotenv
 
     load_dotenv(_REPO_ROOT / ".env")
@@ -582,64 +602,95 @@ def main() -> int:
     os.environ["DATABASE_PATH"] = str(Path(db_dir) / "eval.db")
     os.environ["EMBEDDINGS_ENABLED"] = "false"  # keep eval runs cheap and focused
 
-    # First src import in this process - the module-level db singleton (which
-    # every agent tool uses) initializes against the temp DATABASE_PATH.
+
+def execute_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
+    """Run one case under the per-case timeout; never raises."""
+    from src.config import Config
+
+    if case.requires and not _requirements_met(case):
+        return {"id": case.id, "skipped": True}
+    print(f"RUN   {case.id} ...", flush=True)
+    try:
+        result: dict[str, Any] = run_with_timeout(
+            lambda: _run_case(case, user, db), Config.EVAL_CASE_TIMEOUT_SECONDS
+        )
+    except TimeoutError as e:
+        # Abandoned, not retried: the worker thread is stuck in a socket
+        # read we cannot interrupt, so the suite moves on without it.
+        result = {"id": case.id, "pass": False, "score": 0, "error": str(e), "timed_out": True}
+    except Exception as e:  # a crashed case is a failed case, not a dead run
+        result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
+    return result
+
+
+def _print_result(result: dict[str, Any]) -> None:
+    if result.get("skipped"):
+        print(f"SKIP  {result['id']} (requirements not met)", flush=True)
+        return
+    status = "PASS" if result.get("pass") else "FAIL"
+    cost = result.get("cost_usd")
+    cost_str = f" cost={_usd(cost)}" if cost is not None else ""
+    print(
+        f"{status}  {result['id']} score={result.get('score')} "
+        f"rounds={result.get('tool_rounds')} t={result.get('duration_s')}s{cost_str}",
+        flush=True,
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cases", default=str(Path(__file__).parent / "cases"))
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        help="case ids or globs (quote them), comma-separated or repeated",
+    )
+    parser.add_argument("--workers", type=int, help="parallel cases (default EVAL_WORKERS)")
+    args = parser.parse_args()
+
+    isolate_environment()
     # Imported here, not at module scope: Config reads env at import time and
     # must not be loaded before the DATABASE_PATH override above.
+    from evals.pool import run_cases
     from src.config import Config
-    from src.db.models import db
 
-    user = db.get_or_create_user("eval@example.com", "Eval User")
-
-    cases = load_cases(Path(args.cases))
-    if args.only:
-        cases = [case for case in cases if case.id == args.only]
-        if not cases:
-            print(f"No case with id={args.only}")
-            return 1
+    try:
+        cases = select_cases(load_cases(Path(args.cases)), args.only)
+    except ValueError as e:
+        print(e)
+        return 1
+    workers = max(1, args.workers or Config.EVAL_WORKERS)
 
     results_dir = Path(__file__).parent / "results"
     results_dir.mkdir(exist_ok=True)
     from datetime import datetime
 
     out_path = results_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+    print(f"{len(cases)} cases on {min(workers, len(cases))} workers", flush=True)
+    started = time.monotonic()
 
-    results: list[dict[str, Any]] = []
-    for case in cases:
-        if case.requires and not _requirements_met(case):
-            print(f"SKIP  {case.id} (requires {case.requires})")
-            results.append({"id": case.id, "skipped": True})
-            write_results(out_path, results)
-            continue
-        print(f"RUN   {case.id} ...", flush=True)
-        try:
-            result = run_with_timeout(
-                lambda case=case: _run_case(case, user, db),  # type: ignore[misc]
-                Config.EVAL_CASE_TIMEOUT_SECONDS,
-            )
-        except TimeoutError as e:
-            # Abandoned, not retried: the worker thread is stuck in a socket
-            # read we cannot interrupt, so the suite moves on without it.
-            result = {"id": case.id, "pass": False, "score": 0, "error": str(e), "timed_out": True}
-        except Exception as e:  # a crashed case is a failed case, not a dead run
-            result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
-        results.append(result)
+    done: dict[str, dict[str, Any]] = {}
+
+    def on_result(result: dict[str, Any]) -> None:
+        done[result["id"]] = result
         # Flush after every case so a hang or Ctrl-C keeps what was paid for
-        write_results(out_path, results)
-        status = "PASS" if result.get("pass") else "FAIL"
-        cost = result.get("cost_usd")
-        cost_str = f" cost={_usd(cost)}" if cost is not None else ""
-        print(
-            f"{status}  {case.id} score={result.get('score')} "
-            f"rounds={result.get('tool_rounds')} t={result.get('duration_s')}s{cost_str}"
-        )
+        write_results(out_path, in_case_order(cases, done))
+        _print_result(result)
+
+    run_cases(cases, workers, on_result)
+    results = in_case_order(cases, done)
+    elapsed = time.monotonic() - started
 
     ran = [r for r in results if not r.get("skipped")]
     passed = sum(1 for r in ran if r.get("pass"))
     cost = _cost_summary(results)
     write_results(out_path, results)
 
-    print(f"\n{passed}/{len(ran)} passed ({len(results) - len(ran)} skipped)")
+    print(
+        f"\n{passed}/{len(ran)} passed ({len(results) - len(ran)} skipped) "
+        f"in {elapsed / 60:.1f} min on {min(workers, len(cases))} workers"
+    )
 
     print(f"\nCost: {_usd(cost['total_usd'])} total for {len(ran)} cases")
     print(
