@@ -15,6 +15,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from src.agent.cancellation import STOP_REASON_USER, TurnCancelled, is_cancelled
 from src.agent.content import final_response_text
 from src.agent.context_cache import CacheProfile
+from src.agent.grounding_check import apply_grounding
 from src.agent.message_content import build_message_content, history_to_messages
 from src.agent.prompts import get_system_prompt
 from src.agent.stream_events import StreamEventProcessor, iter_token_stream
@@ -321,6 +322,7 @@ class ChatAgent:
 
         # Aggregate usage metadata from all AIMessages
         usage_info = batch_usage_info(result_messages, turn_duration_ms)
+        response_text = apply_grounding(response_text, result_messages, usage_info)
 
         return response_text, tool_results, usage_info, result_messages
 
@@ -502,4 +504,12 @@ class ChatAgent:
             if close is not None:
                 close()
 
-        yield from processor.finish(turn_started, stop_reason=stop_reason)
+        for event in processor.finish(turn_started, stop_reason=stop_reason):
+            if event.get("type") == "final":
+                event["content"] = apply_grounding(
+                    event["content"],
+                    event["result_messages"],
+                    event["usage_info"],
+                    event.get("stop_reason"),
+                )
+            yield event

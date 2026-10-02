@@ -16,7 +16,7 @@ from langchain_core.messages import BaseMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
-from src.agent.content import extract_text_content
+from src.agent.content import detect_response_language, extract_text_content
 from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
 from src.config import Config
 from src.utils.logging import get_logger
@@ -164,3 +164,21 @@ def find_unverified(
         },
     )
     return GroundingResult(items=items, kinds=kinds, usage=usage)
+
+
+def apply_grounding(
+    answer: str,
+    result_messages: list[BaseMessage],
+    usage_info: dict[str, Any],
+    stop_reason: str | None = None,
+) -> str:
+    """The answer with an unverified-specifics note if needed; records verifier usage.
+
+    Called by ChatAgent for both batch and streamed turns so evals see exactly
+    what users see. `find_unverified` is looked up on the module at call time,
+    which keeps it patchable in tests.
+    """
+    result = find_unverified(answer, result_messages, stop_reason)
+    if result.usage:
+        usage_info["grounding_usage"] = result.usage
+    return append_unverified_note(answer, result.items, detect_response_language(answer))
