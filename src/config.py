@@ -146,6 +146,13 @@ class Config:
             "cached_input": 0.075,
             "output": 3.75,  # $3.75 per million output tokens
         },
+        # Grounding check model (GROUNDING_CHECK_MODEL) - priced only, never
+        # user-selectable, so not in MODELS
+        "gemini-3.5-flash-lite": {
+            "input": 0.30,  # $0.30 per million input tokens
+            "cached_input": 0.03,
+            "output": 2.50,  # $2.50 per million output tokens
+        },
         "gemini-3.7-flash": {
             # Same introductory schedule as 3.8 Flash (historical)
             "input": 0.75,  # $0.75 per million input tokens (historical)

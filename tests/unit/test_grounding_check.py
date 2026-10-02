@@ -1,8 +1,20 @@
 """Unit tests for the post-answer grounding check (src/agent/grounding_check.py)."""
 
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from src.agent.grounding_check import append_unverified_note, collect_web_sources
+from src.agent import grounding_check
+from src.agent.grounding_check import (
+    GroundingVerdict,
+    UnverifiedItem,
+    append_unverified_note,
+    collect_web_sources,
+    find_unverified,
+)
+from src.config import Config
 
 
 def _tool(name: str, content: object, status: str = "success") -> ToolMessage:
@@ -65,3 +77,152 @@ class TestAppendUnverifiedNote:
             assert result == (
                 "Answer.\n\n_Not confirmed in the sources I read for this answer: VeloRama._"
             )
+
+
+def _verdict(*items: tuple[str, str]) -> GroundingVerdict:
+    return GroundingVerdict(
+        unsupported=[UnverifiedItem(text=t, kind=k) for t, k in items]  # type: ignore[arg-type]
+    )
+
+
+_USAGE = {"model": "m", "input_tokens": 10, "output_tokens": 2, "cached_input_tokens": 0}
+
+
+@pytest.fixture
+def fake_verifier(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Replace the LLM call; tests set .return_value or .side_effect."""
+    monkeypatch.setattr(Config, "GROUNDING_CHECK_ENABLED", True)
+    fake = MagicMock(return_value=(_verdict(), _USAGE))
+    monkeypatch.setattr(grounding_check, "_run_verifier", fake)
+    return fake
+
+
+_WEB_TURN = [_tool("research", "Kolo Brompton C Line stojí 32 990 Kč u Bike Prague.")]
+_ANSWER = "Brompton koupíte u Bike Prague (32 990 Kč) nebo ve VeloRama za 29 990 Kč."
+
+
+class TestFindUnverified:
+    def test_flags_items_the_verifier_returns(self, fake_verifier: MagicMock) -> None:
+        fake_verifier.return_value = (
+            _verdict(("VeloRama", "shop"), ("29 990 Kč", "price")),
+            _USAGE,
+        )
+
+        result = find_unverified(_ANSWER, _WEB_TURN)
+
+        assert result.items == ["VeloRama", "29 990 Kč"]
+        assert result.kinds == ["shop", "price"]
+        assert result.usage == _USAGE
+
+    def test_drops_items_not_in_the_answer(self, fake_verifier: MagicMock) -> None:
+        # The verifier paraphrased or invented an item: the note must only
+        # ever name things the answer actually says
+        fake_verifier.return_value = (
+            _verdict(("Velo Rama s.r.o.", "shop"), ("velorama", "shop")),
+            None,
+        )
+
+        assert find_unverified(_ANSWER, _WEB_TURN).items == ["velorama"]
+
+    def test_dedupes_and_caps_items(
+        self, fake_verifier: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_ITEMS", 2)
+        fake_verifier.return_value = (
+            _verdict(
+                ("VeloRama", "shop"),
+                ("VeloRama", "shop"),
+                ("29 990 Kč", "price"),
+                ("Bike Prague", "shop"),
+            ),
+            None,
+        )
+
+        assert find_unverified(_ANSWER, _WEB_TURN).items == ["VeloRama", "29 990 Kč"]
+
+    @pytest.mark.parametrize(
+        ("answer", "messages", "stop_reason"),
+        [
+            ("", _WEB_TURN, None),
+            (_ANSWER, _WEB_TURN, "user"),
+            (_ANSWER, [_tool("execute_code", "42")], None),
+        ],
+    )
+    def test_skips_without_calling_the_verifier(
+        self,
+        fake_verifier: MagicMock,
+        answer: str,
+        messages: list[Any],
+        stop_reason: str | None,
+    ) -> None:
+        result = find_unverified(answer, messages, stop_reason)
+
+        assert result.items == []
+        assert result.usage is None
+        fake_verifier.assert_not_called()
+
+    def test_disabled_skips(
+        self, fake_verifier: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Config, "GROUNDING_CHECK_ENABLED", False)
+
+        assert find_unverified(_ANSWER, _WEB_TURN).items == []
+        fake_verifier.assert_not_called()
+
+    def test_verifier_error_fails_open(self, fake_verifier: MagicMock) -> None:
+        fake_verifier.side_effect = TimeoutError("deadline exceeded")
+
+        result = find_unverified(_ANSWER, _WEB_TURN)
+
+        assert result.items == []
+        assert result.usage is None
+
+    def test_schema_miss_keeps_usage(self, fake_verifier: MagicMock) -> None:
+        usage = {"model": "m", "input_tokens": 900, "output_tokens": 5, "cached_input_tokens": 0}
+        fake_verifier.return_value = (None, usage)
+
+        result = find_unverified(_ANSWER, _WEB_TURN)
+
+        assert result.items == []
+        assert result.usage == usage
+
+
+class TestRunVerifier:
+    def test_builds_structured_call_and_reads_usage(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        raw = MagicMock(
+            usage_metadata={
+                "input_tokens": 120,
+                "output_tokens": 8,
+                "input_token_details": {"cache_read": 20},
+            }
+        )
+        structured = MagicMock()
+        structured.invoke.return_value = {
+            "raw": raw,
+            "parsed": _verdict(("VeloRama", "shop")),
+            "parsing_error": None,
+        }
+        model = MagicMock()
+        model.with_structured_output.return_value = structured
+        llm_cls = MagicMock(return_value=model)
+        monkeypatch.setattr(grounding_check, "ChatGoogleGenerativeAI", llm_cls)
+
+        verdict, usage = grounding_check._run_verifier("the answer", "the sources")
+
+        kwargs = llm_cls.call_args.kwargs
+        assert kwargs["model"] == Config.GROUNDING_CHECK_MODEL
+        assert kwargs["temperature"] == 0
+        assert kwargs["timeout"] == Config.GROUNDING_CHECK_TIMEOUT_SECONDS
+        assert kwargs["max_retries"] == 0
+        model.with_structured_output.assert_called_once_with(GroundingVerdict, include_raw=True)
+        prompt = structured.invoke.call_args.args[0]
+        assert "the answer" in prompt
+        assert "the sources" in prompt
+        assert verdict is not None
+        assert verdict.unsupported[0].text == "VeloRama"
+        assert usage == {
+            "model": Config.GROUNDING_CHECK_MODEL,
+            "input_tokens": 120,
+            "output_tokens": 8,
+            "cached_input_tokens": 20,
+        }
