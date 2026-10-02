@@ -85,6 +85,17 @@ function completeInBackground(event: StreamDoneEvent, state: StreamingState, con
 }
 
 /**
+ * The text to re-render from the done event, or null to keep the bubble as
+ * streamed. Two cases: tokens were lost in transit (nothing streamed), or the
+ * server changed the text after the last token - the grounding check marks
+ * unverified specifics in place (src/agent/grounding_markers.py).
+ */
+export function doneContentToRender(eventContent: string | undefined, streamedContent: string): string | null {
+  if (!eventContent) return null;
+  return eventContent.trim() === streamedContent.trim() ? null : eventContent;
+}
+
+/**
  * Finalize the streaming bubble with the saved message. Returns whether the
  * user was following the stream (at the bottom) when it finished.
  */
@@ -94,16 +105,17 @@ function finalizeDoneBubble(
   convId: string,
   messageEl: HTMLElement
 ): boolean {
-  // Recovery: If tokens weren't rendered during streaming but done event has content,
-  // render the content now. This handles cases where SSE token events were lost
-  // (e.g., connection issues, iOS Safari quirks) but the done event arrived.
-  if (event.content && !state.fullContent.trim()) {
-    log.warn('Recovering content from done event - tokens were not streamed', {
-      conversationId: convId,
-      contentLength: event.content.length,
-    });
-    // Render the content that should have been streamed
-    updateStreamingMessage(messageEl, event.content);
+  // Render the saved text when it differs from what streamed: lost SSE token
+  // events (connection issues, iOS Safari quirks), or server-side marking
+  const content = doneContentToRender(event.content, state.fullContent);
+  if (content !== null) {
+    if (!state.fullContent.trim()) {
+      log.warn('Recovering content from done event - tokens were not streamed', {
+        conversationId: convId,
+        contentLength: content.length,
+      });
+    }
+    updateStreamingMessage(messageEl, content);
   }
 
   const wasFollowing = finalizeStreamingMessage(

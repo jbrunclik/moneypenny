@@ -7,7 +7,7 @@ vi.mock('@/core/conversation-actions', () => ({ updateConversationTitle: vi.fn()
 vi.mock('@/core/toolbar', () => ({ updateConversationCost: vi.fn() }));
 vi.mock('@/components/messages', () => ({}));
 
-import { assistantMessageFromDone, hasVisibleContent } from '@/core/stream-done';
+import { assistantMessageFromDone, doneContentToRender, hasVisibleContent } from '@/core/stream-done';
 
 describe('assistantMessageFromDone', () => {
   it('maps the saved message fields', () => {
@@ -65,5 +65,29 @@ describe('hasVisibleContent', () => {
     expect(hasVisibleContent({ id: 'a', created_at: 'x', files: [{ name: 'f', type: 't' }] })).toBe(true);
     expect(hasVisibleContent({ id: 'a', created_at: 'x', generated_images: [{ prompt: 'p' }] })).toBe(true);
     expect(hasVisibleContent({ id: 'a', created_at: 'x', sources: [{ title: 't', url: 'u' }] })).toBe(true);
+  });
+});
+
+describe('doneContentToRender', () => {
+  it('renders the saved text when the server changed it after streaming', () => {
+    // The grounding check marks unverified specifics after the last token
+    // (src/agent/grounding_markers.py); the bubble must show the saved text
+    expect(doneContentToRender('Kupte u VeloRama _(neověřeno)_.', 'Kupte u VeloRama.')).toBe(
+      'Kupte u VeloRama _(neověřeno)_.'
+    );
+  });
+
+  it('renders the saved text when no tokens arrived (lost-token recovery)', () => {
+    expect(doneContentToRender('Hi there', '')).toBe('Hi there');
+  });
+
+  it('skips the re-render when the streamed text already matches', () => {
+    expect(doneContentToRender('Hi there', 'Hi there')).toBeNull();
+    expect(doneContentToRender('Hi there', 'Hi there\n')).toBeNull();
+  });
+
+  it('keeps the streamed text when the event has no content', () => {
+    expect(doneContentToRender(undefined, 'Streamed')).toBeNull();
+    expect(doneContentToRender('', 'Streamed')).toBeNull();
   });
 });
