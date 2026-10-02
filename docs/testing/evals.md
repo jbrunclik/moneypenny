@@ -121,7 +121,15 @@ the same date placeholders as `integrations` (plus a `_weekday` suffix, e.g.
   guards, not reproductions of the sweep's date corrections.
 - `cz_grounded_no_note` — precision guard for the
   [grounding check](../features/agent-tools.md#grounding-check): a fully
-  sourced CNB-rate answer must carry no `_(neověřeno)_` marker. 4/5 at ship.
+  sourced CNB-rate answer must carry no `_(neověřeno)_` marker. 4/5 at ship,
+  5/5 after the Oct 2026 precision pass.
+- `cz_trip_plan_precision` — the prod complaint shape: a Saturday trip plan
+  with its own timeline. Fails on any marker on a plan time or a well-known
+  town, or on more than 2 markers. 1/3 before the precision pass; 2/5 after -
+  the remaining failures are marker COUNT on businesses the sources really
+  don't mention (the model adds cafés on its own), a known honesty-vs-noise
+  trade-off, not markers on times or towns. `skill_product_where_to_buy`
+  moved from 4/5 to 2/5 in the same pass (Lite recall varies a lot).
 
 Skill cases (Sep 2026) - `skill_*` cases guard the
 [skills](../features/agent-tools.md#skills) trigger gate. Should-trigger cases

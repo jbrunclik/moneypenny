@@ -83,21 +83,21 @@ _ANSWER = "Brompton koupíte u Bike Prague (32 990 Kč) nebo ve VeloRama za 29 9
 class TestFindUnverified:
     def test_flags_items_the_verifier_returns(self, fake_verifier: MagicMock) -> None:
         fake_verifier.return_value = (
-            _verdict(("VeloRama", "shop"), ("29 990 Kč", "price")),
+            _verdict(("VeloRama", "business"), ("29 990 Kč", "price")),
             _USAGE,
         )
 
         result = find_unverified(_ANSWER, _WEB_TURN)
 
         assert result.items == ["VeloRama", "29 990 Kč"]
-        assert result.kinds == ["shop", "price"]
+        assert result.kinds == ["business", "price"]
         assert result.usage == _USAGE
 
     def test_drops_items_not_in_the_answer(self, fake_verifier: MagicMock) -> None:
         # The verifier paraphrased or invented an item: the note must only
         # ever name things the answer actually says
         fake_verifier.return_value = (
-            _verdict(("Velo Rama s.r.o.", "shop"), ("velorama", "shop")),
+            _verdict(("Velo Rama s.r.o.", "business"), ("velorama", "business")),
             None,
         )
 
@@ -109,10 +109,10 @@ class TestFindUnverified:
         monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_ITEMS", 2)
         fake_verifier.return_value = (
             _verdict(
-                ("VeloRama", "shop"),
-                ("VeloRama", "shop"),
+                ("VeloRama", "business"),
+                ("VeloRama", "business"),
                 ("29 990 Kč", "price"),
-                ("Bike Prague", "shop"),
+                ("Bike Prague", "business"),
             ),
             None,
         )
@@ -206,7 +206,10 @@ class TestFindUnverified:
         # only false_claims may be sentences
         monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_ITEM_CHARS", 20)
         long_item = "Brompton koupíte u Bike Prague (32 990 Kč)"
-        fake_verifier.return_value = (_verdict((long_item, "other"), ("VeloRama", "shop")), _USAGE)
+        fake_verifier.return_value = (
+            _verdict((long_item, "other"), ("VeloRama", "business")),
+            _USAGE,
+        )
 
         assert find_unverified(_ANSWER, _WEB_TURN).items == ["VeloRama"]
 
@@ -232,7 +235,7 @@ class TestRunVerifier:
         structured = MagicMock()
         structured.invoke.return_value = {
             "raw": raw,
-            "parsed": _verdict(("VeloRama", "shop")),
+            "parsed": _verdict(("VeloRama", "business")),
             "parsing_error": None,
         }
         model = MagicMock()
@@ -322,3 +325,55 @@ class TestKnownFacts:
         find_unverified(_ANSWER, [HumanMessage(content="kde koupit brompton"), *_WEB_TURN])
 
         assert "kde koupit brompton" in fake_verifier.call_args.args[2]
+
+
+class TestItemKinds:
+    """Kinds name what may be flagged: claims about businesses, events and
+    services. 'hours' and 'place' let the verifier misfile the answer's own
+    timeline and well-known towns (prod, Oct 2026), so they are gone."""
+
+    def test_allowed_kinds(self) -> None:
+        for kind in ("business", "event", "price", "hours_or_date", "contact", "other"):
+            assert UnverifiedItem(text="x", kind=kind).kind == kind  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("kind", ["place", "hours", "date", "figure", "shop"])
+    def test_old_kinds_are_rejected(self, kind: str) -> None:
+        with pytest.raises(ValueError):
+            UnverifiedItem(text="x", kind=kind)  # type: ignore[arg-type]
+
+    def test_prompt_excludes_own_plan_and_geography(self) -> None:
+        from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
+
+        prompt = GROUNDING_CHECK_PROMPT.casefold()
+        assert "own plan" in prompt
+        assert "well-known places" in prompt
+
+
+class TestScheduleGuard:
+    """The verifier (Lite) sometimes flags the answer's own timeline despite
+    the prompt (live probe, Oct 2026: 8 of 8 items were plan times)."""
+
+    @pytest.fixture
+    def plan_answer(self) -> str:
+        return (
+            "10:15 odjezd, 11:15 příjezd, 12:00–14:15 Medovinobraní, 14:15–15:00 přejezd. "
+            "Kavárna Bimbo Café má otevřeno 9:00–18:00."
+        )
+
+    def test_three_or_more_bare_times_are_the_answers_own_plan(
+        self, fake_verifier: MagicMock, plan_answer: str
+    ) -> None:
+        times = ("10:15", "11:15", "12:00–14:15", "14:15–15:00")
+        fake_verifier.return_value = (
+            _verdict(*[(t, "hours_or_date") for t in times], ("Bimbo Café", "business")),
+            _USAGE,
+        )
+
+        assert find_unverified(plan_answer, _WEB_TURN).items == ["Bimbo Café"]
+
+    def test_a_single_flagged_opening_hours_range_survives(
+        self, fake_verifier: MagicMock, plan_answer: str
+    ) -> None:
+        fake_verifier.return_value = (_verdict(("9:00–18:00", "hours_or_date")), _USAGE)
+
+        assert find_unverified(plan_answer, _WEB_TURN).items == ["9:00–18:00"]

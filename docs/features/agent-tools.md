@@ -139,9 +139,16 @@ model ([grounding_check.py](../../src/agent/grounding_check.py), design:
   [grounding.py](../../src/agent/prompt_texts/grounding.py). Inputs: the
   turn's web results, newest first, up to the source cap, plus known facts
   (today's date and the user's message) that always count as supported. It
-  returns unsupported specifics (shops, places, prices, hours, dates, figures)
-  and false claims (sentences saying it verified something the sources do not
-  support). Only items found literally in the answer are kept.
+  returns unsupported claims about specific businesses, events and services
+  (kinds `business | event | price | hours_or_date | contact | other`) and false
+  claims (sentences saying it verified something the sources do not support).
+  It must never flag the answer's own plan or schedule (suggested times,
+  durations) or well-known places (towns, hills, regions) - both were the bulk
+  of the noise in the first prod week (Oct 2026). Only items found literally in
+  the answer, at most `GROUNDING_CHECK_MAX_ITEM_CHARS` long (names and prices,
+  not descriptions), are kept; if 3+ kept items are bare times or time ranges
+  they are the answer's own timeline and are dropped (Lite flags them despite
+  the prompt).
 - **Markers**: [grounding_markers.py](../../src/agent/grounding_markers.py)
   deterministically inserts `_(neověřeno)_` (Czech) or `_(unverified)_` (any
   other language) after each item at every occurrence, after closing emphasis,
@@ -151,7 +158,11 @@ model ([grounding_check.py](../../src/agent/grounding_check.py), design:
   The marked text arrives in `done.content` about 1-3 s after streaming ends;
   the client re-renders the bubble when `done.content` differs from the
   streamed text (`doneContentToRender` in `web/src/core/stream-done.ts`), and
-  it is saved as the message content.
+  it is saved as the message content. The web renderer turns the marker into
+  a small amber badge (`.grounding-unverified`, tooltip "Nenalezeno ve
+  zdrojích...") via a `marked` `em` override in
+  [markdown.ts](../../web/src/utils/markdown.ts); copy turns the badge back
+  into `(neověřeno)`.
 - **Scope**: skipped inside `delegate_task` subagents (the parent's answer is
   the one users see). This turn's non-web tool results (calendar, Garmin,
   memory...) count as known facts, so stating them is never flagged.
@@ -172,7 +183,7 @@ model ([grounding_check.py](../../src/agent/grounding_check.py), design:
 | `GROUNDING_CHECK_MAX_SOURCE_CHARS` | `60000` | Source text cap, most recent kept |
 | `GROUNDING_CHECK_MAX_ITEMS` | `8` | Max flagged items |
 | `GROUNDING_CHECK_MAX_FALSE_CLAIMS` | `3` | Max flagged false-claim sentences |
-| `GROUNDING_CHECK_MAX_ITEM_CHARS` | `80` | Longer items are dropped (only false claims may be sentences) |
+| `GROUNDING_CHECK_MAX_ITEM_CHARS` | `40` | Longer items are dropped as descriptions or mis-filed sentences (only false claims may be sentences) |
 | `GROUNDING_CHECK_TIMEOUT_SECONDS` | `10` | Floored at `GEMINI_MIN_REQUEST_DEADLINE_SECONDS` (10) |
 
 Pitfalls learned:

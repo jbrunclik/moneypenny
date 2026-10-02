@@ -20,7 +20,7 @@ def flag(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     fake = MagicMock(
         return_value=GroundingResult(
             items=["VeloRama"],
-            kinds=["shop"],
+            kinds=["business"],
             false_claims=["it is a good shop."],
             usage=_USAGE,
         )

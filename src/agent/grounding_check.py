@@ -8,6 +8,7 @@ the sources don't support are marked in place (src/agent/grounding_markers.py). 
 docs/superpowers/specs/2026-10-02-grounding-check-design.md.
 """
 
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -40,7 +41,9 @@ class UnverifiedItem(BaseModel):
     """One specific in the answer that the sources don't support."""
 
     text: str = Field(..., description="The specific exactly as written in the answer")
-    kind: Literal["shop", "place", "price", "hours", "date", "figure", "other"] = "other"
+    # No "hours"/"place" kinds: they let the verifier misfile the answer's own
+    # timeline and well-known towns as unsupported (prod, Oct 2026)
+    kind: Literal["business", "event", "price", "hours_or_date", "contact", "other"] = "other"
 
 
 class GroundingVerdict(BaseModel):
@@ -164,6 +167,23 @@ def _run_verifier(
     return (parsed if isinstance(parsed, GroundingVerdict) else None), usage
 
 
+# A bare time or time range ("10:15", "12:00–14:15"). Three or more flagged
+# ones are the answer's own timeline, which the verifier sometimes flags
+# despite the prompt (live probe, Oct 2026: 8 of 8 items were plan times);
+# a single flagged range is more likely real opening hours
+_BARE_TIME = re.compile(r"~?\d{1,2}[:.]\d{2}(?:\s*[–—-]\s*\d{1,2}[:.]\d{2})?")
+_SCHEDULE_MIN_TIMES = 3
+
+
+def _drop_schedule_times(items: list[str], kinds: list[str]) -> tuple[list[str], list[str]]:
+    """Drop bare-time items when there are enough of them to be a timeline."""
+    is_time = [bool(_BARE_TIME.fullmatch(item)) for item in items]
+    if sum(is_time) < _SCHEDULE_MIN_TIMES:
+        return items, kinds
+    kept = [i for i, t in enumerate(is_time) if not t]
+    return [items[i] for i in kept], [kinds[i] for i in kept]
+
+
 def _literal(texts: list[str], answer: str, cap: int, max_chars: int | None = None) -> list[int]:
     """Indexes of texts that appear literally in the answer, de-duplicated, capped."""
     haystack = answer.casefold()
@@ -192,11 +212,10 @@ def _keep(verdict: GroundingVerdict | None, answer: str) -> tuple[list[str], lis
     )
     claims = verdict.false_claims
     kept_claims = _literal(claims, answer, Config.GROUNDING_CHECK_MAX_FALSE_CLAIMS)
-    return (
-        [texts[i].strip() for i in idx],
-        [verdict.unsupported[i].kind for i in idx],
-        [claims[i].strip() for i in kept_claims],
+    items, kinds = _drop_schedule_times(
+        [texts[i].strip() for i in idx], [verdict.unsupported[i].kind for i in idx]
     )
+    return items, kinds, [claims[i].strip() for i in kept_claims]
 
 
 def find_unverified(
