@@ -33,3 +33,19 @@ describe('copyMessageContent', () => {
     expect(writeText).toHaveBeenCalledWith('first line\nsecond line\n\nafter a blank line');
   });
 });
+
+describe('copyMessageContent with grounding badges', () => {
+  it('copies a badge as the plain marker text', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    document.body.innerHTML = `
+      <div class="message assistant">
+        <div class="message-content">Kupte u VeloRama <span class="grounding-unverified" title="t">neověřeno</span>.</div>
+        <button class="copy-btn"></button>
+      </div>`;
+
+    await copyMessageContent(document.querySelector<HTMLButtonElement>('.copy-btn')!);
+
+    expect(writeText).toHaveBeenCalledWith('Kupte u VeloRama (neověřeno).');
+  });
+});
