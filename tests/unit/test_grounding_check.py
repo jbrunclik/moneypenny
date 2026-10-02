@@ -148,6 +148,20 @@ class TestFindUnverified:
         assert find_unverified(_ANSWER, _WEB_TURN).items == []
         fake_verifier.assert_not_called()
 
+    def test_skips_inside_a_delegate_subagent(self, fake_verifier: MagicMock) -> None:
+        # The parent turn's answer is what the user sees; checking the
+        # subagent's digest cost an unrecorded call and put markers in it
+        from src.agent.tools.delegate import _in_delegate
+
+        token = _in_delegate.set(True)
+        try:
+            result = find_unverified(_ANSWER, _WEB_TURN)
+        finally:
+            _in_delegate.reset(token)
+
+        assert result.items == []
+        fake_verifier.assert_not_called()
+
     def test_verifier_error_fails_open(self, fake_verifier: MagicMock) -> None:
         fake_verifier.side_effect = TimeoutError("deadline exceeded")
 
@@ -286,6 +300,23 @@ class TestKnownFacts:
         assert "Friday 2026-10-02" in known
         assert "jaky je kurz eura?" in known
         assert "earlier question" not in known
+
+    def test_non_web_tool_results_are_known(self) -> None:
+        # Review finding: a meeting time from the calendar tool is not a web
+        # fact, but the answer may state it - it must not be flagged
+        messages = [
+            HumanMessage(content="restaurace u mé schůzky?"),
+            _tool("google_calendar", '{"events": [{"start": "19:00", "location": "Karlín"}]}'),
+            _tool("web_search", "Restaurant X in Karlín"),
+            _tool("garmin_connect", "Error: expired", status="error"),
+        ]
+
+        known = grounding_check.known_facts(messages)
+
+        assert "19:00" in known
+        assert "Karlín" in known
+        assert "Restaurant X" not in known  # web results are the SOURCES, not known
+        assert "expired" not in known
 
     def test_find_unverified_passes_known_facts(self, fake_verifier: MagicMock) -> None:
         find_unverified(_ANSWER, [HumanMessage(content="kde koupit brompton"), *_WEB_TURN])

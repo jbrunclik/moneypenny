@@ -27,6 +27,11 @@ logger = get_logger(__name__)
 _in_delegate: contextvars.ContextVar[bool] = contextvars.ContextVar("_in_delegate", default=False)
 
 
+def in_delegate_run() -> bool:
+    """Whether the current turn is a delegate_task subagent's."""
+    return _in_delegate.get()
+
+
 @tool
 def delegate_task(task: str, expected_output: str = "") -> str:
     """Delegate a self-contained research task to a focused subagent.

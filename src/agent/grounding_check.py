@@ -24,6 +24,7 @@ from src.agent.content import (
 )
 from src.agent.grounding_markers import mark_unverified
 from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
+from src.agent.tools.delegate import in_delegate_run
 from src.config import Config
 from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
 from src.utils.logging import get_logger
@@ -89,6 +90,9 @@ def collect_web_sources(result_messages: list[BaseMessage], max_chars: int) -> s
 # The user's message is context, not evidence of a web fact; a cap keeps a
 # pasted wall of text from crowding the sources out of the verifier call
 _KNOWN_USER_TEXT_MAX_CHARS = 4000
+# This turn's non-web tool results (calendar, Garmin, memory...) are facts the
+# answer may state; capped like the user's message
+_KNOWN_TOOL_TEXT_MAX_CHARS = 8000
 
 
 def _now() -> datetime:
@@ -96,10 +100,28 @@ def _now() -> datetime:
     return datetime.now().astimezone()
 
 
+def _turn_tool_facts(result_messages: list[BaseMessage]) -> str:
+    """Text of this turn's successful non-web tool results, newest first, capped."""
+    parts: list[str] = []
+    total = 0
+    for msg in reversed(result_messages):
+        if isinstance(msg, HumanMessage):
+            break  # history holds no ToolMessages, but stop at this turn anyway
+        if not isinstance(msg, ToolMessage) or msg.name in WEB_TOOL_NAMES or msg.status == "error":
+            continue
+        text = extract_text_content(msg.content).strip()
+        remaining = _KNOWN_TOOL_TEXT_MAX_CHARS - total
+        if text and remaining > 0:
+            parts.append(f"{msg.name}: {text[:remaining]}")
+            total += len(parts[-1])
+    return "\n".join(reversed(parts))
+
+
 def known_facts(result_messages: list[BaseMessage]) -> str:
-    """What the answer may state without a web source: today's date and the
-    user's own message (the system prompt gives the model the date, so a
-    verifier without it flags "today" as unsupported)."""
+    """What the answer may state without a web source: today's date, the user's
+    own message, and this turn's non-web tool results (the system prompt gives
+    the model the date, so a verifier without it flags "today" as unsupported;
+    a calendar event's time is not a web fact either)."""
     lines = [f"Today is {_now().strftime('%A %Y-%m-%d %H:%M %Z')}."]
     for msg in reversed(result_messages):
         if isinstance(msg, HumanMessage):
@@ -107,6 +129,9 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
             if text:
                 lines.append(f"The user wrote: {text[:_KNOWN_USER_TEXT_MAX_CHARS]}")
             break
+    tool_facts = _turn_tool_facts(result_messages)
+    if tool_facts:
+        lines.append(f"Other tools returned this turn:\n{tool_facts}")
     return "\n".join(lines)
 
 
@@ -183,6 +208,10 @@ def find_unverified(
     out unchanged.
     """
     if not Config.GROUNDING_CHECK_ENABLED or stop_reason or not answer.strip():
+        return GroundingResult()
+    if in_delegate_run():
+        # The parent turn's answer is the one users see; a check here would
+        # cost an unrecorded call and put markers into the digest
         return GroundingResult()
     sources = collect_web_sources(result_messages, Config.GROUNDING_CHECK_MAX_SOURCE_CHARS)
     if not sources:

@@ -88,3 +88,36 @@ def test_false_claim_marked_at_sentence_end_with_its_items() -> None:
     assert mark_unverified(text, ["VeloRama"], [claim], "en") == (
         f"Buy at VeloRama {EN}.\n\nVerified: VeloRama {EN} prices were checked on its site. {EN}"
     )
+
+
+def test_bare_urls_and_autolinks_are_never_split() -> None:
+    # Review finding: "https://velorama.cz _(neověřeno)_/brompton" broke the link
+    text = (
+        "Objednejte na https://velorama.cz/brompton nebo www.velorama.cz/x "
+        'nebo <https://velorama.cz>. Nebo [web](https://velorama.cz/a "Titulek").'
+    )
+
+    assert mark_unverified(text, ["velorama.cz"], [], "cs") == text
+
+
+def test_already_marked_items_are_not_marked_again() -> None:
+    # Saved markers come back in history; the model may copy them, or label
+    # an item itself ("(neověřeno)")
+    text = f"VeloRama {CS} a Bazoš (neověřeno) a Cyklobazar"
+
+    assert mark_unverified(text, ["VeloRama", "Bazoš", "Cyklobazar"], [], "cs") == (
+        f"VeloRama {CS} a Bazoš (neověřeno) a Cyklobazar {CS}"
+    )
+
+
+def test_claim_ending_on_an_item_gets_one_marker() -> None:
+    claim = "Cenu jsem ověřil u VeloRama"
+    text = f"{claim}. Kupte tam."
+
+    assert mark_unverified(text, ["VeloRama"], [claim], "cs") == f"{claim} {CS}. Kupte tam."
+
+
+def test_already_marked_bold_item_is_not_marked_inside_the_emphasis() -> None:
+    text = f"**VeloRama** {CS}"
+
+    assert mark_unverified(text, ["VeloRama"], [], "cs") == text

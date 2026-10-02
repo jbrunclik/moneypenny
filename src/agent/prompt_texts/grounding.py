@@ -1,7 +1,7 @@
 """Prompt for the post-answer grounding check (src/agent/grounding_check.py)."""
 
-# Precision first: a false flag puts a wrong "not confirmed" note under a
-# correct answer, which is worse than missing a real one. Formatted with
+# Precision first: a false flag puts a wrong "unverified" marker on a correct
+# fact, which is worse than missing a real one. Formatted with
 # str.format - keep literal braces doubled.
 GROUNDING_CHECK_PROMPT = """You check an assistant's ANSWER against the web SOURCES it read this turn.
 

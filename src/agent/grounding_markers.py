@@ -12,13 +12,21 @@ import re
 
 _MARKERS = {"cs": "_(neověřeno)_", "en": "_(unverified)_"}
 
-# Never edited: fenced code, inline code, markdown link targets
-_PROTECTED = re.compile(r"```.*?```|`[^`\n]*`|\]\([^)\s]*\)", re.DOTALL)
+# Never edited: fenced code, inline code, markdown link targets (with an
+# optional title), <autolinks>, and bare URLs - a marker inside a URL splits
+# the link
+_PROTECTED = re.compile(
+    r"```.*?```|`[^`\n]*`|\]\([^)]*\)|<[^>\s]+>|(?:https?://|www\.)[^\s<>]+",
+    re.DOTALL,
+)
 
 # Item boundaries: not inside a word, and not followed by ".cz"-style suffixes
 _BEFORE = r"(?<!\w)"
 _AFTER = r"(?![\w-]|\.\w)"
-_CLOSING_EMPHASIS = r"(\*\*|\*)?"
+_CLOSING_EMPHASIS = r"(\*\*|\*)?+"  # possessive: never backtrack inside **...**
+# Already labelled - by an earlier marker the model copied from history, or by
+# the model itself ("(neověřeno)")
+_ALREADY_MARKED = r"\s*_?\((?:neověřeno|unverified)\)_?"
 
 
 def _marker(language: str | None) -> str:
@@ -31,7 +39,10 @@ def _item_pattern(items: list[str]) -> re.Pattern[str] | None:
     if not unique:
         return None
     alternation = "|".join(re.escape(item) for item in unique)
-    return re.compile(f"{_BEFORE}(?:{alternation}){_AFTER}{_CLOSING_EMPHASIS}", re.IGNORECASE)
+    return re.compile(
+        f"{_BEFORE}(?:{alternation}){_AFTER}{_CLOSING_EMPHASIS}(?!{_ALREADY_MARKED})",
+        re.IGNORECASE,
+    )
 
 
 def _mark_items(text: str, pattern: re.Pattern[str], marker: str) -> str:
@@ -54,7 +65,7 @@ def _mark_claims(text: str, claims: list[str], marker: str) -> str:
     """Append the marker after each false claim's first occurrence."""
     for claim in claims:
         match = re.search(re.escape(claim), text, re.IGNORECASE) if claim else None
-        if match:
+        if match and not re.match(_ALREADY_MARKED, text[match.end() :], re.IGNORECASE):
             text = f"{text[: match.end()]} {marker}{text[match.end() :]}"
     return text
 
