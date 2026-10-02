@@ -80,7 +80,11 @@ export async function copyMessageContent(button: HTMLButtonElement): Promise<voi
   clone.querySelectorAll('.inline-copy-btn').forEach((el) => el.remove());
   clone.querySelectorAll('.code-language').forEach((el) => el.remove());
 
-  const textContent = clone.textContent?.trim();
+  // textContent drops <br> (user bubbles render newlines that way); keep them
+  // as \n in the plain text, leaving the HTML copy untouched
+  const textClone = clone.cloneNode(true) as HTMLElement;
+  textClone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+  const textContent = textClone.textContent?.trim();
   if (!textContent) return;
 
   try {
