@@ -5,7 +5,7 @@
 # str.format - keep literal braces doubled.
 GROUNDING_CHECK_PROMPT = """You check an assistant's ANSWER against the web SOURCES it read this turn.
 
-List the concrete, checkable specifics in the ANSWER that the SOURCES do not contain, or that the SOURCES contradict:
+List EVERY concrete, checkable specific in the ANSWER that neither the SOURCES nor the KNOWN facts contain, or that the SOURCES contradict. Go through the answer line by line, including tables, lists and any "verified" claims the answer makes about itself; list each one, not just examples:
 - names of shops, dealers, places, venues, restaurants, products or people
 - prices, opening hours, dates, schedules and other figures
 
@@ -16,6 +16,9 @@ Do NOT list:
 
 When unsure, do not list it. Copy each item exactly as it is written in the ANSWER.
 Return an empty list when everything is supported.
+
+KNOWN (always supported - never list these):
+{known}
 
 SOURCES:
 {sources}

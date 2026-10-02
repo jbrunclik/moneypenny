@@ -87,7 +87,7 @@ on the client, so the note appears there with no frontend change.
     answer already labels as unverified or estimated.
   - When unsure, do not flag.
 - At most `GROUNDING_CHECK_MAX_ITEMS` (default 5) items are kept.
-- Hard timeout `GROUNDING_CHECK_TIMEOUT_SECONDS` (default 8).
+- Hard timeout `GROUNDING_CHECK_TIMEOUT_SECONDS` (default 10, the Gemini API minimum deadline).
 - Usage (input, output and cached tokens, priced at the verifier model's rates) is
   added to the turn's `usage_info`, so `message_costs` stays accurate.
 
@@ -121,7 +121,7 @@ New entries in `src/config.py`, `.env.example` and the docs:
 - `GROUNDING_CHECK_MODEL` (default `gemini-3.5-flash-lite`).
 - `GROUNDING_CHECK_MAX_SOURCE_CHARS` (default 60000).
 - `GROUNDING_CHECK_MAX_ITEMS` (default 5).
-- `GROUNDING_CHECK_TIMEOUT_SECONDS` (default 8).
+- `GROUNDING_CHECK_TIMEOUT_SECONDS` (default 10, the Gemini API minimum deadline).
 
 ## Testing
 

@@ -10,15 +10,21 @@ docs/superpowers/specs/2026-10-02-grounding-check-design.md.
 
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Literal
 
-from langchain_core.messages import BaseMessage, ToolMessage
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
-from src.agent.content import detect_response_language, extract_text_content
+from src.agent.content import (
+    detect_response_language,
+    extract_text_content,
+    strip_echoed_msg_context,
+)
 from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
 from src.config import Config
+from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -86,19 +92,45 @@ def append_unverified_note(answer: str, items: list[str], language: str | None) 
     return f"{answer.rstrip()}\n\n{template.format(items=', '.join(items))}"
 
 
+# The user's message is context, not evidence of a web fact; a cap keeps a
+# pasted wall of text from crowding the sources out of the verifier call
+_KNOWN_USER_TEXT_MAX_CHARS = 4000
+
+
+def _now() -> datetime:
+    """Seam for tests (patching time globally also shifts date.today())."""
+    return datetime.now().astimezone()
+
+
+def known_facts(result_messages: list[BaseMessage]) -> str:
+    """What the answer may state without a web source: today's date and the
+    user's own message (the system prompt gives the model the date, so a
+    verifier without it flags "today" as unsupported)."""
+    lines = [f"Today is {_now().strftime('%A %Y-%m-%d %H:%M %Z')}."]
+    for msg in reversed(result_messages):
+        if isinstance(msg, HumanMessage):
+            text = strip_echoed_msg_context(extract_text_content(msg.content)).strip()
+            if text:
+                lines.append(f"The user wrote: {text[:_KNOWN_USER_TEXT_MAX_CHARS]}")
+            break
+    return "\n".join(lines)
+
+
 def _run_verifier(
-    answer: str, sources: str
+    answer: str, sources: str, known: str
 ) -> tuple[GroundingVerdict | None, dict[str, Any] | None]:
     """One structured call to the checker model. Raises on API errors/timeouts."""
     model = ChatGoogleGenerativeAI(
         model=Config.GROUNDING_CHECK_MODEL,
         google_api_key=Config.GEMINI_API_KEY,
         temperature=0,
-        timeout=Config.GROUNDING_CHECK_TIMEOUT_SECONDS,
+        timeout=max(Config.GROUNDING_CHECK_TIMEOUT_SECONDS, GEMINI_MIN_REQUEST_DEADLINE_SECONDS),
         max_retries=0,
     )
     structured = model.with_structured_output(GroundingVerdict, include_raw=True)
-    out = structured.invoke(GROUNDING_CHECK_PROMPT.format(sources=sources, answer=answer))
+    out = structured.invoke(
+        GROUNDING_CHECK_PROMPT.format(known=known, sources=sources, answer=answer)
+    )
     if not isinstance(out, dict):  # include_raw=True always returns a dict
         return None, None
     metadata = getattr(out["raw"], "usage_metadata", None) or {}
@@ -146,7 +178,7 @@ def find_unverified(
         return GroundingResult()
     started = time.monotonic()
     try:
-        verdict, usage = _run_verifier(answer, sources)
+        verdict, usage = _run_verifier(answer, sources, known_facts(result_messages))
     except Exception:
         logger.warning(
             "Grounding check failed", exc_info=True, extra={"source_chars": len(sources)}

@@ -207,7 +207,9 @@ class TestRunVerifier:
         llm_cls = MagicMock(return_value=model)
         monkeypatch.setattr(grounding_check, "ChatGoogleGenerativeAI", llm_cls)
 
-        verdict, usage = grounding_check._run_verifier("the answer", "the sources")
+        verdict, usage = grounding_check._run_verifier(
+            "the answer", "the sources", "the known facts"
+        )
 
         kwargs = llm_cls.call_args.kwargs
         assert kwargs["model"] == Config.GROUNDING_CHECK_MODEL
@@ -218,6 +220,7 @@ class TestRunVerifier:
         prompt = structured.invoke.call_args.args[0]
         assert "the answer" in prompt
         assert "the sources" in prompt
+        assert "the known facts" in prompt
         assert verdict is not None
         assert verdict.unsupported[0].text == "VeloRama"
         assert usage == {
@@ -226,3 +229,46 @@ class TestRunVerifier:
             "output_tokens": 8,
             "cached_input_tokens": 20,
         }
+
+    def test_timeout_respects_the_api_minimum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The Gemini API rejects deadlines under 10 s with 400 INVALID_ARGUMENT
+        # (seen live, Oct 2026): a lower setting would fail every check
+        monkeypatch.setattr(Config, "GROUNDING_CHECK_TIMEOUT_SECONDS", 8.0)
+        llm_cls = MagicMock()
+        llm_cls.return_value.with_structured_output.return_value.invoke.return_value = {
+            "raw": MagicMock(usage_metadata={}),
+            "parsed": None,
+        }
+        monkeypatch.setattr(grounding_check, "ChatGoogleGenerativeAI", llm_cls)
+
+        grounding_check._run_verifier("a", "s", "k")
+
+        assert llm_cls.call_args.kwargs["timeout"] == 10
+
+
+class TestKnownFacts:
+    """Facts the answer may state without a web source: today's date and what
+    the user said. Without them the verifier flagged "2. 10." (today, from the
+    system prompt) under a fully sourced answer (Oct 2026 eval)."""
+
+    def test_today_and_the_last_user_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from datetime import datetime
+
+        monkeypatch.setattr(grounding_check, "_now", lambda: datetime(2026, 10, 2, 13, 1))
+        messages = [
+            HumanMessage(content="earlier question"),
+            AIMessage(content="earlier answer"),
+            HumanMessage(content=[{"type": "text", "text": "jaky je kurz eura?"}]),
+            _tool("research", "CNB: 24,465"),
+        ]
+
+        known = grounding_check.known_facts(messages)
+
+        assert "Friday 2026-10-02" in known
+        assert "jaky je kurz eura?" in known
+        assert "earlier question" not in known
+
+    def test_find_unverified_passes_known_facts(self, fake_verifier: MagicMock) -> None:
+        find_unverified(_ANSWER, [HumanMessage(content="kde koupit brompton"), *_WEB_TURN])
+
+        assert "kde koupit brompton" in fake_verifier.call_args.args[2]

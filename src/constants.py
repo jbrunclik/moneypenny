@@ -36,3 +36,7 @@ TOKENS_PER_MILLION = 1_000_000
 # =============================================================================
 SKILL_MAX_DESCRIPTION_CHARS = 300  # index entry - always in the prompt
 SKILL_MAX_BODY_CHARS = 12_000  # ~3k tokens per load
+
+# The Gemini API rejects a request deadline below this (400 INVALID_ARGUMENT,
+# "Minimum allowed deadline is 10s")
+GEMINI_MIN_REQUEST_DEADLINE_SECONDS = 10

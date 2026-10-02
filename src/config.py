@@ -410,9 +410,9 @@ class Config:
     GROUNDING_CHECK_MAX_SOURCE_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")
     )
-    GROUNDING_CHECK_MAX_ITEMS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEMS", "5"))
+    GROUNDING_CHECK_MAX_ITEMS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEMS", "8"))
     GROUNDING_CHECK_TIMEOUT_SECONDS: float = float(
-        os.getenv("GROUNDING_CHECK_TIMEOUT_SECONDS", "8")
+        os.getenv("GROUNDING_CHECK_TIMEOUT_SECONDS", "10")
     )
 
     # Judge model for the eval harness (evals/run.py, `make eval`). Pro by
