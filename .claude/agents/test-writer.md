@@ -54,6 +54,7 @@ yield {"type": "final", "result_messages": [ai_message]}
 import pytest
 from unittest.mock import patch, MagicMock
 
+
 class TestFeatureName:
     """Tests for feature_name module."""
 
