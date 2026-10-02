@@ -658,6 +658,9 @@ class Config:
     MEMORY_SOFT_DELETE_RETENTION_DAYS: int = int(
         os.getenv("MEMORY_SOFT_DELETE_RETENTION_DAYS", "7")
     )
+    # Memories created or updated this recently are read-only to the defrag
+    # job: it was deleting fresh "remember this" writes within days.
+    MEMORY_DEFRAG_GRACE_DAYS: int = int(os.getenv("MEMORY_DEFRAG_GRACE_DAYS", "14"))
 
     # Pagination settings
     # Client requests appropriate size based on viewport; these are server-side limits

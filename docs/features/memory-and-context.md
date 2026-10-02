@@ -210,6 +210,10 @@ A nightly systemd timer consolidates and cleans up user memories using an LLM.
 - A plan that would **grow** the bank (more adds than deletes) is refused - the likeliest
   failure mode is the model writing a consolidated memory and forgetting to delete the originals
 - Deletes are soft, so a bad run is recoverable
+- Memories created or updated within `MEMORY_DEFRAG_GRACE_DAYS` (default 14) are marked
+  RECENT and are read-only to the job - no delete, no update. Before Oct 2026 it deleted a
+  third of fresh tool writes within days (including explicit "remember this" requests),
+  which users read as "it didn't save". The completion log lists deleted and updated IDs.
 - Below the warning threshold the job stops asking for a percentage cut and only merges
   genuine duplicates
 

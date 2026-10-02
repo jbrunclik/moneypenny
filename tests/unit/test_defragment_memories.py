@@ -1,6 +1,6 @@
 """Unit tests for memory defragmentation script."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,6 +20,7 @@ def _memory(
     content: str = "Some content",
     category: str | None = "fact",
     protected: bool = False,
+    updated_at: datetime = datetime(2024, 1, 1),
 ) -> Memory:
     """Build a Memory for validation tests."""
     return Memory(
@@ -28,9 +29,14 @@ def _memory(
         content=content,
         category=category,
         created_at=datetime(2024, 1, 1),
-        updated_at=datetime(2024, 1, 1),
+        updated_at=updated_at,
         protected=protected,
     )
+
+
+def _recent() -> datetime:
+    """A write inside the defrag grace period."""
+    return datetime.now() - timedelta(days=1)
 
 
 def _existing(*memories: Memory) -> dict[str, Memory]:
@@ -86,6 +92,14 @@ class TestFormatMemoriesForLlm:
         assert "PROTECTED" in protected_line
         assert "PROTECTED" not in ordinary_line
 
+    def test_marks_recent_memories_read_only(self):
+        result = format_memories_for_llm([_memory("mem-1", updated_at=_recent()), _memory("mem-2")])
+
+        recent_line = [line for line in result.splitlines() if "mem-1" in line][0]
+        ordinary_line = [line for line in result.splitlines() if "mem-2" in line][0]
+        assert "RECENT" in recent_line
+        assert "RECENT" not in ordinary_line
+
     def test_empty_list(self):
         """Test formatting an empty list."""
         assert format_memories_for_llm([]) == ""
@@ -122,6 +136,32 @@ class TestValidateChanges:
         to_delete, _to_update, _to_add = validate_changes(changes, existing)
 
         assert to_delete == ["mem-2"]
+
+    def test_rejects_deletion_of_recent_memory(self):
+        """Fresh writes are kept: the user just asked for them to be remembered."""
+        changes = {"delete": ["mem-1", "mem-2"]}
+        existing = _existing(_memory("mem-1", updated_at=_recent()), _memory("mem-2"))
+
+        to_delete, _to_update, _to_add = validate_changes(changes, existing)
+
+        assert to_delete == ["mem-2"]
+
+    def test_rejects_update_of_recent_memory(self):
+        """A merge must not rewrite a fresh memory away either."""
+        changes = {"update": [{"id": "mem-1", "content": "Merged", "category": "fact"}]}
+        existing = _existing(_memory("mem-1", updated_at=_recent()))
+
+        _to_delete, to_update, _to_add = validate_changes(changes, existing)
+
+        assert to_update == []
+
+    def test_memory_past_grace_period_can_be_deleted(self):
+        old = datetime.now() - timedelta(days=Config.MEMORY_DEFRAG_GRACE_DAYS + 1)
+        existing = _existing(_memory("mem-1", updated_at=old))
+
+        to_delete, _to_update, _to_add = validate_changes({"delete": ["mem-1"]}, existing)
+
+        assert to_delete == ["mem-1"]
 
     def test_validates_updates(self):
         """Test that valid updates are accepted."""

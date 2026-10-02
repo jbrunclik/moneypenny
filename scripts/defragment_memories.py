@@ -21,6 +21,7 @@ Options:
 
 import argparse
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +74,9 @@ Rules:
 - Prefer rewriting one of the merged memories via `update` over `add` + `delete` of all
   of them: it keeps the original creation date.
 - Memories marked PROTECTED cannot be deleted. Leave them, or update them in place.
+- Memories marked RECENT were just written at the user's request: leave them exactly as
+  they are (no delete, no update). You may still delete an OLDER memory that a RECENT
+  one already covers.
 - Content must be at most {max_entry_chars} characters, and category must be one of:
   preference, fact, context, goal.
 - Set no_changes=true if the bank is already well-organized.
@@ -110,6 +114,21 @@ class DefragPlan(BaseModel):
     add: list[MemoryAddition] = Field(default_factory=list)
 
 
+def _now() -> datetime:
+    """Seam for tests; memory timestamps are naive local time."""
+    return datetime.now()
+
+
+def is_recent(memory: Memory) -> bool:
+    """Whether a memory was written inside the grace period.
+
+    Fresh writes are what the user just asked to be remembered; the nightly
+    job deleting or rewriting them reads to the user as "it didn't save".
+    """
+    cutoff = _now() - timedelta(days=Config.MEMORY_DEFRAG_GRACE_DAYS)
+    return max(memory.created_at, memory.updated_at) >= cutoff
+
+
 def format_memories_for_llm(memories: list[Memory]) -> str:
     """Format memories as a numbered list for the LLM."""
     lines = []
@@ -117,8 +136,9 @@ def format_memories_for_llm(memories: list[Memory]) -> str:
         category_str = f"[{mem.category}] " if mem.category else ""
         date_str = mem.created_at.strftime("%Y-%m-%d")
         protected_str = " | PROTECTED (cannot be deleted)" if mem.protected else ""
+        recent_str = " | RECENT (leave unchanged)" if is_recent(mem) else ""
         lines.append(f"{i}. {category_str}{mem.content}")
-        lines.append(f"   ID: {mem.id} | Created: {date_str}{protected_str}")
+        lines.append(f"   ID: {mem.id} | Created: {date_str}{protected_str}{recent_str}")
         lines.append("")
     return "\n".join(lines)
 
@@ -170,6 +190,9 @@ def validate_changes(
             # Also enforced in the DB layer; logged here so the run is auditable
             logger.warning("LLM tried to delete a protected memory", extra={"memory_id": memory_id})
             continue
+        if is_recent(memory):
+            logger.warning("LLM tried to delete a recent memory", extra={"memory_id": memory_id})
+            continue
         to_delete.append(memory_id)
 
     # Validate updates
@@ -181,6 +204,9 @@ def validate_changes(
             logger.warning(
                 "LLM tried to update non-existent memory", extra={"memory_id": update.id}
             )
+            continue
+        if is_recent(existing[update.id]):
+            logger.warning("LLM tried to update a recent memory", extra={"memory_id": update.id})
             continue
         if update.id in to_delete:
             logger.warning(
@@ -404,6 +430,9 @@ Please analyze these memories and provide consolidation recommendations."""
                 "old_count": memory_count,
                 "new_count": new_count,
                 "reduction": memory_count - new_count,
+                # IDs make a "my memory vanished" report traceable to this run
+                "deleted_ids": to_delete,
+                "updated_ids": [u["id"] for u in to_update],
             },
         )
 
