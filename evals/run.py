@@ -236,12 +236,14 @@ def _turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, A
     Deliberately reuses the same helpers as src/api/utils.record_message_cost
     rather than re-deriving the arithmetic, so an eval run's reported spend is
     directly comparable to real conversation costs (and any pricing change
-    lands in both places at once). Covers the three components a turn can
+    lands in both places at once). Covers the four components a turn can
     incur: its own tokens, images generated inside tools, and delegate_task
-    subagent runs (which are billed at the subagent's own model).
+    subagent runs (which are billed at the subagent's own model), and the
+    post-answer grounding check (priced at its own model).
     """
     from src.api.utils import (
         calculate_delegate_cost_from_tool_results,
+        calculate_grounding_cost,
         calculate_image_generation_cost_from_tool_results,
     )
     from src.utils.costs import calculate_total_cost
@@ -252,7 +254,8 @@ def _turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, A
         output_tokens=int(usage.get("output_tokens", 0)),
         cached_input_tokens=int(usage.get("cached_input_tokens", 0)),
         image_generation_cost=calculate_image_generation_cost_from_tool_results(tool_results),
-        tool_llm_cost=calculate_delegate_cost_from_tool_results(tool_results),
+        tool_llm_cost=calculate_delegate_cost_from_tool_results(tool_results)
+        + calculate_grounding_cost(usage),
     )
 
 

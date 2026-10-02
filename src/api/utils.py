@@ -332,7 +332,7 @@ def calculate_and_save_message_cost(
         output_tokens,
         image_generation_cost=image_cost,
         cached_input_tokens=cached_input_tokens,
-        tool_llm_cost=delegate_cost,
+        tool_llm_cost=delegate_cost + calculate_grounding_cost(usage_info),
     )
 
     db.save_message_cost(
@@ -454,3 +454,22 @@ def calculate_delegate_cost_from_tool_results(
         )
 
     return total_cost
+
+
+def calculate_grounding_cost(usage_info: dict[str, Any]) -> float:
+    """Cost of the post-answer grounding check, priced at its own model.
+
+    The verifier's usage rides in usage_info["grounding_usage"]
+    (src/agent/grounding_check.py) - a different, cheaper model than the turn's.
+    """
+    from src.utils.costs import calculate_token_cost
+
+    usage = usage_info.get("grounding_usage")
+    if not isinstance(usage, dict):
+        return 0.0
+    return calculate_token_cost(
+        str(usage.get("model", "")),
+        int(usage.get("input_tokens", 0)),
+        int(usage.get("output_tokens", 0)),
+        cached_input_tokens=int(usage.get("cached_input_tokens", 0)),
+    )
