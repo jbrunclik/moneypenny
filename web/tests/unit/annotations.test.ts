@@ -63,4 +63,39 @@ describe('applyAnnotations', () => {
     expect(anchored.size).toBe(0);
     expect(el.querySelector('.claim')).toBeNull();
   });
+
+  it('anchors a quote written as inline code', () => {
+    const el = render('Agentura `registr-vozidel.cz` vyřídí přepis.');
+    const anchored = applyAnnotations(el, [claim({ quote: '`registr-vozidel.cz`' })]);
+    expect([...anchored]).toEqual([0]);
+    expect(el.querySelector('code .claim, .claim code')).not.toBeNull();
+  });
+
+  it('never anchors inside the thinking trace of a streamed bubble', () => {
+    const el = render('SPZ Služby vyřídí přepis.');
+    const trace = document.createElement('div');
+    trace.className = 'thinking-indicator';
+    trace.textContent = 'Searching SPZ Služby prices';
+    el.prepend(trace);
+    applyAnnotations(el, [claim({ quote: 'SPZ Služby' })]);
+    expect(trace.querySelector('.claim')).toBeNull();
+    expect(el.querySelector('p .claim')!.textContent).toBe('SPZ Služby');
+  });
+
+  it('a source number does not break a later quote that crosses it', () => {
+    const el = render('SPZ Služby: vyřízení do 24 hodin.');
+    applyAnnotations(el, [
+      claim({ quote: 'SPZ Služby', verdict: 'supported', source: 1 }),
+      claim({ quote: 'SPZ Služby: vyřízení do 24 hodin' }),
+    ]);
+    expect(el.querySelector('.claim')).not.toBeNull();
+  });
+
+  it('a prefix that crosses a list bullet still picks the right occurrence', () => {
+    const el = render('- A: 1 590 Kč\n- B: 1 590 Kč');
+    applyAnnotations(el, [claim({ quote: '1 590 Kč', prefix: 'Kč\n- B: ' })]);
+    const items = el.querySelectorAll('li');
+    expect(items[0].querySelector('.claim')).toBeNull();
+    expect(items[1].querySelector('.claim')).not.toBeNull();
+  });
 });

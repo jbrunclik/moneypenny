@@ -9,7 +9,11 @@
  */
 import type { ClaimAnnotation, GroundingSummary } from '../../types/api';
 
-const SKIP_SELECTOR = 'pre, code, .katex';
+// Not answer text: code blocks, math, a streamed bubble's thinking trace and
+// attachments, and source numbers already inserted (inline code IS text)
+const SKIP_SELECTOR = 'pre, .katex, .thinking-indicator, .message-files, .claim-cite';
+// Prefixes are compared on their last few characters, ignoring whitespace
+const PREFIX_TAIL_CHARS = 12;
 const MARKDOWN_SYNTAX = /\*\*|__|[*_`]|\]\([^)]*\)|[[\]]/g;
 
 interface MessageGrounding {
@@ -71,11 +75,20 @@ function indexText(root: HTMLElement): TextIndex {
   return { text, map };
 }
 
+/** Markdown prefix as it reads rendered: no list bullets, headings or table pipes. */
+function normalisePrefix(prefix: string): string {
+  const unmarked = prefix.replace(/^\s*(?:[-*+>]|\d+\.|#{1,6})\s+/gm, '').replace(/\|/g, ' ');
+  return normaliseSource(unmarked).replace(/\s/g, '');
+}
+
 function findOccurrence(index: TextIndex, quote: string, prefix: string): number {
   const starts: number[] = [];
   for (let at = index.text.indexOf(quote); at >= 0; at = index.text.indexOf(quote, at + 1)) starts.push(at);
-  if (starts.length <= 1 || !prefix) return starts[0] ?? -1;
-  return starts.find((at) => index.text.slice(0, at).trimEnd().endsWith(prefix.trimEnd())) ?? starts[0];
+  const tail = normalisePrefix(prefix).slice(-PREFIX_TAIL_CHARS);
+  if (starts.length <= 1 || !tail) return starts[0] ?? -1;
+  // Rendered text has no space where a <br> or list item break was
+  const before = (at: number) => index.text.slice(0, at).replace(/\s/g, '');
+  return starts.find((at) => before(at).endsWith(tail)) ?? starts[0];
 }
 
 /** Wrap [start, end) of the index in spans, one per text node it crosses. */
@@ -126,7 +139,7 @@ export function applyAnnotations(contentEl: HTMLElement, annotations: ClaimAnnot
     // Re-index per claim: wrapping splits text nodes
     const index = indexText(contentEl);
     const quote = normaliseSource(ann.quote);
-    const at = quote ? findOccurrence(index, quote, normaliseSource(ann.prefix ?? '')) : -1;
+    const at = quote ? findOccurrence(index, quote, ann.prefix ?? '') : -1;
     if (at < 0) return;
     const end = at + quote.length;
     if (ann.verdict === 'supported') {
