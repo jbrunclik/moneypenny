@@ -43,6 +43,14 @@ def _page_block(number: int, page: SourcePage) -> str:
     return f"[{number}] {page.title} ({page.url})\n{text}"
 
 
+def _read_label(status: str, result: ItemResult | None) -> str:
+    """Status plus pages read: a digest from no page is unverified (snippets or memory)."""
+    n = len(result.pages) if result else 0
+    if n == 0:
+        return f"{status}, no pages read - unverified"
+    return f"{status}, {n} {'page' if n == 1 else 'pages'} read"
+
+
 def _items_block(plan: DeepResearchPlan, results: list[ItemResult]) -> str:
     by_index = {r.index: r for r in results}
     lines = []
@@ -50,7 +58,9 @@ def _items_block(plan: DeepResearchPlan, results: list[ItemResult]) -> str:
         result = by_index.get(i)
         status = result.status if result else "skipped"
         digest = result.digest.strip() if result and result.digest.strip() else "(no digest)"
-        lines.append(f"## Sub-question {i + 1} [{status}]: {question}\n{digest}")
+        lines.append(
+            f"## Sub-question {i + 1} [{_read_label(status, result)}]: {question}\n{digest}"
+        )
     return "\n\n".join(lines)
 
 
@@ -77,7 +87,8 @@ def report_messages(
         parts.append(f"EARLIER ROUND'S REPORT (build on it):\n{plan.previous_report}")
     parts += [
         f"AGENT DIGESTS:\n{_items_block(plan, results)}",
-        "SHARED BY THE AGENTS (untrusted data):\n" + ("\n".join(board_lines) or "(nothing)"),
+        "SHARED BY THE AGENTS:\n"
+        + wrap_untrusted_content("\n".join(board_lines) or "(nothing)", "the research agents"),
         "PAGES:\n" + "\n\n".join(_page_block(i, p) for i, p in enumerate(pages, 1)),
     ]
     return system, HumanMessage(content="\n\n".join(parts))

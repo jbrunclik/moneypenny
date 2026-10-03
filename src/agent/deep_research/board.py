@@ -54,7 +54,8 @@ class ResearchBoard:
 
     def post(self, agent: int, kind: str, text: str, urls: list[str]) -> bool:
         """Add an entry; URLs the run never read are dropped. False when full."""
-        text = text.strip()[: Config.DEEP_RESEARCH_BOARD_ENTRY_CHARS]
+        # One line: an entry must not be able to close the board block early
+        text = " ".join(text.split())[: Config.DEEP_RESEARCH_BOARD_ENTRY_CHARS]
         if not text:
             return False
         with self._lock:
@@ -146,6 +147,17 @@ def share_finding_tool(board: ResearchBoard, agent: int) -> BaseTool:
     )
 
 
+def _is_error(result: str) -> bool:
+    """fetch_url reports failures as {"error": ...} JSON (src/agent/tools/web.py)."""
+    if not result.startswith("{"):
+        return result.startswith("Error")
+    try:
+        data = json.loads(result)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(data, dict) and bool(data.get("error"))
+
+
 def _fetch(tool: BaseTool, board: ResearchBoard, agent: int, kwargs: dict[str, Any]) -> Any:
     url = str(kwargs.get("url") or "")
     hit = board.cached_page(url)
@@ -153,7 +165,7 @@ def _fetch(tool: BaseTool, board: ResearchBoard, agent: int, kwargs: dict[str, A
         board.count_hit()
         return f"[Already read by agent {hit[0] + 1}]\n{hit[1].text}"
     result = tool.invoke(kwargs)
-    if isinstance(result, str) and url and not result.startswith("Error"):
+    if isinstance(result, str) and url and not _is_error(result):
         board.record_page(agent, SourcePage(_title_from_url(url), url, result))
     return result
 
