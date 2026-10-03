@@ -473,7 +473,43 @@ question: the user's question in their words. context: what matters about the us
 
 ---
 
-### Task 17: Docs, verification, merge
+### Task 17: Action messages - storage and sending
+
+**Files:**
+- Create: `migrations/0060_add_message_action.py`
+- Modify: `src/db/models/*` (`Message.action`, row mapping, add param), `src/api/schemas/chat.py` (`ChatRequest.action: MessageAction | None` with a discriminated union `VerifyClaimAction` / `DeepResearchAction`; `MessageResponse.action`), `src/api/helpers/chat_turn.py` (`_save_user_message` stores it; `deep_research` turns store `{"type": "deep_research", ...}` automatically), `src/api/utils.py` (`serialize_messages_for_response` adds `action`), `web/src/types/api.ts`, `web/src/core/quick-actions.ts` (`sendComposedText(text, action?)`), `web/src/core/outbox.ts` + `messaging.ts` (carry `action` to the request), `web/src/components/ClaimCard.ts` (Look it up sends `{type: "verify_claim", source_message_id, claim_index, quote}` with text "Look up and verify: <quote>"), `web/src/core/deep-research.ts` (Start sends the deep_research action)
+- Regenerate: `make openapi && make types`
+- Test: `tests/integration/test_message_actions.py`, `web/tests/component/claim-card.test.ts` (extend)
+
+- [ ] **Step 1: Failing tests** - a chat request with a `verify_claim` action saves it on the user message and returns it on reload; an unknown action type → 400; a deep-research start stores the `deep_research` action; Look it up sends the action with the claim index.
+- [ ] **Step 2-4.** **Step 5: Commit** `feat: action messages - store what a sent action was`.
+
+---
+
+### Task 18: Action row instead of a bubble
+
+**Files:**
+- Create: `web/src/components/messages/action-row.ts`
+- Modify: `web/src/components/messages/render.ts` (user messages with `action` render the row), the optimistic send render path in `web/src/core/messaging.ts`, `web/src/styles/components/research.css`
+- Test: `web/tests/component/action-row.test.ts`
+
+- [ ] **Step 1: Failing tests** - verify_claim row text "Looking up "<quote>" · from the answer above ↑"; deep_research row "Deep research started · N questions · ~M min"; ↑ scrolls to `[data-message-id=source] [data-claim=index]` (or the offer card) and flashes it; a missing source (deleted message) hides the ↑ link; failed sends still show Retry/Discard on the row.
+- [ ] **Step 2-4.** **Step 5: Commit** `feat(web): action rows for look-ups and deep-research starts`.
+
+---
+
+### Task 19: Forward links from the source
+
+**Files:**
+- Modify: `web/src/components/ClaimCard.ts` ("Looked up below ↓" when a later user message has a `verify_claim` action for this message and claim, linking to the next assistant message), `web/src/components/messages/research-offer.ts` ("Report below ↓" for a started offer), a small index helper in `web/src/core/message-links.ts` (`findActionReply(convId, sourceId, claimIndex?) -> string | null` over the store's messages)
+- Test: `web/tests/unit/message-links.test.ts`, `web/tests/component/claim-card.test.ts` (extend)
+
+- [ ] **Step 1: Failing tests** - `findActionReply` finds the reply after the action, null when no reply yet or the action targets another claim; the card shows the link and jumping flashes the reply.
+- [ ] **Step 2-4.** **Step 5: Commit** `feat(web): link claims and offers to their follow-up replies`.
+
+---
+
+### Task 20: Docs, verification, merge
 
 - [ ] `docs-updater` agent: new `docs/features/deep-research.md` (flow, pipeline, board, events, config table, telemetry, pitfalls), links from `docs/README.md`, `docs/features/agent-tools.md`, `docs/features/chat-and-streaming.md` (events, `research` field, stream-only), `TODO.md` (remove "Deep research mode"; add a parked item for the two-week review dated ~Oct 17).
 - [ ] `make lint` → 0; `caffeinate -i make test-all` → 0.

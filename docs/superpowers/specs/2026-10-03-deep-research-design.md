@@ -193,6 +193,26 @@ entry (round, sub-questions), so follow-ups use the report without re-running.
 **Cost**: subagent tokens priced at the delegate model (`_delegate_usage` path),
 the writer at Pro, the check at Lite; the total lands on the report message.
 
+## Action messages
+
+A message the app sends on the user's behalf - **Look it up** on a claim card,
+**Start** on an offer - is an action, not something the user typed. A raw bubble
+("Dohledej a ověř: Castelli Flanders Warm") reads as typed text and loses its
+link to the claim or offer it came from.
+
+- **Storage**: new nullable JSON column `messages.action` on user messages:
+  `{type: "verify_claim", source_message_id, claim_index, quote}` or
+  `{type: "deep_research", offer_message_id, items}`. The content stays a plain
+  instruction for the model (English: "Look up and verify: <quote>", "Start deep
+  research"), so model behaviour is unchanged.
+- **Action row** instead of a bubble: "🔍 Looking up "Castelli Flanders Warm" ·
+  from the answer above ↑" / "🔬 Deep research started · 5 questions · ~5 min".
+  The ↑ link scrolls to the source claim or offer and flashes it.
+- **Forward link**: once the reply to an action exists, the source claim's card
+  shows "Looked up below ↓" and a started offer card shows "Report below ↓",
+  jumping to the reply. Computed on the client from loaded messages (the action
+  message's `action` points back; the reply is the next assistant message).
+
 ## Related fix: English grounding UI
 
 The grounding UI shipped earlier today switches its strings to Czech for Czech
