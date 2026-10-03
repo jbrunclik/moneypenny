@@ -148,6 +148,10 @@ def format_message_with_metadata(msg: dict[str, Any]) -> str:
     # this is what lets "what was my HRV again?" skip re-calling the tool
     if metadata.get("tool_outputs"):
         meta_dict["tool_outputs"] = metadata["tool_outputs"]
+    # Claims of that answer the grounding check found unsourced or
+    # contradicted - a follow-up must not restate them as fact
+    if metadata.get("grounding"):
+        meta_dict["grounding"] = metadata["grounding"]
 
     # Return with metadata block if we have any metadata
     # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing

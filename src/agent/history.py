@@ -7,6 +7,7 @@ adding timestamps, session gap indicators, file metadata, and tool summaries.
 from datetime import UTC, datetime, timedelta
 from typing import Any, NotRequired, TypedDict
 
+from src.agent.grounding_annotations import format_grounding_context
 from src.agent.tool_outputs import format_tool_outputs
 from src.config import Config
 from src.db.models.dataclasses import Message
@@ -33,6 +34,7 @@ class MessageMetadata(TypedDict, total=False):
     tool_summary: str | None  # "searched 3 sources, generated 1 image"
     tool_digest: str | None  # "read: Title (url); ..." - enables precise re-fetch
     tool_outputs: str | None  # 'garmin_connect({...}) -> {...}; ...' - non-web tool results
+    grounding: str | None  # "unsourced: X (reason); ..." - claims not to repeat as fact
 
 
 class EnrichedMessage(TypedDict):
@@ -312,6 +314,10 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
             tool_digest = format_tool_digest(msg.sources)
             if tool_digest:
                 metadata["tool_digest"] = tool_digest
+
+            grounding = format_grounding_context(msg.annotations)
+            if grounding:
+                metadata["grounding"] = grounding
 
             tool_outputs = format_tool_outputs(msg.tool_outputs)
             if tool_outputs:

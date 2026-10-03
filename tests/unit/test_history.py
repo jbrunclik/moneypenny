@@ -733,3 +733,44 @@ class TestVideoHistoryMetadata:
         files = format_file_metadata(msg)
         assert files is not None
         assert "expired" not in files[0]
+
+
+class TestGroundingContext:
+    """Claims the grounding check found unsourced reach later turns' MSG_CONTEXT."""
+
+    def test_assistant_history_carries_the_grounding_entry(self) -> None:
+        from src.agent.message_content import format_message_with_metadata
+
+        msg = Message(
+            id="msg-1",
+            conversation_id="conv-1",
+            role=MessageRole.ASSISTANT,
+            content="PřepiServis vyřídí přepis za 24–48 hodin.",
+            created_at=datetime.now(),
+            annotations=[
+                {
+                    "type": "claim",
+                    "verdict": "not_found",
+                    "quote": "PřepiServis",
+                    "reason": "Není ve zdrojích.",
+                }
+            ],
+        )
+
+        [enriched] = enrich_history([msg])
+
+        assert enriched["metadata"]["grounding"] == "unsourced: PřepiServis (Není ve zdrojích.)"
+        assert '"grounding":"unsourced: PřepiServis' in format_message_with_metadata(enriched)
+        assert enriched["content"] == "PřepiServis vyřídí přepis za 24–48 hodin."
+
+    def test_fully_supported_answer_adds_nothing(self) -> None:
+        msg = Message(
+            id="msg-1",
+            conversation_id="conv-1",
+            role=MessageRole.ASSISTANT,
+            content="A",
+            created_at=datetime.now(),
+            annotations=[{"type": "claim", "verdict": "supported", "quote": "A"}],
+        )
+
+        assert "grounding" not in enrich_history([msg])[0]["metadata"]
