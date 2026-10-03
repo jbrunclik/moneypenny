@@ -105,3 +105,37 @@ class TestStreamAnnotations:
         assert done["content"] == _ANSWER
         assert done["annotations"] == _ANNS
         assert done["grounding"] == _SUMMARY
+
+
+class TestGroundingStartedEvent:
+    def test_forwarded_between_tokens_and_done(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": _ANSWER}
+                yield {"type": "grounding_started"}
+                yield {
+                    "type": "final",
+                    "content": _ANSWER,
+                    "result_messages": [],
+                    "tool_results": [],
+                    "usage_info": _USAGE,
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Who does it?"},
+            )
+            types = [e["type"] for e in _events(response.get_data(as_text=True))]
+
+        assert types.index("token") < types.index("grounding_started") < types.index("done")

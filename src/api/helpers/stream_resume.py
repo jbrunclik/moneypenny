@@ -29,6 +29,8 @@ _JOURNALED_EVENT_TYPES = {
     "approval_required",
     "timeout",
     "stopping",
+    # The footer's "checking" state survives a reload mid-check
+    "grounding_started",
 }
 
 

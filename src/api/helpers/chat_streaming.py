@@ -390,7 +390,16 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
     # "retry" (transient model error being retried) is forwarded but not
     # journaled: it is a momentary status a resumed client need not replay
     # "stopping" (server-side Stop acknowledged) is likewise a momentary status
-    elif event_type in ("thinking", "tool_start", "tool_end", "token", "retry", "stopping"):
+    # "grounding_started": the post-answer check is running (footer "checking")
+    elif event_type in (
+        "thinking",
+        "tool_start",
+        "tool_end",
+        "token",
+        "retry",
+        "stopping",
+        "grounding_started",
+    ):
         if event_type == "token":
             context.partial_content += item.get("text", "")
         try:

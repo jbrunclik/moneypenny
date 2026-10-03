@@ -308,3 +308,10 @@ class TestProducerSideApprovalSave:
         assert saved is not None
         assert "approval-request:ap-9" in saved.content
         assert final_results["saved"] is True
+
+
+def test_grounding_started_is_journaled() -> None:
+    # The footer's "checking" state must survive a reload mid-check
+    from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
+
+    assert "grounding_started" in _JOURNALED_EVENT_TYPES
