@@ -585,3 +585,12 @@ export const CLAIM_CARD_HOVER_DELAY_MS = 250;
 
 /** How long a claim stays highlighted after jumping to it from the claims list */
 export const CLAIM_FLASH_MS = 1600;
+
+// =============================================================================
+// Deep Research
+// =============================================================================
+
+/** Plan limits, mirroring the server's DEEP_RESEARCH_MAX_* defaults (the server enforces them on start) */
+export const DEEP_RESEARCH_MAX_SUB_QUESTIONS = 8;
+export const DEEP_RESEARCH_MAX_ITEM_CHARS = 300;
+export const DEEP_RESEARCH_MAX_CONTEXT_CHARS = 600;

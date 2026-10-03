@@ -4,6 +4,7 @@
 import {
   type ChatResponse,
   type ClientLocation,
+  type DeepResearchStart,
   type ErrorResponse,
   type FileUpload,
   type StreamEvent,
@@ -66,7 +67,8 @@ export const chat = {
     anonymousMode?: boolean,
     clientLocation?: ClientLocation | null,
     clientMessageId?: string,
-    rerunMode?: 'regenerate' | 'continue'
+    rerunMode?: 'regenerate' | 'continue',
+    deepResearch?: DeepResearchStart
   ): AsyncGenerator<StreamEvent> {
     log.debug('Starting stream', { conversationId, messageLength: message.length, fileCount: files?.length ?? 0 });
     const token = getToken();
@@ -102,6 +104,7 @@ export const chat = {
             client_location: clientLocation ?? undefined,
             client_message_id: clientMessageId,
             rerun_mode: rerunMode,
+            deep_research: deepResearch,
           }),
           signal: controller.signal,
         }

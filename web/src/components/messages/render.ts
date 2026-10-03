@@ -30,6 +30,7 @@ import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { RenderMessagesOptions } from './types';
 import type { Message } from '../../types/api';
 import { decorateGrounding } from './grounding';
+import { renderResearchOffer } from './research-offer';
 
 const log = createLogger('messages');
 
@@ -462,6 +463,7 @@ export function addMessageToUI(
   if (message.role === 'assistant') {
     // Grounding-check underlines, source numbers and footer
     decorateGrounding(messageEl, message);
+    renderResearchOffer(messageEl, message);
   }
   container.appendChild(messageEl);
   updateLatestAssistantMarker(container);

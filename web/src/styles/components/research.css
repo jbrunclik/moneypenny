@@ -1,0 +1,136 @@
+/* Deep-research offer card under an answer (components/messages/research-offer.ts) */
+.research-offer {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border-light);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.research-offer--decided {
+    color: var(--text-muted);
+}
+
+.research-offer__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: baseline;
+}
+
+.research-offer__title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.research-offer__estimate {
+    color: var(--text-muted);
+}
+
+.research-offer__context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+}
+
+.research-offer__label {
+    color: var(--text-muted);
+}
+
+.research-offer__items {
+    margin: var(--space-2) 0 0;
+    padding-left: var(--space-5);
+}
+
+.research-offer__item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1);
+}
+
+.research-offer textarea {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-1) var(--space-1-5);
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    resize: none;
+    field-sizing: content;
+}
+
+.research-offer__context textarea {
+    flex-basis: 100%;
+    border-color: var(--border-light);
+}
+
+.research-offer textarea:hover,
+.research-offer textarea:focus {
+    border-color: var(--border-light);
+    background: var(--bg-tertiary);
+    outline: none;
+}
+
+/* ✕ and ✎: small glyphs with a 44px hit area */
+.research-offer__remove,
+.research-offer__context-edit {
+    flex: none;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -12px -8px;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.research-offer__remove:hover,
+.research-offer__context-edit:hover {
+    color: var(--text-primary);
+}
+
+.research-offer__add {
+    margin-top: var(--space-1);
+    padding: var(--space-1) 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent-hover);
+    font: inherit;
+    cursor: pointer;
+}
+
+.research-offer__actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.research-offer__start,
+.research-offer__decline {
+    padding: 3px var(--space-2-5);
+    border: 0;
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.research-offer__start {
+    background: var(--accent-muted);
+    color: var(--accent-hover);
+}
+
+.research-offer__decline {
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.research-offer button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}

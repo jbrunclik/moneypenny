@@ -11,7 +11,7 @@
  * otherwise → failed.
  */
 import { OUTBOX_PERSIST_MAX_FILE_CHARS, OUTBOX_STORAGE_KEY } from '../config';
-import type { FileMetadata, FileUpload, Message } from '../types/api';
+import type { DeepResearchStart, FileMetadata, FileUpload, Message } from '../types/api';
 import { createLogger } from '../utils/logger';
 import { deleteOutboxFiles, loadOutboxFiles, saveOutboxFiles } from './outbox-files';
 
@@ -27,6 +27,8 @@ export interface OutboxEntry {
   forceTools: string[];
   anonymousMode: boolean;
   createdAt: string;
+  /** Starts a deep-research offer: a retry resends the plan */
+  deepResearch?: DeepResearchStart;
   status: 'pending' | 'failed';
 }
 

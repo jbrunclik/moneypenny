@@ -15,8 +15,17 @@ import {
 } from '../components/messages';
 import { getElementById } from '../utils/dom';
 import { toast } from '../components/Toast';
-import type { ClaimAnnotation, FileMetadata, GeneratedImage, GroundingSummary, Message, Source } from '../types/api';
+import type {
+  ClaimAnnotation,
+  FileMetadata,
+  GeneratedImage,
+  GroundingSummary,
+  Message,
+  MessageResearch,
+  Source,
+} from '../types/api';
 import { decorateGrounding } from '../components/messages/grounding';
+import { renderResearchOffer } from '../components/messages/research-offer';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
@@ -42,6 +51,7 @@ export interface StreamDoneEvent {
   stop_reason?: 'user';
   annotations?: ClaimAnnotation[];
   grounding?: GroundingSummary;
+  research?: MessageResearch;
 }
 
 /**
@@ -63,6 +73,7 @@ export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent
     stop_reason: event.stop_reason,
     annotations: event.annotations,
     grounding: event.grounding,
+    research: event.research,
   };
 }
 
@@ -135,6 +146,7 @@ function finalizeDoneBubble(
   useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
   // Underlines, source numbers and the footer (replaces "checking")
   decorateGrounding(messageEl, event);
+  renderResearchOffer(messageEl, event, { live: true });
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'round_cap' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');

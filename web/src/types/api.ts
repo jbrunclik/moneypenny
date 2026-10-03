@@ -99,9 +99,67 @@ export interface Message {
   annotations?: ClaimAnnotation[];
   /** Grounding-check summary for the footer (server-set) */
   grounding?: GroundingSummary;
+  /** Deep-research offer or run (server-set; src/agent/deep_research/) */
+  research?: MessageResearch;
   created_at: string;
   /** Client-only send state; never sent by the server (absent = delivered) */
   status?: 'pending' | 'failed';
+}
+
+/** What the client needs to recompute an offer's estimate while it is edited */
+export interface ResearchRates {
+  base_minutes: number;
+  per_wave_minutes: number;
+  parallelism: number;
+  base_czk: number;
+  per_item_czk: number;
+}
+
+export type ResearchOfferStatus = 'offered' | 'started' | 'declined' | 'superseded';
+
+/** A deep-research offer (src/agent/deep_research/offer.py build_offer) */
+export interface ResearchOffer {
+  question: string;
+  context: string;
+  sub_questions: string[];
+  estimate: { minutes: number; cost_czk: number };
+  rates: ResearchRates;
+  status: ResearchOfferStatus;
+  autostart: boolean;
+  kind: 'initial' | 'followup';
+  round: number;
+  created_at?: string;
+  decided_at?: string;
+}
+
+/** A finished run's data on the report message (src/agent/deep_research/pipeline.py _run_data) */
+export interface ResearchRun {
+  round: number;
+  question: string;
+  context: string;
+  offered_sub_questions: string[];
+  sub_questions: string[];
+  items: { status: 'done' | 'failed' | 'skipped' | 'timed_out'; pages: number }[];
+  pages_read: number;
+  board: { agent: number; kind: 'finding' | 'lead'; text: string; urls: string[] }[];
+  cache_hits: number;
+  duration_ms: number;
+  estimate: { minutes: number; cost_czk: number };
+  finished_early: boolean;
+  /** Offer of a next round, extracted from the report */
+  followup?: ResearchOffer;
+}
+
+export interface MessageResearch {
+  offer?: ResearchOffer;
+  run?: ResearchRun;
+}
+
+/** The chat request's deep_research field: start an offer with the edited plan */
+export interface DeepResearchStart {
+  offer_message_id: string;
+  sub_questions: string[];
+  context: string;
 }
 
 export type ClaimVerdict = 'supported' | 'partial' | 'not_found' | 'contradicted';
@@ -313,6 +371,7 @@ export interface ChatResponse {
   grounding?: GroundingSummary; // Grounding-check footer summary
   stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
   model_fallback?: string; // Model that answered when the conversation's model was down
+  research?: MessageResearch; // Deep-research offer or run
 }
 
 export interface ErrorResponse {

@@ -234,6 +234,14 @@ export const conversations = {
     });
   },
 
+  /** Ask a running deep-research turn to write its report from what it has. */
+  async finishNow(id: string, messageId: string): Promise<void> {
+    await request<{ status: string }>(`/api/conversations/${id}/chat/finish-now`, {
+      method: 'POST',
+      body: JSON.stringify({ message_id: messageId }),
+    });
+  },
+
   /** Steer a turn that is currently generating (picked up between tool rounds). */
   async interject(id: string, message: string): Promise<void> {
     await request<{ status: string }>(`/api/conversations/${id}/chat/interject`, {
@@ -303,6 +311,14 @@ export const messages = {
     await request<{ status: string }>(`/api/messages/${id}`, {
       method: 'DELETE',
       retry: true,
+    });
+  },
+
+  /** Decline a deep-research offer (starting one goes through the chat stream). */
+  async declineResearchOffer(id: string): Promise<void> {
+    await request<{ status: string }>(`/api/messages/${id}/research-offer`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'declined' }),
     });
   },
 };

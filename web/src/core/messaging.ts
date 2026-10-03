@@ -36,7 +36,7 @@ import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
-import type { Conversation, FileUpload, Message } from '../types/api';
+import type { Conversation, DeepResearchStart, FileUpload, Message } from '../types/api';
 import { setMessageSendState } from '../components/messages/send-state';
 
 import { isTempConversation, createConversation } from './conversation';
@@ -64,6 +64,8 @@ interface SendEntry {
   files: FileUpload[];
   forceTools: string[];
   anonymousMode: boolean;
+  /** Starts a deep-research offer (always sent over the stream endpoint) */
+  deepResearch?: DeepResearchStart;
 }
 
 // ============ Composer hook ============
@@ -260,12 +262,17 @@ function renderOptimisticUserMessage(userMessage: Message): void {
 /**
  * Track, render and dispatch a new user message in a prepared conversation.
  */
-async function sendNewMessage(
+/**
+ * Track a new user message before any network I/O (store, outbox, sidebar,
+ * optimistic bubble) and return what dispatchSend needs to send it.
+ */
+function trackNewMessage(
   conv: Conversation,
   messageText: string,
   files: FileUpload[],
-  forceTools: string[]
-): Promise<void> {
+  forceTools: string[],
+  deepResearch?: DeepResearchStart
+): SendEntry {
   const userMessage = buildOptimisticUserMessage(messageText, files);
 
   // Use fresh store reference to get anonymous mode (not a stale snapshot from before)
@@ -283,6 +290,7 @@ async function sendNewMessage(
     forceTools,
     anonymousMode,
     createdAt: userMessage.created_at,
+    deepResearch,
   });
 
   // Optimistically bump the sidebar entry so the conversation moves to the
@@ -292,6 +300,16 @@ async function sendNewMessage(
   renderConversationsList();
 
   renderOptimisticUserMessage(userMessage);
+  return { id: userMessage.id, content: messageText, files, forceTools, anonymousMode, deepResearch };
+}
+
+async function sendNewMessage(
+  conv: Conversation,
+  messageText: string,
+  files: FileUpload[],
+  forceTools: string[]
+): Promise<void> {
+  const entry = trackNewMessage(conv, messageText, files, forceTools);
 
   // Clear input, draft and force tools (one-shot)
   clearMessageInput();
@@ -300,13 +318,23 @@ async function sendNewMessage(
   useStore.getState().setConversationDraft(conv.id, '');
   resetForceTools();
 
-  await dispatchSend(conv.id, {
-    id: userMessage.id,
-    content: messageText,
-    files,
-    forceTools,
-    anonymousMode,
-  });
+  await dispatchSend(conv.id, entry);
+}
+
+/**
+ * Send a message the UI composed (not the composer) into the current
+ * conversation - starting a deep-research offer. False when it can't go now.
+ */
+export async function sendUiMessage(text: string, deepResearch?: DeepResearchStart): Promise<boolean> {
+  const store = useStore.getState();
+  const conv = store.currentConversation;
+  if (!conv || isSendBlocked(store)) return false;
+  if (store.getActiveRequest(conv.id)) {
+    toast.info('Please wait for the current response to finish.');
+    return false;
+  }
+  await dispatchSend(conv.id, trackNewMessage(conv, text, [], [], deepResearch));
+  return true;
 }
 
 /**
@@ -378,8 +406,12 @@ export async function dispatchSend(convId: string, entry: SendEntry): Promise<vo
   const clientLocation = await getClientLocation();
 
   try {
-    if (useStore.getState().streamingEnabled) {
-      await sendStreamingMessage(convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation);
+    // A deep-research run takes minutes: only the stream path has resume and push
+    if (useStore.getState().streamingEnabled || entry.deepResearch) {
+      await sendStreamingMessage(
+        convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation,
+        undefined, entry.deepResearch
+      );
     } else {
       await sendBatchMessage(convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation);
     }

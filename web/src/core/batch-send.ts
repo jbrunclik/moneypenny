@@ -13,6 +13,7 @@ import {
   updateUserMessageId,
 } from '../components/messages';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
+import { renderResearchOffer } from '../components/messages/research-offer';
 import {
   showUploadProgress,
   hideUploadProgress,
@@ -72,6 +73,7 @@ function toAssistantMessage(response: ChatResponse): Message {
     stopped_early: response.stopped_early,
     annotations: response.annotations,
     grounding: response.grounding,
+    research: response.research,
   };
 }
 
@@ -88,6 +90,9 @@ function renderBatchReply(assistantMessage: Message): void {
   // we're using scroll-to-top-of-message behavior, not scroll-to-bottom.
   // The scroll-on-image-load system is designed for bottom-scrolling.
   addMessageToUI(assistantMessage, messagesContainer, undefined, { animate: true });
+  // A reply that just arrived: an autostart offer starts now
+  const messageEl = messagesContainer.querySelector<HTMLElement>(`[data-message-id="${assistantMessage.id}"]`);
+  if (messageEl && assistantMessage.research) renderResearchOffer(messageEl, assistantMessage, { live: true });
 
   // Only scroll if user was following (at bottom) - don't hijack scroll if user is browsing history
   if (wasAtBottom) {
