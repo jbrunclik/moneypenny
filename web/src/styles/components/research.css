@@ -41,7 +41,24 @@
 
 .research-offer__items {
     margin: var(--space-2) 0 0;
-    padding-left: var(--space-5);
+    padding: 0;
+    list-style: none;
+    counter-reset: research-item;
+}
+
+/* Flex items lose their list markers: number them with a counter */
+.research-offer__item::before,
+.research-progress__item::before,
+.research-chip__items li::before {
+    counter-increment: research-item;
+    content: counter(research-item) '.';
+    flex: none;
+    min-width: 1.5em;
+    color: var(--text-muted);
+}
+
+.research-offer__item::before {
+    padding-top: var(--space-1);
 }
 
 .research-offer__item {
@@ -152,18 +169,22 @@
 .research-progress__items,
 .research-chip__items {
     margin: 0;
-    padding-left: var(--space-5);
+    padding: 0;
+    list-style: none;
+    counter-reset: research-item;
 }
 
 .research-progress__item,
 .research-chip__items li {
     display: flex;
     gap: var(--space-2);
-    align-items: baseline;
+    align-items: center;
+    /* Whole-pixel rows: the spinner must not make the row height fractional */
+    line-height: 18px;
 }
 
 .research-progress__question {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
 }
 
@@ -178,6 +199,7 @@
 
 .research-progress__spinner {
     display: inline-block;
+    vertical-align: middle;
     width: 10px;
     height: 10px;
     border: 2px solid var(--border-light);
