@@ -165,8 +165,9 @@ fixed explanation.
 language ("Dohledej a ověř: <quote>"). It is an ordinary turn, so its answer is
 checked too.
 
-**Footer** (`web/src/components/messages/grounding-footer.ts`), above the source
-chips (which gain their numbers): "Ověřuji proti zdrojům…" between
+**Footer** (`web/src/components/messages/grounding.ts`), right under the answer
+text. Sources stay in the existing sources popup, which already numbers them 1..n
+in `sources` order, so the inline numbers match it: "Ověřuji proti zdrojům…" between
 `grounding_started` and `done`; then "6 z 9 tvrzení ze zdrojů · 2 bez zdroje · 1
 jinak než zdroj" (parts with zero omitted; legacy: "3 bez zdroje"). Tappable when any
 claim is not supported.
@@ -203,6 +204,8 @@ all converted messages are reviewed by hand.
   default 8, which only counted unsupported items); `GROUNDING_CHECK_MAX_FALSE_CLAIMS`
   is removed. The production `.env` follows `.env.example`, so the renamed keys are
   updated there in the same deploy.
+- `GROUNDING_CHECK_MAX_QUOTE_CHARS`, default 120 (replaces `GROUNDING_CHECK_MAX_ITEM_CHARS`,
+  default 40: claims are phrases, not single items)
 - `GROUNDING_CHECK_MAX_REASON_CHARS`
 - `GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS`
 - `GROUNDING_CONTEXT_MAX_CHARS` (the `MSG_CONTEXT` entry cap)
