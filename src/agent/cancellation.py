@@ -82,6 +82,12 @@ def unregister_token(request_id: str) -> None:
         _tokens.pop(request_id, None)
 
 
+def token_for(request_id: str) -> CancelToken | None:
+    """The registered token of a request (deep-research subagents get their own)."""
+    with _tokens_lock:
+        return _tokens.get(request_id)
+
+
 def _current_token() -> CancelToken | None:
     request_id = get_current_request_id()
     if request_id is None:

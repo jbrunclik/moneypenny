@@ -101,6 +101,11 @@ class ResearchBoard:
         with self._lock:
             return [page for _agent, page in self._pages.values()]
 
+    def pages_of(self, agent: int) -> list[SourcePage]:
+        """Pages one agent read first (kept when the agent is cut off)."""
+        with self._lock:
+            return [page for owner, page in self._pages.values() if owner == agent]
+
     def known_urls(self) -> set[str]:
         with self._lock:
             return set(self._pages)
