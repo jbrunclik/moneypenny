@@ -39,6 +39,12 @@ The `id` format is `"message_id:file_index"` which maps directly to the tool par
 - Verifies conversation belongs to the current user
 - Returns error for unauthorized access attempts
 
+## Downloading Files
+
+`downloadFile` and `openFileInNewTab` in [file-actions.ts](../../web/src/core/file-actions.ts) fetch the file as a blob. Desktop gets an `<a download>` click (or a new tab for previews).
+
+**Pitfall - the installed iPhone app (Oct 2026):** it has no download manager, so `<a download>` on a blob URL does nothing, and `window.open(blob)` opens an in-app browser that can't read the app's blob URLs (a blank sheet). Touch devices that can share files (`pointer: coarse` + `navigator.canShare({files})`) therefore get the share sheet ("Save to Files"), and in the installed app a non-PDF file-name tap does the same (PDFs use the inline viewer). iOS only opens the sheet within a tap; when the fetch outlasts that window `navigator.share` throws `NotAllowedError` and an info toast offers **Save** for a fresh tap. `AbortError` (user cancelled) is silent. Tests: [file-download-share.test.ts](../../web/tests/unit/file-download-share.test.ts).
+
 ## Clipboard Paste
 
 Users can paste screenshots directly from the clipboard into the message input (Cmd+V / Ctrl+V).
