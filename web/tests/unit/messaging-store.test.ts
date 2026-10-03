@@ -196,6 +196,48 @@ describe('messaging keeps the store authoritative', () => {
     });
   });
 
+  it('retrying a failed send in the same session resends its attachments', async () => {
+    const { getPendingFiles } = await import('@/components/FileUpload');
+    const { dispatchSend } = await import('@/core/messaging');
+    const { getOutboxEntry } = await import('@/core/outbox');
+    useStore.setState({ streamingEnabled: false });
+    const photo = { name: 'photo.jpg', type: 'image/jpeg', data: 'BASE64DATA', previewUrl: 'blob:preview' };
+    vi.mocked(getPendingFiles).mockReturnValueOnce([photo]);
+    vi.mocked(chat.sendBatch).mockRejectedValueOnce(new ApiError('Server error', 500));
+
+    await sendMessage();
+    const [sent] = useStore.getState().getMessages(CONV_ID);
+    expect(sent.status).toBe('failed');
+
+    vi.mocked(chat.sendBatch).mockResolvedValueOnce({ ...DONE_FIELDS, role: 'assistant' } as never);
+    await dispatchSend(CONV_ID, getOutboxEntry(CONV_ID, sent.id)!);
+
+    const retryFiles = vi.mocked(chat.sendBatch).mock.calls[1][2];
+    expect(retryFiles).toEqual([expect.objectContaining({ name: 'photo.jpg', data: 'BASE64DATA' })]);
+  });
+
+  it('retrying a failed streamed send in the same session resends its attachments', async () => {
+    const { getPendingFiles } = await import('@/components/FileUpload');
+    const { dispatchSend } = await import('@/core/messaging');
+    const { getOutboxEntry } = await import('@/core/outbox');
+    useStore.setState({ streamingEnabled: true });
+    const photo = { name: 'photo.jpg', type: 'image/jpeg', data: 'BASE64DATA', previewUrl: 'blob:preview' };
+    vi.mocked(getPendingFiles).mockReturnValueOnce([photo]);
+    vi.mocked(chat.stream).mockImplementationOnce(() => {
+      throw new ApiError('Server error', 500);
+    });
+
+    await sendMessage();
+    const [sent] = useStore.getState().getMessages(CONV_ID);
+    expect(sent.status).toBe('failed');
+
+    vi.mocked(chat.stream).mockImplementationOnce(streamOf([{ type: 'done', ...DONE_FIELDS }]) as never);
+    await dispatchSend(CONV_ID, getOutboxEntry(CONV_ID, sent.id)!);
+
+    const retryFiles = vi.mocked(chat.stream).mock.calls[1][2];
+    expect(retryFiles).toEqual([expect.objectContaining({ name: 'photo.jpg', data: 'BASE64DATA' })]);
+  });
+
   it('does not steer a turn that is stopping', async () => {
     // Stop was sent: interjected text would be saved but never answered
     useStore.getState().setActiveRequest(CONV_ID, {

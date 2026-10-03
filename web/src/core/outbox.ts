@@ -13,6 +13,7 @@
 import { OUTBOX_PERSIST_MAX_FILE_CHARS, OUTBOX_STORAGE_KEY } from '../config';
 import type { FileMetadata, FileUpload, Message } from '../types/api';
 import { createLogger } from '../utils/logger';
+import { deleteOutboxFiles, loadOutboxFiles, saveOutboxFiles } from './outbox-files';
 
 const log = createLogger('outbox');
 
@@ -103,6 +104,9 @@ function persistableFiles(files: FileUpload[]): { files: FileUpload[]; filesDrop
 export function addOutboxEntry(entry: NewOutboxEntry): void {
   if (entry.files.length) {
     sessionFiles.set(entry.id, entry.files);
+    // localStorage holds small files only; IndexedDB keeps the rest for a
+    // retry after a reload
+    void saveOutboxFiles(entry.id, entry.files);
   }
   const persisted: OutboxEntry = {
     ...entry,
@@ -115,6 +119,19 @@ export function addOutboxEntry(entry: NewOutboxEntry): void {
   ]);
 }
 
+/**
+ * Entry for a manual retry: like getOutboxEntry, plus attachments that only
+ * survived a reload in IndexedDB.
+ */
+export async function restoreOutboxEntry(convId: string, id: string): Promise<OutboxEntry | undefined> {
+  const entry = getOutboxEntry(convId, id);
+  if (!entry?.filesDropped) return entry;
+  const stored = await loadOutboxFiles(id);
+  if (!stored) return entry;
+  sessionFiles.set(id, stored);
+  return { ...entry, files: stored, filesDropped: false };
+}
+
 /** Full entry for retry: prefers the in-memory file payloads when available. */
 export function getOutboxEntry(convId: string, id: string): OutboxEntry | undefined {
   const entry = readStore()[convId]?.find((e) => e.id === id);
@@ -123,8 +140,15 @@ export function getOutboxEntry(convId: string, id: string): OutboxEntry | undefi
   return files ? { ...entry, files } : entry;
 }
 
+/** Whether a send carried attachments (stored in IndexedDB until it settles). */
+function hadFiles(convId: string, id: string): boolean {
+  const entry = readStore()[convId]?.find((e) => e.id === id);
+  return sessionFiles.has(id) || Boolean(entry && (entry.files.length || entry.filesDropped));
+}
+
 /** The server confirmed receipt: the entry is no longer our responsibility. */
 export function confirmOutboxEntry(convId: string, id: string): void {
+  if (hadFiles(convId, id)) void deleteOutboxFiles(id);
   inflightIds.delete(id);
   sessionFiles.delete(id);
   mutateEntries(convId, (entries) => entries.filter((e) => e.id !== id));
@@ -148,6 +172,7 @@ export function markOutboxFailed(convId: string, id: string): void {
 
 /** User discarded the failed message. */
 export function removeOutboxEntry(convId: string, id: string): void {
+  if (hadFiles(convId, id)) void deleteOutboxFiles(id);
   inflightIds.delete(id);
   sessionFiles.delete(id);
   mutateEntries(convId, (entries) => entries.filter((e) => e.id !== id));

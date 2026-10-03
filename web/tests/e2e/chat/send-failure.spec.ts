@@ -83,6 +83,30 @@ test.describe('Chat - Send Failure Handling', () => {
     await expect(page.locator('.message--send-failed')).toHaveCount(0);
   });
 
+  test('retry after a reload resends a large attachment', async ({ page }) => {
+    // ~1.7 MB: over the outbox's localStorage cap (2M base64 chars), so the
+    // file only survives the reload in IndexedDB
+    const csv = Buffer.from('id,value\n' + '1,abcdefghij\n'.repeat(140_000));
+    await page.locator('#file-input').setInputFiles({ name: 'big.csv', mimeType: 'text/csv', buffer: csv });
+    await page.waitForSelector('.file-preview', { timeout: 5000 });
+
+    await blockSends(page);
+    await page.fill('#message-input', 'Big file after a reload');
+    await page.click('#send-btn');
+    await expect(page.locator('.message--send-failed')).toBeVisible({ timeout: 20000 });
+
+    await restoreSends(page);
+    await page.reload();
+    await expect(page.locator('.message.user.message--send-failed')).toBeVisible({ timeout: 20000 });
+
+    const retried = page.waitForRequest(CHAT_ENDPOINTS);
+    await page.click('[data-action="retry-send"]');
+    const body = (await retried).postDataJSON() as { files?: Array<{ name: string; data: string }> };
+    expect(body.files?.map((f) => f.name)).toEqual(['big.csv']);
+    expect(body.files?.[0].data.length).toBeGreaterThan(2_000_000);
+    await expect(page.locator('.message.assistant')).toContainText('mock response', { timeout: 20000 });
+  });
+
   test('discard removes the failed message permanently', async ({ page }) => {
     await blockSends(page);
     await page.fill('#message-input', 'Discard me');

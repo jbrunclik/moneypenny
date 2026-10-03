@@ -13,7 +13,7 @@ import { hideLoadingIndicator, removeRenderedMessagesFrom } from '../components/
 import { beginInlineEdit } from '../components/messages/edit';
 import { getElementById } from '../utils/dom';
 import { getClientLocation } from './location';
-import { getOutboxEntry, removeOutboxEntry } from './outbox';
+import { removeOutboxEntry, restoreOutboxEntry } from './outbox';
 import { resetAutoRetry } from './send-delivery';
 import { sendStreamingMessage } from './stream-send';
 import { sendBatchMessage } from './batch-send';
@@ -151,12 +151,13 @@ async function submitMessageEdit(convId: string, messageId: string, newText: str
 async function retryFailedMessage(messageId: string): Promise<void> {
   const convId = useStore.getState().currentConversation?.id;
   if (!convId) return;
-  const entry = getOutboxEntry(convId, messageId);
-  if (!entry) return;
   if (useStore.getState().getActiveRequest(convId)) {
     toast.info('Please wait for the current response in this conversation to finish.');
     return;
   }
+  // Attachments too big for localStorage come back from IndexedDB
+  const entry = await restoreOutboxEntry(convId, messageId);
+  if (!entry) return;
   log.info('Retrying failed message', { conversationId: convId, messageId });
   // A manual retry earns a fresh automatic retry on transient failure
   resetAutoRetry(messageId);
