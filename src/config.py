@@ -415,6 +415,18 @@ class Config:
     # Items are names/prices/dates; anything longer is a description or a
     # sentence the verifier mis-filed (only false claims may be sentences)
     GROUNDING_CHECK_MAX_ITEM_CHARS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEM_CHARS", "40"))
+    # Claims the verifier may return per answer (supported ones included)
+    GROUNDING_CHECK_MAX_CLAIMS: int = int(os.getenv("GROUNDING_CHECK_MAX_CLAIMS", "20"))
+    # Longer "quotes" are sentences, not claims
+    GROUNDING_CHECK_MAX_QUOTE_CHARS: int = int(os.getenv("GROUNDING_CHECK_MAX_QUOTE_CHARS", "120"))
+    GROUNDING_CHECK_MAX_REASON_CHARS: int = int(
+        os.getenv("GROUNDING_CHECK_MAX_REASON_CHARS", "160")
+    )
+    GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS: int = int(
+        os.getenv("GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS", "240")
+    )
+    # The MSG_CONTEXT grounding entry later turns see
+    GROUNDING_CONTEXT_MAX_CHARS: int = int(os.getenv("GROUNDING_CONTEXT_MAX_CHARS", "400"))
     GROUNDING_CHECK_TIMEOUT_SECONDS: float = float(
         os.getenv("GROUNDING_CHECK_TIMEOUT_SECONDS", "10")
     )
