@@ -66,15 +66,17 @@ class TestCheckGrounding:
     def test_returns_validated_annotations_and_summary(self, fake_verifier: MagicMock) -> None:
         fake_verifier.return_value = (
             GroundingVerdict(
-                claims=[
+                unsupported=[
+                    ClaimVerdict(quote="VeloRama", verdict="not_found", reason="Ve zdroji není.")
+                ],
+                supported=[
                     ClaimVerdict(
                         quote="Bike Prague",
                         verdict="supported",
                         source=1,
                         source_quote="u Bike Prague",
-                    ),
-                    ClaimVerdict(quote="VeloRama", verdict="not_found", reason="Ve zdroji není."),
-                ]
+                    )
+                ],
             ),
             _USAGE,
         )
@@ -84,6 +86,32 @@ class TestCheckGrounding:
         assert [a["verdict"] for a in outcome.annotations] == ["supported", "not_found"]
         assert outcome.summary == {"checked": True, "source_count": 1}
         assert outcome.usage == _USAGE
+
+    def test_problem_claims_survive_the_claim_cap(
+        self, fake_verifier: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Unsupported claims come first so a long supported list never pushes
+        # them past GROUNDING_CHECK_MAX_CLAIMS (Oct 2026 eval: recall 71% -> 89%
+        # with the problems-first schema)
+        monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_CLAIMS", 1)
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[ClaimVerdict(quote="VeloRama", verdict="not_found")],
+                supported=[
+                    ClaimVerdict(
+                        quote="Bike Prague",
+                        verdict="supported",
+                        source=1,
+                        source_quote="Bike Prague",
+                    )
+                ],
+            ),
+            _USAGE,
+        )
+
+        outcome = check_grounding(_ANSWER, _WEB_TURN)
+
+        assert [a["quote"] for a in outcome.annotations] == ["VeloRama"]
 
     def test_prompt_carries_numbered_pages(self, fake_verifier: MagicMock) -> None:
         check_grounding(_ANSWER, _WEB_TURN)
@@ -178,7 +206,7 @@ class TestRunVerifier:
         structured.invoke.return_value = {
             "raw": raw,
             "parsed": GroundingVerdict(
-                claims=[ClaimVerdict(quote="VeloRama", verdict="not_found")]
+                unsupported=[ClaimVerdict(quote="VeloRama", verdict="not_found")]
             ),
             "parsing_error": None,
         }
@@ -202,7 +230,7 @@ class TestRunVerifier:
         assert "the sources" in prompt
         assert "the known facts" in prompt
         assert verdict is not None
-        assert verdict.claims[0].quote == "VeloRama"
+        assert verdict.unsupported[0].quote == "VeloRama"
         assert usage == {
             "model": Config.GROUNDING_CHECK_MODEL,
             "input_tokens": 120,

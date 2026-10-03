@@ -206,6 +206,36 @@ def in_case_order(cases: list[EvalCase], done: dict[str, dict[str, Any]]) -> lis
     return [done[c.id] for c in cases if c.id in done]
 
 
+_JUDGE_LABELS = {
+    "not_found": "UNSOURCED",
+    "partial": "PARTLY SOURCED",
+    "contradicted": "CONTRADICTED BY SOURCE",
+}
+
+
+def _judge_tag(ann: dict[str, Any]) -> str:
+    if ann.get("verdict") == "supported":
+        return f" [source {ann['source']}]" if ann.get("source") else ""
+    reason = f": {ann['reason']}" if ann.get("reason") else ""
+    return f" [{_JUDGE_LABELS.get(ann.get('verdict', ''), 'UNSOURCED')}{reason}]"
+
+
+def annotate_for_judge(response: str, grounding: dict[str, Any] | None) -> str:
+    """The answer with each claim's verdict right after it, as users see it.
+
+    The UI underlines a claim where it stands; an end-of-answer list was
+    measured not to work (the reader, and the judge, take the text as fact).
+    """
+    text = response
+    for ann in (grounding or {}).get("annotations") or []:
+        tag = _judge_tag(ann)
+        start = text.find(ann.get("quote", "")) if tag else -1
+        if start >= 0:
+            end = start + len(ann["quote"])
+            text = text[:end] + tag + text[end:]
+    return text
+
+
 def parse_judge_response(text: str) -> tuple[int, bool, str]:
     """Extract (score, pass, reasoning) from the judge's reply; safe on garbage."""
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -557,7 +587,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
                 content=_JUDGE_INSTRUCTION.format(
                     rubric=case.rubric,
                     user=case.user,
-                    response=response[:8000],
+                    response=annotate_for_judge(response, usage.get("grounding"))[:8000],
                     tools_called=", ".join(sorted(tools_used)) or "none",
                     cited_sources=json.dumps(cited, ensure_ascii=False) if cited else "none",
                     integration_changes=integration_changes,

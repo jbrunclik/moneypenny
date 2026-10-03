@@ -162,7 +162,8 @@ def check_grounding(
             "Grounding check failed", exc_info=True, extra={"source_chars": len(sources)}
         )
         return GroundingOutcome()
-    annotations = validate_claims(verdict.claims if verdict else [], answer, pages)
+    claims = (verdict.unsupported + verdict.supported) if verdict else []
+    annotations = validate_claims(claims, answer, pages)
     counts = Counter(a["verdict"] for a in annotations)
     logger.info(
         "Grounding check",

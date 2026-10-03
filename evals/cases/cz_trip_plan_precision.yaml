@@ -1,16 +1,16 @@
 id: cz_trip_plan_precision
-description: Grounding-check precision on a trip plan - no markers on the answer's own timeline or on well-known places (prod, Oct 2026)
+description: Grounding-check precision on a trip plan - no unsourced annotations on the answer's own timeline or on well-known places (prod, Oct 2026)
 user: "naplanuj nam na sobotu vylet s detmi: rano odjezd ze Zlicina, Medovinobrani na zamku Patek, odpoledne Litomerice. Dej mi casovy plan."
 expect:
   rubric: >
     Gives a Czech day plan with its own timeline (departure, stops, travel
     durations) built around the Medovinobraní event at zámek Pátek and an
-    afternoon in Litoměřice. Grounding markers ("_(neověřeno)_" /
-    "_(unverified)_") may appear only on specific businesses, prices, opening
-    hours or event details the answer could not confirm. It FAILS if a marker
-    sits on any time or duration of the answer's own plan (e.g. "10:30",
-    "11:30-13:30", "cca 30 minut"), or on a well-known town, hill or region
-    (Litoměřice, Libochovice, Radobýl, České středohoří), or if the answer
-    carries more than 2 markers in total.
+    afternoon in Litoměřice. Grounding marks ([UNSOURCED], [PARTLY SOURCED],
+    [CONTRADICTED BY SOURCE]) may appear only on specific businesses, prices,
+    opening hours or event details the answer could not confirm. It FAILS if
+    such a mark sits on any time or duration of the answer's own plan (e.g.
+    "10:30", "11:30-13:30", "cca 30 minut"), or on a well-known town, hill or
+    region (Litoměřice, Libochovice, Radobýl, České středohoří), or if there
+    are more than 2 of them in total.
   required_tools: [research, web_search, fetch_url]
   forbidden_tools: [delegate_task]

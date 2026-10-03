@@ -379,3 +379,31 @@ class TestEvalSearchIsolation:
 
         metered = [p for p in search_provider._PROVIDERS if p.monthly_quota() is not None]
         assert len(EVAL_BLANKED_SEARCH_KEYS) == len(metered)
+
+
+def test_judge_sees_problem_claims_marked_in_place() -> None:
+    # The UI underlines the claim where it stands; an end-of-answer list was
+    # measured not to work (the reader, and the judge, take the text as fact)
+    from evals.run import annotate_for_judge
+
+    text = annotate_for_judge(
+        "Buy at Bike Prague or VeloRama for 29 990 Kč.",
+        {
+            "annotations": [
+                {"verdict": "supported", "quote": "Bike Prague", "source": 1},
+                {"verdict": "not_found", "quote": "VeloRama", "reason": "Not in sources."},
+                {"verdict": "contradicted", "quote": "29 990 Kč", "reason": "Source: 32 990 Kč"},
+            ]
+        },
+    )
+
+    assert text == (
+        "Buy at Bike Prague [source 1] or VeloRama [UNSOURCED: Not in sources.] "
+        "for 29 990 Kč [CONTRADICTED BY SOURCE: Source: 32 990 Kč]."
+    )
+
+
+def test_judge_text_unchanged_without_annotations() -> None:
+    from evals.run import annotate_for_judge
+
+    assert annotate_for_judge("Plain answer.", None) == "Plain answer."

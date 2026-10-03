@@ -42,9 +42,21 @@ class ClaimVerdict(BaseModel):
 
 
 class GroundingVerdict(BaseModel):
-    """The verifier's structured output."""
+    """The verifier's structured output: problems first, then sourced claims.
 
-    claims: list[ClaimVerdict] = Field(default_factory=list)
+    Two lists, unsupported first, because the Lite verifier's recall on
+    unsourced specifics was 71% with one mixed list and 89% with this order
+    (Oct 2026 A/B on captured eval answers); it also keeps the problems inside
+    GROUNDING_CHECK_MAX_CLAIMS when the supported list is long.
+    """
+
+    unsupported: list[ClaimVerdict] = Field(
+        default_factory=list, description="EVERY claim that is partial, contradicted or not_found"
+    )
+    supported: list[ClaimVerdict] = Field(
+        default_factory=list,
+        description="Supported claims about businesses, products, prices, hours, dates or contacts",
+    )
 
 
 def _norm(text: str) -> str:
