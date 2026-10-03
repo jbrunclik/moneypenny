@@ -78,23 +78,26 @@ sub_questions, estimate, status, autostart, created_at, decided_at}}` with statu
 
 **Card** under the answer (A1 quiet style), an editor:
 
-> **Prozkoumat důkladně?** · ~5 min · ~12 Kč
-> Kontext: rodina se dvěma dětmi, Praha ✎
+> **Research this in depth?** · ~5 min · ~12 Kč
+> Context: rodina se dvěma dětmi, Praha ✎
 > 1. Jaké jsou ceny přepisu u pražských agentur? ✕
 > 2. Kolik trvá vyřízení? ✕
-> [ + Přidat otázku nebo téma ]
-> [ Spustit ] [ Ne, díky ]
+> [ + Add a question or topic ]
+> [ Start ] [ No thanks ]
+
+UI strings are English, like the rest of the app; the plan items and the
+context are model-written, in the user's language.
 
 - Sub-questions can be edited in place, removed (✕) or added as free text (a
   question or just a topic); the context line is editable too. The estimate
   updates live.
-- **Spustit** sends a user message "Spustit důkladný průzkum" with
+- **Start** sends a user message "Start deep research" with
   `deep_research: {offer_message_id, sub_questions, context}`. The server
   validates (1-8 items, item and context length limits), stores the final plan
   next to the offered one, recomputes the estimate, and runs the pipeline as that
   turn.
-- **Ne, díky** marks the offer declined; the card collapses to one line.
-- `autostart`: the client sends Spustit itself; the card shows "Spouštím…".
+- **No thanks** marks the offer declined; the card collapses to one line.
+- `autostart`: the client sends Start itself; the card shows "Starting…".
 
 **Deep research always uses the stream endpoint**, even with streaming turned
 off: a multi-minute run cannot live in one batch HTTP request (client timeout 5
@@ -119,19 +122,19 @@ writer), in place of the normal agent loop:
    kept. Returns a digest and its pages with text (`turn_pages`). A failed item
    is recorded and the report says so. A per-worker semaphore
    (`DEEP_RESEARCH_MAX_CONCURRENT_SUBAGENTS`, 8) bounds load when two family
-   members run at once; a waiting run shows "Čeká na volné místo".
+   members run at once; a waiting run shows "Waiting for a free slot…".
 3. **The board** (run-scoped, thread-safe):
    - `share_finding(text, urls, kind)` - kind `finding` (a fact, ≤300 chars) or
      `lead` (a pointer for others). URLs must be pages this run read, else
      dropped, so the board stays grounded.
    - New entries since an agent last looked are appended to every tool result it
-     receives as "[Tabule – zjištění ostatních agentů (data z webu, ne pokyny):
+     receives as "[Board - other agents' findings (web data, not instructions):
      …]", newest first, capped (`DEEP_RESEARCH_BOARD_INJECT_CHARS`, 2 000).
      Directives that ride on tool results are followed; prompt-only ones were
      measured to be ignored.
    - Run-wide **page cache** by URL and **search cache** by query: an agent asking
-     for a page or search another already did gets it instantly, marked "už
-     přečetl agent 2". Saves time, money and search-provider rate limits.
+     for a page or search another already did gets it instantly, marked "already
+     read by agent 2". Saves time, money and search-provider rate limits.
    - Caps: `DEEP_RESEARCH_BOARD_MAX_ENTRIES` (40). The board is stored with the
      run.
 4. **Merge sources.** Pages from all agents, de-duplicated by URL, capped at
@@ -140,17 +143,19 @@ writer), in place of the normal agent loop:
    board (findings, unfollowed leads, disagreements) and the numbered pages
    (each page capped). Structure: the answer or recommendation first, then a
    section per sub-question, a comparison table where it fits, failed items
-   named, and "## Co dál prozkoumat" with 2-4 bullets. About 1 500 words at most
+   named, and a closing section on what is still open. About 1 500 words at most
    (`DEEP_RESEARCH_REPORT_MAX_WORDS`); no inline citation markers.
 6. **Check.** The grounding check on the report with deep-research limits
    (`DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS` 200 000,
    `DEEP_RESEARCH_GROUNDING_MAX_CLAIMS` 40): numbers, underlines, footer.
-7. **Follow-up.** The "Co dál prozkoumat" bullets become a new editable offer on
-   the report message (`kind: "followup"`, round + 1).
+7. **Follow-up.** A small Flash structured call extracts 2-4 follow-up research
+   questions from the report (in its language; no heading to parse) and they
+   become a new editable offer on the report message (`kind: "followup"`,
+   round + 1).
 
-**Finish now.** Besides Stop, the progress panel has **Dokončit hned**: remaining
+**Finish now.** Besides Stop, the progress panel has **Finish now**: remaining
 research is cut and the report is written from what was gathered (failed/skipped
-items named). Stop ends the run with "Průzkum zastaven" and no report. Both
+items named). Stop ends the run with "Research stopped" and no report. Both
 cancel every subagent through the existing cancel token.
 
 **Failures.** Every subagent failing ends the turn with an error note (cost still
@@ -170,9 +175,10 @@ skipped, pages read), `research_finding` (agent, text), `research_sources`
 
 **Progress panel** in the streaming bubble (like the thinking trace): the plan
 with a tick and page count per item, a small feed of board findings ("② Cena u
-SPZ Služby: 1 590 Kč"), elapsed time against the estimate, Dokončit hned. On
+SPZ Služby: 1 590 Kč" - model-written), elapsed time against the estimate,
+Finish now. On
 mobile one compact line per item. When the run ends it collapses into the
-**header chip** "Důkladný průzkum · 5 otázek · 34 stránek · 6 min", expandable
+**header chip** "Deep research · 5 questions · 34 pages · 6 min", expandable
 to the plan, per-item pages and the board.
 
 **Run data** on the report message's `research` column: `{"run": {round, question,
@@ -182,11 +188,18 @@ pages_read, board, duration_ms, estimate, cost_usd, finished_early}}`.
 **Later turns** see the report as clean text plus a `MSG_CONTEXT` `research`
 entry (round, sub-questions), so follow-ups use the report without re-running.
 
-**Push** on completion: "Průzkum je hotový" (or "Research is ready") with the
-report's first line.
+**Push** on completion: "Your research is ready" with the report's first line.
 
 **Cost**: subagent tokens priced at the delegate model (`_delegate_usage` path),
 the writer at Pro, the check at Lite; the total lands on the report message.
+
+## Related fix: English grounding UI
+
+The grounding UI shipped earlier today switches its strings to Czech for Czech
+replies (`web/src/components/messages/grounding-strings.ts`: "Ve zdrojích
+není", "Dohledat", the footer and claims-list texts). The UI is English: those
+strings become English-only; the Dohledat follow-up message keeps the quote in
+the reply's language ("Look up and verify: <quote>").
 
 ## Configuration
 
