@@ -69,6 +69,8 @@ function toAssistantMessage(response: ChatResponse): Message {
     language: response.language,
     created_at: response.created_at,
     stopped_early: response.stopped_early,
+    annotations: response.annotations,
+    grounding: response.grounding,
   };
 }
 

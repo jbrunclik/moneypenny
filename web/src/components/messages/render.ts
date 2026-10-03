@@ -29,6 +29,7 @@ import { setInputBlockedForApproval } from '../MessageInput';
 import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { RenderMessagesOptions } from './types';
 import type { Message } from '../../types/api';
+import { decorateGrounding } from './grounding';
 
 const log = createLogger('messages');
 
@@ -458,6 +459,10 @@ export function addMessageToUI(
   }
 
   messageEl.appendChild(contentWrapper);
+  if (message.role === 'assistant') {
+    // Grounding-check underlines, source numbers and footer
+    decorateGrounding(messageEl, message);
+  }
   container.appendChild(messageEl);
   updateLatestAssistantMarker(container);
 }

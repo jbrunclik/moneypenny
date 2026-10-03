@@ -309,6 +309,8 @@ export interface ChatResponse {
   title?: string;
   user_message_id?: string; // Real ID of the user message (for updating temp IDs)
   stopped_early?: boolean; // Reply cut off by the tool-round cap
+  annotations?: ClaimAnnotation[]; // Grounding-check claims
+  grounding?: GroundingSummary; // Grounding-check footer summary
   stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
 }
 

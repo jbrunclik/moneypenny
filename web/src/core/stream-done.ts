@@ -15,7 +15,8 @@ import {
 } from '../components/messages';
 import { getElementById } from '../utils/dom';
 import { toast } from '../components/Toast';
-import type { FileMetadata, GeneratedImage, Message, Source } from '../types/api';
+import type { ClaimAnnotation, FileMetadata, GeneratedImage, GroundingSummary, Message, Source } from '../types/api';
+import { decorateGrounding } from '../components/messages/grounding';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
@@ -39,6 +40,8 @@ export interface StreamDoneEvent {
   approval_id?: string;
   stopped_early?: boolean;
   stop_reason?: 'user';
+  annotations?: ClaimAnnotation[];
+  grounding?: GroundingSummary;
 }
 
 /**
@@ -58,6 +61,8 @@ export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent
     language: event.language,
     stopped_early: event.stopped_early,
     stop_reason: event.stop_reason,
+    annotations: event.annotations,
+    grounding: event.grounding,
   };
 }
 
@@ -86,9 +91,8 @@ function completeInBackground(event: StreamDoneEvent, state: StreamingState, con
 
 /**
  * The text to re-render from the done event, or null to keep the bubble as
- * streamed. Two cases: tokens were lost in transit (nothing streamed), or the
- * server changed the text after the last token - the grounding check marks
- * unverified specifics in place (src/agent/grounding_markers.py).
+ * streamed - when tokens were lost in transit and the saved text differs.
+ * (Grounding no longer edits the text: it arrives as annotations.)
  */
 export function doneContentToRender(eventContent: string | undefined, streamedContent: string): string | null {
   if (!eventContent) return null;
@@ -106,7 +110,7 @@ function finalizeDoneBubble(
   messageEl: HTMLElement
 ): boolean {
   // Render the saved text when it differs from what streamed: lost SSE token
-  // events (connection issues, iOS Safari quirks), or server-side marking
+  // events (connection issues, iOS Safari quirks)
   const content = doneContentToRender(event.content, state.fullContent);
   if (content !== null) {
     if (!state.fullContent.trim()) {
@@ -129,6 +133,8 @@ function finalizeDoneBubble(
     event.language
   );
   useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
+  // Underlines, source numbers and the footer (replaces "checking")
+  decorateGrounding(messageEl, event);
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'round_cap' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');

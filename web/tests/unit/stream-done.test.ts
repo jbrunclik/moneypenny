@@ -54,6 +54,19 @@ describe('assistantMessageFromDone', () => {
   });
 });
 
+describe('assistantMessageFromDone grounding', () => {
+  it('carries annotations and the grounding summary into the store message', () => {
+    const annotations = [{ type: 'claim' as const, verdict: 'not_found' as const, quote: 'X' }];
+    const message = assistantMessageFromDone(
+      { id: 'a1', created_at: '2026-10-03T08:00:00', content: 'X', annotations, grounding: { checked: true, source_count: 2 } },
+      'X'
+    );
+
+    expect(message.annotations).toEqual(annotations);
+    expect(message.grounding).toEqual({ checked: true, source_count: 2 });
+  });
+});
+
 describe('hasVisibleContent', () => {
   it('is false for metadata-only turns', () => {
     expect(hasVisibleContent({ id: 'a', created_at: 'x' })).toBe(false);
@@ -69,7 +82,7 @@ describe('hasVisibleContent', () => {
 });
 
 describe('doneContentToRender', () => {
-  it('renders the saved text when the server changed it after streaming', () => {
+  it('renders the saved text when it differs from what streamed', () => {
     // The grounding check marks unverified specifics after the last token
     // (src/agent/grounding_markers.py); the bubble must show the saved text
     expect(doneContentToRender('Kupte u VeloRama _(neověřeno)_.', 'Kupte u VeloRama.')).toBe(
