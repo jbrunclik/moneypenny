@@ -1,9 +1,24 @@
 """Self-contained briefs for deep-research subagents (fresh contexts)."""
 
+from typing import Any
+
 from src.agent.deep_research.plan import DeepResearchPlan
 
 _RECENT_TURNS_MAX_CHARS = 2000
 _PREVIOUS_REPORT_MAX_CHARS = 6000
+_RECENT_TURNS = 4
+_TURN_MAX_CHARS = 250
+
+
+def recent_turns_text(history: list[dict[str, Any]]) -> str:
+    """The last few turns as "role: text" lines, each clipped (brief context)."""
+    lines = []
+    for msg in history[-_RECENT_TURNS:]:
+        text = " ".join(str(msg.get("content") or "").split())
+        if len(text) > _TURN_MAX_CHARS:
+            text = text[: _TURN_MAX_CHARS - 1] + "…"
+        lines.append(f"{msg.get('role')}: {text}")
+    return "\n".join(lines)
 
 
 def build_brief(plan: DeepResearchPlan, index: int, today: str, recent_turns: str) -> str:

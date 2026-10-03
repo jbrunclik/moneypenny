@@ -45,7 +45,7 @@ def run_deep_research(
     recent_turns: str,
     request_id: str,
     finish_requested: Callable[[], bool] = lambda: False,
-) -> Iterator[dict[str, Any]]:
+) -> Generator[dict[str, Any]]:
     """Events of one run, ending with the `final` event."""
     started = time.monotonic()
     today = datetime.now().astimezone().strftime("%A %Y-%m-%d")

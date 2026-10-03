@@ -165,6 +165,26 @@ def clear_stop_request(user_id: str, conv_id: str, message_id: str) -> None:
         logger.debug("Stop flag clear failed", exc_info=True)
 
 
+# Deep research "Finish now": same turn-scoped kv flag as Stop, its own namespace
+FINISH_KV_NAMESPACE = "deep_research_finish"
+
+
+def request_finish_now(user_id: str, conv_id: str, message_id: str) -> None:
+    db.kv_set(user_id, FINISH_KV_NAMESPACE, conv_id, message_id)
+
+
+def finish_now_requested(user_id: str, conv_id: str, message_id: str) -> bool:
+    return bool(db.kv_get(user_id, FINISH_KV_NAMESPACE, conv_id) == message_id)
+
+
+def clear_finish_request(user_id: str, conv_id: str, message_id: str) -> None:
+    try:
+        if finish_now_requested(user_id, conv_id, message_id):
+            db.kv_delete(user_id, FINISH_KV_NAMESPACE, conv_id)
+    except Exception:
+        logger.debug("Finish-now flag clear failed", exc_info=True)
+
+
 def run_poller(
     token: CancelToken,
     check: Callable[[], bool],

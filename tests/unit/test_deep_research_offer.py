@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from langchain_core.messages import AIMessage
 
-from src.agent.deep_research.offer import PlanError, build_offer, extract_offer, validate_plan
+from src.agent.deep_research.offer import PlanError, extract_offer, validate_plan
 from src.config import Config
 
 

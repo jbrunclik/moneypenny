@@ -152,6 +152,9 @@ def format_message_with_metadata(msg: dict[str, Any]) -> str:
     # contradicted - a follow-up must not restate them as fact
     if metadata.get("grounding"):
         meta_dict["grounding"] = metadata["grounding"]
+    # The reply is a deep-research report: follow-ups can use it as is
+    if metadata.get("research"):
+        meta_dict["research"] = metadata["research"]
 
     # Return with metadata block if we have any metadata
     # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing

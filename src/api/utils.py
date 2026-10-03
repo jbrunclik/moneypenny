@@ -303,6 +303,23 @@ def build_stream_done_event(
     return done_data
 
 
+def calculate_deep_research_cost(usage_info: dict[str, Any]) -> float:
+    """USD of a deep-research run's subagents, each priced at its own model."""
+    from src.utils.costs import calculate_token_cost
+
+    return float(
+        sum(
+            calculate_token_cost(
+                str(u.get("model", "")),
+                int(u.get("input_tokens", 0)),
+                int(u.get("output_tokens", 0)),
+                cached_input_tokens=int(u.get("cached_input_tokens", 0)),
+            )
+            for u in usage_info.get("deep_research_usage") or []
+        )
+    )
+
+
 def calculate_and_save_message_cost(
     message_id: str,
     conversation_id: str,
@@ -353,7 +370,9 @@ def calculate_and_save_message_cost(
         output_tokens,
         image_generation_cost=image_cost,
         cached_input_tokens=cached_input_tokens,
-        tool_llm_cost=delegate_cost + calculate_grounding_cost(usage_info),
+        tool_llm_cost=delegate_cost
+        + calculate_grounding_cost(usage_info)
+        + calculate_deep_research_cost(usage_info),
     )
 
     db.save_message_cost(

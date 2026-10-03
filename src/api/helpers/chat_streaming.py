@@ -42,6 +42,27 @@ STREAM_ERROR_MARKER = "\n\n_…(response interrupted by an error)_"
 # ============================================================================
 
 
+# Agent events forwarded to the client as-is. "retry" (a transient model error
+# being retried) and "stopping" (server-side Stop acknowledged) are momentary;
+# "grounding_started" and the research_* events are journaled for resume
+# (stream_resume._JOURNALED_EVENT_TYPES).
+FORWARDED_EVENT_TYPES = (
+    "thinking",
+    "tool_start",
+    "tool_end",
+    "token",
+    "retry",
+    "stopping",
+    "grounding_started",
+    "model_fallback",
+    "research_plan",
+    "research_item",
+    "research_finding",
+    "research_sources",
+    "research_writing",
+)
+
+
 def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) -> Generator[str]:
     """Create the SSE stream generator for chat streaming.
 
@@ -263,7 +284,7 @@ def _handle_stream_timeout(context: _StreamContext) -> Generator[str]:
         extra={
             "user_id": context.user_id,
             "conversation_id": context.conv_id,
-            "timeout_seconds": Config.CHAT_TIMEOUT,
+            "timeout_seconds": context.turn.timeout_seconds,
             "partial_chars": len(context.partial_content),
         },
     )
@@ -287,7 +308,7 @@ def _process_event_queue(context: _StreamContext) -> Generator[str]:
     worker thread is freed and partial content saved even if the producer is
     wedged inside a single non-yielding call.
     """
-    deadline = time.monotonic() + Config.CHAT_TIMEOUT + Config.SSE_KEEPALIVE_INTERVAL
+    deadline = time.monotonic() + context.turn.timeout_seconds + Config.SSE_KEEPALIVE_INTERVAL
     while True:
         if time.monotonic() > deadline:
             yield from _handle_stream_timeout(context)
@@ -387,20 +408,7 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
             yield f"data: {json.dumps(item)}\n\n"
         except (BrokenPipeError, ConnectionError, OSError) as e:
             context.mark_disconnected(e, "streaming (approval_required)")
-    # "retry" (transient model error being retried) is forwarded but not
-    # journaled: it is a momentary status a resumed client need not replay
-    # "stopping" (server-side Stop acknowledged) is likewise a momentary status
-    # "grounding_started": the post-answer check is running (footer "checking")
-    elif event_type in (
-        "thinking",
-        "tool_start",
-        "tool_end",
-        "token",
-        "retry",
-        "stopping",
-        "grounding_started",
-        "model_fallback",
-    ):
+    elif event_type in FORWARDED_EVENT_TYPES:
         if event_type == "token":
             context.partial_content += item.get("text", "")
         try:

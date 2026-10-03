@@ -10,7 +10,7 @@ from typing import NoReturn
 from apiflask import APIBlueprint
 from flask import Response, request
 
-from src.agent.cancellation import request_stop
+from src.agent.cancellation import request_finish_now, request_stop
 from src.agent.interjection import save_interjection
 from src.api.errors import (
     raise_llm_error,
@@ -261,6 +261,32 @@ def chat_stop(user: User, data: StopChatRequest, conv_id: str) -> dict[str, str]
         extra={"user_id": user.id, "conversation_id": conv_id, "message_id": data.message_id},
     )
     return {"status": "stopping"}
+
+
+@api.route("/conversations/<conv_id>/chat/finish-now", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(
+    summary="Finish a deep-research run now",
+    description=(
+        "Cut the remaining research of the running deep-research turn and write "
+        "the report from what was gathered (cross-worker via kv_store). message_id "
+        "names the turn (its assistant message id)."
+    ),
+    responses=[401, 404],
+)
+@rate_limit_chat
+@require_auth
+@validate_request(StopChatRequest)
+def chat_finish_now(user: User, data: StopChatRequest, conv_id: str) -> dict[str, str]:
+    """Request that a running deep-research turn writes its report now."""
+    if not db.get_conversation(conv_id, user.id):
+        raise_not_found_error("Conversation")
+    request_finish_now(user.id, conv_id, data.message_id)
+    logger.info(
+        "Deep research finish-now requested",
+        extra={"user_id": user.id, "conversation_id": conv_id, "message_id": data.message_id},
+    )
+    return {"status": "finishing"}
 
 
 @api.route("/conversations/<conv_id>/chat/stream/<message_id>/resume", methods=["GET"])

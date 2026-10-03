@@ -25,6 +25,7 @@ from src.agent.tools.context import (
     set_sports_context,
 )
 from src.agent.tools.conversation_search import read_conversation, search_conversations
+from src.agent.tools.deep_research import propose_deep_research
 from src.agent.tools.delegate import delegate_task
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.garmin import garmin_connect, is_garmin_available
@@ -56,7 +57,6 @@ from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
 from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
 from src.agent.tools.whatsapp import is_whatsapp_available, whatsapp
-from src.agent.tools.deep_research import propose_deep_research
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Agent

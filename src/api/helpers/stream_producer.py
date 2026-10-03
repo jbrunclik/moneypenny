@@ -10,17 +10,21 @@ from __future__ import annotations
 import queue
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
 from src.agent.cancellation import (
     CancelToken,
+    clear_finish_request,
     clear_stop_request,
+    finish_now_requested,
     register_token,
     run_poller,
     stop_requested,
     unregister_token,
 )
+from src.agent.deep_research.briefs import recent_turns_text
+from src.agent.deep_research.pipeline import run_deep_research
 from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
@@ -39,7 +43,9 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _notify_response_ready(user_id: str, conv_id: str, content: str) -> None:
+def _notify_response_ready(
+    user_id: str, conv_id: str, content: str, title: str = "Your answer is ready"
+) -> None:
     """Web-push "answer ready" for a finished turn no connected client saw.
 
     Fire-and-forget (no-op without VAPID keys). The service worker
@@ -61,10 +67,29 @@ def _notify_response_ready(user_id: str, conv_id: str, content: str) -> None:
     body = content.strip().split("\n", 1)[0][:160] or "Open the app to view it."
     send_push_to_user(
         user_id,
-        "Your answer is ready",
+        title,
         body,
         url=f"/#/conversations/{conv_id}",
         tag=tag,
+    )
+
+
+def push_title(usage_info: dict[str, Any]) -> str:
+    """ "Your research is ready" for a deep-research report."""
+    return "Your research is ready" if usage_info.get("research_run") else "Your answer is ready"
+
+
+def _turn_events(agent: ChatAgent, turn: TurnContext, stop_key: str) -> Generator[dict[str, Any]]:
+    """The agent's events, or a deep-research run's for a turn that starts one."""
+    plan = turn.deep_research
+    if plan is None:
+        return agent.stream_chat_events(**turn.agent_call_kwargs())
+    user_id, conv_id = turn.user_id, turn.conv_id
+    return run_deep_research(
+        plan,
+        recent_turns_text(turn.history),
+        turn.request_id,
+        finish_requested=lambda: finish_now_requested(user_id, conv_id, stop_key),
     )
 
 
@@ -152,9 +177,9 @@ def stream_events(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
         )
         event_count = 0
-        deadline = time.monotonic() + Config.CHAT_TIMEOUT
+        deadline = time.monotonic() + turn.timeout_seconds
         timed_out = False
-        gen = agent.stream_chat_events(**turn.agent_call_kwargs())
+        gen = _turn_events(agent, turn, stop_key)
         try:
             for event in gen:
                 event_count += 1
@@ -172,11 +197,11 @@ def stream_events(
                 if not final_results["ready"] and time.monotonic() > deadline:
                     timed_out = True
                     logger.warning(
-                        "Chat stream exceeded CHAT_TIMEOUT; stopping agent",
+                        "Chat stream exceeded its timeout; stopping agent",
                         extra={
                             "user_id": user_id,
                             "conversation_id": conv_id,
-                            "timeout_seconds": Config.CHAT_TIMEOUT,
+                            "timeout_seconds": turn.timeout_seconds,
                             "event_count": event_count,
                         },
                     )
@@ -264,6 +289,7 @@ def stream_events(
         turn_done.set()
         unregister_token(turn.request_id)
         clear_stop_request(user_id, conv_id, stop_key)
+        clear_finish_request(user_id, conv_id, stop_key)
         if journal:
             journal.finish()
         # Close thread-local DB connections so the pool doesn't leak them
@@ -341,7 +367,10 @@ def cleanup_and_save(
                 # Not after Stop: the user was there and ended it themselves
                 if not final_results.get("stop_reason"):
                     _notify_response_ready(
-                        user_id, conv_id, str(final_results.get("clean_content") or "")
+                        user_id,
+                        conv_id,
+                        str(final_results.get("clean_content") or ""),
+                        push_title(final_results.get("usage_info") or {}),
                     )
             elif generator_finished:
                 logger.debug(

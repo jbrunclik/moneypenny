@@ -142,6 +142,8 @@ def _make_ctx(items=()) -> types.SimpleNamespace:
         user_id="user-1",
         conv_id="conv-1",
         client_connected=True,
+        # A chat turn (deep research would allow DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
+        turn=types.SimpleNamespace(timeout_seconds=Config.CHAT_TIMEOUT),
     )
     ctx.mark_disconnected = lambda error, where: None
     return ctx

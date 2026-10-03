@@ -31,6 +31,12 @@ _JOURNALED_EVENT_TYPES = {
     "stopping",
     # The footer's "checking" state survives a reload mid-check
     "grounding_started",
+    # Deep research progress: a reload mid-run replays the panel
+    "research_plan",
+    "research_item",
+    "research_finding",
+    "research_sources",
+    "research_writing",
 }
 
 
@@ -102,7 +108,8 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
     Works cross-worker: the journal is DB-backed, so the resume request may
     land on a different gunicorn worker than the one still generating.
     """
-    deadline = time.monotonic() + Config.CHAT_TIMEOUT
+    # A deep-research run outlasts a chat turn's timeout
+    deadline = time.monotonic() + max(Config.CHAT_TIMEOUT, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
     last_keepalive = time.monotonic()
     stream_ended = False
     save_grace_deadline: float | None = None

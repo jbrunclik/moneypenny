@@ -274,6 +274,13 @@ class TurnContext:
     deep_research: DeepResearchPlan | None = None
 
     @property
+    def timeout_seconds(self) -> int:
+        """How long this turn may run (a deep-research run outlasts a chat turn)."""
+        return (
+            Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS if self.deep_research else Config.CHAT_TIMEOUT
+        )
+
+    @property
     def is_autonomous(self) -> bool:
         return self.agent_execution_context is not None
 

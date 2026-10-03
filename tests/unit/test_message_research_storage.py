@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 _OFFER = {"offer": {"question": "Q", "sub_questions": ["a"], "status": "offered"}}
 
 
-def test_add_update_and_set(test_database: "Database", test_conversation: "Conversation") -> None:
+def test_add_update_and_set(test_database: Database, test_conversation: Conversation) -> None:
     msg = test_database.add_message(
         test_conversation.id, MessageRole.ASSISTANT, "x", research=_OFFER
     )
@@ -27,7 +27,7 @@ def test_add_update_and_set(test_database: "Database", test_conversation: "Conve
 
 
 def test_find_open_offers_matches_offers_and_followups(
-    test_database: "Database", test_conversation: "Conversation"
+    test_database: Database, test_conversation: Conversation
 ) -> None:
     db, conv = test_database, test_conversation.id
     open_offer = db.add_message(conv, MessageRole.ASSISTANT, "a", research=_OFFER)
@@ -43,7 +43,7 @@ def test_find_open_offers_matches_offers_and_followups(
 
 
 def test_serializer_includes_research_only_when_set(
-    test_database: "Database", test_conversation: "Conversation"
+    test_database: Database, test_conversation: Conversation
 ) -> None:
     with_r = test_database.add_message(
         test_conversation.id, MessageRole.ASSISTANT, "a", research=_OFFER

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from src.agent.tools.request_approval import build_approval_message
 from src.api.helpers.chat_save import save_message_to_db
-from src.api.helpers.stream_producer import _notify_response_ready
+from src.api.helpers.stream_producer import _notify_response_ready, push_title
 from src.api.schemas.common import MessageRole
 from src.api.utils import build_stream_done_event, is_round_capped
 from src.db.models import db
@@ -113,7 +113,12 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
             },
         )
         if not context.stop_reason:
-            _notify_response_ready(context.user_id, context.conv_id, assistant_msg.content or "")
+            _notify_response_ready(
+                context.user_id,
+                context.conv_id,
+                assistant_msg.content or "",
+                push_title(context.usage_info),
+            )
 
 
 def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
