@@ -112,4 +112,53 @@ describe('ClaimCard', () => {
     (document.querySelector('#claim-card .claim-card__lookup') as HTMLButtonElement).click();
     expect(sendComposedText).toHaveBeenLastCalledWith('Dohledej a ověř: PřepiServis');
   });
+
+  it('a claim without a reason still explains itself', () => {
+    document.body.innerHTML = '<div id="messages"></div>';
+    const msg = document.createElement('div');
+    msg.className = 'message assistant';
+    msg.innerHTML = '<div class="message-content-wrapper"><div class="message-content"><p>Cena 1 200 Kč.</p></div></div>';
+    document.getElementById('messages')!.appendChild(msg);
+    decorateGrounding(msg, {
+      language: 'cs',
+      grounding: { checked: true, source_count: 1 },
+      annotations: [{ type: 'claim', verdict: 'not_found', quote: '1 200 Kč' }],
+    });
+    initClaimCard();
+    (document.querySelector('.claim') as HTMLElement).click();
+    expect(document.querySelector('#claim-card .claim-card__reason')!.textContent).toContain('Nenašel jsem to');
+  });
+
+  it('opens even when a source URL is not absolute', async () => {
+    const { useStore } = await import('@/state/store');
+    const msg = setup();
+    msg.dataset.messageId = 'm-bad';
+    useStore.setState({ currentConversation: { id: 'c1' } } as never);
+    vi.spyOn(useStore.getState(), 'getMessages').mockReturnValue([
+      { id: 'm-bad', role: 'assistant', content: '', created_at: '', sources: [{ title: 'T', url: 'not a url' }] },
+    ] as never);
+    (document.querySelector('sup.claim-cite') as HTMLElement).click();
+    expect(document.getElementById('claim-card')).not.toBeNull();
+  });
+
+  it('a claim click still reaches other document-level listeners', () => {
+    setup();
+    const other = vi.fn();
+    document.addEventListener('click', other);
+    (document.querySelector('.claim') as HTMLElement).click();
+    expect(other).toHaveBeenCalled();
+    expect(document.getElementById('claim-card')).not.toBeNull();
+    document.removeEventListener('click', other);
+  });
+
+  it('keyboard open moves focus into the card; Escape returns it', () => {
+    setup();
+    const claim = document.querySelector('.claim') as HTMLElement;
+    claim.focus();
+    claim.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const card = document.getElementById('claim-card')!;
+    expect(card.contains(document.activeElement)).toBe(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.activeElement).toBe(claim);
+  });
 });

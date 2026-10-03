@@ -57,4 +57,15 @@ describe('ClaimsSheet', () => {
     const rows = [...document.querySelectorAll('.claims-sheet__row')];
     expect(rows[2].querySelector('.claims-sheet__detail')!.textContent).toBe('1 · spzsluzby.cz');
   });
+
+  it('moves focus to the first row and returns it to the footer on Escape', () => {
+    setup();
+    const footer = document.querySelector('.grounding-footer') as HTMLElement;
+    footer.focus();
+    footer.click();
+    expect(document.activeElement).toBe(document.querySelector('.claims-sheet__row'));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.getElementById('claims-sheet')).toBeNull();
+    expect(document.activeElement).toBe(footer);
+  });
 });

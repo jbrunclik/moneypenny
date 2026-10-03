@@ -9,7 +9,7 @@ export interface GroundingStrings {
   contradicted: (n: number) => string;
   headings: Record<Exclude<ClaimVerdict, 'supported'>, string>;
   verdictLabels: Record<ClaimVerdict, string>;
-  legacyReason: string;
+  defaultReason: string;
   lookUp: string;
   lookUpMessage: (quote: string) => string;
   sheetTitle: string;
@@ -24,7 +24,7 @@ const CS: GroundingStrings = {
   contradicted: (n) => `${n} jinak než zdroj`,
   headings: { not_found: 'Ve zdrojích není', partial: 'Částečně ve zdrojích', contradicted: 'Zdroj uvádí jinak' },
   verdictLabels: { supported: 'ZDROJ', partial: 'ČÁSTEČNĚ', not_found: 'BEZ ZDROJE', contradicted: 'JINAK' },
-  legacyReason: 'Nenašel jsem to ve stránkách, které jsem při odpovědi četl.',
+  defaultReason: 'Nenašel jsem to ve stránkách, které jsem při odpovědi četl.',
   lookUp: 'Dohledat',
   lookUpMessage: (quote) => `Dohledej a ověř: ${quote}`,
   sheetTitle: 'Kontrola zdrojů',
@@ -40,7 +40,7 @@ const EN: GroundingStrings = {
   contradicted: (n) => `${n} ${n === 1 ? 'differs' : 'differ'} from the source`,
   headings: { not_found: 'Not in the sources', partial: 'Partly in the sources', contradicted: 'The source says otherwise' },
   verdictLabels: { supported: 'SOURCE', partial: 'PARTLY', not_found: 'NO SOURCE', contradicted: 'DIFFERS' },
-  legacyReason: 'Not found in the pages I read for this answer.',
+  defaultReason: 'Not found in the pages I read for this answer.',
   lookUp: 'Look it up',
   lookUpMessage: (quote) => `Look up and verify: ${quote}`,
   sheetTitle: 'Source check',

@@ -155,3 +155,12 @@ export function applyAnnotations(contentEl: HTMLElement, annotations: ClaimAnnot
   });
   return anchored;
 }
+
+/** A source's domain for display ("spzsluzby.cz"), or the raw URL if it won't parse. */
+export function displayHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}

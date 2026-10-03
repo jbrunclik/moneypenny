@@ -68,9 +68,10 @@ def _clip(text: str, limit: int) -> str:
 
 
 def _passage_in_page(claim: ClaimVerdict, pages: list[SourcePage]) -> bool:
-    if claim.source is None or not claim.source_quote or not 1 <= claim.source <= len(pages):
+    passage = _norm(claim.source_quote or "")
+    if claim.source is None or not passage or not 1 <= claim.source <= len(pages):
         return False
-    return _norm(claim.source_quote) in _norm(pages[claim.source - 1].text)
+    return passage in _norm(pages[claim.source - 1].text)
 
 
 def _annotation(
@@ -93,7 +94,8 @@ def _annotation(
         # Unprovable passage: a claim is never shown with a source it lacks.
         # A supported claim with no number at all is backed by uncited text.
         ann["verdict"] = "not_found"
-    if ann["verdict"] != "supported" and claim.reason:
+    # A downgraded claim's reason explains its old verdict, not this one
+    if ann["verdict"] == claim.verdict != "supported" and claim.reason:
         ann["reason"] = _clip(claim.reason.strip(), Config.GROUNDING_CHECK_MAX_REASON_CHARS)
     return ann
 

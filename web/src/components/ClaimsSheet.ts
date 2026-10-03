@@ -7,7 +7,7 @@ import { useStore } from '../state/store';
 import type { ClaimAnnotation, ClaimVerdict, Message, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
 import { closeClaimCard, plainQuote } from './ClaimCard';
-import { getMessageAnnotations, getMessageGrounding, getMessageLanguage } from './messages/annotations';
+import { displayHost, getMessageAnnotations, getMessageGrounding, getMessageLanguage } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
 
 const SHEET_ID = 'claims-sheet';
@@ -24,7 +24,7 @@ function storedMessage(messageEl: HTMLElement): Message | undefined {
 function citation(ann: ClaimAnnotation, sources: Source[] | undefined): string {
   if (!ann.source) return '';
   const url = sources?.[ann.source - 1]?.url;
-  return url ? `${ann.source} · ${new URL(url).hostname.replace(/^www\./, '')}` : `${ann.source}`;
+  return url ? `${ann.source} · ${displayHost(url)}` : `${ann.source}`;
 }
 
 function rowHtml(ann: ClaimAnnotation, index: number, language?: string, sources?: Source[]): string {
@@ -37,8 +37,14 @@ function rowHtml(ann: ClaimAnnotation, index: number, language?: string, sources
     </button>`;
 }
 
-export function closeClaimsSheet(): void {
-  document.getElementById(SHEET_ID)?.remove();
+let opener: HTMLElement | null = null;
+
+export function closeClaimsSheet(restoreFocus = false): void {
+  const sheet = document.getElementById(SHEET_ID);
+  if (!sheet) return;
+  sheet.remove();
+  if (restoreFocus) opener?.focus();
+  opener = null;
 }
 
 function flash(target: HTMLElement): void {
@@ -73,9 +79,8 @@ export function openClaimsSheet(messageEl: HTMLElement): void {
       <h4 class="claims-sheet__title">${escapeHtml(s.sheetTitle)}</h4>${meta}
       <div class="claims-sheet__rows">${rows.map(({ ann, i }) => rowHtml(ann, i, language, stored?.sources)).join('')}</div>
     </div>`;
-  sheet.querySelector('.claims-sheet__backdrop')!.addEventListener('click', closeClaimsSheet);
+  sheet.querySelector('.claims-sheet__backdrop')!.addEventListener('click', () => closeClaimsSheet(true));
   sheet.addEventListener('click', (e) => {
-    e.stopPropagation();
     const row = (e.target as Element).closest<HTMLElement>('.claims-sheet__row');
     if (!row) return;
     closeClaimsSheet();
@@ -83,6 +88,8 @@ export function openClaimsSheet(messageEl: HTMLElement): void {
     if (target) flash(target);
   });
   document.body.appendChild(sheet);
+  opener = messageEl.querySelector<HTMLElement>('.grounding-footer');
+  sheet.querySelector<HTMLElement>('.claims-sheet__row')?.focus();
   if (!mobile) {
     const footer = messageEl.querySelector('.grounding-footer')!.getBoundingClientRect();
     const panel = sheet.querySelector<HTMLElement>('.claims-sheet__panel')!;
@@ -97,7 +104,6 @@ export function initClaimsSheet(): void {
   messages.addEventListener('click', (e) => {
     const footer = (e.target as Element).closest<HTMLElement>('.grounding-footer[role="button"]');
     if (!footer) return;
-    e.stopPropagation();
     const messageEl = footer.closest<HTMLElement>('.message');
     if (messageEl) openClaimsSheet(messageEl);
   });
@@ -109,6 +115,6 @@ export function initClaimsSheet(): void {
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeClaimsSheet();
+    if (e.key === 'Escape') closeClaimsSheet(true);
   });
 }

@@ -176,3 +176,41 @@ def test_grounding_context_lists_only_problems_and_never_closes_the_comment() ->
     assert (
         format_grounding_context([{"type": "claim", "verdict": "supported", "quote": "a"}]) is None
     )
+
+
+@pytest.mark.parametrize("passage", ["", "   ", "\n"])
+def test_blank_passage_is_not_a_citation(passage: str) -> None:
+    [ann] = validate_claims(
+        [_claim(quote="cena 1 590 Kč", source=1, source_quote=passage)], _ANSWER, _PAGES
+    )
+
+    assert ann["verdict"] == "not_found"
+    assert "source_quote" not in ann
+
+
+def test_downgraded_claim_drops_the_reason_of_its_old_verdict() -> None:
+    # "the speed is missing" describes a partial claim, not one the sources lack
+    [ann] = validate_claims(
+        [
+            _claim(
+                quote="cena 1 590 Kč",
+                verdict="partial",
+                source=1,
+                source_quote="paraphrase that is not in the page",
+                reason="Rychlost ve zdroji chybí.",
+            )
+        ],
+        _ANSWER,
+        _PAGES,
+    )
+
+    assert ann["verdict"] == "not_found"
+    assert "reason" not in ann
+
+
+def test_prefix_offsets_survive_characters_that_casefold_longer() -> None:
+    # "ß".casefold() == "ss": the prefix must still be sliced from the answer
+    answer = "Weißbier Straße ab 5 €: Bar Alfa."
+    [ann] = validate_claims([_claim(quote="Bar Alfa", verdict="not_found")], answer, [])
+
+    assert ann["prefix"].endswith("5 €: ")

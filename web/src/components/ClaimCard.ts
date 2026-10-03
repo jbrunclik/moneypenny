@@ -8,7 +8,7 @@ import { sendComposedText } from '../core/quick-actions';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
-import { getMessageAnnotations, getMessageGrounding, getMessageLanguage } from './messages/annotations';
+import { displayHost, getMessageAnnotations, getMessageLanguage } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
 
 const CARD_ID = 'claim-card';
@@ -25,7 +25,6 @@ let openedByHover = false;
 interface CardContext {
   ann: ClaimAnnotation;
   language?: string;
-  legacy: boolean;
   source?: Source;
 }
 
@@ -39,14 +38,13 @@ function contextFor(target: HTMLElement): CardContext | null {
   return {
     ann,
     language: getMessageLanguage(messageEl) ?? stored?.language,
-    legacy: Boolean(getMessageGrounding(messageEl)?.legacy),
     source: ann.source ? stored?.sources?.[ann.source - 1] : undefined,
   };
 }
 
 function sourceLine(ctx: CardContext): string {
   if (!ctx.ann.source) return '';
-  const host = ctx.source ? new URL(ctx.source.url).hostname.replace(/^www\./, '') : `${ctx.ann.source}`;
+  const host = ctx.source ? displayHost(ctx.source.url) : `${ctx.ann.source}`;
   return `<span class="claim-card__source"><sup>${ctx.ann.source}</sup> ${escapeHtml(host)}</span>`;
 }
 
@@ -63,7 +61,8 @@ function cardHtml(ctx: CardContext): string {
     const title = ctx.source ? ` <small>· ${escapeHtml(ctx.source.title)}</small>` : '';
     return `<div class="claim-card__heading claim-card__heading--cite">${sourceLine(ctx)}${title}</div>${passage}`;
   }
-  const reason = ann.reason ?? (ctx.legacy ? s.legacyReason : '');
+  // Converted old claims and downgraded ones carry no reason of their own
+  const reason = ann.reason ?? s.defaultReason;
   return `
     <div class="claim-card__heading claim-card__heading--${ann.verdict}">${escapeHtml(s.headings[ann.verdict])}</div>
     ${reason ? `<p class="claim-card__reason">${escapeHtml(reason)}</p>` : ''}
@@ -84,16 +83,18 @@ function position(card: HTMLElement, target: HTMLElement): void {
   card.style.top = `${top}px`;
 }
 
-export function closeClaimCard(): void {
+export function closeClaimCard(restoreFocus = false): void {
+  const opener = openTarget;
   window.clearTimeout(leaveTimer);
   openedByHover = false;
   document.getElementById(CARD_ID)?.remove();
   openTarget?.classList.remove('claim--open');
   openTarget?.removeAttribute('aria-describedby');
   openTarget = null;
+  if (restoreFocus) opener?.focus();
 }
 
-export function openClaimCard(target: HTMLElement): void {
+export function openClaimCard(target: HTMLElement, focus = false): void {
   const ctx = contextFor(target);
   closeClaimCard();
   if (!ctx) return;
@@ -102,12 +103,10 @@ export function openClaimCard(target: HTMLElement): void {
   card.className = 'claim-card';
   card.setAttribute('role', 'dialog');
   card.innerHTML = cardHtml(ctx);
-  card.querySelector('.claim-card__lookup')?.addEventListener('click', (e) => {
-    e.stopPropagation();
+  card.querySelector('.claim-card__lookup')?.addEventListener('click', () => {
     closeClaimCard();
     void sendComposedText(groundingStrings(ctx.language).lookUpMessage(plainQuote(ctx.ann.quote)));
   });
-  card.addEventListener('click', (e) => e.stopPropagation());
   // Moving from the claim into a hover-opened card keeps it open
   card.addEventListener('mouseenter', () => window.clearTimeout(leaveTimer));
   card.addEventListener('mouseleave', scheduleHoverClose);
@@ -116,19 +115,22 @@ export function openClaimCard(target: HTMLElement): void {
   target.classList.add('claim--open');
   target.setAttribute('aria-describedby', CARD_ID);
   openTarget = target;
+  if (focus) {
+    card.tabIndex = -1;
+    (card.querySelector<HTMLElement>('.claim-card__lookup') ?? card).focus();
+  }
 }
 
 /** A card the pointer opened closes shortly after the pointer leaves it. */
 function scheduleHoverClose(): void {
   if (!openedByHover) return;
   window.clearTimeout(leaveTimer);
-  leaveTimer = window.setTimeout(closeClaimCard, CLAIM_CARD_HOVER_DELAY_MS);
+  leaveTimer = window.setTimeout(() => closeClaimCard(), CLAIM_CARD_HOVER_DELAY_MS);
 }
 
 function onClaimClick(e: MouseEvent): void {
   const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
   if (!target) return;
-  e.stopPropagation();
   window.clearTimeout(hoverTimer);
   if (target === openTarget && openedByHover) {
     // The click pins a card the hover already opened instead of closing it
@@ -137,7 +139,7 @@ function onClaimClick(e: MouseEvent): void {
   } else if (target === openTarget) {
     closeClaimCard();
   } else {
-    openClaimCard(target);
+    openClaimCard(target, true);
   }
 }
 
@@ -169,14 +171,18 @@ export function initClaimCard(): void {
     const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
     if (target && (e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault();
-      openClaimCard(target);
+      openClaimCard(target, true);
     }
   });
   if (window.matchMedia?.('(hover: hover)').matches) initHover(messages);
   // The card is fixed to the viewport; the list scrolling would leave it behind
-  messages.addEventListener('scroll', closeClaimCard, { passive: true });
-  document.addEventListener('click', closeClaimCard);
+  messages.addEventListener('scroll', () => closeClaimCard(), { passive: true });
+  // Outside clicks close the card; the claim's own click must still reach
+  // other document listeners (other popovers close on it), so it is not stopped
+  document.addEventListener('click', (e) => {
+    if (!(e.target as Element).closest(`${TARGET_SELECTOR}, #${CARD_ID}`)) closeClaimCard();
+  });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeClaimCard();
+    if (e.key === 'Escape' && openTarget) closeClaimCard(true);
   });
 }
