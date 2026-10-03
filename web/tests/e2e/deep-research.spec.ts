@@ -32,7 +32,7 @@ test.describe('Deep research', () => {
     await card(page).locator('.research-offer__start').click();
 
     await expect(card(page)).toHaveText('Deep research started');
-    await expect(page.locator('.message.user').last()).toContainText('Start deep research');
+    await expect(page.locator('.message--action .action-row__text').last()).toHaveText(/^Deep research started · 3 questions · ~\d+ min$/);
     const panel = page.locator('.research-progress');
     await expect(panel.locator('.research-progress__item')).toHaveCount(3);
     await expect(panel.locator('.research-progress__item').first()).toContainText('What do agencies charge?');

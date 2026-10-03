@@ -42,6 +42,7 @@ import { initSourcesPopup } from '../components/SourcesPopup';
 import { initClaimCard } from '../components/ClaimCard';
 import { initResearchOffers } from '../components/messages/research-offer';
 import { initResearchProgress } from '../components/messages/research-progress';
+import { initActionRows } from '../components/messages/action-row';
 import { initClaimsSheet } from '../components/ClaimsSheet';
 import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
@@ -500,6 +501,7 @@ export async function init(): Promise<void> {
   initClaimsSheet();
   initResearchOffers();
   initResearchProgress();
+  initActionRows();
   initImageGenPopup();
   initMessageCostPopup();
   costHistoryPopup.init();

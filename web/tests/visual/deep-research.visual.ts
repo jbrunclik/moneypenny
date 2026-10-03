@@ -57,6 +57,23 @@ test.describe('Visual: Deep research', () => {
     });
   });
 
+  test('action row of a started run', async ({ page, request }) => {
+    await sendOffer(page, request);
+    await page.locator('.research-offer__start').click();
+    const row = page.locator('.message--action');
+    await expect(row.locator('.action-row__source')).toBeVisible({ timeout: 15000 });
+    await expect(row.locator('.action-row')).toHaveScreenshot('deep-research-action-row.png');
+  });
+
+  test('action row on mobile', async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await sendOffer(page, request);
+    await page.locator('.research-offer__start').click();
+    const row = page.locator('.message--action');
+    await expect(row.locator('.action-row__source')).toBeVisible({ timeout: 15000 });
+    await expect(row).toHaveScreenshot('deep-research-action-row-mobile.png');
+  });
+
   test('report chip, expanded', async ({ page, request }) => {
     await sendOffer(page, request);
     await page.locator('.research-offer__start').click();

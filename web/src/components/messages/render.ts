@@ -31,6 +31,7 @@ import type { RenderMessagesOptions } from './types';
 import type { Message } from '../../types/api';
 import { decorateGrounding } from './grounding';
 import { finishResearchMessage } from './research-progress';
+import { addActionRowToUI } from './action-row';
 
 const log = createLogger('messages');
 
@@ -351,6 +352,12 @@ export function addMessageToUI(
   // Check if this is a trigger message (agent execution notification)
   if (message.role === 'user' && isTriggerMessage(message.content)) {
     addTriggerMessageToUI(message, container);
+    return;
+  }
+
+  // Sent by the app for the user (Look it up, deep-research start): a row, not a bubble
+  if (message.role === 'user' && message.action) {
+    addActionRowToUI(message, container, options);
     return;
   }
 

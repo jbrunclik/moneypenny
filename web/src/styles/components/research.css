@@ -274,3 +274,50 @@
     margin-top: var(--space-2);
     color: var(--text-secondary);
 }
+
+/* Action rows: a message the app sent for the user (components/messages/action-row.ts) */
+.message--action .message-content-wrapper {
+    margin-left: auto;
+}
+
+.action-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.action-row__icon {
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+}
+
+.action-row__icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* The separator wraps with the link, never dangling at a line end */
+.action-row__source::before {
+    content: '· ';
+    color: var(--text-muted);
+}
+
+.action-row__source {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent-hover);
+    font: inherit;
+    cursor: pointer;
+}
+
+/* The source of an action, flashed when its ↑ link is followed */
+.message--flash {
+    background: var(--claim-highlight);
+    border-radius: var(--radius-md);
+    transition: background 0.3s;
+}

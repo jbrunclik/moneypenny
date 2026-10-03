@@ -28,7 +28,7 @@ for (const streaming of [true, false]) {
       await claim.click();
       await expect(page.locator('#claim-card .claim-card__reason')).toHaveText('Not in the pages I read.');
       await page.locator('#claim-card .claim-card__lookup').click();
-      await expect(page.locator('.message.user').last()).toContainText('Look up and verify: mock response');
+      await expect(page.locator('.message--action .action-row__text').last()).toHaveText('Looking up “mock response”');
     });
 
     test('footer opens the claims list; a row jumps to the claim', async ({ page }) => {
