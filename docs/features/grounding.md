@@ -38,7 +38,15 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   or Garmin) that always count as supported. Output is two lists of
   `ClaimVerdict` (`quote`, `verdict`, `source`, `source_quote`, `reason`):
   `unsupported` first (every partial, contradicted or not_found claim), then
-  `supported` (only businesses, products, prices, hours, dates, contacts).
+  `supported` (only businesses, products, prices, hours, event dates, contacts).
+  Scope is practical, current specifics - businesses and products, prices,
+  stock, hours, contacts, dates of upcoming or scheduled events. History and
+  background (past events, biographies, geology, trivia) are never checked:
+  "zajímavosti o Radobýlu" (Oct 3 2026) got 5 of 6 historical sentences
+  underlined, accurate to its three pages but not what the check is for
+  (`cz_history_no_flags`). The prompt gates on "could the reader visit, buy,
+  book or contact it now": on captured history answers that cut unsourced
+  marks from 18 to 2 in 12 runs, with price recall 86% vs 91% before.
   Verdicts: `supported`, `partial`, `not_found`, `contradicted`. The order
   matters: with one mixed list Lite's recall on unsourced prices was 71%,
   with problems first 89% (Oct 2026 A/B on captured eval answers), and the
@@ -113,7 +121,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
 | `GROUNDING_CHECK_MODEL` | `gemini-3.5-flash-lite` | Verifier model (priced only, not user-selectable) |
 | `GROUNDING_CHECK_MAX_SOURCE_CHARS` | `60000` | Source text cap, shared across pages |
 | `GROUNDING_CHECK_MAX_CLAIMS` | `20` | Max annotations per answer |
-| `GROUNDING_CHECK_MAX_QUOTE_CHARS` | `120` | Longer quotes are dropped (claims are short phrases) |
+| `GROUNDING_CHECK_MAX_QUOTE_CHARS` | `60` | Longer quotes are dropped (claims are short phrases; 120 let whole sentences through) |
 | `GROUNDING_CHECK_MAX_REASON_CHARS` | `160` | Reason clip |
 | `GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS` | `240` | Source passage clip |
 | `GROUNDING_CONTEXT_MAX_CHARS` | `400` | `MSG_CONTEXT` `grounding` entry cap |

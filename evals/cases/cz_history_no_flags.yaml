@@ -1,0 +1,16 @@
+id: cz_history_no_flags
+description: Grounding-check scope - history and background knowledge are never marked (prod, Oct 3 2026)
+# "Zajímavosti o Radobýlu": Mácha's death, a cross from 1658 and a WWII
+# factory were underlined as unsourced, sentence by sentence.
+user: "Dohledej mi nějaké zajímavosti o Radobýlu"
+expect:
+  rubric: >
+    Gives several interesting facts about Radobýl (the hill near Litoměřice):
+    its volcanic origin and basalt quarry, the link to Karel Hynek Mácha, the
+    cross on the summit, the view, or similar history and nature. It FAILS if
+    the grounding check marks any historical fact, date, person, geology or
+    other background knowledge [UNSOURCED], [PARTLY SOURCED] or [CONTRADICTED
+    BY SOURCE] - such facts are out of the check's scope - or if any mark
+    covers a whole sentence.
+  required_tools: [research, web_search, fetch_url]
+  forbidden_tools: [delegate_task]

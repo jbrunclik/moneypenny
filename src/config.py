@@ -413,7 +413,7 @@ class Config:
     # Claims the verifier may return per answer (supported ones included)
     GROUNDING_CHECK_MAX_CLAIMS: int = int(os.getenv("GROUNDING_CHECK_MAX_CLAIMS", "20"))
     # Longer "quotes" are sentences, not claims
-    GROUNDING_CHECK_MAX_QUOTE_CHARS: int = int(os.getenv("GROUNDING_CHECK_MAX_QUOTE_CHARS", "120"))
+    GROUNDING_CHECK_MAX_QUOTE_CHARS: int = int(os.getenv("GROUNDING_CHECK_MAX_QUOTE_CHARS", "60"))
     GROUNDING_CHECK_MAX_REASON_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_REASON_CHARS", "160")
     )

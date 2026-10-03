@@ -318,3 +318,16 @@ class TestPrompt:
         from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
 
         assert "more than once" in GROUNDING_CHECK_PROMPT
+
+    def test_prompt_never_lists_history_or_background_knowledge(self) -> None:
+        # "Zajímavosti o Radobýlu" (Oct 3 2026): Mácha's death, a cross from
+        # 1658 and a WWII factory were underlined as unsourced - background
+        # knowledge, not the stale shop/price data the check exists for
+        from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
+
+        never = GROUNDING_CHECK_PROMPT[GROUNDING_CHECK_PROMPT.index("NEVER list:") :]
+        assert "history" in never
+        assert "upcoming or scheduled" in GROUNDING_CHECK_PROMPT
+
+    def test_default_quote_cap_drops_sentences(self) -> None:
+        assert Config.GROUNDING_CHECK_MAX_QUOTE_CHARS == 60
