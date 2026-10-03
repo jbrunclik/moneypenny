@@ -6,7 +6,7 @@ import { CLAIM_FLASH_MS, MOBILE_BREAKPOINT_PX } from '../config';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, ClaimVerdict, Message, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
-import { closeClaimCard } from './ClaimCard';
+import { closeClaimCard, plainQuote } from './ClaimCard';
 import { getMessageAnnotations, getMessageGrounding, getMessageLanguage } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
 
@@ -32,7 +32,7 @@ function rowHtml(ann: ClaimAnnotation, index: number, language?: string, sources
   const detail = ann.verdict === 'supported' ? citation(ann, sources) : (ann.reason ?? '');
   return `<button type="button" class="claims-sheet__row" data-claim="${index}">
       <span class="claims-sheet__verdict claims-sheet__verdict--${ann.verdict}">${escapeHtml(s.verdictLabels[ann.verdict])}</span>
-      <span class="claims-sheet__quote">${escapeHtml(ann.quote)}</span>
+      <span class="claims-sheet__quote">${escapeHtml(plainQuote(ann.quote))}</span>
       ${detail ? `<span class="claims-sheet__detail">${escapeHtml(detail)}</span>` : ''}
     </button>`;
 }

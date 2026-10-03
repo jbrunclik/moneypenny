@@ -14,8 +14,13 @@ import { groundingStrings } from './messages/grounding-strings';
 const CARD_ID = 'claim-card';
 const TARGET_SELECTOR = '.claim, .claim-cite';
 const GUTTER_PX = 16;
+const CARD_GAP_PX = 6;
+/** Used before the card has laid out (and in tests) */
+const CARD_ESTIMATED_HEIGHT_PX = 160;
 let hoverTimer: number | undefined;
+let leaveTimer: number | undefined;
 let openTarget: HTMLElement | null = null;
+let openedByHover = false;
 
 interface CardContext {
   ann: ClaimAnnotation;
@@ -45,6 +50,11 @@ function sourceLine(ctx: CardContext): string {
   return `<span class="claim-card__source"><sup>${ctx.ann.source}</sup> ${escapeHtml(host)}</span>`;
 }
 
+/** The quote as it reads (no ** or link syntax) - for messages and lists. */
+export function plainQuote(quote: string): string {
+  return quote.replace(/\*\*|__|[*_`]|\]\([^)]*\)|[[\]]/g, '').trim();
+}
+
 function cardHtml(ctx: CardContext): string {
   const s = groundingStrings(ctx.language);
   const { ann } = ctx;
@@ -61,15 +71,22 @@ function cardHtml(ctx: CardContext): string {
     <button type="button" class="claim-card__lookup">${escapeHtml(s.lookUp)}</button>`;
 }
 
+/** Below the claim, or above it when the card would run under the composer. */
 function position(card: HTMLElement, target: HTMLElement): void {
   const rect = target.getBoundingClientRect();
   const width = Math.min(card.offsetWidth || 320, window.innerWidth - 2 * GUTTER_PX);
-  const left = Math.min(Math.max(GUTTER_PX, rect.left), window.innerWidth - GUTTER_PX - width);
-  card.style.left = `${left + window.scrollX}px`;
-  card.style.top = `${rect.bottom + window.scrollY + 6}px`;
+  const height = card.offsetHeight || CARD_ESTIMATED_HEIGHT_PX;
+  const composerTop = document.getElementById('input-container')?.getBoundingClientRect().top;
+  const floor = Math.min(window.innerHeight, composerTop || window.innerHeight) - GUTTER_PX;
+  const below = rect.bottom + CARD_GAP_PX;
+  const top = below + height <= floor ? below : Math.max(GUTTER_PX, rect.top - CARD_GAP_PX - height);
+  card.style.left = `${Math.min(Math.max(GUTTER_PX, rect.left), window.innerWidth - GUTTER_PX - width)}px`;
+  card.style.top = `${top}px`;
 }
 
 export function closeClaimCard(): void {
+  window.clearTimeout(leaveTimer);
+  openedByHover = false;
   document.getElementById(CARD_ID)?.remove();
   openTarget?.classList.remove('claim--open');
   openTarget?.removeAttribute('aria-describedby');
@@ -88,9 +105,12 @@ export function openClaimCard(target: HTMLElement): void {
   card.querySelector('.claim-card__lookup')?.addEventListener('click', (e) => {
     e.stopPropagation();
     closeClaimCard();
-    void sendComposedText(groundingStrings(ctx.language).lookUpMessage(ctx.ann.quote));
+    void sendComposedText(groundingStrings(ctx.language).lookUpMessage(plainQuote(ctx.ann.quote)));
   });
   card.addEventListener('click', (e) => e.stopPropagation());
+  // Moving from the claim into a hover-opened card keeps it open
+  card.addEventListener('mouseenter', () => window.clearTimeout(leaveTimer));
+  card.addEventListener('mouseleave', scheduleHoverClose);
   document.body.appendChild(card);
   position(card, target);
   target.classList.add('claim--open');
@@ -98,16 +118,53 @@ export function openClaimCard(target: HTMLElement): void {
   openTarget = target;
 }
 
+/** A card the pointer opened closes shortly after the pointer leaves it. */
+function scheduleHoverClose(): void {
+  if (!openedByHover) return;
+  window.clearTimeout(leaveTimer);
+  leaveTimer = window.setTimeout(closeClaimCard, CLAIM_CARD_HOVER_DELAY_MS);
+}
+
+function onClaimClick(e: MouseEvent): void {
+  const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
+  if (!target) return;
+  e.stopPropagation();
+  window.clearTimeout(hoverTimer);
+  if (target === openTarget && openedByHover) {
+    // The click pins a card the hover already opened instead of closing it
+    openedByHover = false;
+    window.clearTimeout(leaveTimer);
+  } else if (target === openTarget) {
+    closeClaimCard();
+  } else {
+    openClaimCard(target);
+  }
+}
+
+function initHover(messages: HTMLElement): void {
+  messages.addEventListener('mouseover', (e) => {
+    const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
+    window.clearTimeout(hoverTimer);
+    if (target === openTarget) window.clearTimeout(leaveTimer);
+    if (target && target !== openTarget) {
+      hoverTimer = window.setTimeout(() => {
+        openClaimCard(target);
+        openedByHover = true;
+      }, CLAIM_CARD_HOVER_DELAY_MS);
+    }
+  });
+  messages.addEventListener('mouseout', (e) => {
+    const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
+    if (!target) return;
+    window.clearTimeout(hoverTimer);
+    if (target === openTarget) scheduleHoverClose();
+  });
+}
+
 export function initClaimCard(): void {
   const messages = document.getElementById('messages');
   if (!messages) return;
-  messages.addEventListener('click', (e) => {
-    const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
-    if (!target) return;
-    e.stopPropagation();
-    if (target === openTarget) closeClaimCard();
-    else openClaimCard(target);
-  });
+  messages.addEventListener('click', onClaimClick);
   messages.addEventListener('keydown', (e) => {
     const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
     if (target && (e.key === 'Enter' || e.key === ' ')) {
@@ -115,15 +172,9 @@ export function initClaimCard(): void {
       openClaimCard(target);
     }
   });
-  if (window.matchMedia?.('(hover: hover)').matches) {
-    messages.addEventListener('mouseover', (e) => {
-      const target = (e.target as Element).closest<HTMLElement>(TARGET_SELECTOR);
-      window.clearTimeout(hoverTimer);
-      if (target && target !== openTarget) {
-        hoverTimer = window.setTimeout(() => openClaimCard(target), CLAIM_CARD_HOVER_DELAY_MS);
-      }
-    });
-  }
+  if (window.matchMedia?.('(hover: hover)').matches) initHover(messages);
+  // The card is fixed to the viewport; the list scrolling would leave it behind
+  messages.addEventListener('scroll', closeClaimCard, { passive: true });
   document.addEventListener('click', closeClaimCard);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeClaimCard();

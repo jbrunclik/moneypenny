@@ -147,9 +147,15 @@ export async function sendQuickAction(
 export async function sendComposedText(text: string): Promise<void> {
   const textarea = getElementById<HTMLTextAreaElement>('message-input');
   if (!textarea) return;
+  // A draft the user was typing comes back after the send
+  const draft = textarea.value;
   textarea.value = text;
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
   await sendMessage();
+  if (draft.trim()) {
+    textarea.value = draft;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
 }
 
 export function isComposerModeActive(): boolean {

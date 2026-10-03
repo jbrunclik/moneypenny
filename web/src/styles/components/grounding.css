@@ -57,7 +57,7 @@
 
 /* Claim card (components/ClaimCard.ts) */
 .claim-card {
-    position: absolute;
+    position: fixed;
     z-index: 1000;
     width: min(320px, calc(100vw - 32px));
     padding: var(--space-2-5) var(--space-3);
