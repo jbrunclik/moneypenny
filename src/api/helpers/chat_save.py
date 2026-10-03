@@ -167,14 +167,20 @@ def _persist_assistant_message(
 
 
 def _research_for_turn(
-    conv_id: str, user_id: str, result_messages: list[Any]
+    conv_id: str, user_id: str, result_messages: list[Any], usage: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """A deep-research offer made this turn; it replaces any open one."""
-    offer = extract_offer(result_messages)
+    """Deep-research data for this reply: a report's run, or an offer made this
+    turn. A new open offer (or a report's follow-up offer) replaces open ones."""
+    run = usage.get("research_run")
+    offer = None if run else extract_offer(result_messages)
+    opens_offer = offer is not None or bool(run and run.get("followup"))
+    if opens_offer:
+        for old in db.find_open_research_offers(conv_id):
+            db.set_message_research(old.id, _superseded(old.research or {}))
+    if run:
+        return {"run": run}
     if offer is None:
         return None
-    for old in db.find_open_research_offers(conv_id):
-        db.set_message_research(old.id, _superseded(old.research or {}))
     logger.info(
         "Deep research offered",
         extra={
@@ -308,7 +314,10 @@ def save_message_to_db(
         # Stopped before any text: keep the turn visible so Continue works
         if stop_reason and not content.strip():
             content = STOPPED_EMPTY_TEXT
-        research = _research_for_turn(conv_id, user_id, result_messages)
+        research = _research_for_turn(conv_id, user_id, result_messages, usage)
+        if usage.get("research_sources") is not None:
+            # A deep-research report cites the run's merged pages, not tool calls
+            sources = usage["research_sources"]
         assistant_msg = _persist_assistant_message(
             conv_id,
             user_id,
@@ -330,7 +339,9 @@ def save_message_to_db(
             conv_id,
             user_id,
             # The other tier answered when the turn's model was down
-            usage.get("model_fallback") or model,
+            # The model that wrote the answer: the other tier when the
+            # turn's model was down, the deep-research writer for a report
+            usage.get("model_fallback") or usage.get("answer_model") or model,
             usage,
             full_tool_results,
             len(content),

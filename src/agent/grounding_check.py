@@ -150,20 +150,38 @@ def check_grounding(
     """
     if not should_check(answer, result_messages, stop_reason):
         return GroundingOutcome()
-    pages = turn_pages(result_messages)
-    sources = format_sources(
-        pages, uncited_web_text(result_messages), Config.GROUNDING_CHECK_MAX_SOURCE_CHARS
+    return check_grounding_pages(
+        answer,
+        turn_pages(result_messages),
+        uncited_web_text(result_messages),
+        known=known_facts(result_messages),
+        max_source_chars=Config.GROUNDING_CHECK_MAX_SOURCE_CHARS,
+        max_claims=Config.GROUNDING_CHECK_MAX_CLAIMS,
     )
+
+
+def check_grounding_pages(
+    answer: str,
+    pages: list[SourcePage],
+    uncited: str,
+    *,
+    known: str,
+    max_source_chars: int,
+    max_claims: int,
+) -> GroundingOutcome:
+    """Check an answer against given numbered pages (deep research passes its
+    merged pages and larger limits). Fails open."""
+    sources = format_sources(pages, uncited, max_source_chars)
     started = time.monotonic()
     try:
-        verdict, usage = _run_verifier(answer, sources, known_facts(result_messages))
+        verdict, usage = _run_verifier(answer, sources, known)
     except Exception:
         logger.warning(
             "Grounding check failed", exc_info=True, extra={"source_chars": len(sources)}
         )
         return GroundingOutcome()
     claims = (verdict.unsupported + verdict.supported) if verdict else []
-    annotations = validate_claims(claims, answer, pages)
+    annotations = validate_claims(claims, answer, pages, max_claims=max_claims)
     counts = Counter(a["verdict"] for a in annotations)
     logger.info(
         "Grounding check",

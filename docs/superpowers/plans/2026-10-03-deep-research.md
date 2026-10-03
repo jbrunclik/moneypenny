@@ -481,7 +481,8 @@ question: the user's question in their words. context: what matters about the us
 - Regenerate: `make openapi && make types`
 - Test: `tests/integration/test_message_actions.py`, `web/tests/component/claim-card.test.ts` (extend)
 
-- [ ] **Step 1: Failing tests** - a chat request with a `verify_claim` action saves it on the user message and returns it on reload; an unknown action type → 400; a deep-research start stores the `deep_research` action; Look it up sends the action with the claim index.
+- **Data migration (requested Oct 3 2026):** the same migration converts existing look-up messages - user messages whose content starts with "Dohledej a ověř: " or "Look up and verify: " - into `verify_claim` actions: `quote` = the rest of the text, `source_message_id` = the nearest earlier assistant message in the conversation whose `annotations` contain that quote, `claim_index` = its index (no match: `source_message_id`/`claim_index` null, the row still renders without the ↑ link). Rehearse on a copy of the prod DB and show the user the converted rows before merging.
+- [ ] **Step 1: Failing tests** - the migration converts a Czech and an English look-up message (with and without a matching claim) and leaves other messages alone; a chat request with a `verify_claim` action saves it on the user message and returns it on reload; an unknown action type → 400; a deep-research start stores the `deep_research` action; Look it up sends the action with the claim index.
 - [ ] **Step 2-4.** **Step 5: Commit** `feat: action messages - store what a sent action was`.
 
 ---

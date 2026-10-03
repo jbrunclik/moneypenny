@@ -180,13 +180,17 @@ def _locate(claims: list[ClaimVerdict], answer: str) -> list[tuple[int, ClaimVer
 
 
 def validate_claims(
-    claims: list[ClaimVerdict], answer: str, pages: list[SourcePage]
+    claims: list[ClaimVerdict],
+    answer: str,
+    pages: list[SourcePage],
+    max_claims: int | None = None,
 ) -> list[dict[str, Any]]:
     """Annotations for the claims that can be shown, in answer order.
 
     Claims arrive problems first (GroundingVerdict), so the cap keeps them.
     """
-    placed = _locate(claims, answer)[: Config.GROUNDING_CHECK_MAX_CLAIMS]
+    cap = Config.GROUNDING_CHECK_MAX_CLAIMS if max_claims is None else max_claims
+    placed = _locate(claims, answer)[:cap]
     placed.sort(key=lambda item: item[0])
     anns = [_annotation(claim, answer, start, pages) for start, claim in placed]
     return _drop_schedule_times(anns)

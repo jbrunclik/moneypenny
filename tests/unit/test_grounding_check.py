@@ -331,3 +331,29 @@ class TestPrompt:
 
     def test_default_quote_cap_drops_sentences(self) -> None:
         assert Config.GROUNDING_CHECK_MAX_QUOTE_CHARS == 60
+
+
+class TestCheckGroundingPages:
+    """Deep research checks its report against merged pages with its own limits."""
+
+    def test_limits_are_the_callers(self, fake_verifier: MagicMock) -> None:
+        from src.agent.grounding_check import check_grounding_pages
+
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[
+                    ClaimVerdict(quote="VeloRama", verdict="not_found"),
+                    ClaimVerdict(quote="29 990 Kč", verdict="not_found"),
+                ]
+            ),
+            _USAGE,
+        )
+        pages = [SourcePage("A", "https://a.cz", "x" * 1000)]
+
+        outcome = check_grounding_pages(
+            _ANSWER, pages, "", known="", max_source_chars=200, max_claims=1
+        )
+
+        assert len(fake_verifier.call_args.args[1]) < 300
+        assert len(outcome.annotations) == 1
+        assert outcome.summary == {"checked": True, "source_count": 1}
