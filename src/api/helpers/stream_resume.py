@@ -14,6 +14,7 @@ import time
 from collections.abc import Generator
 from typing import Any
 
+from src.api.utils import add_grounding, add_research
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -136,6 +137,9 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
             done["language"] = msg.language
         if getattr(msg, "stop_reason", None):
             done["stop_reason"] = msg.stop_reason
+        # Same decorations as the live done event (claims, report chip, offer)
+        add_grounding(done, msg)
+        add_research(done, msg)
         return done
 
     while time.monotonic() < deadline:

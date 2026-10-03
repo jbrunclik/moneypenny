@@ -99,7 +99,7 @@ def build_response_files(
     return response_files
 
 
-def _add_grounding(data: dict[str, Any], msg: Any) -> None:
+def add_grounding(data: dict[str, Any], msg: Any) -> None:
     """Grounding-check annotations and their summary, when the message has them."""
     annotations = getattr(msg, "annotations", None)
     if annotations:
@@ -107,7 +107,7 @@ def _add_grounding(data: dict[str, Any], msg: Any) -> None:
         data["grounding"] = getattr(msg, "grounding", None)
 
 
-def _add_research(data: dict[str, Any], msg: Any) -> None:
+def add_research(data: dict[str, Any], msg: Any) -> None:
     """Deep-research offer or run data, when the message has it."""
     research = getattr(msg, "research", None)
     if research:
@@ -164,8 +164,8 @@ def build_chat_response(
     stop_reason = getattr(assistant_msg, "stop_reason", None)
     if stop_reason:
         response_data["stop_reason"] = stop_reason
-    _add_grounding(response_data, assistant_msg)
-    _add_research(response_data, assistant_msg)
+    add_grounding(response_data, assistant_msg)
+    add_research(response_data, assistant_msg)
 
     return response_data
 
@@ -240,8 +240,8 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
             msg_data["stopped_early"] = True
         if m.stop_reason:
             msg_data["stop_reason"] = m.stop_reason
-        _add_grounding(msg_data, m)
-        _add_research(msg_data, m)
+        add_grounding(msg_data, m)
+        add_research(msg_data, m)
 
         optimized_messages.append(msg_data)
     return optimized_messages
@@ -297,8 +297,8 @@ def build_stream_done_event(
     stop_reason = getattr(assistant_msg, "stop_reason", None)
     if stop_reason:
         done_data["stop_reason"] = stop_reason
-    _add_grounding(done_data, assistant_msg)
-    _add_research(done_data, assistant_msg)
+    add_grounding(done_data, assistant_msg)
+    add_research(done_data, assistant_msg)
 
     return done_data
 

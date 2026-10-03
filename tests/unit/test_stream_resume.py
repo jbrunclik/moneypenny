@@ -223,6 +223,24 @@ class TestStreamResumeEvents:
         assert events[0]["type"] == "done"
         assert events[0]["stop_reason"] == "user"
 
+    def test_done_carries_grounding_and_research(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """A resumed reply must decorate like a live one: claims, report chip, offer."""
+        from src.api.helpers.stream_resume import stream_resume_events
+
+        msg_id = self._make_message(test_database, test_user)
+        annotations = [{"type": "claim", "verdict": "supported", "quote": "x", "source": 1}]
+        grounding = {"checked": True, "source_count": 1}
+        research = {"run": {"round": 1, "sub_questions": ["a"]}}
+        test_database.update_message_content(
+            msg_id, "report x", annotations=annotations, grounding=grounding, research=research
+        )
+        done = _drain_sse(stream_resume_events(msg_id, after_seq=0))[0]
+        assert done["annotations"] == annotations
+        assert done["grounding"] == grounding
+        assert done["research"] == research
+
     def test_resume_failed_when_placeholder_deleted(
         self, monkeypatch: pytest.MonkeyPatch, test_database: Database
     ) -> None:
