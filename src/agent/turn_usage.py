@@ -112,7 +112,7 @@ def build_usage_info(
     """The usage_info dict returned with every ChatAgent turn."""
     tool_rounds, tool_call_count = tool_telemetry(messages)
     tools_used, tool_errors = tool_usage_details(messages)
-    return {
+    usage: dict[str, Any] = {
         "input_tokens": totals.input_tokens,
         "output_tokens": totals.output_tokens,
         "cached_input_tokens": totals.cached_tokens,
@@ -122,6 +122,18 @@ def build_usage_info(
         "tools_used": tools_used,
         "tool_errors": tool_errors,
     }
+    # The other model tier answered (graph.chat_node): price the turn at it
+    fallback = next(
+        (
+            m.response_metadata["model_fallback"]
+            for m in messages
+            if isinstance(m, AIMessage) and m.response_metadata.get("model_fallback")
+        ),
+        None,
+    )
+    if fallback:
+        usage["model_fallback"] = fallback
+    return usage
 
 
 def batch_usage_info(result_messages: list[BaseMessage], duration_ms: int) -> dict[str, Any]:

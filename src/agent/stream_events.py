@@ -137,6 +137,9 @@ class StreamEventProcessor:
                     "attempt": event.get("attempt"),
                     "max_retries": event.get("max_retries"),
                 }
+            elif isinstance(event, dict) and event.get("type") == "model_fallback":
+                # The other model tier took over (graph.chat_node); client notes it
+                yield {"type": "model_fallback", "to": event.get("to")}
             return
         # Guard clause: a non-tuple event must not fall through to the
         # processing below with an unbound/stale message_chunk

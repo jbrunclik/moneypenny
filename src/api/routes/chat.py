@@ -114,6 +114,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         language=saved.language,
         stopped_early=is_round_capped(usage_info.get("tool_rounds", 0)),
     )
+    if usage_info.get("model_fallback"):
+        # The conversation's model was down; the other tier answered
+        response_data["model_fallback"] = usage_info["model_fallback"]
     return response_data, 200
 
 

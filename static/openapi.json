@@ -11419,6 +11419,19 @@
             "default": null,
             "description": "Real ID of the user message (for updating temp IDs in frontend)",
             "title": "User Message Id"
+          },
+          "model_fallback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Model that answered when the conversation's model was unavailable (503)",
+            "title": "Model Fallback"
           }
         },
         "required": [

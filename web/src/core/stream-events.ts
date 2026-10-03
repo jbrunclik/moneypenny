@@ -22,6 +22,7 @@ import { persistInflightStream } from './inflight-streams';
 import { acknowledgeServerStop, type StreamingState } from './stream-session';
 import { deepCopyThinkingState, updateLocalThinkingState } from './thinking-state';
 import { showGroundingChecking } from '../components/messages/grounding';
+import { notifyModelFallback } from './model-fallback';
 
 const log = createLogger('messaging');
 
@@ -157,6 +158,10 @@ export function processStreamEvent(
     case 'tool_detail':
     case 'tool_end':
       handleTraceEvent(event, state, convId, isCurrentConversation);
+      break;
+
+    case 'model_fallback':
+      if (isCurrentConversation && typeof event.to === 'string') notifyModelFallback(event.to);
       break;
 
     case 'grounding_started':

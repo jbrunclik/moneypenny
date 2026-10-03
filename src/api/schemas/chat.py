@@ -184,3 +184,7 @@ class ChatBatchResponse(BaseModel):
     user_message_id: str | None = Field(
         default=None, description="Real ID of the user message (for updating temp IDs in frontend)"
     )
+    model_fallback: str | None = Field(
+        default=None,
+        description="Model that answered when the conversation's model was unavailable (503)",
+    )

@@ -19,7 +19,8 @@ import json
 import threading
 import time
 from collections import OrderedDict
-from typing import Annotated, Any, Literal, TypedDict
+from collections.abc import Callable
+from typing import Annotated, Any, Literal, NotRequired, TypedDict
 
 from langchain_core.callbacks import BaseCallbackManager
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -36,7 +37,7 @@ from src.agent.content import (
     strip_echoed_msg_context,
     strip_full_result_from_tool_content,
 )
-from src.agent.retry import with_retry
+from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_conversation_context
@@ -70,6 +71,8 @@ class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     tool_retries: int  # Consecutive tool failure count
     tool_rounds: int  # Tool-execution rounds this turn (round-multiplication cap)
+    # Set once the turn's model was down and the other tier took over
+    model_fallback: NotRequired[str]
 
 
 # ============ Node Constants ============
@@ -109,6 +112,7 @@ def create_chat_model(
     kwargs: dict[str, Any] = {
         "model": model_name,
         "google_api_key": Config.GEMINI_API_KEY,
+        "max_retries": Config.AGENT_MODEL_SDK_MAX_RETRIES,
         "temperature": temperature
         if temperature is not None
         else Config.GEMINI_DEFAULT_TEMPERATURE,
@@ -246,12 +250,60 @@ def _emit_retry_status(error: Exception, attempt: int) -> None:
         logger.debug("No stream writer for retry status", exc_info=True)
 
 
+FallbackModel = Callable[[], tuple[str, ChatGoogleGenerativeAI]]
+
+
+def other_model_tier(model_name: str) -> str | None:
+    """The other user-selectable model (Fast <-> Advanced), if there is one."""
+    others = [name for name in Config.MODELS if name != model_name]
+    return others[0] if model_name in Config.MODELS and others else None
+
+
+def _emit_model_fallback(from_model: str, to_model: str) -> None:
+    """Tell the stream the other model tier is answering (client shows a note)."""
+    try:
+        get_stream_writer()({"type": "model_fallback", "from": from_model, "to": to_model})
+    except Exception:
+        logger.debug("No stream writer for model fallback", exc_info=True)
+
+
+def _invoke_with_fallback(
+    state: AgentState,
+    model: ChatGoogleGenerativeAI,
+    messages: list[BaseMessage],
+    config: RunnableConfig | None,
+    fallback: FallbackModel | None,
+) -> tuple[BaseMessage, str | None]:
+    """The model's reply, or the other tier's when the model is down (503).
+
+    Once a turn fell back it stays on the fallback: every round would
+    otherwise first wait for the dead model again.
+    """
+    invoke = with_retry(_invoke_model, on_retry=_emit_retry_status)
+    if state.get("model_fallback") and fallback:
+        name, backup = fallback()
+        return invoke(backup, messages, config), name
+    try:
+        return invoke(model, messages, config), None
+    except Exception as error:
+        if fallback is None or not is_model_unavailable(error):
+            raise
+        name, backup = fallback()
+        primary = getattr(model, "model_name", "unknown")
+        logger.warning(
+            "Model unavailable, falling back", extra={"model": primary, "fallback": name}
+        )
+        _emit_model_fallback(primary, name)
+        return invoke(backup, messages, config), name
+
+
 def chat_node(
     state: AgentState,
     model: ChatGoogleGenerativeAI,
     use_cache: bool = False,
     config: RunnableConfig | None = None,
-) -> dict[str, list[BaseMessage]]:
+    fallback: FallbackModel | None = None,
+) -> dict[str, Any]:
     """Process messages and generate a response.
 
     use_cache is unused here but kept in the signature for parity with
@@ -275,7 +327,9 @@ def chat_node(
             "model": model.model_name if hasattr(model, "model_name") else "unknown",
         },
     )
-    response = with_retry(_invoke_model, on_retry=_emit_retry_status)(model, messages, config)
+    response, fallback_name = _invoke_with_fallback(state, model, messages, config, fallback)
+    if fallback_name and isinstance(response, AIMessage):
+        response.response_metadata["model_fallback"] = fallback_name
 
     # Log tool calls if present
     if isinstance(response, AIMessage) and response.tool_calls:
@@ -303,6 +357,8 @@ def chat_node(
         else:
             logger.debug("No usage_metadata attribute found on AIMessage")
 
+    if fallback_name:
+        return {"messages": [response], "model_fallback": fallback_name}
     return {"messages": [response]}
 
 
@@ -782,6 +838,28 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
 # ============ Graph Factory ============
 
 
+def _fallback_factory(
+    model_name: str, with_tools: bool, include_thoughts: bool, tools: list[Any]
+) -> FallbackModel | None:
+    """Builds the other tier's model on first use: same tools, no context cache
+    (the cache is per (profile, model))."""
+    other = other_model_tier(model_name)
+    if other is None:
+        return None
+    built: list[ChatGoogleGenerativeAI] = []
+
+    def factory() -> tuple[str, ChatGoogleGenerativeAI]:
+        if not built:
+            built.append(
+                create_chat_model(
+                    other, with_tools=with_tools, include_thoughts=include_thoughts, tools=tools
+                )
+            )
+        return other, built[0]
+
+    return factory
+
+
 def create_chat_graph(
     model_name: str,
     with_tools: bool = True,
@@ -820,10 +898,14 @@ def create_chat_graph(
     # Define the graph
     graph: StateGraph[AgentState] = StateGraph(AgentState)
 
+    fallback = _fallback_factory(model_name, with_tools, include_thoughts, active_tools)
+
     # Add the chat node
     graph.add_node(
         "chat",
-        lambda state, config: chat_node(state, model, use_cache=use_cache, config=config),
+        lambda state, config: chat_node(
+            state, model, use_cache=use_cache, config=config, fallback=fallback
+        ),
     )
 
     if with_tools and active_tools:

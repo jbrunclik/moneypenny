@@ -36,6 +36,18 @@ responses (`is_transient_error()` walks the exception cause chain, since the Gem
 wraps them) are retried with exponential backoff and jitter, configured by
 `AGENT_MAX_RETRIES`, `AGENT_RETRY_BASE_DELAY_SECONDS` and `AGENT_RETRY_MAX_DELAY_SECONDS`.
 
+**A model that is down falls back to the other tier.** A `503 UNAVAILABLE` ("high demand",
+`is_model_unavailable()`) is not retried: on Aug 27 2026 Flash returned it for minutes
+while Pro was up, and stacked retries (the SDK's own backoff, ~40 s, inside each of
+`AGENT_MAX_RETRIES` attempts) kept turns on "Thinking" for ~3 minutes per call. The chat
+model's SDK retries are capped at `AGENT_MODEL_SDK_MAX_RETRIES` (1), and `chat_node`
+reruns the call on `other_model_tier()` - the other `MODELS` entry, built uncached (the
+context cache is per (profile, model)) with the same tools - and stays on it for the
+rest of the turn (`AgentState.model_fallback`). The reply's `response_metadata` carries
+`model_fallback`, so `usage_info["model_fallback"]` prices the turn at the model that
+answered; the stream emits a `model_fallback` event and the batch response a
+`model_fallback` field, and the client shows a note ([model-fallback.ts](../../web/src/core/model-fallback.ts)).
+
 Retries are **per model call**, not per turn: replaying a whole turn would re-execute
 non-idempotent tools (Todoist/Calendar writes, WhatsApp sends). The autonomous-agent
 executor therefore has no retry wrapper of its own.
@@ -180,7 +192,7 @@ A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is con
 - [tools/turn_usage.py](../../src/agent/tools/turn_usage.py) - per-turn tool-call counts behind search escalation and the fetch nudge
 - [api/utils.py](../../src/api/utils.py) - `is_round_capped()`
 - [messages/stopped-early.ts](../../web/src/components/messages/stopped-early.ts) - stopped-early note + Continue
-- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_MAX_TOOL_ROUNDS`, `AGENT_TOOL_ROUNDS_SOFT_NUDGE`, `AGENT_AGED_TOOL_RESULT_MAX_CHARS`, `AGENT_MAX_RETRIES`, `AGENT_RETRY_*`, `WEB_SEARCH_ESCALATE_MAX_SOURCES`
+- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_MAX_TOOL_ROUNDS`, `AGENT_TOOL_ROUNDS_SOFT_NUDGE`, `AGENT_AGED_TOOL_RESULT_MAX_CHARS`, `AGENT_MAX_RETRIES`, `AGENT_MODEL_SDK_MAX_RETRIES`, `AGENT_RETRY_*`, `WEB_SEARCH_ESCALATE_MAX_SOURCES`
 
 ## Testing
 

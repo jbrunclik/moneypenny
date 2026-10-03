@@ -290,7 +290,8 @@ def save_message_to_db(
             assistant_msg.id,
             conv_id,
             user_id,
-            model,
+            # The other tier answered when the turn's model was down
+            usage.get("model_fallback") or model,
             usage,
             full_tool_results,
             len(content),

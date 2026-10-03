@@ -27,6 +27,7 @@ import { notifyTurnFinished } from './attention';
 import { trackRequest, untrackRequest } from './active-requests';
 import { confirmDelivery, markSendFailed } from './send-delivery';
 import { scrollToBatchReply } from './response-scroll';
+import { notifyModelFallback } from './model-fallback';
 import { clearInflightBatch, persistInflightBatch } from './batch-resume';
 
 const log = createLogger('messaging');
@@ -107,6 +108,9 @@ async function completeBatchTurn(
 ): Promise<void> {
   // Response received = the user message is persisted server-side
   confirmDelivery(convId, tempUserMessageId);
+  if (response.model_fallback && useStore.getState().currentConversation?.id === convId) {
+    notifyModelFallback(response.model_fallback);
+  }
 
   // Update user message ID from temp to real ID (for file fetching in lightbox)
   if (response.user_message_id) {

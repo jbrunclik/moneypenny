@@ -263,6 +263,7 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 | `AGENT_COMPACTION_THRESHOLD` | 50 | Message count to trigger compaction |
 | `AGENT_COMPACTION_KEEP_RECENT` | 10 | Messages to keep after compaction |
 | `AGENT_MAX_RETRIES` | 3 | Max retry attempts for transient failures |
+| `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |
 | `AGENT_RETRY_BASE_DELAY_SECONDS` | 1.0 | Initial retry delay |
 | `AGENT_RETRY_MAX_DELAY_SECONDS` | 30.0 | Maximum retry delay |
 | `AGENT_DEFAULT_DAILY_BUDGET_USD` | 0 | Default daily budget (0 = unlimited) |

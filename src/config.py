@@ -660,6 +660,10 @@ class Config:
     # Transient failure retry settings
     # Maximum retries for transient failures (network errors, rate limits)
     AGENT_MAX_RETRIES: int = int(os.getenv("AGENT_MAX_RETRIES", "3"))
+    # Retries inside the Gemini SDK per chat-model call. Its default backoff
+    # spent ~40 s on a model that was down (Aug 27 2026), times every
+    # AGENT_MAX_RETRIES attempt; with_retry handles transient errors anyway.
+    AGENT_MODEL_SDK_MAX_RETRIES: int = int(os.getenv("AGENT_MODEL_SDK_MAX_RETRIES", "1"))
     # Initial retry delay in seconds (doubles with each retry)
     AGENT_RETRY_BASE_DELAY_SECONDS: float = float(
         os.getenv("AGENT_RETRY_BASE_DELAY_SECONDS", "1.0")

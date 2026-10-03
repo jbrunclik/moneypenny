@@ -80,6 +80,23 @@ def is_transient_error(error: Exception) -> bool:
     return any(pattern in error_msg for pattern in TRANSIENT_ERROR_PATTERNS)
 
 
+def is_model_unavailable(error: BaseException) -> bool:
+    """Whether the model itself is down: 503 UNAVAILABLE ("high demand").
+
+    Retrying such a model is futile for minutes at a time (Aug 27 2026: each
+    retry spent ~40 s inside the SDK); the caller falls back to another model.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        head = str(current)[:_PATTERN_SCAN_CHARS].upper()
+        if "503" in head and "UNAVAILABLE" in head:
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
 def calculate_delay(attempt: int) -> float:
     """Calculate the delay before the next retry attempt.
 
@@ -132,8 +149,8 @@ def with_retry[T](
             except Exception as e:
                 last_error = e
 
-                # Don't retry if not transient or last attempt
-                if not is_transient_error(e) or attempt >= max_retries:
+                # Don't retry if not transient, the model is down, or last attempt
+                if not is_transient_error(e) or is_model_unavailable(e) or attempt >= max_retries:
                     raise
 
                 # Calculate delay and sleep

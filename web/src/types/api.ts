@@ -312,6 +312,7 @@ export interface ChatResponse {
   annotations?: ClaimAnnotation[]; // Grounding-check claims
   grounding?: GroundingSummary; // Grounding-check footer summary
   stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
+  model_fallback?: string; // Model that answered when the conversation's model was down
 }
 
 export interface ErrorResponse {

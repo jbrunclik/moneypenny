@@ -399,6 +399,7 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
         "retry",
         "stopping",
         "grounding_started",
+        "model_fallback",
     ):
         if event_type == "token":
             context.partial_content += item.get("text", "")

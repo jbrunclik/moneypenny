@@ -139,3 +139,29 @@ class TestGroundingStartedEvent:
             types = [e["type"] for e in _events(response.get_data(as_text=True))]
 
         assert types.index("token") < types.index("grounding_started") < types.index("done")
+
+
+class TestBatchModelFallback:
+    def test_response_names_the_model_that_answered(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "Answer",
+                [],
+                {"input_tokens": 5, "output_tokens": 2, "model_fallback": "gemini-3.1-pro-preview"},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hi"},
+            )
+
+        assert response.get_json()["model_fallback"] == "gemini-3.1-pro-preview"

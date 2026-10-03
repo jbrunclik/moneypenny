@@ -9342,6 +9342,12 @@ export interface components {
              * @default null
              */
             user_message_id: string | null;
+            /**
+             * Model Fallback
+             * @description Model that answered when the conversation's model was unavailable (503)
+             * @default null
+             */
+            model_fallback: string | null;
         };
         /**
          * ConversationCompactionResponse
