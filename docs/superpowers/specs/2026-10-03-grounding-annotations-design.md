@@ -238,3 +238,15 @@ Client constants: the hover delay and the highlight flash duration in
 One feature branch; migration verified on a copy of the prod database; single
 deploy (health-gated). After a week: verdict counts and latency from the "Grounding
 check" log line, and how often "Dohledat" follow-ups appear.
+
+## Revision (Oct 3 2026, implementation)
+
+- **Two-list verifier schema.** `GroundingVerdict` returns `unsupported` first,
+  then `supported`, instead of one list. An A/B on captured eval answers raised
+  the Lite verifier's recall on unsourced prices from 71% to 89%, and problems
+  stay inside `GROUNDING_CHECK_MAX_CLAIMS` when the supported list is long.
+- **The eval judge sees verdicts in place** (`annotate_for_judge()` in
+  `evals/run.py`: `claim [UNSOURCED: reason]`), not a list of annotations after
+  the answer - an appended list reproduced the Oct 2 end-note failure.
+- **The footer sits under the answer text**; sources stay in the numbered
+  sources popup.

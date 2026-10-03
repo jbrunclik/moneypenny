@@ -68,6 +68,21 @@ generator. The work is split three ways:
 Both paths put `stopped_early` on the reply when the turn hit the tool-round cap
 ([Stopped-Early Replies](../architecture/agent-graph.md#stopped-early-replies)).
 
+**Grounding.** Both paths run the post-answer [grounding check](grounding.md) on
+web-tool turns before saving. Streaming emits a `grounding_started` event between
+the last token and `done` while the verifier runs (the client shows the footer's
+"checking" state); the text is never changed. The verdicts ride
+`usage_info["grounding"]` into `save_message_to_db`, are stored in
+`messages.annotations` / `messages.grounding`, and come back as `annotations` and
+`grounding` on `MessageResponse` (loaded messages), `ChatBatchResponse` and the
+stream `done` event (schemas in [schemas/chat.py](../../src/api/schemas/chat.py);
+all three are filled by `_add_grounding()` in [api/utils.py](../../src/api/utils.py)).
+Both are omitted on unchecked messages; in the generated client types unset
+optional fields may be `null`. Later turns see the unsourced and contradicted
+claims as the `grounding` key of that message's `MSG_CONTEXT`
+([Conversation Context](../architecture/conversation-context.md)); the history text
+stays clean.
+
 
 ## Streaming Architecture
 
@@ -272,7 +287,7 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 **Invariants (violating these re-introduces fixed bugs):**
 
-- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`.) The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
+- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`, `stopping`, `grounding_started`.) The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
 - **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
 - The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [stream-resume.ts](../../web/src/core/stream-resume.ts) (entries persisted by [inflight-streams.ts](../../web/src/core/inflight-streams.ts)) / [conversation-switch.ts](../../web/src/core/conversation-switch.ts).
 

@@ -173,6 +173,7 @@ Tests run in parallel with full isolation:
 | `/test/simulate-error` / `/test/simulate-timeout` | POST | Error-UI and timeout paths |
 | `/test/set-search-results` | POST | Set mock search results |
 | `/test/clear-search-results` | POST | Clear mock search results |
+| `/test/set-grounding-result` | POST | Canned grounding outcome (`annotations`, `summary`) for the next turns; call it AFTER the page fixture, whose `/test/reset` clears per-test mock config |
 | `/test/set-planner-*`, `/test/set-agent*`, `/test/set-kv-store-data`, `/test/set-sports-programs`, ... | POST | Feature fixtures - see the `@test_bp.route` list in `tests/e2e-server.py` |
 
 ### Using Database Seeding

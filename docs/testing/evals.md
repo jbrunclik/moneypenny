@@ -80,6 +80,14 @@ via kv_store", "cites a source") and the judge can verify them. It cannot see
 generated file contents; phrase file-output rubrics as "delivered via
 execute_code counts".
 
+Grounding verdicts are shown IN PLACE: `annotate_for_judge()` in
+[run.py](../../evals/run.py) inserts each annotation right after its claim -
+`claim [UNSOURCED: reason]`, `[PARTLY SOURCED: ...]`, `[CONTRADICTED BY SOURCE:
+...]`, or `[source N]` on a supported claim - the way the UI underlines it.
+An appended list of claims reproduced the Oct 2 end-note failure (the judge
+read the text as fact). Grounding rubrics name those tags, not the old
+`_(neověřeno)_` markers.
+
 Authoring tips:
 - Verify rubric numbers yourself first (the first harness run caught a wrong
   expected value in a rubric, not in the agent).
@@ -126,16 +134,19 @@ the same date placeholders as `integrations` (plus a `_weekday` suffix, e.g.
   already passed 3/3 before the date-authority rule; they are regression
   guards, not reproductions of the sweep's date corrections.
 - `cz_grounded_no_note` — precision guard for the
-  [grounding check](../features/agent-tools.md#grounding-check): a fully
-  sourced CNB-rate answer must carry no `_(neověřeno)_` marker. 4/5 at ship,
-  5/5 after the Oct 2026 precision pass.
+  [grounding check](../features/grounding.md): a fully sourced CNB-rate answer
+  must carry no `[UNSOURCED]`, `[PARTLY SOURCED]` or `[CONTRADICTED BY SOURCE]`
+  tag.
 - `cz_trip_plan_precision` — the prod complaint shape: a Saturday trip plan
-  with its own timeline. Fails on any marker on a plan time or a well-known
-  town, or on more than 2 markers. 1/3 before the precision pass; 2/5 after -
-  the remaining failures are marker COUNT on businesses the sources really
-  don't mention (the model adds cafés on its own), a known honesty-vs-noise
-  trade-off, not markers on times or towns. `skill_product_where_to_buy`
-  moved from 4/5 to 2/5 in the same pass (Lite recall varies a lot).
+  with its own timeline. Fails on any such tag on a plan time or a well-known
+  town, or on more than 2 of them. Under the Oct 2 in-place markers it went
+  1/3 to 2/5 after a precision pass; the remaining failures were the COUNT of
+  flags on cafés the model adds on its own, which the sources really don't
+  mention (honesty vs noise).
+
+With the Oct 3 annotations (two-list verifier, verdicts shown in place)
+`skill_product_where_to_buy` passes 4/5 and the full suite 61/63 (baseline
+before the change 60/62).
 
 Skill cases (Sep 2026) - `skill_*` cases guard the
 [skills](../features/agent-tools.md#skills) trigger gate. Should-trigger cases
@@ -146,8 +157,9 @@ runs, and an unchanged suite pass rate. `skill_product_where_to_buy` is an
 honesty probe: the skill loads every time, but the answer mixed dealers and
 prices from the model's own knowledge into verified results without labelling
 them. The grounding directive did not help (1/5); with the
-[grounding check](../features/agent-tools.md#grounding-check) marking those
-specifics in place it passes 4/5.
+[grounding check](../features/grounding.md) flagging those specifics on the
+claim itself it passes 4/5 (the rubric accepts a text label or a grounding
+tag).
 
 Note: each case runs under its own request id. Before Sep 29 2026 it did not,
 which left the per-turn efficiency nudges (turn_usage) inert - round counts

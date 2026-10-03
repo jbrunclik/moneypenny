@@ -33,6 +33,7 @@ Only **stable, message-derived** fields are embedded inline. A recomputed relati
 - `tool_summary` - Human-readable summary (e.g., "searched 3 web sources, generated 1 image")
 - `tool_digest` - Sources the turn read, as "read: Title (url); ..." (enables a precise re-fetch)
 - `tool_outputs` - One line per non-web tool call of that turn - see [Tool-Output Digests](#tool-output-digests)
+- `grounding` - Claims of that answer the [grounding check](../features/grounding.md) found unsourced, partly sourced or contradicted, with reasons ("unsourced: X (reason); ...", capped by `GROUNDING_CONTEXT_MAX_CHARS`), so a follow-up does not restate them as fact; the history text itself stays clean
 
 ### Tool-Output Digests
 

@@ -132,7 +132,7 @@ When a turn reads web pages, those pages are shown to the user as sources - auto
 ### How it works
 
 1. **Tool returns JSON**: `web_search` returns `{"query": "...", "results": [{title, url, snippet}, ...]}` instead of plain text (`research`, `fetch_url` and the browser also produce citable pages)
-2. **Backend derives sources from what was read**: `extract_read_sources()` in [content.py](../../src/agent/content.py) pairs the turn's tool calls with their results: pages `research` actually fetched (not failed fetches or unfetched candidates; an escalated repeat `web_search`, marked `_escalated`, counts as `research`), successful `fetch_url` calls (titled by URL), `browser` pages, and sources a `delegate_task` subagent returned. A turn that answered from search snippets alone gets the top 5 search results (rank-interleaved) instead. De-duplicated, at most 10.
+2. **Backend derives sources from what was read**: `extract_read_sources()` in [content.py](../../src/agent/content.py) returns `turn_pages()` from [source_pages.py](../../src/agent/source_pages.py) - the same numbered list the [grounding check](grounding.md) cites, so a claim's source number is its popup entry. It pairs the turn's tool calls with their results: pages `research` actually fetched (not failed fetches or unfetched candidates; an escalated repeat `web_search`, marked `_escalated`, counts as `research`), successful `fetch_url` calls (titled by URL), `browser` pages, and sources a `delegate_task` subagent returned. A turn that answered from search snippets alone gets the top 5 search results (rank-interleaved) instead. De-duplicated, at most 10.
 3. **Why no citation tool (removed Sep 2026)**: there used to be a `cite_sources` tool meant to ride along with the final answer. In production the model sent it WITHOUT answer text in 687 of 869 tool-using turns (79%, 30 days) despite the prompt forbidding exactly that, so the no-op tool ran and the model was called again just to write the answer - ~49M extra input tokens a month, an extra model call of latency, inflated round counts (false "stopped early" notes, eval round-cap failures) - and it forgot to cite in other turns. Trade-off accepted: chips list every page read, not just the ones the answer relied on. (The old text-based `<!-- METADATA: -->` block is long gone too.)
 4. **Sources stored in DB**: Messages table has a `sources` column (JSON array)
 5. **Sources in API response**: Both batch and streaming responses include `sources` array
@@ -142,7 +142,7 @@ When a turn reads web pages, those pages are shown to the user as sources - auto
 ### Key Files
 
 - [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
-- [content.py](../../src/agent/content.py) - `extract_read_sources()`
+- [content.py](../../src/agent/content.py) - `extract_read_sources()`; [source_pages.py](../../src/agent/source_pages.py) - `turn_pages()`
 - [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
 - [chat_save.py](../../src/api/helpers/chat_save.py) - calls `extract_read_sources()` when saving the turn (batch and streaming); the autonomous executor does the same
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
