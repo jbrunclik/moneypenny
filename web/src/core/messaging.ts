@@ -36,7 +36,7 @@ import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { setConversationHash } from '../router/deeplink';
-import type { Conversation, DeepResearchStart, FileUpload, Message } from '../types/api';
+import type { Conversation, DeepResearchStart, FileUpload, Message, MessageAction, SendExtras } from '../types/api';
 import { setMessageSendState } from '../components/messages/send-state';
 
 import { isTempConversation, createConversation } from './conversation';
@@ -66,6 +66,8 @@ interface SendEntry {
   anonymousMode: boolean;
   /** Starts a deep-research offer (always sent over the stream endpoint) */
   deepResearch?: DeepResearchStart;
+  /** What the message is, when the app sent it for the user */
+  action?: MessageAction;
 }
 
 // ============ Composer hook ============
@@ -271,9 +273,10 @@ function trackNewMessage(
   messageText: string,
   files: FileUpload[],
   forceTools: string[],
-  deepResearch?: DeepResearchStart
+  extras: SendExtras = {}
 ): SendEntry {
-  const userMessage = buildOptimisticUserMessage(messageText, files);
+  const { deepResearch, action } = extras;
+  const userMessage = { ...buildOptimisticUserMessage(messageText, files), action };
 
   // Use fresh store reference to get anonymous mode (not a stale snapshot from before)
   // This is critical because the conversation ID may have changed from temp-xxx to a real ID
@@ -291,6 +294,7 @@ function trackNewMessage(
     anonymousMode,
     createdAt: userMessage.created_at,
     deepResearch,
+    action,
   });
 
   // Optimistically bump the sidebar entry so the conversation moves to the
@@ -300,7 +304,7 @@ function trackNewMessage(
   renderConversationsList();
 
   renderOptimisticUserMessage(userMessage);
-  return { id: userMessage.id, content: messageText, files, forceTools, anonymousMode, deepResearch };
+  return { id: userMessage.id, content: messageText, files, forceTools, anonymousMode, deepResearch, action };
 }
 
 async function sendNewMessage(
@@ -322,10 +326,11 @@ async function sendNewMessage(
 }
 
 /**
- * Send a message the UI composed (not the composer) into the current
- * conversation - starting a deep-research offer. False when it can't go now.
+ * Send a message the UI composed for the user (not the composer) into the
+ * current conversation - Look it up, starting a deep-research offer. False
+ * when it can't go now. The composer's draft is left alone.
  */
-export async function sendUiMessage(text: string, deepResearch?: DeepResearchStart): Promise<boolean> {
+export async function sendUiMessage(text: string, extras: SendExtras = {}): Promise<boolean> {
   const store = useStore.getState();
   const conv = store.currentConversation;
   if (!conv || isSendBlocked(store)) return false;
@@ -333,7 +338,7 @@ export async function sendUiMessage(text: string, deepResearch?: DeepResearchSta
     toast.info('Please wait for the current response to finish.');
     return false;
   }
-  await dispatchSend(conv.id, trackNewMessage(conv, text, [], [], deepResearch));
+  await dispatchSend(conv.id, trackNewMessage(conv, text, [], [], extras));
   return true;
 }
 
@@ -410,10 +415,13 @@ export async function dispatchSend(convId: string, entry: SendEntry): Promise<vo
     if (useStore.getState().streamingEnabled || entry.deepResearch) {
       await sendStreamingMessage(
         convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation,
-        undefined, entry.deepResearch
+        undefined, { deepResearch: entry.deepResearch, action: entry.action }
       );
     } else {
-      await sendBatchMessage(convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation);
+      await sendBatchMessage(
+        convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation,
+        undefined, { action: entry.action }
+      );
     }
     // Note: incrementLocalMessageCount is handled inside sendStreamingMessage (in finally block)
     // and sendBatchMessage (after success) to avoid race conditions with sync

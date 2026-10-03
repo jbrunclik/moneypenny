@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-vi.mock('@/core/quick-actions', () => ({ sendComposedText: vi.fn() }));
-import { sendComposedText } from '@/core/quick-actions';
+vi.mock('@/core/messaging', () => ({ sendUiMessage: vi.fn(() => Promise.resolve(true)) }));
+import { sendUiMessage } from '@/core/messaging';
 import { initClaimCard } from '@/components/ClaimCard';
 import { decorateGrounding } from '@/components/messages/grounding';
 
@@ -8,6 +8,7 @@ function setup(): HTMLElement {
   document.body.innerHTML = '<div id="messages"></div>';
   const msg = document.createElement('div');
   msg.className = 'message assistant';
+  msg.dataset.messageId = 'a1';
   msg.innerHTML = '<div class="message-content-wrapper"><div class="message-content"><p>PřepiServis: rychlost 24–48 hodin. Kurýr.</p></div></div>';
   document.getElementById('messages')!.appendChild(msg);
   decorateGrounding(msg, {
@@ -32,7 +33,9 @@ describe('ClaimCard', () => {
     expect(card.textContent).toContain('Stránky popisují jen SPZ Služby.');
     expect(card.querySelector('.claim-card__lookup')!.textContent).toBe('Look it up');
     (card.querySelector('.claim-card__lookup') as HTMLButtonElement).click();
-    expect(sendComposedText).toHaveBeenCalledWith('Look up and verify: rychlost 24–48 hodin');
+    expect(sendUiMessage).toHaveBeenCalledWith('Look up and verify: rychlost 24–48 hodin', {
+      action: { type: 'verify_claim', source_message_id: 'a1', claim_index: 0, quote: 'rychlost 24–48 hodin' },
+    });
   });
 
   it('a source number shows the passage and no Look it up', () => {
@@ -109,7 +112,7 @@ describe('ClaimCard', () => {
     initClaimCard();
     (document.querySelector('.claim') as HTMLElement).click();
     (document.querySelector('#claim-card .claim-card__lookup') as HTMLButtonElement).click();
-    expect(sendComposedText).toHaveBeenLastCalledWith('Look up and verify: PřepiServis');
+    expect(vi.mocked(sendUiMessage).mock.lastCall?.[0]).toBe('Look up and verify: PřepiServis');
   });
 
   it('a claim without a reason still explains itself', () => {

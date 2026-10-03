@@ -106,7 +106,9 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     if data.rerun_mode:
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
     else:
-        user_msg = _save_user_message(conv_id, message_text, files, data.client_message_id)
+        user_msg = _save_user_message(
+            conv_id, message_text, files, data.client_message_id, _action(data, plan)
+        )
         history_messages = db.get_messages(conv_id)[:-1]  # Exclude the just-added message
 
     # A stale interjection from a previous turn must never steer this one
@@ -196,11 +198,24 @@ def _dedupe_client_message_id(conv_id: str, client_message_id: str | None) -> No
     raise_validation_error("client_message_id is already in use", field="client_message_id")
 
 
+def _action(data: ChatRequest, plan: DeepResearchPlan | None) -> dict[str, Any] | None:
+    """The user message's action: a started run's comes from its final plan."""
+    if plan is not None:
+        return {
+            "type": "deep_research",
+            "offer_message_id": plan.offer_message_id,
+            "items": len(plan.sub_questions),
+            "minutes": int(plan.estimate.get("minutes") or 0),
+        }
+    return data.action.model_dump() if data.action else None
+
+
 def _save_user_message(
     conv_id: str,
     message_text: str,
     files: list[dict[str, Any]],
     client_message_id: str | None,
+    action: dict[str, Any] | None = None,
 ) -> Message:
     _dedupe_client_message_id(conv_id, client_message_id)
     user_msg = db.add_message(
@@ -209,6 +224,7 @@ def _save_user_message(
         message_text,
         files=files if files else None,
         message_id=client_message_id,
+        action=action,
     )
     if files:
         queue_pending_thumbnails(user_msg.id, files)

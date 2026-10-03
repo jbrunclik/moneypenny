@@ -57,14 +57,20 @@ export async function startDeepResearch(
   offerMessageId: string,
   subQuestions: string[],
   context: string,
-  options: { whenIdle?: boolean } = {}
+  options: { whenIdle?: boolean; minutes?: number } = {}
 ): Promise<boolean> {
   log.info('Starting deep research', { offerMessageId, items: subQuestions.length });
   const plan = { offer_message_id: offerMessageId, sub_questions: subQuestions, context };
   setOfferStatus(offerMessageId, 'started');
   const convId = useStore.getState().currentConversation?.id;
   if (options.whenIdle && convId) await whenIdle(convId);
-  const sent = await sendUiMessage(START_MESSAGE, plan);
+  const action = {
+    type: 'deep_research' as const,
+    offer_message_id: offerMessageId,
+    items: subQuestions.length,
+    minutes: options.minutes ?? 0,
+  };
+  const sent = await sendUiMessage(START_MESSAGE, { deepResearch: plan, action });
   if (!sent) setOfferStatus(offerMessageId, 'offered');
   return sent;
 }

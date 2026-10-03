@@ -20,7 +20,7 @@ import {
   updateUploadProgress,
 } from '../components/MessageInput';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
-import type { ChatResponse, ClientLocation, FileUpload, Message } from '../types/api';
+import type { ChatResponse, ClientLocation, FileUpload, Message, SendExtras } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
@@ -159,7 +159,8 @@ export async function sendBatchMessage(
   tempUserMessageId: string,
   anonymousMode: boolean,
   clientLocation: ClientLocation | null = null,
-  rerunMode?: 'regenerate' | 'continue'
+  rerunMode?: 'regenerate' | 'continue',
+  extras: SendExtras = {}
 ): Promise<void> {
   const requestId = `batch-${convId}-${Date.now()}`;
   const hasFiles = files && files.length > 0;
@@ -174,7 +175,7 @@ export async function sendBatchMessage(
       useStore.getState().setUploadProgress(progress);
     } : undefined;
 
-    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode);
+    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode, extras);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
 
     // The turn is over the moment the response is in: release the active

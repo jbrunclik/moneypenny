@@ -1,10 +1,10 @@
 /**
  * Card for a grounding claim or source number: verdict, reason, the source
- * passage, and "Dohledat" (sends a targeted follow-up). One delegated handler
+ * passage, and "Look it up" (sends a verify_claim action). One delegated handler
  * on #messages; hover opens on devices that hover, tap/click everywhere.
  */
 import { CLAIM_CARD_HOVER_DELAY_MS } from '../config';
-import { sendComposedText } from '../core/quick-actions';
+import { sendUiMessage } from '../core/messaging';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
@@ -24,6 +24,8 @@ let openedByHover = false;
 
 interface CardContext {
   ann: ClaimAnnotation;
+  index: number;
+  messageId?: string;
   source?: Source;
 }
 
@@ -36,6 +38,8 @@ function contextFor(target: HTMLElement): CardContext | null {
   const stored = convId ? useStore.getState().getMessages(convId).find((m) => m.id === messageEl.dataset.messageId) : undefined;
   return {
     ann,
+    index,
+    messageId: messageEl.dataset.messageId,
     source: ann.source ? stored?.sources?.[ann.source - 1] : undefined,
   };
 }
@@ -103,7 +107,10 @@ export function openClaimCard(target: HTMLElement, focus = false): void {
   card.innerHTML = cardHtml(ctx);
   card.querySelector('.claim-card__lookup')?.addEventListener('click', () => {
     closeClaimCard();
-    void sendComposedText(groundingStrings().lookUpMessage(plainQuote(ctx.ann.quote)));
+    const quote = plainQuote(ctx.ann.quote);
+    void sendUiMessage(groundingStrings().lookUpMessage(quote), {
+      action: { type: 'verify_claim', source_message_id: ctx.messageId ?? null, claim_index: ctx.index, quote },
+    });
   });
   // Moving from the claim into a hover-opened card keeps it open
   card.addEventListener('mouseenter', () => window.clearTimeout(leaveTimer));

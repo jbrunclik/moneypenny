@@ -28,6 +28,7 @@ def row_to_message(row: sqlite3.Row) -> Message:
         annotations=_json_column(row, "annotations"),
         grounding=_json_column(row, "grounding"),
         research=_json_column(row, "research"),
+        action=_json_column(row, "action"),
     )
 
 

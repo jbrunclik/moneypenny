@@ -97,7 +97,8 @@ describe('research offer card', () => {
     expect(startDeepResearch).toHaveBeenCalledWith(
       'm1',
       ['Ceny pražských agentur?', 'Kolik to trvá?', 'Co je potřeba?', 'Online'],
-      'rodina se dvěma dětmi'
+      'rodina se dvěma dětmi',
+      { minutes: 5 }
     );
     expect(card().textContent).toContain('Deep research started');
   });
@@ -124,7 +125,7 @@ describe('research offer card', () => {
     expect(card().textContent).toContain('Starting…');
     render(o, { live: true });
     expect(startDeepResearch).toHaveBeenCalledTimes(1);
-    expect(startDeepResearch).toHaveBeenCalledWith('m1', o.sub_questions, o.context, { whenIdle: true });
+    expect(startDeepResearch).toHaveBeenCalledWith('m1', o.sub_questions, o.context, { whenIdle: true, minutes: 5 });
   });
 
   it('autostart never fires from history', () => {

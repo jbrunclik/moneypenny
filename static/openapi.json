@@ -4534,6 +4534,57 @@
         "description": "Mid-run steering: stores guidance that the agent picks up between tool rounds of the in-flight turn (cross-worker via kv_store). The text is also persisted as a regular user message so future turns see it in history. Best-effort: if the turn finishes before the next tool round, the guidance still lands in history."
       }
     },
+    "/api/conversations/{conv_id}/chat/finish-now": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Finish a deep-research run now",
+        "description": "Cut the remaining research of the running deep-research turn and write the report from what was gathered (cross-worker via kv_store). message_id names the turn (its assistant message id)."
+      }
+    },
     "/api/sports/programs/{program_id}/quick-actions": {
       "put": {
         "parameters": [
@@ -8150,6 +8201,38 @@
         "title": "ClaimAnnotationResponse",
         "type": "object"
       },
+      "PlannerConversationResponse.DeepResearchAction": {
+        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+        "properties": {
+          "type": {
+            "const": "deep_research",
+            "title": "Type",
+            "type": "string"
+          },
+          "offer_message_id": {
+            "title": "Offer Message Id",
+            "type": "string"
+          },
+          "items": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Items",
+            "type": "integer"
+          },
+          "minutes": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "offer_message_id"
+        ],
+        "title": "DeepResearchAction",
+        "type": "object"
+      },
       "PlannerConversationResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -8402,6 +8485,33 @@
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
           },
+          "action": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "deep_research": "#/components/schemas/PlannerConversationResponse.DeepResearchAction",
+                    "verify_claim": "#/components/schemas/PlannerConversationResponse.VerifyClaimAction"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PlannerConversationResponse.VerifyClaimAction"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlannerConversationResponse.DeepResearchAction"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What a message sent on the user's behalf was",
+            "title": "Action"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -8433,6 +8543,52 @@
           "url"
         ],
         "title": "SourceResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.VerifyClaimAction": {
+        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+        "properties": {
+          "type": {
+            "const": "verify_claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Message Id"
+          },
+          "claim_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Claim Index"
+          },
+          "quote": {
+            "maxLength": 500,
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "quote"
+        ],
+        "title": "VerifyClaimAction",
         "type": "object"
       },
       "PlannerConversationResponse": {
@@ -8557,6 +8713,38 @@
           "quote"
         ],
         "title": "ClaimAnnotationResponse",
+        "type": "object"
+      },
+      "MessageResponse.DeepResearchAction": {
+        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+        "properties": {
+          "type": {
+            "const": "deep_research",
+            "title": "Type",
+            "type": "string"
+          },
+          "offer_message_id": {
+            "title": "Offer Message Id",
+            "type": "string"
+          },
+          "items": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Items",
+            "type": "integer"
+          },
+          "minutes": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "offer_message_id"
+        ],
+        "title": "DeepResearchAction",
         "type": "object"
       },
       "MessageResponse.FileMetadataResponse": {
@@ -8684,6 +8872,52 @@
           "url"
         ],
         "title": "SourceResponse",
+        "type": "object"
+      },
+      "MessageResponse.VerifyClaimAction": {
+        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+        "properties": {
+          "type": {
+            "const": "verify_claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Message Id"
+          },
+          "claim_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Claim Index"
+          },
+          "quote": {
+            "maxLength": 500,
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "quote"
+        ],
+        "title": "VerifyClaimAction",
         "type": "object"
       },
       "MessageResponse": {
@@ -8829,6 +9063,33 @@
             "default": null,
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "deep_research": "#/components/schemas/MessageResponse.DeepResearchAction",
+                    "verify_claim": "#/components/schemas/MessageResponse.VerifyClaimAction"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/MessageResponse.VerifyClaimAction"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MessageResponse.DeepResearchAction"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What a message sent on the user's behalf was",
+            "title": "Action"
           },
           "created_at": {
             "title": "Created At",
@@ -9763,6 +10024,38 @@
         "title": "ClaimAnnotationResponse",
         "type": "object"
       },
+      "ConversationDetailPaginatedResponse.DeepResearchAction": {
+        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+        "properties": {
+          "type": {
+            "const": "deep_research",
+            "title": "Type",
+            "type": "string"
+          },
+          "offer_message_id": {
+            "title": "Offer Message Id",
+            "type": "string"
+          },
+          "items": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Items",
+            "type": "integer"
+          },
+          "minutes": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "offer_message_id"
+        ],
+        "title": "DeepResearchAction",
+        "type": "object"
+      },
       "ConversationDetailPaginatedResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -10015,6 +10308,33 @@
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
           },
+          "action": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "deep_research": "#/components/schemas/ConversationDetailPaginatedResponse.DeepResearchAction",
+                    "verify_claim": "#/components/schemas/ConversationDetailPaginatedResponse.VerifyClaimAction"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.VerifyClaimAction"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.DeepResearchAction"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What a message sent on the user's behalf was",
+            "title": "Action"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -10099,6 +10419,52 @@
           "url"
         ],
         "title": "SourceResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.VerifyClaimAction": {
+        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+        "properties": {
+          "type": {
+            "const": "verify_claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Message Id"
+          },
+          "claim_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Claim Index"
+          },
+          "quote": {
+            "maxLength": 500,
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "quote"
+        ],
+        "title": "VerifyClaimAction",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse": {
@@ -10826,6 +11192,38 @@
         "title": "ClaimAnnotationResponse",
         "type": "object"
       },
+      "MessagesListResponse.DeepResearchAction": {
+        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+        "properties": {
+          "type": {
+            "const": "deep_research",
+            "title": "Type",
+            "type": "string"
+          },
+          "offer_message_id": {
+            "title": "Offer Message Id",
+            "type": "string"
+          },
+          "items": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Items",
+            "type": "integer"
+          },
+          "minutes": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "offer_message_id"
+        ],
+        "title": "DeepResearchAction",
+        "type": "object"
+      },
       "MessagesListResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -11078,6 +11476,33 @@
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
           },
+          "action": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "deep_research": "#/components/schemas/MessagesListResponse.DeepResearchAction",
+                    "verify_claim": "#/components/schemas/MessagesListResponse.VerifyClaimAction"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/MessagesListResponse.VerifyClaimAction"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MessagesListResponse.DeepResearchAction"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What a message sent on the user's behalf was",
+            "title": "Action"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -11162,6 +11587,52 @@
           "url"
         ],
         "title": "SourceResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.VerifyClaimAction": {
+        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+        "properties": {
+          "type": {
+            "const": "verify_claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Message Id"
+          },
+          "claim_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Claim Index"
+          },
+          "quote": {
+            "maxLength": 500,
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "quote"
+        ],
+        "title": "VerifyClaimAction",
         "type": "object"
       },
       "MessagesListResponse": {

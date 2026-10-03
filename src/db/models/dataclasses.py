@@ -94,6 +94,9 @@ class Message:
     grounding: dict[str, Any] | None = None
     # Deep research: {"offer": {...}} or {"run": {...}} (src/agent/deep_research/)
     research: dict[str, Any] | None = None
+    # A user message the app sent on the user's behalf: {"type": "verify_claim"
+    # | "deep_research", ...} (docs/features/deep-research.md "Action messages")
+    action: dict[str, Any] | None = None
 
 
 @dataclass

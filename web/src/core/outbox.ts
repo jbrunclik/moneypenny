@@ -11,7 +11,7 @@
  * otherwise → failed.
  */
 import { OUTBOX_PERSIST_MAX_FILE_CHARS, OUTBOX_STORAGE_KEY } from '../config';
-import type { DeepResearchStart, FileMetadata, FileUpload, Message } from '../types/api';
+import type { DeepResearchStart, FileMetadata, FileUpload, Message, MessageAction } from '../types/api';
 import { createLogger } from '../utils/logger';
 import { deleteOutboxFiles, loadOutboxFiles, saveOutboxFiles } from './outbox-files';
 
@@ -29,6 +29,8 @@ export interface OutboxEntry {
   createdAt: string;
   /** Starts a deep-research offer: a retry resends the plan */
   deepResearch?: DeepResearchStart;
+  /** What the message is, when the app sent it for the user */
+  action?: MessageAction;
   status: 'pending' | 'failed';
 }
 
@@ -195,6 +197,7 @@ export function outboxEntryToMessage(entry: OutboxEntry): Message {
     files: files.length ? files : undefined,
     created_at: entry.createdAt,
     status: entry.status,
+    action: entry.action,
   };
 }
 

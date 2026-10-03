@@ -9,7 +9,7 @@ import { chat } from '../api/chat';
 import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import { hideUploadProgress } from '../components/MessageInput';
-import type { ClientLocation, DeepResearchStart, FileUpload, StreamEvent } from '../types/api';
+import type { ClientLocation, FileUpload, SendExtras, StreamEvent } from '../types/api';
 import { setStopHandler } from './active-requests';
 import { clearInflightStream } from './inflight-streams';
 import { confirmDelivery, markSendFailed } from './send-delivery';
@@ -213,7 +213,7 @@ export async function sendStreamingMessage(
   anonymousMode: boolean,
   clientLocation: ClientLocation | null = null,
   rerunMode?: 'regenerate' | 'continue',
-  deepResearch?: DeepResearchStart
+  extras: SendExtras = {}
 ): Promise<void> {
   const hasFiles = files && files.length > 0;
   const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
@@ -227,7 +227,7 @@ export async function sendStreamingMessage(
   const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
 
   try {
-    await consumeStream(send, chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode, deepResearch));
+    await consumeStream(send, chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode, extras));
 
     // Handle stream ending without done event (connection dropped mid-stream)
     // The message may have been saved server-side, so try to recover it

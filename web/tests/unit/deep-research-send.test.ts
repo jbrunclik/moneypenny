@@ -58,7 +58,7 @@ describe('deep research send', () => {
       id: 'u1', content: 'Start deep research', files: [], forceTools: [], anonymousMode: false, deepResearch: PLAN,
     });
     expect(sendBatchMessage).not.toHaveBeenCalled();
-    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]).toEqual(PLAN);
+    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]?.deepResearch).toEqual(PLAN);
   });
 
   it('a plain entry still uses batch with streaming off', async () => {
@@ -71,11 +71,14 @@ describe('deep research send', () => {
     await startDeepResearch('m1', ['A?', 'B?'], 'ctx');
     const [, content, , , tempId] = vi.mocked(sendStreamingMessage).mock.calls[0];
     expect(content).toBe('Start deep research');
-    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]).toEqual(PLAN);
+    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]?.deepResearch).toEqual(PLAN);
     // A retry after a failure resends the plan (the entry carries it)
     expect(getOutboxEntry('c1', tempId)?.deepResearch).toEqual(PLAN);
     const userMsg = useStore.getState().getMessages('c1').find((m) => m.id === tempId);
     expect(userMsg?.content).toBe('Start deep research');
+    // The row renders as an action, linked to the offer
+    expect(userMsg?.action).toEqual({ type: 'deep_research', offer_message_id: 'm1', items: 2, minutes: 0 });
+    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]?.action).toEqual(userMsg?.action);
   });
 
   it('startDeepResearch waits while a reply is still running', async () => {

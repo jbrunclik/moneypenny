@@ -101,6 +101,8 @@ export interface Message {
   grounding?: GroundingSummary;
   /** Deep-research offer or run (server-set; src/agent/deep_research/) */
   research?: MessageResearch;
+  /** A user message the app sent on the user's behalf */
+  action?: MessageAction;
   created_at: string;
   /** Client-only send state; never sent by the server (absent = delivered) */
   status?: 'pending' | 'failed';
@@ -160,6 +162,31 @@ export interface DeepResearchStart {
   offer_message_id: string;
   sub_questions: string[];
   context: string;
+}
+
+/** Look it up on a claim card (source_message_id/claim_index null for converted old messages) */
+export interface VerifyClaimAction {
+  type: 'verify_claim';
+  source_message_id: string | null;
+  claim_index: number | null;
+  quote: string;
+}
+
+/** Start on a deep-research offer */
+export interface DeepResearchAction {
+  type: 'deep_research';
+  offer_message_id: string;
+  items: number;
+  minutes: number;
+}
+
+/** What a user message sent on the user's behalf was (rendered as an action row) */
+export type MessageAction = VerifyClaimAction | DeepResearchAction;
+
+/** What a send carries besides the text */
+export interface SendExtras {
+  deepResearch?: DeepResearchStart;
+  action?: MessageAction;
 }
 
 export type ClaimVerdict = 'supported' | 'partial' | 'not_found' | 'contradicted';

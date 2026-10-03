@@ -102,7 +102,8 @@ function start(card: HTMLElement, plan: string[], ctx: string): void {
   const messageId = card.dataset.messageId!;
   const offer = offersByCard.get(card);
   collapse(card, 'Deep research started');
-  void startDeepResearch(messageId, plan, ctx).then((sent) => {
+  const minutes = offer ? estimateFrom(offer.rates, plan.length).minutes : undefined;
+  void startDeepResearch(messageId, plan, ctx, { minutes }).then((sent) => {
     // Not sent (a reply is still running): the editor comes back
     if (sent === false && offer) fillEditor(card, offer);
   });
@@ -181,7 +182,10 @@ export function renderResearchOffer(
     collapse(card, 'Starting…');
     if (!autostarted.has(message.id)) {
       autostarted.add(message.id);
-      void startDeepResearch(message.id, offer.sub_questions, offer.context, { whenIdle: true });
+      void startDeepResearch(message.id, offer.sub_questions, offer.context, {
+        whenIdle: true,
+        minutes: estimateFrom(offer.rates, offer.sub_questions.length).minutes,
+      });
     }
     return;
   }

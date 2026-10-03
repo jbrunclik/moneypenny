@@ -193,6 +193,7 @@ class MessageMixin:
         annotations: list[dict[str, Any]] | None = None,
         grounding: dict[str, Any] | None = None,
         research: dict[str, Any] | None = None,
+        action: dict[str, Any] | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -213,6 +214,7 @@ class MessageMixin:
             annotations: Optional grounding-check claim annotations
             grounding: Optional grounding summary for the footer
             research: Optional deep-research offer or run data
+            action: What a user message sent on the user's behalf was
 
         Returns:
             The created Message
@@ -243,8 +245,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research, action)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -260,6 +262,7 @@ class MessageMixin:
                     _json_or_none(annotations),
                     _json_or_none(grounding),
                     _json_or_none(research),
+                    _json_or_none(action),
                 ),
             )
             # Update conversation's updated_at
@@ -288,6 +291,7 @@ class MessageMixin:
             annotations=annotations,
             grounding=grounding,
             research=research,
+            action=action,
         )
 
     def set_message_research(self, message_id: str, research: dict[str, Any] | None) -> None:

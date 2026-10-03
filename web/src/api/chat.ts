@@ -4,7 +4,7 @@
 import {
   type ChatResponse,
   type ClientLocation,
-  type DeepResearchStart,
+  type SendExtras,
   type ErrorResponse,
   type FileUpload,
   type StreamEvent,
@@ -27,7 +27,8 @@ export const chat = {
     anonymousMode?: boolean,
     clientLocation?: ClientLocation | null,
     clientMessageId?: string,
-    rerunMode?: 'regenerate' | 'continue'
+    rerunMode?: 'regenerate' | 'continue',
+    extras: SendExtras = {}
   ): Promise<ChatResponse> {
     // POST - no auto-retry here; the caller retries explicitly and the
     // client_message_id makes that idempotent (server dedupes with 409)
@@ -40,6 +41,7 @@ export const chat = {
       client_location: clientLocation ?? undefined,
       client_message_id: clientMessageId,
       rerun_mode: rerunMode,
+      action: extras.action,
     };
 
     // Use XHR with progress callback when files are attached
@@ -68,7 +70,7 @@ export const chat = {
     clientLocation?: ClientLocation | null,
     clientMessageId?: string,
     rerunMode?: 'regenerate' | 'continue',
-    deepResearch?: DeepResearchStart
+    extras: SendExtras = {}
   ): AsyncGenerator<StreamEvent> {
     log.debug('Starting stream', { conversationId, messageLength: message.length, fileCount: files?.length ?? 0 });
     const token = getToken();
@@ -104,7 +106,8 @@ export const chat = {
             client_location: clientLocation ?? undefined,
             client_message_id: clientMessageId,
             rerun_mode: rerunMode,
-            deep_research: deepResearch,
+            deep_research: extras.deepResearch,
+            action: extras.action,
           }),
           signal: controller.signal,
         }

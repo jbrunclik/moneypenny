@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -53,6 +53,28 @@ class DeepResearchStart(BaseModel):
     context: str = ""
 
 
+class VerifyClaimAction(BaseModel):
+    """Look it up on a claim card: verify one claim of an earlier answer."""
+
+    type: Literal["verify_claim"]
+    source_message_id: str | None = None
+    claim_index: int | None = Field(default=None, ge=0)
+    quote: str = Field(..., max_length=500)
+
+
+class DeepResearchAction(BaseModel):
+    """Start on a deep-research offer (the server fills it from the started plan)."""
+
+    type: Literal["deep_research"]
+    offer_message_id: str
+    items: int = Field(default=0, ge=0)
+    minutes: int = Field(default=0, ge=0)
+
+
+# What a user message sent on the user's behalf was (rendered as an action row)
+MessageAction = Annotated[VerifyClaimAction | DeepResearchAction, Field(discriminator="type")]
+
+
 class ResearchOfferUpdate(BaseModel):
     """The user's decision on an offer (starting goes through the chat stream)."""
 
@@ -78,6 +100,9 @@ class ChatRequest(BaseModel):
     rerun_mode: Literal["regenerate", "continue"] | None = Field(default=None)
     deep_research: DeepResearchStart | None = Field(
         default=None, description="Run deep research from this offer (stream endpoint only)"
+    )
+    action: MessageAction | None = Field(
+        default=None, description="What this message is, when the app sent it for the user"
     )
 
     @field_validator("client_message_id")
@@ -172,6 +197,9 @@ class MessageResponse(BaseModel):
     grounding: GroundingSummaryResponse | None = None
     research: dict[str, Any] | None = Field(
         default=None, description="Deep-research offer ({offer}) or run ({run}) data"
+    )
+    action: MessageAction | None = Field(
+        default=None, description="What a message sent on the user's behalf was"
     )
     created_at: str
 
