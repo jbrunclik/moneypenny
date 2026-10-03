@@ -235,7 +235,7 @@ them with the `messages.research` column.
   events; the batch endpoint is never used for it.
 - **Frontend**: offer editor (add / edit / remove, context, live estimate, limits,
   autostart), progress panel states and feed, Finish now, the chip.
-- **E2E**: a per-test hook with a canned pipeline - offer → edit → Spustit →
+- **E2E**: a per-test hook with a canned pipeline - offer → edit → Start →
   progress → report with numbers → follow-up offer; reload mid-run; streaming off
   still streams; mobile 390 px. Visual baselines for card, panel and chip.
 - **Evals**: `deep_research_offer_precision` (a simple fact gets no offer),
