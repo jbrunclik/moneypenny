@@ -192,6 +192,7 @@ class MessageMixin:
         stop_reason: str | None = None,
         annotations: list[dict[str, Any]] | None = None,
         grounding: dict[str, Any] | None = None,
+        research: dict[str, Any] | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -211,6 +212,7 @@ class MessageMixin:
             stop_reason: "user" when the user pressed Stop (partial reply kept)
             annotations: Optional grounding-check claim annotations
             grounding: Optional grounding summary for the footer
+            research: Optional deep-research offer or run data
 
         Returns:
             The created Message
@@ -241,8 +243,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -257,6 +259,7 @@ class MessageMixin:
                     stop_reason,
                     _json_or_none(annotations),
                     _json_or_none(grounding),
+                    _json_or_none(research),
                 ),
             )
             # Update conversation's updated_at
@@ -284,7 +287,31 @@ class MessageMixin:
             tool_outputs=tool_outputs,
             annotations=annotations,
             grounding=grounding,
+            research=research,
         )
+
+    def set_message_research(self, message_id: str, research: dict[str, Any] | None) -> None:
+        """Replace a message's deep-research data (offer status changes)."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "UPDATE messages SET research = ? WHERE id = ?",
+                (_json_or_none(research), message_id),
+            )
+            conn.commit()
+
+    def find_open_research_offers(self, conversation_id: str) -> list[Message]:
+        """Messages in a conversation whose deep-research offer is still open
+        (an initial offer, or a report's follow-up offer)."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM messages WHERE conversation_id = ? AND research IS NOT NULL
+                   AND (json_extract(research, '$.offer.status') = 'offered'
+                        OR json_extract(research, '$.run.followup.status') = 'offered')""",
+                (conversation_id,),
+            ).fetchall()
+        return [row_to_message(row) for row in rows]
 
     def _schedule_message_embedding(
         self, message_id: str, conversation_id: str, content: str
@@ -358,6 +385,7 @@ class MessageMixin:
         stop_reason: str | None = None,
         annotations: list[dict[str, Any]] | None = None,
         grounding: dict[str, Any] | None = None,
+        research: dict[str, Any] | None = None,
     ) -> Message | None:
         """Update an existing message's content fields.
 
@@ -375,6 +403,7 @@ class MessageMixin:
             stop_reason: "user" when the user pressed Stop (partial reply kept)
             annotations: Optional grounding-check claim annotations
             grounding: Optional grounding summary for the footer
+            research: Optional deep-research offer or run data
 
         Returns:
             The updated Message, or None if the message no longer exists
@@ -391,7 +420,8 @@ class MessageMixin:
                 conn,
                 """UPDATE messages
                    SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?,
-                       tool_outputs = ?, stop_reason = ?, annotations = ?, grounding = ?
+                       tool_outputs = ?, stop_reason = ?, annotations = ?, grounding = ?,
+                       research = ?
                    WHERE id = ?""",
                 (
                     content,
@@ -403,6 +433,7 @@ class MessageMixin:
                     stop_reason,
                     _json_or_none(annotations),
                     _json_or_none(grounding),
+                    _json_or_none(research),
                     message_id,
                 ),
             )

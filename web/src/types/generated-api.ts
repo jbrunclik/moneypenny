@@ -7758,6 +7758,14 @@ export interface components {
             annotations: components["schemas"]["PlannerConversationResponse.ClaimAnnotationResponse"][] | null;
             /** @default null */
             grounding: components["schemas"]["PlannerConversationResponse.GroundingSummaryResponse"] | null;
+            /**
+             * Research
+             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @default null
+             */
+            research: {
+                [key: string]: unknown;
+            } | null;
             /** Created At */
             created_at: string;
         };
@@ -7955,6 +7963,14 @@ export interface components {
             annotations: components["schemas"]["MessageResponse.ClaimAnnotationResponse"][] | null;
             /** @default null */
             grounding: components["schemas"]["MessageResponse.GroundingSummaryResponse"] | null;
+            /**
+             * Research
+             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @default null
+             */
+            research: {
+                [key: string]: unknown;
+            } | null;
             /** Created At */
             created_at: string;
         };
@@ -8579,6 +8595,14 @@ export interface components {
             annotations: components["schemas"]["ConversationDetailPaginatedResponse.ClaimAnnotationResponse"][] | null;
             /** @default null */
             grounding: components["schemas"]["ConversationDetailPaginatedResponse.GroundingSummaryResponse"] | null;
+            /**
+             * Research
+             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @default null
+             */
+            research: {
+                [key: string]: unknown;
+            } | null;
             /** Created At */
             created_at: string;
         };
@@ -9112,6 +9136,14 @@ export interface components {
             annotations: components["schemas"]["MessagesListResponse.ClaimAnnotationResponse"][] | null;
             /** @default null */
             grounding: components["schemas"]["MessagesListResponse.GroundingSummaryResponse"] | null;
+            /**
+             * Research
+             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @default null
+             */
+            research: {
+                [key: string]: unknown;
+            } | null;
             /** Created At */
             created_at: string;
         };
@@ -9328,6 +9360,14 @@ export interface components {
             annotations: components["schemas"]["ChatBatchResponse.ClaimAnnotationResponse"][] | null;
             /** @default null */
             grounding: components["schemas"]["ChatBatchResponse.GroundingSummaryResponse"] | null;
+            /**
+             * Research
+             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @default null
+             */
+            research: {
+                [key: string]: unknown;
+            } | null;
             /** Created At */
             created_at: string;
             /**

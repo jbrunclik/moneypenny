@@ -92,6 +92,8 @@ class Message:
     # source_quote?}) and the footer summary; None when never checked
     annotations: list[dict[str, Any]] | None = None
     grounding: dict[str, Any] | None = None
+    # Deep research: {"offer": {...}} or {"run": {...}} (src/agent/deep_research/)
+    research: dict[str, Any] | None = None
 
 
 @dataclass

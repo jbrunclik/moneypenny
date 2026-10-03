@@ -27,6 +27,7 @@ def row_to_message(row: sqlite3.Row) -> Message:
         stop_reason=row["stop_reason"] if "stop_reason" in row.keys() else None,
         annotations=_json_column(row, "annotations"),
         grounding=_json_column(row, "grounding"),
+        research=_json_column(row, "research"),
     )
 
 

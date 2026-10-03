@@ -107,6 +107,13 @@ def _add_grounding(data: dict[str, Any], msg: Any) -> None:
         data["grounding"] = getattr(msg, "grounding", None)
 
 
+def _add_research(data: dict[str, Any], msg: Any) -> None:
+    """Deep-research offer or run data, when the message has it."""
+    research = getattr(msg, "research", None)
+    if research:
+        data["research"] = research
+
+
 def build_chat_response(
     assistant_msg: Any,
     content: str,
@@ -158,6 +165,7 @@ def build_chat_response(
     if stop_reason:
         response_data["stop_reason"] = stop_reason
     _add_grounding(response_data, assistant_msg)
+    _add_research(response_data, assistant_msg)
 
     return response_data
 
@@ -233,6 +241,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
         if m.stop_reason:
             msg_data["stop_reason"] = m.stop_reason
         _add_grounding(msg_data, m)
+        _add_research(msg_data, m)
 
         optimized_messages.append(msg_data)
     return optimized_messages
@@ -289,6 +298,7 @@ def build_stream_done_event(
     if stop_reason:
         done_data["stop_reason"] = stop_reason
     _add_grounding(done_data, assistant_msg)
+    _add_research(done_data, assistant_msg)
 
     return done_data
 

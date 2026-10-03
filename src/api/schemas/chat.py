@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -153,6 +153,9 @@ class MessageResponse(BaseModel):
     )
     annotations: list[ClaimAnnotationResponse] | None = None
     grounding: GroundingSummaryResponse | None = None
+    research: dict[str, Any] | None = Field(
+        default=None, description="Deep-research offer ({offer}) or run ({run}) data"
+    )
     created_at: str
 
 
@@ -177,6 +180,9 @@ class ChatBatchResponse(BaseModel):
     )
     annotations: list[ClaimAnnotationResponse] | None = None
     grounding: GroundingSummaryResponse | None = None
+    research: dict[str, Any] | None = Field(
+        default=None, description="Deep-research offer ({offer}) or run ({run}) data"
+    )
     created_at: str
     title: str | None = Field(
         default=None, description="Auto-generated conversation title (first message only)"

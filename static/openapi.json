@@ -8318,6 +8318,20 @@
             ],
             "default": null
           },
+          "research": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "title": "Research"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -8731,6 +8745,20 @@
               }
             ],
             "default": null
+          },
+          "research": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "title": "Research"
           },
           "created_at": {
             "title": "Created At",
@@ -9903,6 +9931,20 @@
             ],
             "default": null
           },
+          "research": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "title": "Research"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -10952,6 +10994,20 @@
             ],
             "default": null
           },
+          "research": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "title": "Research"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -11389,6 +11445,20 @@
               }
             ],
             "default": null
+          },
+          "research": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "title": "Research"
           },
           "created_at": {
             "title": "Created At",
