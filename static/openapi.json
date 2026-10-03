@@ -4352,6 +4352,76 @@
         "description": "Send a message and stream the response via Server-Sent Events.\n\nReturns text/event-stream with the following event types:\n- `thinking`: LLM thinking text (if enabled) - `{\"type\": \"thinking\", \"text\": \"...\"}`\n- `tool_start`: Tool starting - `{\"type\": \"tool_start\", \"tool\": \"web_search\", \"detail\": \"...\"}`\n- `tool_end`: Tool completed - `{\"type\": \"tool_end\", \"tool\": \"web_search\"}`\n- `token`: Content token - `{\"type\": \"token\", \"text\": \"...\"}`\n- `error`: Error occurred - `{\"type\": \"error\", \"message\": \"...\", \"code\": \"...\", \"retryable\": bool}`\n- `done`: Stream complete with metadata - `{\"type\": \"done\", \"id\": \"...\", \"created_at\": \"...\", ...}`\n\nUses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.\n"
       }
     },
+    "/api/messages/{message_id}/research-offer": {
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Decline a deep-research offer (starting one goes through the chat stream)."
+      }
+    },
     "/api/conversations/{conv_id}/anonymous-mode": {
       "patch": {
         "parameters": [

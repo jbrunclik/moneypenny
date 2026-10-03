@@ -8,10 +8,10 @@ from typing import Any
 
 from flask import request
 
-from src.api.errors import raise_not_found_error
+from src.api.errors import raise_conflict_error, raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
-from src.api.schemas.chat import MessageResponse
+from src.api.schemas.chat import MessageResponse, ResearchOfferUpdate
 from src.api.schemas.common import PaginationDirection, StatusResponse
 from src.api.schemas.conversations import (
     MessagesListResponse,
@@ -72,6 +72,30 @@ def get_message(user: User, message_id: str) -> tuple[dict[str, Any], int]:
 
     logger.debug("Message retrieved", extra={"user_id": user.id, "message_id": message_id})
     return response, 200
+
+
+@api.route("/messages/<message_id>/research-offer", methods=["PATCH"])
+@api.output(StatusResponse)
+@api.doc(responses=[400, 404, 409, 429])
+@rate_limit_conversations
+@require_auth
+@validate_request(ResearchOfferUpdate)
+def update_research_offer(
+    user: User, data: ResearchOfferUpdate, message_id: str
+) -> tuple[dict[str, str], int]:
+    """Decline a deep-research offer (starting one goes through the chat stream)."""
+    from src.agent.deep_research.plan import OfferConflict, OfferNotFound, decline_offer
+
+    message = db.get_message_by_id(message_id)
+    if not message or not db.get_conversation(message.conversation_id, user.id):
+        raise_not_found_error("Message")
+    try:
+        decline_offer(message)
+    except OfferNotFound:
+        raise_not_found_error("Research offer")
+    except OfferConflict as e:
+        raise_conflict_error(str(e))
+    return {"status": data.status}, 200
 
 
 @api.route("/conversations/<conv_id>/truncate", methods=["POST"])

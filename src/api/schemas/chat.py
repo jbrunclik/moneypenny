@@ -45,6 +45,20 @@ class InterjectRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
 
 
+class DeepResearchStart(BaseModel):
+    """Start a deep-research run from an offer, with the user's final plan."""
+
+    offer_message_id: str
+    sub_questions: list[str] = Field(default_factory=list)
+    context: str = ""
+
+
+class ResearchOfferUpdate(BaseModel):
+    """The user's decision on an offer (starting goes through the chat stream)."""
+
+    status: Literal["declined"]
+
+
 class ChatRequest(BaseModel):
     """Schema for POST /api/conversations/<conv_id>/chat/batch and /chat/stream.
 
@@ -62,6 +76,9 @@ class ChatRequest(BaseModel):
     # "regenerate" (after the client deleted the last assistant message) or
     # "continue" (finish a truncated/stopped response)
     rerun_mode: Literal["regenerate", "continue"] | None = Field(default=None)
+    deep_research: DeepResearchStart | None = Field(
+        default=None, description="Run deep research from this offer (stream endpoint only)"
+    )
 
     @field_validator("client_message_id")
     @classmethod

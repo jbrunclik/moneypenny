@@ -12,7 +12,12 @@ from flask import Response, request
 
 from src.agent.cancellation import request_stop
 from src.agent.interjection import save_interjection
-from src.api.errors import raise_llm_error, raise_not_found_error, raise_server_error
+from src.api.errors import (
+    raise_llm_error,
+    raise_not_found_error,
+    raise_server_error,
+    raise_validation_error,
+)
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.chat_turn import build_turn_context, prepare_turn
 from src.api.rate_limiting import rate_limit_chat
@@ -50,6 +55,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     - force_tools: list[str] (optional) - list of tool names to force (e.g. ["web_search"])
     """
     logger.info("Batch chat request", extra={"user_id": user.id, "conversation_id": conv_id})
+    if data.deep_research:
+        # A multi-minute run cannot live in one HTTP request; the stream has resume
+        raise_validation_error("Deep research runs on the stream endpoint", field="deep_research")
     turn = prepare_turn(user, data, conv_id)
     ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
     ctx.apply()

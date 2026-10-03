@@ -19,6 +19,13 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from src.agent.agent import ChatAgent, _planner_dashboard_context
+from src.agent.deep_research.offer import PlanError
+from src.agent.deep_research.plan import (
+    DeepResearchPlan,
+    OfferConflict,
+    OfferNotFound,
+    start_plan,
+)
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.history import enrich_history
@@ -33,7 +40,7 @@ from src.agent.tools import (
 )
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.program_context import load_language_context, load_sports_context
-from src.api.schemas.chat import ChatRequest
+from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.common import MessageRole
 from src.config import Config
 from src.db.models import Conversation, Message, User, db
@@ -64,6 +71,7 @@ class PreparedTurn:
     force_tools: list[str] | None
     anonymous_mode: bool
     client_location: dict[str, Any] | None
+    deep_research: DeepResearchPlan | None = None
 
 
 def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
@@ -91,6 +99,10 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
         },
     )
 
+    # Validated (and the offer marked started) before the user message is
+    # saved: an unrunnable plan must leave nothing behind
+    plan = _start_deep_research(conv_id, data.deep_research) if data.deep_research else None
+
     if data.rerun_mode:
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
     else:
@@ -111,7 +123,20 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
         force_tools=data.force_tools,
         anonymous_mode=anonymous_mode,
         client_location=data.client_location.model_dump() if data.client_location else None,
+        deep_research=plan,
     )
+
+
+def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearchPlan:
+    """The run's plan, or the matching API error."""
+    try:
+        return start_plan(conv_id, start.offer_message_id, start.sub_questions, start.context)
+    except PlanError as e:
+        raise_validation_error(str(e), field="deep_research")
+    except OfferNotFound:
+        raise_not_found_error("Research offer")
+    except OfferConflict as e:
+        raise_conflict_error(str(e))
 
 
 def _get_chat_conversation(user: User, conv_id: str) -> Conversation:
@@ -245,6 +270,8 @@ class TurnContext:
     # the AgentContext permission checks and kv_store read
     agent_context: dict[str, Any] | None = None
     agent_execution_context: AgentContext | None = None
+    # Set for a deep-research turn (the stream producer runs the pipeline)
+    deep_research: DeepResearchPlan | None = None
 
     @property
     def is_autonomous(self) -> bool:
@@ -333,6 +360,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         force_tools=turn.force_tools,
         anonymous_mode=turn.anonymous_mode,
         client_location=turn.client_location,
+        deep_research=turn.deep_research,
         is_planning=conv.is_planning,
     )
     if conv.is_planning:
