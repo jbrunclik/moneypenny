@@ -149,7 +149,7 @@ model ([grounding_check.py](../../src/agent/grounding_check.py), design:
   not descriptions), are kept; if 3+ kept items are bare times or time ranges
   they are the answer's own timeline and are dropped (Lite flags them despite
   the prompt).
-- **Markers**: [grounding_markers.py](../../src/agent/grounding_markers.py)
+- **Annotations**: [grounding_annotations.py](../../src/agent/grounding_annotations.py) (claim validation), [source_pages.py](../../src/agent/source_pages.py) (numbered pages)
   deterministically inserts `_(neověřeno)_` (Czech) or `_(unverified)_` (any
   other language) after each item at every occurrence, after closing emphasis,
   inside table cells, and at the end of each false-claim sentence. Link
@@ -197,7 +197,7 @@ Pitfalls learned:
   from the system prompt) under a fully sourced answer.
 
 Tests: [test_grounding_check.py](../../tests/unit/test_grounding_check.py),
-[test_grounding_markers.py](../../tests/unit/test_grounding_markers.py),
+[test_grounding_annotations.py](../../tests/unit/test_grounding_annotations.py),
 [test_grounding_hooks.py](../../tests/unit/test_grounding_hooks.py),
 [test_grounding_cost.py](../../tests/unit/test_grounding_cost.py).
 

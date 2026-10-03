@@ -7,43 +7,43 @@ import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 
 from src.agent import grounding_check
-from src.agent.grounding_check import GroundingResult, apply_grounding
+from src.agent.grounding_check import GroundingOutcome, apply_grounding
 from src.config import Config
 
 _USAGE = {"model": "m", "input_tokens": 10, "output_tokens": 2, "cached_input_tokens": 0}
 _ANSWER = "Buy it at VeloRama, it is a good shop."
 
 
+_ANNS = [{"type": "claim", "verdict": "not_found", "quote": "VeloRama", "prefix": "Buy it at "}]
+_SUMMARY = {"checked": True, "source_count": 2}
+
+
 @pytest.fixture
 def flag(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     monkeypatch.setattr(Config, "GROUNDING_CHECK_ENABLED", True)
     fake = MagicMock(
-        return_value=GroundingResult(
-            items=["VeloRama"],
-            kinds=["business"],
-            false_claims=["it is a good shop."],
-            usage=_USAGE,
-        )
+        return_value=GroundingOutcome(annotations=_ANNS, summary=_SUMMARY, usage=_USAGE)
     )
-    monkeypatch.setattr(grounding_check, "find_unverified", fake)
+    monkeypatch.setattr(grounding_check, "check_grounding", fake)
+    monkeypatch.setattr(grounding_check, "should_check", MagicMock(return_value=True))
     return fake
 
 
 class TestApplyGrounding:
-    def test_marks_in_place_and_records_usage(self, flag: MagicMock) -> None:
+    def test_records_annotations_and_usage_without_touching_text(self, flag: MagicMock) -> None:
         usage_info: dict[str, Any] = {"input_tokens": 1}
 
-        text = apply_grounding(_ANSWER, [], usage_info)
-
-        assert text == "Buy it at VeloRama _(unverified)_, it is a good shop. _(unverified)_"
+        assert apply_grounding(_ANSWER, [], usage_info) is None
+        assert usage_info["grounding"] == {"annotations": _ANNS, "summary": _SUMMARY}
         assert usage_info["grounding_usage"] == _USAGE
 
-    def test_nothing_flagged_leaves_text_and_usage(self, flag: MagicMock) -> None:
-        flag.return_value = GroundingResult()
+    def test_no_claims_records_nothing(self, flag: MagicMock) -> None:
+        flag.return_value = GroundingOutcome(annotations=[], summary=None, usage=None)
         usage_info: dict[str, Any] = {}
 
-        assert apply_grounding("All supported.", [], usage_info) == "All supported."
-        assert "grounding_usage" not in usage_info
+        apply_grounding("All supported.", [], usage_info)
+
+        assert usage_info == {}
 
     def test_passes_stop_reason_through(self, flag: MagicMock) -> None:
         apply_grounding("x", [], {}, stop_reason="user")
@@ -62,7 +62,7 @@ class TestAgentHooks:
         agent._build_messages = MagicMock(return_value=[])  # type: ignore[method-assign]
         return agent
 
-    def test_batch_answer_carries_the_markers(self, flag: MagicMock) -> None:
+    def test_batch_answer_is_unchanged_and_carries_annotations(self, flag: MagicMock) -> None:
         agent = self._agent()
         agent.graph.invoke.return_value = {
             "messages": [
@@ -73,10 +73,13 @@ class TestAgentHooks:
 
         response, _tools, usage_info, _msgs = agent.chat_batch(text="where?")
 
-        assert response.startswith("Buy it at VeloRama _(unverified)_,")
+        assert response == _ANSWER
+        assert usage_info["grounding"]["annotations"] == _ANNS
         assert usage_info["grounding_usage"] == _USAGE
 
-    def test_stream_final_carries_the_markers(self, flag: MagicMock) -> None:
+    def test_stream_announces_the_check_and_final_carries_annotations(
+        self, flag: MagicMock
+    ) -> None:
         agent = self._agent()
         events = [
             (
@@ -87,7 +90,11 @@ class TestAgentHooks:
         ]
         agent.graph.stream.return_value = iter(("messages", e) for e in events)
 
-        final = [e for e in agent.stream_chat_events(text="where?") if e["type"] == "final"][0]
+        yielded = list(agent.stream_chat_events(text="where?"))
+        types = [e["type"] for e in yielded]
+        final = yielded[types.index("final")]
 
-        assert final["content"].startswith("Buy it at VeloRama _(unverified)_,")
+        assert types.index("grounding_started") < types.index("final")
+        assert final["content"] == _ANSWER
+        assert final["usage_info"]["grounding"]["annotations"] == _ANNS
         assert final["usage_info"]["grounding_usage"] == _USAGE

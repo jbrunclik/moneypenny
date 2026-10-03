@@ -403,18 +403,13 @@ class Config:
     # `or` (not a getenv default): a copied .env.example sets it to "".
     DELEGATE_MODEL: str = os.getenv("DELEGATE_MODEL") or DEFAULT_MODEL
     # Post-answer grounding check (src/agent/grounding_check.py): after a turn
-    # that used web tools, a cheap model lists answer specifics the turn's
-    # sources don't support, and they are marked in place.
+    # that used web tools, a cheap model judges every specific claim against the
+    # pages the turn read; the claims are stored as annotations beside the answer.
     GROUNDING_CHECK_ENABLED: bool = os.getenv("GROUNDING_CHECK_ENABLED", "true").lower() == "true"
     GROUNDING_CHECK_MODEL: str = os.getenv("GROUNDING_CHECK_MODEL") or "gemini-3.5-flash-lite"
     GROUNDING_CHECK_MAX_SOURCE_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")
     )
-    GROUNDING_CHECK_MAX_ITEMS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEMS", "8"))
-    GROUNDING_CHECK_MAX_FALSE_CLAIMS: int = int(os.getenv("GROUNDING_CHECK_MAX_FALSE_CLAIMS", "3"))
-    # Items are names/prices/dates; anything longer is a description or a
-    # sentence the verifier mis-filed (only false claims may be sentences)
-    GROUNDING_CHECK_MAX_ITEM_CHARS: int = int(os.getenv("GROUNDING_CHECK_MAX_ITEM_CHARS", "40"))
     # Claims the verifier may return per answer (supported ones included)
     GROUNDING_CHECK_MAX_CLAIMS: int = int(os.getenv("GROUNDING_CHECK_MAX_CLAIMS", "20"))
     # Longer "quotes" are sentences, not claims
