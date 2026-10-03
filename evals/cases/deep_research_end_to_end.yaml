@@ -17,5 +17,6 @@ expect:
     rating). It contains at least one comparison table. Nearly all specifics
     are backed by the pages the run read (the cited sources list is not empty;
     at most two claims marked UNSOURCED by the grounding check), and it ends
-    with what stays open or uncertain. It must not invent citation markers or
-    a source list of its own.
+    with what stays open or uncertain. (Bracketed UNSOURCED / source tags in
+    the response are added by the harness from the grounding check, not
+    written by the assistant.)
