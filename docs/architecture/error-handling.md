@@ -138,7 +138,9 @@ outbox:
    re-throw failures to it.
 2. `handleSendFailure()` classifies the error: a **409** means an earlier attempt already
    landed (`client_message_id` dedupe) - confirm delivery and keep refetching on
-   `SEND_CONFLICT_REPLY_POLL_DELAYS_MS` (spinner up) until a reply follows the message.
+   `SEND_CONFLICT_REPLY_POLL_DELAYS_MS` (`waitForReplyTo` in
+   [reply-wait.ts](../../web/src/core/reply-wait.ts), spinner restored after each re-render)
+   until a reply follows the message.
    The original turn is often still running: a single refetch left the message with no
    reply and no spinner, and users resent it (Oct 2026 log check); an abort marks the
    message failed; a transient network error or connect timeout gets **one silent

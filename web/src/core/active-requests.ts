@@ -9,6 +9,7 @@
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { clearAllInflightStreams } from './inflight-streams';
+import { clearAllInflightBatches } from './batch-resume';
 
 const log = createLogger('messaging');
 
@@ -59,6 +60,7 @@ export function abortAllStreamingRequests(): void {
     activeRequests.delete(requestId);
   }
   clearAllInflightStreams();
+  clearAllInflightBatches();
 }
 
 /**

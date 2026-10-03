@@ -144,7 +144,7 @@ import { sendMessage } from '@/core/messaging';
 import { chat } from '@/api/chat';
 import { conversations } from '@/api/conversations';
 import { toast } from '@/components/Toast';
-import { hideLoadingIndicator } from '@/components/messages';
+import { hideLoadingIndicator, renderMessages, showLoadingIndicator } from '@/components/messages';
 import { ApiError } from '@/api/http';
 
 const CONV_ID = 'conv-1';
@@ -341,6 +341,37 @@ describe('messaging keeps the store authoritative', () => {
       const hideOrder = vi.mocked(hideLoadingIndicator).mock.invocationCallOrder.at(-1) ?? 0;
       const lastGet = vi.mocked(conversations.get).mock.invocationCallOrder.at(-1) ?? 0;
       expect(hideOrder).toBeGreaterThan(lastGet);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('puts the spinner back after a 409 refetch re-renders without a reply', async () => {
+    // renderMessages clears #messages, spinner included: a refetch that finds
+    // no reply yet must restore it, or the message sits there looking dead
+    vi.useFakeTimers();
+    try {
+      useStore.setState({ streamingEnabled: false });
+      vi.mocked(chat.sendBatch).mockRejectedValue(new ApiError('Already received', 409));
+      const userOnly = () => useStore.getState().getMessages(CONV_ID).filter((m) => m.role === 'user');
+      const reply = { id: 'assistant-9', role: 'assistant', content: 'Done', created_at: '2024-01-01T00:00:09Z' };
+      const page = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 2 };
+      vi.mocked(conversations.get)
+        .mockImplementationOnce(async () => ({ ...conversation(), messages: userOnly(), message_pagination: page }) as never)
+        .mockImplementation(
+          async () => ({ ...conversation(), messages: [...userOnly(), reply], message_pagination: page }) as never
+        );
+
+      const sent = sendMessage();
+      await vi.runAllTimersAsync();
+      await sent;
+
+      const firstRender = vi.mocked(renderMessages).mock.invocationCallOrder[0] ?? Infinity;
+      const secondGet = vi.mocked(conversations.get).mock.invocationCallOrder[1] ?? 0;
+      const shownBetween = vi
+        .mocked(showLoadingIndicator)
+        .mock.invocationCallOrder.some((order) => order > firstRender && order < secondGet);
+      expect(shownBetween).toBe(true);
     } finally {
       vi.useRealTimers();
     }

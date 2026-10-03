@@ -286,6 +286,8 @@ A message send used to be pure optimism: a DOM-only bubble, no store entry, noth
 
 **Failure UX.** Failed bubbles stay in place with inline "Not sent — Retry / Discard" actions ([components/messages/send-state.ts](../../web/src/components/messages/send-state.ts), dispatching `outbox:retry`/`outbox:discard` CustomEvents handled in [rerun.ts](../../web/src/core/rerun.ts)). Transient failures (network error, connect timeout) get **one silent auto-retry** after `SEND_AUTO_RETRY_DELAY_MS` before surfacing. Attachments over `OUTBOX_PERSIST_MAX_FILE_CHARS` aren't persisted to localStorage — a reload keeps the text but drops the files (`filesDropped`, warned on retry).
 
+**Batch turns across a reload** ([core/batch-resume.ts](../../web/src/core/batch-resume.ts)). The batch endpoint saves the user message before the agent runs and finishes the turn after the client is gone, so a page that died mid-turn (iPhone PWA suspended or reloaded) reloads to the message with no reply — and users resent it (Oct 2026 prod logs). `sendBatchMessage` persists `{messageId, ts}` per conversation under `inflight-batch-turns` before the request; `switchToConversation` calls `resumeInflightBatchIfAny`, which shows the spinner and polls with `waitForReplyTo` ([core/reply-wait.ts](../../web/src/core/reply-wait.ts), shared with the 409 path) until the reply lands. The entry is cleared on a response or an HTTP error, but **kept on a network error or timeout**: a reload rejects the in-flight fetch *before* unload, so clearing in `finally` erased it every time. Every poll re-renders, and `renderMessages` clears `#messages` spinner included — `waitForReplyTo` puts the spinner back while no reply follows the message.
+
 **Invariants:**
 
 - The double-send guard (`getActiveRequest`) must run **before** the optimistic render in `sendMessage` — a bubble with no request behind it is exactly the original bug.
@@ -378,6 +380,7 @@ The send path is split by responsibility in `web/src/core/`:
 | [stream-send.ts](../../web/src/core/stream-send.ts) / [batch-send.ts](../../web/src/core/batch-send.ts) | `sendStreamingMessage()` / `sendBatchMessage()`: one turn in each mode |
 | [stream-session.ts](../../web/src/core/stream-session.ts), [stream-events.ts](../../web/src/core/stream-events.ts), [stream-done.ts](../../web/src/core/stream-done.ts) | Per-stream state, per-event handling, the terminal `done` event |
 | [stream-resume.ts](../../web/src/core/stream-resume.ts), [stream-recovery.ts](../../web/src/core/stream-recovery.ts), [inflight-streams.ts](../../web/src/core/inflight-streams.ts) | Journal resume, poll recovery, reload-resume |
+| [batch-resume.ts](../../web/src/core/batch-resume.ts), [reply-wait.ts](../../web/src/core/reply-wait.ts) | Batch reload-resume, polling for a delivered message's reply |
 | [send-delivery.ts](../../web/src/core/send-delivery.ts), [outbox.ts](../../web/src/core/outbox.ts) | Delivery state (`confirmDelivery`, `markSendFailed`, auto-retry claim) and the persisted outbox |
 | [active-requests.ts](../../web/src/core/active-requests.ts) | AbortControllers per in-flight request (stop button, logout) |
 | [rerun.ts](../../web/src/core/rerun.ts) | Actions on already-sent messages (below) |

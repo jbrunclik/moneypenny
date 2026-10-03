@@ -27,6 +27,7 @@ import { notifyTurnFinished } from './attention';
 import { trackRequest, untrackRequest } from './active-requests';
 import { confirmDelivery, markSendFailed } from './send-delivery';
 import { scrollToBatchReply } from './response-scroll';
+import { clearInflightBatch, persistInflightBatch } from './batch-resume';
 
 const log = createLogger('messaging');
 
@@ -152,6 +153,8 @@ export async function sendBatchMessage(
   const requestId = `batch-${convId}-${Date.now()}`;
   const hasFiles = files && files.length > 0;
   beginBatchRequest(convId, requestId, hasFiles);
+  // Survives the page: a reload mid-turn waits for this message's reply
+  if (!rerunMode) persistInflightBatch(convId, tempUserMessageId);
 
   try {
     // Pass progress callback for requests with files
@@ -170,10 +173,16 @@ export async function sendBatchMessage(
     // had already finished, so it was stored but never answered.
     untrackRequest(requestId);
     useStore.getState().removeActiveRequest(convId);
+    clearInflightBatch(convId, tempUserMessageId);
 
     await completeBatchTurn(convId, tempUserMessageId, response);
   } catch (error) {
     hideBatchProgress();
+    // A dropped connection may be the page going away (reload, iOS killing
+    // the PWA) - the fetch rejects before unload. Keep the entry for the next
+    // load; it reconciles against the server either way.
+    const dropped = error instanceof ApiError && (error.isNetworkError || error.isTimeout);
+    if (!dropped) clearInflightBatch(convId, tempUserMessageId);
 
     // 409 = delivered by a previous attempt; propagate for reconciliation
     if (error instanceof ApiError && error.status === 409) {

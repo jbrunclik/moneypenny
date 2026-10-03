@@ -7,7 +7,7 @@
  */
 
 import { useStore } from '../state/store';
-import { SEND_AUTO_RETRY_DELAY_MS, SEND_CONFLICT_REPLY_POLL_DELAYS_MS } from '../config';
+import { SEND_AUTO_RETRY_DELAY_MS } from '../config';
 import { createLogger } from '../utils/logger';
 import { conversations } from '../api/conversations';
 import { ApiError } from '../api/http';
@@ -18,7 +18,6 @@ import {
 } from '../components/Sidebar';
 import {
   addMessageToUI,
-  renderMessages,
   hideLoadingIndicator,
   hasPendingApproval,
   loadAllRemainingNewerMessages,
@@ -45,7 +44,6 @@ import {
   addOutboxEntry,
   getOutboxEntry,
   markOutboxPending,
-  reconcileOutboxWithServer,
 } from './outbox';
 import { getClientLocation } from './location';
 import { resetForceTools } from './toolbar';
@@ -53,6 +51,7 @@ import { claimAutoRetry, confirmDelivery, markSendFailed } from './send-delivery
 import { sendStreamingMessage } from './stream-send';
 import { sendBatchMessage } from './batch-send';
 import { interjectIntoActiveTurn } from './steering';
+import { waitForReplyTo } from './reply-wait';
 
 const log = createLogger('messaging');
 
@@ -422,7 +421,7 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
   if (error instanceof ApiError && error.status === 409) {
     log.info('Send already delivered (409), reconciling', { conversationId: convId, messageId });
     confirmDelivery(convId, messageId);
-    await waitForReconciledReply(convId, messageId);
+    await waitForReplyTo(convId, messageId);
     hideLoadingIndicator();
     return;
   }
@@ -452,38 +451,4 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
 
   markSendFailed(convId, messageId);
   toastSendError(error);
-}
-
-/**
- * Refetch until the server has a reply to `messageId`, or the poll schedule
- * runs out (the next sync then picks the reply up).
- */
-async function waitForReconciledReply(convId: string, messageId: string): Promise<void> {
-  if (await refreshConversationMessages(convId, messageId)) return;
-  for (const delayMs of SEND_CONFLICT_REPLY_POLL_DELAYS_MS) {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    if (await refreshConversationMessages(convId, messageId)) return;
-  }
-  log.warn('No reply after 409 reconcile', { conversationId: convId, messageId });
-}
-
-/**
- * Refetch a conversation's messages from the server and re-render if it is
- * still the current conversation. Used after a 409 reconcile. Returns whether
- * an assistant reply follows `messageId`.
- */
-async function refreshConversationMessages(convId: string, messageId: string): Promise<boolean> {
-  try {
-    const response = await conversations.get(convId);
-    const merged = reconcileOutboxWithServer(convId, response.messages);
-    useStore.getState().setMessages(convId, merged, response.message_pagination);
-    if (useStore.getState().currentConversation?.id === convId) {
-      renderMessages(merged, { hasPendingApproval: response.has_pending_approval });
-    }
-    const sentAt = merged.findIndex((m) => m.id === messageId);
-    return sentAt >= 0 && merged.slice(sentAt + 1).some((m) => m.role === 'assistant');
-  } catch (refreshError) {
-    log.warn('Failed to refresh conversation after reconcile', { refreshError, conversationId: convId });
-    return false;
-  }
 }
