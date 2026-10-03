@@ -5,11 +5,45 @@
 
 import { createLogger } from '../utils/logger';
 import { files } from '../api/files';
-import { toast } from '../components/Toast';
+import { showToast, toast } from '../components/Toast';
 import { CHECK_ICON } from '../utils/icons';
 import { hapticTick } from '../utils/haptics';
 
 const log = createLogger('file-actions');
+
+function isStandaloneApp(): boolean {
+  return (
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    Boolean(window.matchMedia?.('(display-mode: standalone)').matches)
+  );
+}
+
+/** Touch devices that can share files get the share sheet instead of a download. */
+function prefersShareSheet(file: File): boolean {
+  return Boolean(window.matchMedia?.('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] }));
+}
+
+/**
+ * Open the share sheet for a file. iOS only allows it within a tap, and the
+ * fetch before it can outlast that window: then a Save button offers a fresh
+ * tap. Cancelling the sheet is not an error.
+ */
+async function shareFile(file: File): Promise<void> {
+  try {
+    await navigator.share({ files: [file] });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    if (error instanceof DOMException && error.name === 'NotAllowedError') {
+      showToast({
+        type: 'info',
+        message: `${file.name} is ready.`,
+        action: { label: 'Save', onClick: () => void navigator.share({ files: [file] }).catch(() => undefined) },
+      });
+      return;
+    }
+    throw error;
+  }
+}
 
 /**
  * Open a file in a new browser tab (for preview).
@@ -22,6 +56,13 @@ export async function openFileInNewTab(
 ): Promise<void> {
   try {
     const blob = await files.fetchFile(messageId, fileIndex);
+    // The installed app opens window.open(blob) in an in-app browser that
+    // can't read the app's blob URLs - a blank sheet. Hand the file over.
+    const file = new File([blob], fileName, { type: blob.type || fileType });
+    if (isStandaloneApp() && prefersShareSheet(file)) {
+      await shareFile(file);
+      return;
+    }
     const url = URL.createObjectURL(blob);
 
     // Open in new tab
@@ -48,6 +89,13 @@ export async function openFileInNewTab(
 export async function downloadFile(messageId: string, fileIndex: number, fileName: string): Promise<void> {
   try {
     const blob = await files.fetchFile(messageId, fileIndex);
+    const file = new File([blob], fileName, { type: blob.type });
+    // The installed iPhone app has no download manager: <a download> on a
+    // blob URL does nothing there. The share sheet has "Save to Files".
+    if (prefersShareSheet(file)) {
+      await shareFile(file);
+      return;
+    }
     const url = URL.createObjectURL(blob);
 
     const a = document.createElement('a');
