@@ -100,8 +100,12 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     )
 
     # Validated (and the offer marked started) before the user message is
-    # saved: an unrunnable plan must leave nothing behind
-    plan = _start_deep_research(conv_id, data.deep_research) if data.deep_research else None
+    # saved: an unrunnable plan must leave nothing behind. A retry of a start
+    # that already landed is a duplicate (409) before it is a decided offer
+    plan = None
+    if data.deep_research:
+        _dedupe_client_message_id(conv_id, data.client_message_id)
+        plan = _start_deep_research(conv_id, data.deep_research)
 
     if data.rerun_mode:
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
@@ -138,7 +142,8 @@ def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearch
     except OfferNotFound:
         raise_not_found_error("Research offer")
     except OfferConflict as e:
-        raise_conflict_error(str(e))
+        # Not 409: the client reads 409 as "this message already landed"
+        raise_validation_error(str(e), field="deep_research")
 
 
 def _get_chat_conversation(user: User, conv_id: str) -> Conversation:

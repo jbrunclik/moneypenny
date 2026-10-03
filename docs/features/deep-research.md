@@ -70,7 +70,10 @@ agent loop:
    `prepare_turn()` calls `start_plan()` ([plan.py](../../src/agent/deep_research/plan.py))
    before saving the user message, so an unrunnable plan leaves nothing
    behind: `PlanError` → 400, `OfferNotFound` → 404, `OfferConflict` (already
-   started, declined or superseded) → 409. It validates the plan (1-8 items,
+   started, declined or superseded) → 400 with its message - not 409, which
+   the client reads as "this message already landed". A retry of a start that
+   did land is caught first by the `client_message_id` dedupe (409). It
+   validates the plan (1-8 items,
    `DEEP_RESEARCH_MAX_ITEM_CHARS`, `DEEP_RESEARCH_MAX_CONTEXT_CHARS`),
    recomputes the estimate, marks the offer `started` and returns a
    `DeepResearchPlan`. The batch endpoint rejects `deep_research` (400).

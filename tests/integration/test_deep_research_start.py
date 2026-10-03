@@ -123,10 +123,30 @@ class TestStart:
         test_conversation: Conversation,
         test_database: Database,
     ) -> None:
+        # 400, not 409: the client reads 409 as "your message already landed"
         for status in ("started", "declined"):
             offer_id = _offer(test_database, test_conversation.id, status)
             response = _stream(client, auth_headers, test_conversation.id, _start(offer_id, ["a"]))
-            assert response.status_code == 409, status
+            assert response.status_code == 400, status
+            assert "already" in response.get_json()["error"]["message"], status
+
+    def test_a_retry_of_a_start_that_landed_is_a_duplicate(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        offer_id = _offer(test_database, test_conversation.id)
+        body = {
+            **_start(offer_id, ["a"]),
+            "client_message_id": "0b7f3c1e-1111-4222-8333-944455556666",
+        }
+        assert _stream(client, auth_headers, test_conversation.id, body).status_code == 200
+
+        retry = _stream(client, auth_headers, test_conversation.id, body)
+
+        assert retry.status_code == 409
 
     def test_batch_endpoint_refuses_deep_research(
         self,
