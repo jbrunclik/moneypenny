@@ -38,12 +38,12 @@ describe('footerText', () => {
 describe('decorateGrounding', () => {
   it('adds a footer after the content and is a button only with problems', () => {
     const el = bubble('q0 and q1');
-    decorateGrounding(el, { annotations: anns('supported', 'not_found'), grounding: { checked: true, source_count: 1 }, language: 'en' });
+    decorateGrounding(el, { annotations: anns('supported', 'not_found'), grounding: { checked: true, source_count: 1 } });
     const footer = el.querySelector('.message-content + .grounding-footer')!;
     expect(footer.getAttribute('role')).toBe('button');
 
     const clean = bubble('q0');
-    decorateGrounding(clean, { annotations: anns('supported'), grounding: { checked: true, source_count: 1 }, language: 'en' });
+    decorateGrounding(clean, { annotations: anns('supported'), grounding: { checked: true, source_count: 1 } });
     expect(clean.querySelector('.grounding-footer')!.getAttribute('role')).toBeNull();
   });
 
@@ -72,7 +72,7 @@ describe('decorateGrounding', () => {
     const el = bubble('q0');
     showGroundingChecking(el);
     expect(el.querySelector('.grounding-footer--checking')!.textContent).toBe('Checking against sources…');
-    decorateGrounding(el, { annotations: [], grounding: undefined, language: 'cs' });
+    decorateGrounding(el, { annotations: [], grounding: undefined });
     expect(el.querySelector('.grounding-footer')).toBeNull();
   });
 });

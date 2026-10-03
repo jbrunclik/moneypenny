@@ -11,7 +11,6 @@ function setup(): HTMLElement {
   msg.innerHTML = '<div class="message-content-wrapper"><div class="message-content"><p>PřepiServis: rychlost 24–48 hodin. Kurýr.</p></div></div>';
   document.getElementById('messages')!.appendChild(msg);
   decorateGrounding(msg, {
-    language: 'cs',
     grounding: { checked: true, source_count: 1 },
     annotations: [
       { type: 'claim', verdict: 'not_found', quote: 'rychlost 24–48 hodin', reason: 'Stránky popisují jen SPZ Služby.' },
@@ -104,7 +103,6 @@ describe('ClaimCard', () => {
     msg.innerHTML = '<div class="message-content-wrapper"><div class="message-content"><p><strong>PřepiServis</strong> vyřídí.</p></div></div>';
     document.getElementById('messages')!.appendChild(msg);
     decorateGrounding(msg, {
-      language: 'cs',
       grounding: { checked: true, source_count: 1 },
       annotations: [{ type: 'claim', verdict: 'not_found', quote: '**PřepiServis**' }],
     });
@@ -121,7 +119,6 @@ describe('ClaimCard', () => {
     msg.innerHTML = '<div class="message-content-wrapper"><div class="message-content"><p>Cena 1 200 Kč.</p></div></div>';
     document.getElementById('messages')!.appendChild(msg);
     decorateGrounding(msg, {
-      language: 'cs',
       grounding: { checked: true, source_count: 1 },
       annotations: [{ type: 'claim', verdict: 'not_found', quote: '1 200 Kč' }],
     });

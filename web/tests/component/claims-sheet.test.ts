@@ -9,7 +9,6 @@ function setup(): HTMLElement {
   msg.innerHTML = '<div class="message-content-wrapper"><div class="message-content"><p>A je dobré. B stojí 1 200 Kč. C zavírá v 18:00.</p></div></div>';
   document.getElementById('messages')!.appendChild(msg);
   decorateGrounding(msg, {
-    language: 'cs',
     grounding: { checked: true, source_count: 3 },
     annotations: [
       { type: 'claim', verdict: 'supported', quote: 'A je dobré', source: 1, source_quote: 'A' },
