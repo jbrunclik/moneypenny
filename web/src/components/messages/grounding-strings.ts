@@ -1,4 +1,4 @@
-/** UI text for grounding annotations, in the answer's language (cs, else en). */
+/** UI text for grounding annotations (the UI is English; answers may be in any language). */
 import type { ClaimVerdict } from '../../types/api';
 
 export interface GroundingStrings {
@@ -16,22 +16,6 @@ export interface GroundingStrings {
   sheetMeta: (pages: number, sourced: number, total: number) => string;
 }
 
-const CS: GroundingStrings = {
-  checking: 'Ověřuji proti zdrojům…',
-  ofSourced: (n, total) => `${n} z ${total} tvrzení ze zdrojů`,
-  unsourced: (n) => `${n} bez zdroje`,
-  partial: (n) => `${n} částečně`,
-  contradicted: (n) => `${n} jinak než zdroj`,
-  headings: { not_found: 'Ve zdrojích není', partial: 'Částečně ve zdrojích', contradicted: 'Zdroj uvádí jinak' },
-  verdictLabels: { supported: 'ZDROJ', partial: 'ČÁSTEČNĚ', not_found: 'BEZ ZDROJE', contradicted: 'JINAK' },
-  defaultReason: 'Nenašel jsem to ve stránkách, které jsem při odpovědi četl.',
-  lookUp: 'Dohledat',
-  lookUpMessage: (quote) => `Dohledej a ověř: ${quote}`,
-  sheetTitle: 'Kontrola zdrojů',
-  sheetMeta: (pages, sourced, total) =>
-    `Porovnáno ${pages === 1 ? 's 1 stránkou' : `se ${pages} stránkami`} · ${sourced} z ${total} podloženo`,
-};
-
 const EN: GroundingStrings = {
   checking: 'Checking against sources…',
   ofSourced: (n, total) => `${n} of ${total} claims from sources`,
@@ -48,6 +32,6 @@ const EN: GroundingStrings = {
     `Compared with ${pages} ${pages === 1 ? 'page' : 'pages'} · ${sourced} of ${total} sourced`,
 };
 
-export function groundingStrings(language?: string): GroundingStrings {
-  return language === 'cs' ? CS : EN;
+export function groundingStrings(): GroundingStrings {
+  return EN;
 }

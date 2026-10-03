@@ -90,14 +90,14 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   supported claims with a source get a superscript source number
   (`.claim-cite`). [grounding.ts](../../web/src/components/messages/grounding.ts)
   `decorateGrounding()` runs on streamed (done), batch and loaded messages and
-  adds a footer under the answer text ("N z M tvrzení ze zdrojů · 2 bez
-  zdroje"; legacy messages show only the problem counts); `showGroundingChecking()`
-  shows the "checking" state on `grounding_started`. Text is Czech or English by
-  the message's language
+  adds a footer under the answer text ("N of M claims from sources · 2 without
+  a source"; legacy messages show only the problem counts); `showGroundingChecking()`
+  shows the "checking" state on `grounding_started`. UI text is English whatever
+  the answer's language
   ([grounding-strings.ts](../../web/src/components/messages/grounding-strings.ts)).
   [ClaimCard.ts](../../web/src/components/ClaimCard.ts) opens on hover
   (after `CLAIM_CARD_HOVER_DELAY_MS`) or tap: verdict, reason, the source
-  passage, and "Dohledat" / "Look it up", which sends a targeted follow-up via
+  passage, and "Look it up", which sends a targeted follow-up via
   `sendComposedText()` ([quick-actions.ts](../../web/src/core/quick-actions.ts)).
   Clicking the footer (when there are problems) opens
   [ClaimsSheet.ts](../../web/src/components/ClaimsSheet.ts): a bottom sheet

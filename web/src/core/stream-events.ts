@@ -165,9 +165,8 @@ export function processStreamEvent(
       break;
 
     case 'grounding_started':
-      // The verifier runs between the last token and done (~1 s). The reply's
-      // language is only known at done, so use the previous reply's.
-      if (isCurrentConversation) showGroundingChecking(state.messageEl, previousReplyLanguage(convId));
+      // The verifier runs between the last token and done (~1 s)
+      if (isCurrentConversation) showGroundingChecking(state.messageEl);
       break;
 
     case 'stopping':
@@ -230,13 +229,4 @@ function handleStreamError(
   );
 
   return { error: streamError };
-}
-
-/** Language of the conversation's last saved assistant reply (UI text before done). */
-function previousReplyLanguage(convId: string): string | undefined {
-  const messages = useStore.getState().getMessages(convId);
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'assistant' && messages[i].language) return messages[i].language;
-  }
-  return undefined;
 }

@@ -13,25 +13,25 @@ function bubble(text: string): HTMLElement {
 }
 
 describe('footerText', () => {
-  it('counts sourced of total and each problem kind (Czech)', () => {
-    const text = footerText(anns('supported', 'supported', 'not_found', 'contradicted'), { checked: true, source_count: 3 }, 'cs');
-    expect(text).toBe('2 z 4 tvrzení ze zdrojů · 1 bez zdroje · 1 jinak než zdroj');
+  it('counts sourced of total and each problem kind', () => {
+    const text = footerText(anns('supported', 'supported', 'not_found', 'contradicted'), { checked: true, source_count: 3 });
+    expect(text).toBe('2 of 4 claims from sources · 1 without a source · 1 differs from the source');
   });
 
-  it('omits zero parts and uses English otherwise', () => {
-    expect(footerText(anns('supported', 'not_found'), { checked: true, source_count: 1 }, 'en')).toBe(
+  it('omits zero parts', () => {
+    expect(footerText(anns('supported', 'not_found'), { checked: true, source_count: 1 })).toBe(
       '1 of 2 claims from sources · 1 without a source'
     );
   });
 
   it('uses singular English for one contradicted claim', () => {
-    expect(footerText(anns('contradicted'), { checked: true, source_count: 1 }, 'en')).toBe(
+    expect(footerText(anns('contradicted'), { checked: true, source_count: 1 })).toBe(
       '0 of 1 claims from sources · 1 differs from the source'
     );
   });
 
   it('legacy footer counts claims that were not anchored', () => {
-    expect(footerText(anns('not_found', 'not_found', 'not_found'), { checked: true, legacy: true }, 'cs')).toBe('3 bez zdroje');
+    expect(footerText(anns('not_found', 'not_found', 'not_found'), { checked: true, legacy: true })).toBe('3 without a source');
   });
 });
 
@@ -47,7 +47,7 @@ describe('decorateGrounding', () => {
     expect(clean.querySelector('.grounding-footer')!.getAttribute('role')).toBeNull();
   });
 
-  it('addMessageToUI decorates server messages', async () => {
+  it('addMessageToUI decorates server messages with English text for a Czech reply', async () => {
     const { addMessageToUI } = await import('@/components/messages');
     const container = document.createElement('div');
     container.id = 'messages';
@@ -65,13 +65,13 @@ describe('decorateGrounding', () => {
       container
     );
     expect(container.querySelector('.claim')!.textContent).toBe('PřepiServis');
-    expect(container.querySelector('.grounding-footer')!.textContent).toBe('1 bez zdroje');
+    expect(container.querySelector('.grounding-footer')!.textContent).toBe('1 without a source');
   });
 
   it('replaces the checking state and does nothing without annotations', () => {
     const el = bubble('q0');
-    showGroundingChecking(el, 'cs');
-    expect(el.querySelector('.grounding-footer--checking')!.textContent).toBe('Ověřuji proti zdrojům…');
+    showGroundingChecking(el);
+    expect(el.querySelector('.grounding-footer--checking')!.textContent).toBe('Checking against sources…');
     decorateGrounding(el, { annotations: [], grounding: undefined, language: 'cs' });
     expect(el.querySelector('.grounding-footer')).toBeNull();
   });

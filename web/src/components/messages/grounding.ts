@@ -5,8 +5,8 @@ import { groundingStrings } from './grounding-strings';
 
 const FOOTER_CLASS = 'grounding-footer';
 
-export function footerText(annotations: ClaimAnnotation[], grounding: GroundingSummary, language?: string): string {
-  const s = groundingStrings(language);
+export function footerText(annotations: ClaimAnnotation[], grounding: GroundingSummary): string {
+  const s = groundingStrings();
   const count = (v: ClaimAnnotation['verdict']) => annotations.filter((a) => a.verdict === v).length;
   const parts: string[] = [];
   if (!grounding.legacy) parts.push(s.ofSourced(count('supported'), annotations.length));
@@ -26,16 +26,16 @@ function placeFooter(messageEl: HTMLElement): HTMLElement | null {
   return footer;
 }
 
-export function showGroundingChecking(messageEl: HTMLElement, language?: string): void {
+export function showGroundingChecking(messageEl: HTMLElement): void {
   const footer = placeFooter(messageEl);
   if (!footer) return;
   footer.classList.add(`${FOOTER_CLASS}--checking`);
-  footer.textContent = groundingStrings(language).checking;
+  footer.textContent = groundingStrings().checking;
 }
 
 export function decorateGrounding(
   messageEl: HTMLElement,
-  message: Pick<Message, 'annotations' | 'grounding' | 'language'>
+  message: Pick<Message, 'annotations' | 'grounding'>
 ): void {
   const annotations = message.annotations ?? [];
   if (!annotations.length || !message.grounding) {
@@ -44,10 +44,10 @@ export function decorateGrounding(
   }
   const content = messageEl.querySelector<HTMLElement>('.message-content');
   if (content) applyAnnotations(content, annotations);
-  rememberAnnotations(messageEl, annotations, message.grounding, message.language);
+  rememberAnnotations(messageEl, annotations, message.grounding);
   const footer = placeFooter(messageEl);
   if (!footer) return;
-  footer.textContent = footerText(annotations, message.grounding, message.language);
+  footer.textContent = footerText(annotations, message.grounding);
   if (annotations.some((a) => a.verdict !== 'supported')) {
     footer.setAttribute('role', 'button');
     footer.tabIndex = 0;

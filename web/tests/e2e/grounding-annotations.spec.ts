@@ -22,7 +22,7 @@ for (const streaming of [true, false]) {
       await expect(page.locator('.grounding-footer')).toHaveText(/1 of 2 claims from sources · 1 without a source/, { timeout: 15000 });
     });
 
-    test('underline opens a card; Dohledat sends a follow-up', async ({ page }) => {
+    test('underline opens a card; Look it up sends a follow-up', async ({ page }) => {
       const claim = page.locator('.message.assistant .claim').first();
       await expect(claim).toHaveText('mock response');
       await claim.click();

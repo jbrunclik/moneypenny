@@ -27,7 +27,7 @@ describe('ClaimsSheet', () => {
     (document.querySelector('.grounding-footer') as HTMLElement).click();
     const rows = [...document.querySelectorAll('.claims-sheet__row .claims-sheet__quote')].map((r) => r.textContent);
     expect(rows).toEqual(['B stojí 1 200 Kč', 'C zavírá v 18:00', 'A je dobré']);
-    expect(document.querySelector('.claims-sheet__meta')!.textContent).toBe('Porovnáno se 3 stránkami · 1 z 3 podloženo');
+    expect(document.querySelector('.claims-sheet__meta')!.textContent).toBe('Compared with 3 pages · 1 of 3 sourced');
   });
 
   it('a row closes the sheet, scrolls to the claim and flashes it', () => {

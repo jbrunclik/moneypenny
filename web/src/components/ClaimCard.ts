@@ -8,7 +8,7 @@ import { sendComposedText } from '../core/quick-actions';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
-import { displayHost, getMessageAnnotations, getMessageLanguage } from './messages/annotations';
+import { displayHost, getMessageAnnotations } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
 
 const CARD_ID = 'claim-card';
@@ -24,7 +24,6 @@ let openedByHover = false;
 
 interface CardContext {
   ann: ClaimAnnotation;
-  language?: string;
   source?: Source;
 }
 
@@ -37,7 +36,6 @@ function contextFor(target: HTMLElement): CardContext | null {
   const stored = convId ? useStore.getState().getMessages(convId).find((m) => m.id === messageEl.dataset.messageId) : undefined;
   return {
     ann,
-    language: getMessageLanguage(messageEl) ?? stored?.language,
     source: ann.source ? stored?.sources?.[ann.source - 1] : undefined,
   };
 }
@@ -54,7 +52,7 @@ export function plainQuote(quote: string): string {
 }
 
 function cardHtml(ctx: CardContext): string {
-  const s = groundingStrings(ctx.language);
+  const s = groundingStrings();
   const { ann } = ctx;
   const passage = ann.source_quote ? `<blockquote>„${escapeHtml(ann.source_quote)}“</blockquote>` : '';
   if (ann.verdict === 'supported') {
@@ -105,7 +103,7 @@ export function openClaimCard(target: HTMLElement, focus = false): void {
   card.innerHTML = cardHtml(ctx);
   card.querySelector('.claim-card__lookup')?.addEventListener('click', () => {
     closeClaimCard();
-    void sendComposedText(groundingStrings(ctx.language).lookUpMessage(plainQuote(ctx.ann.quote)));
+    void sendComposedText(groundingStrings().lookUpMessage(plainQuote(ctx.ann.quote)));
   });
   // Moving from the claim into a hover-opened card keeps it open
   card.addEventListener('mouseenter', () => window.clearTimeout(leaveTimer));

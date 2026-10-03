@@ -25,17 +25,18 @@ function setup(): HTMLElement {
 describe('ClaimCard', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('opens on click with heading, reason and Dohledat', () => {
+  it('opens on click with heading, reason and Look it up', () => {
     setup();
     (document.querySelector('.claim') as HTMLElement).click();
     const card = document.getElementById('claim-card')!;
-    expect(card.querySelector('.claim-card__heading')!.textContent).toBe('Ve zdrojích není');
+    expect(card.querySelector('.claim-card__heading')!.textContent).toBe('Not in the sources');
     expect(card.textContent).toContain('Stránky popisují jen SPZ Služby.');
+    expect(card.querySelector('.claim-card__lookup')!.textContent).toBe('Look it up');
     (card.querySelector('.claim-card__lookup') as HTMLButtonElement).click();
-    expect(sendComposedText).toHaveBeenCalledWith('Dohledej a ověř: rychlost 24–48 hodin');
+    expect(sendComposedText).toHaveBeenCalledWith('Look up and verify: rychlost 24–48 hodin');
   });
 
-  it('a source number shows the passage and no Dohledat', () => {
+  it('a source number shows the passage and no Look it up', () => {
     setup();
     (document.querySelector('sup.claim-cite') as HTMLElement).click();
     const card = document.getElementById('claim-card')!;
@@ -96,7 +97,7 @@ describe('ClaimCard', () => {
     expect(document.getElementById('claim-card')).toBeNull();
   });
 
-  it('Dohledat sends the quote without markdown', () => {
+  it('Look it up sends the quote without markdown', () => {
     document.body.innerHTML = '<div id="messages"></div>';
     const msg = document.createElement('div');
     msg.className = 'message assistant';
@@ -110,7 +111,7 @@ describe('ClaimCard', () => {
     initClaimCard();
     (document.querySelector('.claim') as HTMLElement).click();
     (document.querySelector('#claim-card .claim-card__lookup') as HTMLButtonElement).click();
-    expect(sendComposedText).toHaveBeenLastCalledWith('Dohledej a ověř: PřepiServis');
+    expect(sendComposedText).toHaveBeenLastCalledWith('Look up and verify: PřepiServis');
   });
 
   it('a claim without a reason still explains itself', () => {
@@ -126,7 +127,7 @@ describe('ClaimCard', () => {
     });
     initClaimCard();
     (document.querySelector('.claim') as HTMLElement).click();
-    expect(document.querySelector('#claim-card .claim-card__reason')!.textContent).toContain('Nenašel jsem to');
+    expect(document.querySelector('#claim-card .claim-card__reason')!.textContent).toContain('Not found in the pages I read');
   });
 
   it('opens even when a source URL is not absolute', async () => {

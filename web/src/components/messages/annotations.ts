@@ -19,21 +19,15 @@ const MARKDOWN_SYNTAX = /\*\*|__|[*_`]|\]\([^)]*\)|[[\]]/g;
 interface MessageGrounding {
   annotations: ClaimAnnotation[];
   grounding?: GroundingSummary;
-  language?: string;
 }
 const byMessage = new WeakMap<Element, MessageGrounding>();
 
 export function rememberAnnotations(
   messageEl: Element,
   annotations: ClaimAnnotation[],
-  grounding?: GroundingSummary,
-  language?: string
+  grounding?: GroundingSummary
 ): void {
-  byMessage.set(messageEl, { annotations, grounding, language });
-}
-/** The reply's language (cs/en UI text for its cards and claims list). */
-export function getMessageLanguage(messageEl: Element): string | undefined {
-  return byMessage.get(messageEl)?.language;
+  byMessage.set(messageEl, { annotations, grounding });
 }
 export function getMessageAnnotations(messageEl: Element): ClaimAnnotation[] | undefined {
   return byMessage.get(messageEl)?.annotations;
