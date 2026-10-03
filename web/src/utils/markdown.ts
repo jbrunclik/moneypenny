@@ -4,7 +4,6 @@ import katex from 'katex';
 import hljs from 'highlight.js/lib/core';
 import { COPY_ICON } from './icons';
 import { escapeHtml } from './dom';
-import { GROUNDING_MARKERS } from '../constants';
 import { renderQuizBlock } from '../components/QuizBlock';
 
 // Import only the languages we need
@@ -143,15 +142,6 @@ marked.use({
   breaks: true,
   gfm: true,
   renderer: {
-    // Grounding markers (`_(neověřeno)_`) render as a badge, not italics
-    em(token): string {
-      const marker = GROUNDING_MARKERS[token.text];
-      if (marker) {
-        return `<span class="grounding-unverified" title="${escapeHtml(marker.title)}">${escapeHtml(marker.label)}</span>`;
-      }
-      return `<em>${this.parser.parseInline(token.tokens)}</em>`;
-    },
-
     // Prevent raw HTML pass-through (XSS protection)
     html(token: { text: string }): string {
       return escapeHtml(token.text);

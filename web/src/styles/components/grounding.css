@@ -1,0 +1,28 @@
+/* Grounding claims (components/messages/annotations.ts) - look "A1" */
+.claim {
+    text-decoration: underline dotted var(--claim-unsourced);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.claim--contradicted {
+    text-decoration-color: var(--claim-contradicted);
+}
+
+.claim:focus-visible,
+.claim.claim--open,
+.claim.claim--flash {
+    background: var(--claim-highlight);
+    outline: none;
+}
+
+.claim-cite {
+    color: var(--text-muted);
+    font-size: 0.68em;
+    font-weight: 500;
+    padding: 0 1px;
+    margin-left: 1px;
+    cursor: pointer;
+}

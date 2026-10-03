@@ -95,9 +95,37 @@ export interface Message {
   stopped_early?: boolean;
   /** Why the reply ended early: 'user' = the user pressed Stop (server-set) */
   stop_reason?: 'user';
+  /** Grounding-check claims (server-set; src/agent/grounding_annotations.py) */
+  annotations?: ClaimAnnotation[];
+  /** Grounding-check summary for the footer (server-set) */
+  grounding?: GroundingSummary;
   created_at: string;
   /** Client-only send state; never sent by the server (absent = delivered) */
   status?: 'pending' | 'failed';
+}
+
+export type ClaimVerdict = 'supported' | 'partial' | 'not_found' | 'contradicted';
+
+/** One claim of an answer and how the turn's sources bear on it */
+export interface ClaimAnnotation {
+  type: 'claim';
+  verdict: ClaimVerdict;
+  /** Literal phrase of the message's markdown */
+  quote: string;
+  /** Text right before the quote (picks among repeats) */
+  prefix?: string | null;
+  reason?: string | null;
+  /** 1-based index into the message's sources */
+  source?: number | null;
+  /** Literal passage of that source */
+  source_quote?: string | null;
+}
+
+export interface GroundingSummary {
+  checked: boolean;
+  source_count?: number | null;
+  /** Converted from the pre-Oct-3-2026 inline markers (no reasons or total) */
+  legacy?: boolean | null;
 }
 
 // =============================================================================

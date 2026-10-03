@@ -82,8 +82,8 @@ export async function copyMessageContent(button: HTMLButtonElement): Promise<voi
 
   // textContent drops <br> (user bubbles render newlines that way); keep them
   // as \n in the plain text, leaving the HTML copy untouched
-  // Grounding badges copy back as the marker text, e.g. "(neověřeno)"
-  clone.querySelectorAll('.grounding-unverified').forEach((el) => el.replaceWith(`(${el.textContent ?? ''})`));
+  // Grounding source numbers are UI, not text
+  clone.querySelectorAll('sup.claim-cite').forEach((el) => el.remove());
   const textClone = clone.cloneNode(true) as HTMLElement;
   textClone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
   const textContent = textClone.textContent?.trim();

@@ -192,27 +192,11 @@ describe('math isolation from markdown parsing', () => {
   });
 });
 
-describe('grounding markers render as badges', () => {
-  it('turns the Czech marker into a badge with a tooltip, not italics', () => {
+describe('grounding markers are plain text now', () => {
+  it('renders an old marker as ordinary italics (annotations replaced it)', () => {
     const html = renderMarkdown('Kupte u VeloRama _(neověřeno)_.');
 
-    expect(html).toContain('<span class="grounding-unverified" title="Nenalezeno ve zdrojích, které jsem při odpovědi četl">neověřeno</span>');
-    expect(html).not.toContain('<em>');
-  });
-
-  it('turns the English marker into an English badge', () => {
-    const html = renderMarkdown('Try VeloRama _(unverified)_.');
-
-    expect(html).toContain('<span class="grounding-unverified" title="Not found in the sources I read for this answer">unverified</span>');
-  });
-
-  it('works inside bold, tables and lists', () => {
-    expect(renderMarkdown('**VeloRama** _(neověřeno)_')).toContain('grounding-unverified');
-    expect(renderMarkdown('| a |\n|---|\n| VeloRama _(neověřeno)_ |')).toContain('grounding-unverified');
-    expect(renderMarkdown('- VeloRama _(neověřeno)_')).toContain('grounding-unverified');
-  });
-
-  it('leaves other italics alone', () => {
-    expect(renderMarkdown('_(poznámka)_')).toContain('<em>(poznámka)</em>');
+    expect(html).toContain('<em>(neověřeno)</em>');
+    expect(html).not.toContain('grounding-unverified');
   });
 });

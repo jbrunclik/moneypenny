@@ -35,12 +35,3 @@ export const BYTES_PER_KB = 1024;
 
 /** Bytes in one megabyte */
 export const BYTES_PER_MB = 1024 * BYTES_PER_KB;
-/**
- * Grounding-check markers the backend inserts after unverified specifics
- * (src/agent/grounding_markers.py, saved as `_(neověřeno)_`). The renderer
- * shows them as a badge; copy turns the badge back into the marker text.
- */
-export const GROUNDING_MARKERS: Record<string, { label: string; title: string }> = {
-  '(neověřeno)': { label: 'neověřeno', title: 'Nenalezeno ve zdrojích, které jsem při odpovědi četl' },
-  '(unverified)': { label: 'unverified', title: 'Not found in the sources I read for this answer' },
-};

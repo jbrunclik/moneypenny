@@ -66,6 +66,12 @@
 
     /* Warning text - theme-aware (dark uses light amber, light uses dark amber) */
     --warning-text: var(--color-warning-400);
+    /* Grounding claims (styles/components/grounding.css) */
+    --claim-unsourced: rgba(245, 181, 68, 0.45);
+    --claim-contradicted: rgba(240, 138, 122, 0.55);
+    --claim-highlight: rgba(245, 181, 68, 0.12);
+    --claim-heading-unsourced: var(--color-warning-400);
+    --claim-heading-contradicted: #f08a7a;
 
     --color-info-500: #3b82f6;      /* Info blue */
     --color-user-text: #ffffff;     /* User message text */
@@ -304,6 +310,11 @@
 
     /* Warning text - darker for light theme contrast */
     --warning-text: var(--color-warning-700);
+    --claim-unsourced: rgba(180, 120, 10, 0.5);
+    --claim-contradicted: rgba(200, 70, 50, 0.55);
+    --claim-highlight: rgba(245, 181, 68, 0.18);
+    --claim-heading-unsourced: var(--color-warning-700);
+    --claim-heading-contradicted: #b4432f;
 
     /* Overlay/backdrop for light theme */
     --overlay-bg: rgba(0, 0, 0, 0.45);

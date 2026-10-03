@@ -1697,20 +1697,3 @@ a.document-name:hover {
     margin-right: auto;
     order: -1;
 }
-
-/* Grounding check: a specific the turn's sources didn't support
-   (src/agent/grounding_markers.py; rendered from `_(neověřeno)_` in markdown.ts) */
-.grounding-unverified {
-    display: inline-block;
-    margin-left: 0.25em;
-    padding: 0 0.45em;
-    font-size: var(--font-size-badge);
-    font-weight: 500;
-    line-height: 1.5;
-    vertical-align: 0.1em;
-    color: var(--warning-text);
-    background-color: var(--color-warning-900);
-    border-radius: var(--radius-pill);
-    white-space: nowrap;
-    cursor: help;
-}

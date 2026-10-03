@@ -34,18 +34,18 @@ describe('copyMessageContent', () => {
   });
 });
 
-describe('copyMessageContent with grounding badges', () => {
-  it('copies a badge as the plain marker text', async () => {
+describe('copyMessageContent with grounding annotations', () => {
+  it('copies claims as plain text and drops source numbers', async () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     document.body.innerHTML = `
       <div class="message assistant">
-        <div class="message-content">Kupte u VeloRama <span class="grounding-unverified" title="t">neověřeno</span>.</div>
+        <div class="message-content">Kurýr vyzvedne doklady<sup class="claim-cite" data-claim="1">1</sup>. Cena <span class="claim claim--not_found" data-claim="0">1 200 Kč</span>.</div>
         <button class="copy-btn"></button>
       </div>`;
 
     await copyMessageContent(document.querySelector<HTMLButtonElement>('.copy-btn')!);
 
-    expect(writeText).toHaveBeenCalledWith('Kupte u VeloRama (neověřeno).');
+    expect(writeText).toHaveBeenCalledWith('Kurýr vyzvedne doklady. Cena 1 200 Kč.');
   });
 });
