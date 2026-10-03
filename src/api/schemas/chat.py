@@ -108,6 +108,30 @@ class ChatRequest(BaseModel):
         return self
 
 
+class ClaimAnnotationResponse(BaseModel):
+    """A grounding-check claim in an assistant message."""
+
+    type: Literal["claim"]
+    verdict: Literal["supported", "partial", "not_found", "contradicted"]
+    quote: str = Field(description="Literal phrase from the message content")
+    prefix: str = Field(
+        default="", description="Text right before the quote (disambiguates repeats)"
+    )
+    reason: str | None = None
+    source: int | None = Field(default=None, description="1-based index into sources")
+    source_quote: str | None = Field(default=None, description="Literal passage from that source")
+
+
+class GroundingSummaryResponse(BaseModel):
+    """Footer summary of a grounding-checked message."""
+
+    checked: bool
+    source_count: int | None = None
+    legacy: bool | None = Field(
+        default=None, description="Converted from pre-Oct-3-2026 inline markers"
+    )
+
+
 class MessageResponse(BaseModel):
     """Message in a conversation."""
 
@@ -127,6 +151,8 @@ class MessageResponse(BaseModel):
         default=None,
         description="Why the reply ended early: 'user' = stopped by the user (offer Continue)",
     )
+    annotations: list[ClaimAnnotationResponse] | None = None
+    grounding: GroundingSummaryResponse | None = None
     created_at: str
 
 
@@ -149,6 +175,8 @@ class ChatBatchResponse(BaseModel):
         default=None,
         description="Why the reply ended early: 'user' = stopped by the user (offer Continue)",
     )
+    annotations: list[ClaimAnnotationResponse] | None = None
+    grounding: GroundingSummaryResponse | None = None
     created_at: str
     title: str | None = Field(
         default=None, description="Auto-generated conversation title (first message only)"

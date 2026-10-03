@@ -88,6 +88,10 @@ class Message:
     tool_outputs: list[dict[str, str]] | None = None
     # Why the reply ended early: "user" = the user pressed Stop (None otherwise)
     stop_reason: str | None = None
+    # Grounding-check claims ({type, verdict, quote, prefix, reason?, source?,
+    # source_quote?}) and the footer summary; None when never checked
+    annotations: list[dict[str, Any]] | None = None
+    grounding: dict[str, Any] | None = None
 
 
 @dataclass

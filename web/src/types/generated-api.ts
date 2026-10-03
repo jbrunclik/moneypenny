@@ -7609,6 +7609,50 @@ export interface components {
             keys: components["schemas"]["KVKeysResponse.KVKeyItem"][];
         };
         /**
+         * ClaimAnnotationResponse
+         * @description A grounding-check claim in an assistant message.
+         */
+        "PlannerConversationResponse.ClaimAnnotationResponse": {
+            /**
+             * Type
+             * @constant
+             */
+            type: "claim";
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "not_found" | "contradicted";
+            /**
+             * Quote
+             * @description Literal phrase from the message content
+             */
+            quote: string;
+            /**
+             * Prefix
+             * @description Text right before the quote (disambiguates repeats)
+             * @default
+             */
+            prefix: string;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * Source
+             * @description 1-based index into sources
+             * @default null
+             */
+            source: number | null;
+            /**
+             * Source Quote
+             * @description Literal passage from that source
+             * @default null
+             */
+            source_quote: string | null;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -7640,6 +7684,25 @@ export interface components {
              * @default null
              */
             image_index: number | null;
+        };
+        /**
+         * GroundingSummaryResponse
+         * @description Footer summary of a grounding-checked message.
+         */
+        "PlannerConversationResponse.GroundingSummaryResponse": {
+            /** Checked */
+            checked: boolean;
+            /**
+             * Source Count
+             * @default null
+             */
+            source_count: number | null;
+            /**
+             * Legacy
+             * @description Converted from pre-Oct-3-2026 inline markers
+             * @default null
+             */
+            legacy: boolean | null;
         };
         /**
          * MessageResponse
@@ -7688,6 +7751,13 @@ export interface components {
              * @default null
              */
             stop_reason: "user" | null;
+            /**
+             * Annotations
+             * @default null
+             */
+            annotations: components["schemas"]["PlannerConversationResponse.ClaimAnnotationResponse"][] | null;
+            /** @default null */
+            grounding: components["schemas"]["PlannerConversationResponse.GroundingSummaryResponse"] | null;
             /** Created At */
             created_at: string;
         };
@@ -7726,6 +7796,50 @@ export interface components {
             was_reset: boolean;
         };
         /**
+         * ClaimAnnotationResponse
+         * @description A grounding-check claim in an assistant message.
+         */
+        "MessageResponse.ClaimAnnotationResponse": {
+            /**
+             * Type
+             * @constant
+             */
+            type: "claim";
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "not_found" | "contradicted";
+            /**
+             * Quote
+             * @description Literal phrase from the message content
+             */
+            quote: string;
+            /**
+             * Prefix
+             * @description Text right before the quote (disambiguates repeats)
+             * @default
+             */
+            prefix: string;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * Source
+             * @description 1-based index into sources
+             * @default null
+             */
+            source: number | null;
+            /**
+             * Source Quote
+             * @description Literal passage from that source
+             * @default null
+             */
+            source_quote: string | null;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -7757,6 +7871,25 @@ export interface components {
              * @default null
              */
             image_index: number | null;
+        };
+        /**
+         * GroundingSummaryResponse
+         * @description Footer summary of a grounding-checked message.
+         */
+        "MessageResponse.GroundingSummaryResponse": {
+            /** Checked */
+            checked: boolean;
+            /**
+             * Source Count
+             * @default null
+             */
+            source_count: number | null;
+            /**
+             * Legacy
+             * @description Converted from pre-Oct-3-2026 inline markers
+             * @default null
+             */
+            legacy: boolean | null;
         };
         /**
          * SourceResponse
@@ -7815,6 +7948,13 @@ export interface components {
              * @default null
              */
             stop_reason: "user" | null;
+            /**
+             * Annotations
+             * @default null
+             */
+            annotations: components["schemas"]["MessageResponse.ClaimAnnotationResponse"][] | null;
+            /** @default null */
+            grounding: components["schemas"]["MessageResponse.GroundingSummaryResponse"] | null;
             /** Created At */
             created_at: string;
         };
@@ -8290,6 +8430,50 @@ export interface components {
             message: string;
         };
         /**
+         * ClaimAnnotationResponse
+         * @description A grounding-check claim in an assistant message.
+         */
+        "ConversationDetailPaginatedResponse.ClaimAnnotationResponse": {
+            /**
+             * Type
+             * @constant
+             */
+            type: "claim";
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "not_found" | "contradicted";
+            /**
+             * Quote
+             * @description Literal phrase from the message content
+             */
+            quote: string;
+            /**
+             * Prefix
+             * @description Text right before the quote (disambiguates repeats)
+             * @default
+             */
+            prefix: string;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * Source
+             * @description 1-based index into sources
+             * @default null
+             */
+            source: number | null;
+            /**
+             * Source Quote
+             * @description Literal passage from that source
+             * @default null
+             */
+            source_quote: string | null;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -8321,6 +8505,25 @@ export interface components {
              * @default null
              */
             image_index: number | null;
+        };
+        /**
+         * GroundingSummaryResponse
+         * @description Footer summary of a grounding-checked message.
+         */
+        "ConversationDetailPaginatedResponse.GroundingSummaryResponse": {
+            /** Checked */
+            checked: boolean;
+            /**
+             * Source Count
+             * @default null
+             */
+            source_count: number | null;
+            /**
+             * Legacy
+             * @description Converted from pre-Oct-3-2026 inline markers
+             * @default null
+             */
+            legacy: boolean | null;
         };
         /**
          * MessageResponse
@@ -8369,6 +8572,13 @@ export interface components {
              * @default null
              */
             stop_reason: "user" | null;
+            /**
+             * Annotations
+             * @default null
+             */
+            annotations: components["schemas"]["ConversationDetailPaginatedResponse.ClaimAnnotationResponse"][] | null;
+            /** @default null */
+            grounding: components["schemas"]["ConversationDetailPaginatedResponse.GroundingSummaryResponse"] | null;
             /** Created At */
             created_at: string;
         };
@@ -8753,6 +8963,50 @@ export interface components {
             deleted: number;
         };
         /**
+         * ClaimAnnotationResponse
+         * @description A grounding-check claim in an assistant message.
+         */
+        "MessagesListResponse.ClaimAnnotationResponse": {
+            /**
+             * Type
+             * @constant
+             */
+            type: "claim";
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "not_found" | "contradicted";
+            /**
+             * Quote
+             * @description Literal phrase from the message content
+             */
+            quote: string;
+            /**
+             * Prefix
+             * @description Text right before the quote (disambiguates repeats)
+             * @default
+             */
+            prefix: string;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * Source
+             * @description 1-based index into sources
+             * @default null
+             */
+            source: number | null;
+            /**
+             * Source Quote
+             * @description Literal passage from that source
+             * @default null
+             */
+            source_quote: string | null;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -8784,6 +9038,25 @@ export interface components {
              * @default null
              */
             image_index: number | null;
+        };
+        /**
+         * GroundingSummaryResponse
+         * @description Footer summary of a grounding-checked message.
+         */
+        "MessagesListResponse.GroundingSummaryResponse": {
+            /** Checked */
+            checked: boolean;
+            /**
+             * Source Count
+             * @default null
+             */
+            source_count: number | null;
+            /**
+             * Legacy
+             * @description Converted from pre-Oct-3-2026 inline markers
+             * @default null
+             */
+            legacy: boolean | null;
         };
         /**
          * MessageResponse
@@ -8832,6 +9105,13 @@ export interface components {
              * @default null
              */
             stop_reason: "user" | null;
+            /**
+             * Annotations
+             * @default null
+             */
+            annotations: components["schemas"]["MessagesListResponse.ClaimAnnotationResponse"][] | null;
+            /** @default null */
+            grounding: components["schemas"]["MessagesListResponse.GroundingSummaryResponse"] | null;
             /** Created At */
             created_at: string;
         };
@@ -8888,6 +9168,50 @@ export interface components {
             pagination: components["schemas"]["MessagesListResponse.MessagesPaginationResponse"];
         };
         /**
+         * ClaimAnnotationResponse
+         * @description A grounding-check claim in an assistant message.
+         */
+        "ChatBatchResponse.ClaimAnnotationResponse": {
+            /**
+             * Type
+             * @constant
+             */
+            type: "claim";
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "supported" | "partial" | "not_found" | "contradicted";
+            /**
+             * Quote
+             * @description Literal phrase from the message content
+             */
+            quote: string;
+            /**
+             * Prefix
+             * @description Text right before the quote (disambiguates repeats)
+             * @default
+             */
+            prefix: string;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * Source
+             * @description 1-based index into sources
+             * @default null
+             */
+            source: number | null;
+            /**
+             * Source Quote
+             * @description Literal passage from that source
+             * @default null
+             */
+            source_quote: string | null;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -8919,6 +9243,25 @@ export interface components {
              * @default null
              */
             image_index: number | null;
+        };
+        /**
+         * GroundingSummaryResponse
+         * @description Footer summary of a grounding-checked message.
+         */
+        "ChatBatchResponse.GroundingSummaryResponse": {
+            /** Checked */
+            checked: boolean;
+            /**
+             * Source Count
+             * @default null
+             */
+            source_count: number | null;
+            /**
+             * Legacy
+             * @description Converted from pre-Oct-3-2026 inline markers
+             * @default null
+             */
+            legacy: boolean | null;
         };
         /**
          * SourceResponse
@@ -8978,6 +9321,13 @@ export interface components {
              * @default null
              */
             stop_reason: "user" | null;
+            /**
+             * Annotations
+             * @default null
+             */
+            annotations: components["schemas"]["ChatBatchResponse.ClaimAnnotationResponse"][] | null;
+            /** @default null */
+            grounding: components["schemas"]["ChatBatchResponse.GroundingSummaryResponse"] | null;
             /** Created At */
             created_at: string;
             /**

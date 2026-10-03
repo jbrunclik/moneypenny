@@ -51,6 +51,10 @@ def _store_message_payload(
     return files_metadata, files_json, sources_json, generated_images_json, tool_outputs_json
 
 
+def _json_or_none(value: Any) -> str | None:
+    return json.dumps(value, ensure_ascii=False) if value else None
+
+
 class MessageMixin:
     """Mixin providing Message-related database operations."""
 
@@ -186,6 +190,8 @@ class MessageMixin:
         message_id: str | None = None,
         tool_outputs: list[dict[str, str]] | None = None,
         stop_reason: str | None = None,
+        annotations: list[dict[str, Any]] | None = None,
+        grounding: dict[str, Any] | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -203,6 +209,8 @@ class MessageMixin:
             message_id: Optional pre-generated message ID (for streaming recovery)
             tool_outputs: Optional per-call tool output digests (assistant messages)
             stop_reason: "user" when the user pressed Stop (partial reply kept)
+            annotations: Optional grounding-check claim annotations
+            grounding: Optional grounding summary for the footer
 
         Returns:
             The created Message
@@ -233,8 +241,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -247,6 +255,8 @@ class MessageMixin:
                     now.isoformat(),
                     tool_outputs_json,
                     stop_reason,
+                    _json_or_none(annotations),
+                    _json_or_none(grounding),
                 ),
             )
             # Update conversation's updated_at
@@ -272,6 +282,8 @@ class MessageMixin:
             generated_images=generated_images,
             language=language,
             tool_outputs=tool_outputs,
+            annotations=annotations,
+            grounding=grounding,
         )
 
     def _schedule_message_embedding(
@@ -344,6 +356,8 @@ class MessageMixin:
         language: str | None = None,
         tool_outputs: list[dict[str, str]] | None = None,
         stop_reason: str | None = None,
+        annotations: list[dict[str, Any]] | None = None,
+        grounding: dict[str, Any] | None = None,
     ) -> Message | None:
         """Update an existing message's content fields.
 
@@ -359,6 +373,8 @@ class MessageMixin:
             language: Optional ISO 639-1 language code
             tool_outputs: Optional per-call tool output digests
             stop_reason: "user" when the user pressed Stop (partial reply kept)
+            annotations: Optional grounding-check claim annotations
+            grounding: Optional grounding summary for the footer
 
         Returns:
             The updated Message, or None if the message no longer exists
@@ -375,7 +391,7 @@ class MessageMixin:
                 conn,
                 """UPDATE messages
                    SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?,
-                       tool_outputs = ?, stop_reason = ?
+                       tool_outputs = ?, stop_reason = ?, annotations = ?, grounding = ?
                    WHERE id = ?""",
                 (
                     content,
@@ -385,6 +401,8 @@ class MessageMixin:
                     language,
                     tool_outputs_json,
                     stop_reason,
+                    _json_or_none(annotations),
+                    _json_or_none(grounding),
                     message_id,
                 ),
             )

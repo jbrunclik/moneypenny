@@ -130,8 +130,13 @@ def _persist_assistant_message(
     language: str | None,
     tool_outputs: list[dict[str, str]] | None = None,
     stop_reason: str | None = None,
+    grounding: dict[str, Any] | None = None,
 ) -> Any:
-    """UPDATE the stream-start placeholder, or INSERT when it is gone/absent."""
+    """UPDATE the stream-start placeholder, or INSERT when it is gone/absent.
+
+    `grounding` is usage_info["grounding"] ({"annotations", "summary"}) from the
+    post-answer check (src/agent/grounding_check.py), or None.
+    """
     logger.debug(
         "Saving assistant message from stream",
         extra={"user_id": user_id, "conversation_id": conv_id},
@@ -143,6 +148,8 @@ def _persist_assistant_message(
         "language": language,
         "tool_outputs": tool_outputs,
         "stop_reason": stop_reason,
+        "annotations": (grounding or {}).get("annotations"),
+        "grounding": (grounding or {}).get("summary"),
     }
     if assistant_message_id:
         assistant_msg = db.update_message_content(assistant_message_id, content, **kwargs)
@@ -275,6 +282,7 @@ def save_message_to_db(
             language,
             build_tool_outputs(result_messages),
             stop_reason,
+            usage.get("grounding"),
         )
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)

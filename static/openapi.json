@@ -8004,6 +8004,82 @@
         "title": "KVKeysResponse",
         "type": "object"
       },
+      "PlannerConversationResponse.ClaimAnnotationResponse": {
+        "description": "A grounding-check claim in an assistant message.",
+        "properties": {
+          "type": {
+            "const": "claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "partial",
+              "not_found",
+              "contradicted"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "quote": {
+            "description": "Literal phrase from the message content",
+            "title": "Quote",
+            "type": "string"
+          },
+          "prefix": {
+            "default": "",
+            "description": "Text right before the quote (disambiguates repeats)",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "1-based index into sources",
+            "title": "Source"
+          },
+          "source_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Literal passage from that source",
+            "title": "Source Quote"
+          }
+        },
+        "required": [
+          "type",
+          "verdict",
+          "quote"
+        ],
+        "title": "ClaimAnnotationResponse",
+        "type": "object"
+      },
       "PlannerConversationResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -8071,6 +8147,45 @@
           "prompt"
         ],
         "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.GroundingSummaryResponse": {
+        "description": "Footer summary of a grounding-checked message.",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "source_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Count"
+          },
+          "legacy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Converted from pre-Oct-3-2026 inline markers",
+            "title": "Legacy"
+          }
+        },
+        "required": [
+          "checked"
+        ],
+        "title": "GroundingSummaryResponse",
         "type": "object"
       },
       "PlannerConversationResponse.MessageResponse": {
@@ -8177,6 +8292,32 @@
             "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
             "title": "Stop Reason"
           },
+          "annotations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse.ClaimAnnotationResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Annotations"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannerConversationResponse.GroundingSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -8258,6 +8399,82 @@
         "title": "PlannerConversationResponse",
         "type": "object"
       },
+      "MessageResponse.ClaimAnnotationResponse": {
+        "description": "A grounding-check claim in an assistant message.",
+        "properties": {
+          "type": {
+            "const": "claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "partial",
+              "not_found",
+              "contradicted"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "quote": {
+            "description": "Literal phrase from the message content",
+            "title": "Quote",
+            "type": "string"
+          },
+          "prefix": {
+            "default": "",
+            "description": "Text right before the quote (disambiguates repeats)",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "1-based index into sources",
+            "title": "Source"
+          },
+          "source_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Literal passage from that source",
+            "title": "Source Quote"
+          }
+        },
+        "required": [
+          "type",
+          "verdict",
+          "quote"
+        ],
+        "title": "ClaimAnnotationResponse",
+        "type": "object"
+      },
       "MessageResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -8325,6 +8542,45 @@
           "prompt"
         ],
         "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "MessageResponse.GroundingSummaryResponse": {
+        "description": "Footer summary of a grounding-checked message.",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "source_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Count"
+          },
+          "legacy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Converted from pre-Oct-3-2026 inline markers",
+            "title": "Legacy"
+          }
+        },
+        "required": [
+          "checked"
+        ],
+        "title": "GroundingSummaryResponse",
         "type": "object"
       },
       "MessageResponse.SourceResponse": {
@@ -8449,6 +8705,32 @@
             "default": null,
             "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
             "title": "Stop Reason"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessageResponse.ClaimAnnotationResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Annotations"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageResponse.GroundingSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "created_at": {
             "title": "Created At",
@@ -9307,6 +9589,82 @@
         "title": "SportsResetResponse",
         "type": "object"
       },
+      "ConversationDetailPaginatedResponse.ClaimAnnotationResponse": {
+        "description": "A grounding-check claim in an assistant message.",
+        "properties": {
+          "type": {
+            "const": "claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "partial",
+              "not_found",
+              "contradicted"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "quote": {
+            "description": "Literal phrase from the message content",
+            "title": "Quote",
+            "type": "string"
+          },
+          "prefix": {
+            "default": "",
+            "description": "Text right before the quote (disambiguates repeats)",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "1-based index into sources",
+            "title": "Source"
+          },
+          "source_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Literal passage from that source",
+            "title": "Source Quote"
+          }
+        },
+        "required": [
+          "type",
+          "verdict",
+          "quote"
+        ],
+        "title": "ClaimAnnotationResponse",
+        "type": "object"
+      },
       "ConversationDetailPaginatedResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -9374,6 +9732,45 @@
           "prompt"
         ],
         "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.GroundingSummaryResponse": {
+        "description": "Footer summary of a grounding-checked message.",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "source_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Count"
+          },
+          "legacy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Converted from pre-Oct-3-2026 inline markers",
+            "title": "Legacy"
+          }
+        },
+        "required": [
+          "checked"
+        ],
+        "title": "GroundingSummaryResponse",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse.MessageResponse": {
@@ -9479,6 +9876,32 @@
             "default": null,
             "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
             "title": "Stop Reason"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.ClaimAnnotationResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Annotations"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.GroundingSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "created_at": {
             "title": "Created At",
@@ -10215,6 +10638,82 @@
         "title": "TruncateConversationResponse",
         "type": "object"
       },
+      "MessagesListResponse.ClaimAnnotationResponse": {
+        "description": "A grounding-check claim in an assistant message.",
+        "properties": {
+          "type": {
+            "const": "claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "partial",
+              "not_found",
+              "contradicted"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "quote": {
+            "description": "Literal phrase from the message content",
+            "title": "Quote",
+            "type": "string"
+          },
+          "prefix": {
+            "default": "",
+            "description": "Text right before the quote (disambiguates repeats)",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "1-based index into sources",
+            "title": "Source"
+          },
+          "source_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Literal passage from that source",
+            "title": "Source Quote"
+          }
+        },
+        "required": [
+          "type",
+          "verdict",
+          "quote"
+        ],
+        "title": "ClaimAnnotationResponse",
+        "type": "object"
+      },
       "MessagesListResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -10282,6 +10781,45 @@
           "prompt"
         ],
         "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.GroundingSummaryResponse": {
+        "description": "Footer summary of a grounding-checked message.",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "source_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Count"
+          },
+          "legacy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Converted from pre-Oct-3-2026 inline markers",
+            "title": "Legacy"
+          }
+        },
+        "required": [
+          "checked"
+        ],
+        "title": "GroundingSummaryResponse",
         "type": "object"
       },
       "MessagesListResponse.MessageResponse": {
@@ -10387,6 +10925,32 @@
             "default": null,
             "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
             "title": "Stop Reason"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessagesListResponse.ClaimAnnotationResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Annotations"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessagesListResponse.GroundingSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "created_at": {
             "title": "Created At",
@@ -10495,6 +11059,82 @@
         "title": "MessagesListResponse",
         "type": "object"
       },
+      "ChatBatchResponse.ClaimAnnotationResponse": {
+        "description": "A grounding-check claim in an assistant message.",
+        "properties": {
+          "type": {
+            "const": "claim",
+            "title": "Type",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "partial",
+              "not_found",
+              "contradicted"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "quote": {
+            "description": "Literal phrase from the message content",
+            "title": "Quote",
+            "type": "string"
+          },
+          "prefix": {
+            "default": "",
+            "description": "Text right before the quote (disambiguates repeats)",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "1-based index into sources",
+            "title": "Source"
+          },
+          "source_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Literal passage from that source",
+            "title": "Source Quote"
+          }
+        },
+        "required": [
+          "type",
+          "verdict",
+          "quote"
+        ],
+        "title": "ClaimAnnotationResponse",
+        "type": "object"
+      },
       "ChatBatchResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -10562,6 +11202,45 @@
           "prompt"
         ],
         "title": "GeneratedImageResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.GroundingSummaryResponse": {
+        "description": "Footer summary of a grounding-checked message.",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "source_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Count"
+          },
+          "legacy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Converted from pre-Oct-3-2026 inline markers",
+            "title": "Legacy"
+          }
+        },
+        "required": [
+          "checked"
+        ],
+        "title": "GroundingSummaryResponse",
         "type": "object"
       },
       "ChatBatchResponse.SourceResponse": {
@@ -10684,6 +11363,32 @@
             "default": null,
             "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
             "title": "Stop Reason"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.ClaimAnnotationResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Annotations"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatBatchResponse.GroundingSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "created_at": {
             "title": "Created At",
