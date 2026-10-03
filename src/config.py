@@ -426,6 +426,55 @@ class Config:
         os.getenv("GROUNDING_CHECK_TIMEOUT_SECONDS", "10")
     )
 
+    # Deep research (src/agent/deep_research/): the agent offers a run with an
+    # editable plan; parallel subagents share a board, Pro writes the report.
+    DEEP_RESEARCH_ENABLED: bool = os.getenv("DEEP_RESEARCH_ENABLED", "true").lower() == "true"
+    DEEP_RESEARCH_WRITER_MODEL: str = (
+        os.getenv("DEEP_RESEARCH_WRITER_MODEL") or "gemini-3.1-pro-preview"
+    )
+    DEEP_RESEARCH_SUBAGENT_MODEL: str = os.getenv("DEEP_RESEARCH_SUBAGENT_MODEL") or DEFAULT_MODEL
+    DEEP_RESEARCH_PARALLELISM: int = int(os.getenv("DEEP_RESEARCH_PARALLELISM", "4"))
+    DEEP_RESEARCH_MAX_SUB_QUESTIONS: int = int(os.getenv("DEEP_RESEARCH_MAX_SUB_QUESTIONS", "8"))
+    DEEP_RESEARCH_MAX_ITEM_CHARS: int = int(os.getenv("DEEP_RESEARCH_MAX_ITEM_CHARS", "300"))
+    DEEP_RESEARCH_MAX_CONTEXT_CHARS: int = int(os.getenv("DEEP_RESEARCH_MAX_CONTEXT_CHARS", "600"))
+    DEEP_RESEARCH_SUBAGENT_MAX_ROUNDS: int = int(
+        os.getenv("DEEP_RESEARCH_SUBAGENT_MAX_ROUNDS", "4")
+    )
+    DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS: float = float(
+        os.getenv("DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS", "180")
+    )
+    DEEP_RESEARCH_RUN_TIMEOUT_SECONDS: int = int(
+        os.getenv("DEEP_RESEARCH_RUN_TIMEOUT_SECONDS", "900")
+    )
+    # Subagents running at once in one worker, across all runs
+    DEEP_RESEARCH_MAX_CONCURRENT_SUBAGENTS: int = int(
+        os.getenv("DEEP_RESEARCH_MAX_CONCURRENT_SUBAGENTS", "8")
+    )
+    DEEP_RESEARCH_MAX_PAGES: int = int(os.getenv("DEEP_RESEARCH_MAX_PAGES", "40"))
+    DEEP_RESEARCH_PAGE_MAX_CHARS: int = int(os.getenv("DEEP_RESEARCH_PAGE_MAX_CHARS", "6000"))
+    DEEP_RESEARCH_BOARD_MAX_ENTRIES: int = int(os.getenv("DEEP_RESEARCH_BOARD_MAX_ENTRIES", "40"))
+    DEEP_RESEARCH_BOARD_ENTRY_CHARS: int = int(os.getenv("DEEP_RESEARCH_BOARD_ENTRY_CHARS", "300"))
+    DEEP_RESEARCH_BOARD_INJECT_CHARS: int = int(
+        os.getenv("DEEP_RESEARCH_BOARD_INJECT_CHARS", "2000")
+    )
+    DEEP_RESEARCH_REPORT_MAX_WORDS: int = int(os.getenv("DEEP_RESEARCH_REPORT_MAX_WORDS", "1500"))
+    DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS: int = int(
+        os.getenv("DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS", "200000")
+    )
+    DEEP_RESEARCH_GROUNDING_MAX_CLAIMS: int = int(
+        os.getenv("DEEP_RESEARCH_GROUNDING_MAX_CLAIMS", "40")
+    )
+    # Estimate shown on the offer: writer + check, plus one subagent per item;
+    # minutes per wave of DEEP_RESEARCH_PARALLELISM subagents
+    DEEP_RESEARCH_EST_BASE_USD: float = float(os.getenv("DEEP_RESEARCH_EST_BASE_USD", "0.12"))
+    DEEP_RESEARCH_EST_PER_ITEM_USD: float = float(
+        os.getenv("DEEP_RESEARCH_EST_PER_ITEM_USD", "0.08")
+    )
+    DEEP_RESEARCH_EST_BASE_MINUTES: float = float(os.getenv("DEEP_RESEARCH_EST_BASE_MINUTES", "2"))
+    DEEP_RESEARCH_EST_PER_WAVE_MINUTES: float = float(
+        os.getenv("DEEP_RESEARCH_EST_PER_WAVE_MINUTES", "2.5")
+    )
+
     # Judge model for the eval harness (evals/run.py, `make eval`). Pro by
     # default: judging quality matters more than judge cost (a few calls/run).
     EVAL_JUDGE_MODEL: str = os.getenv("EVAL_JUDGE_MODEL") or "gemini-3.1-pro-preview"
