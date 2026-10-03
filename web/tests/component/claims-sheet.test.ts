@@ -44,4 +44,17 @@ describe('ClaimsSheet', () => {
     expect(target.classList.contains('claim--flash')).toBe(false);
     vi.useRealTimers();
   });
+
+  it('a sourced row names the source domain from the stored message', async () => {
+    const { useStore } = await import('@/state/store');
+    const msg = setup();
+    msg.dataset.messageId = 'm-src';
+    useStore.setState({ currentConversation: { id: 'c1' } } as never);
+    vi.spyOn(useStore.getState(), 'getMessages').mockReturnValue([
+      { id: 'm-src', role: 'assistant', content: '', created_at: '', sources: [{ title: 'A', url: 'https://www.spzsluzby.cz/x' }] },
+    ] as never);
+    (document.querySelector('.grounding-footer') as HTMLElement).click();
+    const rows = [...document.querySelectorAll('.claims-sheet__row')];
+    expect(rows[2].querySelector('.claims-sheet__detail')!.textContent).toBe('1 · spzsluzby.cz');
+  });
 });

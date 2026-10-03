@@ -116,6 +116,8 @@ DEFAULT_CONFIG = {
     "stream_delay_ms": 10,
     "batch_delay_ms": 0,
     "custom_response": None,
+    # Canned grounding-check outcome ({"annotations", "summary"}); empty = no check
+    "grounding_result": None,
     "emit_thinking": False,
     # Emit a transient-error "retry" status first and hold it this long (ms)
     "emit_retry_hold_ms": 0,
@@ -487,9 +489,32 @@ def create_mock_stream_chat_events() -> Any:
         }
         if stop_reason:
             final["stop_reason"] = stop_reason
+        # Same post-answer step as ChatAgent.stream_chat (patched check below)
+        from src.agent import grounding_check
+
+        if grounding_check.should_check(final["content"], [], stop_reason):
+            yield {"type": "grounding_started"}
+        grounding_check.apply_grounding(final["content"], [], usage_info, stop_reason)
         yield final
 
     return mock_stream_chat_events
+
+
+def mock_should_check(answer: str, result_messages: Any, stop_reason: str | None = None) -> bool:
+    """The grounding check "runs" whenever a test set a canned result."""
+    return bool(MOCK_CONFIG.get("grounding_result")) and not stop_reason
+
+
+def mock_check_grounding(answer: str, result_messages: Any, stop_reason: str | None = None) -> Any:
+    """The canned grounding outcome a test set via /test/set-grounding-result."""
+    from src.agent.grounding_check import GroundingOutcome
+
+    canned = MOCK_CONFIG.get("grounding_result") or {}
+    if not canned or stop_reason:
+        return GroundingOutcome()
+    return GroundingOutcome(
+        annotations=canned.get("annotations", []), summary=canned.get("summary"), usage=None
+    )
 
 
 def cleanup_pid_file() -> None:
@@ -600,6 +625,10 @@ def main() -> None:
         )
         stack.enter_context(
             patch("src.auth.google_auth.requests.get", create_mock_google_tokeninfo())
+        )
+        stack.enter_context(patch("src.agent.grounding_check.should_check", mock_should_check))
+        stack.enter_context(
+            patch("src.agent.grounding_check.check_grounding", mock_check_grounding)
         )
         stack.enter_context(
             patch("src.agent.agent.ChatAgent.stream_chat", create_mock_stream_chat())
@@ -934,6 +963,14 @@ def main() -> None:
                 delay_ms = float(data.get("delay", 0.05)) * 1000
             MOCK_CONFIG["batch_delay_ms"] = delay_ms
             return {"status": "set", "delay_ms": delay_ms}, 200
+
+        @test_bp.route("/test/set-grounding-result", methods=["POST"])
+        def set_grounding_result() -> tuple[dict[str, Any], int]:
+            """Make the (patched) grounding check return canned annotations."""
+            from flask import request
+
+            MOCK_CONFIG["grounding_result"] = request.get_json(silent=True) or None
+            return {"status": "set"}, 200
 
         @test_bp.route("/test/set-search-results", methods=["POST"])
         def set_search_results() -> tuple[dict[str, Any], int]:

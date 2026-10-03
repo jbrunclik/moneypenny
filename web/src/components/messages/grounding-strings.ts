@@ -37,7 +37,7 @@ const EN: GroundingStrings = {
   ofSourced: (n, total) => `${n} of ${total} claims from sources`,
   unsourced: (n) => `${n} without a source`,
   partial: (n) => `${n} partly sourced`,
-  contradicted: (n) => `${n} differ from the source`,
+  contradicted: (n) => `${n} ${n === 1 ? 'differs' : 'differ'} from the source`,
   headings: { not_found: 'Not in the sources', partial: 'Partly in the sources', contradicted: 'The source says otherwise' },
   verdictLabels: { supported: 'SOURCE', partial: 'PARTLY', not_found: 'NO SOURCE', contradicted: 'DIFFERS' },
   legacyReason: 'Not found in the pages I read for this answer.',

@@ -24,6 +24,12 @@ describe('footerText', () => {
     );
   });
 
+  it('uses singular English for one contradicted claim', () => {
+    expect(footerText(anns('contradicted'), { checked: true, source_count: 1 }, 'en')).toBe(
+      '0 of 1 claims from sources · 1 differs from the source'
+    );
+  });
+
   it('legacy footer counts claims that were not anchored', () => {
     expect(footerText(anns('not_found', 'not_found', 'not_found'), { checked: true, legacy: true }, 'cs')).toBe('3 bez zdroje');
   });

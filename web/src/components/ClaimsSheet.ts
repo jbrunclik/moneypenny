@@ -4,7 +4,7 @@
  */
 import { CLAIM_FLASH_MS, MOBILE_BREAKPOINT_PX } from '../config';
 import { useStore } from '../state/store';
-import type { ClaimAnnotation, ClaimVerdict } from '../types/api';
+import type { ClaimAnnotation, ClaimVerdict, Message, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
 import { closeClaimCard } from './ClaimCard';
 import { getMessageAnnotations, getMessageGrounding, getMessageLanguage } from './messages/annotations';
@@ -13,18 +13,23 @@ import { groundingStrings } from './messages/grounding-strings';
 const SHEET_ID = 'claims-sheet';
 const ORDER: ClaimVerdict[] = ['contradicted', 'not_found', 'partial', 'supported'];
 
-function languageOf(messageEl: HTMLElement): string | undefined {
-  const known = getMessageLanguage(messageEl);
-  if (known) return known;
+function storedMessage(messageEl: HTMLElement): Message | undefined {
   const convId = useStore.getState().currentConversation?.id;
   return convId
-    ? useStore.getState().getMessages(convId).find((m) => m.id === messageEl.dataset.messageId)?.language
+    ? useStore.getState().getMessages(convId).find((m) => m.id === messageEl.dataset.messageId)
     : undefined;
 }
 
-function rowHtml(ann: ClaimAnnotation, index: number, language?: string): string {
+/** "2 · example.cz" for a cited claim (the domain when the source is known). */
+function citation(ann: ClaimAnnotation, sources: Source[] | undefined): string {
+  if (!ann.source) return '';
+  const url = sources?.[ann.source - 1]?.url;
+  return url ? `${ann.source} · ${new URL(url).hostname.replace(/^www\./, '')}` : `${ann.source}`;
+}
+
+function rowHtml(ann: ClaimAnnotation, index: number, language?: string, sources?: Source[]): string {
   const s = groundingStrings(language);
-  const detail = ann.verdict === 'supported' ? (ann.source ? `${ann.source}` : '') : (ann.reason ?? '');
+  const detail = ann.verdict === 'supported' ? citation(ann, sources) : (ann.reason ?? '');
   return `<button type="button" class="claims-sheet__row" data-claim="${index}">
       <span class="claims-sheet__verdict claims-sheet__verdict--${ann.verdict}">${escapeHtml(s.verdictLabels[ann.verdict])}</span>
       <span class="claims-sheet__quote">${escapeHtml(ann.quote)}</span>
@@ -48,7 +53,8 @@ export function openClaimsSheet(messageEl: HTMLElement): void {
   if (!annotations?.length || !grounding) return;
   closeClaimCard();
   closeClaimsSheet();
-  const language = languageOf(messageEl);
+  const stored = storedMessage(messageEl);
+  const language = getMessageLanguage(messageEl) ?? stored?.language;
   const s = groundingStrings(language);
   const sourced = annotations.filter((a) => a.verdict === 'supported').length;
   const rows = annotations
@@ -65,7 +71,7 @@ export function openClaimsSheet(messageEl: HTMLElement): void {
     <div class="claims-sheet__panel">
       ${mobile ? '<div class="claims-sheet__grab"></div>' : ''}
       <h4 class="claims-sheet__title">${escapeHtml(s.sheetTitle)}</h4>${meta}
-      <div class="claims-sheet__rows">${rows.map(({ ann, i }) => rowHtml(ann, i, language)).join('')}</div>
+      <div class="claims-sheet__rows">${rows.map(({ ann, i }) => rowHtml(ann, i, language, stored?.sources)).join('')}</div>
     </div>`;
   sheet.querySelector('.claims-sheet__backdrop')!.addEventListener('click', closeClaimsSheet);
   sheet.addEventListener('click', (e) => {
