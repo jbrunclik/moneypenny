@@ -60,6 +60,8 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Code quality & tooling
 
+- [ ] **Evals share the dev blob store** (Oct 3 2026) - `isolate_environment()` in `evals/run.py` points `DATABASE_PATH` at a temp dir but not `BLOB_STORAGE_PATH`, so eval runs (attachments, generated files) write into the repo's `files.db`. Point it at the same temp dir.
+- [ ] **Eval harness `_run_case` is ~200 lines** - split setup (fixtures, memories, seed conversation, sports context), the turn, and judging/pricing into helpers.
 - [ ] **File-size convention violations** - production files over 500 lines (Sep 30 2026 count): thumbnails.ts (1058), planner_data.py (1015), Sidebar.ts (997), graph.py (947), types/api.ts (925, hand-written - shrink toward generated-api.ts), SyncManager.ts (923), AgentEditor.ts (885), config.py (857, declarative), icons.ts (759, data), garmin.py (723), messages/render.ts (715), google_calendar.py (671), MessageInput.ts (664), init.ts (647), messages/streaming.ts (626), messages/pagination.ts (614), search_provider.py (609), code_execution.py (606), garmin_workout.py (604), tool_display.py (601), stream-recovery.ts (596), web.py (583), PlannerDashboard.ts (565), web config.ts (561), CommandCenter.ts (547), whatsapp.py (537), keyboard-viewport.ts (517), tools/__init__.py (514), agent.py (505), KVStorePage.ts (502). Largest tests: test_routes_chat.py (1645), sync-manager.test.ts (1638), conversation.spec.ts (1603), e2e-server.py (1497), test_agents.py (1493).
 
 ## Parked (reopen on the trigger)
