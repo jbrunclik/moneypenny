@@ -85,6 +85,17 @@ describe('deep research send', () => {
     expect(toast.info).toHaveBeenCalled();
   });
 
+  it('an autostart waits for the running reply to end, then sends', async () => {
+    useStore.getState().setActiveRequest('c1', { requestId: 'r', messageId: 'a1' } as never);
+    const started = startDeepResearch('m1', ['A?'], '', { whenIdle: true });
+    await Promise.resolve();
+    expect(sendStreamingMessage).not.toHaveBeenCalled();
+    useStore.getState().removeActiveRequest('c1');
+    await started;
+    expect(sendStreamingMessage).toHaveBeenCalledTimes(1);
+    expect(toast.info).not.toHaveBeenCalled();
+  });
+
   it('declineDeepResearch patches the offer and marks it declined in the store', async () => {
     useStore.getState().setMessages('c1', [
       {

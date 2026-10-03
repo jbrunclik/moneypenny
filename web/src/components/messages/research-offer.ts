@@ -181,7 +181,7 @@ export function renderResearchOffer(
     collapse(card, 'Starting…');
     if (!autostarted.has(message.id)) {
       autostarted.add(message.id);
-      void startDeepResearch(message.id, offer.sub_questions, offer.context);
+      void startDeepResearch(message.id, offer.sub_questions, offer.context, { whenIdle: true });
     }
     return;
   }

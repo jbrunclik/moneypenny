@@ -36,11 +36,34 @@ function setOfferStatus(offerMessageId: string, status: ResearchOfferStatus): vo
   }
 }
 
-/** Start an offer with the edited plan; false when it could not be sent now. */
-export async function startDeepResearch(offerMessageId: string, subQuestions: string[], context: string): Promise<boolean> {
+/** Resolves once the conversation has no reply running. */
+function whenIdle(convId: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (!useStore.getState().getActiveRequest(convId)) return resolve();
+    const unsubscribe = useStore.subscribe((state) => {
+      if (state.getActiveRequest(convId)) return;
+      unsubscribe();
+      resolve();
+    });
+  });
+}
+
+/**
+ * Start an offer with the edited plan; false when it could not be sent now.
+ * `whenIdle` (autostart) waits for the reply carrying the offer to finish -
+ * it is still the conversation's running request while its done is handled.
+ */
+export async function startDeepResearch(
+  offerMessageId: string,
+  subQuestions: string[],
+  context: string,
+  options: { whenIdle?: boolean } = {}
+): Promise<boolean> {
   log.info('Starting deep research', { offerMessageId, items: subQuestions.length });
   const plan = { offer_message_id: offerMessageId, sub_questions: subQuestions, context };
   setOfferStatus(offerMessageId, 'started');
+  const convId = useStore.getState().currentConversation?.id;
+  if (options.whenIdle && convId) await whenIdle(convId);
   const sent = await sendUiMessage(START_MESSAGE, plan);
   if (!sent) setOfferStatus(offerMessageId, 'offered');
   return sent;
