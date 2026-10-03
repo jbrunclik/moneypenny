@@ -59,6 +59,15 @@ def build_offer(args: dict[str, Any], kind: str = "initial", round_: int = 1) ->
     }
 
 
+def seconds_open(offer: dict[str, Any]) -> int | None:
+    """Seconds since the offer was made (time to decision, for telemetry)."""
+    try:
+        created = datetime.fromisoformat(str(offer["created_at"]))
+    except KeyError, ValueError:
+        return None
+    return round((datetime.now() - created).total_seconds())
+
+
 def extract_offer(result_messages: list[BaseMessage]) -> dict[str, Any] | None:
     """The offer from the turn's last propose_deep_research call, if valid."""
     args: dict[str, Any] | None = None

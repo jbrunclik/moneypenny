@@ -1,8 +1,10 @@
 """Starting a deep-research run from an offer, and declining one."""
 
+import logging
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
+import pytest
 from flask.testing import FlaskClient
 
 from src.agent.deep_research.offer import build_offer
@@ -67,6 +69,24 @@ class TestStart:
         assert offer["final_sub_questions"] == ["a", "c", "d"]
         assert offer["sub_questions"] == ["a", "b"]
         assert set(offer["final_estimate"]) == {"minutes", "cost_czk"}
+
+    def test_start_logs_the_edits_and_time_to_decide(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        offer_id = _offer(test_database, test_conversation.id)
+
+        with caplog.at_level(logging.INFO):
+            _stream(client, auth_headers, test_conversation.id, _start(offer_id, ["a", "c", "d"]))
+
+        record = next(r for r in caplog.records if r.getMessage() == "Deep research started")
+        assert (record.items, record.added, record.removed) == (3, 2, 1)
+        assert record.context_edited is False
+        assert record.decision_seconds >= 0
 
     def test_invalid_plans_are_rejected_and_nothing_starts(
         self,
@@ -144,6 +164,27 @@ class TestDecline:
 
         assert response.status_code == 200
         assert test_database.get_message_by_id(offer_id).research["offer"]["status"] == "declined"
+
+    def test_decline_logs_time_to_decide(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        offer_id = _offer(test_database, test_conversation.id)
+
+        with caplog.at_level(logging.INFO):
+            client.patch(
+                f"/api/messages/{offer_id}/research-offer",
+                headers=auth_headers,
+                json={"status": "declined"},
+            )
+
+        record = next(r for r in caplog.records if r.getMessage() == "Deep research declined")
+        assert record.decision_seconds >= 0
+        assert record.sub_questions == 2
 
     def test_other_statuses_are_rejected(
         self,

@@ -20,7 +20,7 @@ from src.agent.content import (
     extract_image_prompts_from_messages,
     extract_read_sources,
 )
-from src.agent.deep_research.offer import extract_offer
+from src.agent.deep_research.offer import extract_offer, seconds_open
 from src.agent.title import generate_title
 from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
@@ -33,6 +33,7 @@ from src.api.schemas.common import MessageRole
 from src.api.utils import calculate_and_save_message_cost
 from src.config import Config
 from src.db.models import db
+from src.utils.costs import convert_currency
 from src.utils.images import (
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,
@@ -176,6 +177,7 @@ def _research_for_turn(
     opens_offer = offer is not None or bool(run and run.get("followup"))
     if opens_offer:
         for old in db.find_open_research_offers(conv_id):
+            _log_superseded(old)
             db.set_message_research(old.id, _superseded(old.research or {}))
     if run:
         return {"run": run}
@@ -193,6 +195,44 @@ def _research_for_turn(
         },
     )
     return {"offer": offer}
+
+
+def _log_superseded(message: Any) -> None:
+    research = message.research or {}
+    offer = research.get("offer") or (research.get("run") or {}).get("followup") or {}
+    logger.info(
+        "Deep research superseded",
+        extra={
+            "conversation_id": message.conversation_id,
+            "offer_message_id": message.id,
+            "kind": offer.get("kind"),
+            "seconds_open": seconds_open(offer),
+        },
+    )
+
+
+def _log_research_run(run: dict[str, Any], cost_usd: float, message_id: str) -> None:
+    """One line per run for the two-week review (with messages.research)."""
+    statuses = [item.get("status") for item in run.get("items") or []]
+    logger.info(
+        "Deep research run",
+        extra={
+            "message_id": message_id,
+            "round": run.get("round"),
+            "items": len(statuses),
+            "failed": statuses.count("failed"),
+            "timed_out": statuses.count("timed_out"),
+            "skipped": statuses.count("skipped"),
+            "pages_read": run.get("pages_read"),
+            "board_entries": len(run.get("board") or []),
+            "cache_hits": run.get("cache_hits"),
+            "duration_ms": run.get("duration_ms"),
+            "finished_early": run.get("finished_early"),
+            "cost_usd": cost_usd,
+            "cost_czk": convert_currency(cost_usd, Config.COST_CURRENCY),
+            "estimate": run.get("estimate"),
+        },
+    )
 
 
 def _superseded(research: dict[str, Any]) -> dict[str, Any]:
@@ -334,11 +374,10 @@ def save_message_to_db(
         )
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)
-        calculate_and_save_message_cost(
+        cost_usd = calculate_and_save_message_cost(
             assistant_msg.id,
             conv_id,
             user_id,
-            # The other tier answered when the turn's model was down
             # The model that wrote the answer: the other tier when the
             # turn's model was down, the deep-research writer for a report
             usage.get("model_fallback") or usage.get("answer_model") or model,
@@ -347,6 +386,8 @@ def save_message_to_db(
             len(content),
             mode=mode,
         )
+        if usage.get("research_run"):
+            _log_research_run(usage["research_run"], cost_usd, assistant_msg.id)
 
         generated_title = _resolve_title_update(
             conv_id, user_id, message_text, content, result_messages

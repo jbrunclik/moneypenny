@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from src.agent.deep_research.estimate import estimate
-from src.agent.deep_research.offer import validate_plan
+from src.agent.deep_research.offer import seconds_open, validate_plan
 from src.db.models import db
 from src.utils.logging import get_logger
 
@@ -84,6 +84,8 @@ def start_plan(
             "items": len(items),
             "added": len([i for i in items if i not in offered]),
             "removed": len([i for i in offered if i not in items]),
+            "context_edited": context != str(offer.get("context") or ""),
+            "decision_seconds": seconds_open(offer),
             "estimate": final_estimate,
         },
     )
@@ -116,5 +118,7 @@ def decline_offer(message: Any) -> None:
             "conversation_id": message.conversation_id,
             "offer_message_id": message.id,
             "kind": offer.get("kind"),
+            "sub_questions": len(offer.get("sub_questions") or []),
+            "decision_seconds": seconds_open(offer),
         },
     )

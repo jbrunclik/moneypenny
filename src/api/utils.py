@@ -329,8 +329,8 @@ def calculate_and_save_message_cost(
     tool_results: list[dict[str, Any]],
     response_length: int,
     mode: str = "batch",
-) -> None:
-    """Calculate and save cost for a message.
+) -> float:
+    """Calculate and save cost for a message; returns the cost in USD.
 
     Args:
         message_id: The message ID
@@ -403,6 +403,7 @@ def calculate_and_save_message_cost(
             "output_tokens": output_tokens,
         },
     )
+    return cost_usd
 
 
 def calculate_image_generation_cost_from_tool_results(
