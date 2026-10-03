@@ -443,6 +443,12 @@ class Config:
     DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS: float = float(
         os.getenv("DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS", "180")
     )
+    # A subagent cut by its deadline or Finish now may be stuck inside one
+    # tool call (cancellation is checked between rounds); after this grace
+    # the run stops waiting for it and keeps what it put on the board
+    DEEP_RESEARCH_CUT_GRACE_SECONDS: float = float(
+        os.getenv("DEEP_RESEARCH_CUT_GRACE_SECONDS", "10")
+    )
     DEEP_RESEARCH_RUN_TIMEOUT_SECONDS: int = int(
         os.getenv("DEEP_RESEARCH_RUN_TIMEOUT_SECONDS", "900")
     )

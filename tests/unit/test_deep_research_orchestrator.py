@@ -129,6 +129,50 @@ def test_an_item_past_its_deadline_times_out(monkeypatch: pytest.MonkeyPatch) ->
     assert [p.url for p in results[1].pages] == ["https://partial.cz"]
 
 
+def _blocked_in_a_tool(release: threading.Event) -> object:
+    """A subagent stuck inside one tool call: it never checks its cancel token."""
+
+    def run(brief: str, board: ResearchBoard, index: int, request_id: str) -> ItemResult:
+        if index == 1:
+            board.record_page(1, SourcePage("partial", "https://partial.cz", "half"))
+            release.wait(10)
+        return ItemResult(index, "done", "", [], {})
+
+    return run
+
+
+def test_a_subagent_blocked_in_a_tool_cannot_hold_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(Config, "DEEP_RESEARCH_CUT_GRACE_SECONDS", 0.2)
+    release = threading.Event()
+    monkeypatch.setattr(orch, "run_subagent", _blocked_in_a_tool(release))
+    started = time.monotonic()
+    try:
+        _, results = _run(_plan(2), [])
+    finally:
+        release.set()
+
+    assert time.monotonic() - started < 2
+    assert [r.status for r in results] == ["done", "timed_out"]
+    assert [p.url for p in results[1].pages] == ["https://partial.cz"]
+
+
+def test_finish_now_does_not_wait_for_a_blocked_subagent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "DEEP_RESEARCH_CUT_GRACE_SECONDS", 0.2)
+    release = threading.Event()
+    monkeypatch.setattr(orch, "run_subagent", _blocked_in_a_tool(release))
+    o = Orchestrator(_plan(2), lambda e: None, run_id="run-2", today="2026-10-03", recent_turns="")
+    threading.Timer(0.2, o.finish_now).start()
+    started = time.monotonic()
+    try:
+        results = o.run()
+    finally:
+        release.set()
+
+    assert time.monotonic() - started < 2
+    assert [r.status for r in results] == ["done", "skipped"]
+
+
 def test_failures_are_recorded_per_item(monkeypatch: pytest.MonkeyPatch) -> None:
     def flaky(brief: str, board: ResearchBoard, index: int, request_id: str) -> ItemResult:
         if index == 0:

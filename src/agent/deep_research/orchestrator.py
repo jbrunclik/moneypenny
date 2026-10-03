@@ -2,8 +2,12 @@
 
 Each sub-question gets a subagent (subagent.run_subagent) with its own request
 id and cancel token, so a deadline, Finish now or Stop can cut it individually;
-what it read before that stays on the shared board. A per-worker semaphore
-bounds subagents across concurrent runs (two family members at once).
+what it read before that stays on the shared board. Cancellation is checked
+between tool rounds, so a subagent stuck inside one tool call (a hanging fetch,
+search retries) is abandoned after DEEP_RESEARCH_CUT_GRACE_SECONDS: the run
+keeps its board pages and moves on, the thread finishes on its own. A per-run
+semaphore caps parallelism; a per-worker one bounds subagents across
+concurrent runs (two family members at once).
 """
 
 import contextvars
@@ -64,6 +68,10 @@ class Orchestrator:
         self._lock = threading.Lock()
         self._running: dict[int, float] = {}
         self._cut: dict[int, Status] = {}
+        self._cut_at: dict[int, float] = {}
+        self._run_slots = threading.BoundedSemaphore(Config.DEEP_RESEARCH_PARALLELISM)
+        self._held: dict[int, list[threading.BoundedSemaphore]] = {}
+        self._finished: set[int] = set()
 
     def _on_post(self, entry: BoardEntry) -> None:
         self.emit({"type": "research_finding", "agent": entry.agent, "text": entry.text})
@@ -86,7 +94,9 @@ class Orchestrator:
             }
         )
         results: list[ItemResult | None] = [None] * len(items)
-        with ThreadPoolExecutor(Config.DEEP_RESEARCH_PARALLELISM, "deep-research") as pool:
+        # One thread per item: a thread stuck in a tool must not starve the queue
+        pool = ThreadPoolExecutor(max(len(items), 1), "deep-research")
+        try:
             futures = {
                 pool.submit(contextvars.copy_context().run, self._item, i): i
                 for i in range(len(items))
@@ -97,25 +107,47 @@ class Orchestrator:
                 for future in done:
                     results[futures[future]] = future.result()
                 self._enforce_deadlines()
+                pending = self._abandon_stuck(pending, futures, results)
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
         if self._stop.is_set():
             raise TurnCancelled
         final = [r for r in results if r is not None]
         self.emit({"type": "research_sources", "count": len(merge_pages(final, self.board))})
         return final
 
-    def _item(self, index: int) -> ItemResult:
-        slots = _get_slots()
+    def _acquire(self, index: int, slots: threading.BoundedSemaphore, announce: bool) -> bool:
+        """Take a slot (False when the run halts first); recorded for _release."""
         if not slots.acquire(blocking=False):
-            self.emit({"type": "research_item", "index": index, "status": "waiting"})
+            if announce:
+                self.emit({"type": "research_item", "index": index, "status": "waiting"})
             while not slots.acquire(timeout=_POLL_SECONDS):
                 if self._halted():
-                    return self._finish_item(ItemResult(index, "skipped", ""))
+                    return False
+        with self._lock:
+            self._held.setdefault(index, []).append(slots)
+        return True
+
+    def _release(self, index: int) -> None:
+        """Give back an item's slots once (by the item, or when it is abandoned)."""
+        with self._lock:
+            held = self._held.pop(index, [])
+        for slots in held:
+            slots.release()
+
+    def _item(self, index: int) -> ItemResult:
         try:
-            if self._halted():
+            if (
+                not (
+                    self._acquire(index, self._run_slots, announce=False)
+                    and self._acquire(index, _get_slots(), announce=True)
+                )
+                or self._halted()
+            ):
                 return self._finish_item(ItemResult(index, "skipped", ""))
             return self._finish_item(self._research(index))
         finally:
-            slots.release()
+            self._release(index)
 
     def _research(self, index: int) -> ItemResult:
         rid = self._rid(index)
@@ -138,6 +170,10 @@ class Orchestrator:
             unregister_token(rid)
 
     def _finish_item(self, result: ItemResult) -> ItemResult:
+        with self._lock:
+            if result.index in self._finished:
+                return result  # abandoned earlier: the run has moved on
+            self._finished.add(result.index)
         self.emit(
             {
                 "type": "research_item",
@@ -159,10 +195,33 @@ class Orchestrator:
             ]
             for i in targets:
                 self._cut[i] = status
+                self._cut_at[i] = now
         for i in targets:
             token = token_for(self._rid(i))
             if token:
                 token.cancel()
+
+    def _abandon_stuck(
+        self, pending: set[Any], futures: dict[Any, int], results: list[ItemResult | None]
+    ) -> set[Any]:
+        """Stop waiting for items cut longer than the grace ago; returns what is left."""
+        now = time.monotonic()
+        grace = Config.DEEP_RESEARCH_CUT_GRACE_SECONDS
+        left = set()
+        for future in pending:
+            index = futures[future]
+            with self._lock:
+                stuck = index in self._running and now - self._cut_at.get(index, now) > grace
+            if not stuck:
+                left.add(future)
+                continue
+            logger.warning("Deep research subagent stuck after its cut", extra={"index": index})
+            self._release(index)
+            status = self._cut[index]
+            results[index] = self._finish_item(
+                ItemResult(index, status, "", self.board.pages_of(index))
+            )
+        return left
 
     def _enforce_deadlines(self) -> None:
         self._cut_running("timed_out", only_overdue=True)
