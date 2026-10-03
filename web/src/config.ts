@@ -582,3 +582,6 @@ export const TRASH_RETENTION_DAYS = 14;
 
 /** Hover delay before a grounding claim's card opens (devices that hover) */
 export const CLAIM_CARD_HOVER_DELAY_MS = 250;
+
+/** How long a claim stays highlighted after jumping to it from the claims list */
+export const CLAIM_FLASH_MS = 1600;

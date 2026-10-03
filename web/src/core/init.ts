@@ -40,6 +40,7 @@ import { initFileUpload } from '../components/FileUpload';
 import { initLightbox } from '../components/Lightbox';
 import { initSourcesPopup } from '../components/SourcesPopup';
 import { initClaimCard } from '../components/ClaimCard';
+import { initClaimsSheet } from '../components/ClaimsSheet';
 import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHistoryPopup';
@@ -494,6 +495,7 @@ export async function init(): Promise<void> {
   initLightbox();
   initSourcesPopup();
   initClaimCard();
+  initClaimsSheet();
   initImageGenPopup();
   initMessageCostPopup();
   costHistoryPopup.init();
