@@ -138,10 +138,15 @@ export async function sendQuickAction(
   action: QuickAction,
   values: Record<string, string>
 ): Promise<void> {
-  const textarea = getElementById<HTMLTextAreaElement>('message-input');
-  if (!textarea) return;
   const text = composeQuickActionMessage(action, values);
   log.info('Sending quick action', { id: action.id, fields: Object.keys(values).length });
+  await sendComposedText(text);
+}
+
+/** Put text in the composer and send it through the normal path. */
+export async function sendComposedText(text: string): Promise<void> {
+  const textarea = getElementById<HTMLTextAreaElement>('message-input');
+  if (!textarea) return;
   textarea.value = text;
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
   await sendMessage();

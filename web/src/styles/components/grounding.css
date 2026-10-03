@@ -54,3 +54,67 @@
         opacity: 0.45;
     }
 }
+
+/* Claim card (components/ClaimCard.ts) */
+.claim-card {
+    position: absolute;
+    z-index: 1000;
+    width: min(320px, calc(100vw - 32px));
+    padding: var(--space-2-5) var(--space-3);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-primary);
+}
+
+.claim-card__heading {
+    font-weight: 600;
+}
+
+.claim-card__heading--not_found,
+.claim-card__heading--partial {
+    color: var(--claim-heading-unsourced);
+}
+
+.claim-card__heading--contradicted {
+    color: var(--claim-heading-contradicted);
+}
+
+.claim-card__heading small {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.claim-card__reason {
+    margin: var(--space-1) 0 0;
+    color: var(--text-secondary);
+}
+
+.claim-card blockquote {
+    margin: var(--space-2) 0 0;
+    padding: 2px 0 2px var(--space-2-5);
+    border-left: 2px solid var(--border-light);
+    font-size: 12.5px;
+}
+
+.claim-card__source {
+    display: block;
+    margin-top: var(--space-1-5);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.claim-card__lookup {
+    margin-top: 9px;
+    padding: 3px var(--space-2-5);
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent-muted);
+    color: var(--accent-hover);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}

@@ -39,6 +39,7 @@ import { initModelSelector, renderModelDropdown } from '../components/ModelSelec
 import { initFileUpload } from '../components/FileUpload';
 import { initLightbox } from '../components/Lightbox';
 import { initSourcesPopup } from '../components/SourcesPopup';
+import { initClaimCard } from '../components/ClaimCard';
 import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHistoryPopup';
@@ -492,6 +493,7 @@ export async function init(): Promise<void> {
   initVoiceInput();
   initLightbox();
   initSourcesPopup();
+  initClaimCard();
   initImageGenPopup();
   initMessageCostPopup();
   costHistoryPopup.init();

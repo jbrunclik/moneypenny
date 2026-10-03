@@ -579,3 +579,6 @@ export const COMPACTION_DEEP_GENERATION = 3;
 
 /** Days a deleted conversation stays restorable (mirrors the server's TRASH_RETENTION_DAYS default; the trash view shows the server's purge_at) */
 export const TRASH_RETENTION_DAYS = 14;
+
+/** Hover delay before a grounding claim's card opens (devices that hover) */
+export const CLAIM_CARD_HOVER_DELAY_MS = 250;

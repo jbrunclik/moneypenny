@@ -44,7 +44,7 @@ export function decorateGrounding(
   }
   const content = messageEl.querySelector<HTMLElement>('.message-content');
   if (content) applyAnnotations(content, annotations);
-  rememberAnnotations(messageEl, annotations, message.grounding);
+  rememberAnnotations(messageEl, annotations, message.grounding, message.language);
   const footer = placeFooter(messageEl);
   if (!footer) return;
   footer.textContent = footerText(annotations, message.grounding, message.language);
