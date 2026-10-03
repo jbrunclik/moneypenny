@@ -38,6 +38,7 @@ from src.agent.content import (
     strip_full_result_from_tool_content,
 )
 from src.agent.retry import is_model_unavailable, with_retry
+from src.agent.round_cap import tool_round_cap
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_conversation_context
@@ -440,7 +441,7 @@ def check_tool_results(
     # to count them. Each round re-invokes the model with the full accumulated
     # context, so unbounded rounds multiply input-token cost.
     tool_rounds = state.get("tool_rounds", 0) + 1
-    max_rounds = Config.AGENT_MAX_TOOL_ROUNDS
+    max_rounds = tool_round_cap()
 
     # Mid-run steering: the user may have sent guidance while this turn was
     # running (stored cross-worker in kv_store by the interject route).
