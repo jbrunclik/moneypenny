@@ -29,6 +29,12 @@ for (const streaming of [true, false]) {
       await expect(page.locator('#claim-card .claim-card__reason')).toHaveText('Not in the pages I read.');
       await page.locator('#claim-card .claim-card__lookup').click();
       await expect(page.locator('.message--action .action-row__text').last()).toHaveText('Looking up “mock response”');
+      // Once answered, the claim links to the look-up's reply
+      // The reply is finalized (a streaming bubble counts as .message.assistant too)
+      await expect(page.locator('.message.assistant .grounding-footer')).toHaveCount(2, { timeout: 15000 });
+      await page.locator('.message.assistant .claim').first().click();
+      await page.locator('#claim-card .claim-card__reply').click();
+      await expect(page.locator('.message.assistant').last()).toHaveClass(/message--flash/);
     });
 
     test('footer opens the claims list; a row jumps to the claim', async ({ page }) => {

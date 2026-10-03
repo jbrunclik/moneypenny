@@ -107,8 +107,25 @@
     color: var(--text-muted);
 }
 
-.claim-card__lookup {
+.claim-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
     margin-top: 9px;
+}
+
+/* "Looked up below ↓": the answer an earlier Look it up produced */
+.claim-card__reply {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent-hover);
+    font: inherit;
+    cursor: pointer;
+}
+
+.claim-card__lookup {
     padding: 3px var(--space-2-5);
     border: 0;
     border-radius: 8px;

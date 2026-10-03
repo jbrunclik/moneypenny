@@ -11,6 +11,7 @@ export interface GroundingStrings {
   verdictLabels: Record<ClaimVerdict, string>;
   defaultReason: string;
   lookUp: string;
+  lookedUpBelow: string;
   lookUpMessage: (quote: string) => string;
   sheetTitle: string;
   sheetMeta: (pages: number, sourced: number, total: number) => string;
@@ -26,6 +27,7 @@ const EN: GroundingStrings = {
   verdictLabels: { supported: 'SOURCE', partial: 'PARTLY', not_found: 'NO SOURCE', contradicted: 'DIFFERS' },
   defaultReason: 'Not found in the pages I read for this answer.',
   lookUp: 'Look it up',
+  lookedUpBelow: 'Looked up below ↓',
   lookUpMessage: (quote) => `Look up and verify: ${quote}`,
   sheetTitle: 'Source check',
   sheetMeta: (pages, sourced, total) =>

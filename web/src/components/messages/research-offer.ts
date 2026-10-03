@@ -12,6 +12,9 @@ import {
   DEEP_RESEARCH_MAX_SUB_QUESTIONS,
 } from '../../config';
 import { declineDeepResearch, startDeepResearch } from '../../core/deep-research';
+import { findActionReply } from '../../core/message-links';
+import { useStore } from '../../state/store';
+import { flashElement } from './action-row';
 import type { Message, MessageResearch, ResearchOffer, ResearchRates } from '../../types/api';
 import { escapeHtml } from '../../utils/dom';
 
@@ -75,6 +78,32 @@ function collapse(card: HTMLElement, text: string): void {
   card.textContent = text;
 }
 
+const STARTED_TEXT = 'Deep research started';
+
+/** A started offer links to its report once the report is in the conversation. */
+function addReportLink(card: HTMLElement): void {
+  const convId = useStore.getState().currentConversation?.id;
+  const reportId = convId && card.dataset.messageId ? findActionReply(convId, card.dataset.messageId) : null;
+  if (!reportId || card.querySelector('.research-offer__report')) return;
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'research-offer__report';
+  link.dataset.reportId = reportId;
+  link.textContent = 'Report below ↓';
+  card.append(' · ', link);
+}
+
+/** Add Report below ↓ to started offers on screen (a report just arrived). */
+export function refreshReportLinks(container: ParentNode = document): void {
+  container.querySelectorAll<HTMLElement>(`.${CARD_CLASS}[data-started]`).forEach(addReportLink);
+}
+
+function collapseStarted(card: HTMLElement): void {
+  collapse(card, STARTED_TEXT);
+  card.dataset.started = 'true';
+  addReportLink(card);
+}
+
 function items(card: HTMLElement): string[] {
   return [...card.querySelectorAll<HTMLTextAreaElement>('.research-offer__item textarea')]
     .map((t) => t.value.trim())
@@ -101,7 +130,7 @@ function refresh(card: HTMLElement): void {
 function start(card: HTMLElement, plan: string[], ctx: string): void {
   const messageId = card.dataset.messageId!;
   const offer = offersByCard.get(card);
-  collapse(card, 'Deep research started');
+  collapseStarted(card);
   const minutes = offer ? estimateFrom(offer.rates, plan.length).minutes : undefined;
   void startDeepResearch(messageId, plan, ctx, { minutes }).then((sent) => {
     // Not sent (a reply is still running): the editor comes back
@@ -111,6 +140,7 @@ function start(card: HTMLElement, plan: string[], ctx: string): void {
 
 function fillEditor(card: HTMLElement, offer: ResearchOffer): void {
   card.classList.remove(`${CARD_CLASS}--decided`);
+  delete card.dataset.started;
   card.innerHTML = editorHtml(offer);
   refresh(card);
 }
@@ -119,6 +149,11 @@ function onClick(e: Event): void {
   const button = (e.target as Element).closest<HTMLButtonElement>(`.${CARD_CLASS} button`);
   const card = button?.closest<HTMLElement>(`.${CARD_CLASS}`);
   if (!button || !card) return;
+  if (button.classList.contains('research-offer__report')) {
+    const report = document.querySelector<HTMLElement>(`.message[data-message-id="${button.dataset.reportId}"]`);
+    if (report) flashElement(report, 'message--flash');
+    return;
+  }
   if (button.classList.contains('research-offer__remove')) {
     button.closest('.research-offer__item')?.remove();
   } else if (button.classList.contains('research-offer__add')) {
@@ -176,7 +211,7 @@ export function renderResearchOffer(
   card.dataset.messageId = message.id;
   anchor.after(card);
   offersByCard.set(card, offer);
-  if (offer.status === 'started') return collapse(card, 'Deep research started');
+  if (offer.status === 'started') return collapseStarted(card);
   if (offer.status === 'declined') return collapse(card, 'Deep research declined');
   if (offer.autostart && (options.live || autostarted.has(message.id))) {
     collapse(card, 'Starting…');

@@ -13,7 +13,7 @@ import type { Message, ResearchRun } from '../../types/api';
 import { MS_PER_MINUTE } from '../../constants';
 import { escapeHtml } from '../../utils/dom';
 import { createLogger } from '../../utils/logger';
-import { renderResearchOffer } from './research-offer';
+import { refreshReportLinks, renderResearchOffer } from './research-offer';
 
 const log = createLogger('research-progress');
 
@@ -239,4 +239,6 @@ export function finishResearchMessage(
   finishRequested.delete(message.id);
   if (message.research?.run) renderResearchChip(messageEl, message.research.run);
   renderResearchOffer(messageEl, message, options);
+  // A report that just arrived: its offer gets "Report below ↓"
+  if (options.live && message.research?.run) refreshReportLinks();
 }

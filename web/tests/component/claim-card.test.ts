@@ -163,3 +163,39 @@ describe('ClaimCard', () => {
     expect(document.activeElement).toBe(claim);
   });
 });
+
+describe('ClaimCard forward link', () => {
+  it('a looked-up claim links to the reply below', async () => {
+    // Earlier tests leave a getMessages spy, fake timers and hover matchMedia behind
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    window.matchMedia = vi.fn(() => ({ matches: false })) as never;
+    const { useStore } = await import('@/state/store');
+    const page = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 3 };
+    useStore.setState({ currentConversation: { id: 'c1', title: 't', model: 'm', created_at: '', updated_at: '' } });
+    useStore.getState().setMessages('c1', [
+      { id: 'a1', role: 'assistant', content: 'x', created_at: '' },
+      {
+        id: 'u1', role: 'user', content: 'Look up and verify: rychlost 24–48 hodin', created_at: '',
+        action: { type: 'verify_claim', source_message_id: 'a1', claim_index: 0, quote: 'rychlost 24–48 hodin' },
+      },
+      { id: 'r1', role: 'assistant', content: 'Ověřeno.', created_at: '' },
+    ], page);
+    setup();
+    const reply = document.createElement('div');
+    reply.className = 'message assistant';
+    reply.dataset.messageId = 'r1';
+    reply.scrollIntoView = vi.fn();
+    document.getElementById('messages')!.appendChild(reply);
+
+    (document.querySelector('.claim') as HTMLElement).click();
+    const link = document.querySelector<HTMLButtonElement>('#claim-card .claim-card__reply')!;
+    expect(link.textContent).toBe('Looked up below ↓');
+    link.click();
+    expect(reply.classList.contains('message--flash')).toBe(true);
+    expect(document.getElementById('claim-card')).toBeNull();
+    // Another claim of the same answer was not looked up
+    (document.querySelectorAll('.claim-cite, .claim')[1] as HTMLElement).click();
+    expect(document.querySelector('#claim-card .claim-card__reply')).toBeNull();
+  });
+});

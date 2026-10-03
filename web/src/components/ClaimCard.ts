@@ -4,10 +4,12 @@
  * on #messages; hover opens on devices that hover, tap/click everywhere.
  */
 import { CLAIM_CARD_HOVER_DELAY_MS } from '../config';
+import { findActionReply } from '../core/message-links';
 import { sendUiMessage } from '../core/messaging';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
+import { flashElement } from './messages/action-row';
 import { displayHost, getMessageAnnotations } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
 
@@ -26,6 +28,8 @@ interface CardContext {
   ann: ClaimAnnotation;
   index: number;
   messageId?: string;
+  /** The reply to an earlier Look it up on this claim */
+  replyId: string | null;
   source?: Source;
 }
 
@@ -40,6 +44,7 @@ function contextFor(target: HTMLElement): CardContext | null {
     ann,
     index,
     messageId: messageEl.dataset.messageId,
+    replyId: convId && messageEl.dataset.messageId ? findActionReply(convId, messageEl.dataset.messageId, index) : null,
     source: ann.source ? stored?.sources?.[ann.source - 1] : undefined,
   };
 }
@@ -69,7 +74,10 @@ function cardHtml(ctx: CardContext): string {
     <div class="claim-card__heading claim-card__heading--${ann.verdict}">${escapeHtml(s.headings[ann.verdict])}</div>
     ${reason ? `<p class="claim-card__reason">${escapeHtml(reason)}</p>` : ''}
     ${passage}${ann.verdict === 'contradicted' ? sourceLine(ctx) : ''}
-    <button type="button" class="claim-card__lookup">${escapeHtml(s.lookUp)}</button>`;
+    <div class="claim-card__actions">
+      <button type="button" class="claim-card__lookup">${escapeHtml(s.lookUp)}</button>
+      ${ctx.replyId ? `<button type="button" class="claim-card__reply">${escapeHtml(s.lookedUpBelow)}</button>` : ''}
+    </div>`;
 }
 
 /** Below the claim, or above it when the card would run under the composer. */
@@ -111,6 +119,11 @@ export function openClaimCard(target: HTMLElement, focus = false): void {
     void sendUiMessage(groundingStrings().lookUpMessage(quote), {
       action: { type: 'verify_claim', source_message_id: ctx.messageId ?? null, claim_index: ctx.index, quote },
     });
+  });
+  card.querySelector('.claim-card__reply')?.addEventListener('click', () => {
+    closeClaimCard();
+    const reply = document.querySelector<HTMLElement>(`.message[data-message-id="${ctx.replyId}"]`);
+    if (reply) flashElement(reply, 'message--flash');
   });
   // Moving from the claim into a hover-opened card keeps it open
   card.addEventListener('mouseenter', () => window.clearTimeout(leaveTimer));

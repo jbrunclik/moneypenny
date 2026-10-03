@@ -275,6 +275,16 @@
     color: var(--text-secondary);
 }
 
+/* "Report below ↓" on a started offer */
+.research-offer__report {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent-hover);
+    font: inherit;
+    cursor: pointer;
+}
+
 /* Action rows: a message the app sent for the user (components/messages/action-row.ts) */
 .message--action .message-content-wrapper {
     margin-left: auto;

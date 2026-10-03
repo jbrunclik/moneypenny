@@ -8,6 +8,7 @@ import {
   _resetResearchOffers,
   estimateFrom,
   initResearchOffers,
+  refreshReportLinks,
   renderResearchOffer,
 } from '@/components/messages/research-offer';
 import type { ResearchOffer } from '@/types/api';
@@ -143,6 +144,32 @@ describe('research offer card', () => {
     expect(document.querySelector('.research-offer')).toBeNull();
     render(null);
     expect(document.querySelector('.research-offer')).toBeNull();
+  });
+
+  it('a started offer links to its report once it exists', async () => {
+    const { useStore } = await import('@/state/store');
+    const page = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 3 };
+    useStore.setState({ currentConversation: { id: 'c1', title: 't', model: 'm', created_at: '', updated_at: '' } });
+    useStore.getState().setMessages('c1', [
+      { id: 'm1', role: 'assistant', content: 'x', created_at: '' },
+      {
+        id: 'u1', role: 'user', content: 'Start deep research', created_at: '',
+        action: { type: 'deep_research', offer_message_id: 'm1', items: 3, minutes: 5 },
+      },
+    ], page);
+    render(offer({ status: 'started' }));
+    expect(card().textContent).toBe('Deep research started');
+    useStore.getState().appendMessage('c1', { id: 'rep', role: 'assistant', content: 'Report', created_at: '' });
+    const report = document.createElement('div');
+    report.className = 'message assistant';
+    report.dataset.messageId = 'rep';
+    report.scrollIntoView = vi.fn();
+    document.getElementById('messages')!.appendChild(report);
+    refreshReportLinks();
+    const link = card().querySelector<HTMLButtonElement>('.research-offer__report')!;
+    expect(link.textContent).toBe('Report below ↓');
+    link.click();
+    expect(report.classList.contains('message--flash')).toBe(true);
   });
 
   it('a report follow-up offer renders the same editor', () => {
