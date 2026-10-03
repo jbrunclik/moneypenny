@@ -104,6 +104,9 @@ class EvalCase:
     seed_conversation: dict[str, Any] = field(default_factory=dict)
     # Fake integration backends (evals/fakes.py): {todoist: {...}, garmin: {...}}
     integrations: dict[str, Any] = field(default_factory=dict)
+    # Run the deep-research pipeline with this plan instead of a chat turn:
+    # {question, context, sub_questions} (the offer step has its own cases)
+    deep_research: dict[str, Any] = field(default_factory=dict)
 
 
 def _resolve_dates(value: Any) -> Any:
@@ -181,6 +184,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 ],
                 seed_conversation=dict(data.get("seed_conversation") or {}),
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
+                deep_research=dict(data.get("deep_research") or {}),
             )
         )
     return cases
@@ -260,7 +264,7 @@ def _judge_tokens(reply: Any) -> tuple[int, int]:
     return int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0))
 
 
-def _turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, Any]]) -> float:
+def turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, Any]]) -> float:
     """Cost of one agent turn, priced exactly as production prices a message.
 
     Deliberately reuses the same helpers as src/api/utils.record_message_cost
@@ -269,9 +273,11 @@ def _turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, A
     lands in both places at once). Covers the four components a turn can
     incur: its own tokens, images generated inside tools, and delegate_task
     subagent runs (which are billed at the subagent's own model), and the
-    post-answer grounding check (priced at its own model).
+    post-answer grounding check (priced at its own model). A deep-research
+    report is priced at its writer, plus its research subagents.
     """
     from src.api.utils import (
+        calculate_deep_research_cost,
         calculate_delegate_cost_from_tool_results,
         calculate_grounding_cost,
         calculate_image_generation_cost_from_tool_results,
@@ -279,13 +285,43 @@ def _turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, A
     from src.utils.costs import calculate_total_cost
 
     return calculate_total_cost(
-        model,
+        usage.get("answer_model") or model,
         input_tokens=int(usage.get("input_tokens", 0)),
         output_tokens=int(usage.get("output_tokens", 0)),
         cached_input_tokens=int(usage.get("cached_input_tokens", 0)),
         image_generation_cost=calculate_image_generation_cost_from_tool_results(tool_results),
         tool_llm_cost=calculate_delegate_cost_from_tool_results(tool_results)
-        + calculate_grounding_cost(usage),
+        + calculate_grounding_cost(usage)
+        + calculate_deep_research_cost(usage),
+    )
+
+
+def run_deep_research_turn(
+    spec: dict[str, Any], request_id: str
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any]]:
+    """Run the deep-research pipeline on a case's plan; chat_batch's shape."""
+    from src.agent.deep_research import pipeline
+    from src.agent.deep_research.estimate import estimate
+    from src.agent.deep_research.plan import DeepResearchPlan
+
+    items = [str(q) for q in spec["sub_questions"]]
+    plan = DeepResearchPlan(
+        offer_message_id="eval",
+        question=str(spec.get("question", "")),
+        context=str(spec.get("context", "")),
+        sub_questions=items,
+        offered_sub_questions=items,
+        estimate=estimate(len(items)),
+    )
+    final: dict[str, Any] = {}
+    for event in pipeline.run_deep_research(plan, "", request_id):
+        if event.get("type") == "final":
+            final = event
+    return (
+        str(final.get("content", "")),
+        list(final.get("tool_results") or []),
+        dict(final.get("usage_info") or {}),
+        list(final.get("result_messages") or []),
     )
 
 
@@ -338,6 +374,15 @@ def _requirements_met(case: EvalCase) -> bool:
     return all(checks[req]() for req in case.requires if req in checks)
 
 
+def case_timeout(case: EvalCase) -> float:
+    """Seconds a case may run: a deep-research run outlasts a chat turn."""
+    from src.config import Config
+
+    if case.deep_research:
+        return max(Config.EVAL_CASE_TIMEOUT_SECONDS, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
+    return Config.EVAL_CASE_TIMEOUT_SECONDS
+
+
 def run_with_timeout(fn: Callable[[], Any], timeout_s: float) -> Any:
     """Run `fn`, raising TimeoutError if it outlives `timeout_s`.
 
@@ -373,6 +418,8 @@ def _cost_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
     from src.config import Config
 
     ran = [r for r in results if not r.get("skipped")]
+    # A timed-out or crashed case spent tokens the harness never saw
+    unpriced = [r["id"] for r in ran if r.get("cost_usd") is None]
 
     def _sum(key: str) -> float:
         return sum(float(r.get(key) or 0) for r in ran)
@@ -386,7 +433,8 @@ def _cost_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         "agent_cached_input_tokens": int(_sum("cached_input_tokens")),
         "judge_input_tokens": int(_sum("judge_input_tokens")),
         "judge_output_tokens": int(_sum("judge_output_tokens")),
-        "cases_priced": len(ran),
+        "cases_priced": len(ran) - len(unpriced),
+        "unpriced_cases": unpriced,
         "agent_model": Config.DEFAULT_MODEL,
         "judge_model": Config.EVAL_JUDGE_MODEL,
     }
@@ -473,7 +521,8 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
 
     from src.agent.tool_results import set_current_request_id
 
-    set_current_request_id(f"eval-{case.id}-{uuid.uuid4().hex[:8]}")
+    request_id = f"eval-{case.id}-{uuid.uuid4().hex[:8]}"
+    set_current_request_id(request_id)
 
     # Attachment fixtures -> the same shape the API layer hands to ChatAgent
     import base64
@@ -538,16 +587,21 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         with fake_integrations(case.integrations) as fakes:
             # tool_results is needed for pricing: image generations and
             # delegate_task subagent tokens are only visible in there.
-            response, tool_results, usage, result_messages = agent.chat_batch(
-                text=case.user,
-                files=files_payload or None,
-                history=history,
-                user_name="Eval User",
-                user_id=user.id,
-                conversation_id=conversation.id,
-                is_sports=is_sports,
-                sports_context=sports_context,
-            )
+            if case.deep_research:
+                response, tool_results, usage, result_messages = run_deep_research_turn(
+                    case.deep_research, request_id
+                )
+            else:
+                response, tool_results, usage, result_messages = agent.chat_batch(
+                    text=case.user,
+                    files=files_payload or None,
+                    history=history,
+                    user_name="Eval User",
+                    user_id=user.id,
+                    conversation_id=conversation.id,
+                    is_sports=is_sports,
+                    sports_context=sports_context,
+                )
             integration_changes = describe_actions(fakes)
     finally:
         set_conversation_context(None, None)
@@ -580,7 +634,8 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     judge = ChatGoogleGenerativeAI(
         model=Config.EVAL_JUDGE_MODEL, google_api_key=Config.GEMINI_API_KEY, temperature=0.0
     )
-    cited = extract_read_sources(result_messages)
+    # A deep-research report cites the run's merged pages
+    cited = usage.get("research_sources") or extract_read_sources(result_messages)
     judge_reply = judge.invoke(
         [
             HumanMessage(
@@ -604,7 +659,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
 
     judge_input, judge_output = _judge_tokens(judge_reply)
     judge_cost = calculate_token_cost(Config.EVAL_JUDGE_MODEL, judge_input, judge_output)
-    agent_cost = _turn_cost(Config.DEFAULT_MODEL, usage, tool_results)
+    agent_cost = turn_cost(Config.DEFAULT_MODEL, usage, tool_results)
     # Compaction cases also pay for building the summary (estimated tokens)
     agent_cost += calculate_token_cost(
         Config.AI_ASSIST_MODEL, int(summarizer_usage["input"]), int(summarizer_usage["output"])
@@ -660,14 +715,12 @@ def isolate_environment() -> None:
 
 def execute_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     """Run one case under the per-case timeout; never raises."""
-    from src.config import Config
-
     if case.requires and not _requirements_met(case):
         return {"id": case.id, "skipped": True}
     print(f"RUN   {case.id} ...", flush=True)
     try:
         result: dict[str, Any] = run_with_timeout(
-            lambda: _run_case(case, user, db), Config.EVAL_CASE_TIMEOUT_SECONDS
+            lambda: _run_case(case, user, db), case_timeout(case)
         )
     except TimeoutError as e:
         # Abandoned, not retried: the worker thread is stuck in a socket
@@ -747,7 +800,12 @@ def main() -> int:
         f"in {elapsed / 60:.1f} min on {min(workers, len(cases))} workers"
     )
 
-    print(f"\nCost: {_usd(cost['total_usd'])} total for {len(ran)} cases")
+    print(f"\nCost: {_usd(cost['total_usd'])} total for {cost['cases_priced']} priced cases")
+    if cost["unpriced_cases"]:
+        print(
+            "  NOT PRICED (timed out or crashed - real spend unknown): "
+            + ", ".join(cost["unpriced_cases"])
+        )
     print(
         f"  agent ({cost['agent_model']}): {_usd(cost['agent_usd'])}  "
         f"{cost['agent_input_tokens']:,} in / {cost['agent_output_tokens']:,} out"

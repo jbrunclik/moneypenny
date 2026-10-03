@@ -1,0 +1,21 @@
+id: deep_research_end_to_end
+description: A deep-research run from plan to report (subagents, writer, check)
+user: |
+  Chci koupit sluchátka do 7 000 Kč na běhání a do MHD, co mi doporučíš?
+deep_research:
+  question: Sluchátka do 7 000 Kč na běhání a do MHD
+  context: Běhá venku, jezdí pražskou MHD, rozpočet do 7 000 Kč.
+  sub_questions:
+    - Která bezdrátová sluchátka do 7 000 Kč drží dobře při běhu (fit, odolnost potu)?
+    - Jak dobře tlumí hluk v MHD modely do 7 000 Kč (ANC) a jak dlouho vydrží baterie?
+    - Jaké jsou aktuální ceny těchto modelů v českých obchodech?
+expect:
+  rubric: >
+    A Czech research report that starts with a clear recommendation in a few
+    sentences, then has a section for each of the three sub-questions with
+    concrete specifics (model names, prices in Kč, battery life, fit or IP
+    rating). It contains at least one comparison table. Nearly all specifics
+    are backed by the pages the run read (the cited sources list is not empty;
+    at most two claims marked UNSOURCED by the grounding check), and it ends
+    with what stays open or uncertain. It must not invent citation markers or
+    a source list of its own.

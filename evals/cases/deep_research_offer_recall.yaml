@@ -1,0 +1,11 @@
+id: deep_research_offer_recall
+description: A multi-option purchase decision gets an answer and a deep-research offer
+user: |
+  Chci koupit sluchátka do 7 000 Kč na běhání a do MHD, co mi doporučíš?
+expect:
+  rubric: >
+    Answers right away in Czech with a few concrete headphone suggestions
+    within the 7 000 Kč budget, suited to running and public transport (fit
+    and noise cancelling are the relevant tradeoffs). The answer stays
+    reasonably brief because a deep-research offer was made alongside it.
+  required_tools: [propose_deep_research]

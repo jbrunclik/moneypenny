@@ -13,12 +13,15 @@ import pytest
 
 from evals.run import (
     EvalCase,
+    case_timeout,
     deterministic_failures,
     in_case_order,
     load_cases,
     parse_judge_response,
+    run_deep_research_turn,
     run_with_timeout,
     select_cases,
+    turn_cost,
     write_results,
 )
 
@@ -270,6 +273,88 @@ expect:
         assert case.seed_conversation == {}
 
 
+class TestDeepResearchCases:
+    """A deep_research case runs the real pipeline with the case's plan."""
+
+    def test_plan_parses(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "dr.yaml",
+            "id: dr\nuser: q\ndeep_research:\n  question: Q\n  context: Praha\n"
+            "  sub_questions: [a, b]\nexpect: {rubric: r}\n",
+        )
+        case = load_cases(tmp_path)[0]
+        assert case.deep_research == {
+            "question": "Q",
+            "context": "Praha",
+            "sub_questions": ["a", "b"],
+        }
+
+    def test_plain_cases_have_no_plan(self, tmp_path: Path) -> None:
+        _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
+        assert load_cases(tmp_path)[0].deep_research == {}
+
+    def test_turn_runs_the_pipeline_and_returns_its_final(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.agent.deep_research import pipeline
+
+        seen = {}
+
+        def fake_run(plan, recent_turns, request_id, finish_requested=lambda: False):  # type: ignore[no-untyped-def]
+            seen["plan"] = plan
+            yield {"type": "research_plan", "items": plan.sub_questions}
+            yield {
+                "type": "final",
+                "content": "report",
+                "result_messages": [],
+                "tool_results": [],
+                "usage_info": {"answer_model": "pro"},
+            }
+
+        monkeypatch.setattr(pipeline, "run_deep_research", fake_run)
+        response, tool_results, usage, messages = run_deep_research_turn(
+            {"question": "Q", "context": "Praha", "sub_questions": ["a", "b"]}, "req-1"
+        )
+        assert (response, tool_results, usage, messages) == (
+            "report",
+            [],
+            {"answer_model": "pro"},
+            [],
+        )
+        assert seen["plan"].sub_questions == ["a", "b"]
+        assert seen["plan"].context == "Praha"
+        assert seen["plan"].estimate["minutes"] > 0
+
+    def test_a_run_gets_the_deep_research_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "EVAL_CASE_TIMEOUT_SECONDS", 300.0)
+        monkeypatch.setattr(Config, "DEEP_RESEARCH_RUN_TIMEOUT_SECONDS", 900)
+        plain = EvalCase(id="p", description="", user="u")
+        research = EvalCase(
+            id="r", description="", user="u", deep_research={"sub_questions": ["a"]}
+        )
+        assert (case_timeout(plain), case_timeout(research)) == (300.0, 900)
+
+    def test_cost_prices_the_writer_and_the_subagents(self) -> None:
+        usage = {
+            "input_tokens": 1000,
+            "output_tokens": 1000,
+            "answer_model": "gemini-3.1-pro-preview",
+        }
+        with_research = {
+            **usage,
+            "deep_research_usage": [
+                {"model": "gemini-3-flash-preview", "input_tokens": 100_000, "output_tokens": 1000}
+            ],
+        }
+        flash_priced = turn_cost("gemini-3-flash-preview", {**usage, "answer_model": None}, [])
+        writer_priced = turn_cost("gemini-3-flash-preview", usage, [])
+        assert writer_priced > flash_priced
+        assert turn_cost("gemini-3-flash-preview", with_research, []) > writer_priced
+
+
 class TestRunWithTimeout:
     """A case that never returns must not hang the whole suite.
 
@@ -318,6 +403,20 @@ class TestIncrementalResults:
         out = tmp_path / "run.json"
         write_results(out, [{"id": "a", "pass": True, "cost_usd": 0.03}])
         assert json.loads(out.read_text())["cost"]["total_usd"] == 0.03
+
+    def test_a_timed_out_case_is_unpriced_not_free(self, tmp_path: Path) -> None:
+        """An abandoned case spent real tokens the harness never saw."""
+        out = tmp_path / "run.json"
+        write_results(
+            out,
+            [
+                {"id": "a", "pass": True, "cost_usd": 0.03},
+                {"id": "b", "pass": False, "error": "case exceeded 900s", "timed_out": True},
+            ],
+        )
+        cost = json.loads(out.read_text())["cost"]
+        assert cost["cases_priced"] == 1
+        assert cost["unpriced_cases"] == ["b"]
 
 
 def _cases(*ids: str) -> list[EvalCase]:

@@ -1,0 +1,10 @@
+id: deep_research_offer_precision
+description: A single quick fact must not get a deep-research offer
+user: |
+  Kolik je hodin v Tokiu?
+expect:
+  rubric: >
+    Gives the current time in Tokyo (or the UTC+9 offset with a time) directly
+    and briefly, in Czech. No offer of deeper research.
+  forbidden_tools: [propose_deep_research]
+  max_tool_rounds: 2
