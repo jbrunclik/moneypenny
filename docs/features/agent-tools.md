@@ -43,6 +43,7 @@ unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 | `search_conversations` | Search the user's past conversations | Requires grant |
 | `read_conversation` | Read one past conversation | Requires grant |
 | `delegate_task` | Context-isolated research subagent (spends tokens) | **Must be granted** |
+| `propose_deep_research` | Offer a [deep research](deep-research.md) run with an editable plan (side-effect free; the offer is read off the call when the reply is saved) | Ordinary chats only, behind `DEEP_RESEARCH_ENABLED`; never for agents, programs, the planner or subagents |
 
 `web_search` and `research` route through a **quota-aware provider chain** ([search_provider.py](../../src/utils/search_provider.py)): Brave → Tavily → Exa → Linkup → DuckDuckGo (unmetered fallback), skipping providers with no API key or an exhausted quota (`SEARCH_QUOTA_*_MONTHLY`). Quotas reset per **billing period** (`SEARCH_BILLING_DAY_*`, default calendar month — which all four metered providers use as of Sep 2026). Usage counters persist in `kv_store` under a `__system__` sentinel user, one key per provider+period, incremented atomically on successful (billed) calls only.
 
@@ -127,6 +128,15 @@ all agree — the first two are the obvious ones, the third is easy to miss:
 After a web-tool answer a cheap verifier judges its specific claims against the
 turn's numbered pages and stores verdicts as annotations beside the unchanged
 text - see [Grounding Check](grounding.md).
+
+## Deep Research
+
+`propose_deep_research(question, context, sub_questions, run_now)` lets the
+chat agent offer a multi-minute research run next to a brief answer; the user
+edits and starts the plan, and parallel subagents with a shared board feed a
+Pro-written report - see [Deep Research](deep-research.md). It is in
+`_NON_PERMISSIONED_TOOLS` and `_CONDITIONAL_TOOLS`; the `product-research`
+skill tells the agent when to offer it.
 
 ## Skills
 

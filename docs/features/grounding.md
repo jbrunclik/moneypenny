@@ -79,6 +79,11 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   inline `_(neověřeno)_` / `_(unverified)_` markers into `not_found`
   annotations with `{"checked": true, "legacy": true}` (no reason or source),
   updating `search_index` too.
+- **Deep research**: a [deep research](deep-research.md) report is checked
+  by `check_grounding_pages()` against the run's merged pages with
+  `DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS` / `DEEP_RESEARCH_GROUNDING_MAX_CLAIMS`
+  (`validate_claims(max_claims=...)`); `check_grounding()` wraps the same
+  function for chat turns.
 - **Later turns**: `format_grounding_context()` adds a `grounding` key to that
   message's `MSG_CONTEXT` ("unsourced: X (reason); contradicted: ..."), capped
   at `GROUNDING_CONTEXT_MAX_CHARS`, so a follow-up does not restate those
@@ -97,8 +102,13 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   ([grounding-strings.ts](../../web/src/components/messages/grounding-strings.ts)).
   [ClaimCard.ts](../../web/src/components/ClaimCard.ts) opens on hover
   (after `CLAIM_CARD_HOVER_DELAY_MS`) or tap: verdict, reason, the source
-  passage, and "Look it up", which sends a targeted follow-up via
-  `sendComposedText()` ([quick-actions.ts](../../web/src/core/quick-actions.ts)).
+  passage, and "Look it up", which sends "Look up and verify: <quote>" as a
+  `verify_claim` action (`source_message_id`, `claim_index`, `quote`) via
+  `sendUiMessage()` ([messaging.ts](../../web/src/core/messaging.ts); the
+  draft is untouched, and while a reply streams it toasts "wait" instead). The
+  message renders as an action row ("Looking up “...” · from the answer above
+  ↑"), and once its reply exists the card shows "Looked up below ↓", jumping to
+  it - see [Action messages](deep-research.md#action-messages).
   Clicking the footer (when there are problems) opens
   [ClaimsSheet.ts](../../web/src/components/ClaimsSheet.ts): a bottom sheet
   below 768px, a popover above, rows ordered contradicted, not_found, partial,

@@ -34,6 +34,7 @@ Only **stable, message-derived** fields are embedded inline. A recomputed relati
 - `tool_digest` - Sources the turn read, as "read: Title (url); ..." (enables a precise re-fetch)
 - `tool_outputs` - One line per non-web tool call of that turn - see [Tool-Output Digests](#tool-output-digests)
 - `grounding` - Claims of that answer the [grounding check](../features/grounding.md) found unsourced, partly sourced or contradicted, with reasons ("unsourced: X (reason); ...", capped by `GROUNDING_CONTEXT_MAX_CHARS`), so a follow-up does not restate them as fact; the history text itself stays clean
+- `research` - On a [deep research](../features/deep-research.md) report: "deep research round N: q1; q2; ...", so a follow-up uses the report instead of re-running it
 
 ### Tool-Output Digests
 

@@ -65,6 +65,10 @@ integrations:                   # optional: fake backends (evals/fakes.py) behin
 compact_history: true           # optional: compact `history` with the REAL
                                 # pipeline first (summarizer LLM calls; the
                                 # summarized part is stored + searchable)
+deep_research:                  # optional: run the deep-research pipeline on
+  question: Headphones under 7 000 Kč   # this fixed plan instead of a chat
+  context: Runs outside, rides the tram # turn (docs/features/deep-research.md);
+  sub_questions: [Fit when running?, ANC on a tram?]  # gets the run timeout
 expect:
   rubric: >                     # required: what the judge grades against
     The answer gives a concrete price, acknowledges fluctuation, and cites

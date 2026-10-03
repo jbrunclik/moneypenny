@@ -29,6 +29,7 @@ Chat endpoints ([routes/chat.py](../../src/api/routes/chat.py), all under `/api`
 |----------|---------|
 | `POST /conversations/<id>/chat/batch` | One request, one complete reply |
 | `POST /conversations/<id>/chat/stream` | Same turn over SSE |
+| `POST /conversations/<id>/chat/finish-now` | Cut a running [deep research](deep-research.md) run and write the report now (`{message_id}`, kv flag like Stop) |
 | `POST /conversations/<id>/chat/interject` | Mid-run steering: guidance for the turn that is running (see [Agent Graph](../architecture/agent-graph.md#self-correction-node)) |
 | `GET /conversations/<id>/chat/stream/<message_id>/resume?after_seq=N` | Replay + tail an in-flight stream ([Resumable Streams](#resumable-streams)) |
 
@@ -76,12 +77,27 @@ the last token and `done` while the verifier runs (the client shows the footer's
 `messages.annotations` / `messages.grounding`, and come back as `annotations` and
 `grounding` on `MessageResponse` (loaded messages), `ChatBatchResponse` and the
 stream `done` event (schemas in [schemas/chat.py](../../src/api/schemas/chat.py);
-all three are filled by `_add_grounding()` in [api/utils.py](../../src/api/utils.py)).
+all three are filled by `add_grounding()` in [api/utils.py](../../src/api/utils.py)).
 Both are omitted on unchecked messages; in the generated client types unset
 optional fields may be `null`. Later turns see the unsourced and contradicted
 claims as the `grounding` key of that message's `MSG_CONTEXT`
 ([Conversation Context](../architecture/conversation-context.md)); the history text
 stays clean.
+
+**Deep research.** A request with `deep_research` (an offer's final plan) runs
+the [deep research](deep-research.md) pipeline as the turn: `prepare_turn()`
+starts the plan before saving the user message, and the producer runs
+`run_deep_research()` instead of `stream_chat_events()`, with
+`TurnContext.timeout_seconds` = `DEEP_RESEARCH_RUN_TIMEOUT_SECONDS`. It is
+**stream-only**: the batch endpoint rejects it with 400 and the client sends it
+over the stream even with streaming off. The run emits `research_plan`,
+`research_item`, `research_finding`, `research_sources` and `research_writing`
+(listed in `FORWARDED_EVENT_TYPES` in chat_streaming.py and journaled) before
+its report tokens. Assistant messages carry `research` (`{offer}` or `{run}`,
+`add_research()`) on loaded messages, the batch response and `done`; user
+messages the app sent for the user (Look it up, Start) carry `action`
+(`ChatRequest.action`, `add_action()` on loaded messages) and render as action
+rows.
 
 
 ## Streaming Architecture
@@ -287,7 +303,7 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 **Invariants (violating these re-introduces fixed bugs):**
 
-- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`, `stopping`, `grounding_started`.) The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
+- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`, `stopping`, `grounding_started`, and the five `research_*` events.) A forwarded agent event must also be in `FORWARDED_EVENT_TYPES` in [chat_streaming.py](../../src/api/helpers/chat_streaming.py), or the consumer drops it live. The synthesized `done` must carry the same decorations as the live one (`add_grounding()`, `add_research()`), or a reload loses the claims and the research chip. The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
 - **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
 - The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [stream-resume.ts](../../web/src/core/stream-resume.ts) (entries persisted by [inflight-streams.ts](../../web/src/core/inflight-streams.ts)) / [conversation-switch.ts](../../web/src/core/conversation-switch.ts).
 
@@ -445,6 +461,7 @@ Continue / Edit"), [send-failure.spec.ts](../../web/tests/e2e/chat/send-failure.
 - [Agent Graph](../architecture/agent-graph.md) - the agent loop, retries, tool rounds
 - [Conversation Context](../architecture/conversation-context.md) - history enrichment and compaction
 - [Thinking Indicator and Source Chips](thinking-and-sources.md) - streamed trace and sources
+- [Deep Research](deep-research.md) - the multi-minute research turn, Finish now, action messages
 - [Streaming Metadata](../architecture/streaming-metadata.md) - MSG_CONTEXT stripping, client-side recovery
 - [File Handling](file-handling.md) - uploads, thumbnails, video
 - [UI Features](ui-features.md) - Input toolbar, message sending behavior
