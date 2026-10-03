@@ -8,7 +8,7 @@ import json
 import re
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage
 
 from src.utils.logging import get_logger
 
@@ -234,109 +234,15 @@ def extract_image_prompts_from_messages(messages: list[BaseMessage]) -> list[dic
 
 
 # Source chips per turn: pages actually read, else the top search results
-_MAX_READ_SOURCES = 10
-_MAX_SEARCH_SOURCES = 5
-
-
-def _json_object(content: Any) -> dict[str, Any] | None:
-    if not isinstance(content, str):
-        return None
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError, TypeError:
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _title_from_url(url: str) -> str:
-    """Readable stand-in title when the tool did not report one."""
-    from urllib.parse import urlparse
-
-    parsed = urlparse(url)
-    host = parsed.netloc.removeprefix("www.")
-    path = parsed.path.rstrip("/")
-    return f"{host}{path}" if host else url
-
-
-def _search_results(data: dict[str, Any]) -> list[list[dict[str, Any]]]:
-    """Result lists of a single ({results}) or batched ({searches}) web_search."""
-    if isinstance(data.get("searches"), list):
-        return [s.get("results") or [] for s in data["searches"] if isinstance(s, dict)]
-    return [data.get("results") or []]
-
-
 def extract_read_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
-    """Source chips for a turn, derived from what its tools actually read.
+    """Source chips for a turn: the pages it read, numbered as in turn_pages().
 
-    Replaces the cite_sources tool: the model sent it WITHOUT answer text in
-    79% of tool-using turns (Sep 2026: 687 of 869), which cost a full extra
-    model round each time (~49M input tokens/month) - and it forgot it in
-    others. Sources are now the pages the turn READ: research pages that
-    were fetched, successful fetch_url calls, browser pages, and sources a
-    delegate_task subagent returned. A turn that answered from search
-    snippets alone gets the top search results (rank-interleaved) instead.
-
-    Returns:
-        [{"title", "url"}], de-duplicated by URL, at most 10 read pages or
-        5 search results.
+    See src/agent/source_pages.py for which pages count as read.
     """
-    calls: dict[str, tuple[str, dict[str, Any]]] = {}
-    for msg in messages:
-        if isinstance(msg, AIMessage):
-            for tc in msg.tool_calls:
-                call_id = tc.get("id")
-                if call_id:
-                    calls[call_id] = (tc.get("name", ""), tc.get("args") or {})
+    # Imported here: source_pages imports extract_text_content from this module
+    from src.agent.source_pages import turn_pages
 
-    read: list[dict[str, str]] = []
-    searched: list[list[dict[str, Any]]] = []
-    for msg in messages:
-        if not isinstance(msg, ToolMessage):
-            continue
-        call_name, args = calls.get(msg.tool_call_id, ("", {}))
-        name = msg.name or call_name
-        data = _json_object(msg.content)
-        # An escalated repeat web_search returns research-shaped sources
-        escalated = name == "web_search" and data is not None and "_escalated" in data
-        if (name in ("research", "delegate_task") or escalated) and data:
-            for source in data.get("sources") or []:
-                # research lists failed fetches too; only pages with content were read
-                if isinstance(source, dict) and (name == "delegate_task" or "content" in source):
-                    read.append(source)
-        elif name == "fetch_url":
-            url = args.get("url")
-            failed = data is not None and bool(data.get("error"))
-            if url and msg.content and not failed:
-                read.append({"title": _title_from_url(str(url)), "url": str(url)})
-        elif name == "browser" and data and data.get("success") and data.get("url"):
-            read.append(data)
-        elif name == "web_search" and data:
-            searched.extend(_search_results(data))
-
-    def unique(items: list[dict[str, Any]], limit: int) -> list[dict[str, str]]:
-        out: list[dict[str, str]] = []
-        seen: set[str] = set()
-        for item in items:
-            url = item.get("url") or item.get("href")
-            if not url or url in seen:
-                continue
-            seen.add(url)
-            out.append(
-                {"title": str(item.get("title") or _title_from_url(str(url))), "url": str(url)}
-            )
-            if len(out) >= limit:
-                break
-        return out
-
-    if read:
-        return unique(read, _MAX_READ_SOURCES)
-    interleaved = [
-        results[rank]
-        for rank in range(max((len(r) for r in searched), default=0))
-        for results in searched
-        if rank < len(results) and isinstance(results[rank], dict)
-    ]
-    return unique(interleaved, _MAX_SEARCH_SOURCES)
+    return [{"title": p.title, "url": p.url} for p in turn_pages(messages)]
 
 
 def extract_conversation_title(messages: list[BaseMessage]) -> str | None:
