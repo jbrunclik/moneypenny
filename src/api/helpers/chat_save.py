@@ -20,6 +20,7 @@ from src.agent.content import (
     extract_image_prompts_from_messages,
     extract_read_sources,
 )
+from src.agent.deep_research.offer import extract_offer
 from src.agent.title import generate_title
 from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
@@ -131,6 +132,7 @@ def _persist_assistant_message(
     tool_outputs: list[dict[str, str]] | None = None,
     stop_reason: str | None = None,
     grounding: dict[str, Any] | None = None,
+    research: dict[str, Any] | None = None,
 ) -> Any:
     """UPDATE the stream-start placeholder, or INSERT when it is gone/absent.
 
@@ -150,6 +152,7 @@ def _persist_assistant_message(
         "stop_reason": stop_reason,
         "annotations": (grounding or {}).get("annotations"),
         "grounding": (grounding or {}).get("summary"),
+        "research": research,
     }
     if assistant_message_id:
         assistant_msg = db.update_message_content(assistant_message_id, content, **kwargs)
@@ -161,6 +164,40 @@ def _persist_assistant_message(
             extra={"user_id": user_id, "conversation_id": conv_id},
         )
     return db.add_message(conv_id, MessageRole.ASSISTANT, content, **kwargs)
+
+
+def _research_for_turn(
+    conv_id: str, user_id: str, result_messages: list[Any]
+) -> dict[str, Any] | None:
+    """A deep-research offer made this turn; it replaces any open one."""
+    offer = extract_offer(result_messages)
+    if offer is None:
+        return None
+    for old in db.find_open_research_offers(conv_id):
+        db.set_message_research(old.id, _superseded(old.research or {}))
+    logger.info(
+        "Deep research offered",
+        extra={
+            "user_id": user_id,
+            "conversation_id": conv_id,
+            "sub_questions": len(offer["sub_questions"]),
+            "estimate": offer["estimate"],
+            "kind": offer["kind"],
+            "autostart": offer["autostart"],
+        },
+    )
+    return {"offer": offer}
+
+
+def _superseded(research: dict[str, Any]) -> dict[str, Any]:
+    """The research data with its open offer (or follow-up) marked superseded."""
+    if research.get("offer", {}).get("status") == "offered":
+        return {**research, "offer": {**research["offer"], "status": "superseded"}}
+    run = research.get("run", {})
+    if run.get("followup", {}).get("status") == "offered":
+        followup = {**run["followup"], "status": "superseded"}
+        return {**research, "run": {**run, "followup": followup}}
+    return research
 
 
 def _resolve_title_update(
@@ -271,6 +308,7 @@ def save_message_to_db(
         # Stopped before any text: keep the turn visible so Continue works
         if stop_reason and not content.strip():
             content = STOPPED_EMPTY_TEXT
+        research = _research_for_turn(conv_id, user_id, result_messages)
         assistant_msg = _persist_assistant_message(
             conv_id,
             user_id,
@@ -283,6 +321,7 @@ def save_message_to_db(
             build_tool_outputs(result_messages),
             stop_reason,
             usage.get("grounding"),
+            research,
         )
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)

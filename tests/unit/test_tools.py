@@ -14,7 +14,8 @@ class TestGetToolsForRequest:
     def test_returns_all_tools_by_default(self) -> None:
         """Should return all tools when anonymous_mode is False."""
         tools = get_tools_for_request(anonymous_mode=False)
-        assert tools == get_available_tools()
+        # Ordinary chats also get the deep-research offer (never agents/programs)
+        assert [t for t in tools if t.name != "propose_deep_research"] == get_available_tools()
         # Core tools should always be present
         tool_names = {t.name for t in tools}
         assert "web_search" in tool_names
@@ -74,7 +75,7 @@ class TestGetToolsForRequest:
     def test_default_parameter_is_false(self) -> None:
         """Should default to anonymous_mode=False."""
         tools = get_tools_for_request()
-        assert tools == get_available_tools()
+        assert [t for t in tools if t.name != "propose_deep_research"] == get_available_tools()
 
     def test_sports_mode_excludes_irrelevant_tools(self) -> None:
         """Sports conversations must not carry todoist/whatsapp/calendar/
@@ -122,7 +123,7 @@ class TestGetToolsForRequest:
         """Subsetting applies only to program conversations."""
         tool_names = {t.name for t in get_tools_for_request()}
         available = {t.name for t in get_available_tools()}
-        assert tool_names == available
+        assert tool_names == available | {"propose_deep_research"}
 
     def test_agent_permissions_always_include_kv_store(self) -> None:
         """Interactive agent turns must get kv_store, matching get_tools_for_agent."""

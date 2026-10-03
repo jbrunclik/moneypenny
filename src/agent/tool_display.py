@@ -177,6 +177,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
     # Extract-only metadata tools (see tools/metadata.py). They do no work the
     # user asked for, but they DO emit tool_start events, so without an entry
     # here the trace would show a raw function name.
+    "propose_deep_research": {
+        "label": "Suggesting deep research",
+        "label_past": "Suggested deep research",
+        "icon": "search",
+    },
     "set_conversation_title": {
         "label": "Naming the conversation",
         "label_past": "Renamed the conversation",
@@ -200,6 +205,7 @@ _CONDITIONAL_TOOLS = frozenset(
         "browser",
         "request_approval",
         "trigger_agent",
+        "propose_deep_research",
     }
 )
 

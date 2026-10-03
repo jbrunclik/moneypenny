@@ -56,6 +56,7 @@ from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
 from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
 from src.agent.tools.whatsapp import is_whatsapp_available, whatsapp
+from src.agent.tools.deep_research import propose_deep_research
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Agent
@@ -276,6 +277,11 @@ def get_tools_for_request(
     else:
         tools = available
 
+    # Deep research offers belong to ordinary chats (not programs, the planner
+    # or agent conversations - those have their own cost and approval models)
+    if Config.DEEP_RESEARCH_ENABLED and not (is_planning or is_sports or is_language or is_agent):
+        tools = [*tools, propose_deep_research]
+
     # Add refresh_planner_dashboard tool only in planner mode
     if is_planning and is_refresh_planner_dashboard_available():
         tools.append(refresh_planner_dashboard)
@@ -335,6 +341,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "set_conversation_title",  # metadata tool, always bound
         "refresh_planner_dashboard",  # planner mode only
         "request_approval",  # autonomous agents only
+        "propose_deep_research",  # ordinary chats only, never for agents
     }
 )
 
