@@ -1101,3 +1101,12 @@ class TestExhaustionBenchesImmediately:
             with patch("src.utils.search_provider._now", return_value=_now() + 10 * 86400):
                 search_web("q2", 3)
         mock_brave.assert_called_once()
+
+
+def test_tests_never_hold_a_metered_search_key() -> None:
+    """The real .env is loaded at import (src/config.py); a test that reaches a
+    metered provider unmocked would spend the family's paid quota."""
+    from src.utils import search_provider
+
+    keyed = [p for p in search_provider._PROVIDERS if p.monthly_quota() is not None and p.api_key()]
+    assert keyed == []
