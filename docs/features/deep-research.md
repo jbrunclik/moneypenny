@@ -212,8 +212,9 @@ plus a `research` key in its `MSG_CONTEXT` ("deep research round N: q1; q2",
 | `research_finding` | `agent`, `text` | A board post |
 | `research_sources` | `count` | Research done, merged page count |
 | `research_writing` | - | The writer starts |
+| `research_tick` | - | Liveness: no other event for `TICK_SECONDS` (60) during research; the client ignores it |
 
-Then `token`s, `grounding_started` and `done`. All five are in
+Then `token`s, `grounding_started` and `done`. All six are in
 `FORWARDED_EVENT_TYPES` ([chat_streaming.py](../../src/api/helpers/chat_streaming.py))
 and `_JOURNALED_EVENT_TYPES` ([stream_resume.py](../../src/api/helpers/stream_resume.py)),
 so a reload mid-run replays the panel. `minutes` and `started_at` were added
@@ -248,14 +249,15 @@ the follow-up offer. Styles in
 - **Writer**: the turn's own tokens. The usage carries `answer_model` (the
   writer, or its fallback); `save_message_to_db` prices with
   `model_fallback or answer_model or model`.
-- **Subagents**: `usage_info["deep_research_usage"]`, one entry per item with
-  its model, priced per model by `calculate_deep_research_cost()`
-  ([api/utils.py](../../src/api/utils.py)) into `tool_llm_cost`.
+- **Subagents**: `usage_info["deep_research_usage"]`, one entry per started
+  subagent (`Orchestrator.spent()`), priced per model by
+  `calculate_deep_research_cost()` ([api/utils.py](../../src/api/utils.py))
+  into `tool_llm_cost`. Every model call feeds a per-subagent usage sink as it
+  happens (`collecting_model_usage` in [turn_usage.py](../../src/agent/turn_usage.py),
+  fed by `graph._invoke_model`), so subagents cut by a deadline, Finish now or
+  Stop, failed or abandoned ones are priced too - also when Stop ends the run.
 - **Check**: `grounding_usage`, as for any [grounding check](grounding.md).
-- **Not counted**: tokens of a subagent cut by a deadline, Finish now or Stop
-  (its `chat_batch` raised), the follow-up extraction call (under $0.001), and
-  everything when Stop ends the run during research (the final event carries
-  no usage).
+- **Not counted**: the follow-up extraction call (under $0.001).
 - **Estimate** (`estimate()`, never stated by the model): `minutes =
   ceil(BASE_MINUTES + waves * PER_WAVE_MINUTES)` with `waves = ceil(items /
   PARALLELISM)`; `cost_czk = BASE_USD + items * PER_ITEM_USD`, each converted
