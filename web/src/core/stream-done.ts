@@ -25,7 +25,7 @@ import type {
   Source,
 } from '../types/api';
 import { decorateGrounding } from '../components/messages/grounding';
-import { renderResearchOffer } from '../components/messages/research-offer';
+import { finishResearchMessage } from '../components/messages/research-progress';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
@@ -146,7 +146,8 @@ function finalizeDoneBubble(
   useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
   // Underlines, source numbers and the footer (replaces "checking")
   decorateGrounding(messageEl, event);
-  renderResearchOffer(messageEl, event, { live: true });
+  // The progress panel becomes the report chip; an offer shows under the answer
+  finishResearchMessage(messageEl, event, { live: true });
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'round_cap' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');

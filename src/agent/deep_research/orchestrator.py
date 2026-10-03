@@ -77,7 +77,14 @@ class Orchestrator:
     def run(self) -> list[ItemResult]:
         """Results by index. Raises TurnCancelled after stop()."""
         items = self.plan.sub_questions
-        self.emit({"type": "research_plan", "items": list(items)})
+        self.emit(
+            {
+                "type": "research_plan",
+                "items": list(items),
+                "minutes": self.plan.estimate.get("minutes"),
+                "started_at": round(time.time() * 1000),
+            }
+        )
         results: list[ItemResult | None] = [None] * len(items)
         with ThreadPoolExecutor(Config.DEEP_RESEARCH_PARALLELISM, "deep-research") as pool:
             futures = {

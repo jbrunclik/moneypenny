@@ -19,6 +19,7 @@ import { STOP_DONE_GRACE_MS } from '../config';
 import { trackRequest, untrackRequest } from './active-requests';
 import { markStreamForRecovery } from './stream-recovery';
 import { createThinkingState } from './thinking-state';
+import type { ResearchProgress } from '../components/messages/research-progress';
 
 const log = createLogger('messaging');
 
@@ -46,6 +47,8 @@ export interface StreamingState {
   stopTimer?: ReturnType<typeof setTimeout>;
   /** Count of token events received (for debugging) */
   tokenCount?: number;
+  /** A deep-research turn's progress (research_* events) */
+  research?: ResearchProgress;
 }
 
 export function createStreamingState(

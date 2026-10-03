@@ -61,7 +61,10 @@ def test_all_done_emits_events_in_order(monkeypatch: pytest.MonkeyPatch) -> None
     _, results = _run(_plan(3), events)
 
     assert [r.status for r in results] == ["done", "done", "done"]
-    assert events[0] == {"type": "research_plan", "items": ["q0", "q1", "q2"]}
+    plan_event = events[0]
+    # started_at keeps the client's elapsed clock right when a reload replays the journal
+    assert isinstance(plan_event.pop("started_at"), int)
+    assert plan_event == {"type": "research_plan", "items": ["q0", "q1", "q2"], "minutes": 5}
     done = [e for e in events if e["type"] == "research_item" and e["status"] == "done"]
     assert sorted(e["index"] for e in done) == [0, 1, 2] and all(e["pages"] == 1 for e in done)
     assert events[-1] == {"type": "research_sources", "count": 3}

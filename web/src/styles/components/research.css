@@ -134,3 +134,121 @@
     opacity: 0.45;
     cursor: default;
 }
+
+/* Progress panel in the streaming bubble (components/messages/research-progress.ts) */
+.research-progress {
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-light);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* The panel says what is happening; the generic thinking dots would repeat it */
+.research-progress ~ .message-content .thinking-indicator {
+    display: none;
+}
+
+.research-progress__items,
+.research-chip__items {
+    margin: 0;
+    padding-left: var(--space-5);
+}
+
+.research-progress__item,
+.research-chip__items li {
+    display: flex;
+    gap: var(--space-2);
+    align-items: baseline;
+}
+
+.research-progress__question {
+    flex: 1;
+    min-width: 0;
+}
+
+.research-progress__state {
+    flex: none;
+    color: var(--text-muted);
+}
+
+.research-progress__item--done .research-progress__state {
+    color: var(--text-secondary);
+}
+
+.research-progress__spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--border-light);
+    border-top-color: var(--accent-hover);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+.research-progress__feed,
+.research-chip__board {
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-muted);
+}
+
+.research-progress__footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: center;
+    margin-top: var(--space-2);
+    color: var(--text-muted);
+}
+
+.research-progress__finish {
+    padding: 3px var(--space-2-5);
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent-muted);
+    color: var(--accent-hover);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.research-progress__finish:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* Mobile: one compact line per item */
+@media (max-width: 767px) {
+    .research-progress__question {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+/* Header chip of a report message */
+.research-chip {
+    margin-bottom: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.research-chip summary {
+    display: inline-block;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    list-style: none;
+}
+
+.research-chip summary::-webkit-details-marker {
+    display: none;
+}
+
+.research-chip__body {
+    margin-top: var(--space-2);
+    color: var(--text-secondary);
+}

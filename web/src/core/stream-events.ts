@@ -23,6 +23,7 @@ import { acknowledgeServerStop, type StreamingState } from './stream-session';
 import { deepCopyThinkingState, updateLocalThinkingState } from './thinking-state';
 import { showGroundingChecking } from '../components/messages/grounding';
 import { notifyModelFallback } from './model-fallback';
+import { handleResearchEvent } from './research-stream';
 
 const log = createLogger('messaging');
 
@@ -167,6 +168,14 @@ export function processStreamEvent(
     case 'grounding_started':
       // The verifier runs between the last token and done (~1 s)
       if (isCurrentConversation) showGroundingChecking(state.messageEl);
+      break;
+
+    case 'research_plan':
+    case 'research_item':
+    case 'research_finding':
+    case 'research_sources':
+    case 'research_writing':
+      handleResearchEvent(event, state, convId, isCurrentConversation);
       break;
 
     case 'stopping':
