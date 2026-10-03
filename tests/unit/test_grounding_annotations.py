@@ -93,12 +93,42 @@ def test_drops_quotes_not_in_the_answer_and_orders_by_position() -> None:
     assert [a["quote"] for a in anns] == ["vyřízení do 24 hodin", "rychlost 24–48 hodin"]
 
 
-def test_prefix_comes_from_the_first_occurrence_in_the_answer() -> None:
+def test_conflicting_verdicts_on_a_repeated_quote_are_dropped() -> None:
+    # "800 Kč" stands under both agencies: which occurrence a verdict meant is
+    # unknowable, so a conflicting pair is dropped rather than mislabelled
+    anns = validate_claims(
+        [
+            _claim(quote="800 Kč", verdict="not_found", reason="PřepiServis v nich není."),
+            _claim(quote="800 Kč", source=2, source_quote="poplatek 800 Kč"),
+        ],
+        _ANSWER,
+        _PAGES,
+    )
+
+    assert anns == []
+
+
+def test_agreeing_verdicts_on_a_repeated_quote_mark_the_first_occurrence() -> None:
+    # A business named twice is the same claim wherever it stands
     [ann] = validate_claims(
-        [_claim(quote="800 Kč", source=2, source_quote="poplatek 800 Kč")], _ANSWER, _PAGES
+        [_claim(quote="800 Kč", verdict="not_found"), _claim(quote="800 Kč", verdict="not_found")],
+        _ANSWER,
+        _PAGES,
     )
 
     assert ann["prefix"].endswith("1 590 Kč + ")
+
+
+def test_a_quote_copied_without_markdown_still_matches() -> None:
+    # LLMs often drop the ** of the source; the prefix still comes from the answer
+    [ann] = validate_claims(
+        [_claim(quote="PřepiServis: rychlost 24–48 hodin", verdict="not_found")],
+        _ANSWER,
+        _PAGES,
+    )
+
+    assert ann["quote"] == "PřepiServis: rychlost 24–48 hodin"
+    assert ann["prefix"].endswith("+ 800 Kč.\n**")
 
 
 def test_caps_claims_reasons_and_passages(monkeypatch: pytest.MonkeyPatch) -> None:

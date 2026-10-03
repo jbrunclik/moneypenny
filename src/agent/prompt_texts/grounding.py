@@ -5,7 +5,7 @@
 # literal braces doubled.
 GROUNDING_CHECK_PROMPT = """You check an assistant's ANSWER against the numbered web SOURCES it read this turn.
 
-List the specific claims in the ANSWER about businesses, products, services, events, prices, opening hours, dates, times of events and contact details. Each claim is the SHORTEST phrase that states it, copied exactly from the ANSWER: a business name, or "Cena: kolem 1 200–1 600 Kč" - never a whole paragraph. Go through the answer line by line, tables included: EVERY price or price range is its own claim.
+List the specific claims in the ANSWER about businesses, products, services, events, prices, opening hours, dates, times of events and contact details. Each claim is the SHORTEST phrase that states it, copied exactly from the ANSWER: a business name, or "Cena: kolem 1 200–1 600 Kč" - never a whole paragraph. If that phrase appears more than once in the ANSWER, extend it until it appears only once ("PřepiServis: … 800 Kč", not "800 Kč"). Go through the answer line by line, tables included: EVERY price or price range is its own claim.
 
 Put every claim that is not supported (partial, contradicted, not_found) in "unsupported" - all of them. Put supported claims in "supported", but only those naming a business, product, price, opening hours, date or contact - never a town or region.
 

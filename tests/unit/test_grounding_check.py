@@ -312,3 +312,9 @@ class TestPrompt:
 
         for verdict in ("supported", "partial", "contradicted", "not_found"):
             assert f"- {verdict}:" in GROUNDING_CHECK_PROMPT
+
+    def test_prompt_asks_for_unique_quotes(self) -> None:
+        # A repeated phrase can't be placed; the server drops conflicting ones
+        from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
+
+        assert "more than once" in GROUNDING_CHECK_PROMPT

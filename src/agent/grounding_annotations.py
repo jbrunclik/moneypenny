@@ -105,24 +105,89 @@ def _drop_schedule_times(anns: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [a for a in anns if a not in times]
 
 
+# Markdown the verifier may or may not copy (emphasis, inline code, link
+# syntax) - the same set the client drops before anchoring a quote
+_MARKDOWN_SYNTAX = re.compile(r"\*\*|__|[*_`]|\]\([^)]*\)|[\[\]]")
+
+
+def _match_index(text: str) -> tuple[str, list[int]]:
+    """Text without markdown syntax, whitespace collapsed and casefolded, plus
+    the position in `text` of every character it keeps."""
+    kept: list[str] = []
+    positions: list[int] = []
+    skip_until = 0
+    for match in _MARKDOWN_SYNTAX.finditer(text):
+        for i in range(skip_until, match.start()):
+            kept.append(text[i])
+            positions.append(i)
+        skip_until = match.end()
+    kept.extend(text[skip_until:])
+    positions.extend(range(skip_until, len(text)))
+    out: list[str] = []
+    out_positions: list[int] = []
+    for char, pos in zip(kept, positions, strict=True):
+        if char.isspace():
+            if not out or out[-1] == " ":
+                continue
+            char = " "
+        for folded in char.casefold():
+            out.append(folded)
+            out_positions.append(pos)
+    return "".join(out), out_positions
+
+
+def _occurrences(index: tuple[str, list[int]], quote: str) -> list[int]:
+    """Answer positions where the quote starts (markdown-insensitive)."""
+    text, positions = index
+    needle = _match_index(quote)[0].strip()
+    if not needle:
+        return []
+    starts: list[int] = []
+    at = text.find(needle)
+    while at >= 0:
+        starts.append(positions[at])
+        at = text.find(needle, at + 1)
+    return starts
+
+
+def _locate(claims: list[ClaimVerdict], answer: str) -> list[tuple[int, ClaimVerdict]]:
+    """(answer position, claim) for each claim that can be placed unambiguously.
+
+    A quote that occurs more than once can't say which occurrence it meant:
+    when claims on it agree on the verdict, the first occurrence stands for
+    all; when they disagree ("800 Kč" sourced under one agency, not under the
+    other) they are all dropped - a wrong label is worse than none.
+    """
+    index = _match_index(answer)
+    by_key: dict[str, list[ClaimVerdict]] = {}
+    starts: dict[str, list[int]] = {}
+    for claim in claims:
+        quote = claim.quote.strip()
+        if not quote or len(quote) > Config.GROUNDING_CHECK_MAX_QUOTE_CHARS:
+            continue
+        key = _match_index(quote)[0].strip()
+        found = starts.setdefault(key, _occurrences(index, quote))
+        if found:
+            by_key.setdefault(key, []).append(claim)
+    placed: list[tuple[int, ClaimVerdict]] = []
+    for key, group in by_key.items():
+        if len(starts[key]) > 1 and len({c.verdict for c in group}) > 1:
+            continue
+        placed.append((starts[key][0], group[0]))
+    return placed
+
+
 def validate_claims(
     claims: list[ClaimVerdict], answer: str, pages: list[SourcePage]
 ) -> list[dict[str, Any]]:
-    """Annotations for the claims that can be shown, in answer order."""
-    haystack = answer.casefold()
-    placed: list[tuple[int, dict[str, Any]]] = []
-    seen: set[str] = set()
-    for claim in claims:
-        quote = claim.quote.strip()
-        start = haystack.find(quote.casefold()) if quote else -1
-        if start < 0 or quote in seen or len(quote) > Config.GROUNDING_CHECK_MAX_QUOTE_CHARS:
-            continue
-        seen.add(quote)
-        placed.append((start, _annotation(claim, answer, start, pages)))
-        if len(placed) >= Config.GROUNDING_CHECK_MAX_CLAIMS:
-            break
+    """Annotations for the claims that can be shown, in answer order.
+
+    Claims arrive problems first (GroundingVerdict), so the cap keeps them.
+    """
+    placed = _locate(claims, answer)[: Config.GROUNDING_CHECK_MAX_CLAIMS]
     placed.sort(key=lambda item: item[0])
-    return _drop_schedule_times([ann for _, ann in placed])
+    anns = [_annotation(claim, answer, start, pages) for start, claim in placed]
+    return _drop_schedule_times(anns)
 
 
 def summarize(source_count: int) -> dict[str, Any]:
