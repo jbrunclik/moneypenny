@@ -237,3 +237,28 @@ def test_brief_carries_context_date_and_previous_report() -> None:
 
     for part in ("Question?", "Praha", "2026-10-03", "q1", "Round 1 found X.", "share_finding"):
         assert part in brief
+
+
+def test_a_cut_subagent_keeps_what_it_spent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deadline cuts are routine: their tokens must still be priced."""
+    from langchain_core.messages import AIMessage
+
+    from src.agent.turn_usage import record_model_usage
+
+    monkeypatch.setattr(Config, "DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS", 0.2)
+    usage = {"input_tokens": 400, "output_tokens": 40, "total_tokens": 440}
+
+    def spends_then_hangs(
+        brief: str, board: ResearchBoard, index: int, request_id: str
+    ) -> ItemResult:
+        record_model_usage(AIMessage(content="", usage_metadata=usage))
+        if index == 1:
+            _wait_cancellable(request_id, 5)
+        return ItemResult(index, "done", "", [], {})
+
+    monkeypatch.setattr(orch, "run_subagent", spends_then_hangs)
+    o, results = _run(_plan(2), [])
+
+    assert [r.status for r in results] == ["done", "timed_out"]
+    assert [u["input_tokens"] for u in o.spent()] == [400, 400]
+    assert results[1].usage["input_tokens"] == 400

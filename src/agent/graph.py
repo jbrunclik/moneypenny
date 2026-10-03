@@ -43,6 +43,7 @@ from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
+from src.agent.turn_usage import record_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -368,7 +369,9 @@ def _invoke_model(
 ) -> BaseMessage:
     """One model call that Stop can abort mid-stream (checked per attempt and per token)."""
     raise_if_cancelled()
-    return model.invoke(messages, config=_with_cancel_callback(config))
+    response = model.invoke(messages, config=_with_cancel_callback(config))
+    record_model_usage(response)
+    return response
 
 
 def _with_cancel_callback(config: RunnableConfig | None) -> RunnableConfig:

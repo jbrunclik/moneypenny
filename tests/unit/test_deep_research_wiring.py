@@ -17,6 +17,9 @@ _RESEARCH_EVENTS = {
     "research_finding",
     "research_sources",
     "research_writing",
+    # Liveness during a quiet research phase: keeps a resumed reader from
+    # declaring a healthy run dead (STREAM_RESUME_STALL_SECONDS)
+    "research_tick",
 }
 
 

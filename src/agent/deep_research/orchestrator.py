@@ -15,6 +15,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, wait
+from dataclasses import replace
 from typing import Any
 
 from src.agent.cancellation import TurnCancelled, register_token, token_for, unregister_token
@@ -23,6 +24,7 @@ from src.agent.deep_research.briefs import build_brief
 from src.agent.deep_research.plan import DeepResearchPlan
 from src.agent.deep_research.subagent import ItemResult, Status, run_subagent
 from src.agent.source_pages import SourcePage
+from src.agent.turn_usage import TokenTotals, collecting_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -72,6 +74,7 @@ class Orchestrator:
         self._run_slots = threading.BoundedSemaphore(Config.DEEP_RESEARCH_PARALLELISM)
         self._held: dict[int, list[threading.BoundedSemaphore]] = {}
         self._finished: set[int] = set()
+        self._totals: dict[int, TokenTotals] = {}
 
     def _on_post(self, entry: BoardEntry) -> None:
         self.emit({"type": "research_finding", "agent": entry.agent, "text": entry.text})
@@ -156,14 +159,20 @@ class Orchestrator:
             self._running[index] = time.monotonic()
         self.emit({"type": "research_item", "index": index, "status": "started"})
         brief = build_brief(self.plan, index, self.today, self.recent_turns)
+        totals = TokenTotals()
+        with self._lock:
+            self._totals[index] = totals
         try:
-            return run_subagent(brief, self.board, index, rid)
+            # Every model call is priced as it happens: a cut turn returns no usage
+            with collecting_model_usage(totals):
+                result = run_subagent(brief, self.board, index, rid)
+            return replace(result, usage=usage_of(totals))
         except TurnCancelled:
             status = self._cut.get(index, "skipped")
-            return ItemResult(index, status, "", self.board.pages_of(index))
+            return ItemResult(index, status, "", self.board.pages_of(index), usage_of(totals))
         except Exception:
             logger.warning("Deep research subagent failed", exc_info=True, extra={"index": index})
-            return ItemResult(index, "failed", "", self.board.pages_of(index))
+            return ItemResult(index, "failed", "", self.board.pages_of(index), usage_of(totals))
         finally:
             with self._lock:
                 self._running.pop(index, None)
@@ -218,10 +227,17 @@ class Orchestrator:
             logger.warning("Deep research subagent stuck after its cut", extra={"index": index})
             self._release(index)
             status = self._cut[index]
+            with self._lock:
+                spent = usage_of(self._totals.get(index, TokenTotals()))
             results[index] = self._finish_item(
-                ItemResult(index, status, "", self.board.pages_of(index))
+                ItemResult(index, status, "", self.board.pages_of(index), spent)
             )
         return left
+
+    def spent(self) -> list[dict[str, int]]:
+        """What every started subagent has spent so far (done, cut or stuck)."""
+        with self._lock:
+            return [usage_of(t) for _i, t in sorted(self._totals.items())]
 
     def _enforce_deadlines(self) -> None:
         self._cut_running("timed_out", only_overdue=True)
@@ -235,6 +251,15 @@ class Orchestrator:
         """End the run without a report."""
         self._stop.set()
         self._cut_running("skipped")
+
+
+def usage_of(totals: TokenTotals) -> dict[str, int]:
+    """A subagent's spend in the shape ItemResult.usage and cost pricing use."""
+    return {
+        "input_tokens": totals.input_tokens,
+        "output_tokens": totals.output_tokens,
+        "cached_input_tokens": totals.cached_tokens,
+    }
 
 
 def merge_pages(results: list[ItemResult], board: ResearchBoard) -> list[SourcePage]:

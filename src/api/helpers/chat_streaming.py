@@ -60,6 +60,7 @@ FORWARDED_EVENT_TYPES = (
     "research_finding",
     "research_sources",
     "research_writing",
+    "research_tick",
 )
 
 

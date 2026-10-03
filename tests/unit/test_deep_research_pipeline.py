@@ -1,5 +1,6 @@
 """The deep-research pipeline: events in order, a final event the save path stores."""
 
+import time
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -36,10 +37,17 @@ class FakeOrchestrator:
         self.board = ResearchBoard()
         self.finished_early = False
 
+    def spent(self) -> list[dict[str, int]]:
+        return [{"input_tokens": 70, "output_tokens": 7, "cached_input_tokens": 0}]
+
     def run(self) -> list[ItemResult]:
         self.emit({"type": "research_plan", "items": self.plan.sub_questions})
         if FakeOrchestrator.outcome == "stop":
             raise TurnCancelled
+        if FakeOrchestrator.outcome == "quiet":
+            time.sleep(0.5)
+        if FakeOrchestrator.outcome == "nothing":
+            return [ItemResult(i, "timed_out", "", [], {}) for i in range(2)]
         page = SourcePage("A", "https://a.cz", "alpha")
         self.board.record_page(0, page)
         status = "failed" if FakeOrchestrator.outcome == "all_failed" else "done"
@@ -102,7 +110,9 @@ def test_events_in_order_and_a_final_event(fakes: dict[str, MagicMock]) -> None:
         usage["input_tokens"] == 900 and usage["answer_model"] == Config.DEEP_RESEARCH_WRITER_MODEL
     )
     assert usage["grounding"]["annotations"][0]["source"] == 1
-    assert [u["input_tokens"] for u in usage["deep_research_usage"]] == [50, 50]
+    assert [u["input_tokens"] for u in usage["deep_research_usage"]] == [
+        70
+    ]  # orchestrator.spent(): every started subagent
     assert usage["research_sources"] == [{"title": "A", "url": "https://a.cz"}]
     run = usage["research_run"]
     assert run["sub_questions"] == ["prices", "speed"]
@@ -153,3 +163,35 @@ def test_no_followups_means_no_followup_offer(fakes: dict[str, MagicMock]) -> No
     run = _events()[-1]["usage_info"]["research_run"]
 
     assert "followup" not in run
+
+
+def test_a_run_that_found_nothing_skips_the_writer(fakes: dict[str, MagicMock]) -> None:
+    """Every item cut with no pages and no digest: no report from nothing."""
+    FakeOrchestrator.outcome = "nothing"
+
+    events = _events()
+
+    assert "research_writing" not in [e["type"] for e in events]
+    assert events[-1]["content"].startswith("Research failed")
+    fakes["check"].assert_not_called()
+
+
+def test_spend_is_recorded_on_every_ending(fakes: dict[str, MagicMock]) -> None:
+    """Stop, all-failed and a report all price what the subagents spent."""
+    for outcome in ("stop", "all_failed", "ok"):
+        FakeOrchestrator.outcome = outcome
+        usage = _events()[-1]["usage_info"]
+        assert usage["deep_research_usage"][0]["input_tokens"] == 70, outcome
+
+
+def test_a_quiet_research_phase_sends_liveness_ticks(
+    fakes: dict[str, MagicMock], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No event for a while (slow subagents) must not look like a dead stream."""
+    monkeypatch.setattr(pipeline, "TICK_SECONDS", 0.1)
+    FakeOrchestrator.outcome = "quiet"
+
+    types = [e["type"] for e in _events()]
+
+    assert types.count("research_tick") >= 2
+    assert types.index("research_tick") < types.index("research_writing")

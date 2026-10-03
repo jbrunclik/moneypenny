@@ -36,6 +36,9 @@ logger = get_logger(__name__)
 
 _DONE = object()
 _POLL_SECONDS = 0.2
+# A quiet research phase (slow subagents, a slot wait) sends a research_tick
+# this often, so a resumed reader's stall detector sees a live run
+TICK_SECONDS = 60.0
 STOPPED_TEXT = "Research stopped."
 FAILED_TEXT = "Research failed: none of the sub-questions could be researched."
 
@@ -63,14 +66,24 @@ def run_deep_research(
     ).start()
     finished_early = yield from _relay(events, orchestrator, finish_requested)
     if box.get("stopped"):
-        yield _final(STOPPED_TEXT, {}, stop_reason="user")
+        # What the subagents spent up to the Stop is still billed
+        yield _final(STOPPED_TEXT, _usage(TokenTotals(), orchestrator, None, [], None), "user")
         return
     results: list[ItemResult] = box.get("results") or []
     run = _run_data(plan, results, orchestrator, started, finished_early)
-    if not results or all(r.status == "failed" for r in results):
-        yield _final(FAILED_TEXT, _usage(TokenTotals(), results, run, [], None))
+    if _found_nothing(results, orchestrator):
+        yield _final(FAILED_TEXT, _usage(TokenTotals(), orchestrator, run, [], None))
         return
     yield from _report(plan, results, orchestrator, run, today, parent)
+
+
+def _found_nothing(results: list[ItemResult], orchestrator: Orchestrator) -> bool:
+    """Every item failed, or none read a page or wrote a digest: no report from nothing."""
+    if all(r.status == "failed" for r in results):  # also true for no results
+        return True
+    return not merge_pages(results, orchestrator.board) and not any(
+        r.digest.strip() for r in results
+    )
 
 
 def _research(orchestrator: Orchestrator, box: dict[str, Any], events: queue.Queue[Any]) -> None:
@@ -90,6 +103,7 @@ def _relay(
 ) -> Generator[dict[str, Any], None, bool]:
     """Yield orchestrator events until it is done; returns whether Finish now was used."""
     finished_early = False
+    last_sent = time.monotonic()
     while True:
         try:
             event = events.get(timeout=_POLL_SECONDS)
@@ -100,7 +114,10 @@ def _relay(
             orchestrator.finish_now()
         if event is _DONE:
             return finished_early
+        if event is None and time.monotonic() - last_sent >= TICK_SECONDS:
+            event = {"type": "research_tick"}
         if event is not None:
+            last_sent = time.monotonic()
             yield event
 
 
@@ -121,7 +138,9 @@ def _report(
     report = "".join(chunks)
     if parent and parent.cancelled:
         yield _final(
-            report or STOPPED_TEXT, _usage(totals, results, run, pages, None), stop_reason="user"
+            report or STOPPED_TEXT,
+            _usage(totals, orchestrator, run, pages, None),
+            stop_reason="user",
         )
         return
     yield {"type": "grounding_started"}
@@ -140,7 +159,7 @@ def _report(
             kind="followup",
             round_=plan.round + 1,
         )
-    usage = _usage(totals, results, run, pages, outcome)
+    usage = _usage(totals, orchestrator, run, pages, outcome)
     usage["answer_model"] = model_used
     yield _final(report, usage)
 
@@ -203,8 +222,8 @@ def _run_data(
 
 def _usage(
     totals: TokenTotals,
-    results: list[ItemResult],
-    run: dict[str, Any],
+    orchestrator: Orchestrator,
+    run: dict[str, Any] | None,
     pages: list[SourcePage],
     outcome: GroundingOutcome | None,
 ) -> dict[str, Any]:
@@ -214,8 +233,11 @@ def _usage(
         "cached_input_tokens": totals.cached_tokens,
         "tool_rounds": 0,
         "tool_call_count": 0,
+        # Every started subagent, done or cut (orchestrator.spent)
         "deep_research_usage": [
-            {"model": Config.DEEP_RESEARCH_SUBAGENT_MODEL, **r.usage} for r in results if r.usage
+            {"model": Config.DEEP_RESEARCH_SUBAGENT_MODEL, **u}
+            for u in orchestrator.spent()
+            if u.get("input_tokens") or u.get("output_tokens")
         ],
         "research_run": run,
         "research_sources": [{"title": p.title, "url": p.url} for p in pages],

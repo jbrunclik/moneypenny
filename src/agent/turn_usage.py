@@ -4,7 +4,9 @@ Feeds the usage_info dict every ChatAgent entry point returns (cost tracking
 and the per-turn observability columns on message_costs).
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
@@ -167,3 +169,25 @@ def batch_usage_info(result_messages: list[BaseMessage], duration_ms: int) -> di
             },
         )
     return usage_info
+
+
+# Spend recorded per model call, for turns that may be cut before they return
+# their usage (deep-research subagents). Contextvars reach graph nodes.
+_model_usage: ContextVar[TokenTotals | None] = ContextVar("model_usage", default=None)
+
+
+@contextmanager
+def collecting_model_usage(totals: TokenTotals) -> Iterator[TokenTotals]:
+    """Add every model call's tokens made inside the block to totals."""
+    token = _model_usage.set(totals)
+    try:
+        yield totals
+    finally:
+        _model_usage.reset(token)
+
+
+def record_model_usage(message: BaseMessage) -> None:
+    """Called after each model call; a no-op outside collecting_model_usage."""
+    totals = _model_usage.get()
+    if totals is not None:
+        totals.add_from(message)
