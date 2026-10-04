@@ -37,8 +37,14 @@ def _source(conn: Any, conv_id: str, before: str, quote: str) -> tuple[str | Non
         (conv_id, before),
     ).fetchall()
     for msg_id, raw in rows:
-        for index, ann in enumerate(json.loads(raw)):
-            if _plain(str(ann.get("quote", ""))) == quote:
+        try:
+            annotations = json.loads(raw)
+        except ValueError:
+            continue  # an odd row must never stop a deploy's migration
+        if not isinstance(annotations, list):
+            continue
+        for index, ann in enumerate(annotations):
+            if isinstance(ann, dict) and _plain(str(ann.get("quote", ""))) == quote:
                 return msg_id, index
     return None, None
 

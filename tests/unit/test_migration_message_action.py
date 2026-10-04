@@ -98,3 +98,22 @@ def test_the_nearest_earlier_answer_wins(m: ModuleType) -> None:
     m.convert(conn)
 
     assert _action(conn, "u")["source_message_id"] == "new"  # type: ignore[index]
+
+
+def test_malformed_annotations_never_stop_the_migration(m: ModuleType) -> None:
+    """A deploy must not crash-loop on one odd row: it just finds no link there."""
+    conn = _db()
+    _add(conn, "bad", "c", "assistant", "a", "2026-10-03T08:00:00", "not json")
+    _add(
+        conn, "odd", "c", "assistant", "b", "2026-10-03T08:00:30", json.dumps(["x", {"quote": "X"}])
+    )
+    _add(conn, "u", "c", "user", "Look up and verify: X", "2026-10-03T08:01:00", None)
+
+    m.convert(conn)
+
+    assert _action(conn, "u") == {
+        "type": "verify_claim",
+        "source_message_id": "odd",
+        "claim_index": 1,
+        "quote": "X",
+    }
