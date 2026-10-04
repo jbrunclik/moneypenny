@@ -467,3 +467,61 @@ class TestPriceNet:
         anns = self._check("Na Bazoši. Cenu 25 000 Kč se nepodařilo ověřit.", [])
 
         assert [a["quote"] for a in anns] == ["Bazoš"]
+
+
+class TestShopNet:
+    """Linked or named sites the turn never read are marked (honesty probe:
+    Cyklobazar, VeloRama, Citybikes left unmarked by the verifier)."""
+
+    _PAGES = [
+        SourcePage(
+            "Cyklospeciality",
+            "https://www.cyklospeciality.cz/brompton",
+            "Cyklospeciality prodává Brompton C Line za 43 300 Kč",
+        )
+    ]
+
+    def _check(
+        self, answer: str, fake_verifier: MagicMock, claims: list[ClaimVerdict] | None = None
+    ) -> list[dict[str, Any]]:
+        from src.agent.grounding_check import check_grounding_pages
+
+        listed = claims or [
+            ClaimVerdict(
+                quote="Cyklospeciality",
+                verdict="supported",
+                source=1,
+                source_quote="Cyklospeciality",
+            )
+        ]
+        fake_verifier.return_value = (GroundingVerdict(supported=listed), _USAGE)
+        return check_grounding_pages(
+            answer, self._PAGES, "", known="", max_source_chars=10_000, max_claims=20
+        ).annotations
+
+    def test_an_unread_linked_shop_is_marked(self, fake_verifier: MagicMock) -> None:
+        answer = "Prodává [Cyklospeciality](https://cyklospeciality.cz) a ojeté [Cyklobazar.cz](https://www.cyklobazar.cz/brompton)."
+
+        anns = self._check(answer, fake_verifier)
+
+        net = [(a["quote"], a["reason"]) for a in anns if a["verdict"] == "not_found"]
+        assert net == [("Cyklobazar.cz", "This site is not among the pages read this turn.")]
+
+    def test_a_bare_domain_counts(self, fake_verifier: MagicMock) -> None:
+        anns = self._check("U Cyklospeciality, nebo na bazos.cz.", fake_verifier)
+
+        assert ("not_found", "bazos.cz") in [(a["verdict"], a["quote"]) for a in anns]
+
+    def test_a_read_site_on_another_path_is_left_alone(self, fake_verifier: MagicMock) -> None:
+        anns = self._check(
+            "U [Cyklospeciality](https://cyklospeciality.cz/kontakt).", fake_verifier
+        )
+
+        assert [a["verdict"] for a in anns] == ["supported"]
+
+    def test_an_unverified_site_is_left_alone(self, fake_verifier: MagicMock) -> None:
+        anns = self._check(
+            "U Cyklospeciality. Citybikes.cz (neověřeno) je další možnost.", fake_verifier
+        )
+
+        assert "Citybikes.cz" not in [a["quote"] for a in anns]
