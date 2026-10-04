@@ -207,3 +207,12 @@ def test_json_results_stay_json_with_the_board_inside(board: ResearchBoard) -> N
 
     assert out["sources"][0]["url"] == "https://r.cz"
     assert "news from agent 2" in out["_board"]
+
+
+def test_a_subagent_search_says_snippets_are_leads(board: ResearchBoard) -> None:
+    """Digests carried prices seen only in snippets (Oct 2026): read the page first."""
+    search = {t.name: t for t in wrap_research_tools(_fake_tools([]), board, agent=0)}["web_search"]
+
+    out = json.loads(search.invoke({"query": "ceny"}))
+
+    assert "leads" in out["_note"] and "fetch_url" in out["_note"]

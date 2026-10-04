@@ -33,7 +33,7 @@ Write the report:
 - Then a section per sub-question with the specifics found (prices, times, names, conditions) and which options differ how.
 - Use a comparison table when options are compared.
 - Name any sub-question that failed or was skipped, and say what is therefore missing.
-- A digest marked "no pages read - unverified" came from search snippets or memory: do not state its specifics (prices, numbers, names) as facts; say they could not be verified.
+- A sub-question whose digest is withheld read no pages: say what is missing for it rather than filling the gap from memory.
 - End with a short section on what is still open or uncertain (disagreements between sources, things nobody found).
 - At most {max_words} words. Write in the language of the user's question.
 - Only state specifics found in the pages or digests. Do not add citation markers, footnotes or a source list - the app attaches sources itself.

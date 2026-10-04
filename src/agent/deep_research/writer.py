@@ -47,7 +47,7 @@ def _read_label(status: str, result: ItemResult | None) -> str:
     """Status plus pages read: a digest from no page is unverified (snippets or memory)."""
     n = len(result.pages) if result else 0
     if n == 0:
-        return f"{status}, no pages read - unverified"
+        return f"{status}, no pages read"
     return f"{status}, {n} {'page' if n == 1 else 'pages'} read"
 
 
@@ -58,6 +58,9 @@ def _items_block(plan: DeepResearchPlan, results: list[ItemResult]) -> str:
         result = by_index.get(i)
         status = result.status if result else "skipped"
         digest = result.digest.strip() if result and result.digest.strip() else "(no digest)"
+        if not (result and result.pages) and digest != "(no digest)":
+            # Snippets or memory only: nothing in it can be checked against a page
+            digest = "(digest withheld: this agent read no pages, so none of its specifics can be sourced)"
         lines.append(
             f"## Sub-question {i + 1} [{_read_label(status, result)}]: {question}\n{digest}"
         )

@@ -178,6 +178,13 @@ def _fetch(tool: BaseTool, board: ResearchBoard, agent: int, kwargs: dict[str, A
     return result
 
 
+_SNIPPETS_NOTE = (
+    "Snippets are leads, not sources: the report may only state what a page you "
+    "read says. Read the page (fetch_url or research) before putting any price, "
+    "number or name from a snippet in your digest."
+)
+
+
 def _search(tool: BaseTool, board: ResearchBoard, kwargs: dict[str, Any]) -> Any:
     key = json.dumps(kwargs, sort_keys=True, ensure_ascii=False)
     cached = board.cached_search(key)
@@ -186,6 +193,11 @@ def _search(tool: BaseTool, board: ResearchBoard, kwargs: dict[str, Any]) -> Any
         return cached
     result = tool.invoke(kwargs)
     if isinstance(result, str):
+        data = _json_object(result)
+        if data is not None:
+            # Digests carried specifics seen only in snippets; the grounding
+            # check then found no page for them (Oct 2026)
+            result = json.dumps({**data, "_note": _SNIPPETS_NOTE}, ensure_ascii=False)
         board.record_search(key, result)
     return result
 
