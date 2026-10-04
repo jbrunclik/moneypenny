@@ -412,8 +412,10 @@ describe('handlePaste', () => {
   function createPasteEvent(options: {
     files?: File[];
     preventDefault?: () => void;
+    html?: string;
+    target?: EventTarget;
   } = {}): ClipboardEvent {
-    const { files = [], preventDefault = vi.fn() } = options;
+    const { files = [], preventDefault = vi.fn(), html = '', target } = options;
 
     // Create DataTransferItems from files
     const items = files.map((file) => ({
@@ -428,6 +430,7 @@ describe('handlePaste', () => {
     const filesArray = [...files];
 
     const dataTransfer = {
+      getData: (type: string) => (type === 'text/html' ? html : ''),
       // items is the primary source for clipboard images (screenshots)
       items: {
         length: items.length,
@@ -454,6 +457,7 @@ describe('handlePaste', () => {
     return {
       clipboardData: dataTransfer as unknown as DataTransfer,
       preventDefault,
+      target,
     } as unknown as ClipboardEvent;
   }
 
@@ -584,6 +588,40 @@ describe('handlePaste', () => {
       const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
       expect(passedFiles).toHaveLength(1);
       expect(passedFiles[0].type).toBe('image/png');
+    });
+  });
+
+  describe('rich text paste', () => {
+    function textarea(value: string, cursor: number): HTMLTextAreaElement {
+      document.body.innerHTML = '<textarea id="message-input"></textarea>';
+      const el = document.getElementById('message-input') as HTMLTextAreaElement;
+      el.value = value;
+      el.setSelectionRange(cursor, cursor);
+      return el;
+    }
+
+    it('lands as markdown at the cursor', () => {
+      const el = textarea('Před  po', 5);
+      const onInput = vi.fn();
+      el.addEventListener('input', onInput);
+      const preventDefault = vi.fn();
+
+      handlePaste(createPasteEvent({ html: '<p><b>Tučně</b> a <a href="https://a.cz">odkaz</a></p>', preventDefault, target: el }));
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(el.value).toBe('Před **Tučně** a [odkaz](https://a.cz) po');
+      // The composer reacts as to typing (auto-grow, draft save)
+      expect(onInput).toHaveBeenCalled();
+    });
+
+    it('leaves unformatted HTML to the browser', () => {
+      const el = textarea('', 0);
+      const preventDefault = vi.fn();
+
+      handlePaste(createPasteEvent({ html: '<span style="color:red">const x = 1;</span>', preventDefault, target: el }));
+
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(el.value).toBe('');
     });
   });
 

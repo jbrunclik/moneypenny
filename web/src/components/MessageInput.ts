@@ -6,6 +6,7 @@ import { DRAFT_SAVE_DEBOUNCE_MS, MOBILE_BREAKPOINT_PX } from '../config';
 import { addFilesToPending } from './FileUpload';
 import { checkScrollButtonVisibility } from './ScrollToBottom';
 import { createLogger } from '../utils/logger';
+import { htmlToMarkdown } from '../utils/html-to-markdown';
 
 const log = createLogger('message-input');
 
@@ -614,9 +615,29 @@ export function updateUploadProgress(progress: number): void {
 }
 
 /**
+ * Rich text (a web page, a Google Doc, an email) lands as markdown at the
+ * cursor. Returns false for clipboard HTML without formatting, which the
+ * browser pastes as plain text.
+ */
+function pasteRichTextAsMarkdown(e: ClipboardEvent, clipboardData: DataTransfer): boolean {
+  const target = e.target;
+  if (!(target instanceof HTMLTextAreaElement)) return false;
+  const markdown = htmlToMarkdown(clipboardData.getData?.('text/html') ?? '');
+  if (!markdown) return false;
+  e.preventDefault();
+  target.focus();
+  // insertText keeps the paste on the undo stack; setRangeText where it is missing
+  if (!document.execCommand?.('insertText', false, markdown)) {
+    target.setRangeText(markdown, target.selectionStart, target.selectionEnd, 'end');
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  return true;
+}
+
+/**
  * Handle paste event on the message input.
- * Extracts image files from clipboard and adds them to pending files.
- * Text paste is handled normally by the browser.
+ * Extracts image files from clipboard and adds them to pending files; rich
+ * text becomes markdown; plain text is handled normally by the browser.
  * Exported for testing.
  */
 export function handlePaste(e: ClipboardEvent): void {
@@ -652,7 +673,8 @@ export function handlePaste(e: ClipboardEvent): void {
   }
 
   if (imageFiles.length === 0) {
-    // No images in clipboard - let browser handle normal text paste
+    // No images: rich text as markdown, anything else the browser's text paste
+    pasteRichTextAsMarkdown(e, clipboardData);
     return;
   }
 
