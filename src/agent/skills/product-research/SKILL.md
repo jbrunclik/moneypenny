@@ -21,4 +21,4 @@ description: Recommending products to buy or shops to buy from (what to get, whi
 - 2-4 options in a comparison table: name, price (with currency and date), where to buy (direct link), key differences, and the catch.
 - Then one clear recommendation and why, tied to their stated needs.
 - If nothing fits the constraints, say so and name the constraint to relax (budget, shop, feature).
-- ALWAYS end with a short **Verified** line: what you confirmed on pages read this turn (shops, prices, stock - with today's date) and what you could not verify (a page that did not load, a price or stock status not shown). Never skip it, even when everything checked out.
+- Do not end with a "Verified" summary: the app marks what the pages read do not back. Where something could not be checked (a page did not load, a price or stock status was not shown), say so right where you mention it.
