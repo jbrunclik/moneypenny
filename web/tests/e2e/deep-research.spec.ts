@@ -7,14 +7,18 @@ const OFFER = {
   sub_questions: ['What do agencies charge?', 'How long does it take?', 'Which documents are needed?'],
 };
 
-async function offerTurn(page: Page, request: APIRequestContext, options: { stepMs?: number; runNow?: boolean } = {}): Promise<void> {
+async function offerTurn(
+  page: Page,
+  request: APIRequestContext,
+  options: { stepMs?: number; runNow?: boolean; message?: string } = {}
+): Promise<void> {
   await request.post('/test/set-deep-research', {
     data: { offer: { ...OFFER, run_now: options.runNow ?? false }, step_ms: options.stepMs ?? 150 },
   });
   await page.goto('/');
   await page.waitForSelector('#new-chat-btn');
   await page.click('#new-chat-btn');
-  await page.fill('#message-input', 'Help me transfer a car registration');
+  await page.fill('#message-input', options.message ?? 'Help me transfer a car registration');
   await page.click('#send-btn');
 }
 
@@ -96,8 +100,15 @@ test.describe('Deep research', () => {
   });
 
   test('an explicit request starts by itself', async ({ page, request }) => {
-    await offerTurn(page, request, { runNow: true });
+    await offerTurn(page, request, { runNow: true, message: 'Research the car registration transfer in depth' });
     await expect(page.locator('.research-chip summary')).toContainText('3 questions', { timeout: 15000 });
+    // The offer card follows the run, not stuck on Starting…
+    await expect(page.locator('.message.assistant .research-offer').first()).toHaveText(/^Deep research started/);
+  });
+
+  test('run_now alone does not start: the user did not ask', async ({ page, request }) => {
+    await offerTurn(page, request, { runNow: true });
+    await expect(card(page).locator('.research-offer__start')).toBeVisible({ timeout: 15000 });
   });
 });
 

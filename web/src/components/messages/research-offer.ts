@@ -220,6 +220,15 @@ export function renderResearchOffer(
       void startDeepResearch(message.id, offer.sub_questions, offer.context, {
         whenIdle: true,
         minutes: estimateFrom(offer.rates, offer.sub_questions.length).minutes,
+      }).then((sent) => {
+        // The card may have been re-rendered meanwhile: update the current one
+        const current = document.querySelector<HTMLElement>(`.${CARD_CLASS}[data-message-id="${message.id}"]`) ?? card;
+        if (sent === false) {
+          autostarted.delete(message.id);
+          fillEditor(current, offer);
+        } else {
+          collapseStarted(current);
+        }
       });
     }
     return;

@@ -129,6 +129,17 @@ describe('research offer card', () => {
     expect(startDeepResearch).toHaveBeenCalledWith('m1', o.sub_questions, o.context, { whenIdle: true, minutes: 5 });
   });
 
+  it('an autostart shows Deep research started once it is sent', async () => {
+    render(offer({ autostart: true }), { live: true });
+    await vi.waitFor(() => expect(card().textContent).toBe('Deep research started'));
+  });
+
+  it('an autostart that could not be sent falls back to the editor', async () => {
+    vi.mocked(startDeepResearch).mockResolvedValueOnce(false);
+    render(offer({ autostart: true }), { live: true });
+    await vi.waitFor(() => expect(startBtn()).not.toBeNull());
+  });
+
   it('autostart never fires from history', () => {
     render(offer({ autostart: true }));
     expect(startDeepResearch).not.toHaveBeenCalled();

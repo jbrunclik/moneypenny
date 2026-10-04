@@ -12,9 +12,9 @@ const OFFER = {
 };
 
 /** Send a message whose reply carries the canned offer. */
-async function sendOffer(page: Page, request: APIRequestContext, stepMs = 50): Promise<void> {
+async function sendOffer(page: Page, request: APIRequestContext, stepMs = 50, offer = OFFER): Promise<void> {
   // After the page fixture's reset, which clears the test's mock config
-  await request.post('/test/set-deep-research', { data: { offer: OFFER, step_ms: stepMs } });
+  await request.post('/test/set-deep-research', { data: { offer, step_ms: stepMs } });
   await page.goto('/');
   await page.waitForSelector('#new-chat-btn');
   await page.evaluate(() => {
@@ -39,6 +39,14 @@ test.describe('Visual: Deep research', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await sendOffer(page, request);
     await expect(page.locator('.research-offer')).toHaveScreenshot('deep-research-offer-mobile.png');
+  });
+
+  test('long context keeps its edit button inline on mobile', async ({ page, request }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const context =
+      'Rides an endurance road bike April to October (about 5-32 °C, changeable spring and autumn weather); wants durable kit with no needless overlap.';
+    await sendOffer(page, request, 50, { ...OFFER, context });
+    await expect(page.locator('.research-offer__context')).toHaveScreenshot('deep-research-offer-long-context-mobile.png');
   });
 
   test('progress panel mid-run', async ({ page, request }) => {

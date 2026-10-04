@@ -27,12 +27,16 @@
     color: var(--text-muted);
 }
 
+/* Inline flow: a long context keeps the ✎ at its end, not on a line of its own */
 .research-offer__context {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1);
     margin-top: var(--space-1);
+}
+
+.research-offer__context .research-offer__context-edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
 }
 
 .research-offer__label {
@@ -80,8 +84,14 @@
     field-sizing: content;
 }
 
+.research-offer__context textarea[hidden] {
+    display: none;
+}
+
 .research-offer__context textarea {
-    flex-basis: 100%;
+    display: block;
+    width: 100%;
+    margin-top: var(--space-1);
     border-color: var(--border-light);
 }
 
