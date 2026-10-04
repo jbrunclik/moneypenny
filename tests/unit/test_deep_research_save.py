@@ -163,3 +163,39 @@ def test_superseding_an_offer_is_logged(
     assert record.offer_message_id == old_id
     assert record.kind == "initial"
     assert record.seconds_open >= 0
+
+
+def _offer_turn(run_now: bool) -> list[Any]:
+    from langchain_core.messages import AIMessage
+
+    args = {"question": "Q", "context": "", "sub_questions": ["a"], "run_now": run_now}
+    return [
+        AIMessage(
+            content="", tool_calls=[{"name": "propose_deep_research", "args": args, "id": "p"}]
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("message_text", "autostart"),
+    [("Ověř mi, jestli dává smysl mít návleky", False), ("Prozkoumej to důkladně", True)],
+)
+def test_an_offer_autostarts_only_when_the_user_asked(
+    save: MagicMock, test_database: Any, test_conversation: Any, message_text: str, autostart: bool
+) -> None:
+    saved = chat_save.save_message_to_db(
+        "Quick answer.",
+        _offer_turn(run_now=True),
+        [],
+        {},
+        test_conversation.id,
+        test_conversation.user_id,
+        "m",
+        message_text,
+        "req",
+        True,
+    )
+
+    assert saved is not None
+    offer = test_database.get_message_by_id(saved.message_id).research["offer"]
+    assert offer["autostart"] is autostart

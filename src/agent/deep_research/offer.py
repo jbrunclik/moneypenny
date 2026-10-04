@@ -5,6 +5,7 @@ arguments are read off the turn's tool calls when the reply is saved, so the
 offer is stored on that assistant message (messages.research = {"offer": ...}).
 """
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -68,8 +69,25 @@ def seconds_open(offer: dict[str, Any]) -> int | None:
     return round((datetime.now() - created).total_seconds())
 
 
-def extract_offer(result_messages: list[BaseMessage]) -> dict[str, Any] | None:
-    """The offer from the turn's last propose_deep_research call, if valid."""
+# The user's own words that ask for a run now (cs/en). run_now from the model
+# alone is not enough: it was seen setting it on an ordinary question.
+_EXPLICIT_REQUEST = re.compile(
+    r"deep\s*research|důkladn|hloubkov|prozkoum|in[\s-]depth|thorough",
+    re.IGNORECASE,
+)
+
+
+def asks_for_deep_research(user_text: str) -> bool:
+    """Whether the user's message explicitly asks for in-depth research."""
+    return bool(_EXPLICIT_REQUEST.search(user_text))
+
+
+def extract_offer(result_messages: list[BaseMessage], user_text: str = "") -> dict[str, Any] | None:
+    """The offer from the turn's last propose_deep_research call, if valid.
+
+    It autostarts only when the model set run_now AND the user's message
+    explicitly asked for in-depth research; otherwise the user decides.
+    """
     args: dict[str, Any] | None = None
     for msg in result_messages:
         if isinstance(msg, AIMessage):
@@ -79,6 +97,8 @@ def extract_offer(result_messages: list[BaseMessage]) -> dict[str, Any] | None:
     if args is None:
         return None
     try:
-        return build_offer(args)
+        offer = build_offer(args)
     except PlanError:
         return None
+    offer["autostart"] = offer["autostart"] and asks_for_deep_research(user_text)
+    return offer

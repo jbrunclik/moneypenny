@@ -29,7 +29,8 @@ def test_validate_plan_strips_and_enforces_limits(monkeypatch: pytest.MonkeyPatc
 
 def test_extract_offer_reads_the_tool_call_and_adds_the_estimate() -> None:
     offer = extract_offer(
-        [_call(question="Q", context="Praha", sub_questions=["a", "b"], run_now=True)]
+        [_call(question="Q", context="Praha", sub_questions=["a", "b"], run_now=True)],
+        user_text="Prozkoumej to důkladně, prosím",
     )
     assert offer is not None
     assert (
@@ -75,3 +76,37 @@ def test_the_tool_is_bound_for_chat_not_for_agents_or_programs() -> None:
     assert "propose_deep_research" not in names(get_tools_for_request(is_sports=True))
     assert "propose_deep_research" not in names(get_tools_for_request(is_agent=True))
     assert "propose_deep_research" not in names(get_tools_for_request(agent_tool_permissions=[]))
+
+
+@pytest.mark.parametrize(
+    "user_text",
+    [
+        "Udělej deep research na zimní bundy",
+        "prozkoumej ještě ty rukavice",
+        "Můžeš to důkladně prověřit?",
+        "Hloubkově to zanalyzuj",
+        "Research this in depth please",
+        "look into it thoroughly",
+    ],
+)
+def test_run_now_is_honoured_for_an_explicit_request(user_text: str) -> None:
+    offer = extract_offer(
+        [_call(question="Q", context="", sub_questions=["a"], run_now=True)], user_text
+    )
+    assert offer is not None and offer["autostart"] is True
+
+
+@pytest.mark.parametrize(
+    "user_text",
+    [
+        "Ověř mi, jestli dává smysl mít návleky i bundu",
+        "Co mi doporučíš na jarní vyjížďky?",
+        "",
+    ],
+)
+def test_run_now_needs_the_user_to_ask(user_text: str) -> None:
+    """Oct 4 2026: the agent set run_now on an ordinary question - the user must ask."""
+    offer = extract_offer(
+        [_call(question="Q", context="", sub_questions=["a"], run_now=True)], user_text
+    )
+    assert offer is not None and offer["autostart"] is False

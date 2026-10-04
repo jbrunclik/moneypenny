@@ -168,12 +168,16 @@ def _persist_assistant_message(
 
 
 def _research_for_turn(
-    conv_id: str, user_id: str, result_messages: list[Any], usage: dict[str, Any]
+    conv_id: str,
+    user_id: str,
+    result_messages: list[Any],
+    usage: dict[str, Any],
+    message_text: str = "",
 ) -> dict[str, Any] | None:
     """Deep-research data for this reply: a report's run, or an offer made this
     turn. A new open offer (or a report's follow-up offer) replaces open ones."""
     run = usage.get("research_run")
-    offer = None if run else extract_offer(result_messages)
+    offer = None if run else extract_offer(result_messages, message_text)
     opens_offer = offer is not None or bool(run and run.get("followup"))
     if opens_offer:
         for old in db.find_open_research_offers(conv_id):
@@ -354,7 +358,7 @@ def save_message_to_db(
         # Stopped before any text: keep the turn visible so Continue works
         if stop_reason and not content.strip():
             content = STOPPED_EMPTY_TEXT
-        research = _research_for_turn(conv_id, user_id, result_messages, usage)
+        research = _research_for_turn(conv_id, user_id, result_messages, usage, message_text)
         if usage.get("research_sources") is not None:
             # A deep-research report cites the run's merged pages, not tool calls
             sources = usage["research_sources"]
