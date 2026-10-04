@@ -152,6 +152,21 @@ def _occurrences(index: tuple[str, list[int]], quote: str) -> list[int]:
     return starts
 
 
+def _shorten(quote: str) -> str:
+    """A placeable quote: its first line, cut at a word to the quote cap.
+
+    A long or multi-line claim used to be skipped - and with it the mark on
+    an unverified shop (honesty probe, Oct 4 2026). Its start still points
+    at the right place in the answer.
+    """
+    first = next((line.strip() for line in quote.splitlines() if line.strip()), "")
+    cap = Config.GROUNDING_CHECK_MAX_QUOTE_CHARS
+    if len(first) <= cap:
+        return first
+    cut = first[: cap + 1].rsplit(" ", 1)[0].rstrip(" ,;:(")
+    return cut if len(cut) <= cap else first[:cap]
+
+
 def _locate(claims: list[ClaimVerdict], answer: str) -> list[tuple[int, ClaimVerdict]]:
     """(answer position, claim) for each claim that can be placed unambiguously.
 
@@ -164,9 +179,11 @@ def _locate(claims: list[ClaimVerdict], answer: str) -> list[tuple[int, ClaimVer
     by_key: dict[str, list[ClaimVerdict]] = {}
     starts: dict[str, list[int]] = {}
     for claim in claims:
-        quote = claim.quote.strip()
-        if not quote or len(quote) > Config.GROUNDING_CHECK_MAX_QUOTE_CHARS:
+        quote = _shorten(claim.quote)
+        if not quote:
             continue
+        if quote != claim.quote:
+            claim = claim.model_copy(update={"quote": quote})
         key = _match_index(quote)[0].strip()
         found = starts.setdefault(key, _occurrences(index, quote))
         if found:

@@ -214,3 +214,30 @@ def test_prefix_offsets_survive_characters_that_casefold_longer() -> None:
     [ann] = validate_claims([_claim(quote="Bar Alfa", verdict="not_found")], answer, [])
 
     assert ann["prefix"].endswith("5 €: ")
+
+
+def test_a_long_claim_is_shortened_not_dropped() -> None:
+    """A not_found claim over the quote cap used to vanish - an unmarked shop
+    in the honesty probe (Oct 4 2026)."""
+    answer = (
+        "* **Physical Stores:** They have dedicated showrooms and service centers in "
+        "**Prague** (Karlín and others), **Brno**, and **Hradec Králové**."
+    )
+    quote = (
+        "Physical Stores: They have dedicated showrooms and service centers in Prague "
+        "(Karlín and others), Brno, and Hradec Králové"
+    )
+    [ann] = validate_claims([_claim(verdict="not_found", quote=quote, reason="r")], answer, [])
+
+    assert ann["verdict"] == "not_found"
+    assert len(ann["quote"]) <= Config.GROUNDING_CHECK_MAX_QUOTE_CHARS
+    assert ann["quote"].startswith("Physical Stores")
+
+
+def test_a_claim_across_list_items_keeps_its_first_line() -> None:
+    answer = "Prodejny:\n* **Brno**\n* **Hradec Králové**"
+    [ann] = validate_claims(
+        [_claim(verdict="not_found", quote="Brno\n  * **Hradec Králové**", reason="r")], answer, []
+    )
+
+    assert ann["quote"] == "Brno"
