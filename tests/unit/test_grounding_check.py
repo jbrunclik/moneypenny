@@ -356,4 +356,9 @@ class TestCheckGroundingPages:
 
         assert len(fake_verifier.call_args.args[1]) < 300
         assert len(outcome.annotations) == 1
+        # Without a caller timeout the chat turn's applies
+        assert (
+            fake_verifier.call_args.kwargs["timeout_seconds"]
+            == Config.GROUNDING_CHECK_TIMEOUT_SECONDS
+        )
         assert outcome.summary == {"checked": True, "source_count": 1}

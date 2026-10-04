@@ -75,7 +75,9 @@ def _notify_response_ready(
 
 
 def push_title(usage_info: dict[str, Any]) -> str:
-    """ "Your research is ready" for a deep-research report."""
+    """The push title: a report, a run that found nothing, or a chat answer."""
+    if usage_info.get("research_failed"):
+        return "Your research could not finish"
     return "Your research is ready" if usage_info.get("research_run") else "Your answer is ready"
 
 

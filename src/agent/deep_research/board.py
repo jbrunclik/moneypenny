@@ -203,11 +203,25 @@ def _research(tool: BaseTool, board: ResearchBoard, agent: int, kwargs: dict[str
     return result
 
 
+def _json_object(result: str) -> dict[str, Any] | None:
+    if not result.startswith("{"):
+        return None
+    try:
+        data = json.loads(result)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def _with_board(result: Any, board: ResearchBoard, agent: int) -> Any:
     block = board.unseen_block(agent)
     if not block:
         return result
     if isinstance(result, str):
+        data = _json_object(result)
+        if data is not None:
+            # Keep JSON results parseable (turn_pages reads research/web_search)
+            return json.dumps({**data, "_board": block}, ensure_ascii=False)
         return f"{result}\n\n{block}"
     if isinstance(result, list):
         return [*result, {"type": "text", "text": block}]

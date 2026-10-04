@@ -199,3 +199,24 @@ def test_an_offer_autostarts_only_when_the_user_asked(
     assert saved is not None
     offer = test_database.get_message_by_id(saved.message_id).research["offer"]
     assert offer["autostart"] is autostart
+
+
+def test_a_report_stores_its_cost_on_the_run(
+    save: MagicMock, test_database: Any, test_conversation: Any
+) -> None:
+    saved = chat_save.save_message_to_db(
+        "Report.",
+        [],
+        [],
+        _usage(followup=False),
+        test_conversation.id,
+        test_conversation.user_id,
+        "m",
+        "Start deep research",
+        "req",
+        True,
+    )
+
+    assert saved is not None
+    run = test_database.get_message_by_id(saved.message_id).research["run"]
+    assert run["cost_usd"] == 0.05

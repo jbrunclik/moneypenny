@@ -392,6 +392,11 @@ def save_message_to_db(
         )
         if usage.get("research_run"):
             _log_research_run(usage["research_run"], cost_usd, assistant_msg.id)
+            # The spec's run.cost_usd, known only once the message is priced
+            db.set_message_research(
+                assistant_msg.id,
+                {**(research or {}), "run": {**usage["research_run"], "cost_usd": cost_usd}},
+            )
 
         generated_title = _resolve_title_update(
             conv_id, user_id, message_text, content, result_messages

@@ -46,6 +46,20 @@ def _open_offer(message: Any) -> tuple[dict[str, Any], bool]:
     return offer, followup is not None
 
 
+def _decide(message: Any, decided: dict[str, Any], is_followup: bool) -> None:
+    """Store the decided offer atomically: OfferConflict if another device won."""
+    research = message.research or {}
+    if is_followup:
+        path, updated = (
+            "$.run.followup.status",
+            {**research, "run": {**research["run"], "followup": decided}},
+        )
+    else:
+        path, updated = "$.offer.status", {**research, "offer": decided}
+    if not db.decide_research_offer(message.id, path, updated):
+        raise OfferConflict("This research offer was already decided.")
+
+
 def start_plan(
     conv_id: str, offer_message_id: str, sub_questions: list[str], context: str
 ) -> DeepResearchPlan:
@@ -67,13 +81,7 @@ def start_plan(
         "final_estimate": final_estimate,
         "decided_at": datetime.now().isoformat(),
     }
-    research = message.research or {}
-    if is_followup:
-        db.set_message_research(
-            message.id, {**research, "run": {**research["run"], "followup": started}}
-        )
-    else:
-        db.set_message_research(message.id, {**research, "offer": started})
+    _decide(message, started, is_followup)
     offered = list(offer.get("sub_questions") or [])
     logger.info(
         "Deep research started",
@@ -105,13 +113,7 @@ def decline_offer(message: Any) -> None:
     """Mark an open offer (or follow-up offer) declined."""
     offer, is_followup = _open_offer(message)
     declined = {**offer, "status": "declined", "decided_at": datetime.now().isoformat()}
-    research = message.research or {}
-    if is_followup:
-        db.set_message_research(
-            message.id, {**research, "run": {**research["run"], "followup": declined}}
-        )
-    else:
-        db.set_message_research(message.id, {**research, "offer": declined})
+    _decide(message, declined, is_followup)
     logger.info(
         "Deep research declined",
         extra={

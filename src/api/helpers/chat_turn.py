@@ -212,6 +212,10 @@ def _action(data: ChatRequest, plan: DeepResearchPlan | None) -> dict[str, Any] 
             "items": len(plan.sub_questions),
             "minutes": int(plan.estimate.get("minutes") or 0),
         }
+    if data.action and data.action.type == "deep_research":
+        # Only the server records a started run; a bare one would render a
+        # "Deep research started" row for a run that never ran
+        raise_validation_error("A deep_research action needs a deep_research start", field="action")
     return data.action.model_dump() if data.action else None
 
 

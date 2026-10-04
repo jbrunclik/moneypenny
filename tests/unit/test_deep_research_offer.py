@@ -110,3 +110,26 @@ def test_run_now_needs_the_user_to_ask(user_text: str) -> None:
         [_call(question="Q", context="", sub_questions=["a"], run_now=True)], user_text
     )
     assert offer is not None and offer["autostart"] is False
+
+
+def test_the_offer_tool_reports_an_unusable_plan() -> None:
+    """The model must hear that no card will appear, so it can fix the plan."""
+    from src.agent.tools.deep_research import propose_deep_research
+
+    nine = [f"q{i}?" for i in range(Config.DEEP_RESEARCH_MAX_SUB_QUESTIONS + 1)]
+    for bad in ([], nine, ["x" * (Config.DEEP_RESEARCH_MAX_ITEM_CHARS + 1)]):
+        out = propose_deep_research.invoke({"question": "Q", "context": "", "sub_questions": bad})
+        assert out.startswith("Offer NOT recorded"), bad
+
+    ok = propose_deep_research.invoke({"question": "Q", "context": "", "sub_questions": ["a?"]})
+    assert ok.startswith("Offer recorded")
+
+
+def test_the_offer_tool_does_not_promise_an_autostart() -> None:
+    """The server autostarts only when the user asked; the tool cannot know."""
+    from src.agent.tools.deep_research import propose_deep_research
+
+    out = propose_deep_research.invoke(
+        {"question": "Q", "context": "", "sub_questions": ["a?"], "run_now": True}
+    )
+    assert "will start right after" not in out

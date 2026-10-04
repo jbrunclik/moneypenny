@@ -78,14 +78,15 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
 
 
 def _run_verifier(
-    answer: str, sources: str, known: str
+    answer: str, sources: str, known: str, *, timeout_seconds: float | None = None
 ) -> tuple[GroundingVerdict | None, dict[str, Any] | None]:
     """One structured call to the checker model. Raises on API errors/timeouts."""
+    timeout = timeout_seconds or Config.GROUNDING_CHECK_TIMEOUT_SECONDS
     model = ChatGoogleGenerativeAI(
         model=Config.GROUNDING_CHECK_MODEL,
         google_api_key=Config.GEMINI_API_KEY,
         temperature=0,
-        timeout=max(Config.GROUNDING_CHECK_TIMEOUT_SECONDS, GEMINI_MIN_REQUEST_DEADLINE_SECONDS),
+        timeout=max(timeout, GEMINI_MIN_REQUEST_DEADLINE_SECONDS),
         max_retries=0,
     )
     structured = model.with_structured_output(GroundingVerdict, include_raw=True)
@@ -168,13 +169,15 @@ def check_grounding_pages(
     known: str,
     max_source_chars: int,
     max_claims: int,
+    timeout_seconds: float | None = None,
 ) -> GroundingOutcome:
     """Check an answer against given numbered pages (deep research passes its
-    merged pages and larger limits). Fails open."""
+    merged pages and larger limits, and a longer timeout). Fails open."""
     sources = format_sources(pages, uncited, max_source_chars)
     started = time.monotonic()
+    timeout = timeout_seconds or Config.GROUNDING_CHECK_TIMEOUT_SECONDS
     try:
-        verdict, usage = _run_verifier(answer, sources, known)
+        verdict, usage = _run_verifier(answer, sources, known, timeout_seconds=timeout)
     except Exception:
         logger.warning(
             "Grounding check failed", exc_info=True, extra={"source_chars": len(sources)}

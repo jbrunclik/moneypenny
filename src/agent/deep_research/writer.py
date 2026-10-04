@@ -109,8 +109,11 @@ def stream_report(messages: Any, model: Any, totals: TokenTotals) -> Iterator[st
             yield text
 
 
-def extract_followups(report: str) -> list[str]:
-    """2-4 follow-up research questions from the report ([] on any failure)."""
+def extract_followups(report: str) -> tuple[list[str], dict[str, int]]:
+    """2-4 follow-up research questions from the report, and the call's usage.
+
+    ([], {}) on any failure.
+    """
     try:
         llm = ChatGoogleGenerativeAI(
             model=Config.DEEP_RESEARCH_SUBAGENT_MODEL,
@@ -118,9 +121,21 @@ def extract_followups(report: str) -> list[str]:
             temperature=0,
             max_retries=Config.AGENT_MODEL_SDK_MAX_RETRIES,
         )
-        out = llm.with_structured_output(FollowUps).invoke(FOLLOWUP_PROMPT.format(report=report))
+        out = llm.with_structured_output(FollowUps, include_raw=True).invoke(
+            FOLLOWUP_PROMPT.format(report=report)
+        )
     except Exception:
         logger.warning("Deep research follow-up extraction failed", exc_info=True)
-        return []
-    questions = out.questions if isinstance(out, FollowUps) else []
-    return [q.strip() for q in questions if q.strip()][: Config.DEEP_RESEARCH_MAX_SUB_QUESTIONS]
+        return [], {}
+    totals = TokenTotals()
+    if isinstance(out, dict) and out.get("raw") is not None:
+        totals.add_from(out["raw"])
+    usage = {
+        "input_tokens": totals.input_tokens,
+        "output_tokens": totals.output_tokens,
+        "cached_input_tokens": totals.cached_tokens,
+    }
+    parsed = out.get("parsed") if isinstance(out, dict) else None
+    questions = parsed.questions if isinstance(parsed, FollowUps) else []
+    cleaned = [q.strip() for q in questions if q.strip()]
+    return cleaned[: Config.DEEP_RESEARCH_MAX_SUB_QUESTIONS], usage

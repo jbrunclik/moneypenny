@@ -304,6 +304,21 @@ class MessageMixin:
             )
             conn.commit()
 
+    def decide_research_offer(
+        self, message_id: str, status_path: str, research: dict[str, Any]
+    ) -> bool:
+        """Write the decided research data only if the offer at status_path is
+        still "offered" (one atomic UPDATE). False when it was decided meanwhile."""
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE messages SET research = ? WHERE id = ? "
+                "AND json_extract(research, ?) = 'offered'",
+                (_json_or_none(research), message_id, status_path),
+            )
+            conn.commit()
+            return bool(cursor.rowcount == 1)
+
     def find_open_research_offers(self, conversation_id: str) -> list[Message]:
         """Messages in a conversation whose deep-research offer is still open
         (an initial offer, or a report's follow-up offer)."""

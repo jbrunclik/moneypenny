@@ -107,3 +107,15 @@ class TestActions:
         assert user["action"]["offer_message_id"] == offer_id
         assert user["action"]["items"] == 3
         assert user["action"]["minutes"] > 0
+
+    def test_a_deep_research_action_without_a_start_is_rejected(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_conversation: Conversation
+    ) -> None:
+        """It would render a "Deep research started" row for a run that never ran."""
+        action = {"type": "deep_research", "offer_message_id": "x", "items": 3, "minutes": 5}
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/stream",
+            headers=auth_headers,
+            json={"message": "Start deep research", "action": action},
+        )
+        assert response.status_code == 400

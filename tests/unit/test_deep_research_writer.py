@@ -50,15 +50,25 @@ def test_stream_report_yields_text_and_records_usage() -> None:
 
 def test_extract_followups_uses_structured_output_and_fails_soft(monkeypatch) -> None:
     structured = MagicMock()
-    structured.invoke.return_value = writer.FollowUps(questions=["a?", "b?"])
+    from langchain_core.messages import AIMessage
+
+    raw = AIMessage(
+        content="", usage_metadata={"input_tokens": 300, "output_tokens": 20, "total_tokens": 320}
+    )
+    structured.invoke.return_value = {
+        "raw": raw,
+        "parsed": writer.FollowUps(questions=["a?", "b?"]),
+    }
     llm = MagicMock()
     llm.with_structured_output.return_value = structured
     monkeypatch.setattr(writer, "ChatGoogleGenerativeAI", MagicMock(return_value=llm))
 
-    assert writer.extract_followups("report") == ["a?", "b?"]
+    questions, usage = writer.extract_followups("report")
+    assert questions == ["a?", "b?"]
+    assert (usage["input_tokens"], usage["output_tokens"]) == (300, 20)
 
     structured.invoke.side_effect = RuntimeError("down")
-    assert writer.extract_followups("report") == []
+    assert writer.extract_followups("report") == ([], {})
 
 
 def test_shared_findings_are_framed_as_untrusted_data() -> None:

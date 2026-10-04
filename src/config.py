@@ -467,6 +467,10 @@ class Config:
     DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS: int = int(
         os.getenv("DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS", "200000")
     )
+    # The report's check reads up to 200k chars: a chat turn's 10 s is too short
+    DEEP_RESEARCH_GROUNDING_TIMEOUT_SECONDS: float = float(
+        os.getenv("DEEP_RESEARCH_GROUNDING_TIMEOUT_SECONDS", "45")
+    )
     DEEP_RESEARCH_GROUNDING_MAX_CLAIMS: int = int(
         os.getenv("DEEP_RESEARCH_GROUNDING_MAX_CLAIMS", "40")
     )

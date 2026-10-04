@@ -194,3 +194,16 @@ def test_a_long_finding_is_cut_at_a_word_with_an_ellipsis(
     board.post(0, "finding", "Castelli Espresso Glove je zateplená", [])
 
     assert board.entries()[0].text == "Castelli Espresso…"
+
+
+def test_json_results_stay_json_with_the_board_inside(board: ResearchBoard) -> None:
+    """turn_pages() parses research/web_search results; text after the JSON broke it."""
+    research_tool = {t.name: t for t in wrap_research_tools(_fake_tools([]), board, agent=0)}[
+        "research"
+    ]
+    board.post(1, "finding", "news from agent 2", [])
+
+    out = json.loads(research_tool.invoke({"question": "q"}))
+
+    assert out["sources"][0]["url"] == "https://r.cz"
+    assert "news from agent 2" in out["_board"]

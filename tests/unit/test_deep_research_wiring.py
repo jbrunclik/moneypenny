@@ -78,3 +78,13 @@ def test_recent_turns_text_is_compact() -> None:
 
     assert text.startswith("user: Kterou agenturu?")
     assert len(text) < 1200
+
+
+def test_push_title_tells_a_failed_run_apart() -> None:
+    from src.api.helpers.stream_producer import push_title
+
+    done = {"research_run": {"items": [{"status": "timed_out"}]}}
+    failed = {"research_run": {"items": [{"status": "failed"}]}, "research_failed": True}
+    assert push_title(done) == "Your research is ready"
+    assert push_title(failed) == "Your research could not finish"
+    assert push_title({}) == "Your answer is ready"

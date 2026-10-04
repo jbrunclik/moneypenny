@@ -36,6 +36,8 @@ logger = get_logger(__name__)
 
 _DONE = object()
 _POLL_SECONDS = 0.2
+# Finish now is a kv read; checking it on every 0.2 s poll was wasteful
+FINISH_CHECK_SECONDS = 1.0
 # A quiet research phase (slow subagents, a slot wait) sends a research_tick
 # this often, so a resumed reader's stall detector sees a live run
 TICK_SECONDS = 60.0
@@ -64,7 +66,13 @@ def run_deep_research(
         daemon=True,
         name="deep-research-orchestrator",
     ).start()
-    finished_early = yield from _relay(events, orchestrator, finish_requested)
+    try:
+        finished_early = yield from _relay(events, orchestrator, finish_requested)
+    except GeneratorExit:
+        # The producer gave up on this turn (its deadline): stop the research
+        # so subagents do not keep running and billing for nobody
+        orchestrator.stop()
+        raise
     if box.get("stopped"):
         # What the subagents spent up to the Stop is still billed
         yield _final(STOPPED_TEXT, _usage(TokenTotals(), orchestrator, None, [], None), "user")
@@ -72,7 +80,9 @@ def run_deep_research(
     results: list[ItemResult] = box.get("results") or []
     run = _run_data(plan, results, orchestrator, started, finished_early)
     if _found_nothing(results, orchestrator):
-        yield _final(FAILED_TEXT, _usage(TokenTotals(), orchestrator, run, [], None))
+        usage = _usage(TokenTotals(), orchestrator, run, [], None)
+        usage["research_failed"] = True  # the push says so, not "ready"
+        yield _final(FAILED_TEXT, usage)
         return
     yield from _report(plan, results, orchestrator, run, today, parent)
 
@@ -104,14 +114,17 @@ def _relay(
     """Yield orchestrator events until it is done; returns whether Finish now was used."""
     finished_early = False
     last_sent = time.monotonic()
+    next_check = time.monotonic() + FINISH_CHECK_SECONDS
     while True:
         try:
             event = events.get(timeout=_POLL_SECONDS)
         except queue.Empty:
             event = None
-        if not finished_early and finish_requested():
-            finished_early = True
-            orchestrator.finish_now()
+        if not finished_early and time.monotonic() >= next_check:
+            next_check = time.monotonic() + FINISH_CHECK_SECONDS
+            if finish_requested():
+                finished_early = True
+                orchestrator.finish_now()
         if event is _DONE:
             return finished_early
         if event is None and time.monotonic() - last_sent >= TICK_SECONDS:
@@ -137,11 +150,9 @@ def _report(
     model_used = yield from _write(messages, totals, chunks, parent)
     report = "".join(chunks)
     if parent and parent.cancelled:
-        yield _final(
-            report or STOPPED_TEXT,
-            _usage(totals, orchestrator, run, pages, None),
-            stop_reason="user",
-        )
+        usage = _usage(totals, orchestrator, run, pages, None)
+        usage["answer_model"] = model_used  # the partial report is the writer's
+        yield _final(report or STOPPED_TEXT, usage, stop_reason="user")
         return
     yield {"type": "grounding_started"}
     outcome = check_grounding_pages(
@@ -151,8 +162,9 @@ def _report(
         known=f"Today is {today}.",
         max_source_chars=Config.DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS,
         max_claims=Config.DEEP_RESEARCH_GROUNDING_MAX_CLAIMS,
+        timeout_seconds=Config.DEEP_RESEARCH_GROUNDING_TIMEOUT_SECONDS,
     )
-    followups = extract_followups(report)
+    followups, followup_usage = extract_followups(report)
     if followups:
         run["followup"] = build_offer(
             {"question": plan.question, "context": plan.context, "sub_questions": followups},
@@ -161,6 +173,10 @@ def _report(
         )
     usage = _usage(totals, orchestrator, run, pages, outcome)
     usage["answer_model"] = model_used
+    if followup_usage.get("input_tokens") or followup_usage.get("output_tokens"):
+        usage["deep_research_usage"].append(
+            {"model": Config.DEEP_RESEARCH_SUBAGENT_MODEL, **followup_usage}
+        )
     yield _final(report, usage)
 
 
