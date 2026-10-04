@@ -594,3 +594,5 @@ export const CLAIM_FLASH_MS = 1600;
 export const DEEP_RESEARCH_MAX_SUB_QUESTIONS = 8;
 export const DEEP_RESEARCH_MAX_ITEM_CHARS = 300;
 export const DEEP_RESEARCH_MAX_CONTEXT_CHARS = 600;
+/** An explicitly requested deep research starts after this countdown (editing the plan pauses it) */
+export const DEEP_RESEARCH_AUTOSTART_SECONDS = 8;

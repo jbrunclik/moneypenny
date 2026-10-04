@@ -1,35 +1,81 @@
-/* Deep-research offer card under an answer (components/messages/research-offer.ts) */
-.research-offer {
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--border-light);
-    font-size: var(--font-size-sm);
+/*
+ * Deep research (components/messages/research-*.ts, action-row.ts).
+ * One visual language: a soft tinted card for the offer and the live
+ * progress panel, a pill for the report summary and for action rows.
+ */
+
+/* --- Shared card surface ------------------------------------------------- */
+.research-offer,
+.research-progress {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    font-size: var(--font-size-ui);
     color: var(--text-secondary);
 }
 
-.research-offer--decided {
-    color: var(--text-muted);
+.research-offer {
+    margin-top: var(--space-3);
 }
 
-.research-offer__head {
+.research-progress {
+    margin-bottom: var(--space-3);
+}
+
+.research-offer__head,
+.research-progress__head {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-2);
-    align-items: baseline;
 }
 
-.research-offer__title {
+.research-offer__icon,
+.research-progress__icon {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    color: var(--accent-hover);
+}
+
+.research-offer__icon svg,
+.research-progress__icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.research-offer__title,
+.research-progress__title {
     font-weight: 600;
     color: var(--text-primary);
 }
 
+/* Estimate: two quiet tags */
 .research-offer__estimate {
-    color: var(--text-muted);
+    display: inline-flex;
+    gap: var(--space-1-5);
+    margin-left: auto;
 }
+
+.research-offer__tag {
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* --- Offer editor -------------------------------------------------------- */
 
 /* Inline flow: a long context keeps the ✎ at its end, not on a line of its own */
 .research-offer__context {
-    margin-top: var(--space-1);
+    margin-top: var(--space-2);
+}
+
+.research-offer__label {
+    color: var(--text-muted);
 }
 
 .research-offer__context .research-offer__context-edit {
@@ -39,10 +85,6 @@
     vertical-align: middle;
 }
 
-.research-offer__label {
-    color: var(--text-muted);
-}
-
 .research-offer__items {
     margin: var(--space-2) 0 0;
     padding: 0;
@@ -50,10 +92,14 @@
     counter-reset: research-item;
 }
 
+.research-offer__item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1);
+}
+
 /* Flex items lose their list markers: number them with a counter */
-.research-offer__item::before,
-.research-progress__item::before,
-.research-chip__items li::before {
+.research-offer__item::before {
     counter-increment: research-item;
     content: counter(research-item) '.';
     flex: none;
@@ -65,23 +111,18 @@
     padding-top: var(--space-1);
 }
 
-.research-offer__item {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-1);
-}
-
 .research-offer textarea {
     flex: 1;
     min-width: 0;
     padding: var(--space-1) var(--space-1-5);
     border: 1px solid transparent;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-primary);
     font: inherit;
     resize: none;
     field-sizing: content;
+    transition: border-color 0.15s, background 0.15s;
 }
 
 .research-offer__context textarea[hidden] {
@@ -95,10 +136,13 @@
     border-color: var(--border-light);
 }
 
-.research-offer textarea:hover,
-.research-offer textarea:focus {
+.research-offer textarea:hover {
     border-color: var(--border-light);
-    background: var(--bg-tertiary);
+}
+
+.research-offer textarea:focus {
+    border-color: var(--accent);
+    background: var(--bg-primary);
     outline: none;
 }
 
@@ -133,28 +177,41 @@
 
 .research-offer__actions {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-2);
-    margin-top: var(--space-2);
-}
-
-.research-offer__start,
-.research-offer__decline {
-    padding: 3px var(--space-2-5);
-    border: 0;
-    border-radius: 8px;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
+    margin-top: var(--space-3);
 }
 
 .research-offer__start {
-    background: var(--accent-muted);
-    color: var(--accent-hover);
+    padding: var(--space-1-5) var(--space-4);
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
 }
 
-.research-offer__decline {
+.research-offer__start:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.research-offer__decline,
+.research-offer__edit {
+    padding: var(--space-1-5) var(--space-2);
+    border: 0;
     background: transparent;
     color: var(--text-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.research-offer__decline:hover,
+.research-offer__edit:hover {
+    color: var(--text-primary);
 }
 
 .research-offer button:disabled {
@@ -162,127 +219,26 @@
     cursor: default;
 }
 
-/* Progress panel in the streaming bubble (components/messages/research-progress.ts) */
-.research-progress {
-    margin-bottom: var(--space-2);
-    padding-bottom: var(--space-2);
-    border-bottom: 1px solid var(--border-light);
+/* Autostart countdown ("Starting in 8 s") */
+.research-offer__countdown {
+    margin-left: auto;
     font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-}
-
-/* The panel says what is happening; the generic thinking dots would repeat it */
-.research-progress ~ .message-content .thinking-indicator {
-    display: none;
-}
-
-.research-progress__items,
-.research-chip__items {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    counter-reset: research-item;
-}
-
-.research-progress__item,
-.research-chip__items li {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    /* Whole-pixel rows: the spinner must not make the row height fractional */
-    line-height: 18px;
-}
-
-.research-progress__question {
-    flex: 0 1 auto;
-    min-width: 0;
-}
-
-.research-progress__state {
-    flex: none;
     color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
 }
 
-.research-progress__item--done .research-progress__state {
-    color: var(--text-secondary);
-}
-
-.research-progress__spinner {
-    display: inline-block;
-    vertical-align: middle;
-    width: 10px;
-    height: 10px;
-    border: 2px solid var(--border-light);
-    border-top-color: var(--accent-hover);
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
-}
-
-.research-progress__feed,
-.research-chip__board {
-    margin: var(--space-2) 0 0;
-    padding: 0;
-    list-style: none;
-    color: var(--text-muted);
-}
-
-.research-progress__footer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    align-items: center;
+/* A decided offer: one quiet line with the same rhythm as the grounding footer */
+.research-offer--decided {
     margin-top: var(--space-2);
-    color: var(--text-muted);
-}
-
-.research-progress__finish {
-    padding: 3px var(--space-2-5);
+    padding: 0;
+    padding-top: var(--space-3);
+    line-height: 16px;
     border: 0;
-    border-radius: 8px;
-    background: var(--accent-muted);
-    color: var(--accent-hover);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.research-progress__finish:disabled {
-    opacity: 0.45;
-    cursor: default;
-}
-
-/* Mobile: one compact line per item */
-@media (max-width: 767px) {
-    .research-progress__question {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-}
-
-/* Header chip of a report message */
-.research-chip {
-    margin-bottom: var(--space-2);
+    border-top: 1px solid var(--border-light);
+    border-radius: 0;
+    background: transparent;
     font-size: var(--font-size-sm);
     color: var(--text-muted);
-}
-
-.research-chip summary {
-    display: inline-block;
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-full);
-    background: var(--bg-tertiary);
-    cursor: pointer;
-    list-style: none;
-}
-
-.research-chip summary::-webkit-details-marker {
-    display: none;
-}
-
-.research-chip__body {
-    margin-top: var(--space-2);
-    color: var(--text-secondary);
 }
 
 /* "Report below ↓" on a started offer */
@@ -295,24 +251,248 @@
     cursor: pointer;
 }
 
-/* Action rows: a message the app sent for the user (components/messages/action-row.ts) */
+/* --- Live progress -------------------------------------------------------- */
+
+/* The panel says what is happening; the generic thinking dots would repeat it */
+.research-progress ~ .message-content .thinking-indicator {
+    display: none;
+}
+
+.research-progress__elapsed {
+    margin-left: auto;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.research-progress__bar {
+    height: 3px;
+    margin-top: var(--space-2-5);
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    overflow: hidden;
+}
+
+.research-progress__bar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: var(--accent);
+    transition: width 0.4s ease;
+}
+
+.research-progress__items,
+.research-chip__items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.research-chip__items {
+    counter-reset: research-item;
+}
+
+/* Whole-pixel rows: the spinner must not make the row height fractional */
+.research-progress__item,
+.research-chip__items li {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    line-height: 20px;
+}
+
+.research-progress__state {
+    display: inline-flex;
+    flex: none;
+    width: 16px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+.research-progress__item--done .research-progress__state {
+    color: var(--accent-hover);
+}
+
+.research-progress__item--failed .research-progress__state,
+.research-progress__item--timed_out .research-progress__state {
+    color: var(--claim-heading-unsourced);
+}
+
+.research-progress__question {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-primary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.research-progress__item--queued .research-progress__question,
+.research-progress__item--waiting .research-progress__question,
+.research-progress__item--skipped .research-progress__question {
+    color: var(--text-muted);
+}
+
+.research-progress__pages {
+    flex: none;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.research-progress__spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border-light);
+    border-top-color: var(--accent-hover);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+/* Findings the agents shared: all of them, newest last */
+.research-progress__label,
+.research-chip__label {
+    margin-top: var(--space-3);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.research-progress__feed,
+.research-chip__board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
+    margin: var(--space-1-5) 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-secondary);
+}
+
+.research-progress__finding {
+    animation: research-finding-in 0.35s ease;
+}
+
+@keyframes research-finding-in {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+}
+
+.research-progress__agent {
+    color: var(--accent-hover);
+}
+
+.research-progress__footer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    color: var(--text-muted);
+}
+
+.research-progress__finish {
+    margin-left: auto;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.research-progress__finish:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+.research-progress__finish:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* --- Report summary (header pill, expandable) ----------------------------- */
+.research-chip {
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-ui);
+}
+
+.research-chip summary,
+.action-row {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.research-chip summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.research-chip summary::-webkit-details-marker {
+    display: none;
+}
+
+.research-chip[open] summary {
+    color: var(--text-primary);
+}
+
+.research-chip__body {
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+}
+
+.research-chip__items {
+    margin-top: 0;
+}
+
+/* A shared finding reads as two lines; a tap opens it */
+.research-chip__board li {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.research-chip__board li.is-open {
+    display: block;
+}
+
+/* --- Action rows: a message the app sent for the user --------------------- */
 .message--action .message-content-wrapper {
     margin-left: auto;
 }
 
 .action-row {
-    display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1);
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
 }
 
 .action-row__icon {
     display: inline-flex;
     width: 14px;
     height: 14px;
+    color: var(--accent-hover);
 }
 
 .action-row__icon svg {
@@ -340,4 +520,18 @@
     background: var(--claim-highlight);
     border-radius: var(--radius-md);
     transition: background 0.3s;
+}
+
+/* --- Mobile -------------------------------------------------------------- */
+@media (max-width: 767px) {
+    .research-offer,
+    .research-progress,
+    .research-chip__body {
+        padding: var(--space-3);
+    }
+
+    .research-offer__estimate {
+        margin-left: 0;
+        width: 100%;
+    }
 }

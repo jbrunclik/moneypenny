@@ -40,6 +40,14 @@ class BoardEntry:
     seq: int
 
 
+def _clip(text: str, limit: int) -> str:
+    """At most `limit` chars, cut at a word boundary with an ellipsis."""
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1].rsplit(" ", 1)[0] or text[: limit - 1]
+    return cut.rstrip(" ,;:") + "…"
+
+
 class ResearchBoard:
     """Thread-safe: subagents run in parallel threads."""
 
@@ -55,7 +63,7 @@ class ResearchBoard:
     def post(self, agent: int, kind: str, text: str, urls: list[str]) -> bool:
         """Add an entry; URLs the run never read are dropped. False when full."""
         # One line: an entry must not be able to close the board block early
-        text = " ".join(text.split())[: Config.DEEP_RESEARCH_BOARD_ENTRY_CHARS]
+        text = _clip(" ".join(text.split()), Config.DEEP_RESEARCH_BOARD_ENTRY_CHARS)
         if not text:
             return False
         with self._lock:

@@ -35,6 +35,20 @@ test.describe('Visual: Deep research', () => {
     await expect(page.locator('.research-offer')).toHaveScreenshot('deep-research-offer.png');
   });
 
+  test('offer counting down after an explicit request', async ({ page, request }) => {
+    await request.post('/test/set-deep-research', { data: { offer: { ...OFFER, run_now: true }, step_ms: 50 } });
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Research the car registration transfer in depth');
+    await page.click('#send-btn');
+    const offer = page.locator('.research-offer');
+    await expect(offer.locator('.research-offer__countdown')).toBeVisible({ timeout: 15000 });
+    await expect(offer.locator('.research-offer__actions')).toHaveScreenshot('deep-research-offer-countdown.png', {
+      mask: [offer.locator('.research-offer__countdown')],
+    });
+  });
+
   test('offer card on mobile', async ({ page, request }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await sendOffer(page, request);
@@ -60,9 +74,10 @@ test.describe('Visual: Deep research', () => {
     await expect(panel.locator('.research-progress__items')).toHaveScreenshot('deep-research-progress-items.png', {
       mask: [panel.locator('.research-progress__spinner')],
     });
-    await expect(panel.locator('.research-progress__footer')).toHaveScreenshot('deep-research-progress-footer.png', {
+    await expect(panel.locator('.research-progress__head')).toHaveScreenshot('deep-research-progress-head.png', {
       mask: [panel.locator('.research-progress__elapsed')],
     });
+    await expect(panel.locator('.research-progress__footer')).toHaveScreenshot('deep-research-progress-footer.png');
   });
 
   test('action row of a started run', async ({ page, request }) => {
@@ -89,7 +104,7 @@ test.describe('Visual: Deep research', () => {
     await expect(chip).toBeVisible({ timeout: 15000 });
     await chip.locator('summary').click();
     // The duration varies run to run
-    await chip.locator('summary').evaluate((el) => {
+    await chip.locator('.research-chip__text').evaluate((el) => {
       el.textContent = (el.textContent ?? '').replace(/\d+ min/, '1 min');
     });
     await expect(chip).toHaveScreenshot('deep-research-chip.png');

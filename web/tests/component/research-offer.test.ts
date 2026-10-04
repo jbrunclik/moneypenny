@@ -39,7 +39,7 @@ function render(o: ResearchOffer | null, options?: { live?: boolean }): HTMLElem
 }
 
 const card = () => document.querySelector<HTMLElement>('.research-offer')!;
-const meta = () => card().querySelector('.research-offer__estimate')!.textContent;
+const meta = () => [...card().querySelectorAll('.research-offer__tag')].map((t) => t.textContent).join(' · ');
 const items = () => [...card().querySelectorAll<HTMLTextAreaElement>('.research-offer__item textarea')];
 const startBtn = () => card().querySelector<HTMLButtonElement>('.research-offer__start')!;
 const addBtn = () => card().querySelector<HTMLButtonElement>('.research-offer__add')!;
@@ -113,31 +113,64 @@ describe('research offer card', () => {
     expect(startBtn().disabled).toBe(false);
   });
 
-  it('No thanks declines and collapses to one line', async () => {
+  it('No thanks declines and the offer goes away', async () => {
     render(offer());
     card().querySelector<HTMLButtonElement>('.research-offer__decline')!.click();
     expect(declineDeepResearch).toHaveBeenCalledWith('m1');
-    await vi.waitFor(() => expect(card().textContent).toBe('Deep research declined'));
+    await vi.waitFor(() => expect(document.querySelector('.research-offer')).toBeNull());
   });
 
-  it('autostart on a live reply starts once, showing Starting…', () => {
+  it('an explicit request counts down in the editor, then starts once', () => {
+    vi.useFakeTimers();
     const o = offer({ autostart: true });
     render(o, { live: true });
-    expect(card().textContent).toContain('Starting…');
-    render(o, { live: true });
+    expect(startBtn().textContent).toBe('Start now');
+    expect(card().querySelector('.research-offer__countdown')!.textContent).toBe('Starting in 8 s');
+    vi.advanceTimersByTime(3000);
+    expect(card().querySelector('.research-offer__countdown')!.textContent).toBe('Starting in 5 s');
+    expect(startDeepResearch).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(5000);
     expect(startDeepResearch).toHaveBeenCalledTimes(1);
     expect(startDeepResearch).toHaveBeenCalledWith('m1', o.sub_questions, o.context, { whenIdle: true, minutes: 5 });
+    vi.useRealTimers();
+  });
+
+  it('editing the plan pauses the countdown', () => {
+    vi.useFakeTimers();
+    render(offer({ autostart: true }), { live: true });
+    type(items()[0], 'Ceny pražských agentur?');
+    vi.advanceTimersByTime(20_000);
+    expect(startDeepResearch).not.toHaveBeenCalled();
+    expect(card().querySelector('.research-offer__countdown')).toBeNull();
+    expect(startBtn().textContent).toBe('Start');
+    vi.useRealTimers();
+  });
+
+  it('Edit plan pauses the countdown and focuses the first question', () => {
+    vi.useFakeTimers();
+    render(offer({ autostart: true }), { live: true });
+    card().querySelector<HTMLButtonElement>('.research-offer__edit')!.click();
+    vi.advanceTimersByTime(20_000);
+    expect(startDeepResearch).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(items()[0]);
+    vi.useRealTimers();
   });
 
   it('an autostart shows Deep research started once it is sent', async () => {
+    vi.useFakeTimers();
     render(offer({ autostart: true }), { live: true });
+    vi.advanceTimersByTime(8000);
+    vi.useRealTimers();
     await vi.waitFor(() => expect(card().textContent).toBe('Deep research started'));
   });
 
   it('an autostart that could not be sent falls back to the editor', async () => {
     vi.mocked(startDeepResearch).mockResolvedValueOnce(false);
+    vi.useFakeTimers();
     render(offer({ autostart: true }), { live: true });
-    await vi.waitFor(() => expect(startBtn()).not.toBeNull());
+    vi.advanceTimersByTime(8000);
+    vi.useRealTimers();
+    await vi.waitFor(() => expect(startBtn()?.textContent).toBe('Start'));
   });
 
   it('autostart never fires from history', () => {
@@ -146,11 +179,11 @@ describe('research offer card', () => {
     expect(startBtn()).not.toBeNull();
   });
 
-  it('decided offers collapse; superseded ones show nothing', () => {
+  it('a started offer collapses to one line; declined and superseded show nothing', () => {
     render(offer({ status: 'started' }));
     expect(card().textContent).toBe('Deep research started');
     render(offer({ status: 'declined' }));
-    expect(card().textContent).toBe('Deep research declined');
+    expect(document.querySelector('.research-offer')).toBeNull();
     render(offer({ status: 'superseded' }));
     expect(document.querySelector('.research-offer')).toBeNull();
     render(null);

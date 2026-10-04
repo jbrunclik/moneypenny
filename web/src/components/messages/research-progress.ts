@@ -12,6 +12,7 @@ import { conversations } from '../../api/conversations';
 import type { Message, ResearchRun } from '../../types/api';
 import { MS_PER_MINUTE } from '../../constants';
 import { escapeHtml } from '../../utils/dom';
+import { SPARKLES_ICON } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
 import { refreshReportLinks, renderResearchOffer } from './research-offer';
 
@@ -19,7 +20,6 @@ const log = createLogger('research-progress');
 
 const PANEL_CLASS = 'research-progress';
 const CHIP_CLASS = 'research-chip';
-const FEED_SIZE = 5;
 const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩';
 
 export type ItemState = 'queued' | 'waiting' | 'started' | 'done' | 'failed' | 'skipped' | 'timed_out';
@@ -87,23 +87,35 @@ function pagesText(n: number): string {
   return `${n} ${n === 1 ? 'page' : 'pages'}`;
 }
 
-function stateHtml(state: ItemState, pages: number): string {
-  switch (state) {
-    case 'started':
-      return '<span class="research-progress__spinner" aria-label="researching"></span>';
-    case 'done':
-      return `✓ ${pagesText(pages)}`;
-    case 'waiting':
-      return '◷ waiting';
-    case 'failed':
-      return '✕ failed';
-    case 'skipped':
-      return '– skipped';
-    case 'timed_out':
-      return '⏱ timed out';
-    default:
-      return '';
-  }
+const STATE_GLYPHS: Partial<Record<ItemState, [string, string]>> = {
+  done: ['✓', 'done'],
+  waiting: ['◷', 'waiting for a free slot'],
+  failed: ['✕', 'failed'],
+  skipped: ['–', 'skipped'],
+  timed_out: ['⏱', 'timed out'],
+  queued: ['○', 'queued'],
+};
+
+/** A leading status icon, then the question, then the pages it read. */
+function itemHtml(question: string, state: ItemState, pages: number): string {
+  const [glyph, label] = STATE_GLYPHS[state] ?? ['', state];
+  const icon =
+    state === 'started'
+      ? '<span class="research-progress__spinner" aria-label="researching"></span>'
+      : `<span aria-label="${label}">${glyph}</span>`;
+  const read = pages > 0 ? `<span class="research-progress__pages">${pagesText(pages)}</span>` : '';
+  return `<li class="research-progress__item research-progress__item--${state}">
+      <span class="research-progress__state">${icon}</span>
+      <span class="research-progress__question">${escapeHtml(question)}</span>
+      ${read}
+    </li>`;
+}
+
+const FINISHED: ReadonlySet<ItemState> = new Set(['done', 'failed', 'skipped', 'timed_out']);
+
+function findingHtml(agent: number, text: string, kind?: string): string {
+  const lead = kind === 'lead' ? 'lead: ' : '';
+  return `<span class="research-progress__agent">${agentLabel(agent)}</span> ${lead}${escapeHtml(text)}`;
 }
 
 function clock(ms: number): string {
@@ -111,31 +123,33 @@ function clock(ms: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+function elapsedText(progress: ResearchProgress, now: number): string {
+  const of = progress.minutes ? ` · ~${progress.minutes} min` : '';
+  return `${clock(now - progress.startedAt)}${of}`;
+}
+
 function panelHtml(progress: ResearchProgress, messageId: string, now: number): string {
-  const items = progress.items
-    .map(
-      (q, i) => `<li class="research-progress__item research-progress__item--${progress.states[i]}">
-        <span class="research-progress__question">${escapeHtml(q)}</span>
-        <span class="research-progress__state">${stateHtml(progress.states[i], progress.pages[i])}</span>
-      </li>`
-    )
-    .join('');
+  const items = progress.items.map((q, i) => itemHtml(q, progress.states[i], progress.pages[i])).join('');
   const feed = progress.findings
-    .slice(-FEED_SIZE)
-    .map((f) => `<li class="research-progress__finding">${agentLabel(f.agent)} ${escapeHtml(f.text)}</li>`)
+    .map((f) => `<li class="research-progress__finding">${findingHtml(f.agent, f.text)}</li>`)
     .join('');
-  const of = progress.minutes ? ` of ~${progress.minutes} min` : '';
   const finishing = finishRequested.has(messageId);
-  const status = progress.writing
-    ? `<span class="research-progress__status">Writing the report${progress.sources ? ` from ${progress.sources} sources` : ''}…</span>`
+  const title = progress.writing
+    ? `Writing the report${progress.sources ? ` from ${progress.sources} sources` : ''}…`
+    : 'Researching…';
+  const finish = progress.writing
+    ? ''
     : `<button type="button" class="research-progress__finish"${finishing ? ' disabled' : ''}>${finishing ? 'Finishing…' : 'Finish now'}</button>`;
   return `
+    <div class="research-progress__head">
+      <span class="research-progress__icon">${SPARKLES_ICON}</span>
+      <span class="research-progress__title">${title}</span>
+      <span class="research-progress__elapsed">${elapsedText(progress, now)}</span>
+    </div>
+    <div class="research-progress__bar"><span></span></div>
     <ol class="research-progress__items">${items}</ol>
-    ${feed ? `<ul class="research-progress__feed">${feed}</ul>` : ''}
-    <div class="research-progress__footer">
-      <span class="research-progress__elapsed">Elapsed ${clock(now - progress.startedAt)}${of}</span>
-      ${status}
-    </div>`;
+    ${feed ? `<div class="research-progress__label">Shared findings</div><ul class="research-progress__feed">${feed}</ul>` : ''}
+    ${finish ? `<div class="research-progress__footer">${finish}</div>` : ''}`;
 }
 
 /** Render (or refresh) the panel at the top of a streaming bubble. */
@@ -156,6 +170,10 @@ export function renderResearchProgress(
   panel.dataset.conversationId = ids.convId;
   panel.dataset.messageId = ids.messageId;
   panel.innerHTML = panelHtml(progress, ids.messageId, now);
+  // Share of items finished (set here: no inline style attribute in the markup)
+  const finished = progress.states.filter((state) => FINISHED.has(state)).length;
+  const share = progress.writing ? 1 : finished / Math.max(progress.items.length, 1);
+  panel.querySelector<HTMLElement>('.research-progress__bar span')!.style.width = `${Math.round(share * 100)}%`;
 }
 
 /** The elapsed clock only (a once-a-second tick must not replace the button). */
@@ -167,8 +185,17 @@ export function tickResearchProgress(
 ): void {
   const elapsed = messageEl.querySelector(`.${PANEL_CLASS} .research-progress__elapsed`);
   if (!elapsed) return renderResearchProgress(messageEl, progress, ids, now);
-  const of = progress.minutes ? ` of ~${progress.minutes} min` : '';
-  elapsed.textContent = `Elapsed ${clock(now - progress.startedAt)}${of}`;
+  elapsed.textContent = elapsedText(progress, now);
+}
+
+function onClick(e: Event): void {
+  // A shared finding in the report summary opens to its full text
+  const finding = (e.target as Element).closest<HTMLElement>('.research-chip__board li');
+  if (finding) {
+    finding.classList.toggle('is-open');
+    return;
+  }
+  onFinishNow(e);
 }
 
 function onFinishNow(e: Event): void {
@@ -191,7 +218,7 @@ function onFinishNow(e: Event): void {
 export function initResearchProgress(container = document.getElementById('messages')): void {
   if (!container || wired.has(container)) return;
   wired.add(container);
-  container.addEventListener('click', onFinishNow);
+  container.addEventListener('click', onClick);
 }
 
 function chipHtml(run: ResearchRun): string {
@@ -200,19 +227,13 @@ function chipHtml(run: ResearchRun): string {
   const early = run.finished_early ? ' · finished early' : '';
   const summary = `Deep research · ${n} ${n === 1 ? 'question' : 'questions'} · ${pagesText(run.pages_read)} · ${minutes} min${early}`;
   const items = run.sub_questions
-    .map((q, i) => {
-      const item = run.items[i];
-      const state = item ? stateHtml(item.status, item.pages) : '';
-      return `<li><span class="research-progress__question">${escapeHtml(q)}</span> <span class="research-progress__state">${state}</span></li>`;
-    })
+    .map((q, i) => itemHtml(q, run.items[i]?.status ?? 'skipped', run.items[i]?.pages ?? 0))
     .join('');
-  const board = run.board
-    .map((b) => `<li>${agentLabel(b.agent)} ${b.kind === 'lead' ? 'lead: ' : ''}${escapeHtml(b.text)}</li>`)
-    .join('');
-  return `<summary>${escapeHtml(summary)}</summary>
+  const board = run.board.map((b) => `<li>${findingHtml(b.agent, b.text, b.kind)}</li>`).join('');
+  return `<summary><span class="action-row__icon">${SPARKLES_ICON}</span><span class="research-chip__text">${escapeHtml(summary)}</span></summary>
     <div class="research-chip__body">
-      <ol class="research-chip__items">${items}</ol>
-      ${board ? `<ul class="research-chip__board">${board}</ul>` : ''}
+      <ol class="research-progress__items research-chip__items">${items}</ol>
+      ${board ? `<div class="research-chip__label">Shared findings</div><ul class="research-chip__board">${board}</ul>` : ''}
     </div>`;
 }
 

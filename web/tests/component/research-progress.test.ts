@@ -48,8 +48,10 @@ describe('research progress panel', () => {
       { type: 'research_item', index: 2, status: 'timed_out', pages: 1 },
     ]);
     renderResearchProgress(el, progress, { convId: 'c1', messageId: 'a1' }, START + 192_000);
-    expect(lines()).toEqual(['Ceny? ✓ 7 pages', 'Doba? ◷ waiting', 'Doklady? ⏱ timed out']);
-    expect(el.querySelector('.research-progress__elapsed')!.textContent).toBe('Elapsed 3:12 of ~5 min');
+    expect(lines()).toEqual(['✓ Ceny? 7 pages', '◷ Doba?', '⏱ Doklady? 1 page']);
+    expect(el.querySelector('.research-progress__elapsed')!.textContent).toBe('3:12 · ~5 min');
+    // One of three finished (done, failed, skipped and timed out all count)
+    expect(el.querySelector<HTMLElement>('.research-progress__bar span')!.style.width).toBe('67%');
   });
 
   it('marks running, failed and skipped items', () => {
@@ -62,15 +64,16 @@ describe('research progress panel', () => {
     ]);
     renderResearchProgress(el, progress, { convId: 'c1', messageId: 'a1' }, START);
     expect(el.querySelectorAll('.research-progress__item--started .research-progress__spinner')).toHaveLength(1);
-    expect(lines().slice(1)).toEqual(['Doba? ✕ failed', 'Doklady? – skipped']);
+    expect(lines().slice(1)).toEqual(['✕ Doba?', '– Doklady?']);
   });
 
-  it('keeps the last five findings with agent numbers', () => {
+  it('shows every finding with its agent number', () => {
     const el = bubble();
     const findings = [0, 1, 2, 3, 4, 5, 6].map((i) => ({ type: 'research_finding', agent: i % 3, text: `fakt ${i}` }));
     renderResearchProgress(el, run([PLAN, ...findings]), { convId: 'c1', messageId: 'a1' }, START);
     const feed = [...el.querySelectorAll('.research-progress__finding')].map((f) => f.textContent);
-    expect(feed).toEqual(['③ fakt 2', '① fakt 3', '② fakt 4', '③ fakt 5', '① fakt 6']);
+    expect(feed).toEqual(['① fakt 0', '② fakt 1', '③ fakt 2', '① fakt 3', '② fakt 4', '③ fakt 5', '① fakt 6']);
+    expect(el.querySelector('.research-progress__label')!.textContent).toBe('Shared findings');
   });
 
   it('Finish now asks the server and shows Finishing…', async () => {
@@ -90,7 +93,7 @@ describe('research progress panel', () => {
     const el = bubble();
     renderResearchProgress(el, run([PLAN, { type: 'research_sources', count: 12 }, { type: 'research_writing' }]), { convId: 'c1', messageId: 'a1' }, START);
     expect(el.querySelector('.research-progress__finish')).toBeNull();
-    expect(el.querySelector('.research-progress__status')!.textContent).toBe('Writing the report from 12 sources…');
+    expect(el.querySelector('.research-progress__title')!.textContent).toBe('Writing the report from 12 sources…');
   });
 });
 
@@ -119,7 +122,7 @@ describe('report chip and follow-up', () => {
     finishResearchMessage(el, { id: 'a1', research: { run: RUN } });
     expect(el.querySelector('.research-progress')).toBeNull();
     const chip = el.querySelector<HTMLDetailsElement>('details.research-chip')!;
-    expect(chip.querySelector('summary')!.textContent).toBe('Deep research · 2 questions · 34 pages · 6 min');
+    expect(chip.querySelector('.research-chip__text')!.textContent).toBe('Deep research · 2 questions · 34 pages · 6 min');
     expect(chip.open).toBe(false);
     const detail = chip.querySelector('.research-chip__body')!.textContent!;
     expect(detail).toContain('Ceny?');
@@ -130,7 +133,7 @@ describe('report chip and follow-up', () => {
   it('a finished-early run says so in the chip', () => {
     const el = bubble();
     finishResearchMessage(el, { id: 'a1', research: { run: { ...RUN, finished_early: true } } });
-    expect(el.querySelector('.research-chip summary')!.textContent).toContain('finished early');
+    expect(el.querySelector('.research-chip__text')!.textContent).toContain('finished early');
   });
 
   it('the follow-up offer appears under the report', () => {
