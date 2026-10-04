@@ -16,7 +16,7 @@ import { getSyncManager } from '../sync/SyncManager';
 import { notifyTurnFinished } from './attention';
 import { conversations } from '../api/conversations';
 import { STOP_DONE_GRACE_MS } from '../config';
-import { trackRequest, untrackRequest } from './active-requests';
+import { hasTrackedRequestFor, trackRequest, untrackRequest } from './active-requests';
 import { markStreamForRecovery } from './stream-recovery';
 import { createThinkingState } from './thinking-state';
 import type { ResearchProgress } from '../components/messages/research-progress';
@@ -162,16 +162,20 @@ export function cleanupStreamingRequest(
   messageSuccessful: boolean
 ): void {
   untrackRequest(requestId);
+  if (messageSuccessful) {
+    getSyncManager()?.incrementLocalMessageCount(convId, 2);
+    notifyTurnFinished();
+  }
+  // A newer turn already started in this conversation (a follow-up sent while
+  // this one fetched its cost, an autostarted deep research): the shared
+  // per-conversation state is the new turn's now - leave it alone
+  if (hasTrackedRequestFor(convId)) return;
+
   cleanupStreamingContext();
   useStore.getState().removeActiveRequest(convId);
 
   hideUploadProgress();
   useStore.getState().setUploadProgress(null);
-
-  if (messageSuccessful) {
-    getSyncManager()?.incrementLocalMessageCount(convId, 2);
-    notifyTurnFinished();
-  }
 
   getSyncManager()?.setConversationStreaming(convId, false);
   // Only clear the global flag if it is OURS - another conversation may have

@@ -32,6 +32,11 @@ export function untrackRequest(requestId: string): void {
   activeRequests.delete(requestId);
 }
 
+/** Whether any request for this conversation is still in flight. */
+export function hasTrackedRequestFor(convId: string): boolean {
+  return [...activeRequests.values()].some((r) => r.conversationId === convId);
+}
+
 /**
  * Abort a streaming request for a conversation.
  * Called when user clicks the stop button.
