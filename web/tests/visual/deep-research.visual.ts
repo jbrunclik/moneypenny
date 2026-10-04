@@ -97,6 +97,9 @@ test.describe('Visual: Deep research', () => {
     await page.locator('.research-offer__start').click();
     const row = page.locator('.message--action');
     await expect(row.locator('.action-row__source')).toBeVisible({ timeout: 15000 });
+    // A page-level clip: wait until the run is done and nothing scrolls
+    await expect(page.locator('.research-chip')).toBeVisible({ timeout: 30000 });
+    await row.scrollIntoViewIfNeeded();
     await snapPill(page, row.locator('.action-row'), 'deep-research-action-row.png');
   });
 
@@ -106,6 +109,9 @@ test.describe('Visual: Deep research', () => {
     await page.locator('.research-offer__start').click();
     const row = page.locator('.message--action');
     await expect(row.locator('.action-row__source')).toBeVisible({ timeout: 15000 });
+    // A page-level clip: wait until the run is done and nothing scrolls
+    await expect(page.locator('.research-chip')).toBeVisible({ timeout: 30000 });
+    await row.scrollIntoViewIfNeeded();
     await snapPill(page, row, 'deep-research-action-row-mobile.png');
   });
 
