@@ -435,6 +435,9 @@
     align-items: center;
     gap: var(--space-1-5);
     padding: var(--space-1) var(--space-3);
+    /* Whole-pixel pill (18 + 2 x 4 px): a fractional height rounded to 26 or
+       27 px depending on the renderer and failed the Linux visual test */
+    line-height: 18px;
     border-radius: var(--radius-full);
     background: var(--bg-tertiary);
     font-size: var(--font-size-sm);

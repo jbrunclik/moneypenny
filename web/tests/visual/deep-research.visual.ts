@@ -3,13 +3,25 @@
  * panel mid-run and the report's chip.
  */
 import { test, expect } from '../global-setup';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 
 const OFFER = {
   question: 'Transfer a car registration',
   context: 'family of four, Prague',
   sub_questions: ['What do agencies charge?', 'How long does it take?', 'Which documents are needed?'],
 };
+
+/**
+ * Screenshot a pill clipped to whole pixels. Body lines are 25.6 px tall, so
+ * elements below them sit at fractional offsets and an element screenshot
+ * rounds to 26 or 27 px depending on the renderer.
+ */
+async function snapPill(page: Page, locator: Locator, name: string): Promise<void> {
+  const box = (await locator.boundingBox())!;
+  await expect(page).toHaveScreenshot(name, {
+    clip: { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) },
+  });
+}
 
 /** Send a message whose reply carries the canned offer. */
 async function sendOffer(page: Page, request: APIRequestContext, stepMs = 50, offer = OFFER): Promise<void> {
@@ -85,7 +97,7 @@ test.describe('Visual: Deep research', () => {
     await page.locator('.research-offer__start').click();
     const row = page.locator('.message--action');
     await expect(row.locator('.action-row__source')).toBeVisible({ timeout: 15000 });
-    await expect(row.locator('.action-row')).toHaveScreenshot('deep-research-action-row.png');
+    await snapPill(page, row.locator('.action-row'), 'deep-research-action-row.png');
   });
 
   test('action row on mobile', async ({ page, request }) => {
@@ -94,7 +106,7 @@ test.describe('Visual: Deep research', () => {
     await page.locator('.research-offer__start').click();
     const row = page.locator('.message--action');
     await expect(row.locator('.action-row__source')).toBeVisible({ timeout: 15000 });
-    await expect(row).toHaveScreenshot('deep-research-action-row-mobile.png');
+    await snapPill(page, row, 'deep-research-action-row-mobile.png');
   });
 
   test('report chip, expanded', async ({ page, request }) => {
