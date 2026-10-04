@@ -365,7 +365,7 @@ class TestCheckGroundingPages:
 
 
 def test_a_hedged_price_is_still_a_claim() -> None:
-    """"~25,000 CZK" or "Approx. price" opted every price out of the check
+    """ "~25,000 CZK" or "Approx. price" opted every price out of the check
     (honesty probe, Oct 4 2026); only an explicit unverified label exempts."""
     from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
 
