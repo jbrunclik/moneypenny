@@ -472,6 +472,24 @@ class TestEvalSearchIsolation:
 
         assert all(os.environ[key] == "" for key in EVAL_BLANKED_SEARCH_KEYS)
 
+    def test_blobs_go_to_the_temp_dir_not_the_dev_store(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Eval attachments and generated files must not land in the repo's files.db."""
+        import dotenv
+
+        from evals.run import isolate_environment
+
+        monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **kw: True)
+        monkeypatch.setenv("DATABASE_PATH", "unused")
+        monkeypatch.setenv("BLOB_STORAGE_PATH", "files.db")
+
+        isolate_environment()
+
+        blobs = Path(os.environ["BLOB_STORAGE_PATH"])
+        assert blobs.is_absolute()
+        assert blobs.parent == Path(os.environ["DATABASE_PATH"]).parent
+
     def test_every_metered_provider_is_covered(self) -> None:
         from evals.run import EVAL_BLANKED_SEARCH_KEYS
         from src.utils import search_provider

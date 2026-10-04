@@ -700,7 +700,7 @@ EVAL_BLANKED_SEARCH_KEYS = (
 
 
 def isolate_environment() -> None:
-    """Isolated temp DB + prod Gemini key + ddgs-only web search, BEFORE
+    """Isolated temp DB and blob store + prod Gemini key + ddgs-only web search, BEFORE
     importing src.* (Config reads env at import). Migrations run automatically on Database init. Called by the
     main process and by every worker, so each owns its own database."""
     from dotenv import load_dotenv
@@ -708,6 +708,8 @@ def isolate_environment() -> None:
     load_dotenv(_REPO_ROOT / ".env")
     db_dir = tempfile.mkdtemp(prefix="evals-")
     os.environ["DATABASE_PATH"] = str(Path(db_dir) / "eval.db")
+    # Attachments and generated files too: never the repo's dev files.db
+    os.environ["BLOB_STORAGE_PATH"] = str(Path(db_dir) / "files.db")
     os.environ["EMBEDDINGS_ENABLED"] = "false"  # keep eval runs cheap and focused
     for key in EVAL_BLANKED_SEARCH_KEYS:
         os.environ[key] = ""
