@@ -20,6 +20,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.agent.content import extract_text_content, strip_echoed_msg_context
 from src.agent.grounding_annotations import GroundingVerdict, summarize, validate_claims
+from src.agent.price_net import missed_prices
 from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
 from src.agent.source_pages import WEB_TOOL_NAMES, SourcePage, turn_pages, uncited_web_text
 from src.agent.tools.delegate import in_delegate_run
@@ -184,6 +185,11 @@ def check_grounding_pages(
         )
         return GroundingOutcome()
     claims = (verdict.unsupported + verdict.supported) if verdict else []
+    if claims:
+        # The verifier skips a price now and then; an empty verdict means a
+        # history/background answer, where old prices are not shop claims
+        missed = missed_prices(answer, sources, claims)
+        claims = [*verdict.unsupported, *missed, *verdict.supported] if verdict else claims
     annotations = validate_claims(claims, answer, pages, max_claims=max_claims)
     counts = Counter(a["verdict"] for a in annotations)
     logger.info(

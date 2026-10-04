@@ -83,7 +83,12 @@ class TestCheckGrounding:
 
         outcome = check_grounding(_ANSWER, _WEB_TURN)
 
-        assert [a["verdict"] for a in outcome.annotations] == ["supported", "not_found"]
+        # VeloRama's 29 990 Kč is on no page: the price net marks it too
+        assert [(a["verdict"], a["quote"]) for a in outcome.annotations] == [
+            ("supported", "Bike Prague"),
+            ("not_found", "VeloRama"),
+            ("not_found", "29 990 Kč"),
+        ]
         assert outcome.summary == {"checked": True, "source_count": 1}
         assert outcome.usage == _USAGE
 
@@ -371,3 +376,94 @@ def test_a_hedged_price_is_still_a_claim() -> None:
 
     assert "approximate or an estimate" not in GROUNDING_CHECK_PROMPT
     assert "~" in GROUNDING_CHECK_PROMPT and "cca" in GROUNDING_CHECK_PROMPT
+
+
+class TestPriceNet:
+    """Deterministic safety net: the verifier (Flash Lite) misses a price now
+    and then (honesty probe, Oct 4 2026); every price not on a page read is
+    marked even when the verifier skipped it."""
+
+    _PAGES = [SourcePage("Shop", "https://shop.cz", "Brompton C Line: 43 300 Kč. Doprava zdarma.")]
+
+    def _check(self, answer: str, claims: list[ClaimVerdict]) -> list[dict[str, Any]]:
+        from src.agent.grounding_check import check_grounding_pages
+
+        return check_grounding_pages(
+            answer, self._PAGES, "", known="", max_source_chars=10_000, max_claims=20
+        ).annotations
+
+    def test_a_missed_price_is_marked(self, fake_verifier: MagicMock) -> None:
+        answer = "C Line stojí 43 300 Kč. Ojeté kusy na Bazoši typicky 20,000–30,000 CZK."
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                supported=[
+                    ClaimVerdict(
+                        quote="43 300 Kč", verdict="supported", source=1, source_quote="43 300 Kč"
+                    )
+                ]
+            ),
+            _USAGE,
+        )
+
+        anns = self._check(answer, [])
+
+        net = [a for a in anns if a["verdict"] == "not_found"]
+        assert [a["quote"] for a in net] == ["20,000–30,000 CZK"]
+        assert "not on the pages" in net[0]["reason"]
+
+    def test_a_price_on_a_page_is_left_alone(self, fake_verifier: MagicMock) -> None:
+        """Written differently from the page (43,300 vs 43 300) is still the page's price."""
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[ClaimVerdict(quote="Bazoš", verdict="not_found", reason="r")]
+            ),
+            _USAGE,
+        )
+
+        anns = self._check("Na Bazoši. C Line za 43,300 CZK.", [])
+
+        assert [a["quote"] for a in anns] == ["Bazoš"]
+
+    def test_a_price_the_verifier_listed_is_not_doubled(self, fake_verifier: MagicMock) -> None:
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[
+                    ClaimVerdict(quote="P Line ~71 000 Kč", verdict="not_found", reason="r")
+                ]
+            ),
+            _USAGE,
+        )
+
+        anns = self._check("P Line ~71 000 Kč.", [])
+
+        assert [a["quote"] for a in anns] == ["P Line ~71 000 Kč"]
+
+    def test_euro_prices_count(self, fake_verifier: MagicMock) -> None:
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[ClaimVerdict(quote="Bazoš", verdict="not_found", reason="r")]
+            ),
+            _USAGE,
+        )
+
+        anns = self._check("Na Bazoši, v EU za €1,100 – €1,400.", [])
+
+        assert "€1,100 – €1,400" in [a["quote"] for a in anns]
+
+    def test_no_net_when_the_verifier_found_nothing_to_check(
+        self, fake_verifier: MagicMock
+    ) -> None:
+        """An empty verdict means history/background: a 1990 price is not a shop claim."""
+        assert self._check("V roce 1990 stál rohlík 30 haléřů a pivo 2 Kčs, dnes 45 Kč.", []) == []
+
+    def test_an_explicitly_unverified_price_is_left_alone(self, fake_verifier: MagicMock) -> None:
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[ClaimVerdict(quote="Bazoš", verdict="not_found", reason="r")]
+            ),
+            _USAGE,
+        )
+
+        anns = self._check("Na Bazoši. Cenu 25 000 Kč se nepodařilo ověřit.", [])
+
+        assert [a["quote"] for a in anns] == ["Bazoš"]
