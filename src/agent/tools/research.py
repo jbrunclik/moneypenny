@@ -9,6 +9,7 @@ concurrently, and hand everything back at once.
 Deterministic - no nested LLM call (delegate_task is the agentic variant).
 """
 
+import contextvars
 import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -175,8 +176,9 @@ def run_research(question: str = "", queries: list[str] | None = None, max_sourc
         )
 
     to_fetch = candidates[:n_sources]
+    contexts = [contextvars.copy_context() for _ in to_fetch]  # logs keep the request id
     with ThreadPoolExecutor(max_workers=Config.RESEARCH_FETCH_WORKERS) as pool:
-        sources = list(pool.map(_fetch_source, to_fetch))
+        sources = list(pool.map(lambda ctx, c: ctx.run(_fetch_source, c), contexts, to_fetch))
 
     unfetched = [
         {"title": c.get("title", ""), "url": c["url"], "snippet": c.get("snippet", "")}

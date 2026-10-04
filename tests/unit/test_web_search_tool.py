@@ -253,3 +253,27 @@ class TestWebSearchBatching:
         """Calling with neither query nor queries is an error, not a crash."""
         parsed = json.loads(web_search.invoke({"query": ""}))
         assert "error" in parsed
+
+
+def test_parallel_searches_keep_the_request_id() -> None:
+    """Search logs had no request id (pool threads lost the context), so a
+    quota alert could not be traced to the turns that spent it (Oct 2026)."""
+    from unittest.mock import patch
+
+    from src.agent.tools import web
+    from src.utils.logging import get_request_id, request_id_var
+
+    seen: list[str | None] = []
+
+    def fake_search_one(query: str, num_results: int) -> dict[str, object]:
+        seen.append(get_request_id())
+        return {"query": query, "results": []}
+
+    token = request_id_var.set("req-abc")
+    try:
+        with patch.object(web, "_search_one", fake_search_one):
+            web._search_many(["a", "b", "c"], 3)
+    finally:
+        request_id_var.reset(token)
+
+    assert seen == ["req-abc", "req-abc", "req-abc"]

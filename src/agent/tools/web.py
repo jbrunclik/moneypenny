@@ -1,6 +1,7 @@
 """Web tools for fetching URLs and searching the web."""
 
 import base64
+import contextvars
 import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -508,8 +509,13 @@ def _search_many(all_queries: list[str], num_results: int) -> list[dict[str, Any
     """Run a batch of searches concurrently, preserving the requested order."""
     if len(all_queries) == 1:
         return [_search_one(all_queries[0], num_results)]
+    # Each task runs in a copy of this turn's context: logs keep the request
+    # id (quota attribution) and per-turn bookkeeping stays per turn
+    contexts = [contextvars.copy_context() for _ in all_queries]
     with ThreadPoolExecutor(max_workers=len(all_queries)) as pool:
-        return list(pool.map(lambda q: _search_one(q, num_results), all_queries))
+        return list(
+            pool.map(lambda ctx, q: ctx.run(_search_one, q, num_results), contexts, all_queries)
+        )
 
 
 @tool
