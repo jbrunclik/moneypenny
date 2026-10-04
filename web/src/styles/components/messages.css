@@ -915,6 +915,32 @@ a.document-name:hover {
     padding-top: var(--space-8);
 }
 
+/* A drawn mermaid diagram (utils/mermaid.ts): the code stays for Copy, hidden */
+.code-block-wrapper--diagram > pre,
+.code-block-wrapper--diagram > .code-language {
+    display: none;
+}
+
+.mermaid-diagram {
+    padding: var(--space-8) var(--space-4) var(--space-4);
+    overflow-x: auto;
+    text-align: center;
+}
+
+.mermaid-diagram svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* SVG edge labels have no box: a halo in the block's colour keeps the line
+   from striking through "yes" / "no" */
+.mermaid-diagram .edgeLabel text {
+    paint-order: stroke;
+    stroke: var(--bg-tertiary);
+    stroke-width: 6px;
+    stroke-linejoin: round;
+}
+
 /* Language label - positioned in header area */
 .code-language {
     position: absolute;

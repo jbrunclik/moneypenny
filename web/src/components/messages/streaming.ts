@@ -6,6 +6,7 @@ import { getElementById, scrollToBottom, isScrolledToBottom } from '../../utils/
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
+import { renderMermaidIn } from '../../utils/mermaid';
 import { highlightLiveCodeBlocks } from './live-highlight';
 import { isProgrammaticScrollActive, programmaticScrollToBottom } from '../../utils/thumbnails';
 import {
@@ -588,6 +589,7 @@ export function finalizeStreamingMessage(
   const content = messageEl.querySelector('.message-content');
   if (content) {
     highlightAllCodeBlocks(content as HTMLElement);
+    void renderMermaidIn(content as HTMLElement); // diagrams once the text is final
 
     // Add files (generated images) inside the content bubble
     if (files && files.length > 0) {

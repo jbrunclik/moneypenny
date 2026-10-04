@@ -1,0 +1,10 @@
+id: diagram_mermaid
+description: The agent draws a process as a mermaid diagram the app renders
+user: |
+  Nakresli mi, jak probíhá přepis auta na nového majitele - od kupní smlouvy po nové techničák.
+expect:
+  rubric: >
+    The answer contains a ```mermaid code block (flowchart or similar) that
+    lays out the steps of transferring a car to a new owner in order, with
+    short Czech labels. Explanation around it is fine. A plain text list
+    without a mermaid block fails.

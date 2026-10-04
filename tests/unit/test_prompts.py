@@ -271,3 +271,9 @@ class TestGetSystemPromptAnonymousMode:
             # User context (name, location) should still be included
             assert "John" in prompt
             assert "Prague" in prompt
+
+
+def test_the_agent_knows_it_can_draw_mermaid_diagrams() -> None:
+    from src.agent.prompt_texts.core import BASE_SYSTEM_PROMPT
+
+    assert "```mermaid" in BASE_SYSTEM_PROMPT

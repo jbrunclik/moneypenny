@@ -4,6 +4,7 @@
 
 import { escapeHtml, getElementById, scrollToBottom, clearElement } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
+import { renderMermaidIn } from '../../utils/mermaid';
 import { linkifyText } from '../../utils/linkify';
 import {
   observeThumbnail,
@@ -425,6 +426,7 @@ export function addMessageToUI(
     // Assistant: text first, then files inside the bubble (same as user)
     content.innerHTML = renderMarkdown(message.content);
     highlightAllCodeBlocks(content);
+    void renderMermaidIn(content);
     if (message.files && message.files.length > 0) {
       const filesContainer = renderMessageFiles(message.files, message.id);
       content.appendChild(filesContainer);
