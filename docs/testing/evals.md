@@ -20,7 +20,9 @@ of CI or `make test`.
 
 1. Each YAML file in `evals/cases/` is one single-turn case.
 2. `evals/run.py` creates an isolated temp database (migrations apply
-   automatically) and an eval user, then runs each case through
+   automatically) and a temp blob store next to it (`BLOB_STORAGE_PATH`, so
+   attachments and generated files never land in the repo's dev `files.db`),
+   and an eval user, then runs each case through
    `ChatAgent.chat_batch` with the production `DEFAULT_MODEL`.
    Web search is `ddgs` only: the metered providers' keys are blanked
    (`EVAL_BLANKED_SEARCH_KEYS`), because the local `.env` holds the same
@@ -181,7 +183,7 @@ Cases run on a pool of worker **processes** ([pool.py](../../evals/pool.py)),
 not threads: `fake_integrations` patches module attributes process-wide, and
 seeded memories and past conversations belong to the one eval user, so
 cases sharing a process would see each other's state. Each worker owns an
-isolated temp database and runs its cases one at a time; the results file
+isolated temp database and blob store and runs its cases one at a time; the results file
 and the report stay in case order. A `--only` pattern that matches nothing
 is an error. Keep the pool small: every case makes live Gemini and search
 calls, and search-provider fallthrough ("Search provider failed, trying

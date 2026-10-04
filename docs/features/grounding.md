@@ -115,7 +115,12 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   supported; a row scrolls to the claim and flashes it for `CLAIM_FLASH_MS`.
   Sources stay in the numbered sources popup. Styles in
   [grounding.css](../../web/src/styles/components/grounding.css) with tokens in
-  `variables.css`; both components are initialised in `core/init.ts`.
+  `variables.css`; both components are initialised in `core/init.ts`. The
+  footer lines under an answer (this footer, a deep research offer) keep equal
+  ink gaps above and below each rule: body text carries about 7px of trailing
+  leading, so `.grounding-footer` has a larger `padding-top` than
+  `margin-top` and a fixed 16px `line-height` (measured to ±1px; re-check the
+  visual baselines when changing either).
 - **Cost**: about $0.004 per web turn. Verifier usage goes into
   `usage_info["grounding_usage"]` and is priced at the verifier's rates by
   `calculate_grounding_cost()` ([utils.py](../../src/api/utils.py)) into
@@ -135,7 +140,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
 | `GROUNDING_CHECK_MAX_REASON_CHARS` | `160` | Reason clip |
 | `GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS` | `240` | Source passage clip |
 | `GROUNDING_CONTEXT_MAX_CHARS` | `400` | `MSG_CONTEXT` `grounding` entry cap |
-| `GROUNDING_CHECK_TIMEOUT_SECONDS` | `10` | Floored at `GEMINI_MIN_REQUEST_DEADLINE_SECONDS` (10) |
+| `GROUNDING_CHECK_TIMEOUT_SECONDS` | `10` | Floored at `GEMINI_MIN_REQUEST_DEADLINE_SECONDS` (10); a deep research report uses `DEEP_RESEARCH_GROUNDING_TIMEOUT_SECONDS` (`check_grounding_pages(timeout_seconds=...)`) |
 
 Client constants in [config.ts](../../web/src/config.ts):
 `CLAIM_CARD_HOVER_DELAY_MS` (250), `CLAIM_FLASH_MS` (1600).

@@ -386,6 +386,7 @@ The app supports multiple active requests across different conversations simulta
 - Active requests tracked per conversation in the store's `activeRequests` map (UI snapshot); the AbortControllers live in [active-requests.ts](../../web/src/core/active-requests.ts)
 - Requests only update UI if their conversation is still current
 - Server-side: cleanup threads ensure messages are saved even if client disconnects
+- **A finished stream must not tear down a newer turn's state.** `handleStreamDone` releases the request early, so a follow-up (or an autostarted deep research) can start in the same conversation while the old stream still fetches its cost. `cleanupStreamingRequest()` in [stream-session.ts](../../web/src/core/stream-session.ts) always untracks its own request and counts its messages for the sync, but when `hasTrackedRequestFor(convId)` ([active-requests.ts](../../web/src/core/active-requests.ts)) says another request for the conversation is still in flight it leaves the shared per-conversation state alone (streaming context, the store's active request, upload progress, the sync's streaming mark). Before this the old cleanup cleared the new turn's state and the sync showed "New messages available" mid-run. Test: [stream-cleanup-superseded.test.ts](../../web/tests/unit/stream-cleanup-superseded.test.ts)
 
 ### Seamless Conversation Switching
 

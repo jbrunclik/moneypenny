@@ -47,7 +47,7 @@ The `id` format is `"message_id:file_index"` which maps directly to the tool par
 
 ## Clipboard Paste
 
-Users can paste screenshots directly from the clipboard into the message input (Cmd+V / Ctrl+V).
+Users can paste screenshots directly from the clipboard into the message input (Cmd+V / Ctrl+V). Rich text (a web page, a Google Doc, an email) is pasted as markdown.
 
 ### How it works
 
@@ -55,7 +55,7 @@ Users can paste screenshots directly from the clipboard into the message input (
 2. If clipboard contains image files, they're extracted and processed
 3. Images are renamed with timestamp-based names (`screenshot-YYYY-MM-DDTHH-MM-SS.png`)
 4. Uses the existing `addFilesToPending()` flow for validation and preview
-5. Text paste is handled normally by the browser (not intercepted)
+5. Without images, clipboard HTML with formatting is converted to markdown (see [Rich text as markdown](#rich-text-as-markdown)); anything else is pasted normally by the browser
 
 ### Supported Formats
 
@@ -66,19 +66,30 @@ Users can paste screenshots directly from the clipboard into the message input (
 ### Implementation Details
 
 - `handlePaste()` in [MessageInput.ts](../../web/src/components/MessageInput.ts) handles the paste event
-- Only images are processed; non-image files and text are passed through
-- `preventDefault()` is only called when images are present (to avoid interfering with text paste)
+- Only images are processed as files; non-image files are passed through
+- `preventDefault()` is only called when images are present or rich text is converted (plain text paste is never intercepted)
 - `addFilesToPending()` in [FileUpload.ts](../../web/src/components/FileUpload.ts) handles validation and base64 conversion
+
+### Rich text as markdown
+
+`pasteRichTextAsMarkdown()` in [MessageInput.ts](../../web/src/components/MessageInput.ts) reads the clipboard's `text/html` and converts it with `htmlToMarkdown()` ([html-to-markdown.ts](../../web/src/utils/html-to-markdown.ts)):
+
+- Keeps headings, bold/italic (tags, or Google Docs' `font-weight` / `font-style` styles), links, lists, tables, quotes and code.
+- Returns `null` for HTML without any of that formatting (code editors and plain copies put span/div soup on the clipboard); the browser's plain-text paste then runs as before.
+- The markdown is inserted at the cursor with `document.execCommand('insertText')` so the paste stays on the undo stack; where that is unavailable it falls back to `setRangeText()` plus a synthetic `input` event.
+- The HTML is parsed with `DOMParser` (never runs scripts) and nothing is ever inserted as HTML.
 
 ### Key Files
 
-- [MessageInput.ts](../../web/src/components/MessageInput.ts) - `handlePaste()` function
+- [MessageInput.ts](../../web/src/components/MessageInput.ts) - `handlePaste()`, `pasteRichTextAsMarkdown()`
+- [html-to-markdown.ts](../../web/src/utils/html-to-markdown.ts) - `htmlToMarkdown()`
 - [FileUpload.ts](../../web/src/components/FileUpload.ts) - `addFilesToPending()` for file processing
 
 ### Testing
 
 - Unit tests: `handlePaste` describe block in [message-input.test.ts](../../web/tests/unit/message-input.test.ts)
 - E2E tests: "Chat - Clipboard Paste" describe block in [clipboard.spec.ts](../../web/tests/e2e/chat/clipboard.spec.ts)
+- Rich text: [html-to-markdown.test.ts](../../web/tests/unit/html-to-markdown.test.ts) (conversion) and [paste-markdown.spec.ts](../../web/tests/e2e/paste-markdown.spec.ts) (real-browser paste)
 
 ## Client-side Image Compression
 
