@@ -70,7 +70,7 @@ make update-currency
 
 ## Database Backup
 
-A daily systemd timer creates timestamped snapshots of both SQLite databases (main database and blob storage), keeping 7 days of history by default. Backups use SQLite's online backup API for consistent snapshots even while the database is in use.
+A daily systemd timer creates timestamped snapshots of both SQLite databases (main database and blob storage), keeping 1 day of history by default (today's and yesterday's copy). Older copies live in the production host's daily full-disk images, which pick up each night's consistent copy, so a longer local history only duplicates them. Backups use SQLite's online backup API for consistent snapshots even while the database is in use.
 
 ```bash
 # Check timer status

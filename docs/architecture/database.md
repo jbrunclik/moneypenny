@@ -270,7 +270,7 @@ make vacuum  # Run vacuum immediately
 
 ## Database Backup
 
-Daily automated backups create timestamped snapshots of both SQLite databases, keeping 7 days of history by default.
+Daily automated backups create timestamped snapshots of both SQLite databases, keeping 1 day of history by default (today's and yesterday's copy). Older copies live in the production host's daily full-disk images, which pick up each night's consistent copy, so a longer local history only duplicates them.
 
 ### Automatic Backup (systemd timer)
 

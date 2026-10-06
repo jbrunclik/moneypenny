@@ -222,9 +222,9 @@ class TestListBackups:
 class TestDefaultRetention:
     """Test default retention value."""
 
-    def test_default_retention_is_7_days(self):
-        """Test that default retention is 7 days."""
-        assert DEFAULT_RETENTION_DAYS == 7
+    def test_default_retention_is_1_day(self):
+        """Local history is short: the host's daily disk images carry older copies."""
+        assert DEFAULT_RETENTION_DAYS == 1
 
 
 class TestBackupDirName:

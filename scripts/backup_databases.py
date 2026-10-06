@@ -2,7 +2,7 @@
 """Database backup script for Moneypenny.
 
 Creates timestamped snapshots of both SQLite databases (chatbot.db and files.db),
-keeping a configurable number of backups (default: 7 days of history).
+keeping a configurable number of backups (default: 1 day of history).
 
 Usage:
     python scripts/backup_databases.py [--retention DAYS]
@@ -24,8 +24,10 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Default backup retention in days
-DEFAULT_RETENTION_DAYS = 7
+# Default backup retention in days. Short on purpose: the production host's
+# daily full-disk images keep a week of these consistent copies, so a longer
+# local history only duplicates them (~1.1 GB per day of history).
+DEFAULT_RETENTION_DAYS = 1
 
 # Backup directory relative to database location
 BACKUP_DIR_NAME = "backups"
