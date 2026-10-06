@@ -5,6 +5,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 ## Next up
 
 1. **Re-measure search rounds after the escalation** (due ~Oct 14 2026) - the Sep 30 2026 audit showed the Sep 6 text nudges did not move traffic (see docs/architecture/agent-graph.md "Tool Round Economics"), so a repeat single-query `web_search` now runs as `research`. Evals went from avg 4.3 to 3 rounds on cz_batched_lookups, with -4% rounds overall. Re-run the same production audit after 14+ days. If the share of search turns with 2+ separate search rounds (63%) and cap hits (3.1% of turns) have not dropped, consider rejecting a 3rd single search. If they have, consider lowering `AGENT_MAX_TOOL_ROUNDS`. Also measure browser rounds per turn now that batching shipped.
+2. **Confirm worker memory stays flat** (due ~Oct 7 2026) - on Oct 6 2026 prod workers grew from ~170 MB to ~380 MB PSS within a day because rotated context-cache names piled up in the compiled-graph cache (fixed in d1cf177), and prod dropped from 4 to 2 gunicorn workers (153 MB each right after the restart). On the production host, read each worker's `Pss` from `/proc/<pid>/smaps_rollup`. Workers 20h+ old should sit at ~150-200 MB. If they still climb toward 380 MB, the cache was not the main cause - profile a long-lived worker (tracemalloc snapshot diff) next.
 
 ## Agent & harness
 
