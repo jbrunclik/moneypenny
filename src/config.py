@@ -659,9 +659,8 @@ class Config:
     # Compiled-graph LRU cache: the chat graph is a pure function of its build
     # signature (model, tools, cached_content, ...), so it is compiled once per
     # signature and reused instead of rebuilt on every request. The cache is
-    # bounded because the context-cache name rotates hourly (a new signature
-    # each renewal); the cap holds all live (profile x model x cache) combos
-    # for the current and recent hours, evicting stale ones.
+    # bounded as a backstop; dead context-cache names are already dropped per
+    # signature in graph.py (_MAX_CACHE_NAMES_PER_SIGNATURE).
     AGENT_GRAPH_CACHE_SIZE: int = int(os.getenv("AGENT_GRAPH_CACHE_SIZE", "64"))
 
     # Graph self-correction: max consecutive tool error retries before giving up

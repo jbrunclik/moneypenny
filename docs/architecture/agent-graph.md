@@ -27,6 +27,10 @@ implementation if it's ever needed again.
 
 Compiled graphs are cached per signature (model, tools, thinking, autonomous, context
 cache name) in a bounded LRU (`get_compiled_graph()`, `AGENT_GRAPH_CACHE_SIZE`).
+Context-cache names rotate when a Gemini cache lapses or is recreated, so each
+otherwise-identical signature keeps only its 3 most-recently-used names (the
+uncached fallback plus SPORTS and LANGUAGE, which bind the same tools). Without
+that cap dead names filled the LRU and each prod worker grew ~200 MB in a day.
 
 ## Chat Node and Transient-Error Retries
 

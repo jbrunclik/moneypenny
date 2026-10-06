@@ -952,6 +952,13 @@ def create_chat_graph(
 _compiled_graph_cache: OrderedDict[tuple[Any, ...], Any] = OrderedDict()
 _compiled_graph_lock = threading.Lock()
 
+# Context-cache names kept per otherwise-identical signature. The name rotates
+# whenever a Gemini cache lapses or is recreated, so without this cap every dead
+# name stays compiled until the global LRU evicts it (~2.5 MB per graph). Three
+# covers the live set: the uncached fallback (None) plus SPORTS and LANGUAGE,
+# the two profiles that bind the same tools.
+_MAX_CACHE_NAMES_PER_SIGNATURE = 3
+
 
 def _graph_signature(
     model_name: str,
@@ -1014,6 +1021,11 @@ def get_compiled_graph(
     with _compiled_graph_lock:
         _compiled_graph_cache[key] = compiled
         _compiled_graph_cache.move_to_end(key)
+        # cached_content is the last signature element; drop this signature's
+        # least-recently-used names beyond the cap (dead rotated caches)
+        same_signature = [k for k in _compiled_graph_cache if k[:-1] == key[:-1]]
+        for stale in same_signature[:-_MAX_CACHE_NAMES_PER_SIGNATURE]:
+            del _compiled_graph_cache[stale]
         max_size = Config.AGENT_GRAPH_CACHE_SIZE
         while max_size > 0 and len(_compiled_graph_cache) > max_size:
             _compiled_graph_cache.popitem(last=False)  # evict least-recently-used

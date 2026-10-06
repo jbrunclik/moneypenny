@@ -1087,3 +1087,52 @@ class TestCompiledGraphCache:
         again = get_compiled_graph("m", tools=tools, cached_content="c1")
         assert again is not first  # c1 was evicted and rebuilt fresh
         assert mock_compile.call_count == builds_before + 1
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_rotated_cache_names_do_not_accumulate(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        """The context-cache name rotates on renewal; dead names for the same
+        signature must not fill the LRU (~2.5 MB per compiled graph in prod)."""
+        from src.agent.graph import (
+            _MAX_CACHE_NAMES_PER_SIGNATURE,
+            _compiled_graph_cache,
+            get_compiled_graph,
+        )
+
+        tools = [self._tool("web_search")]
+        for i in range(10):
+            get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
+        assert len(_compiled_graph_cache) == _MAX_CACHE_NAMES_PER_SIGNATURE
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_live_cache_names_sharing_a_signature_stay_cached(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        """SPORTS and LANGUAGE bind the same tools, so two live names (plus the
+        uncached fallback) share one signature - alternating must not rebuild."""
+        from src.agent.graph import get_compiled_graph
+
+        tools = [self._tool("kv_store")]
+        for name in (None, "sports", "language"):
+            get_compiled_graph("m", tools=tools, cached_content=name)
+        builds = mock_compile.call_count
+        for name in ("sports", "language", None, "sports"):
+            get_compiled_graph("m", tools=tools, cached_content=name)
+        assert mock_compile.call_count == builds
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_name_rotation_keeps_other_signatures(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        from src.agent.graph import get_compiled_graph
+
+        other = get_compiled_graph("pro", tools=[self._tool("web_search")], cached_content="p1")
+        tools = [self._tool("web_search")]
+        for i in range(10):
+            get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
+        again = get_compiled_graph("pro", tools=[self._tool("web_search")], cached_content="p1")
+        assert again is other
