@@ -55,7 +55,7 @@
     "marked": "^18.0.14",
     "mediabunny": "^1.60.0",
     "mermaid": "^12.1.0",
-    "pdfjs-dist": "^6.3.289",
+    "pdfjs-dist": "^6.4.299",
     "uuid": "^14.0.2",
     "zustand": "^5.0.15"
   }
