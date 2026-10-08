@@ -24,7 +24,7 @@ ddgs>=9.16.0
 playwright>=1.63.0
 
 # Code execution sandbox
-llm-sandbox[docker]>=0.3.44
+llm-sandbox[docker]>=0.3.45
 
 # Language detection
 langdetect>=1.0.9
