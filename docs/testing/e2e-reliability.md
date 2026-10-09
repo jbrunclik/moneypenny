@@ -32,6 +32,15 @@ attachments in the Playwright report: the difference is almost always a
 whole UI element in a different state, and the fix belongs in the app or
 the test's setup, never in the baseline. Root-caused examples (Sep 2026):
 
+- **Deep-research progress panel: identical pixels, different anti-aliasing**
+  (Oct 2026, ~40-50% WebKit failures). A finding renders BELOW the captured
+  items; the bottom-pinned list then shifts the whole panel up ~54px, so
+  captures on either side of its arrival sat at different sub-pixel offsets.
+  WebKit also held the `started` SSE chunk until the finding arrived. Fix: wait
+  for the state BOTH engines reach (the first finding in) before capturing.
+  Watch for content landing below a clip in a bottom-pinned list - it moves
+  the clip even though nothing inside it changed.
+
 - **Storage page mobile: header hidden vs visible.** `navigateToStorage`
   hides the composer; the composer `ResizeObserver` saw a bottom-pinned
   (empty) list and re-pinned it in a `requestAnimationFrame`, racing the

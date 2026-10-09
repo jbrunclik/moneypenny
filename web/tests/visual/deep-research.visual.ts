@@ -76,12 +76,19 @@ test.describe('Visual: Deep research', () => {
   });
 
   test('progress panel mid-run', async ({ page, request }) => {
-    // Slow steps: the first item stays running while the screenshot is taken
+    // Slow steps: the first item stays running while the screenshots are taken
     await sendOffer(page, request, 10_000);
     await page.locator('.research-offer__start').click();
     const panel = page.locator('.research-progress');
     await expect(panel.locator('.research-progress__item--started')).toHaveCount(1, { timeout: 15000 });
-    // Items and footer only: a finding can land in the feed at any moment
+    // Capture with the first finding in: it renders BELOW the items and the
+    // bottom-pinned list shifts the whole panel up ~54px, so captures taken on
+    // either side of its arrival differed in sub-pixel offset (~40% WebKit
+    // failures). WebKit can hold the "started" chunk until the finding arrives
+    // anyway, so this is the one state both engines reach. The item finishes
+    // a step later, leaving a full step for the screenshots.
+    await expect(panel.locator('.research-progress__finding')).toHaveCount(1, { timeout: 20000 });
+    // Items, head and footer only: the findings feed below is not part of it
     // The spinner's antialiasing varies frame to frame in WebKit
     await expect(panel.locator('.research-progress__items')).toHaveScreenshot('deep-research-progress-items.png', {
       mask: [panel.locator('.research-progress__spinner')],

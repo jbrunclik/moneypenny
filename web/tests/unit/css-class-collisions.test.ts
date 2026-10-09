@@ -16,6 +16,7 @@ const STYLES_DIR = join(__dirname, '../../src/styles');
 
 const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'action-sheet',
+  'agent-editor',
   'approval-description',
   'approval-tool',
   'btn',
@@ -29,6 +30,7 @@ const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'input-container',
   'input-wrapper',
   'language-add-btn',
+  'language-modal',
   'message-actions-overflow',
   'message-continue-btn',
   'message-copy-btn',
@@ -43,9 +45,11 @@ const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'mobile-header',
   'modal',
   'model-dropdown',
+  'qa-editor',
   'scroll-to-bottom',
   'sidebar',
   'sports-add-btn',
+  'sports-modal',
   'toast',
 ]);
 

@@ -81,9 +81,18 @@ plus a translucent `-900` badge background), `--color-info-500`, and the theme-a
 --overlay-bg / --lightbox-bg / --code-bg / --code-inline-bg / --scrollbar-thumb
 ```
 
-**Glass materials** (`--glass-bg`, `--glass-bg-strong` for modals, `--glass-bg-menu`,
+**Glass materials** (`--glass-bg`, `--glass-bg-strong` for toasts and floating buttons,
+`--glass-bg-dialog` + `--glass-blur-dialog` for dialogs and sheets, `--glass-bg-menu`,
 `--glass-bg-header`, `--glass-bg-sidebar`, `--glass-blur*`, `--glass-border`,
 `--glass-highlight`, `--glass-shadow`) are consumed by `glass.css`.
+
+**Dialogs and sheets share one material** (Oct 2026): `.modal`, `.info-popup-content`,
+`.action-sheet`, `.agent-editor`, `.qa-editor`, `.sports-modal` and `.language-modal` all
+get `--glass-bg-dialog` in `glass.css`, and every scrim is `--overlay-bg` with **no
+backdrop blur** - iOS alerts dim, the dialog is the glass. A blurred scrim becomes the
+dialog's backdrop root (Filter Effects), so the dialog's own glass sees only the scrim
+colour and turns into flat grey. A new overlay joins those selector lists instead of
+setting its own `rgba(0,0,0,...)` scrim or solid surface.
 
 ### Spacing
 
@@ -148,7 +157,9 @@ All animation is disabled under `prefers-reduced-motion`.
 - **Shadows**: `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-glow-accent`,
   `--shadow-scroll-btn` (lighter values in the light theme).
 - **Layout**: `--sidebar-width` 280px, `--header-height` 56px, `--input-height` 60px,
-  `--message-max-width` 800px, `--message-gutter` 52px (desktop avatar gutter).
+  `--message-max-width` 800px, `--message-gutter` 52px (desktop avatar gutter),
+  `--dialog-width-sm` 440px (confirms, small dialogs) / `--dialog-width-md` 560px (forms,
+  editors). Dialog surfaces use `--radius-lg`.
 - **Z-index**: `--z-overlay` 40, `--z-dropdown` / `--z-sidebar` 50, `--z-banner` 150,
   `--z-modal-backdrop` 200, `--z-popup` / `--z-lightbox` 300, `--z-toast` 10000,
   `--z-modal` 10001.

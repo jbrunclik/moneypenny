@@ -305,12 +305,12 @@ body.has-quick-actions .message-save-quick-action-btn { display: inline-flex; }
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay-bg);
 }
 
 .qa-editor {
     width: 90%;
-    max-width: 560px;
+    max-width: var(--dialog-width-md);
     max-height: 90vh;
     display: flex;
     flex-direction: column;

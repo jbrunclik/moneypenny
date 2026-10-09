@@ -152,7 +152,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay-bg);
     animation: language-overlay-in 0.15s ease-out;
 }
 
@@ -162,7 +162,7 @@
 
 .language-modal {
     width: 90%;
-    max-width: 440px;
+    max-width: var(--dialog-width-sm);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);

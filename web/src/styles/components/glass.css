@@ -26,6 +26,10 @@
     .modal,
     .info-popup-content,
     .action-sheet,
+    .agent-editor,
+    .qa-editor,
+    .sports-modal,
+    .language-modal,
     .toast,
     .scroll-to-bottom {
         -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
@@ -60,10 +64,29 @@
     .modal,
     .info-popup-content,
     .action-sheet,
+    .agent-editor,
+    .qa-editor,
+    .sports-modal,
+    .language-modal,
     .toast,
     .scroll-to-bottom {
         background-color: var(--glass-bg-strong);
         box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+    }
+
+    /* Dialogs and sheets: ONE material for every overlay (iOS alert/sheet).
+       Their scrims only dim, so this glass sees the page itself; the heavier
+       blur turns what is behind into colour, never legible ghost text. */
+    .modal,
+    .info-popup-content,
+    .action-sheet,
+    .agent-editor,
+    .qa-editor,
+    .sports-modal,
+    .language-modal {
+        background-color: var(--glass-bg-dialog);
+        -webkit-backdrop-filter: blur(var(--glass-blur-dialog)) saturate(180%);
+        backdrop-filter: blur(var(--glass-blur-dialog)) saturate(180%);
     }
 
     /* The model dropdown opens directly over the (translucent) composer, so
@@ -101,6 +124,10 @@
     .modal,
     .info-popup-content,
     .action-sheet,
+    .agent-editor,
+    .qa-editor,
+    .sports-modal,
+    .language-modal,
     .toast,
     .scroll-to-bottom,
     .sidebar {

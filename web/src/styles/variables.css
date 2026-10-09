@@ -128,7 +128,12 @@
     --glass-blur-sidebar: 24px;
     --glass-bg: rgba(24, 24, 24, 0.58);           /* chrome over content - content
                                                      genuinely reads through it */
-    --glass-bg-strong: rgba(18, 18, 18, 0.74);    /* modals: more opaque, focused */
+    --glass-bg-strong: rgba(18, 18, 18, 0.74);    /* toasts, floating buttons */
+    /* Dialogs and sheets (iOS alert/sheet material): a frost LIGHTER than the
+       dimmed near-black page behind it reads as a distinct glass layer; the
+       heavier blur turns content behind it into colour, never ghost text. */
+    --glass-bg-dialog: rgba(44, 44, 48, 0.8);
+    --glass-blur-dialog: 40px;
     --glass-bg-menu: rgba(28, 28, 32, 0.95);      /* dropdown menus: near-opaque -
                                                      they sit right over the
                                                      translucent composer and must
@@ -236,6 +241,8 @@
     --header-height: 56px;
     --input-height: 60px;
     --message-max-width: 800px;
+    --dialog-width-sm: 440px;   /* confirms, prompts, small single-purpose dialogs */
+    --dialog-width-md: 560px;   /* forms and editors */
     /* Side gutter reserved on desktop for the role avatar, which floats into
        it absolutely. MUST exceed the avatar's footprint (28px marker + 12px
        gap = 40px) or the avatar clips at the container's overflow edge. Used
@@ -318,7 +325,9 @@
     --claim-heading-contradicted: #b4432f;
 
     /* Overlay/backdrop for light theme */
-    --overlay-bg: rgba(0, 0, 0, 0.45);
+    /* iOS-style dim: light enough that the frosted dialog above it stays bright
+       (0.45 turned every dialog into grey mud) */
+    --overlay-bg: rgba(16, 16, 24, 0.28);
 
     /* Liquid glass materials (light theme).
        The dark theme reads well because its frost is LIGHTER than the near-
@@ -329,6 +338,7 @@
        pure-white content, and a firmer hairline + highlight for definition. */
     --glass-bg: rgba(247, 248, 251, 0.78);
     --glass-bg-strong: rgba(250, 251, 253, 0.9);
+    --glass-bg-dialog: rgba(255, 255, 255, 0.88);
     --glass-bg-menu: rgba(252, 252, 253, 0.96);
     --glass-bg-header: rgba(245, 246, 249, 0.8);
     /* Opaque, clean solid panel. A translucent light frost over the mobile

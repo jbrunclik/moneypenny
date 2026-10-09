@@ -232,8 +232,8 @@
     align-items: center;
     justify-content: center;
     padding: var(--space-4);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* Dim only (iOS alerts/sheets): the DIALOG is the glass. A blurred scrim
+       became the dialog's backdrop root, so its own glass saw only grey. */
 }
 
 .info-popup.hidden {
@@ -254,8 +254,8 @@
 .info-popup-content {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    max-width: 500px;
+    border-radius: var(--radius-lg);
+    max-width: var(--dialog-width-md);
     width: 100%;
     max-height: 80vh;
     overflow: hidden;
@@ -270,7 +270,8 @@
     gap: var(--space-3);
     padding: var(--space-4);
     border-bottom: 1px solid var(--border);
-    background-color: var(--bg-tertiary);
+    /* No fill of its own: the header sits on the dialog glass like every
+       other dialog header */
 }
 
 .info-popup-icon {
@@ -981,8 +982,8 @@
     justify-content: center;
     background-color: var(--overlay-bg);
     padding: var(--space-4);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* Dim only (iOS alerts/sheets): the DIALOG is the glass. A blurred scrim
+       became the dialog's backdrop root, so its own glass saw only grey. */
     animation: modal-overlay-enter 0.15s ease-out;
 }
 
@@ -1016,10 +1017,10 @@
     position: relative;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
     padding: var(--space-6);
-    max-width: 400px;
+    max-width: var(--dialog-width-sm);
     width: 100%;
     animation: modal-enter 0.15s ease-out;
 }
@@ -2234,7 +2235,7 @@
 .action-sheet {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     width: 100%;
     max-width: 480px;
     padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0));

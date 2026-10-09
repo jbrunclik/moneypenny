@@ -38,7 +38,9 @@ for (const streaming of [true, false]) {
     });
 
     test('footer opens the claims list; a row jumps to the claim', async ({ page }) => {
-      await page.locator('.grounding-footer').click();
+      // The footer first renders as an inert "checking" line; it becomes a
+      // button only once the annotations arrive
+      await page.locator('.grounding-footer[role="button"]').click();
       await expect(page.locator('.claims-sheet__row')).toHaveCount(2);
       await page.locator('.claims-sheet__row').first().click();
       await expect(page.locator('#claims-sheet')).toHaveCount(0);
@@ -63,7 +65,8 @@ test('claims list is a bottom sheet on mobile', async ({ page, request }) => {
   await page.click('#new-chat-btn');
   await page.fill('#message-input', 'Mobile claims please');
   await page.click('#send-btn');
-  await page.locator('.grounding-footer').click({ timeout: 15000 });
+  // Not the inert "checking" footer: clicking that opened nothing (~3% flake)
+  await page.locator('.grounding-footer[role="button"]').click({ timeout: 15000 });
   await expect(page.locator('.claims-sheet--sheet .claims-sheet__panel')).toBeVisible();
   const box = await page.locator('.claims-sheet__panel').boundingBox();
   expect(box && box.y + box.height).toBeGreaterThan(800);

@@ -1099,7 +1099,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1142,7 +1142,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     width: 100%;
-    max-width: 600px;
+    max-width: var(--dialog-width-md);
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -1535,6 +1535,9 @@
 }
 
 .agent-editor-footer-right {
+    /* Primary actions stay right-aligned even without the Delete button
+       (space-between alone pushed a lone group to the left) */
+    margin-left: auto;
     display: flex;
     gap: var(--space-3);
 }
