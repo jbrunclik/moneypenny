@@ -324,6 +324,8 @@ test.describe('Visual: Command Center - Desktop', () => {
 
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center-loading');
+    // The shimmer moves frame to frame - freeze it for a stable capture
+    await page.addStyleTag({ content: '.command-center-skeleton-line { animation: none !important; }' });
 
     await expect(page.locator('.main')).toHaveScreenshot('command-center-loading.png');
   });

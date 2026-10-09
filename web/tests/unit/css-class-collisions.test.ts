@@ -45,6 +45,7 @@ const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'message-speak-btn',
   'mobile-header',
   'modal',
+  'new-messages-banner',
   'model-dropdown',
   'qa-editor',
   'scroll-to-bottom',

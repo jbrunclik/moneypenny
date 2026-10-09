@@ -31,8 +31,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **No thinking bar while the location fix runs** (Oct 9 2026) - with location sharing on, `dispatchSend` awaits `getClientLocation()` (up to `LOCATION_FIX_TIMEOUT_MS` = 3s, cached 5 min) BEFORE the streaming bubble exists, so the user sees only their own message and "nothing happens". Show the thinking bar first and resolve the fix in parallel with stream setup.
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - One empty-state component across Planner, Sports/Language, Data and Command Center (page width, header and buttons shipped): icon + title + hint + optional CTA; Planner's title is still 24px without an icon
-  - Quiz batches: a "1/3" progress indicator (multiple-choice right/wrong feedback shipped)
-  - floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash
+  - Sports card meta line; Undo toast instead of a red confirm for move-to-trash
   - Visual coverage (dark-theme baselines shipped in dark.visual.ts): model-selector dropdown (the screenshot clips to the toolbar), mobile swipe actions on a real touch context (the test inlines stale styles), login with the real Google button
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.

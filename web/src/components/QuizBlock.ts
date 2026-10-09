@@ -141,13 +141,15 @@ function renderTranslate(quiz: TranslateQuiz, insideBatch = false): string {
 
 function renderBatch(quiz: BatchQuiz): string {
   const titleHtml = quiz.title ? `<div class="quiz-batch-title">${escapeHtml(quiz.title)}</div>` : '';
+  // Kept current by updateQuizContinueState as answers come in
+  const progressHtml = `<span class="quiz-batch-progress" aria-live="polite">0/${quiz.questions.length} answered</span>`;
   const questionsHtml = quiz.questions.map((q, i) => {
     return `<div class="quiz-batch-item" data-batch-index="${i}">${renderQuiz(q, true)}</div>`;
   }).join('');
 
   return `
     <div class="quiz-block quiz-batch">
-      ${titleHtml}
+      <div class="quiz-batch-header">${titleHtml}${progressHtml}</div>
       <div class="quiz-batch-questions">${questionsHtml}</div>
       <button class="quiz-continue" disabled>Send answers</button>
     </div>
@@ -203,8 +205,10 @@ function updateQuizContinueState(blockEl: HTMLElement): void {
 
   const isBatch = root.classList.contains('quiz-batch');
   const blocks = isBatch ? root.querySelectorAll('.quiz-batch-item .quiz-block') : [root];
-  const allAnswered = Array.from(blocks).every((b) => isBlockAnswered(b as HTMLElement));
-  continueBtn.disabled = !allAnswered;
+  const answered = Array.from(blocks).filter((b) => isBlockAnswered(b as HTMLElement)).length;
+  continueBtn.disabled = answered < blocks.length;
+  const progress = root.querySelector('.quiz-batch-progress');
+  if (progress) progress.textContent = `${answered}/${blocks.length} answered`;
 }
 
 /**

@@ -5,7 +5,7 @@
  * These tests verify rendering and answer collection, not correctness evaluation.
  */
 import { describe, it, expect } from 'vitest';
-import { renderQuizBlock, handleQuizOptionClick, handleQuizContinue } from '@/components/QuizBlock';
+import { renderQuizBlock, handleQuizOptionClick, handleQuizContinue, handleQuizInputChange } from '@/components/QuizBlock';
 
 describe('renderQuizBlock', () => {
   it('renders multiple-choice quiz with send button', () => {
@@ -227,5 +227,31 @@ describe('multiple-choice feedback on submit', () => {
     renderMc(1);
     handleQuizOptionClick(option(0) as HTMLButtonElement);
     expect(document.querySelector('.quiz-option.correct, .quiz-option.incorrect')).toBeNull();
+  });
+});
+
+describe('batch progress', () => {
+  it('counts answered questions as they are answered', () => {
+    document.body.innerHTML = `<div class="message-content">${renderQuizBlock(
+      JSON.stringify({
+        type: 'batch',
+        title: 'Vocabulary',
+        questions: [
+          { type: 'multiple-choice', question: 'Hola?', options: ['Bye', 'Hello'], correct: 1 },
+          { type: 'translate', question: 'Thanks', answer: 'Gracias' },
+          { type: 'fill-blank', question: 'Yo ___', answer: 'hablo' },
+        ],
+      })
+    )}</div>`;
+    const progress = (): string => document.querySelector('.quiz-batch-progress')?.textContent ?? '';
+    expect(progress()).toBe('0/3 answered');
+
+    handleQuizOptionClick(document.querySelector('.quiz-option[data-index="1"]') as HTMLButtonElement);
+    expect(progress()).toBe('1/3 answered');
+
+    const input = document.querySelector('.quiz-translate .quiz-text-input') as HTMLInputElement;
+    input.value = 'Gracias';
+    handleQuizInputChange(input);
+    expect(progress()).toBe('2/3 answered');
   });
 });

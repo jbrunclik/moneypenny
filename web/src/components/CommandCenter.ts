@@ -20,11 +20,22 @@ type NewAgentCallback = () => void;
  */
 export function renderCommandCenterLoading(): HTMLDivElement {
   const el = document.createElement('div');
+  // A skeleton of the real layout (header, sections, agent cards) so the
+  // page doesn't jump from a centred text line to the dashboard
   el.className = 'command-center command-center--loading';
+  el.setAttribute('aria-busy', 'true');
+  const card = `
+    <div class="command-center-skeleton-card">
+      <div class="command-center-skeleton-line command-center-skeleton-line--title"></div>
+      <div class="command-center-skeleton-line"></div>
+      <div class="command-center-skeleton-line command-center-skeleton-line--short"></div>
+    </div>`;
   el.innerHTML = `
     <div class="command-center-loading">
-      <div class="loading-spinner"></div>
-      <p>Loading agents...</p>
+      <span class="visually-hidden">Loading agents…</span>
+      <div class="command-center-skeleton-line command-center-skeleton-line--heading"></div>
+      <div class="command-center-skeleton-line command-center-skeleton-line--section"></div>
+      <div class="agents-list">${card.repeat(3)}</div>
     </div>
   `;
   return el;

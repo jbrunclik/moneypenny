@@ -154,7 +154,7 @@ test.describe('Visual: Quiz Blocks', () => {
       div.innerHTML = `
         <div class="message-content">
           <div class="quiz-block quiz-batch">
-            <div class="quiz-batch-title">Vocabulary Review</div>
+            <div class="quiz-batch-header"><div class="quiz-batch-title">Vocabulary Review</div><span class="quiz-batch-progress" aria-live="polite">0/2 answered</span></div>
             <div class="quiz-batch-questions">
               <div class="quiz-batch-item" data-batch-index="0">
                 <div class="quiz-block quiz-multiple-choice">
