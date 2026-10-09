@@ -52,6 +52,14 @@ then commit. This is also the most
 reliable option in general since it cannot drift from CI (local Docker
 on Apple Silicon runs the arm64 image unless forced to amd64).
 
+## Dark Theme
+
+Dark is the app's default theme (`:root`), but Playwright renders the light scheme, so
+the regular baselines are all light. `dark.visual.ts` covers the core screens with
+`page.emulateMedia({ colorScheme: 'dark' })`: empty chat, a conversation with a turn
+summary, a confirm dialog, the planner and mobile. Add a dark case there when a change
+touches theme tokens or glass materials.
+
 ## Baseline Locations
 
 Baselines are stored in snapshot directories:

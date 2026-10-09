@@ -34,7 +34,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - One empty-state component across Planner, Sports/Language, Data and Command Center (page width, header and buttons shipped): icon + title + hint + optional CTA; Planner's title is still 24px without an icon
   - Quiz batches: a "1/3" progress indicator (multiple-choice right/wrong feedback shipped)
   - floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash; 44px mobile tap targets
-  - Visual coverage: dark-theme baselines (dark is the default theme, all baselines are light), model-selector dropdown, mobile swipe actions on a touch context, login with the real Google button (the fallback state is covered)
+  - Visual coverage (dark-theme baselines shipped in dark.visual.ts): model-selector dropdown (the screenshot clips to the toolbar), mobile swipe actions on a real touch context (the test inlines stale styles), login with the real Google button
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
 - [ ] **Mermaid diagrams in markdown** (Sep 30 2026 Desktop-parity review) - render ```` ```mermaid ```` blocks client-side, lazy-loaded as its own vendor chunk like KaTeX; fall back to the code block on parse errors; theme for light/dark.
