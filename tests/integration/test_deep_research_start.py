@@ -22,24 +22,35 @@ def _offer(db: Database, conv_id: str, status: str = "offered") -> str:
     ).id
 
 
+def _final_events(*_a: Any, **_k: Any) -> Any:
+    yield {
+        "type": "final",
+        "content": "report",
+        "result_messages": [],
+        "tool_results": [],
+        "usage_info": {},
+    }
+
+
 def _stream(
     client: FlaskClient, headers: dict[str, str], conv_id: str, body: dict[str, Any]
 ) -> Any:
-    with patch("src.api.helpers.chat_turn.ChatAgent") as agent_cls:
+    # A start turn runs run_deep_research, not the agent: fake it too, and
+    # drain the response inside the patches. The real pipeline (subagents
+    # calling out with the fake key) kept running after the test and opened
+    # the NEXT test's fresh database - a "database is locked" CI flake.
+    with (
+        patch("src.api.helpers.chat_turn.ChatAgent") as agent_cls,
+        patch("src.api.helpers.stream_producer.run_deep_research", _final_events),
+    ):
         agent = MagicMock()
-
-        def events(*_a: Any, **_k: Any) -> Any:
-            yield {
-                "type": "final",
-                "content": "report",
-                "result_messages": [],
-                "tool_results": [],
-                "usage_info": {},
-            }
-
-        agent.stream_chat_events = events
+        agent.stream_chat_events = _final_events
         agent_cls.return_value = agent
-        return client.post(f"/api/conversations/{conv_id}/chat/stream", headers=headers, json=body)
+        response = client.post(
+            f"/api/conversations/{conv_id}/chat/stream", headers=headers, json=body
+        )
+        response.get_data()
+        return response
 
 
 def _start(offer_id: str, items: list[str], context: str = "Praha") -> dict[str, Any]:

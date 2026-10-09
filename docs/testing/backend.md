@@ -102,6 +102,17 @@ def test_chat_endpoint(client, test_user, test_conversation, auth_headers):
     assert 'response' in data
 ```
 
+**Stream tests must not leave background work running.** A `/chat/stream` turn runs in
+producer/cleanup threads; a deep-research start runs `run_deep_research` (patch it at
+`src.api.helpers.stream_producer.run_deep_research` - patching `ChatAgent` is not enough)
+and drain the response (`response.get_data()`) inside the patches. Oct 2026: undrained
+start tests left the real pipeline running, and its threads opened the NEXT test's fresh
+database through the global `db` handle, racing that test's first connection into
+`database is locked`. The autouse `no_leaked_deep_research_threads` fixture
+(`tests/conftest.py`) now waits for `deep-research*` threads after every test and fails a
+test whose pipeline won't stop; `Database` init sets WAL once so concurrent first
+connections can't collide (`tests/unit/test_database_wal_init.py`).
+
 ## Mock Return Value Formats (Chat Path)
 
 When mocking the agent's chat entrypoints, the return shapes must match exactly

@@ -2,6 +2,8 @@
 
 import os
 import tempfile
+import threading
+import time
 from collections.abc import Generator
 from contextlib import ExitStack
 from pathlib import Path
@@ -31,6 +33,36 @@ os.environ["GROUNDING_CHECK_ENABLED"] = "false"
 # loads the real .env); evals blank the same keys (evals/run.py)
 for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_API_KEY"):
     os.environ[_key] = ""
+
+
+# -----------------------------------------------------------------------------
+# Leaked background-thread guard
+# -----------------------------------------------------------------------------
+
+# A deep-research run started by a test and never drained keeps running after
+# the test, and through the global `db` handle it then opens the NEXT test's
+# fresh database (CI "database is locked" flake, Oct 2026 - also fixed at the
+# source: Database init now sets WAL). Wait for such threads to end before the
+# next test starts, and fail a test whose pipeline will not stop at all.
+_LEAKY_THREAD_PREFIX = "deep-research"
+_LEAKED_THREAD_WAIT_SECONDS = 5.0
+
+
+@pytest.fixture(autouse=True)
+def no_leaked_deep_research_threads() -> Generator[None]:
+    """Let a test's deep-research threads finish before the next test runs."""
+    yield
+    deadline = time.monotonic() + _LEAKED_THREAD_WAIT_SECONDS
+    for thread in threading.enumerate():
+        if thread.name.startswith(_LEAKY_THREAD_PREFIX):
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
+    leaked = [
+        t.name
+        for t in threading.enumerate()
+        if t.name.startswith(_LEAKY_THREAD_PREFIX) and t.is_alive()
+    ]
+    if leaked:
+        pytest.fail(f"test left deep-research threads running: {leaked}", pytrace=False)
 
 
 # -----------------------------------------------------------------------------

@@ -74,5 +74,12 @@ class DatabaseBase:
                         "Applying database migrations", extra={"count": len(migrations_to_apply)}
                     )
                 backend.apply_migrations(migrations_to_apply)
+            # Switch the file to WAL once, here, while nothing else holds it.
+            # The pool sets WAL on every new connection too, but two first
+            # connections switching a fresh rollback-journal file at the same
+            # moment make one fail at once with "database is locked" (the busy
+            # timeout does not cover the switch). WAL persists in the file, so
+            # later connections find it already set.
+            backend.connection.execute("PRAGMA journal_mode=WAL")
         finally:
             backend.connection.close()
