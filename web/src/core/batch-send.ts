@@ -158,7 +158,7 @@ export async function sendBatchMessage(
   forceTools: string[],
   tempUserMessageId: string,
   anonymousMode: boolean,
-  clientLocation: ClientLocation | null = null,
+  clientLocation: ClientLocation | null | Promise<ClientLocation | null> = null,
   rerunMode?: 'regenerate' | 'continue',
   extras: SendExtras = {}
 ): Promise<void> {
@@ -175,7 +175,9 @@ export async function sendBatchMessage(
       useStore.getState().setUploadProgress(progress);
     } : undefined;
 
-    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode, extras);
+    // Awaited after the loading indicator is up (beginBatchRequest)
+    const location = await clientLocation;
+    const response = await chat.sendBatch(convId, message, files, forceTools, onUploadProgress, anonymousMode, location, rerunMode ? undefined : tempUserMessageId, rerunMode, extras);
     log.info('Batch response received', { conversationId: convId, messageId: response.id });
 
     // The turn is over the moment the response is in: release the active

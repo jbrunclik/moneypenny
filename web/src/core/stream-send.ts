@@ -211,11 +211,12 @@ export async function sendStreamingMessage(
   forceTools: string[],
   tempUserMessageId: string,
   anonymousMode: boolean,
-  clientLocation: ClientLocation | null = null,
+  clientLocation: ClientLocation | null | Promise<ClientLocation | null> = null,
   rerunMode?: 'regenerate' | 'continue',
   extras: SendExtras = {}
 ): Promise<void> {
   const hasFiles = files && files.length > 0;
+  // The thinking bar goes up before anything is awaited (the location fix)
   const { state, requestId, abortController } = initStreamingRequest(convId, hasFiles);
   if (hasFiles) {
     setUserMessageUploading(tempUserMessageId, true);
@@ -227,7 +228,8 @@ export async function sendStreamingMessage(
   const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
 
   try {
-    await consumeStream(send, chat.stream(convId, message, files, forceTools, abortController, anonymousMode, clientLocation, rerunMode ? undefined : tempUserMessageId, rerunMode, extras));
+    const location = await clientLocation;
+    await consumeStream(send, chat.stream(convId, message, files, forceTools, abortController, anonymousMode, location, rerunMode ? undefined : tempUserMessageId, rerunMode, extras));
 
     // Handle stream ending without done event (connection dropped mid-stream)
     // The message may have been saved server-side, so try to recover it

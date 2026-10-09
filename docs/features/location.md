@@ -18,6 +18,11 @@ core/location.ts                        ├─ re-set in the stream producer thr
      at message-send time               └─ tools/places.py: near="current"
 ```
 
+- **Send timing**: `dispatchSend` starts `getClientLocation()` but does NOT await it -
+  `sendStreamingMessage` / `sendBatchMessage` take the promise, put up the thinking bar /
+  loading indicator first and await the fix just before the request. Awaiting up front
+  showed nothing but the user's own message for up to `LOCATION_FIX_TIMEOUT_MS` (3s) on a
+  cold fix. Test: `web/tests/e2e/chat/location-send.spec.ts`.
 - **HTTP client**: [src/utils/mapy.py](../../src/utils/mapy.py) — geocode,
   rgeocode, routing. Auth via `X-Mapy-Api-Key` header (keeps the key out of
   URL logs). Coordinates are always **(lon, lat)** tuples, matching Mapy API

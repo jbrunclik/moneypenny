@@ -407,8 +407,12 @@ export async function dispatchSend(convId: string, entry: SendEntry): Promise<vo
   useStore.getState().updateMessage(convId, entry.id, { status: 'pending' });
   setMessageSendState(entry.id, 'pending');
 
-  // Device location (null when sharing is disabled, denied, or times out)
-  const clientLocation = await getClientLocation();
+  // Device location (null when sharing is disabled, denied, or times out).
+  // NOT awaited here: the send shows its thinking bar / loading indicator
+  // first and awaits the fix just before the request - waiting up front
+  // left the user staring at their own message for up to
+  // LOCATION_FIX_TIMEOUT_MS.
+  const clientLocation = getClientLocation();
 
   try {
     // A deep-research run takes minutes: only the stream path has resume and push

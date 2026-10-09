@@ -71,7 +71,8 @@ async function dispatchRerun(convId: string, mode: 'regenerate' | 'continue'): P
   // updates keyed on it are harmless no-ops
   const rerunAnchorId = `rerun-${Date.now()}`;
   const anonymousMode = useStore.getState().getAnonymousMode(convId);
-  const clientLocation = await getClientLocation();
+  // Awaited inside the send, after its bubble is up (see dispatchSend)
+  const clientLocation = getClientLocation();
   try {
     if (useStore.getState().streamingEnabled) {
       await sendStreamingMessage(convId, '', [], [], rerunAnchorId, anonymousMode, clientLocation, mode);
