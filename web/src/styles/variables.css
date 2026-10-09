@@ -244,6 +244,10 @@
     --message-max-width: 800px;
     --dialog-width-sm: 440px;   /* confirms, prompts, small single-purpose dialogs */
     --dialog-width-md: 560px;   /* forms and editors */
+    /* Desktop empty chat: the composer is translated up by (50vh - this), so
+       a SMALLER value lifts it higher (tuned for a ~40px gap under the
+       raised greeting) */
+    --welcome-composer-lift-px: 100px;
     /* Side gutter reserved on desktop for the role avatar, which floats into
        it absolutely. MUST exceed the avatar's footprint (28px marker + 12px
        gap = 40px) or the avatar clips at the container's overflow edge. Used

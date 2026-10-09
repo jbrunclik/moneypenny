@@ -52,6 +52,20 @@ export async function setupNewChat(
 /**
  * Enable streaming mode
  */
+/**
+ * Click the Stop button. It needs force (its infinite pulse never passes the
+ * stability check), so first wait until the composer has stopped MOVING: on
+ * a new desktop conversation it slides down from under the welcome greeting
+ * after the first send, and a forced click landed where the button had been.
+ */
+export async function clickStop(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const area = document.querySelector('.input-area');
+    return !area || area.getAnimations().length === 0;
+  });
+  await page.locator('#send-btn.btn-stop').click({ timeout: 5000, force: true });
+}
+
 export async function enableStreaming(page: Page): Promise<void> {
   const streamBtn = page.locator('#stream-btn');
   const isPressed = await streamBtn.getAttribute('aria-pressed');

@@ -208,7 +208,7 @@ test.describe('Sync - Conversation Deletion Detection', () => {
     await expect(page.locator('.conversation-item-wrapper')).toHaveCount(0);
 
     // Main area should show welcome state (no current conversation)
-    const welcomeMessage = page.locator('text=What can I help with?');
+    const welcomeMessage = page.locator('.welcome-message');
     await expect(welcomeMessage).toBeVisible();
   });
 

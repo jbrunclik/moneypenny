@@ -10,6 +10,7 @@
  * in E2E tests. Those are better covered by unit tests.
  */
 import { test, expect } from '../global-setup';
+import { clickStop } from './chat/fixtures';
 
 test.describe('Stream Recovery - Visibility Changes', () => {
   test.beforeEach(async ({ page }) => {
@@ -127,8 +128,7 @@ test.describe('Stream Recovery - Visibility Changes', () => {
     // force: the stop button has an infinite pulse animation (transform: scale)
     // so Playwright's stability check would never pass; the toast assertion
     // below verifies the abort actually took effect.
-    const stopBtn = page.locator('#send-btn.btn-stop');
-    await stopBtn.click({ force: true });
+    await clickStop(page);
 
     // Abort removes the streaming bubble and confirms via toast
     await expect(page.locator('.message.assistant.streaming')).toHaveCount(0);

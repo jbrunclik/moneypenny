@@ -21,6 +21,7 @@
  * they need server-wide config changes that would race other E2E specs.
  */
 import { test, expect } from '../global-setup';
+import { clickStop } from './chat/fixtures';
 
 /**
  * Intercept the next POST /chat/stream, let the REAL server process it fully,
@@ -204,7 +205,7 @@ test.describe('Resumable streams', () => {
     // The resumed turn is a first-class stream: the send button is in stop
     // mode and clicking it aborts the resume reader (force: the stop button
     // has an infinite pulse animation that never settles for Playwright)
-    await page.locator('#send-btn.btn-stop').click({ force: true });
+    await clickStop(page);
 
     await expect(page.locator('.message.assistant.streaming')).toHaveCount(0);
     await expect(page.locator('.toast:has-text("Response stopped")')).toBeVisible();

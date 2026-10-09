@@ -327,6 +327,24 @@
         z-index: 5;
         background: linear-gradient(to top, var(--bg-primary) 42%, transparent);
         padding-bottom: var(--space-5);
+        transition: transform var(--transition-slow);
+    }
+
+    /* Empty conversation: the composer rises to sit just under the centred
+       greeting (Claude.ai-style) and slides back down when the first message
+       replaces the welcome. Transform only - no layout change, so
+       composer-height.ts (which measures the pill against its own box) and
+       the list's scroll anchoring are untouched. Never moves it DOWN on a
+       short window. No fade scrim mid-screen. */
+    .main:has(.welcome-message) .input-area {
+        transform: translateY(min(0px, calc(var(--welcome-composer-lift-px) - 50vh)));
+        background: transparent;
+    }
+
+    /* ...and the greeting rises half the composer's height so the pair, not
+       the heading alone, is centred */
+    .main:has(.input-area:not(.hidden)) .welcome-message {
+        transform: translateY(-48px);
     }
 
     /* The list scrolls UNDER both bars. Clearance is a scrollable spacer +

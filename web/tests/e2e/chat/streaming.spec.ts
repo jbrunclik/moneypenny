@@ -11,6 +11,7 @@ import {
   setMockResponse,
   clearMockResponse,
   setEmitRetry,
+  clickStop,
 } from './fixtures';
 
 test.describe('Chat - Streaming Mode', () => {
@@ -510,7 +511,7 @@ test.describe('Chat - Stop Streaming', () => {
     // loading placeholder: Stop before the server acked the turn is a plain abort
     await expect(assistant.locator('.message-content')).toContainText('Tell me', { timeout: 10000 });
 
-    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+    await clickStop(page);
 
     await expect(page.locator('.toast-info')).toContainText('Response stopped');
     const note = assistant.locator('.message-stopped-early');
@@ -535,7 +536,7 @@ test.describe('Chat - Stop Streaming', () => {
     await expect(assistant.locator('.message-content')).toContainText('This is', { timeout: 10000 });
 
     const sendBtn = page.locator('#send-btn');
-    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+    await clickStop(page);
 
     await expect(sendBtn).toHaveAttribute('title', 'Stopping…');
     await expect(sendBtn).toBeDisabled();
@@ -549,7 +550,7 @@ test.describe('Chat - Stop Streaming', () => {
     await page.click('#send-btn');
     const assistant = page.locator('.message.assistant');
     await expect(assistant.locator('.message-content')).toContainText('Tell me', { timeout: 10000 });
-    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+    await clickStop(page);
     await expect(assistant.locator('.message-stopped-early')).toContainText('Stopped.', { timeout: 5000 });
 
     await setStreamDelay(page, 10);
@@ -617,7 +618,7 @@ test.describe('Chat - Stop Streaming', () => {
     const assistant = page.locator('.message.assistant');
     await expect(assistant).toContainText('Let me think about this...', { timeout: 10000 });
 
-    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+    await clickStop(page);
 
     await expect(page.locator('.toast-info')).toContainText('Response stopped');
     await expect(assistant.locator('.message-stopped-early')).toContainText('Stopped.', { timeout: 5000 });
@@ -892,7 +893,7 @@ test.describe('Chat - Stop Streaming on a phone', () => {
     const assistant = page.locator('.message.assistant');
     await expect(assistant.locator('.message-content')).toContainText('Tell me', { timeout: 10000 });
 
-    await page.click('#send-btn.btn-stop', { timeout: 5000, force: true });
+    await clickStop(page);
 
     const note = assistant.locator('.message-stopped-early');
     await expect(note).toContainText('Stopped.', { timeout: 5000 });

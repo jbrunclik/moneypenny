@@ -18,12 +18,27 @@ Every feature's main page follows the same header structure:
 └────────────────────────────────────────────┘
 ```
 
-- **Title row**: Feature icon (SVG, accent color) + gradient `h2` + action buttons (right-aligned)
+- **Width**: the chat column (`max-width: var(--message-max-width)`) with `width: 100%` - as
+  a flex child of `#messages` a page without it shrink-wraps its content and squeezes the
+  header actions against the title
+- **Title row**: Feature icon (SVG, accent color) + `h2` (display face, 600, `--text-primary`;
+  no gradient text) + action buttons (right-aligned, pill-shaped)
 - **Action button**: Accent background, white text, `PLUS_ICON` + label (e.g., "New Program", "New Agent")
 - **Cards**: Grid layout with `auto-fill, minmax(280px, 1fr)`, single column on mobile
-- **Empty state**: Centered text with muted hint
+- **Empty state**: Centered text with muted hint and the ONE create button (the header
+  button is not rendered while the list is empty)
 
 **Reference**: `CommandCenter.ts` (agents), `SportsDashboard.ts` (sports)
+
+### Empty Conversation (Welcome)
+
+`WelcomeMessage.ts` greets by first name ("What's on your mind, Jiří?", nameless before
+auth) - deliberately time-free, since visual baselines would otherwise depend on the hour.
+On desktop the composer is lifted with a transform to sit under the greeting
+(`.main:has(.welcome-message) .input-area`, `--welcome-composer-lift-px`) and slides back
+down when the first message replaces the welcome. Transform only, so `composer-height.ts`
+and scroll anchoring are unaffected; mobile keeps the composer at the bottom (keyboard
+geometry). No suggestion chips.
 
 ### Detail View Header (Program Chat, Agent Conversation)
 

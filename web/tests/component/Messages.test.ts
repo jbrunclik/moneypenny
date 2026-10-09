@@ -236,7 +236,7 @@ describe('Messages - renderMessages', () => {
       renderMessages([]);
 
       const container = document.getElementById('messages');
-      expect(container?.innerHTML).toContain('What can I help with?');
+      expect(container?.innerHTML).toContain('What’s on your mind');
     });
 
     it('does not scroll when rendering empty messages', () => {
