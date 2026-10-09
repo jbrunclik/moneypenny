@@ -1,6 +1,7 @@
 import { getElementById } from '../utils/dom';
 import { CLOSE_ICON } from '../utils/icons';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
+import { attachSheetDismiss } from '../utils/sheet-gesture';
 
 /**
  * Configuration for creating an info popup
@@ -96,6 +97,10 @@ export function createPopup<T>(
 
     // Register with centralized Escape key handler
     registerPopupEscapeHandler(id, close);
+
+    // Mobile bottom sheet: drag the handle/header down to dismiss
+    const content = popup?.querySelector<HTMLElement>('.info-popup-content');
+    if (content) attachSheetDismiss(content, close);
 
     // Listen for custom open events
     window.addEventListener(eventName, ((e: CustomEvent) => {

@@ -22,6 +22,7 @@ const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'btn',
   'btn-icon',
   'chat-header',
+  'claims-sheet__panel',
   'conversation-archive',
   'conversation-delete',
   'conversation-rename',

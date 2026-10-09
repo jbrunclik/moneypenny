@@ -94,6 +94,16 @@ dialog's backdrop root (Filter Effects), so the dialog's own glass sees only the
 colour and turns into flat grey. A new overlay joins those selector lists instead of
 setting its own `rgba(0,0,0,...)` scrim or solid surface.
 
+**On mobile every overlay is one bottom sheet** ("Mobile sheets (shared)" at the end of
+`popups.css`; the claims list matches it in `grounding.css`): a floating card inset
+`--space-2` from the edges and the home indicator, all corners `--radius-lg`, capped at
+85vh, with a grab handle. Confirms and prompts become sheets too, with full-width stacked
+buttons (primary on top). The handle is real: `attachSheetDismiss()` in
+`web/src/utils/sheet-gesture.ts` drags the sheet down to dismiss it, starting only in the
+top `SHEET_GRAB_ZONE_PX` so the body keeps scrolling. A sheet with an input needs a
+`:root.kb-open` lift by `--keyboard-inset` (fixed overlays span the layout viewport, which
+the iOS keyboard covers). Tests: `web/tests/e2e/mobile-sheets.spec.ts`.
+
 ### Spacing
 
 `--space-0-5` 2px, `--space-1` 4px, `--space-1-5` 6px, `--space-2` 8px, `--space-2-5` 10px, `--space-3`

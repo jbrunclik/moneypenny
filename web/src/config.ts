@@ -275,6 +275,31 @@ export const LIGHTBOX_ZOOM_SCALE = 2.5;
 export const LIGHTBOX_ZOOM_MAX_SCALE = 4;
 
 // =============================================================================
+// Bottom sheets (mobile)
+// =============================================================================
+
+/** Height of the grab zone at a sheet's top edge where a drag can start */
+export const SHEET_GRAB_ZONE_PX = 56;
+
+/** A drag down past this share of the sheet's height dismisses it */
+export const SHEET_DISMISS_DISTANCE_RATIO = 0.3;
+
+/** ...or a flick at least this fast (downward), regardless of distance */
+export const SHEET_DISMISS_VELOCITY_PX_PER_MS = 0.5;
+
+/** Below this travel a release is a tap, never a flick */
+export const SHEET_DISMISS_MIN_PX = 24;
+
+/** Velocity is measured over the last stretch of the drag, not its whole length */
+export const SHEET_VELOCITY_WINDOW_MS = 80;
+
+/** Upward drags move the sheet only this fraction of the finger travel */
+export const SHEET_DRAG_UPWARD_RESISTANCE = 0.2;
+
+/** Snap-back / slide-out duration after a release */
+export const SHEET_SETTLE_MS = 200;
+
+// =============================================================================
 // Smooth Scroll Animation
 // =============================================================================
 

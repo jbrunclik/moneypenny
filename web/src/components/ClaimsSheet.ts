@@ -6,6 +6,7 @@ import { CLAIM_FLASH_MS, MOBILE_BREAKPOINT_PX } from '../config';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, ClaimVerdict, Message, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
+import { attachSheetDismiss } from '../utils/sheet-gesture';
 import { closeClaimCard, plainQuote } from './ClaimCard';
 import { displayHost, getMessageAnnotations, getMessageGrounding } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
@@ -87,6 +88,7 @@ export function openClaimsSheet(messageEl: HTMLElement): void {
     if (target) flash(target);
   });
   document.body.appendChild(sheet);
+  if (mobile) attachSheetDismiss(sheet.querySelector<HTMLElement>('.claims-sheet__panel')!, () => closeClaimsSheet(true));
   opener = messageEl.querySelector<HTMLElement>('.grounding-footer');
   sheet.querySelector<HTMLElement>('.claims-sheet__row')?.focus();
   if (!mobile) {

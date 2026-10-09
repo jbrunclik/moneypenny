@@ -14,6 +14,7 @@ import {
   setupSystemPreferenceListener,
 } from '../utils/theme';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
+import { attachSheetDismiss } from '../utils/sheet-gesture';
 import { log, POPUP_ID } from './settings/shared';
 import {
   bindColorSchemeOptions,
@@ -234,6 +235,10 @@ function initSettingsPopup(): void {
 
   // Register with centralized Escape key handler
   registerPopupEscapeHandler(POPUP_ID, closeSettingsPopup);
+
+  // Mobile bottom sheet: drag the handle/header down to dismiss
+  const content = popup.querySelector<HTMLElement>('.info-popup-content');
+  if (content) attachSheetDismiss(content, closeSettingsPopup);
 
   // Toggles, selects and checkboxes apply immediately on change
   popup.addEventListener('change', (e) => {

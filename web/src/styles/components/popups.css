@@ -327,17 +327,7 @@
 
 /* Mobile adjustments for info popup */
 @media (max-width: 768px) {
-    .info-popup {
-        padding: var(--space-2);
-        align-items: flex-end;
-    }
-
-    .info-popup-content {
-        max-height: 70vh;
-        border-bottom-left-radius: 0;
-        border-bottom-right-radius: 0;
-        margin-bottom: env(safe-area-inset-bottom, 0);
-    }
+    /* Bottom-sheet shape: see "Mobile sheets (shared)" at the end of this file */
 
     /* Keyboard open (iOS): the fixed bottom-sheet otherwise sits BEHIND the
        keyboard, trapping a focused field (e.g. Custom Instructions) so it can't
@@ -2304,5 +2294,76 @@
     .action-sheet {
         border-radius: var(--radius-md);
         max-width: 360px;
+    }
+}
+
+/* ----------------------------------------
+   Mobile sheets (shared)
+   ----------------------------------------
+   Info popups, confirms/prompts and the action sheet are ONE sheet on mobile
+   (the claims list matches it in grounding.css): an iOS 26-style floating
+   card inset from the screen edges and the home indicator, all corners
+   rounded, capped at 85% of the viewport, with a grab handle. The handle is
+   real - utils/sheet-gesture.ts drags the sheet down to dismiss it. */
+@media (max-width: 768px) {
+    .info-popup,
+    .modal-container,
+    .action-sheet-overlay {
+        align-items: flex-end;
+        padding: 0 var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+    }
+
+    .info-popup-content,
+    .modal,
+    .action-sheet {
+        position: relative;
+        width: 100%;
+        max-width: none;
+        max-height: 85vh;
+        border-radius: var(--radius-lg);
+    }
+
+    .info-popup-content::before,
+    .modal::before,
+    .action-sheet::before {
+        content: '';
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        width: 36px;
+        height: 5px;
+        border-radius: var(--radius-full);
+        background: var(--border);
+        transform: translateX(-50%);
+        pointer-events: none;
+    }
+
+    /* Room for the handle above the content */
+    .modal,
+    .action-sheet {
+        padding-top: var(--space-5);
+    }
+
+    .action-sheet {
+        padding-bottom: var(--space-2);
+    }
+
+    /* Confirms on a sheet: thumb-sized, full-width, primary on top */
+    .modal-actions {
+        flex-direction: column-reverse;
+        gap: var(--space-2);
+    }
+
+    .modal-actions button {
+        width: 100%;
+        min-height: 48px;
+    }
+
+    /* Keyboard open (prompt sheets): the fixed overlay spans the layout
+       viewport, so lift the sheet above the keyboard like the info popups
+       (--keyboard-inset from core/keyboard-viewport.ts already includes the
+       standalone accessory bar) */
+    :root.kb-open .modal-container {
+        padding-bottom: calc(var(--space-2) + var(--keyboard-inset, 0px));
     }
 }

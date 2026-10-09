@@ -30,6 +30,7 @@
     .qa-editor,
     .sports-modal,
     .language-modal,
+    .claims-sheet__panel,
     .toast,
     .scroll-to-bottom {
         -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
@@ -68,6 +69,7 @@
     .qa-editor,
     .sports-modal,
     .language-modal,
+    .claims-sheet__panel,
     .toast,
     .scroll-to-bottom {
         background-color: var(--glass-bg-strong);
@@ -83,7 +85,8 @@
     .agent-editor,
     .qa-editor,
     .sports-modal,
-    .language-modal {
+    .language-modal,
+    .claims-sheet__panel {
         background-color: var(--glass-bg-dialog);
         -webkit-backdrop-filter: blur(var(--glass-blur-dialog)) saturate(180%);
         backdrop-filter: blur(var(--glass-blur-dialog)) saturate(180%);
@@ -128,6 +131,7 @@
     .qa-editor,
     .sports-modal,
     .language-modal,
+    .claims-sheet__panel,
     .toast,
     .scroll-to-bottom,
     .sidebar {

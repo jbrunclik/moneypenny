@@ -6,6 +6,7 @@
 import { escapeHtml } from '../utils/dom';
 import { hapticTick } from '../utils/haptics';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
+import { attachSheetDismiss } from '../utils/sheet-gesture';
 
 export interface SheetAction {
   label: string;
@@ -57,6 +58,8 @@ export function showActionSheet(title: string, actions: SheetAction[]): void {
   });
 
   document.body.appendChild(overlay);
+  const sheet = overlay.querySelector<HTMLElement>('.action-sheet');
+  if (sheet) attachSheetDismiss(sheet, closeActionSheet);
   hapticTick();
 }
 

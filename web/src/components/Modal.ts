@@ -32,6 +32,7 @@
 import { escapeHtml } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import { CLOSE_ICON } from '../utils/icons';
+import { attachSheetDismiss } from '../utils/sheet-gesture';
 
 // Modal container element
 let modalContainer: HTMLDivElement | null = null;
@@ -169,6 +170,18 @@ export function closeModal(result: boolean | string | null = null): void {
 }
 
 /**
+ * Dismiss without choosing (overlay, close button, Escape, swipe down):
+ * an alert just closes, a confirm resolves false, a prompt null.
+ */
+function dismissModal(): void {
+  if (modalType === 'alert') {
+    closeModal();
+  } else {
+    closeModal(modalType === 'confirm' ? false : null);
+  }
+}
+
+/**
  * Handle click events on modal elements.
  */
 function handleModalClick(e: MouseEvent): void {
@@ -176,21 +189,13 @@ function handleModalClick(e: MouseEvent): void {
 
   // Handle overlay click (close modal)
   if (target.classList.contains('modal-container')) {
-    if (modalType === 'alert') {
-      closeModal();
-    } else {
-      closeModal(modalType === 'confirm' ? false : null);
-    }
+    dismissModal();
     return;
   }
 
   // Handle close button click
   if (target.closest('.modal-close')) {
-    if (modalType === 'alert') {
-      closeModal();
-    } else {
-      closeModal(modalType === 'confirm' ? false : null);
-    }
+    dismissModal();
     return;
   }
 
@@ -223,11 +228,7 @@ function handleModalKeydown(e: KeyboardEvent): void {
   // Escape to close
   if (e.key === 'Escape') {
     e.preventDefault();
-    if (modalType === 'alert') {
-      closeModal();
-    } else {
-      closeModal(modalType === 'confirm' ? false : null);
-    }
+    dismissModal();
     return;
   }
 
@@ -299,6 +300,9 @@ function renderModal(options: {
       </div>
     </div>
   `;
+  // A bottom sheet on mobile: drag it down to dismiss
+  const modal = modalContainer.querySelector<HTMLElement>('.modal');
+  if (modal) attachSheetDismiss(modal, dismissModal);
 }
 
 /**
