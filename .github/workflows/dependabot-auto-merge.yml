@@ -33,6 +33,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          # The commit the passing Tests run tested (a 40-char SHA from the event)
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           REPO: ${{ github.repository }}
         run: |
           pr=$(gh pr list --repo "$REPO" --head "$HEAD_BRANCH" \
@@ -49,20 +51,24 @@ jobs:
           # auto-merge since this workflow was rewritten (Aug 1 2026) failed
           # after reporting "squash-merging", leaving PRs open indefinitely.
           #
-          # Retry ONLY the merge race: several Dependabot PRs finishing Tests
-          # together merge at once and the losers get "Base branch was
-          # modified" (Oct 2026: #278 stayed open after one such loss, since
-          # nothing re-runs this job). Any other error still fails the job.
-          for attempt in 1 2 3 4; do
-            if out=$(gh pr merge --squash --repo "$REPO" "$pr" 2>&1); then
-              echo "$out"
-              exit 0
-            fi
+          # --match-head-commit: merge only the commit this Tests run tested -
+          # a push to the PR after the run must not be merged untested.
+          if out=$(gh pr merge --squash --repo "$REPO" --match-head-commit "$HEAD_SHA" "$pr" 2>&1); then
             echo "$out"
-            if ! grep -q "Base branch was modified" <<<"$out"; then
-              exit 1
-            fi
-            echo "Merge raced another merge (attempt $attempt); retrying."
-            sleep $((attempt * 15))
-          done
+            exit 0
+          fi
+          echo "$out"
+          # Several Dependabot PRs finishing Tests together merge at once and
+          # the losers get "Base branch was modified" (Oct 2026: #278 stayed
+          # open, since nothing re-ran this job). Do NOT retry the merge: main
+          # changed, so the PR + new main combination is untested. Ask
+          # Dependabot to rebase instead - Tests re-run on the new base and
+          # this job fires again when they pass. (If Dependabot ignores
+          # commands from github-actions[bot], the PR just stays open - the
+          # same fail-closed result as before.)
+          if grep -q "Base branch was modified" <<<"$out"; then
+            echo "Lost a merge race; requesting a rebase so Tests re-run on the new main."
+            gh pr comment "$pr" --repo "$REPO" --body "@dependabot rebase"
+            exit 0
+          fi
           exit 1
