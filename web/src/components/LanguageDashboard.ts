@@ -42,9 +42,15 @@ export function createLanguageProgramsElement(
         <span class="language-programs-title-icon">${LANGUAGE_ICON}</span>
         <h2>Language Learning</h2>
       </div>
-      <div class="language-programs-actions">
+      ${
+        // Empty: the empty state's "Create your first program" is the only
+        // create button (a header twin did the same thing)
+        programs.length > 0
+          ? `<div class="language-programs-actions">
         <button class="language-add-btn" title="New program">${PLUS_ICON}<span>New Program</span></button>
-      </div>
+      </div>`
+          : ''
+      }
     </div>
   `;
   container.appendChild(header);

@@ -45,9 +45,15 @@ export function createSportsProgramsElement(
         <span class="sports-programs-title-icon">${SPORTS_ICON}</span>
         <h2>Sports Training</h2>
       </div>
-      <div class="sports-programs-actions">
+      ${
+        // Empty: the empty state's "Create your first program" is the only
+        // create button (a header twin did the same thing)
+        programs.length > 0
+          ? `<div class="sports-programs-actions">
         <button class="sports-add-btn" title="New program">${PLUS_ICON}<span>New Program</span></button>
-      </div>
+      </div>`
+          : ''
+      }
     </div>
   `;
   container.appendChild(header);

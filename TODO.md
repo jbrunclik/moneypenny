@@ -31,7 +31,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **No thinking bar while the location fix runs** (Oct 9 2026) - with location sharing on, `dispatchSend` awaits `getClientLocation()` (up to `LOCATION_FIX_TIMEOUT_MS` = 3s, cached 5 min) BEFORE the streaming bubble exists, so the user sees only their own message and "nothing happens". Show the thinking bar first and resolve the fix in parallel with stream setup.
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Desktop dialog header anatomy (material, scrim, widths, radius and the mobile sheet shipped): one header (icon, 16/600 title, 32px ghost close aligned to the title) across Modal/InfoPopup/AgentEditor/QA editor/Sports/Language - Modal floats its X above the title, QA editor uses an 18px title
-  - Shared page header, page max-width and empty-state component across Planner, Sports, Data and Command Center (Data's gradient title goes)
+  - One empty-state component across Planner, Sports/Language, Data and Command Center (page width, header and buttons shipped): icon + title + hint + optional CTA; Planner's title is still 24px without an icon
   - Accent only on send + user bubble: New Chat, the agents/sports pills and badges compete with them (New Chat becomes quieter)
   - Empty chat: personal greeting with the composer centred under it (no suggestion chips)
   - Tool/thinking disclosure as an inline summary ("Searched the web · 3 sources") instead of the grey "Show details" bar

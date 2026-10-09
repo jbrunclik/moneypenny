@@ -94,7 +94,11 @@
 
 .command-center {
     padding: var(--space-4);
-    max-width: 900px;
+    /* Feature pages share the chat column's width. width:100% matters: as a
+       flex-column child of #messages the page otherwise shrink-wraps its
+       content, squeezing the header actions against the title */
+    width: 100%;
+    max-width: var(--message-max-width);
     margin: 0 auto;
 }
 

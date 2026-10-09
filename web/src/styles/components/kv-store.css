@@ -11,7 +11,8 @@
 
 .kv-store {
     padding: var(--space-4);
-    max-width: min(900px, 100%);
+    /* Feature pages share the chat column's width */
+    max-width: min(var(--message-max-width), 100%);
     margin: 0 auto;
     /* As a flex-column child of #messages the container otherwise sizes
        to the min-content of nowrap children (long mono namespace names),
@@ -118,13 +119,13 @@
 }
 
 .kv-store-title h2 {
+    /* Same title as the other feature pages (was gradient text) */
     font-size: var(--font-size-2xl);
-    font-weight: 700;
     margin: 0;
-    background: linear-gradient(135deg, var(--text-primary), var(--accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-family: var(--font-family-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
 }
 
 .kv-store-icon {
@@ -150,14 +151,15 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
+    /* Same pill as the Command Center / Sports header buttons */
+    padding: var(--space-2) var(--space-4);
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-full);
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-ui);
     font-weight: 500;
 }
 
