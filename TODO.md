@@ -32,7 +32,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Desktop dialog header anatomy (material, scrim, widths, radius and the mobile sheet shipped): one header (icon, 16/600 title, 32px ghost close aligned to the title) across Modal/InfoPopup/AgentEditor/QA editor/Sports/Language - Modal floats its X above the title, QA editor uses an 18px title
   - Shared page header, page max-width and empty-state component across Planner, Sports, Data and Command Center (Data's gradient title goes)
-  - Typography: collapse sub-16px sizes to 12/13/14, 13px minimum for helper text; accent only on send + user bubble (New Chat becomes quieter)
+  - Accent only on send + user bubble: New Chat, the agents/sports pills and badges compete with them (New Chat becomes quieter)
   - Empty chat: personal greeting with the composer centred under it (no suggestion chips)
   - Tool/thinking disclosure as an inline summary ("Searched the web · 3 sources") instead of the grey "Show details" bar
   - Quiz: correct/incorrect feedback on answered questions, progress in batches

@@ -75,7 +75,7 @@ describe('action rows', () => {
       action: { type: 'deep_research', offer_message_id: 'o1', items: 5, minutes: 6 },
     };
     render([offer, start]);
-    expect(row('u3').querySelector('.action-row__text')!.textContent).toBe('Deep research started · 5 questions · ~6 min');
+    expect(row('u3').querySelector('.action-row__text')!.textContent).toBe('Deep research started · 5 questions · ~6\u00a0min'); // "~6 min" never splits across lines
     row('u3').querySelector<HTMLButtonElement>('.action-row__source')!.click();
     expect(row('o1').classList.contains('message--flash')).toBe(true);
   });

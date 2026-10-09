@@ -26,7 +26,7 @@ function sourceLoaded(id: string | null): boolean {
 function rowText(action: MessageAction): string {
   if (action.type === 'verify_claim') return `Looking up “${action.quote}”`;
   const parts = ['Deep research started', `${action.items} ${action.items === 1 ? 'question' : 'questions'}`];
-  if (action.minutes) parts.push(`~${action.minutes} min`);
+  if (action.minutes) parts.push(`~${action.minutes}\u00a0min`); // NBSP: "~5 min" never splits across lines
   return parts.join(' · ');
 }
 

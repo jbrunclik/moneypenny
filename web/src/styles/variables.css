@@ -220,9 +220,10 @@
     --font-family-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
 
     --font-size-2xs: 0.5rem;     /* 8px - dropdown arrows */
-    --font-size-xs: 0.6875rem;   /* 11px */
-    --font-size-sm: 0.75rem;     /* 12px */
-    --font-size-badge: 0.7rem;   /* ~11px - badge numbers */
+    /* Smallest readable steps (Oct 2026: were 11/12px with a ~11.2px badge
+       size - metadata sat below comfortable reading size app-wide) */
+    --font-size-xs: 0.75rem;     /* 12px - badges, timestamps, captions */
+    --font-size-sm: 0.8125rem;   /* 13px - helper text, secondary meta */
     --font-size-ui: 0.875rem;    /* 14px - UI chrome default */
     --font-size-md: 0.9375rem;   /* 15px */
     --font-size-base: 1rem;      /* 16px - body/message text */

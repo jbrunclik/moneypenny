@@ -116,9 +116,8 @@ the iOS keyboard covers). Tests: `web/tests/e2e/mobile-sheets.spec.ts`.
 
 ```css
 --font-size-2xs: 0.5rem;     /* 8px - dropdown arrows */
---font-size-xs: 0.6875rem;   /* 11px */
---font-size-sm: 0.75rem;     /* 12px */
---font-size-badge: 0.7rem;   /* ~11px - badge numbers */
+--font-size-xs: 0.75rem;     /* 12px - badges, timestamps, captions */
+--font-size-sm: 0.8125rem;   /* 13px - helper text, secondary meta */
 --font-size-ui: 0.875rem;    /* 14px - UI chrome default */
 --font-size-md: 0.9375rem;   /* 15px */
 --font-size-base: 1rem;      /* 16px - body/message text */
@@ -128,7 +127,8 @@ the iOS keyboard covers). Tests: `web/tests/e2e/mobile-sheets.spec.ts`.
 --font-size-4xl: 2rem;       /* 32px */
 ```
 
-There is no `--font-size-lg`. Line heights: `--line-height` 1.45,
+There is no `--font-size-lg`. 12px is the floor for readable text (Oct 2026: xs/sm were
+11/12px and metadata sat below comfortable reading size); `2xs` is for glyphs only. Line heights: `--line-height` 1.45,
 `--line-height-relaxed` 1.6.
 
 **Families** (self-hosted via Fontsource, latin + latin-ext for Czech; no external font

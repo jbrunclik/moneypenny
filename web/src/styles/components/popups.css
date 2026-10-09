@@ -404,7 +404,7 @@
     background-color: var(--accent);
     color: white;
     border-radius: var(--radius-full);
-    font-size: var(--font-size-badge);
+    font-size: var(--font-size-xs);
     font-weight: 600;
     margin-top: 2px;
 }
@@ -417,7 +417,7 @@
 }
 
 .source-url {
-    font-size: var(--font-size-badge);
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     white-space: nowrap;
     opacity: 0.7;
@@ -496,7 +496,7 @@
     background-color: var(--accent);
     color: white;
     border-radius: var(--radius-full);
-    font-size: var(--font-size-badge);
+    font-size: var(--font-size-xs);
     font-weight: 600;
     margin-top: 2px;
 }

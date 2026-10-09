@@ -487,15 +487,27 @@
     margin-left: auto;
 }
 
+/* Inline flow, not flex: on a narrow screen the row wraps like one sentence
+   (icon, text and "from the offer above" flowing together). As a wrapping
+   flex row the long text dropped to its own line, stranding the icon. */
 .action-row {
-    flex-wrap: wrap;
+    display: inline-block;
+    /* A two-line row keeps rounded ends without turning into a blob */
+    border-radius: var(--radius-lg);
 }
 
 .action-row__icon {
     display: inline-flex;
     width: 14px;
     height: 14px;
+    margin-right: var(--space-1-5);
+    vertical-align: -2px;
     color: var(--accent-hover);
+}
+
+.action-row__source {
+    /* One word space before the "·", like the separators inside the text */
+    margin-left: 0.25em;
 }
 
 .action-row__icon svg {
