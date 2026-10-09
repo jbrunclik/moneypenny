@@ -14,6 +14,7 @@ export interface GroundingStrings {
   lookedUpBelow: string;
   lookUpMessage: (quote: string) => string;
   sheetTitle: string;
+  sourceNumber: (n: number) => string;
   sheetMeta: (pages: number, sourced: number, total: number) => string;
 }
 
@@ -30,6 +31,7 @@ const EN: GroundingStrings = {
   lookedUpBelow: 'Looked up below ↓',
   lookUpMessage: (quote) => `Look up and verify: ${quote}`,
   sheetTitle: 'Source check',
+  sourceNumber: (n) => `Source ${n}`,
   sheetMeta: (pages, sourced, total) =>
     `Compared with ${pages} ${pages === 1 ? 'page' : 'pages'} · ${sourced} of ${total} sourced`,
 };

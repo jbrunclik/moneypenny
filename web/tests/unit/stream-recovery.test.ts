@@ -471,7 +471,7 @@ describe('stream-recovery', () => {
       await recoveryPromise;
 
       expect(mockToastError).toHaveBeenCalledWith(
-        'Response may be incomplete. Tap to reload.',
+        'Response may be incomplete.',
         expect.objectContaining({
           action: expect.objectContaining({
             label: 'Reload',

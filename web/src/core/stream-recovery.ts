@@ -314,7 +314,7 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
     loadingToast.dismiss();
 
     // Show error with reload option
-    toast.error('Response may be incomplete. Tap to reload.', {
+    toast.error('Response may be incomplete.', { // the Reload action says what to do - "tap" was wrong on desktop
       action: {
         label: 'Reload',
         onClick: () => {

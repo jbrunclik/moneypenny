@@ -173,7 +173,7 @@ test.describe('Visual: Stream Recovery - Desktop', () => {
     await injectToast(
       page,
       'error',
-      'Response may be incomplete. Tap to reload.',
+      'Response may be incomplete.',
       ALERT_CIRCLE_ICON,
       'Reload'
     );
@@ -227,7 +227,7 @@ test.describe('Visual: Stream Recovery - Mobile', () => {
     await injectToast(
       page,
       'error',
-      'Response may be incomplete. Tap to reload.',
+      'Response may be incomplete.',
       ALERT_CIRCLE_ICON,
       'Reload'
     );

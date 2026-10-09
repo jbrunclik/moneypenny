@@ -21,11 +21,11 @@ function storedMessage(messageEl: HTMLElement): Message | undefined {
     : undefined;
 }
 
-/** "2 · example.cz" for a cited claim (the domain when the source is known). */
+/** "2 · example.cz" for a cited claim; "Source 2" when the source list is unknown. */
 function citation(ann: ClaimAnnotation, sources: Source[] | undefined): string {
   if (!ann.source) return '';
   const url = sources?.[ann.source - 1]?.url;
-  return url ? `${ann.source} · ${displayHost(url)}` : `${ann.source}`;
+  return url ? `${ann.source} · ${displayHost(url)}` : groundingStrings().sourceNumber(ann.source);
 }
 
 function rowHtml(ann: ClaimAnnotation, index: number, sources?: Source[]): string {
