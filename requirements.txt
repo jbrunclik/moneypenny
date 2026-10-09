@@ -46,7 +46,7 @@ cryptography>=50.0.1
 yoyo-migrations>=9.0
 
 # Development dependencies
-ruff>=0.16.9  # 0.16 formats code blocks inside Markdown (skills) - keep local and CI alike
+ruff>=0.16.10  # 0.16 formats code blocks inside Markdown (skills) - keep local and CI alike
 mypy>=2.3.1
 types-requests>=2.33.0.20260906
 types-croniter>=6.2.4.20260711
