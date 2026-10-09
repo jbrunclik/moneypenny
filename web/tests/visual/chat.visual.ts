@@ -118,7 +118,9 @@ test.describe('Visual: Chat Interface', () => {
     // Wait for dropdown to be visible
     await expect(page.locator('#model-dropdown')).not.toHaveClass(/hidden/);
 
-    await expect(page.locator('.input-toolbar')).toHaveScreenshot('model-selector.png');
+    // The open menu itself (it floats above the toolbar, outside its box -
+    // a toolbar-only screenshot never showed it)
+    await expect(page.locator('#model-dropdown')).toHaveScreenshot('model-selector.png');
   });
 });
 

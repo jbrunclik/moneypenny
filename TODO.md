@@ -31,7 +31,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **No thinking bar while the location fix runs** (Oct 9 2026) - with location sharing on, `dispatchSend` awaits `getClientLocation()` (up to `LOCATION_FIX_TIMEOUT_MS` = 3s, cached 5 min) BEFORE the streaming bubble exists, so the user sees only their own message and "nothing happens". Show the thinking bar first and resolve the fix in parallel with stream setup.
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Sports card meta line; Undo toast instead of a red confirm for move-to-trash
-  - Visual coverage (dark-theme baselines shipped in dark.visual.ts): model-selector dropdown (the screenshot clips to the toolbar), mobile swipe actions on a real touch context (the test inlines stale styles), login with the real Google button
+  - Visual coverage: login with the real Google button (Google's script never loads in tests; the fallback state is covered)
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
 - [ ] **Mermaid diagrams in markdown** (Sep 30 2026 Desktop-parity review) - render ```` ```mermaid ```` blocks client-side, lazy-loaded as its own vendor chunk like KaTeX; fall back to the code block on parse errors; theme for light/dark.

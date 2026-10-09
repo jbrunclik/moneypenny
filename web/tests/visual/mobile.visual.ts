@@ -134,17 +134,17 @@ test.describe('Visual: Mobile iPad', () => {
   });
 });
 
+// Helper to create a new conversation on mobile (must open sidebar first)
+async function createNewConversationMobile(page: import('@playwright/test').Page): Promise<void> {
+  await page.waitForSelector('#menu-btn');
+  await page.click('#menu-btn');
+  await page.waitForSelector('.sidebar-overlay.visible');
+  await page.click('#new-chat-btn');
+  await page.waitForSelector('.welcome-message');
+}
+
 test.describe('Visual: Mobile Interactions', () => {
   test.use({ viewport: { width: 375, height: 812 } });
-
-  // Helper to create a new conversation on mobile (must open sidebar first)
-  async function createNewConversationMobile(page: import('@playwright/test').Page) {
-    await page.waitForSelector('#menu-btn');
-    await page.click('#menu-btn');
-    await page.waitForSelector('.sidebar-overlay.visible');
-    await page.click('#new-chat-btn');
-    await page.waitForSelector('.welcome-message');
-  }
 
   // Note: Conversation list with active item test removed - the sidebar with conversations
   // is covered by mobile-sidebar-open test, and testing active state is difficult on mobile
@@ -285,6 +285,12 @@ test.describe('Visual: Mobile Interactions', () => {
     await expect(assistantMessage).toHaveScreenshot('mobile-streaming-message.png');
   });
 
+});
+
+test.describe('Visual: Mobile swipe actions (touch device)', () => {
+  // Swipe actions only render under (hover: none): emulate a real phone
+  test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+
   test('swipe actions revealed on conversation', async ({ page }) => {
     await page.goto('/');
     await createNewConversationMobile(page);
@@ -314,72 +320,13 @@ test.describe('Visual: Mobile Interactions', () => {
     await page.waitForSelector('.sidebar-overlay.visible');
     await page.waitForTimeout(300);
 
-    // Force touch device styles and set swiped state
-    // The swipe actions are only visible on touch devices (hover: none media query)
+    // Reveal the actions the way core/gestures.ts does after a swipe; the
+    // real (hover: none) styles apply because this block runs on a touch
+    // device (hasTouch + isMobile) - no inlined copies of them
     await page.evaluate(() => {
-      const wrapper = document.querySelector('.conversation-item-wrapper');
-      const item = document.querySelector('.conversation-item');
-      const actions = document.querySelector('.conversation-actions-swipe');
-
-      if (wrapper && item && actions) {
-        // Force the touch-device styles that are normally in @media (hover: none)
-        const actionsEl = actions as HTMLElement;
-        actionsEl.style.display = 'flex';
-        actionsEl.style.position = 'absolute';
-        actionsEl.style.right = '0';
-        actionsEl.style.top = '0';
-        actionsEl.style.bottom = '0';
-        actionsEl.style.width = '160px';
-        actionsEl.style.opacity = '1';
-        actionsEl.style.pointerEvents = 'auto';
-        actionsEl.style.zIndex = '1';
-
-        // Style the buttons
-        const renameBtn = actionsEl.querySelector(
-          '.conversation-rename-swipe'
-        ) as HTMLElement;
-        const deleteBtn = actionsEl.querySelector(
-          '.conversation-delete-swipe'
-        ) as HTMLElement;
-        if (renameBtn) {
-          renameBtn.style.width = '80px';
-          renameBtn.style.display = 'flex';
-          renameBtn.style.flexDirection = 'column';
-          renameBtn.style.alignItems = 'center';
-          renameBtn.style.justifyContent = 'center';
-          renameBtn.style.backgroundColor = 'var(--accent)';
-          renameBtn.style.color = 'white';
-          renameBtn.style.border = 'none';
-          // Size the SVG icon
-          const renameSvg = renameBtn.querySelector('svg') as SVGElement;
-          if (renameSvg) {
-            renameSvg.style.width = '20px';
-            renameSvg.style.height = '20px';
-          }
-        }
-        if (deleteBtn) {
-          deleteBtn.style.width = '80px';
-          deleteBtn.style.display = 'flex';
-          deleteBtn.style.flexDirection = 'column';
-          deleteBtn.style.alignItems = 'center';
-          deleteBtn.style.justifyContent = 'center';
-          deleteBtn.style.backgroundColor = 'var(--error)';
-          deleteBtn.style.color = 'white';
-          deleteBtn.style.border = 'none';
-          // Size the SVG icon
-          const deleteSvg = deleteBtn.querySelector('svg') as SVGElement;
-          if (deleteSvg) {
-            deleteSvg.style.width = '20px';
-            deleteSvg.style.height = '20px';
-          }
-        }
-
-        // Apply the swiped transform
-        (item as HTMLElement).style.transform = 'translateX(-160px)';
-        (item as HTMLElement).style.transition = 'none';
-        wrapper.classList.add('swiping');
-      }
+      document.querySelector('.conversation-item-wrapper')?.classList.add('swiped');
     });
+    await page.waitForTimeout(350);
 
     // Wait for render
     await page.waitForTimeout(100);
@@ -427,80 +374,19 @@ test.describe('Visual: Mobile Interactions', () => {
     await page.waitForSelector('.sidebar-overlay.visible');
     await page.waitForTimeout(300);
 
-    // Add unread badge to first conversation, force touch styles, and set swiped state
+    // Unread badge on the other conversation, then reveal its swipe actions
+    // the way core/gestures.ts does (real touch-device styles, see above)
     await page.evaluate(() => {
-      // Find the non-active conversation (first one)
-      const wrapper = document.querySelector(
-        '.conversation-item-wrapper:not(.active)'
-      );
+      const wrapper = document.querySelector('.conversation-item-wrapper:not(.active)');
       const item = wrapper?.querySelector('.conversation-item');
-      const actions = wrapper?.querySelector('.conversation-actions-swipe');
-
-      if (wrapper && item && actions) {
-        // Add unread badge
-        const badge = document.createElement('span');
-        badge.className = 'unread-badge';
-        badge.textContent = '5';
-        item.insertBefore(badge, item.querySelector('.conversation-time')); // same slot Sidebar.ts renders it in
-
-        // Force the touch-device styles that are normally in @media (hover: none)
-        const actionsEl = actions as HTMLElement;
-        actionsEl.style.display = 'flex';
-        actionsEl.style.position = 'absolute';
-        actionsEl.style.right = '0';
-        actionsEl.style.top = '0';
-        actionsEl.style.bottom = '0';
-        actionsEl.style.width = '160px';
-        actionsEl.style.opacity = '1';
-        actionsEl.style.pointerEvents = 'auto';
-        actionsEl.style.zIndex = '1';
-
-        // Style the buttons
-        const renameBtn = actionsEl.querySelector(
-          '.conversation-rename-swipe'
-        ) as HTMLElement;
-        const deleteBtn = actionsEl.querySelector(
-          '.conversation-delete-swipe'
-        ) as HTMLElement;
-        if (renameBtn) {
-          renameBtn.style.width = '80px';
-          renameBtn.style.display = 'flex';
-          renameBtn.style.flexDirection = 'column';
-          renameBtn.style.alignItems = 'center';
-          renameBtn.style.justifyContent = 'center';
-          renameBtn.style.backgroundColor = 'var(--accent)';
-          renameBtn.style.color = 'white';
-          renameBtn.style.border = 'none';
-          // Size the SVG icon
-          const renameSvg = renameBtn.querySelector('svg') as SVGElement;
-          if (renameSvg) {
-            renameSvg.style.width = '20px';
-            renameSvg.style.height = '20px';
-          }
-        }
-        if (deleteBtn) {
-          deleteBtn.style.width = '80px';
-          deleteBtn.style.display = 'flex';
-          deleteBtn.style.flexDirection = 'column';
-          deleteBtn.style.alignItems = 'center';
-          deleteBtn.style.justifyContent = 'center';
-          deleteBtn.style.backgroundColor = 'var(--error)';
-          deleteBtn.style.color = 'white';
-          deleteBtn.style.border = 'none';
-          // Size the SVG icon
-          const deleteSvg = deleteBtn.querySelector('svg') as SVGElement;
-          if (deleteSvg) {
-            deleteSvg.style.width = '20px';
-            deleteSvg.style.height = '20px';
-          }
-        }
-
-        // Apply the swiped transform
-        (item as HTMLElement).style.transform = 'translateX(-160px)';
-        (item as HTMLElement).style.transition = 'none';
-        wrapper.classList.add('swiping');
-      }
+      if (!wrapper || !item) return;
+      const badge = document.createElement('span');
+      badge.className = 'unread-badge';
+      badge.textContent = '5';
+      item.insertBefore(badge, item.querySelector('.conversation-time')); // same slot Sidebar.ts renders it in
+      wrapper.classList.add('swiped');
     });
+    await page.waitForTimeout(350);
 
     // Wait for render
     await page.waitForTimeout(100);
