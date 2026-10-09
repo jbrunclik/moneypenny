@@ -553,3 +553,33 @@
         height: 40px;
     }
 }
+
+/* ----------------------------------------
+   Touch hit areas
+   ----------------------------------------
+   Composer and header controls draw at 30-36px; on touch screens give each
+   an invisible 44px hit area (Apple's minimum) instead of growing the
+   buttons, which would change the composer height and its keyboard
+   geometry. ::before, because .btn-send/.btn-stop use ::after for the
+   upload ring. */
+@media (pointer: coarse) {
+    .btn-toolbar,
+    .btn-send,
+    .btn-stop,
+    .mobile-header .btn-icon {
+        position: relative;
+    }
+
+    .btn-toolbar::before,
+    .btn-send::before,
+    .btn-stop::before,
+    .mobile-header .btn-icon::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: max(100%, 44px);
+        height: max(100%, 44px);
+        transform: translate(-50%, -50%);
+    }
+}

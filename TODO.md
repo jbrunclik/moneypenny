@@ -33,7 +33,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Desktop dialog header anatomy (material, scrim, widths, radius and the mobile sheet shipped): one header (icon, 16/600 title, 32px ghost close aligned to the title) across Modal/InfoPopup/AgentEditor/QA editor/Sports/Language - Modal floats its X above the title, QA editor uses an 18px title
   - One empty-state component across Planner, Sports/Language, Data and Command Center (page width, header and buttons shipped): icon + title + hint + optional CTA; Planner's title is still 24px without an icon
   - Quiz batches: a "1/3" progress indicator (multiple-choice right/wrong feedback shipped)
-  - floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash; 44px mobile tap targets
+  - floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash
   - Visual coverage (dark-theme baselines shipped in dark.visual.ts): model-selector dropdown (the screenshot clips to the toolbar), mobile swipe actions on a real touch context (the test inlines stale styles), login with the real Google button
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
@@ -67,6 +67,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Code quality & tooling
 
+- [ ] **CI flake: `database is locked` at test setup** (Oct 9 2026) - run 37932572483 (20e45b1): `TestStart.test_start_logs_the_edits_and_time_to_decide` errored in the `test_user` fixture when `connection_pool._create_connection` ran `PRAGMA journal_mode=WAL` (`sqlite3.OperationalError: database is locked`); 2972 passed. The fixture's DB lives in the repo root (`files.db` blob store too), so a leftover connection/WAL from an earlier test may hold the lock. Check whether that test (or its neighbours) leaves a thread connection open; consider a busy_timeout before the WAL pragma.
 - [ ] **WebKit flake: pin moves a conversation to the Pinned group** (Oct 9 2026) - `conversation.spec.ts` "pin moves a conversation..." failed once in a full `make test-all` (first group label stayed "Today" for 10s; the server log shows NO pin request from webkit, so the click on the hover-revealed `[data-pin-id]` never landed). Passed 5/5 alone and 16/16 under `--repeat-each=16 --workers=8`. Suspect a sidebar re-render (title/cost update after the 2nd send) between hover and click; capture a trace on the next occurrence.
 - [ ] **Evals share the dev blob store** (Oct 3 2026) - `isolate_environment()` in `evals/run.py` points `DATABASE_PATH` at a temp dir but not `BLOB_STORAGE_PATH`, so eval runs (attachments, generated files) write into the repo's `files.db`. Point it at the same temp dir.
 - [ ] **Eval harness `_run_case` is ~200 lines** - split setup (fixtures, memories, seed conversation, sports context), the turn, and judging/pricing into helpers.

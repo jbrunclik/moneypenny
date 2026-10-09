@@ -420,3 +420,11 @@ For real iOS testing, use Xcode Simulator or physical devices. Note that some iO
 - [Scroll Behavior](scroll-behavior.md) - Scroll handling including mobile considerations
 - [Components](components.md) - UI component architecture
 - [Testing](../testing.md) - Comprehensive testing documentation
+
+## Touch Targets
+
+Composer and header controls draw at 30-36px. Under `@media (pointer: coarse)` each gets an
+invisible 44px hit area (`::before`, centred - `buttons.css` "Touch hit areas") instead of a
+bigger button: growing the buttons would change the composer height and with it the
+keyboard geometry. `.btn-send`/`.btn-stop` keep `::after` for the upload ring. Test:
+`web/tests/e2e/touch-targets.spec.ts`.
