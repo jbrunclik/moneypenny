@@ -99,6 +99,7 @@
     --accent: var(--color-brand-500);
     --accent-hover: var(--color-brand-400);
     --accent-muted: rgba(87, 83, 232, 0.15);
+    --accent-text: var(--color-brand-300);   /* accent-coloured text on a muted fill */
 
     /* Borders */
     --border: var(--color-neutral-600);
@@ -314,6 +315,7 @@
     /* Accent adjustments for light theme */
     --accent-hover: var(--color-brand-600);
     --accent-muted: rgba(87, 83, 232, 0.1);
+    --accent-text: var(--color-brand-600);
 
     /* Badge backgrounds for light theme */
     --color-success-900: rgba(34, 197, 94, 0.12);

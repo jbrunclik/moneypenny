@@ -59,6 +59,19 @@
     background-color: var(--accent-hover);
 }
 
+/* Sidebar New Chat: a tinted button, not solid accent - solid indigo is kept
+   for send and the user's bubble so those stay the primary signals */
+.btn-new-chat {
+    background-color: var(--accent-muted);
+    color: var(--accent-text);
+    font-weight: 600;
+}
+
+.btn-new-chat:hover {
+    background-color: var(--accent);
+    color: white;
+}
+
 /* ----------------------------------------
    Secondary Button
    ---------------------------------------- */

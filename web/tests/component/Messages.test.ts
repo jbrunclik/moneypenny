@@ -330,6 +330,17 @@ describe('Messages - addMessageToUI', () => {
     expect(container.querySelectorAll('.message.assistant').length).toBe(1);
   });
 
+  it('marks assistant replies with the avatar, user messages without one', () => {
+    // 1:1 chat: the user's own right-aligned bubble needs no avatar
+    const container = document.getElementById('messages')!;
+
+    addMessageToUI(createMessage('1', 'User message', 'user'), container);
+    addMessageToUI(createMessage('2', 'Assistant message', 'assistant'), container);
+
+    expect(container.querySelector('.message.user .message-avatar')).toBeNull();
+    expect(container.querySelector('.message.assistant .message-avatar')).not.toBeNull();
+  });
+
   it('observes lazy-loaded images', () => {
     const container = document.getElementById('messages')!;
     const message = createMessage('1', 'Image', 'user', [

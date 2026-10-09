@@ -81,6 +81,11 @@ plus a translucent `-900` badge background), `--color-info-500`, and the theme-a
 --overlay-bg / --lightbox-bg / --code-bg / --code-inline-bg / --scrollbar-thumb
 ```
 
+**Accent discipline** (Oct 2026): solid `--accent` is for the primary signals - send and
+the user's bubble (plus a view's main create button). Secondary brand surfaces such as the
+sidebar New Chat use the tinted pair `--accent-muted` fill + `--accent-text`
+(`.btn-new-chat`), so nothing competes with the composer.
+
 **Glass materials** (`--glass-bg`, `--glass-bg-strong` for toasts and floating buttons,
 `--glass-bg-dialog` + `--glass-blur-dialog` for dialogs and sheets, `--glass-bg-menu`,
 `--glass-bg-header`, `--glass-bg-sidebar`, `--glass-blur*`, `--glass-border`,

@@ -13,11 +13,9 @@ import {
   countVisibleImagesForScroll,
   setDeferImageObservation,
 } from '../../utils/thumbnails';
-import { createUserAvatarElement } from '../../utils/avatar';
 import { checkScrollButtonVisibility } from '../ScrollToBottom';
 import { renderWelcomeMessageHtml } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON } from '../../utils/icons';
-import { useStore } from '../../state/store';
 import { agents } from '../../api/agents';
 import { toast } from '../Toast';
 import { renderConversationsList } from '../Sidebar';
@@ -395,24 +393,14 @@ export function addMessageToUI(
     );
   }
 
-  // Avatar
-  const avatar = document.createElement('div');
-  avatar.className = 'message-avatar';
+  // Avatar: replies only - in a 1:1 chat the user's own right-aligned bubble
+  // needs no marker (as in ChatGPT / Claude.ai)
   if (message.role === 'assistant') {
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
     avatar.innerHTML = AI_AVATAR;
-  } else {
-    // User avatar - show picture or initials
-    const user = useStore.getState().user;
-    const name = user?.name || user?.email || 'User';
-    const avatarContent = createUserAvatarElement(user?.picture || undefined, name, '');
-    // For message avatars, we add content to the existing div instead of replacing it
-    if (avatarContent instanceof HTMLImageElement) {
-      avatar.appendChild(avatarContent);
-    } else {
-      avatar.textContent = avatarContent.textContent;
-    }
+    messageEl.appendChild(avatar);
   }
-  messageEl.appendChild(avatar);
 
   // Content wrapper
   const contentWrapper = document.createElement('div');

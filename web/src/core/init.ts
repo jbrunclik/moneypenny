@@ -109,7 +109,7 @@ export function renderAppShell(): string {
           <img class="sidebar-logo" src="/static/icon-192.png" alt="" width="28" height="28">
           <h1>${APP_NAME}</h1>
         </div>
-        <button id="new-chat-btn" class="btn btn-primary">${PLUS_ICON} New Chat</button>
+        <button id="new-chat-btn" class="btn btn-primary btn-new-chat">${PLUS_ICON} New Chat</button>
       </div>
       <div id="search-container" class="search-container"></div>
       <div id="conversations-list" class="conversations-list"></div>

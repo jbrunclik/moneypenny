@@ -32,10 +32,9 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Desktop dialog header anatomy (material, scrim, widths, radius and the mobile sheet shipped): one header (icon, 16/600 title, 32px ghost close aligned to the title) across Modal/InfoPopup/AgentEditor/QA editor/Sports/Language - Modal floats its X above the title, QA editor uses an 18px title
   - One empty-state component across Planner, Sports/Language, Data and Command Center (page width, header and buttons shipped): icon + title + hint + optional CTA; Planner's title is still 24px without an icon
-  - Accent only on send + user bubble: New Chat, the agents/sports pills and badges compete with them (New Chat becomes quieter)
-  - Quiz: correct/incorrect feedback on answered questions, progress in batches
+  - Quiz batches: a "1/3" progress indicator (multiple-choice right/wrong feedback shipped)
   - Login: fallback when the Google button fails to load, white card on tinted page, pill Google button
-  - Sidebar nav as a vertical list; drop the user avatar in 1:1 chat; numeric table cells right-aligned/tabular; floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash; 44px mobile tap targets
+  - floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash; 44px mobile tap targets
   - Visual coverage: dark-theme baselines (dark is the default theme, all baselines are light), model-selector dropdown, mobile swipe actions on a touch context, login with a rendered sign-in button
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
