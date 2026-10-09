@@ -48,4 +48,21 @@ jobs:
           # gh pr list above always had --repo; the merge did not, so every
           # auto-merge since this workflow was rewritten (Aug 1 2026) failed
           # after reporting "squash-merging", leaving PRs open indefinitely.
-          gh pr merge --squash --repo "$REPO" "$pr"
+          #
+          # Retry ONLY the merge race: several Dependabot PRs finishing Tests
+          # together merge at once and the losers get "Base branch was
+          # modified" (Oct 2026: #278 stayed open after one such loss, since
+          # nothing re-runs this job). Any other error still fails the job.
+          for attempt in 1 2 3 4; do
+            if out=$(gh pr merge --squash --repo "$REPO" "$pr" 2>&1); then
+              echo "$out"
+              exit 0
+            fi
+            echo "$out"
+            if ! grep -q "Base branch was modified" <<<"$out"; then
+              exit 1
+            fi
+            echo "Merge raced another merge (attempt $attempt); retrying."
+            sleep $((attempt * 15))
+          done
+          exit 1
