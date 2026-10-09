@@ -4,6 +4,7 @@ import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
 import { disablePush } from '../core/push';
+import { GOOGLE_BUTTON_WIDTH, GOOGLE_SCRIPT_POLL_INTERVAL_MS, GOOGLE_SCRIPT_TIMEOUT_MS } from '../config';
 
 const log = createLogger('auth');
 
@@ -32,8 +33,12 @@ export async function initGoogleSignIn(): Promise<void> {
 
   store.setGoogleClientId(clientId);
 
-  // Wait for Google script to load
-  await waitForGoogleScript();
+  // Wait for Google script to load - a blocked/offline script leaves
+  // googleInitialized false and renderGoogleButton shows a retry
+  if (!(await waitForGoogleScript())) {
+    log.warn('Google Sign-In script did not load', { timeoutMs: GOOGLE_SCRIPT_TIMEOUT_MS });
+    return;
+  }
 
   // Initialize Google Identity Services
   google.accounts.id.initialize({
@@ -50,8 +55,20 @@ export async function initGoogleSignIn(): Promise<void> {
  */
 export function renderGoogleButton(container: HTMLElement): void {
   const clientId = useStore.getState().googleClientId;
-  if (!clientId || !googleInitialized) {
+  if (!clientId) {
     log.debug('Google Sign-In not available');
+    return;
+  }
+  if (!googleInitialized) {
+    // Sign-in is configured but Google's script never came up: say so and
+    // offer a way forward instead of an empty login card
+    container.innerHTML = `
+      <div class="login-unavailable" role="alert">
+        <p>Sign-in couldn’t load. Check your connection and try again.</p>
+        <button type="button" class="btn btn-secondary login-retry-btn">Retry</button>
+      </div>
+    `;
+    container.querySelector('.login-retry-btn')?.addEventListener('click', () => window.location.reload());
     return;
   }
 
@@ -59,8 +76,9 @@ export function renderGoogleButton(container: HTMLElement): void {
     theme: 'filled_black',
     size: 'large',
     text: 'signin_with',
-    shape: 'rectangular',
-    width: 280,
+    // Pill: matches the app's rounded controls
+    shape: 'pill',
+    width: GOOGLE_BUTTON_WIDTH,
   });
 }
 
@@ -157,19 +175,17 @@ export function logout(): void {
 /**
  * Wait for Google script to load
  */
-function waitForGoogleScript(): Promise<void> {
+/** Resolves true once the Google script is up, false after GOOGLE_SCRIPT_TIMEOUT_MS. */
+function waitForGoogleScript(): Promise<boolean> {
   return new Promise((resolve) => {
-    if (typeof google !== 'undefined' && google.accounts) {
-      resolve();
-      return;
-    }
-
-    // Poll for Google script
-    const checkGoogle = () => {
+    const deadline = Date.now() + GOOGLE_SCRIPT_TIMEOUT_MS;
+    const checkGoogle = (): void => {
       if (typeof google !== 'undefined' && google.accounts) {
-        resolve();
+        resolve(true);
+      } else if (Date.now() >= deadline) {
+        resolve(false);
       } else {
-        setTimeout(checkGoogle, 100);
+        setTimeout(checkGoogle, GOOGLE_SCRIPT_POLL_INTERVAL_MS);
       }
     };
     checkGoogle();

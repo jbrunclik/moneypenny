@@ -2106,7 +2106,11 @@
 .login-overlay {
     position: fixed;
     inset: 0;
-    background-color: var(--bg-primary);
+    /* A soft brand glow behind the card - a plain grey card on a flat page
+       read as a stray dialog. The card itself is the dialog glass. */
+    background:
+        radial-gradient(ellipse 60% 45% at 50% 38%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+        var(--bg-primary);
     z-index: var(--z-modal-backdrop);
     display: flex;
     align-items: center;
@@ -2120,11 +2124,26 @@
 .login-box {
     text-align: center;
     padding: var(--space-12) var(--space-10);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    background: var(--glass-bg-dialog);
+    -webkit-backdrop-filter: blur(var(--glass-blur-dialog)) saturate(180%);
+    backdrop-filter: blur(var(--glass-blur-dialog)) saturate(180%);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     width: min(360px, calc(100vw - 2 * var(--space-4)));
+}
+
+.login-unavailable {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.login-unavailable p {
+    margin: 0;
 }
 
 .login-overlay:not(.hidden) .login-box {

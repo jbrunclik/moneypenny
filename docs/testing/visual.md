@@ -83,6 +83,13 @@ or `make test-fe-visual-linux-update`), then commit the new baseline screenshots
 5. **Passes only on retry?** It is a state race, not pixel noise - see
    [E2E Reliability](e2e-reliability.md#visual-flakes-are-state-races-not-pixel-noise)
 
+**`--update-snapshots` only rewrites FAILING baselines** (Playwright's default mode is
+`changed`): a deliberate change that stays within a test's diff threshold keeps the old
+PNG (Oct 2026: the login page's new background glow left all four login baselines
+untouched). After a subtle intentional change, force the affected file with
+`npx playwright test <file> --update-snapshots=all`. The Linux regen workflow uses the
+default too, so its baselines can lag within threshold the same way.
+
 **Hand-injected fixtures drift from the product.** Many visual tests build their DOM with
 `page.evaluate` + `innerHTML` (quizzes, toasts, unread badges) instead of rendering it
 through the component. Those copies go stale silently: the Oct 2026 review found quiz

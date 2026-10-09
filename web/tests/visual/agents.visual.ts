@@ -561,6 +561,13 @@ test.describe('Visual: Agent Editor Modal', () => {
     await page.fill('#agent-system-prompt', 'You are a helpful testing assistant.');
 
     await page.waitForTimeout(200);
+    // Filling the system prompt scrolls the editor body to it, and WebKit
+    // captured it at varying offsets (one field shifted, which looked like
+    // the Name field holding the description) - capture from the top
+    await page.locator('#agent-system-prompt').blur();
+    await page.locator('.agent-editor-body').evaluate((el) => {
+      el.scrollTop = 0;
+    });
 
     await expect(page.locator('.agent-editor-modal')).toHaveScreenshot('agent-editor-filled.png');
   });

@@ -29,6 +29,29 @@ test.describe('Visual: Login Screen', () => {
     });
   });
 
+  test('login overlay - sign-in unavailable', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#app');
+
+    // The state renderGoogleButton (auth/google.ts) shows when sign-in is
+    // configured but Google's script never loaded - keep in sync with it
+    await page.evaluate(() => {
+      document.getElementById('login-overlay')?.classList.remove('hidden');
+      const btn = document.getElementById('google-login-btn');
+      if (btn) {
+        btn.innerHTML = `
+          <div class="login-unavailable" role="alert">
+            <p>Sign-in couldn’t load. Check your connection and try again.</p>
+            <button type="button" class="btn btn-secondary login-retry-btn">Retry</button>
+          </div>
+        `;
+      }
+    });
+    await page.waitForTimeout(100);
+
+    await expect(page.locator('.login-box')).toHaveScreenshot('login-overlay-unavailable.png');
+  });
+
   test('login overlay - mobile', async ({ page }) => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 812 });

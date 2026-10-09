@@ -33,9 +33,8 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Desktop dialog header anatomy (material, scrim, widths, radius and the mobile sheet shipped): one header (icon, 16/600 title, 32px ghost close aligned to the title) across Modal/InfoPopup/AgentEditor/QA editor/Sports/Language - Modal floats its X above the title, QA editor uses an 18px title
   - One empty-state component across Planner, Sports/Language, Data and Command Center (page width, header and buttons shipped): icon + title + hint + optional CTA; Planner's title is still 24px without an icon
   - Quiz batches: a "1/3" progress indicator (multiple-choice right/wrong feedback shipped)
-  - Login: fallback when the Google button fails to load, white card on tinted page, pill Google button
   - floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash; 44px mobile tap targets
-  - Visual coverage: dark-theme baselines (dark is the default theme, all baselines are light), model-selector dropdown, mobile swipe actions on a touch context, login with a rendered sign-in button
+  - Visual coverage: dark-theme baselines (dark is the default theme, all baselines are light), model-selector dropdown, mobile swipe actions on a touch context, login with the real Google button (the fallback state is covered)
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
 - [ ] **Mermaid diagrams in markdown** (Sep 30 2026 Desktop-parity review) - render ```` ```mermaid ```` blocks client-side, lazy-loaded as its own vendor chunk like KaTeX; fall back to the code block on parse errors; theme for light/dark.

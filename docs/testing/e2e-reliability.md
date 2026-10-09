@@ -40,6 +40,12 @@ the test's setup, never in the baseline. Root-caused examples (Sep 2026):
   for the state BOTH engines reach (the first finding in) before capturing.
   Watch for content landing below a clip in a bottom-pinned list - it moves
   the clip even though nothing inside it changed.
+- **Agent editor: "the Name field holds the description"** (Oct 2026, WebKit).
+  Not a fill race - the editor body was scrolled by about one field (filling
+  the last field scrolls it into view, settling at varying offsets), so the
+  Description input sat under the Name label. Fix: blur and reset the
+  scroller before capturing. When a capture looks like values swapped, check
+  the scroll offset first.
 
 - **Storage page mobile: header hidden vs visible.** `navigateToStorage`
   hides the composer; the composer `ResizeObserver` saw a bottom-pinned

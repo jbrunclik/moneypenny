@@ -135,6 +135,9 @@ export const GOOGLE_BUTTON_WIDTH = 280;
 /** Poll interval when waiting for Google script to load */
 export const GOOGLE_SCRIPT_POLL_INTERVAL_MS = 100;
 
+/** Give up on the Google script (blocked, offline) and show a retry instead */
+export const GOOGLE_SCRIPT_TIMEOUT_MS = 10_000;
+
 // =============================================================================
 // Responsive Breakpoints
 // =============================================================================
