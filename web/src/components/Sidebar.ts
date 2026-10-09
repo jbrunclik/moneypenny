@@ -91,16 +91,25 @@ function renderAgentsEntryWithoutDivider(
   errorsCount: number
 ): string {
   const unreadTooltip = unreadCount === 1 ? '1 unread message' : `${unreadCount} unread messages`;
-  const badge = unreadCount > 0 ? `<span class="unread-badge" title="${unreadTooltip}">${unreadCount > 99 ? '99+' : unreadCount}</span>` : '';
   const waitingTooltip = waitingCount === 1 ? '1 agent waiting for approval' : `${waitingCount} agents waiting for approval`;
-  const waitingBadge = waitingCount > 0 ? `<span class="waiting-badge" title="${waitingTooltip}">${waitingCount > 99 ? '99+' : waitingCount}</span>` : '';
+  // One badge only: two side by side truncated the label in the nav grid.
+  // Waiting approvals need action, so they win; the tooltip carries both.
+  const badge =
+    waitingCount > 0
+      ? `<span class="waiting-badge" title="${waitingTooltip}">${waitingCount > 99 ? '99+' : waitingCount}</span>`
+      : unreadCount > 0
+        ? `<span class="unread-badge" title="${unreadTooltip}">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+        : '';
   const errorTooltip = errorsCount === 1 ? '1 agent failed' : `${errorsCount} agents failed`;
   const errorIndicator = errorsCount > 0 ? `<span class="error-indicator" title="${errorTooltip}"></span>` : '';
+  const title = ['Agents', waitingCount > 0 ? waitingTooltip : '', unreadCount > 0 ? unreadTooltip : '']
+    .filter(Boolean)
+    .join(' · ');
   return `
-    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents" title="Agents" role="button" tabindex="0">
+    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents" title="${title}" role="button" tabindex="0">
       <span class="agents-icon">${ROBOT_ICON}</span>
       <span class="agents-label">Agents</span>
-      ${errorIndicator}${waitingBadge}${badge}
+      ${errorIndicator}${badge}
     </div>
   `;
 }

@@ -21,7 +21,7 @@ import { useStore } from '../state/store';
 import type { Notification } from '../state/slices/ui';
 import { hapticError } from '../utils/haptics';
 import { escapeHtml } from '../utils/dom';
-import { CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
+import { ALERT_CIRCLE_ICON, CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
 import { TOAST_ACTION_DURATION_MS } from '../config';
 
 // Re-export types for convenience
@@ -37,7 +37,7 @@ const MAX_VISIBLE_TOASTS = 3;
 // Icons for each notification type
 const TYPE_ICONS: Record<string, string> = {
   success: CHECK_ICON,
-  error: CLOSE_ICON,
+  error: ALERT_CIRCLE_ICON,
   warning: WARNING_ICON,
   info: INFO_ICON,
 };

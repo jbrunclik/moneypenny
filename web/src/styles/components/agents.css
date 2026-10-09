@@ -301,7 +301,7 @@
 }
 
 .command-center-section--approvals.has-approvals {
-    background: var(--color-warning-50);
+    background: var(--color-warning-900);
     border: 2px solid var(--color-warning-400);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
@@ -665,7 +665,7 @@
     background: var(--bg-tertiary);
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
+    font-family: var(--font-family-mono);
 }
 
 .approval-schedule {
@@ -1140,7 +1140,7 @@
 .agent-editor {
     background: var(--bg-primary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     width: 100%;
     max-width: 600px;
     max-height: 90vh;
@@ -1371,7 +1371,7 @@
 }
 
 .tool-permission-card:hover .tool-permission-content {
-    border-color: var(--border-hover);
+    border-color: var(--border);
     background: var(--bg-hover);
 }
 
@@ -1662,7 +1662,7 @@
 }
 
 .schedule-cron-badge code {
-    font-family: var(--font-mono);
+    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     padding: var(--space-1) var(--space-2);
     background: var(--bg-tertiary);
@@ -1744,7 +1744,7 @@
     .agent-editor {
         max-width: none;
         max-height: 95vh;
-        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
 
     .schedule-presets {

@@ -1175,13 +1175,19 @@
     justify-content: center;
     gap: var(--space-4);
     z-index: var(--z-banner);
+    /* Parked above the viewport while hidden: no shadow (it bled a dark band
+       onto every screen) and visibility:hidden keeps its buttons out of the
+       tab order. visibility flips at the END of the slide-out. */
     transform: translateY(-100%);
-    transition: transform var(--transition-slow);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    visibility: hidden;
+    transition: transform var(--transition-slow), visibility 0s linear 0.3s;
 }
 
 .version-banner.visible {
     transform: translateY(0);
+    visibility: visible;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform var(--transition-slow), visibility 0s;
 }
 
 .version-banner-message {
@@ -1721,14 +1727,14 @@
     display: flex;
     gap: var(--space-3);
     padding: var(--space-3);
-    background-color: var(--bg-warning);
-    border: 1px solid var(--border-warning);
+    background-color: var(--color-warning-900);
+    border: 1px solid var(--color-warning-500);
     border-radius: var(--radius-sm);
 }
 
 .settings-calendar-error .warning {
     flex-shrink: 0;
-    color: var(--color-warning);
+    color: var(--warning);
 }
 
 .settings-error-message {

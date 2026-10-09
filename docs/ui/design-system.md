@@ -32,6 +32,10 @@ popovers, modals) with translucent materials and must win the cascade.
 - Shared utilities use unprefixed names (`.hidden`, `.error`).
 - Every file reads the same tokens from `variables.css`; never hard-code a color that
   has a token.
+- Only read tokens that exist. An undefined `var(--x)` silently falls back to the
+  property's initial value (Oct 2026: `--radius-xl` squared the agent editor, `--font-mono`
+  lost the monospace face). `tests/unit/css-undefined-vars.test.ts` fails on any
+  fallback-less `var()` that no stylesheet or `style.setProperty` defines.
 
 ## Tokens
 
@@ -83,7 +87,7 @@ plus a translucent `-900` badge background), `--color-info-500`, and the theme-a
 
 ### Spacing
 
-`--space-1` 4px, `--space-1-5` 6px, `--space-2` 8px, `--space-2-5` 10px, `--space-3`
+`--space-0-5` 2px, `--space-1` 4px, `--space-1-5` 6px, `--space-2` 8px, `--space-2-5` 10px, `--space-3`
 12px, `--space-4` 16px, `--space-5` 20px, `--space-6` 24px, `--space-8` 32px,
 `--space-10` 40px, `--space-12` 48px.
 

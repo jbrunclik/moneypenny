@@ -360,7 +360,7 @@ test.describe('Visual: Sync UI', () => {
         const badge = document.createElement('span');
         badge.className = 'unread-badge';
         badge.textContent = '3';
-        convItem.appendChild(badge);
+        convItem.insertBefore(badge, convItem.querySelector('.conversation-time')); // same slot Sidebar.ts renders it in
       }
     });
 
@@ -391,7 +391,7 @@ test.describe('Visual: Sync UI', () => {
         const badge = document.createElement('span');
         badge.className = 'unread-badge';
         badge.textContent = '99+';
-        convItem.appendChild(badge);
+        convItem.insertBefore(badge, convItem.querySelector('.conversation-time')); // same slot Sidebar.ts renders it in
       }
     });
 

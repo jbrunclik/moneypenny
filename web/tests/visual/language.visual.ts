@@ -47,7 +47,7 @@ test.describe('Visual: Quiz Blocks', () => {
               <button class="quiz-option" data-index="2">Thank you</button>
               <button class="quiz-option" data-index="3">Please</button>
             </div>
-            <button class="quiz-continue">Send answer</button>
+            <button class="quiz-continue" disabled>Send answer</button>
           </div>
         </div>
       `;
@@ -104,7 +104,7 @@ test.describe('Visual: Quiz Blocks', () => {
           <div class="quiz-block quiz-fill-blank">
             <div class="quiz-question">Complete: Je ___ français.</div>
             <input type="text" class="quiz-text-input" placeholder="First person singular of 'parler'" autocomplete="off" />
-            <button class="quiz-continue">Send answer</button>
+            <button class="quiz-continue" disabled>Send answer</button>
           </div>
         </div>
       `;
@@ -130,7 +130,7 @@ test.describe('Visual: Quiz Blocks', () => {
           <div class="quiz-block quiz-translate">
             <div class="quiz-question">Translate to English: 'Wo ist der Bahnhof?'</div>
             <input type="text" class="quiz-text-input" placeholder="Type your translation..." autocomplete="off" />
-            <button class="quiz-continue">Send answer</button>
+            <button class="quiz-continue" disabled>Send answer</button>
           </div>
         </div>
       `;
@@ -174,7 +174,7 @@ test.describe('Visual: Quiz Blocks', () => {
                 </div>
               </div>
             </div>
-            <button class="quiz-continue">Send answers</button>
+            <button class="quiz-continue" disabled>Send answers</button>
           </div>
         </div>
       `;

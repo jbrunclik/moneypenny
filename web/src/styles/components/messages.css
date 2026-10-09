@@ -563,7 +563,8 @@
     background-color: rgba(245, 158, 11, 0.1);
     border: 1px solid rgba(245, 158, 11, 0.3);
     border-radius: var(--radius-sm);
-    color: var(--warning);
+    /* --warning-text, not --warning: amber-500 on the light theme is ~2.1:1 */
+    color: var(--warning-text);
     font-size: var(--font-size-sm);
     line-height: 1;
     /* Warning triangle SVG icon as background */
@@ -613,7 +614,7 @@
     gap: var(--space-1);
     padding: var(--space-1) var(--space-2);
     background: none;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
@@ -1475,7 +1476,7 @@ a.document-name:hover {
     background-color: var(--bg-tertiary);
     padding: var(--space-0-5) var(--space-1);
     border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
+    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
 }
@@ -1551,13 +1552,13 @@ a.document-name:hover {
 }
 
 .approval-result.approved {
-    background-color: var(--color-success-100);
-    color: var(--color-success-700);
+    background-color: var(--color-success-900);
+    color: var(--success);
 }
 
 .approval-result.rejected {
-    background-color: var(--color-error-100);
-    color: var(--color-error-700);
+    background-color: var(--color-error-900);
+    color: var(--error);
 }
 
 /* Dark mode overrides for approval messages */
@@ -1587,11 +1588,11 @@ a.document-name:hover {
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-1-5) var(--space-4);
-    background-color: var(--color-success-100);
+    background-color: var(--color-success-900);
     border: 1px solid var(--color-success-400);
     border-radius: var(--radius-pill);
     font-size: var(--font-size-sm);
-    color: var(--color-success-700);
+    color: var(--success);
 }
 
 .action-approved-icon {

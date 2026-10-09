@@ -571,6 +571,35 @@ describe('Sidebar', () => {
     });
   });
 
+  describe('agents entry badges', () => {
+    function renderWithCounts(unread: number, waiting: number): HTMLElement | null {
+      useStore.setState({
+        user: createUser(),
+        commandCenterData: {
+          agents: [], pending_approvals: [], recent_executions: [],
+          total_unread: unread, agents_waiting: waiting, agents_with_errors: 0,
+          stats: {} as never,
+        },
+      });
+      renderConversationsList();
+      return document.querySelector('.agents-entry');
+    }
+
+    it('shows a single badge - waiting approvals win over unread', () => {
+      // Two badges side by side truncated the label to "A..." in the nav grid
+      const entry = renderWithCounts(5, 1);
+      expect(entry?.querySelectorAll('.unread-badge, .waiting-badge')).toHaveLength(1);
+      expect(entry?.querySelector('.waiting-badge')?.textContent).toBe('1');
+      expect(entry?.getAttribute('title')).toContain('5 unread messages');
+    });
+
+    it('shows the unread badge when nothing waits for approval', () => {
+      const entry = renderWithCounts(5, 0);
+      expect(entry?.querySelector('.unread-badge')?.textContent).toBe('5');
+      expect(entry?.querySelector('.waiting-badge')).toBeNull();
+    });
+  });
+
   describe('renderUserInfo', () => {
     it('renders empty when no user', () => {
       renderUserInfo();

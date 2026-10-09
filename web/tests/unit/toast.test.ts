@@ -176,6 +176,20 @@ describe('Toast - Component', () => {
     expect(store.getState().notifications[0].message).toBe('Success!');
   });
 
+  it('error toast icon differs from the dismiss button', async () => {
+    // Both were the same X - an error toast read as having two close buttons
+    const { initToast, showToast } = await import('@/components/Toast');
+    initToast();
+
+    showToast({ type: 'error', message: 'Broke', duration: 0 });
+
+    const toastEl = document.querySelector('.toast-error');
+    expect(toastEl).not.toBeNull();
+    const icon = toastEl!.querySelector('.toast-icon')!.innerHTML;
+    const dismiss = toastEl!.querySelector('.toast-dismiss')!.innerHTML;
+    expect(icon).not.toBe(dismiss);
+  });
+
   it('showToast returns unique id', async () => {
     const { initToast, showToast } = await import('@/components/Toast');
     initToast();

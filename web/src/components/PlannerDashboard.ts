@@ -116,8 +116,11 @@ function buildDashboardContent(dashboard: PlannerDashboard): string {
     html += renderWeekSection(weekDays, weekItemCount);
   }
 
-  // Empty state if no data
+  // Empty state if no data - but never "all clear" when a task or calendar
+  // source failed: its items are unknown, not absent
   if (
+    !dashboard.todoist_error &&
+    !dashboard.calendar_error &&
     dashboard.days.every((day) => day.events.length === 0 && day.tasks.length === 0) &&
     dashboard.overdue_tasks.length === 0
   ) {
@@ -272,7 +275,7 @@ function renderWeekSection(days: PlannerDay[], itemCount: number): string {
   return `
     <div class="dashboard-section week">
       <details>
-        <summary>This Week (${itemCount} items)</summary>
+        <summary>This Week (${itemCount} ${itemCount === 1 ? 'item' : 'items'})</summary>
         <div>
           ${daysHtml}
         </div>

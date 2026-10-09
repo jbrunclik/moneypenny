@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderQuickActionsBar, setQuickActionsBarDisabled } from '@/components/QuickActionsBar';
 import type { QuickAction } from '@/types/api';
+import { EDIT_ICON, SLIDERS_ICON } from '@/utils/icons';
 
 const actions: QuickAction[] = [
   { id: 'a', emoji: '📋', label: 'Plan today', body: 'Plan.', fields: [] },
@@ -61,6 +62,20 @@ describe('QuickActionsBar', () => {
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onTap).not.toHaveBeenCalled();
+  });
+
+  it('edit chip uses the pencil, not the composer tools sliders icon', () => {
+    // The mobile composer's tools button is the sliders icon - two identical
+    // icons one row apart read as the same control
+    renderQuickActionsBar(container, actions, vi.fn(), vi.fn());
+    const serialized = (svg: string): string => {
+      const el = document.createElement('div');
+      el.innerHTML = svg;
+      return el.innerHTML;
+    };
+    const chip = container.querySelector('.quick-action-edit-chip')!;
+    expect(chip.innerHTML).toBe(serialized(EDIT_ICON));
+    expect(chip.innerHTML).not.toBe(serialized(SLIDERS_ICON));
   });
 
   it('disabled state disables every chip', () => {

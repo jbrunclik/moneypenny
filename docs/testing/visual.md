@@ -83,6 +83,14 @@ or `make test-fe-visual-linux-update`), then commit the new baseline screenshots
 5. **Passes only on retry?** It is a state race, not pixel noise - see
    [E2E Reliability](e2e-reliability.md#visual-flakes-are-state-races-not-pixel-noise)
 
+**Hand-injected fixtures drift from the product.** Many visual tests build their DOM with
+`page.evaluate` + `innerHTML` (quizzes, toasts, unread badges) instead of rendering it
+through the component. Those copies go stale silently: the Oct 2026 review found quiz
+buttons missing the `disabled` the renderer sets, unread badges appended after the
+row actions instead of before the timestamp, and error toasts with the old icon - each
+looked like a product bug in the baseline. When a component's markup changes, grep
+`web/tests/visual/` for its class names and update the fixtures with it.
+
 ## Visual Test Example
 
 ```typescript

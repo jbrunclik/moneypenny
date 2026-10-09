@@ -7,7 +7,7 @@
  */
 import type { QuickAction } from '../types/api';
 import { clearElement, escapeHtml } from '../utils/dom';
-import { SLIDERS_ICON } from '../utils/icons';
+import { EDIT_ICON } from '../utils/icons';
 
 type TapHandler = (action: QuickAction, chip: HTMLElement) => void;
 
@@ -39,7 +39,7 @@ export function renderQuickActionsBar(
       </button>`
       )
       .join('') +
-    `<button type="button" class="quick-action-edit-chip" title="Edit quick actions" aria-label="Edit quick actions">${SLIDERS_ICON}</button>`;
+    `<button type="button" class="quick-action-edit-chip" title="Edit quick actions" aria-label="Edit quick actions">${EDIT_ICON}</button>`;
   container.appendChild(scroller);
 
   if (!handlers.has(container)) {

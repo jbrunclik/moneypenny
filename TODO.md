@@ -27,6 +27,19 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Chat & UI
 
+- [ ] **Thinking bar hidden behind the composer after send (iOS PWA)** (Oct 9 2026) - in the home-screen app, sending often leaves the new thinking bar behind the composer until the user scrolls. Not reproducible in Playwright (desktop/mobile, chromium/webkit, scrolled up, long/first message, emulated keyboard open/closing on send - 27 probes all keep the bar above the composer), so it depends on real iOS keyboard geometry (oscillating innerHeight, the unreported accessory pill - see docs/ui/mobile-and-pwa.md). Next: log a `send`/`stream-start` snapshot to the kbdebug overlay (#messages scrollTop/scrollHeight/clientHeight, thinking-bar and composer rects, inset, vv height, winY), reproduce on the device, then write a failing test from those numbers.
+- [ ] **No thinking bar while the location fix runs** (Oct 9 2026) - with location sharing on, `dispatchSend` awaits `getClientLocation()` (up to `LOCATION_FIX_TIMEOUT_MS` = 3s, cached 5 min) BEFORE the streaming bubble exists, so the user sees only their own message and "nothing happens". Show the thinking bar first and resolve the fix in parallel with stream setup.
+- [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
+  - Shared overlay system: one opaque dialog (header/body/right-aligned footer, 440/560 widths) and one mobile sheet (grab handle, safe-area padding); confirms become sheets on mobile
+  - Shared page header, page max-width and empty-state component across Planner, Sports, Data and Command Center (Data's gradient title goes)
+  - Typography: collapse sub-16px sizes to 12/13/14, 13px minimum for helper text; accent only on send + user bubble (New Chat becomes quieter)
+  - Empty chat: personal greeting with the composer centred under it (no suggestion chips)
+  - Tool/thinking disclosure as an inline summary ("Searched the web · 3 sources") instead of the grey "Show details" bar
+  - Quiz: correct/incorrect feedback on answered questions, progress in batches
+  - Login: fallback when the Google button fails to load, white card on tinted page, pill Google button
+  - Sidebar nav as a vertical list; drop the user avatar in 1:1 chat; numeric table cells right-aligned/tabular; floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash; 44px mobile tap targets
+  - Visual coverage: dark-theme baselines (dark is the default theme, all baselines are light), model-selector dropdown, mobile swipe actions on a touch context, login with a rendered sign-in button
+
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
 - [ ] **Mermaid diagrams in markdown** (Sep 30 2026 Desktop-parity review) - render ```` ```mermaid ```` blocks client-side, lazy-loaded as its own vendor chunk like KaTeX; fall back to the code block on parse errors; theme for light/dark.
 - [ ] **Export conversation as Markdown** (Aug 2026 UX batch) - per-conversation action (action sheet / chat header) downloading the full history as .md: titles, roles, timestamps, code blocks preserved; attachments referenced by filename.
@@ -58,6 +71,8 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Code quality & tooling
 
+- [ ] **WebKit flake: pin moves a conversation to the Pinned group** (Oct 9 2026) - `conversation.spec.ts` "pin moves a conversation..." failed once in a full `make test-all` (first group label stayed "Today" for 10s; the server log shows NO pin request from webkit, so the click on the hover-revealed `[data-pin-id]` never landed). Passed 5/5 alone and 16/16 under `--repeat-each=16 --workers=8`. Suspect a sidebar re-render (title/cost update after the 2nd send) between hover and click; capture a trace on the next occurrence.
+- [ ] **WebKit visual flake: deep-research progress items** (Oct 9 2026) - `deep-research-progress-items` differed in text glyphs once, passed 3/3 on rerun; likely captured before the web font settled.
 - [ ] **Evals share the dev blob store** (Oct 3 2026) - `isolate_environment()` in `evals/run.py` points `DATABASE_PATH` at a temp dir but not `BLOB_STORAGE_PATH`, so eval runs (attachments, generated files) write into the repo's `files.db`. Point it at the same temp dir.
 - [ ] **Eval harness `_run_case` is ~200 lines** - split setup (fixtures, memories, seed conversation, sports context), the turn, and judging/pricing into helpers.
 - [ ] **File-size convention violations** - production files over 500 lines (Sep 30 2026 count): thumbnails.ts (1058), planner_data.py (1015), Sidebar.ts (997), graph.py (947), types/api.ts (925, hand-written - shrink toward generated-api.ts), SyncManager.ts (923), AgentEditor.ts (885), config.py (857, declarative), icons.ts (759, data), garmin.py (723), messages/render.ts (715), google_calendar.py (671), MessageInput.ts (664), init.ts (647), messages/streaming.ts (626), messages/pagination.ts (614), search_provider.py (609), code_execution.py (606), garmin_workout.py (604), tool_display.py (601), stream-recovery.ts (596), web.py (583), PlannerDashboard.ts (565), web config.ts (561), CommandCenter.ts (547), whatsapp.py (537), keyboard-viewport.ts (517), tools/__init__.py (514), agent.py (505), KVStorePage.ts (502). Largest tests: test_routes_chat.py (1645), sync-manager.test.ts (1638), conversation.spec.ts (1603), e2e-server.py (1497), test_agents.py (1493).

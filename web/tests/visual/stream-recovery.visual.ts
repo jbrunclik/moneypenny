@@ -9,6 +9,9 @@ import type { Page } from '@playwright/test';
 /** Static loading icon (no animation for deterministic screenshots) */
 const LOADING_ICON = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-dashoffset="10" transform="rotate(-90 12 12)"/></svg>`;
 
+// Error toasts use the alert circle (Toast.ts) - distinct from the X dismiss
+const ALERT_CIRCLE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+
 const CLOSE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
 const CHECK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
@@ -171,7 +174,7 @@ test.describe('Visual: Stream Recovery - Desktop', () => {
       page,
       'error',
       'Response may be incomplete. Tap to reload.',
-      CLOSE_ICON,
+      ALERT_CIRCLE_ICON,
       'Reload'
     );
     await page.waitForTimeout(300);
@@ -225,7 +228,7 @@ test.describe('Visual: Stream Recovery - Mobile', () => {
       page,
       'error',
       'Response may be incomplete. Tap to reload.',
-      CLOSE_ICON,
+      ALERT_CIRCLE_ICON,
       'Reload'
     );
     await page.waitForTimeout(300);

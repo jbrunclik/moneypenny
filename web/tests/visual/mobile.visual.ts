@@ -441,7 +441,7 @@ test.describe('Visual: Mobile Interactions', () => {
         const badge = document.createElement('span');
         badge.className = 'unread-badge';
         badge.textContent = '5';
-        item.appendChild(badge);
+        item.insertBefore(badge, item.querySelector('.conversation-time')); // same slot Sidebar.ts renders it in
 
         // Force the touch-device styles that are normally in @media (hover: none)
         const actionsEl = actions as HTMLElement;

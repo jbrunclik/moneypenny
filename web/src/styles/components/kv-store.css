@@ -215,7 +215,7 @@
 }
 
 .kv-namespace-card:hover {
-    border-color: var(--border-hover);
+    border-color: var(--border);
 }
 
 .kv-namespace-card.expanded {
@@ -262,7 +262,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-family: var(--font-mono);
+    font-family: var(--font-family-mono);
 }
 
 .kv-namespace-count {
@@ -367,7 +367,7 @@
     font-size: var(--font-size-sm);
     font-weight: 600;
     color: var(--accent);
-    font-family: var(--font-mono);
+    font-family: var(--font-family-mono);
     word-break: break-all;
 }
 
@@ -396,7 +396,7 @@
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
-    font-family: var(--font-mono);
+    font-family: var(--font-family-mono);
     margin: 0;
     padding: var(--space-2);
     background: var(--bg-primary);
@@ -532,7 +532,7 @@
 }
 
 .memory-item:hover {
-    border-color: var(--border-hover);
+    border-color: var(--border);
     background-color: var(--bg-hover);
 }
 
@@ -590,7 +590,7 @@
 }
 
 .memory-item--protected {
-    border-left: 2px solid var(--border-hover);
+    border-left: 2px solid var(--border);
 }
 
 .memory-item--deleted .memory-text {
