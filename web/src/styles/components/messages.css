@@ -1124,6 +1124,15 @@ a.document-name:hover {
     font-weight: 600;
 }
 
+/* Numeric columns (detected in utils/markdown.ts): right-aligned with
+   tabular figures so digits line up, and never split mid-number */
+.message-content th.num,
+.message-content td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 .message-content tr:nth-child(even) {
     background-color: var(--bg-secondary);
 }

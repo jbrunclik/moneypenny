@@ -196,3 +196,36 @@ describe('handleQuizContinue', () => {
     expect(document.querySelector('.quiz-multiple-choice')!.classList.contains('quiz-incomplete')).toBe(true);
   });
 });
+
+describe('multiple-choice feedback on submit', () => {
+  function renderMc(correct: number): HTMLButtonElement {
+    document.body.innerHTML = `<div class="message-content">${renderQuizBlock(
+      JSON.stringify({ type: 'multiple-choice', question: 'Hola?', options: ['Bye', 'Hello', 'Thanks'], correct })
+    )}</div><textarea id="message-input"></textarea><button id="send-btn"></button>`;
+    return document.querySelector('.quiz-continue') as HTMLButtonElement;
+  }
+  const option = (i: number): HTMLElement => document.querySelector(`.quiz-option[data-index="${i}"]`)!;
+
+  it('marks a wrong pick and reveals the right option', () => {
+    const btn = renderMc(1);
+    handleQuizOptionClick(option(0) as HTMLButtonElement);
+    handleQuizContinue(btn);
+    expect(option(0).classList.contains('incorrect')).toBe(true);
+    expect(option(1).classList.contains('correct')).toBe(true);
+    expect(option(2).classList.contains('correct')).toBe(false);
+  });
+
+  it('marks a right pick as correct', () => {
+    const btn = renderMc(1);
+    handleQuizOptionClick(option(1) as HTMLButtonElement);
+    handleQuizContinue(btn);
+    expect(option(1).classList.contains('correct')).toBe(true);
+    expect(document.querySelector('.quiz-option.incorrect')).toBeNull();
+  });
+
+  it('gives no feedback before the answer is sent', () => {
+    renderMc(1);
+    handleQuizOptionClick(option(0) as HTMLButtonElement);
+    expect(document.querySelector('.quiz-option.correct, .quiz-option.incorrect')).toBeNull();
+  });
+});

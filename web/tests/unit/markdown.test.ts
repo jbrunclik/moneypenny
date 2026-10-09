@@ -87,8 +87,8 @@ describe('renderMarkdown preserves legitimate features', () => {
     const md = '| A | B |\n|---|---|\n| 1 | 2 |';
     const html = renderMarkdown(md);
     expect(html).toContain('table-wrapper');
-    expect(html).toContain('<th>');
-    expect(html).toContain('<td>');
+    expect(html).toMatch(/<th[ >]/);
+    expect(html).toMatch(/<td[ >]/);
   });
 
   it('renders inline code with HTML-like content safely', () => {
@@ -198,5 +198,39 @@ describe('grounding markers are plain text now', () => {
 
     expect(html).toContain('<em>(neověřeno)</em>');
     expect(html).not.toContain('grounding-unverified');
+  });
+});
+
+describe('numeric table columns', () => {
+  const table = `| Metric | Revenue | Margin | Note |
+|---|---|---|---|
+| Q1 | 1,234,567 Kč | 23.4 percent | strong start |
+| Q2 | 987 654 Kč | 19.2 % | |
+| Q3 | ~1,111 Kč | 25 pct | slow |`;
+
+  function cells(html: string, col: number): Element[] {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return [...el.querySelectorAll(`tr > :nth-child(${col + 1})`)];
+  }
+
+  it('marks columns whose every value is a number (with units) as numeric', () => {
+    const html = renderMarkdown(table);
+    for (const col of [1, 2]) {
+      expect(cells(html, col).every((c) => c.classList.contains('num'))).toBe(true);
+    }
+  });
+
+  it('leaves text columns alone', () => {
+    const html = renderMarkdown(table);
+    for (const col of [0, 3]) {
+      expect(cells(html, col).some((c) => c.classList.contains('num'))).toBe(false);
+    }
+  });
+
+  it('respects an explicit markdown alignment', () => {
+    const html = renderMarkdown('| A | B |\n|:-:|---|\n| 1 | 2 |');
+    expect(cells(html, 0).some((c) => c.classList.contains('num'))).toBe(false);
+    expect(cells(html, 1).every((c) => c.classList.contains('num'))).toBe(true);
   });
 });

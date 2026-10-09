@@ -194,11 +194,13 @@ test.describe('Visual: Long Content Wrapping', () => {
     expect(hasHorizontalScroll).toBe(false);
 
     // Screenshot the full messages area so the breakout is visible
-    // The sent message's clock time shows when its actions are revealed -
-    // a baseline rendered in another minute otherwise differs (CI flake)
-    await expect(page.locator('#messages')).toHaveScreenshot('desktop-wide-table.png', {
-      mask: [page.locator('.message-time')],
+    // Message clock times are visible here: pin them, or a baseline rendered
+    // in another minute differs. (A mask is not enough - "11:34 AM" and
+    // "1:52 PM" differ in WIDTH, shifting the action icons next to them.)
+    await page.evaluate(() => {
+      for (const el of document.querySelectorAll('.message-time')) el.textContent = '12:00 PM';
     });
+    await expect(page.locator('#messages')).toHaveScreenshot('desktop-wide-table.png');
   });
 
   test('short message displays correctly', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { marked } from 'marked';
+import { marked, type Tokens } from 'marked';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
 import hljs from 'highlight.js/lib/core';
@@ -137,6 +137,27 @@ marked.use({
   },
 });
 
+/**
+ * A table cell that holds a number: optional approximation/sign and currency
+ * prefix, digits with thousands/decimal separators, then an optional %, or a
+ * short unit word ("1,234,567 Kč", "23.4 percent", "~5 min", "$12.50").
+ */
+const NUMERIC_CELL_RE = /^[~≈+\-−]?\s*[$€£]?\s*\d[\d\s.,\u00a0]*(?:\s?[%‰]|\s?[\p{L}$€£]{1,8}\.?)?$/u;
+
+/**
+ * Columns to right-align as numbers: every non-empty body cell is numeric and
+ * the markdown set no alignment of its own.
+ */
+function numericColumns(header: Tokens.TableCell[], rows: Tokens.TableCell[][]): Set<number> {
+  const numeric = new Set<number>();
+  header.forEach((cell, col) => {
+    if (cell.align) return;
+    const values = rows.map((row) => row[col]?.text.trim() ?? '').filter(Boolean);
+    if (values.length > 0 && values.every((v) => NUMERIC_CELL_RE.test(v))) numeric.add(col);
+  });
+  return numeric;
+}
+
 // Configure marked with custom renderer for tables, code blocks, and links
 marked.use({
   breaks: true,
@@ -157,22 +178,26 @@ marked.use({
 
     // Wrap tables in container with copy button
     table(token): string {
+      // Numbers right-align with tabular figures and never wrap (.num)
+      const numeric = numericColumns(token.header, token.rows);
+      const numClass = (col: number): string => (numeric.has(col) ? ' class="num"' : '');
+
       // Build table header
       let headerHtml = '<thead><tr>';
-      for (const cell of token.header) {
+      token.header.forEach((cell, col) => {
         const align = cell.align ? ` style="text-align:${cell.align}"` : '';
-        headerHtml += `<th${align}>${this.parser.parseInline(cell.tokens)}</th>`;
-      }
+        headerHtml += `<th${align}${numClass(col)}>${this.parser.parseInline(cell.tokens)}</th>`;
+      });
       headerHtml += '</tr></thead>';
 
       // Build table body
       let bodyHtml = '<tbody>';
       for (const row of token.rows) {
         bodyHtml += '<tr>';
-        for (const cell of row) {
+        row.forEach((cell, col) => {
           const align = cell.align ? ` style="text-align:${cell.align}"` : '';
-          bodyHtml += `<td${align}>${this.parser.parseInline(cell.tokens)}</td>`;
-        }
+          bodyHtml += `<td${align}${numClass(col)}>${this.parser.parseInline(cell.tokens)}</td>`;
+        });
         bodyHtml += '</tr>';
       }
       bodyHtml += '</tbody>';

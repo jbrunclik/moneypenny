@@ -197,11 +197,11 @@ test.describe('Visual: Quiz Blocks', () => {
       div.className = 'message assistant';
       div.innerHTML = `
         <div class="message-content">
-          <div class="quiz-block quiz-multiple-choice answered">
+          <div class="quiz-block quiz-multiple-choice answered" data-correct="1">
             <div class="quiz-question">What does 'Hola' mean?</div>
             <div class="quiz-options">
-              <button class="quiz-option" data-index="0">Goodbye</button>
-              <button class="quiz-option selected" data-index="1">Hello</button>
+              <button class="quiz-option selected incorrect" data-index="0">Goodbye</button>
+              <button class="quiz-option correct" data-index="1">Hello</button>
               <button class="quiz-option" data-index="2">Thank you</button>
               <button class="quiz-option" data-index="3">Please</button>
             </div>

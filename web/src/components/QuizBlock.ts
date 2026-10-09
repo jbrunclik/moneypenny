@@ -106,7 +106,7 @@ function renderMultipleChoice(quiz: MultipleChoiceQuiz, insideBatch = false): st
   const buttonHtml = insideBatch ? '' : CONTINUE_BUTTON_HTML;
 
   return `
-    <div class="quiz-block quiz-multiple-choice">
+    <div class="quiz-block quiz-multiple-choice" data-correct="${Number(quiz.correct)}">
       <div class="quiz-question">${escapeHtml(quiz.question)}</div>
       <div class="quiz-options">${optionsHtml}</div>
       ${buttonHtml}
@@ -244,6 +244,7 @@ export function handleQuizContinue(continueBtn: HTMLButtonElement): void {
 
   // Lock the quiz
   quizBlock.classList.add('answered');
+  showMultipleChoiceFeedback(blocks);
 
   // Build and send results
   const results = collectQuizAnswers(quizBlock);
@@ -262,6 +263,22 @@ export function handleQuizContinue(continueBtn: HTMLButtonElement): void {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+/**
+ * Multiple-choice answers carry their correct index, so they get instant
+ * right/wrong feedback on submit. Free-text answers (fill-blank, translate)
+ * stay with the tutor, who can judge near-misses and typos.
+ */
+function showMultipleChoiceFeedback(blocks: Iterable<Element>): void {
+  for (const block of blocks) {
+    const el = block as HTMLElement;
+    if (!el.classList.contains('quiz-multiple-choice') || el.dataset.correct === undefined) continue;
+    const correct = el.querySelector<HTMLElement>(`.quiz-option[data-index="${el.dataset.correct}"]`);
+    const picked = el.querySelector<HTMLElement>('.quiz-option.selected');
+    correct?.classList.add('correct');
+    if (picked && picked !== correct) picked.classList.add('incorrect');
+  }
+}
 
 function collectQuizAnswers(quizBlock: HTMLElement): string {
   const isBatch = quizBlock.classList.contains('quiz-batch');

@@ -21,6 +21,12 @@
 
 .quiz-block.answered {
     pointer-events: none;
+}
+
+/* Answered: dim what is done with, never the right/wrong feedback */
+.quiz-block.answered .quiz-question,
+.quiz-block.answered .quiz-text-input,
+.quiz-block.answered .quiz-option:not(.correct, .incorrect) {
     opacity: 0.7;
 }
 
@@ -88,6 +94,35 @@
     border-color: var(--accent);
     background: var(--accent-muted);
     font-weight: 500;
+}
+
+/* Feedback after "Send answer" (multiple choice only - see QuizBlock.ts) */
+.quiz-option.correct,
+.quiz-option.incorrect {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+}
+
+.quiz-option.correct {
+    border-color: var(--success);
+    background: var(--color-success-900);
+}
+
+.quiz-option.incorrect {
+    border-color: var(--error);
+    background: var(--color-error-900);
+}
+
+.quiz-option.correct::after {
+    content: '✓';
+    color: var(--success);
+}
+
+.quiz-option.incorrect::after {
+    content: '✕';
+    color: var(--error);
 }
 
 /* ----------------------------------------
