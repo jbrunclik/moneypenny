@@ -154,9 +154,9 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
     <div class="sports-modal-header">
       <div class="sports-modal-title-row">
         <span class="sports-modal-icon">${SPORTS_ICON}</span>
-        <h2>New Program</h2>
+        <h2 class="dialog-title">New Program</h2>
       </div>
-      <button class="sports-modal-close" title="Close">${CLOSE_ICON}</button>
+      <button class="sports-modal-close dialog-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
     </div>
     <div class="sports-modal-body">
       <div class="sports-add-input-row">

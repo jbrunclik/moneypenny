@@ -1,0 +1,57 @@
+/* ============================================
+   Dialog anatomy (shared)
+   ============================================
+
+   One title and one close button for every dialog: Modal, info popups
+   (sources, cost, settings, ...), the agent editor, the quick-actions editor
+   and the sports/language "New Program" modals. The material, scrim, widths
+   and radius live in glass.css / variables.css; this is the header.
+
+   Imported after the component stylesheets; the title selector matches the
+   specificity of their own `.x-header h2` rules so this wins on order. */
+
+/* Type only - spacing stays with each dialog's own layout (the confirm
+   modal spaces its title from the message below it) */
+:is(h2, h3).dialog-title {
+    font-family: var(--font-family);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.dialog-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.dialog-close svg {
+    width: 18px;
+    height: 18px;
+}
+
+.dialog-close:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* The confirm modal has no header bar: its close floats top-right, centred
+   on the title's first line (24px padding, ~23px line) instead of above it */
+.modal .dialog-close {
+    position: absolute;
+    top: calc(var(--space-6) - 5px);
+    right: var(--space-4);
+}

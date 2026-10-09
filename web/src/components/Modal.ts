@@ -275,7 +275,7 @@ function renderModal(options: {
   if (!modalContainer) return;
 
   const titleHtml = options.title
-    ? `<h2 class="modal-title">${escapeHtml(options.title)}</h2>`
+    ? `<h2 class="modal-title dialog-title">${escapeHtml(options.title)}</h2>`
     : '';
 
   const inputHtml = options.showInput
@@ -290,7 +290,7 @@ function renderModal(options: {
 
   modalContainer.innerHTML = `
     <div class="modal" role="dialog" aria-modal="true" ${options.title ? `aria-labelledby="modal-title"` : ''}>
-      <button class="modal-close" aria-label="Close">${CLOSE_ICON}</button>
+      <button class="modal-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
       ${titleHtml}
       <p class="modal-message">${escapeHtml(options.message)}</p>
       ${inputHtml}

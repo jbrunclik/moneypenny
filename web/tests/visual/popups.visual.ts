@@ -39,8 +39,8 @@ test.describe('Visual: Cost Popups', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${COST_ICON}</span>
-            <h3>Message Cost</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Message Cost</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body message-cost-body">
             <div class="message-cost-content">
@@ -100,8 +100,8 @@ test.describe('Visual: Cost Popups', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${COST_ICON}</span>
-            <h3>Cost History</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Cost History</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body cost-history-body">
             <div class="cost-history-content">
@@ -166,8 +166,8 @@ test.describe('Visual: Cost Popups', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${COST_ICON}</span>
-            <h3>Cost History</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Cost History</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body cost-history-body">
             <div class="cost-history-empty">
@@ -203,8 +203,8 @@ test.describe('Visual: Sources Popup', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${SOURCES_ICON}</span>
-            <h3>Sources</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Sources</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body sources-body">
             <div class="sources-header-badge">
@@ -256,8 +256,8 @@ test.describe('Visual: Image Generation Popup', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${SPARKLES_ICON}</span>
-            <h3>Image Generation</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Image Generation</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body imagegen-body">
             <div class="imagegen-list">
@@ -297,8 +297,8 @@ test.describe('Visual: Image Generation Popup', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${SPARKLES_ICON}</span>
-            <h3>Image Generation</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Image Generation</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body imagegen-body">
             <div class="imagegen-list">
@@ -421,8 +421,8 @@ test.describe('Visual: Settings Popup', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${SETTINGS_ICON}</span>
-            <h3>Settings</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Settings</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body">
             <div class="settings-body">
@@ -479,8 +479,8 @@ test.describe('Visual: Settings Popup', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${SETTINGS_ICON}</span>
-            <h3>Settings</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Settings</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body">
             <div class="settings-body">
@@ -538,8 +538,8 @@ test.describe('Visual: Settings Popup', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${SETTINGS_ICON}</span>
-            <h3>Settings</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Settings</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body">
             <div class="settings-body">
@@ -600,8 +600,8 @@ test.describe('Visual: Mobile Popups', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${COST_ICON}</span>
-            <h3>Message Cost</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Message Cost</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body message-cost-body">
             <div class="message-cost-content">
@@ -661,8 +661,8 @@ test.describe('Visual: Mobile Popups', () => {
         <div class="info-popup-content">
           <div class="info-popup-header">
             <span class="info-popup-icon">${SOURCES_ICON}</span>
-            <h3>Sources</h3>
-            <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+            <h3 class="dialog-title">Sources</h3>
+            <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
           </div>
           <div class="info-popup-body sources-body">
             <div class="sources-header-badge">
@@ -748,8 +748,8 @@ test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
           <div class="info-popup-content">
             <div class="info-popup-header">
               <span class="info-popup-icon">${SETTINGS_ICON}</span>
-              <h3>Settings</h3>
-              <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+              <h3 class="dialog-title">Settings</h3>
+              <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
             </div>
             <div class="info-popup-body">
               <div class="settings-body">

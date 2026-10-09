@@ -85,8 +85,8 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   modal.setAttribute('aria-modal', 'true');
   modal.innerHTML = `
     <div class="qa-editor-header">
-      <div class="qa-editor-title-row"><span class="qa-editor-icon">${SLIDERS_ICON}</span><h2>Quick actions</h2></div>
-      <button type="button" class="qa-editor-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
+      <div class="qa-editor-title-row"><span class="qa-editor-icon">${SLIDERS_ICON}</span><h2 class="dialog-title">Quick actions</h2></div>
+      <button type="button" class="qa-editor-close dialog-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
     </div>
     <div class="qa-editor-body"></div>`;
   overlay.appendChild(modal);

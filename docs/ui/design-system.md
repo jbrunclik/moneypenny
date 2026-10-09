@@ -16,7 +16,8 @@ web/src/styles/
     ├── chat-header.css    buttons.css    messages.css   sidebar.css
     ├── input.css          popups.css     thinking.css   planner.css
     ├── agents.css         kv-store.css   sports.css     language.css
-    ├── quick-actions.css  quiz.css       pdf-viewer.css
+    ├── quick-actions.css  quiz.css       pdf-viewer.css   grounding.css  research.css
+    ├── dialog.css         # Shared dialog title + close (after the component files)
     └── glass.css          # Liquid-glass materials - imported LAST
 ```
 
@@ -98,6 +99,11 @@ backdrop blur** - iOS alerts dim, the dialog is the glass. A blurred scrim becom
 dialog's backdrop root (Filter Effects), so the dialog's own glass sees only the scrim
 colour and turns into flat grey. A new overlay joins those selector lists instead of
 setting its own `rgba(0,0,0,...)` scrim or solid surface.
+
+**One dialog header** (`components/dialog.css`): every dialog's title carries
+`.dialog-title` (18px/600) and its close button `.dialog-close` (32px ghost, 18px icon);
+the confirm modal's floating close is centred on the title's first line. A new dialog
+uses both classes instead of styling its own title and close.
 
 **On mobile every overlay is one bottom sheet** ("Mobile sheets (shared)" at the end of
 `popups.css`; the claims list matches it in `grounding.css`): a floating card inset

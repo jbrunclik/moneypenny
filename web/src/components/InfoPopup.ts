@@ -67,8 +67,8 @@ export function createPopup<T>(
     content.innerHTML = `
       <div class="info-popup-header">
         <span class="info-popup-icon">${icon}</span>
-        <h3>${title}</h3>
-        <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+        <h3 class="dialog-title">${title}</h3>
+        <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
       </div>
       <div class="info-popup-body ${styleClass}-body">
         ${renderContent(data)}

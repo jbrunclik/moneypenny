@@ -178,10 +178,10 @@ test.describe('Visual: Modal Dialogs', () => {
       container.className = 'modal-container';
       container.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <button class="modal-close" aria-label="Close">
+          <button class="modal-close dialog-close" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <h2 class="modal-title">Error</h2>
+          <h2 class="modal-title dialog-title">Error</h2>
           <p class="modal-message">An unexpected error occurred. Please try again later.</p>
           <div class="modal-actions">
             <button class="modal-confirm">OK</button>
@@ -214,10 +214,10 @@ test.describe('Visual: Modal Dialogs', () => {
       container.className = 'modal-container';
       container.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <button class="modal-close" aria-label="Close">
+          <button class="modal-close dialog-close" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <h2 class="modal-title">Confirm Action</h2>
+          <h2 class="modal-title dialog-title">Confirm Action</h2>
           <p class="modal-message">Are you sure you want to proceed with this action?</p>
           <div class="modal-actions">
             <button class="modal-cancel">Cancel</button>
@@ -247,10 +247,10 @@ test.describe('Visual: Modal Dialogs', () => {
       container.className = 'modal-container';
       container.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <button class="modal-close" aria-label="Close">
+          <button class="modal-close dialog-close" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <h2 class="modal-title">Delete Conversation</h2>
+          <h2 class="modal-title dialog-title">Delete Conversation</h2>
           <p class="modal-message">Are you sure you want to delete this conversation? This cannot be undone.</p>
           <div class="modal-actions">
             <button class="modal-cancel">Cancel</button>
@@ -280,10 +280,10 @@ test.describe('Visual: Modal Dialogs', () => {
       container.className = 'modal-container';
       container.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <button class="modal-close" aria-label="Close">
+          <button class="modal-close dialog-close" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <h2 class="modal-title">Rename Conversation</h2>
+          <h2 class="modal-title dialog-title">Rename Conversation</h2>
           <p class="modal-message">Enter a new name for this conversation:</p>
           <input type="text" class="modal-input" value="My Conversation" placeholder="Conversation name">
           <div class="modal-actions">
@@ -393,10 +393,10 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       container.className = 'modal-container';
       container.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <button class="modal-close" aria-label="Close">
+          <button class="modal-close dialog-close" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <h2 class="modal-title">Error</h2>
+          <h2 class="modal-title dialog-title">Error</h2>
           <p class="modal-message">An unexpected error occurred. Please try again later.</p>
           <div class="modal-actions">
             <button class="modal-confirm">OK</button>
@@ -425,10 +425,10 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       container.className = 'modal-container';
       container.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <button class="modal-close" aria-label="Close">
+          <button class="modal-close dialog-close" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <h2 class="modal-title">Delete Conversation</h2>
+          <h2 class="modal-title dialog-title">Delete Conversation</h2>
           <p class="modal-message">Are you sure you want to delete this conversation? This cannot be undone.</p>
           <div class="modal-actions">
             <button class="modal-cancel">Cancel</button>
@@ -458,10 +458,10 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       container.className = 'modal-container';
       container.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <button class="modal-close" aria-label="Close">
+          <button class="modal-close dialog-close" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
-          <h2 class="modal-title">Rename Conversation</h2>
+          <h2 class="modal-title dialog-title">Rename Conversation</h2>
           <p class="modal-message">Enter a new name for this conversation:</p>
           <input type="text" class="modal-input" value="My Conversation" placeholder="Conversation name">
           <div class="modal-actions">

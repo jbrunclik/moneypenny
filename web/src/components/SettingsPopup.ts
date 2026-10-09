@@ -82,8 +82,8 @@ function renderLoadingShell(popup: HTMLElement): void {
   content.innerHTML = `
       <div class="info-popup-header">
         <span class="info-popup-icon">${SETTINGS_ICON}</span>
-        <h3>Settings</h3>
-        <button class="info-popup-close" aria-label="Close">${CLOSE_ICON}</button>
+        <h3 class="dialog-title">Settings</h3>
+        <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
       </div>
       <div class="info-popup-body settings-body">
         <div class="settings-loading">Loading settings...</div>

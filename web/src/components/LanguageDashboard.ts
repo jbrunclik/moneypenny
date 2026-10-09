@@ -180,9 +180,9 @@ function showNewProgramModal(
     <div class="language-modal-header">
       <div class="language-modal-title-row">
         <span class="language-modal-icon">${LANGUAGE_ICON}</span>
-        <h2>New Program</h2>
+        <h2 class="dialog-title">New Program</h2>
       </div>
-      <button class="language-modal-close" title="Close">${CLOSE_ICON}</button>
+      <button class="language-modal-close dialog-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
     </div>
     <div class="language-modal-body">
       <select class="language-select">

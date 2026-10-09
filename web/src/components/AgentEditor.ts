@@ -206,9 +206,9 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
       <div class="agent-editor-header">
         <div class="agent-editor-title-row">
           <span class="agent-editor-icon">${ROBOT_ICON}</span>
-          <h2 id="agent-editor-title">${escapeHtml(title)}</h2>
+          <h2 id="agent-editor-title" class="dialog-title">${escapeHtml(title)}</h2>
         </div>
-        <button class="agent-editor-close" aria-label="Close">${CLOSE_ICON}</button>
+        <button class="agent-editor-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
       </div>
 
       <div class="agent-editor-body">
