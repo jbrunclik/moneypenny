@@ -70,6 +70,8 @@ describe('deleteConversation (move to trash)', () => {
         title: 'Move to trash',
         message: 'Move this conversation to the trash? You can restore it for 14 days.',
         confirmLabel: 'Move to trash',
+        // Reversible (restorable from the trash): a neutral button, not red
+        danger: false,
       })
     );
     expect(api.delete).toHaveBeenCalledWith('a');

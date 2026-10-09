@@ -52,7 +52,9 @@ export async function deleteConversation(convId: string): Promise<void> {
     message: `Move this conversation to the trash? You can restore it for ${TRASH_RETENTION_DAYS} days.`,
     confirmLabel: 'Move to trash',
     cancelLabel: 'Cancel',
-    danger: true,
+    // Reversible - restorable from the trash - so not the red destructive
+    // button; that stays for the permanent delete from the trash
+    danger: false,
   });
 
   if (!confirmed) return;
