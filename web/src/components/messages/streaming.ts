@@ -9,6 +9,7 @@ import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
 import { highlightLiveCodeBlocks } from './live-highlight';
 import { isProgrammaticScrollActive, programmaticScrollToBottom } from '../../utils/thumbnails';
+import { kbDebugEvent } from '../../core/keyboard-viewport';
 import {
   checkScrollButtonVisibility,
   setOnJumpToBottom,
@@ -98,6 +99,7 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
 
   container.appendChild(messageEl);
   programmaticScrollToBottom(container);
+  logThinkingBarPosition(thinkingIndicator);
 
   // Set up scroll listener to detect user scroll during streaming
   // This allows interrupting auto-scroll when scrolling up and resuming when scrolling back to bottom
@@ -109,6 +111,28 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
   });
 
   return messageEl;
+}
+
+/**
+ * kbdebug overlay only: where the new thinking bar sits relative to the
+ * composer pill, now and as layout settles (iOS PWA: it can end up behind the
+ * composer - TODO.md). `gap` < 0 means the bar is covered.
+ */
+function logThinkingBarPosition(bar: HTMLElement): void {
+  const snap = (label: string): void => {
+    const pill = document.getElementById('input-container')?.getBoundingClientRect();
+    const r = bar.getBoundingClientRect();
+    kbDebugEvent(label, {
+      barTop: Math.round(r.top),
+      barBot: Math.round(r.bottom),
+      pillTop: pill ? Math.round(pill.top) : null,
+      gap: pill ? Math.round(pill.top - r.bottom) : null,
+      follow: currentStreamingContext?.shouldAutoScroll ?? null,
+    });
+  };
+  requestAnimationFrame(() => snap('bar@0'));
+  setTimeout(() => snap('bar@300'), 300);
+  setTimeout(() => snap('bar@1000'), 1000);
 }
 
 /**

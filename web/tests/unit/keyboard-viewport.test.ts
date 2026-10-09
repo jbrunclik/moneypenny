@@ -400,3 +400,18 @@ describe('keyboard viewport pinning', () => {
     expect(getInset()).toBe('300px');
   });
 });
+
+describe('kbDebugEvent', () => {
+  it('logs to the overlay only when kbdebug is on', async () => {
+    const { kbDebugEvent } = await import('@/core/keyboard-viewport');
+    localStorage.removeItem('kbdebug');
+    kbDebugEvent('bar@0', { gap: -12 });
+    expect(document.body.textContent).not.toContain('bar@0');
+
+    localStorage.setItem('kbdebug', '1');
+    kbDebugEvent('bar@0', { gap: -12 });
+    expect(document.body.textContent).toContain('bar@0 {"gap":-12}');
+    expect(document.body.textContent).toContain('[kb14]');
+    localStorage.removeItem('kbdebug');
+  });
+});

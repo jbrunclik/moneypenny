@@ -164,6 +164,9 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   transitions). Bump the `[kbN]` marker whenever iterating - it identifies
   which bundle a user screenshot is running, which resolved several
   "fix doesn't work" rounds that were actually stale tabs.
+  Other modules log into it via `kbDebugEvent()`; each send logs
+  `bar@0`/`bar@300`/`bar@1000` (thinking bar vs composer pill, `gap` < 0 =
+  covered) for the "thinking bar behind the composer" investigation.
 - **Mind HTML cache staleness during mobile iteration**: the index page
   must send `Cache-Control: no-cache` (see docs/deployment.md) or Safari
   serves hours-old bundles - and an already-open tab keeps the old bundle
