@@ -498,17 +498,6 @@
     border-radius: var(--radius-sm);
 }
 
-.kv-store-section-empty {
-    text-align: center;
-    padding: var(--space-4);
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.kv-store-section-empty p {
-    margin: 0;
-}
-
 /* ----------------------------------------
    Memories Section
    ---------------------------------------- */

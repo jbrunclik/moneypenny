@@ -1,6 +1,7 @@
 import { escapeHtml } from '../utils/dom';
 import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, getWeatherIcon } from '../utils/icons';
 import { createLogger } from '../utils/logger';
+import { renderEmptyStateHtml } from './EmptyState';
 import type { PlannerDashboard, PlannerDay, PlannerEvent, PlannerTask, PlannerHealthSummary } from '../types/api';
 
 const log = createLogger('planner-dashboard');
@@ -91,6 +92,26 @@ function buildDashboardContent(dashboard: PlannerDashboard): string {
     html += renderErrors(dashboard);
   }
 
+  // Nothing at all scheduled (and every source answered): the empty state
+  // alone says so - per-day "Nothing scheduled" lines above it repeated it.
+  // Never "all clear" when a task or calendar source failed: its items are
+  // unknown, not absent.
+  const allClear =
+    !dashboard.todoist_error &&
+    !dashboard.calendar_error &&
+    dashboard.days.every((day) => day.events.length === 0 && day.tasks.length === 0) &&
+    dashboard.overdue_tasks.length === 0;
+  if (allClear) {
+    html += renderEmptyStateHtml({
+      icon: CHECK_ICON,
+      title: 'No events or tasks scheduled',
+      hint: 'Your calendar and task list are clear!',
+      variant: 'success',
+      className: 'dashboard-empty',
+    });
+    return html;
+  }
+
   // Overdue tasks section (if any)
   if (dashboard.overdue_tasks.length > 0) {
     html += renderOverdueSection(dashboard.overdue_tasks);
@@ -114,23 +135,6 @@ function buildDashboardContent(dashboard: PlannerDashboard): string {
       0
     );
     html += renderWeekSection(weekDays, weekItemCount);
-  }
-
-  // Empty state if no data - but never "all clear" when a task or calendar
-  // source failed: its items are unknown, not absent
-  if (
-    !dashboard.todoist_error &&
-    !dashboard.calendar_error &&
-    dashboard.days.every((day) => day.events.length === 0 && day.tasks.length === 0) &&
-    dashboard.overdue_tasks.length === 0
-  ) {
-    html += `
-      <div class="dashboard-empty">
-        <div class="dashboard-empty-icon">${CHECK_ICON}</div>
-        <p>No events or tasks scheduled</p>
-        <p>Your calendar and task list are clear!</p>
-      </div>
-    `;
   }
 
   return html;

@@ -6,6 +6,7 @@
 
 import { escapeHtml } from '../utils/dom';
 import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON } from '../utils/icons';
+import { renderEmptyStateHtml } from './EmptyState';
 import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
 
 type RefreshCallback = () => Promise<void>;
@@ -144,16 +145,14 @@ export function renderCommandCenter(
   `;
 
   if (data.agents.length === 0) {
-    const emptyState = document.createElement('div');
-    emptyState.className = 'empty-state';
-    emptyState.innerHTML = `
-      <p>No agents yet.</p>
-      <p class="text-muted">Create an agent to automate tasks.</p>
-      <button class="btn-create-agent">
-        ${PLUS_ICON}
-        <span>Create Agent</span>
-      </button>
-    `;
+    const holder = document.createElement('div');
+    holder.innerHTML = renderEmptyStateHtml({
+      icon: ROBOT_ICON,
+      title: 'No agents yet',
+      hint: 'Create an agent to automate tasks.',
+      ctaHtml: `<button class="btn-create-agent">${PLUS_ICON}<span>Create Agent</span></button>`,
+    });
+    const emptyState = holder.firstElementChild as HTMLElement;
     emptyState.querySelector('.btn-create-agent')?.addEventListener('click', () => {
       onNewAgent();
     });

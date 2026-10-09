@@ -644,49 +644,6 @@
    Empty State
    ---------------------------------------- */
 
-.dashboard-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-12) var(--space-4);
-    text-align: center;
-}
-
-.dashboard-empty-icon {
-    width: 44px;
-    height: 44px;
-    color: var(--color-success-500);
-    background: var(--color-success-900);
-    border-radius: 50%;
-    padding: var(--space-2-5);
-    margin-bottom: var(--space-4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.dashboard-empty-icon svg {
-    width: 100%;
-    height: 100%;
-}
-
-.dashboard-empty p {
-    margin: 0;
-}
-
-.dashboard-empty p:first-of-type {
-    font-size: var(--font-size-base);
-    font-weight: 550;
-    color: var(--text-primary);
-    margin-bottom: var(--space-1);
-}
-
-.dashboard-empty p:last-of-type {
-    color: var(--text-muted);
-    font-size: var(--font-size-sm);
-}
-
 /* ----------------------------------------
    Weather Badges
    ---------------------------------------- */

@@ -483,28 +483,6 @@
    Empty State
    ---------------------------------------- */
 
-.sports-empty-state {
-    text-align: center;
-    padding: var(--space-8);
-    color: var(--text-secondary);
-}
-
-.sports-empty-state p {
-    margin: 0;
-}
-
-.sports-empty-state p:first-child {
-    font-size: var(--font-size-ui);
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.sports-empty-hint {
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
-}
-
 /* ----------------------------------------
    Program Chat Header
    ---------------------------------------- */

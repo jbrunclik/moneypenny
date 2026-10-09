@@ -25,8 +25,10 @@ Every feature's main page follows the same header structure:
   no gradient text) + action buttons (right-aligned, pill-shaped)
 - **Action button**: Accent background, white text, `PLUS_ICON` + label (e.g., "New Program", "New Agent")
 - **Cards**: Grid layout with `auto-fill, minmax(280px, 1fr)`, single column on mobile
-- **Empty state**: Centered text with muted hint and the ONE create button (the header
-  button is not rendered while the list is empty)
+- **Empty state**: `renderEmptyStateHtml()` (`components/EmptyState.ts`, styles in
+  `empty-state.css`) - tinted 44px icon, title, muted hint and the ONE create button (the
+  header button is not rendered while the list is empty). `variant: 'success'` for an
+  "all clear", `compact: true` for an empty section inside a page. Don't hand-roll one.
 
 **Reference**: `CommandCenter.ts` (agents), `SportsDashboard.ts` (sports)
 

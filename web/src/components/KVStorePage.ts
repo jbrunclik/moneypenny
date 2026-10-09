@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml, clearElement } from '../utils/dom';
+import { renderEmptyStateHtml } from './EmptyState';
 import {
   DELETE_ICON,
   DATABASE_ICON,
@@ -140,10 +141,12 @@ function renderMemoriesSection(
   section.appendChild(title);
 
   if (memories.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'kv-store-section-empty';
-    empty.innerHTML = '<p>No memories yet. The AI will automatically remember important things from your conversations.</p>';
-    section.appendChild(empty);
+    section.insertAdjacentHTML('beforeend', renderEmptyStateHtml({
+      icon: BRAIN_ICON,
+      title: 'No memories yet',
+      hint: 'Important things from your conversations are remembered here automatically.',
+      compact: true,
+    }));
     return section;
   }
 
@@ -234,7 +237,7 @@ function renderMemoryItem(
         item.remove();
         updateCount();
         if (list.children.length === 0) {
-          list.innerHTML = '<div class="kv-store-section-empty"><p>No memories remaining.</p></div>';
+          list.innerHTML = renderEmptyStateHtml({ icon: BRAIN_ICON, title: 'No memories remaining', compact: true });
         }
       } catch {
         // Error handled by caller
@@ -314,10 +317,12 @@ function renderKVSection(data: KVNamespacesResponse, callbacks: KVStoreCallbacks
   section.appendChild(title);
 
   if (data.namespaces.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'kv-store-section-empty';
-    empty.innerHTML = '<p>No stored data. Data will appear here when agents store key-value pairs.</p>';
-    section.appendChild(empty);
+    section.insertAdjacentHTML('beforeend', renderEmptyStateHtml({
+      icon: DATABASE_ICON,
+      title: 'No stored data',
+      hint: 'Data appears here when agents store key-value pairs.',
+      compact: true,
+    }));
     return section;
   }
 

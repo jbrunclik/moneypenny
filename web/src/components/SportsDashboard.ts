@@ -19,6 +19,7 @@ import {
 } from '../utils/icons';
 import { escapeHtml } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
+import { renderEmptyStateHtml } from './EmptyState';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('SportsDashboard');
@@ -60,13 +61,14 @@ export function createSportsProgramsElement(
 
   if (programs.length === 0) {
     const empty = document.createElement('div');
-    empty.className = 'sports-empty-state';
-    empty.innerHTML = `
-      <p>No training programs yet.</p>
-      <p class="sports-empty-hint">Create a program to start training with your AI coach.</p>
-      <button class="sports-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>
-    `;
-    container.appendChild(empty);
+    empty.innerHTML = renderEmptyStateHtml({
+      icon: SPORTS_ICON,
+      title: 'No training programs yet',
+      hint: 'Create a program to start training with your AI coach.',
+      ctaHtml: `<button class="sports-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>`,
+      className: 'sports-empty-state',
+    });
+    container.appendChild(empty.firstElementChild!);
   } else {
     const grid = document.createElement('div');
     grid.className = 'sports-programs-grid';

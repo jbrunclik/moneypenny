@@ -441,28 +441,6 @@
    Empty State
    ---------------------------------------- */
 
-.language-empty-state {
-    text-align: center;
-    padding: var(--space-8);
-    color: var(--text-secondary);
-}
-
-.language-empty-state p {
-    margin: 0;
-}
-
-.language-empty-state p:first-child {
-    font-size: var(--font-size-ui);
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.language-empty-hint {
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
-}
-
 /* ----------------------------------------
    Program Chat Header
    ---------------------------------------- */

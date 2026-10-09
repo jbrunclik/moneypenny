@@ -31,6 +31,12 @@ describe('PlannerDashboard empty state', () => {
     expect(render(dashboard()).querySelector('.dashboard-empty')).not.toBeNull();
   });
 
+  it('shows the empty state alone, not a "Nothing scheduled" line per day too', () => {
+    const el = render(dashboard());
+    expect(el.querySelector('.dashboard-day-empty')).toBeNull();
+    expect(el.querySelector('.dashboard-empty')).not.toBeNull();
+  });
+
   it('does not claim all clear when a task or calendar source failed', () => {
     for (const errors of [
       { todoist_error: 'Token expired' },
