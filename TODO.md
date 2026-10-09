@@ -33,7 +33,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Desktop dialog header anatomy (material, scrim, widths, radius and the mobile sheet shipped): one header (icon, 16/600 title, 32px ghost close aligned to the title) across Modal/InfoPopup/AgentEditor/QA editor/Sports/Language - Modal floats its X above the title, QA editor uses an 18px title
   - One empty-state component across Planner, Sports/Language, Data and Command Center (page width, header and buttons shipped): icon + title + hint + optional CTA; Planner's title is still 24px without an icon
   - Accent only on send + user bubble: New Chat, the agents/sports pills and badges compete with them (New Chat becomes quieter)
-  - Tool/thinking disclosure as an inline summary ("Searched the web · 3 sources") instead of the grey "Show details" bar
   - Quiz: correct/incorrect feedback on answered questions, progress in batches
   - Login: fallback when the Google button fails to load, white card on tinted page, pill Google button
   - Sidebar nav as a vertical list; drop the user avatar in 1:1 chat; numeric table cells right-aligned/tabular; floating "new messages" pill; skeleton agent cards; Sports card meta line; Undo toast instead of a red confirm for move-to-trash; 44px mobile tap targets

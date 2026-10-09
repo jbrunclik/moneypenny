@@ -5,7 +5,7 @@
  * - Full trace of thinking and tool events with details
  * - Thinking state with thinking text preview
  * - Tool execution status with query/URL/prompt details
- * - Automatically collapses into a "Show details" toggle when message is finalized
+ * - Collapses into a one-line summary toggle ("Thought · Searched ×3") when finalized
  */
 
 import {
@@ -82,6 +82,29 @@ function getToolLabel(item: ThinkingTraceItem): string {
     // Use present tense label from metadata if available
     return item.metadata?.label || `Running ${item.label}`;
   }
+}
+
+/** Steps named in a finalized summary before the rest fold into "+N more" */
+const SUMMARY_MAX_PARTS = 3;
+
+/**
+ * One-line summary of a finished turn's trace ("Thought · Searched ×3 ·
+ * Fetched") - says what happened instead of a generic "Show details".
+ * Steps with the same label merge in first-seen order, counted when repeated.
+ */
+function summarizeTrace(items: ThinkingTraceItem[]): string {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const label = item.type === 'thinking' ? 'Thought' : getToolLabel({ ...item, completed: true });
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const parts = [...counts].map(([label, n]) => (n > 1 && label !== 'Thought' ? `${label} ×${n}` : label));
+  if (parts.length === 0) return 'Show details';
+  if (parts.length > SUMMARY_MAX_PARTS) {
+    const rest = parts.length - SUMMARY_MAX_PARTS;
+    return [...parts.slice(0, SUMMARY_MAX_PARTS), `+${rest} more`].join(' · ');
+  }
+  return parts.join(' · ');
 }
 
 /**
@@ -240,23 +263,20 @@ export function finalizeThinkingIndicator(
   for (const item of reorderedTrace) {
     traceItems.push(renderTraceItem({ ...item, completed: true }, false, true));
   }
+  // The summary names the same steps the details list
+  const summaryItems: ThinkingTraceItem[] = [...reorderedTrace];
 
   // If no trace but we have thinking text or completed tools, build from those
   if (traceItems.length === 0) {
     if (state.thinkingText) {
-      traceItems.push(renderTraceItem({
-        type: 'thinking',
-        label: 'thinking',
-        detail: state.thinkingText,
-        completed: true,
-      }, false, true));
+      const thinking: ThinkingTraceItem = { type: 'thinking', label: 'thinking', detail: state.thinkingText, completed: true };
+      traceItems.push(renderTraceItem(thinking, false, true));
+      summaryItems.push(thinking);
     }
     for (const tool of state.completedTools) {
-      traceItems.push(renderTraceItem({
-        type: 'tool',
-        label: tool,
-        completed: true,
-      }, false, true));
+      const item: ThinkingTraceItem = { type: 'tool', label: tool, completed: true };
+      traceItems.push(renderTraceItem(item, false, true));
+      summaryItems.push(item);
     }
   }
 
@@ -270,7 +290,7 @@ export function finalizeThinkingIndicator(
   container.innerHTML = `
     <button class="thinking-toggle" aria-expanded="false" type="button">
       <span class="thinking-toggle-icon">${CHEVRON_RIGHT_ICON}</span>
-      <span class="thinking-toggle-summary">Show details</span>
+      <span class="thinking-toggle-summary">${escapeHtml(summarizeTrace(summaryItems))}</span>
     </button>
     <div class="thinking-details" hidden>
       <div class="thinking-trace">
@@ -307,12 +327,6 @@ export function finalizeThinkingIndicator(
       toggle.setAttribute('aria-expanded', String(!isExpanded));
       details.toggleAttribute('hidden', isExpanded);
       container.classList.toggle('expanded', !isExpanded);
-
-      // Update summary text
-      const summary = toggle.querySelector('.thinking-toggle-summary');
-      if (summary) {
-        summary.textContent = isExpanded ? 'Show details' : 'Hide details';
-      }
     });
   }
 }

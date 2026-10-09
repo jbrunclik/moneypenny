@@ -626,12 +626,19 @@ test.describe('Chat - Stop Streaming', () => {
 
     // Whatever was produced before the Stop landed (nothing, or the first
     // words) is what was saved: a reload shows the same reply
-    const replyText = (el: string) => el.replace('Show details', '').trim();
-    const live = replyText(await assistant.locator('.message-content').innerText());
+    // (the live turn's collapsed thinking summary is not part of the saved
+    // reply - a reloaded message has no trace)
+    const replyText = (content: import('@playwright/test').Locator) =>
+      content.evaluate((el) => {
+        const copy = el.cloneNode(true) as HTMLElement;
+        copy.querySelector('.thinking-indicator')?.remove();
+        return (copy.textContent ?? '').trim();
+      });
+    const live = await replyText(assistant.locator('.message-content'));
     await page.reload();
     const reloaded = page.locator('.message.assistant');
     await expect(reloaded.locator('.message-stopped-early')).toContainText('Stopped.', { timeout: 10000 });
-    expect(replyText(await reloaded.locator('.message-content').innerText())).toBe(live);
+    expect(await replyText(reloaded.locator('.message-content'))).toBe(live);
   });
 });
 

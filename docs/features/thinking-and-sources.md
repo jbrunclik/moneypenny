@@ -14,7 +14,7 @@ During streaming responses, the app shows a thinking indicator at the top of ass
 - **Live updates**: Thinking text is visible and updates during streaming, not just in finalized view
 - **Full trace**: Shows thinking (singleton) + all tool events with details
 - **Rich details**: Shows full thinking text, search queries, URLs, and image prompts
-- **Auto-collapse**: When the message finishes, the indicator collapses into a "Show details" toggle
+- **Auto-collapse**: When the message finishes, the indicator collapses into a quiet one-line summary toggle naming what happened ("Thought · Searched ×3 · Fetched": past-tense labels from `TOOL_METADATA`, repeats counted, more than three steps fold into "+N more"); the tinted panel appears only when expanded
 
 ### How it works
 
@@ -38,7 +38,7 @@ During streaming responses, the app shows a thinking indicator at the top of ass
    - Shows animated "Thinking" with brain icon and dots during thinking
    - Shows tool icons, labels, and details (query/URL/prompt) with animated dots during execution
    - Shows checkmark when tools complete
-   - Collapses into an expandable "Show details" toggle when message finishes
+   - Collapses into an expandable summary toggle when message finishes
 
 ### Tool labels and details
 

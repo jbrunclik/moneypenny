@@ -329,13 +329,38 @@ describe('ThinkingIndicator', () => {
       expect(toggle?.getAttribute('aria-expanded')).toBe('false');
     });
 
-    it('should show "Show details" as summary', () => {
-      addToolStartToTrace(state, 'web_search');
+    it('summarizes what happened instead of a generic "Show details"', () => {
+      addToolStartToTrace(state, 'web_search', undefined, TOOL_METADATA.web_search);
       markToolCompletedInTrace(state, 'web_search');
       finalizeThinkingIndicator(indicator, state);
 
       const summary = indicator.querySelector('.thinking-toggle-summary');
-      expect(summary?.textContent).toBe('Show details');
+      expect(summary?.textContent).toBe('Searched');
+    });
+
+    it('summary leads with thinking and counts repeated steps', () => {
+      addThinkingToTrace(state, 'Let me look this up');
+      for (let i = 0; i < 3; i++) {
+        addToolStartToTrace(state, 'web_search', `query ${i}`, TOOL_METADATA.web_search);
+        markToolCompletedInTrace(state, 'web_search');
+      }
+      addToolStartToTrace(state, 'fetch_url', 'https://example.com', TOOL_METADATA.fetch_url);
+      markToolCompletedInTrace(state, 'fetch_url');
+      finalizeThinkingIndicator(indicator, state);
+
+      const summary = indicator.querySelector('.thinking-toggle-summary');
+      expect(summary?.textContent).toBe('Thought · Searched ×3 · Fetched');
+    });
+
+    it('summary folds steps past the third into "+N more"', () => {
+      for (const tool of ['web_search', 'fetch_url', 'generate_image', 'execute_code']) {
+        addToolStartToTrace(state, tool, undefined, TOOL_METADATA[tool]);
+        markToolCompletedInTrace(state, tool);
+      }
+      finalizeThinkingIndicator(indicator, state);
+
+      const summary = indicator.querySelector('.thinking-toggle-summary');
+      expect(summary?.textContent).toBe('Searched · Fetched · Generated image · +1 more');
     });
 
     it('should create expandable details section', () => {
@@ -366,7 +391,7 @@ describe('ThinkingIndicator', () => {
       expect(toggle.getAttribute('aria-expanded')).toBe('true');
       expect(indicator.classList.contains('expanded')).toBe(true);
 
-      // Click to collapse - should show "Show details" again
+      // Click to collapse again
       toggle.click();
       expect(details?.hasAttribute('hidden')).toBe(true);
       expect(toggle.getAttribute('aria-expanded')).toBe('false');
@@ -398,21 +423,17 @@ describe('ThinkingIndicator', () => {
       expect(tools?.length).toBe(3);
     });
 
-    it('should update toggle summary when expanded/collapsed', () => {
-      addToolStartToTrace(state, 'web_search');
+    it('keeps the summary while expanded (aria-expanded carries the state)', () => {
+      addToolStartToTrace(state, 'web_search', undefined, TOOL_METADATA.web_search);
       markToolCompletedInTrace(state, 'web_search');
       finalizeThinkingIndicator(indicator, state);
 
       const toggle = indicator.querySelector('.thinking-toggle') as HTMLButtonElement;
       const summary = indicator.querySelector('.thinking-toggle-summary');
 
-      expect(summary?.textContent).toBe('Show details');
-
       toggle.click();
-      expect(summary?.textContent).toBe('Hide details');
-
-      toggle.click();
-      expect(summary?.textContent).toBe('Show details');
+      expect(summary?.textContent).toBe('Searched');
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
     });
   });
 });

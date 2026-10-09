@@ -459,7 +459,13 @@ def create_mock_stream_chat_events() -> Any:
         if force_tools:
             for tool in force_tools:
                 time.sleep(delay_s)
-                yield {"type": "tool_start", "tool": tool}
+                # Same display metadata the real stream attaches (stream_events.py)
+                from src.agent.tool_display import TOOL_METADATA
+
+                start: dict[str, Any] = {"type": "tool_start", "tool": tool}
+                if tool in TOOL_METADATA:
+                    start["metadata"] = TOOL_METADATA[tool]
+                yield start
                 time.sleep(delay_s * 2)  # Simulate tool execution
                 yield {"type": "tool_end", "tool": tool}
 

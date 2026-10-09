@@ -194,7 +194,11 @@ test.describe('Visual: Long Content Wrapping', () => {
     expect(hasHorizontalScroll).toBe(false);
 
     // Screenshot the full messages area so the breakout is visible
-    await expect(page.locator('#messages')).toHaveScreenshot('desktop-wide-table.png');
+    // The sent message's clock time shows when its actions are revealed -
+    // a baseline rendered in another minute otherwise differs (CI flake)
+    await expect(page.locator('#messages')).toHaveScreenshot('desktop-wide-table.png', {
+      mask: [page.locator('.message-time')],
+    });
   });
 
   test('short message displays correctly', async ({ page }) => {
