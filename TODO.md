@@ -27,6 +27,12 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Chat & UI
 
+- [ ] **Multi-device sync - remaining after the Oct 10 2026 rework** (change log + in-place merge shipped; see docs/features/sync.md):
+  - Shared read state: unread badges are per device (a chat read on the phone stays unread on the desktop). Store a server-side last-read message id per conversation (agents already have `last_viewed_at`) and drop the count baselines.
+  - Concurrent sends from two devices into one conversation interleave the turns (no per-conversation turn lock; the 409 only dedupes a client id).
+  - Planner and agent views still use the "New messages - Reload" banner, not the in-place merge.
+  - Unverified: whether the open conversation's header title follows a rename made on another device (the sidebar does).
+- [ ] **Interject breaks the latest-assistant marker** (Oct 10 2026 scroll audit) - the steering bubble is appended after the still-streaming reply, so `updateLatestAssistantMarker` (last child must be an assistant) hides regenerate/continue on that turn.
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Sports card meta line ("Last session 2d ago · 12 sessions") - needs a last-session date and session count from the programs API
   - Visual coverage: login with the real Google button (Google's script never loads in tests; the fallback state is covered)

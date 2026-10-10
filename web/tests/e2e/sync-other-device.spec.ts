@@ -94,3 +94,58 @@ test('a rename on another device shows up', async ({ page, request }) => {
   await poll(page);
   await expect(item(page, 'Beta renamed')).toBeVisible();
 });
+
+test.describe('the open chat', () => {
+  test.beforeEach(async ({ page }) => {
+    // Batch mode on the API side; the open page only reads
+    await item(page, 'Alpha').click();
+    await expect(page.locator('.message.assistant')).toContainText('a!');
+    // Marks the rendered DOM: a full re-render would drop it
+    await page.evaluate(() => document.querySelector('.message.user')!.setAttribute('data-kept', '1'));
+  });
+
+  test('messages sent on another device appear in place, without a banner or reload', async ({ page, request }) => {
+    await request.post(`/api/conversations/${ids.alpha}/chat/batch`, { data: { message: 'From the phone' } });
+    await poll(page);
+
+    await expect(page.locator('.message.user').last()).toContainText('From the phone');
+    await expect(page.locator('.message.assistant').last()).toContainText('mock response');
+    await expect(page.locator('.new-messages-banner')).toHaveCount(0);
+    await expect(page.locator('.message.user[data-kept="1"]')).toHaveCount(1);
+  });
+
+  test('a message deleted on another device disappears', async ({ page, request }) => {
+    const reply = await page.locator('.message.assistant').last().getAttribute('data-message-id');
+    await request.delete(`/api/messages/${reply}`);
+    await poll(page);
+
+    await expect(page.locator(`.message[data-message-id="${reply}"]`)).toHaveCount(0);
+  });
+
+  test('a reply streaming on another device streams in here too', async ({ page, context, request }) => {
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    const phone = await context.newPage();
+    await phone.goto(`/#/conversations/${ids.alpha}`);
+    await expect(phone.locator('.message.assistant')).toContainText('a!');
+    await phone.fill('#message-input', 'Stream from the phone');
+    await phone.click('#send-btn');
+    await expect(phone.locator('.message.assistant.streaming')).toBeVisible();
+
+    // Successive poll ticks: the reply's placeholder is saved a moment
+    // after the user message
+    const streaming = page.locator('.message.assistant.streaming');
+    await expect
+      .poll(async () => {
+        await poll(page);
+        return streaming.count();
+      }, { timeout: 10000 })
+      .toBe(1);
+
+    const live = page.locator('.message.assistant').last();
+    await expect(page.locator('.message.user').last()).toContainText('Stream from the phone');
+    await expect(live).toContainText('mock response', { timeout: 20000 });
+    await expect(live).not.toHaveClass(/streaming/, { timeout: 20000 });
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
+    await phone.close();
+  });
+});

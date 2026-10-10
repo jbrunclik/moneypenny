@@ -20,6 +20,7 @@ export {
   removeRenderedMessagesFrom,
   hasPendingApproval,
   lockOlderQuizBlocks,
+  updateLatestAssistantMarker,
 } from './render';
 
 // Streaming

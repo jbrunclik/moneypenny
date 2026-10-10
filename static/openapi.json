@@ -10592,6 +10592,19 @@
           },
           "message_pagination": {
             "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.MessagesPaginationResponse"
+          },
+          "streaming_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Reply still being generated (e.g. on another device) - follow it via resume",
+            "title": "Streaming Message Id"
           }
         },
         "required": [

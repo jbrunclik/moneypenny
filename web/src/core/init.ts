@@ -93,6 +93,7 @@ import { navigateToLanguage, navigateToLanguageProgram } from './language';
 import { navigateToAgents, initAgents } from './agents';
 import { navigateToStorage } from './kv-store';
 import { showNewMessagesAvailableBanner } from './sync-banner';
+import { mergeExternalChanges } from './remote-merge';
 import { installAvatarFallback } from '../utils/avatar';
 
 const log = createLogger('init');
@@ -396,14 +397,18 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
         // Clear the hash since conversation no longer exists
         clearConversationHash();
       },
-      onCurrentConversationExternalUpdate: (messageCount: number) => {
-        // Show banner that new messages are available
-        // The user can click to reload messages
-        showNewMessagesAvailableBanner(messageCount);
+      onCurrentConversationExternalUpdate: () => {
+        // Merge the other device's changes in place (no reload banner).
+        // Read LIVE state in these callbacks: `store` is a snapshot from
+        // startup (Zustand replaces the state object on every update), and
+        // reading isPlannerView / currentConversation from it meant the
+        // planner and agent handlers below never fired.
+        const convId = useStore.getState().currentConversation?.id;
+        if (convId) void mergeExternalChanges(convId);
       },
       onPlannerDeleted: () => {
         // Planner was deleted in another tab
-        if (store.isPlannerView) {
+        if (useStore.getState().isPlannerView) {
           toast.info('Planning session was deleted.');
           leavePlannerView();
           pushEmptyHash();
@@ -411,20 +416,20 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       },
       onPlannerReset: () => {
         // Planner was reset in another tab
-        if (store.isPlannerView) {
+        if (useStore.getState().isPlannerView) {
           toast.info('Planning session was reset. Reloading...');
           navigateToPlanner();
         }
       },
       onPlannerExternalUpdate: (messageCount: number) => {
         // New messages added to planner in another tab/device
-        if (store.isPlannerView) {
+        if (useStore.getState().isPlannerView) {
           showNewMessagesAvailableBanner(messageCount);
         }
       },
       onAgentConversationExternalUpdate: (messageCount: number) => {
         // New messages added to agent conversation in another tab/device
-        const currentConv = store.currentConversation;
+        const currentConv = useStore.getState().currentConversation;
         if (currentConv?.is_agent) {
           showNewMessagesAvailableBanner(messageCount);
         }

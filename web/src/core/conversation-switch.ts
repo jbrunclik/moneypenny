@@ -7,6 +7,7 @@
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { resumeInflightStreamIfAny } from './stream-resume';
+import { followRemoteStreamOnOpen } from './remote-merge';
 import { resumeInflightBatchIfAny } from './batch-resume';
 import { renderConversationsList, setActiveConversation, closeSidebar } from '../components/Sidebar';
 import {
@@ -199,6 +200,7 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   // immediately re-create a competing bubble for it (the resume bails out when
   // an active request already exists, so the two paths are mutually exclusive).
   void resumeInflightStreamIfAny(conv.id);
+  followRemoteStreamOnOpen(conv);
   // Same for a batch turn: wait for its reply instead of showing none
   void resumeInflightBatchIfAny(conv.id, conv.messages || []);
 

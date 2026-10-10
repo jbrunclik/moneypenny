@@ -167,6 +167,41 @@ class TestGetConversation:
         assert len(data["messages"]) == 1
         assert data["messages"][0]["content"] == "Hello"
 
+    def test_reports_a_reply_still_streaming(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Another device's in-flight reply is an empty placeholder - filtered
+        from messages, so the id is reported for this device to follow."""
+        test_database.add_message(test_conversation.id, "user", "Hello")
+        placeholder = test_database.add_message(test_conversation.id, "assistant", "")
+
+        data = json.loads(
+            client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers).data
+        )
+
+        assert data["streaming_message_id"] == placeholder.id
+        assert [m["content"] for m in data["messages"]] == ["Hello"]
+
+    def test_no_streaming_reply_when_the_last_one_is_finished(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "Hello")
+        test_database.add_message(test_conversation.id, "assistant", "Hi")
+
+        data = json.loads(
+            client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers).data
+        )
+
+        assert data["streaming_message_id"] is None
+
     def test_returns_404_for_nonexistent(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:

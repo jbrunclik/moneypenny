@@ -454,8 +454,10 @@
     white-space: nowrap;
 }
 
-/* Streaming paused indicator - highlighted state when user scrolled up during streaming */
-.scroll-to-bottom.streaming-paused {
+/* Streaming paused indicator - highlighted state when user scrolled up during
+   streaming; the same pill announces messages merged in from another device */
+.scroll-to-bottom.streaming-paused,
+.scroll-to-bottom.has-new-messages {
     background-color: var(--accent);
     border-color: var(--accent);
     color: white;
@@ -466,11 +468,13 @@
     gap: var(--space-1);
 }
 
-.scroll-to-bottom.streaming-paused .scroll-to-bottom-label {
+.scroll-to-bottom.streaming-paused .scroll-to-bottom-label,
+.scroll-to-bottom.has-new-messages .scroll-to-bottom-label {
     display: inline;
 }
 
-.scroll-to-bottom.streaming-paused:hover {
+.scroll-to-bottom.streaming-paused:hover,
+.scroll-to-bottom.has-new-messages:hover {
     background-color: var(--accent-hover);
     border-color: var(--accent-hover);
 }

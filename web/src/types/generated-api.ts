@@ -9025,6 +9025,12 @@ export interface components {
             /** Messages */
             messages: components["schemas"]["ConversationDetailPaginatedResponse.MessageResponse"][];
             message_pagination: components["schemas"]["ConversationDetailPaginatedResponse.MessagesPaginationResponse"];
+            /**
+             * Streaming Message Id
+             * @description Reply still being generated (e.g. on another device) - follow it via resume
+             * @default null
+             */
+            streaming_message_id: string | null;
         };
         /**
          * ParseScheduleResponse

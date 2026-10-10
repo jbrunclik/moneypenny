@@ -10,7 +10,7 @@ import { chat } from '../api/chat';
 import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import { addStreamingMessage, getStreamingMessageElement } from '../components/messages';
-import { getElementById } from '../utils/dom';
+import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { getSyncManager } from '../sync/SyncManager';
 import { setStopHandler, swapAbortController } from './active-requests';
 import { clearInflightStream, readInflightStream } from './inflight-streams';
@@ -263,16 +263,44 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
   if (useStore.getState().getActiveRequest(convId)) return;
   const resumable = findResumableMessage(convId);
   if (!resumable) return;
-  const { messageId, placeholder } = resumable;
+  log.info('Resuming in-flight stream after reload', { conversationId: convId, messageId: resumable.messageId });
+  await streamTurnFromJournal(convId, resumable.messageId, resumable.placeholder, { ownTurn: true });
+}
 
-  log.info('Resuming in-flight stream after reload', { conversationId: convId, messageId });
+/**
+ * Follow a reply that ANOTHER device is streaming into this conversation:
+ * replay its journal into a live bubble here (the server journal is shared
+ * per user, not per device). Used when a merge or a conversation open finds
+ * the reply's empty placeholder. No-op while this tab runs its own turn.
+ */
+export async function followRemoteStream(convId: string, messageId: string): Promise<void> {
+  if (useStore.getState().getActiveRequest(convId)) return;
+  const container = getElementById<HTMLDivElement>('messages');
+  const placeholder = container?.querySelector(`[data-message-id="${messageId}"]`) ?? null;
+  log.info('Following a stream from another device', { conversationId: convId, messageId });
+  await streamTurnFromJournal(convId, messageId, placeholder, { ownTurn: false });
+}
 
+/**
+ * Replay a turn's journal from seq 0 into a live streaming bubble and keep
+ * it going until done (falling back to poll recovery).
+ */
+async function streamTurnFromJournal(
+  convId: string,
+  messageId: string,
+  placeholder: Element | null,
+  { ownTurn }: { ownTurn: boolean }
+): Promise<void> {
   // Replace the empty placeholder bubble (if the loader rendered it) with a
   // live streaming bubble
   if (placeholder instanceof HTMLElement) {
     placeholder.remove();
   }
-  const messageEl = addStreamingMessage(convId);
+  // Our own reloaded turn anchors like a fresh send; another device's turn
+  // must not move a reader who isn't at the bottom
+  const container = getElementById<HTMLDivElement>('messages');
+  const anchor = ownTurn || (container !== null && isScrolledToBottom(container));
+  const messageEl = addStreamingMessage(convId, { anchor });
   messageEl.dataset.messageId = messageId;
 
   // One controller shared between the tracked request and the state so a
@@ -303,8 +331,8 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
     cleanupLifecycleListeners();
     // The localStorage entry survives until HERE (terminal outcome): clearing
     // it up front meant a second reload mid-resume found nothing and silently
-    // abandoned the still-running turn
-    clearInflightStream(convId);
+    // abandoned the still-running turn. (Another device's turn has none.)
+    if (ownTurn) clearInflightStream(convId);
     // messageSuccessful=false on purpose: the reload refetched server counts,
     // so the user message is already counted - only the newly delivered
     // assistant message needs the local baseline bump (exact when the done

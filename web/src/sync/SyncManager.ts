@@ -101,6 +101,9 @@ export class SyncManager {
   /** A full sync was requested while another sync held the lock. */
   private fullSyncQueued = false;
 
+  /** applyChanges told the open conversation about an external update. */
+  private notifiedCurrentUpdate = false;
+
   /**
    * Tracks planner conversation message count for sync.
    */
@@ -377,7 +380,16 @@ export class SyncManager {
     }
 
     if (existing.length > 0) {
+      this.notifiedCurrentUpdate = false;
       this.applyChanges(existing, false);
+      // Any change to the open conversation - not only a higher count: a
+      // delete, a regenerate or another device's finished stream keep it
+      // the same. The merge diffs against what is rendered (no-op if ours).
+      const currentId = useStore.getState().currentConversation?.id;
+      const current = existing.find((c) => c.id === currentId);
+      if (current && !this.notifiedCurrentUpdate && !this.streamingConversations.has(current.id)) {
+        this.callbacks.onCurrentConversationExternalUpdate(current.message_count);
+      }
       for (const conv of existing) {
         const local = useStore.getState().conversations.find((c) => c.id === conv.id);
         if (local && conv.pinned !== undefined && Boolean(local.pinned) !== conv.pinned) {
@@ -617,6 +629,7 @@ export class SyncManager {
             localMessageCount: localCount,
             isStreaming: this.streamingConversations.has(serverConv.id),
           });
+          this.notifiedCurrentUpdate = true;
           this.callbacks.onCurrentConversationExternalUpdate(serverConv.message_count);
         } else {
           // User is not viewing - count as unread

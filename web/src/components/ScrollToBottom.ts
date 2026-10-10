@@ -96,6 +96,26 @@ function updateScrollButtonVisibility(container: HTMLElement): void {
   // Use a larger threshold to show button earlier
   const atBottom = isScrolledToBottom(container, SCROLL_BUTTON_SHOW_THRESHOLD_PX);
   scrollButton.classList.toggle('hidden', atBottom);
+  // Reached the new messages: the pill has done its job
+  if (atBottom) scrollButton.classList.remove(NEW_MESSAGES_CLASS);
+}
+
+const NEW_MESSAGES_CLASS = 'has-new-messages';
+
+/**
+ * Turn the button into the "New messages" pill for messages that arrived
+ * below while the user reads further up (merged in from another device).
+ * Clears once they scroll to the bottom or switch conversations.
+ */
+export function showNewMessagesPill(): void {
+  if (!scrollButton) return;
+  scrollButton.classList.add(NEW_MESSAGES_CLASS);
+  checkScrollButtonVisibility();
+}
+
+/** Drop the "New messages" pill (conversation switch). */
+export function clearNewMessagesPill(): void {
+  scrollButton?.classList.remove(NEW_MESSAGES_CLASS);
 }
 
 /**

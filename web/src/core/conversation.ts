@@ -112,6 +112,7 @@ export function toConversation(
     agent_id: response.agent_id,
     has_pending_approval: response.has_pending_approval,
     archived: response.archived,
+    streaming_message_id: response.streaming_message_id,
   };
 }
 

@@ -82,13 +82,18 @@ When user clicks a conversation, `switchToConversation()` calls both:
 1. `markConversationRead()` - Updates store state
 2. `renderConversationsList()` - Re-renders sidebar
 
-### New Messages Banner
+### Open conversation: in-place merge (Oct 2026)
 
-Appears at top of messages when current conversation has external updates (messages added from another device/tab).
+When the open chat changes on another device ([core/remote-merge.ts](../../web/src/core/remote-merge.ts)), `mergeExternalChanges()` fetches the latest page and diffs it against what is rendered - no banner, no reload:
+- **New messages** are appended in place; scroll position, drafts and pending sends survive. At the bottom the view follows; further up, the scroll button becomes the "New messages" pill (`showNewMessagesPill`, cleared at the bottom).
+- **Deleted / regenerated / edited** rendered messages fall back to a full re-render (`reloadCurrentConversation`).
+- **A reply still streaming on the other device**: its empty placeholder is filtered from API responses, so `GET /conversations/<id>` reports `streaming_message_id` (newest page, younger than `CHAT_TIMEOUT`); the client follows it live through the stream journal's resume endpoint (`followRemoteStream` in stream-resume.ts - the journal is per user, not per device). Opening such a conversation does the same (`followRemoteStreamOnOpen`). Another device's stream never anchors the view unless the reader is at the bottom.
+- Skipped while this tab runs its own turn there (the deferred summary re-triggers it) or shows an older window (`hasNewer`).
+- Triggered on ANY change-log change to the open chat, not just a higher count (a delete, a regenerate or a finished remote stream leave it equal); diffing makes our own changes a no-op.
 
-**Behavior:**
-- Doesn't auto-inject messages (preserves scroll position)
-- User clicks banner to reload and see new messages
+The planner and agent views still show the "New messages available - Reload" banner.
+
+**Pitfall:** the `initSyncManager` callbacks in core/init.ts must read `useStore.getState()` live - the `store` const there is a startup snapshot (Zustand replaces the state object on every update). Reading `store.isPlannerView` / `store.currentConversation` from it meant the planner deleted/reset/new-messages and agent handlers never fired.
 
 ## Race Condition Handling
 
@@ -178,7 +183,7 @@ Full sync compares local conversation IDs with server response:
 |----------|----------|
 | **Clock skew** | Always uses `server_time` from response, not client time |
 | **Race on send** | User sends message, poll happens before save - not a problem (optimistic UI) |
-| **Viewing updated conversation** | Shows "New messages" banner, doesn't auto-inject |
+| **Viewing updated conversation** | Merged in place (`remote-merge.ts`); another device's live reply streams in |
 | **Offline → Online** | `online` event runs a full sync; visibility change syncs immediately |
 | **Archived / trashed / deleted / pinned / restored elsewhere** | Change log: applied on the next tick (E2E: `sync-other-device.spec.ts`) |
 | **Deleted while viewing** | Shows toast and clears current conversation |

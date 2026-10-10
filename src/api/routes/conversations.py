@@ -25,7 +25,7 @@ from src.api.schemas.conversations import (
     UpdateAnonymousModeRequest,
     UpdateConversationRequest,
 )
-from src.api.utils import serialize_messages_for_response
+from src.api.utils import serialize_messages_for_response, streaming_message_id
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
@@ -238,6 +238,8 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         "archived": conv.archived,
         "anonymous_mode": conv.anonymous_mode,
         "messages": optimized_messages,
+        # Only the newest page holds the turn in flight
+        "streaming_message_id": None if pagination.has_newer else streaming_message_id(messages),
         "message_pagination": {
             "older_cursor": pagination.older_cursor,
             "newer_cursor": pagination.newer_cursor,

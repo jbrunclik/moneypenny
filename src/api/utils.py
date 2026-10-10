@@ -1,6 +1,7 @@
 """API response building utilities."""
 
 import json
+from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Request
@@ -200,6 +201,33 @@ def is_round_capped(tool_rounds: int) -> bool:
     return cap > 0 and tool_rounds >= cap
 
 
+def is_empty_placeholder(message: Any) -> bool:
+    """An assistant message saved empty at stream start, not filled in yet."""
+    return bool(
+        message.role == MessageRole.ASSISTANT
+        and not message.content
+        and not message.files
+        and not message.sources
+        and not message.generated_images
+    )
+
+
+def streaming_message_id(messages: list[Any]) -> str | None:
+    """The reply still being generated in this (newest) page of messages.
+
+    Its empty placeholder is filtered from responses, so another device
+    learns about the in-flight turn only through this id - and follows it
+    via the resume endpoint. Among the newest two (the placeholder can sort
+    before its own user message, saved in the same instant), and only when
+    younger than the chat-turn deadline: an old empty reply is just empty.
+    """
+    cutoff = datetime.now() - timedelta(seconds=Config.CHAT_TIMEOUT + 60)
+    for message in messages[-2:]:
+        if is_empty_placeholder(message) and message.created_at >= cutoff:
+            return str(message.id)
+    return None
+
+
 def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]:
     """Convert Message objects to optimized response format.
 
@@ -210,17 +238,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
     kept its own copy that lacked the placeholder filter).
     """
     # Filter out empty placeholder messages (still being processed by stream)
-    messages = [
-        m
-        for m in messages
-        if not (
-            m.role == MessageRole.ASSISTANT
-            and not m.content
-            and not m.files
-            and not m.sources
-            and not m.generated_images
-        )
-    ]
+    messages = [m for m in messages if not is_empty_placeholder(m)]
 
     capped_ids = db.get_round_capped_message_ids(
         [m.id for m in messages if m.role == MessageRole.ASSISTANT],

@@ -191,6 +191,10 @@ class ConversationDetailPaginatedResponse(BaseModel):
     anonymous_mode: bool = False  # Memory and integrations disabled for this conversation
     messages: list[MessageResponse]
     message_pagination: MessagesPaginationResponse
+    streaming_message_id: str | None = Field(
+        default=None,
+        description="Reply still being generated (e.g. on another device) - follow it via resume",
+    )
 
 
 class MessagesListResponse(BaseModel):

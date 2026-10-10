@@ -54,7 +54,10 @@ let currentStreamingContext: StreamingMessageContext | null = null;
  * @param conversationId - The ID of the conversation this streaming message belongs to
  * @returns Object with element and methods to update thinking state
  */
-export function addStreamingMessage(conversationId: string): HTMLElement {
+export function addStreamingMessage(
+  conversationId: string,
+  { anchor = true }: { anchor?: boolean } = {}
+): HTMLElement {
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) throw new Error('Messages container not found');
 
@@ -110,7 +113,9 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
   };
 
   container.appendChild(messageEl);
-  anchorTurn(container, turnEl, messageEl);
+  // anchor=false: following another device's reply while the user reads
+  // further up - leave the view alone (the pill offers the new content)
+  if (anchor) anchorTurn(container, turnEl, messageEl);
   logThinkingBarPosition(thinkingIndicator);
 
   // Set up scroll listener to detect user scroll during streaming
