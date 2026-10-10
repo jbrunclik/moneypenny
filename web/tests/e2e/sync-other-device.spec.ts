@@ -210,3 +210,20 @@ test.describe('unread state shared across devices', () => {
     await expect(item(page, 'Beta').locator('.unread-badge')).toHaveText('2');
   });
 });
+
+test("a poll during this device's own first turn doesn't revert the new title", async ({ page, request }) => {
+  await page.click('#new-chat-btn');
+  await request.post('/test/set-stream-delay', { data: { delay_ms: 120 } });
+  await page.fill('#message-input', 'Plan a cinema trip');
+  await page.click('#send-btn');
+  await expect(page.locator('.message.assistant.streaming')).toBeVisible();
+  // The regular poll tick lands mid-turn and sees the untitled conversation
+  await page.waitForTimeout(800);
+  await poll(page);
+
+  await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
+  await page.waitForTimeout(500);
+  await expect(page.locator('.conversation-item-wrapper.active')).not.toContainText('New Conversation');
+  await expect(page.locator('#current-chat-title').first()).not.toHaveText('New Conversation');
+  await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
+});

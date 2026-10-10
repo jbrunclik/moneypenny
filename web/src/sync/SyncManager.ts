@@ -856,13 +856,22 @@ export class SyncManager {
         conversationId: convId,
         allStreaming: Array.from(this.streamingConversations),
       });
-      // Callers set the turn's count first, so only the other device's
-      // changes remain once the deferred summary is applied
       const deferred = this.deferredUpdates.get(convId);
       if (deferred) {
         this.deferredUpdates.delete(convId);
-        this.applyChanges([deferred], false);
-        this.callbacks.onConversationsUpdated();
+        if (this.changeCursor !== null) {
+          // The summary is a snapshot from DURING our turn - applying it
+          // reverted the title the turn had just set back to "New
+          // Conversation". The turn's own final save comes after it in the
+          // change log, so the next sync re-sends the conversation with its
+          // current state (and any change from the other device): fetch now.
+          void this.incrementalSync();
+        } else {
+          // Legacy timestamp sync never re-sends it. Callers set the turn's
+          // count first, so only the other device's changes remain.
+          this.applyChanges([deferred], false);
+          this.callbacks.onConversationsUpdated();
+        }
       }
     }
   }

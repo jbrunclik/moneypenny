@@ -243,6 +243,16 @@ test.describe('Visual: Mobile Interactions', () => {
     // Clear mock response for other tests
     await page.request.post('/test/clear-mock-response');
 
+    // The short reply settles above the composer: bottom-aligned by a
+    // fractional margin (subpixel offsets differ run to run) under the
+    // composer's fade gradient. The table is the subject here - top-align the
+    // list and hide the composer for a pixel-stable capture.
+    await page.addStyleTag({
+      content:
+        '.input-area { visibility: hidden !important; } .messages > .message:first-child { margin-top: 0 !important; }',
+    });
+    await page.waitForTimeout(200);
+
     // Screenshot the assistant message with the table
     // The table should be contained within the message bubble with horizontal scroll
     await expect(page.locator('.message.assistant').first()).toHaveScreenshot(

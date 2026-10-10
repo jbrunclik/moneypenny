@@ -938,12 +938,14 @@ test.describe('Chat - Send-to-top', () => {
         await page.click('#send-btn');
         await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 10000 });
 
-        await setStreamDelay(page, 120);
-        await setMockResponse(page, 'Short and sweet, but streamed word by word.');
+        // Still streaming when the "at the top" check runs, even on a slow CI
+        // runner (~5s of tokens) - a reply done before it settles to the bottom
+        await setStreamDelay(page, 250);
+        await setMockResponse(page, Array.from({ length: 20 }, (_, i) => `w${i}`).join(' '));
         await page.fill('#message-input', 'Quick question');
         await page.click('#send-btn');
         const reply = page.locator('.message.assistant').last();
-        await expect(reply).toContainText('Short', { timeout: 10000 });
+        await expect(reply).toContainText('w0', { timeout: 10000 });
 
         // While it streams: the message glides to the top, room reserved below
         await expect

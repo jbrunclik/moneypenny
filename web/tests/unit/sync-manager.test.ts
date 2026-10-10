@@ -1674,6 +1674,23 @@ describe('SyncManager', () => {
       expect(markRead).toHaveBeenCalledWith('a', 3);
     });
 
+    it('a snapshot from during our own turn never overwrites what the turn set', async () => {
+      await startWithCursor([createConversation('a', 'New Conversation', 0)]);
+      syncManager.setConversationStreaming('a', true);
+      mockSyncChanges().mockResolvedValueOnce(changes([createConversationSummary('a', 'New Conversation', 2)]));
+      await syncManager.incrementalSync();
+
+      // The turn's done event names it; the turn ends
+      useStore.getState().updateConversation('a', { title: 'Cinema trip' });
+      mockSyncChanges().mockResolvedValueOnce(changes([createConversationSummary('a', 'Cinema trip', 2)]));
+      syncManager.setLocalMessageCount('a', 2);
+      syncManager.setConversationStreaming('a', false);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.title).toBe('Cinema trip');
+      expect(mockSyncChanges()).toHaveBeenCalledTimes(2);
+    });
+
     it('pages on while the server has more changes', async () => {
       await startWithCursor([createConversation('a', 'A', 2)]);
       mockSyncChanges()
