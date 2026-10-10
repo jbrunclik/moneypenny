@@ -268,3 +268,143 @@ test.describe("this device's own changes echoing back", () => {
   });
 
 });
+
+test.describe('two tabs of one browser (one shared outbox)', () => {
+  test("opening the chat in another tab doesn't fail this tab's send in flight", async ({ page, context }) => {
+    const tab = await context.newPage();
+    await tab.goto(`/#/conversations/${ids.alpha}`);
+    await expect(tab.locator('.message.assistant')).toContainText('a!');
+    // Hold the send on the wire: its outbox entry stays unconfirmed
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await tab.route('**/chat/stream', async (route) => {
+      await held;
+      await route.continue();
+    });
+    await tab.fill('#message-input', 'Sent from the other tab');
+    await tab.click('#send-btn');
+    await expect(tab.locator('.message.user', { hasText: 'Sent from the other tab' })).toBeVisible();
+
+    await item(page, 'Alpha').click();
+    await expect(page.locator('.message.assistant')).toContainText('a!');
+    await expect(page.locator('.message--send-failed')).toHaveCount(0);
+
+    release();
+    await expect(tab.locator('.message.assistant').last()).toContainText('mock response', { timeout: 20000 });
+    await expect(tab.locator('.message--send-failed, .message--send-pending')).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        await poll(page);
+        return page.locator('.message.user', { hasText: 'Sent from the other tab' }).count();
+      }, { timeout: 10000 })
+      .toBe(1);
+    await expect(page.locator('.message--send-failed')).toHaveCount(0);
+    await tab.close();
+  });
+
+  test("a closed tab's failed send clears once the server has it", async ({ page, request }) => {
+    const id = '0b6a3c2e-6f0d-4c43-9a1e-5d2f7f1b9c11';
+    await page.evaluate(
+      ({ convId, msgId }) => {
+        const entry = {
+          id: msgId, conversationId: convId, content: 'Lost in a closed tab', files: [], filesDropped: false,
+          forceTools: [], anonymousMode: false, createdAt: new Date().toISOString(), status: 'pending',
+          ownerTab: 'closed-tab',
+        };
+        localStorage.setItem('ai-chatbot-send-outbox-v1', JSON.stringify({ [convId]: [entry] }));
+      },
+      { convId: ids.alpha, msgId: id }
+    );
+    await item(page, 'Alpha').click();
+    await expect(page.locator(`.message[data-message-id="${id}"].message--send-failed`)).toBeVisible();
+
+    // It did land after all (the closed tab's request reached the server)
+    await request.post(`/api/conversations/${ids.alpha}/chat/batch`, {
+      data: { message: 'Lost in a closed tab', client_message_id: id },
+    });
+    await poll(page);
+
+    await expect(page.locator(`.message[data-message-id="${id}"]`)).not.toHaveClass(/message--send-failed/);
+    await expect(page.locator('.message.user', { hasText: 'Lost in a closed tab' })).toHaveCount(1);
+    await expect(page.locator('.message.assistant').last()).toContainText('mock response');
+    expect(await page.evaluate(() => localStorage.getItem('ai-chatbot-send-outbox-v1'))).toBeNull();
+  });
+});
+
+test.describe('archive and trash views follow another device', () => {
+  test('the archive view shows a chat archived elsewhere and drops one unarchived', async ({ page, request }) => {
+    await page.goto('/#/archive');
+    await expect(page.locator('.archive-view-header')).toBeVisible();
+    const archived = (title: string) => page.locator('.conversation-item-wrapper', { hasText: title });
+
+    await request.post(`/api/conversations/${ids.alpha}/archive`);
+    await poll(page);
+    await expect(archived('Alpha')).toBeVisible();
+
+    await request.post(`/api/conversations/${ids.alpha}/unarchive`);
+    await poll(page);
+    await expect(archived('Alpha')).toHaveCount(0);
+  });
+
+  test('the trash view and its badge follow trash, restore and delete-forever elsewhere', async ({ page, request }) => {
+    const trashRows = page.locator('.conversation-item-wrapper[data-trash-id]');
+    await request.delete(`/api/conversations/${ids.alpha}`);
+    await poll(page);
+    await expect(page.locator('.user-menu-trash .trash-count')).toHaveText('1', { useInnerText: false });
+
+    await page.goto('/#/trash');
+    await expect(page.locator('.trash-view-header')).toBeVisible();
+    await expect(trashRows).toHaveCount(1);
+
+    await request.delete(`/api/conversations/${ids.beta}`);
+    await poll(page);
+    await expect(trashRows).toHaveCount(2);
+
+    await request.post(`/api/conversations/${ids.alpha}/restore`);
+    await poll(page);
+    await expect(trashRows).toHaveCount(1);
+
+    await request.delete(`/api/conversations/${ids.beta}/permanent`);
+    await poll(page);
+    await expect(trashRows).toHaveCount(0);
+  });
+});
+
+test("a send while another device's reply is running steers that reply (one turn)", async ({ page, context, request }) => {
+  await item(page, 'Alpha').click();
+  await expect(page.locator('.message.assistant')).toContainText('a!');
+
+  await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+  const phone = await context.newPage();
+  await phone.goto(`/#/conversations/${ids.alpha}`);
+  await expect(phone.locator('.message.assistant')).toContainText('a!');
+  await phone.fill('#message-input', 'Long answer please');
+  await phone.click('#send-btn');
+  await expect(phone.locator('.message.assistant.streaming')).toBeVisible();
+
+  // This device hasn't polled yet: it sends a regular message
+  await page.fill('#message-input', 'Keep it short');
+  await page.click('#send-btn');
+
+  const texts = (p: import('@playwright/test').Page) =>
+    p.locator('.message.user, .message.assistant').evaluateAll((els) =>
+      els.map((el) => (el.classList.contains('user') ? `U:${(el.textContent ?? '').trim().slice(0, 4)}` : 'A'))
+    );
+  // The other device's question lands before this device's steering, and
+  // the one reply streams in after both
+  const live = page.locator('.message.assistant').last();
+  await expect(live).toContainText('mock response', { timeout: 20000 });
+  await expect(live).not.toHaveClass(/streaming/, { timeout: 20000 });
+  await expect(page.locator('.message.assistant')).toHaveCount(2);
+  const order = await texts(page);
+  expect(order.slice(2)).toEqual(['U:Long', 'U:Keep', 'A']);
+  await expect(page.locator('.message--send-failed, .message--send-pending')).toHaveCount(0);
+
+  // The phone shows the same single turn
+  await expect(phone.locator('.message.assistant').last()).not.toHaveClass(/streaming/, { timeout: 20000 });
+  await poll(phone);
+  await expect(phone.locator('.message.user', { hasText: 'Keep it short' })).toHaveCount(1);
+  expect((await texts(phone)).slice(2)).toEqual(['U:Long', 'U:Keep', 'A']);
+  await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
+  await phone.close();
+});

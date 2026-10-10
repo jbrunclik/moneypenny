@@ -27,10 +27,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Chat & UI
 
-- [ ] **Multi-device sync - remaining after the Oct 10 2026 rework** (change log + in-place merge shipped; see docs/features/sync.md):
-  - Two tabs of one browser share the outbox in localStorage: opening a conversation in tab B can mark tab A's still-in-flight send "failed" (Retry shows; the server echo doesn't clear it). Tag outbox entries with a per-tab id.
-  - The archived and trash lists (and the trash badge) aren't updated from the change log - a remote unarchive/restore/permanent delete shows up there only after reopening the view.
-  - Concurrent sends from two devices into one conversation interleave the turns (no per-conversation turn lock; the 409 only dedupes a client id). Plan: a send that arrives while another device's turn is still running in that conversation is treated as an interject (server routes it to the interjection path, like a second send from the same device), so the running reply takes it into account instead of a parallel turn starting.
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Sports card meta line ("Last session 2d ago · 12 sessions") - needs a last-session date and session count from the programs API
   - Visual coverage: login with the real Google button (Google's script never loads in tests; the fallback state is covered)

@@ -1602,6 +1602,76 @@ describe('SyncManager', () => {
       expect(toast.warning).toHaveBeenCalledWith('This conversation was deleted on another device.');
     });
 
+    describe('archive and trash lists', () => {
+      const pagination = { total_count: 1, has_more: false, next_cursor: null };
+
+      beforeEach(() => {
+        callbacks.onArchiveOrTrashChanged = vi.fn();
+      });
+
+      it('refreshes the archive when a chat is archived elsewhere, the trash when trashed', async () => {
+        await startWithCursor([createConversation('a', 'A', 2), createConversation('t', 'T', 2)]);
+        mockSyncChanges().mockResolvedValue(
+          changes([{ ...createConversationSummary('a', 'A', 2), archived: true }])
+        );
+        await syncManager.incrementalSync();
+        expect(callbacks.onArchiveOrTrashChanged).toHaveBeenLastCalledWith({ archive: true, trash: false });
+
+        mockSyncChanges().mockResolvedValue(changes([{ ...createConversationSummary('t', 'T', 2), trashed: true }]));
+        await syncManager.incrementalSync();
+        expect(callbacks.onArchiveOrTrashChanged).toHaveBeenLastCalledWith({ archive: false, trash: true });
+      });
+
+      it('refreshes the list a chat left: unarchived, restored or deleted for good elsewhere', async () => {
+        await startWithCursor([]);
+        useStore.getState().setArchivedConversations([createConversation('arch', 'Arch', 2)], pagination);
+        useStore.getState().setTrashedConversations([createConversation('tr', 'Tr', 2), createConversation('gone', 'Gone', 2)], { ...pagination, total_count: 2 });
+
+        mockSyncChanges().mockResolvedValue(changes([createConversationSummary('arch', 'Arch', 2)]));
+        await syncManager.incrementalSync();
+        expect(callbacks.onArchiveOrTrashChanged).toHaveBeenLastCalledWith({ archive: true, trash: false });
+
+        mockSyncChanges().mockResolvedValue(changes([createConversationSummary('tr', 'Tr', 2)]));
+        await syncManager.incrementalSync();
+        expect(callbacks.onArchiveOrTrashChanged).toHaveBeenLastCalledWith({ archive: false, trash: true });
+
+        mockSyncChanges().mockResolvedValue(changes([], { removed_ids: ['gone'] }));
+        await syncManager.incrementalSync();
+        expect(callbacks.onArchiveOrTrashChanged).toHaveBeenLastCalledWith({ archive: false, trash: true });
+      });
+
+      it("leaves the lists alone when they already agree (this device's own change echoing back)", async () => {
+        await startWithCursor([createConversation('a', 'A', 2)]);
+        useStore.getState().setArchivedConversations([createConversation('arch', 'Arch', 2)], pagination);
+        useStore.getState().setTrashedConversations([createConversation('tr', 'Tr', 2)], pagination);
+        mockSyncChanges().mockResolvedValue(
+          changes([
+            { ...createConversationSummary('arch', 'Arch', 2), archived: true },
+            { ...createConversationSummary('tr', 'Tr', 2), trashed: true },
+            createConversationSummary('a', 'A', 3),
+          ])
+        );
+
+        await syncManager.incrementalSync();
+
+        expect(callbacks.onArchiveOrTrashChanged).not.toHaveBeenCalled();
+      });
+
+      it('skips a chat changed on this device while the poll was in flight', async () => {
+        await startWithCursor([]);
+        useStore.getState().setArchivedConversations([createConversation('arch', 'Arch', 2)], pagination);
+        // The unarchive here is in flight: the poll's stale "archived" is ours to ignore
+        mockSyncChanges().mockImplementation(async () => {
+          syncManager.noteLocalChange('x');
+          return changes([{ ...createConversationSummary('x', 'X', 2), archived: true }]);
+        });
+
+        await syncManager.incrementalSync();
+
+        expect(callbacks.onArchiveOrTrashChanged).not.toHaveBeenCalled();
+      });
+    });
+
     it('adds a restored conversation back without an unread badge', async () => {
       await startWithCursor([createConversation('a', 'A', 2)]);
       const restored = { ...createConversationSummary('r', 'Restored', 8), created_at: '2023-12-01T00:00:00Z' };

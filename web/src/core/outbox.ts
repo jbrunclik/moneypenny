@@ -8,9 +8,16 @@
  *
  * Reconciliation on conversation load decides each entry's fate: confirmed
  * by the server → dropped; still being sent in this session → pending;
- * otherwise → failed.
+ * being sent by another live tab (the store is shared by every tab of the
+ * browser) → left to that tab; otherwise → failed.
  */
-import { OUTBOX_PERSIST_MAX_FILE_CHARS, OUTBOX_STORAGE_KEY } from '../config';
+import {
+  OUTBOX_PERSIST_MAX_FILE_CHARS,
+  OUTBOX_STORAGE_KEY,
+  OUTBOX_TAB_HEARTBEAT_MS,
+  OUTBOX_TAB_STALE_MS,
+  OUTBOX_TABS_STORAGE_KEY,
+} from '../config';
 import type { DeepResearchStart, FileMetadata, FileUpload, Message, MessageAction } from '../types/api';
 import { createLogger } from '../utils/logger';
 import { deleteOutboxFiles, loadOutboxFiles, saveOutboxFiles } from './outbox-files';
@@ -32,9 +39,14 @@ export interface OutboxEntry {
   /** What the message is, when the app sent it for the user */
   action?: MessageAction;
   status: 'pending' | 'failed';
+  /** The tab sending it (absent on entries persisted before tabs were tracked) */
+  ownerTab?: string;
 }
 
-export type NewOutboxEntry = Omit<OutboxEntry, 'status' | 'filesDropped'>;
+export type NewOutboxEntry = Omit<OutboxEntry, 'status' | 'filesDropped' | 'ownerTab'>;
+
+// This page's identity in the shared store
+const TAB_ID = crypto.randomUUID();
 
 // Session-only state: full file payloads (which may exceed the persistence
 // cap) and the set of sends currently in flight in this page.
@@ -45,6 +57,72 @@ const inflightIds = new Set<string>();
 export function _clearOutboxMemoryCache(): void {
   sessionFiles.clear();
   inflightIds.clear();
+  stopHeartbeat();
+}
+
+// --- Tab heartbeat: other tabs leave this tab's in-flight sends alone ---
+
+type TabHeartbeats = Record<string, number>;
+
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+function readHeartbeats(): TabHeartbeats {
+  try {
+    return JSON.parse(localStorage.getItem(OUTBOX_TABS_STORAGE_KEY) || '{}') as TabHeartbeats;
+  } catch {
+    return {};
+  }
+}
+
+/** Record (or with `alive=false` drop) this tab's heartbeat; prunes dead tabs. */
+function writeHeartbeat(alive: boolean): void {
+  try {
+    const now = Date.now();
+    const beats: TabHeartbeats = {};
+    for (const [tab, seenAt] of Object.entries(readHeartbeats())) {
+      if (tab !== TAB_ID && now - seenAt < OUTBOX_TAB_STALE_MS) beats[tab] = seenAt;
+    }
+    if (alive) beats[TAB_ID] = now;
+    if (Object.keys(beats).length === 0) {
+      localStorage.removeItem(OUTBOX_TABS_STORAGE_KEY);
+    } else {
+      localStorage.setItem(OUTBOX_TABS_STORAGE_KEY, JSON.stringify(beats));
+    }
+  } catch (error) {
+    log.warn('Failed to write the outbox tab heartbeat', { error });
+  }
+}
+
+function heartbeatTick(): void {
+  if (inflightIds.size === 0) {
+    stopHeartbeat();
+    return;
+  }
+  writeHeartbeat(true);
+}
+
+/** Beat while this tab has sends in flight (idempotent). */
+function startHeartbeat(): void {
+  writeHeartbeat(true);
+  if (heartbeatTimer !== null) return;
+  heartbeatTimer = setInterval(heartbeatTick, OUTBOX_TAB_HEARTBEAT_MS);
+  // A closed tab's sends are failed for the others right away
+  window.addEventListener('pagehide', stopHeartbeat);
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer === null) return;
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+  window.removeEventListener('pagehide', stopHeartbeat);
+  writeHeartbeat(false);
+}
+
+/** Another tab is still sending this entry: not ours to fail or render. */
+function isOwnedByLiveTab(entry: OutboxEntry): boolean {
+  if (!entry.ownerTab || entry.ownerTab === TAB_ID) return false;
+  const seenAt = readHeartbeats()[entry.ownerTab];
+  return seenAt !== undefined && Date.now() - seenAt < OUTBOX_TAB_STALE_MS;
 }
 
 type OutboxStore = Record<string, OutboxEntry[]>;
@@ -116,6 +194,7 @@ export function addOutboxEntry(entry: NewOutboxEntry): void {
     ...entry,
     ...persistableFiles(entry.files),
     status: 'pending',
+    ownerTab: TAB_ID,
   };
   mutateEntries(entry.conversationId, (entries) => [
     ...entries.filter((e) => e.id !== entry.id),
@@ -161,8 +240,10 @@ export function confirmOutboxEntry(convId: string, id: string): void {
 /** Mark a send as in flight in this page (survives reconciliation as pending). */
 export function markOutboxPending(convId: string, id: string): void {
   inflightIds.add(id);
+  startHeartbeat();
+  // (a retry here takes over a send another, dead, tab left behind)
   mutateEntries(convId, (entries) =>
-    entries.map((e) => (e.id === id ? { ...e, status: 'pending' as const } : e))
+    entries.map((e) => (e.id === id ? { ...e, status: 'pending' as const, ownerTab: TAB_ID } : e))
   );
 }
 
@@ -220,6 +301,9 @@ export function reconcileOutboxWithServer(convId: string, serverMessages: Messag
       confirmOutboxEntry(convId, entry.id);
       continue;
     }
+    // Another tab's send in flight: it confirms or fails it itself (marking
+    // it failed here showed Retry on a send that was about to land)
+    if (isOwnedByLiveTab(entry)) continue;
     if (!inflightIds.has(entry.id) && entry.status !== 'failed') {
       markOutboxFailed(convId, entry.id);
     }

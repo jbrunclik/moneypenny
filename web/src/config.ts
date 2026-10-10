@@ -70,6 +70,19 @@ export const DRAFT_SAVE_DEBOUNCE_MS = 300;
 /** localStorage key for the send outbox (pending/failed messages awaiting reconciliation) */
 export const OUTBOX_STORAGE_KEY = 'ai-chatbot-send-outbox-v1';
 
+/** localStorage key for the heartbeats of tabs with sends in flight (the outbox is shared by every tab) */
+export const OUTBOX_TABS_STORAGE_KEY = 'ai-chatbot-send-outbox-tabs-v1';
+
+/** How often a tab with sends in flight refreshes its heartbeat */
+export const OUTBOX_TAB_HEARTBEAT_MS = 5_000;
+
+/**
+ * A tab whose heartbeat is older than this is gone (closed, crashed, frozen)
+ * and its sends failed. Generous: browsers throttle a hidden tab's timers to
+ * as little as once a minute.
+ */
+export const OUTBOX_TAB_STALE_MS = 90_000;
+
 /** Max total base64 chars of attachments persisted per outbox entry (~1.5MB binary) */
 export const OUTBOX_PERSIST_MAX_FILE_CHARS = 2_000_000;
 

@@ -4,15 +4,14 @@ This module handles chat interactions with the AI agent, supporting both
 batch (complete response) and streaming (SSE) modes.
 """
 
+import json
 import uuid
-from datetime import timedelta
 from typing import NoReturn
 
 from apiflask import APIBlueprint
 from flask import Response, request
 
 from src.agent.cancellation import request_finish_now, request_stop
-from src.agent.interjection import save_interjection
 from src.api.errors import (
     raise_llm_error,
     raise_not_found_error,
@@ -21,13 +20,19 @@ from src.api.errors import (
 )
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.chat_turn import build_turn_context, prepare_turn
+from src.api.helpers.turn_steering import (
+    can_steer,
+    running_turn_id,
+    steer_running_turn,
+    wait_for_reply,
+)
 from src.api.rate_limiting import rate_limit_chat
 from src.api.schemas.chat import ChatBatchResponse, ChatRequest, InterjectRequest, StopChatRequest
-from src.api.schemas.common import MessageRole, StatusResponse
-from src.api.utils import build_chat_response, is_empty_placeholder, is_round_capped
+from src.api.schemas.common import StatusResponse
+from src.api.utils import build_chat_response, is_round_capped
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
-from src.db.models import Message, User, db
+from src.db.models import User, db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -59,6 +64,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     if data.deep_research:
         # A multi-minute run cannot live in one HTTP request; the stream has resume
         raise_validation_error("Deep research runs on the stream endpoint", field="deep_research")
+    running = _steerable_running_turn(user, data, conv_id)
+    if running is not None:
+        return _steer_batch_send(user, data, conv_id, running)
     turn = prepare_turn(user, data, conv_id)
     ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
     ctx.apply()
@@ -129,6 +137,54 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     return response_data, 200
 
 
+def _steerable_running_turn(user: User, data: ChatRequest, conv_id: str) -> str | None:
+    """The live turn (another device's) this send should steer, if any.
+
+    A retry of a send that already landed falls through to the normal
+    path's duplicate check (409).
+    """
+    if not can_steer(data) or not db.get_conversation(conv_id, user.id):
+        return None
+    if data.client_message_id and db.get_message_by_id(data.client_message_id):
+        return None
+    return running_turn_id(conv_id)
+
+
+def _steer_batch_send(
+    user: User, data: ChatRequest, conv_id: str, running: str
+) -> tuple[dict[str, str], int]:
+    """Steer the live turn and answer with its reply once it lands."""
+    steering = steer_running_turn(user.id, conv_id, data.message.strip(), data.client_message_id)
+    reply = wait_for_reply(running)
+    if reply is None:
+        raise_llm_error("The reply in progress didn't finish. Please try again.")
+    response_data = build_chat_response(
+        reply,
+        reply.content,
+        reply.files or [],
+        reply.sources or [],
+        reply.generated_images or [],
+        user_message_id=steering.id,
+        language=reply.language,
+    )
+    return response_data, 200
+
+
+def _steer_stream_send(user: User, data: ChatRequest, conv_id: str, running: str) -> Response:
+    """Steer the live turn; the client then follows it like a remote stream."""
+    steering = steer_running_turn(user.id, conv_id, data.message.strip(), data.client_message_id)
+    events = [
+        {"type": "user_message_saved", "user_message_id": steering.id},
+        {
+            "type": "interjected",
+            "message_id": running,
+            "message_count": db.count_messages(conv_id),
+        },
+    ]
+    body = "".join(f"data: {json.dumps(event)}\n\n" for event in events)
+    return Response(body, mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
 def _raise_chat_error(error: Exception) -> NoReturn:
     """Map an agent failure to a user-facing error without internal details."""
     error_str = str(error).lower()
@@ -151,6 +207,9 @@ Returns text/event-stream with the following event types:
 - `token`: Content token - `{"type": "token", "text": "..."}`
 - `error`: Error occurred - `{"type": "error", "message": "...", "code": "...", "retryable": bool}`
 - `done`: Stream complete with metadata - `{"type": "done", "id": "...", "created_at": "...", ...}`
+- `interjected`: Another device's turn was running in this conversation: the (plain text)
+  message was saved as steering for it and no turn of its own runs; follow that reply
+  via the resume endpoint - `{"type": "interjected", "message_id": "...", "message_count": N}`
 
 Uses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.
 """,
@@ -175,6 +234,9 @@ def chat_stream(
     from src.api.helpers.chat_streaming import create_stream_generator
 
     logger.info("Stream chat request", extra={"user_id": user.id, "conversation_id": conv_id})
+    running = _steerable_running_turn(user, data, conv_id)
+    if running is not None:
+        return _steer_stream_send(user, data, conv_id, running)
     turn = prepare_turn(user, data, conv_id)
     ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
     logger.debug(
@@ -222,41 +284,14 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
         raise_not_found_error("Conversation")
 
     text = data.message.strip()
-    # Persist as a visible user message FIRST - even if the running turn
-    # never consumes the steering (already answering), the guidance is in
-    # history for the next turn
-    # Saved under the id of the bubble the client rendered (sync echoes and
-    # later deletes then find it); a retry of the same id is a no-op
+    # A retry of the same client id is a no-op
     existing = db.get_message_by_id(data.client_message_id) if data.client_message_id else None
     if existing is not None:
         if existing.conversation_id != conv_id:
             raise_not_found_error("Conversation")
         return {"status": "interjected"}
-    steering = db.add_message(conv_id, MessageRole.USER, text, message_id=data.client_message_id)
-    _order_reply_after_steering(conv_id, steering)
-    save_interjection(user.id, conv_id, text)
-
-    logger.info(
-        "Interjection accepted",
-        extra={"user_id": user.id, "conversation_id": conv_id, "length": len(text)},
-    )
+    steer_running_turn(user.id, conv_id, text, data.client_message_id)
     return {"status": "interjected"}
-
-
-def _order_reply_after_steering(conv_id: str, steering: Message) -> None:
-    """Keep the in-flight reply AFTER the steering it takes into account.
-
-    The reply's placeholder was saved at turn start, so the steering would
-    otherwise sort after it and the turn would end on a user message - no
-    regenerate/continue on the reply (continue requires an assistant last),
-    live and after a reload. A turn that already finished has no
-    placeholder: the steering stays last, for the next turn.
-    """
-    placeholder = next(
-        (m for m in reversed(db.get_messages(conv_id)[-3:]) if is_empty_placeholder(m)), None
-    )
-    if placeholder is not None:
-        db.set_message_created_at(placeholder.id, steering.created_at + timedelta(microseconds=1))
 
 
 @api.route("/conversations/<conv_id>/chat/stop", methods=["POST"])

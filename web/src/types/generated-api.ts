@@ -5421,6 +5421,9 @@ export interface paths {
          *     - `token`: Content token - `{"type": "token", "text": "..."}`
          *     - `error`: Error occurred - `{"type": "error", "message": "...", "code": "...", "retryable": bool}`
          *     - `done`: Stream complete with metadata - `{"type": "done", "id": "...", "created_at": "...", ...}`
+         *     - `interjected`: Another device's turn was running in this conversation: the (plain text)
+         *       message was saved as steering for it and no turn of its own runs; follow that reply
+         *       via the resume endpoint - `{"type": "interjected", "message_id": "...", "message_count": N}`
          *
          *     Uses SSE keepalive heartbeats (`: keepalive` comments) to prevent proxy timeouts.
          */

@@ -44,6 +44,8 @@ export interface SyncManagerCallbacks {
   onPlannerExternalUpdate?: (messageCount: number) => void;
   /** Called when an agent conversation has new messages from another tab/device */
   onAgentConversationExternalUpdate?: (messageCount: number) => void;
+  /** Called when another device moved chats into or out of the archive / trash (reload those lists) */
+  onArchiveOrTrashChanged?: (lists: { archive: boolean; trash: boolean }) => void;
 }
 
 /**
@@ -415,6 +417,10 @@ export class SyncManager {
    * updates, pins and conversations that (re)appeared.
    */
   private applyChangeLog(result: SyncResponse): void {
+    // Before the removals below change the main list
+    const lists = this.archiveOrTrashTouched(result);
+    if (lists.archive || lists.trash) this.callbacks.onArchiveOrTrashChanged?.(lists);
+
     let changed = false;
     for (const id of result.removed_ids ?? []) {
       if (this.changedLocallySinceRequest(id)) continue;
@@ -464,6 +470,33 @@ export class SyncManager {
     ) {
       this.callbacks.onCurrentConversationExternalUpdate(changedOpen.message_count);
     }
+  }
+
+  /**
+   * Which of the archive / trash lists a change-log page disagrees with: a
+   * chat archived or trashed there that the list lacks, or one the list
+   * still holds that left it (unarchived, restored, deleted for good). Both
+   * lists are loaded at startup (their counts badge the user menu), so a
+   * mismatch is a change made elsewhere; this device's own changes already
+   * moved the rows and echo back as a match.
+   */
+  private archiveOrTrashTouched(result: SyncResponse): { archive: boolean; trash: boolean } {
+    const { archivedConversations, trashedConversations } = useStore.getState();
+    const archived = new Set(archivedConversations.map((c) => c.id));
+    const trashed = new Set(trashedConversations.map((c) => c.id));
+    const lists = { archive: false, trash: false };
+    for (const id of result.removed_ids ?? []) {
+      if (this.changedLocallySinceRequest(id)) continue;
+      lists.archive ||= archived.has(id);
+      lists.trash ||= trashed.has(id);
+    }
+    for (const conv of result.conversations) {
+      if (this.changedLocallySinceRequest(conv.id)) continue;
+      const inArchive = Boolean(conv.archived) && !conv.trashed;
+      lists.archive ||= inArchive !== archived.has(conv.id);
+      lists.trash ||= Boolean(conv.trashed) !== trashed.has(conv.id);
+    }
+    return lists;
   }
 
   /**

@@ -64,6 +64,17 @@ class StreamJournalMixin:
             ).fetchall()
             return [(row["seq"], row["event"]) for row in rows]
 
+    def journal_last_event(self, message_id: str) -> tuple[str, float] | None:
+        """The newest journaled (event JSON, epoch seconds) of a message's stream."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """SELECT event, created_at FROM stream_journal
+                   WHERE message_id = ? ORDER BY seq DESC LIMIT 1""",
+                (message_id,),
+            ).fetchone()
+            return (row["event"], row["created_at"]) if row else None
+
     def journal_cleanup(self, max_age_seconds: int) -> int:
         """Delete journal rows older than max_age_seconds. Returns rowcount."""
         cutoff = time.time() - max_age_seconds

@@ -23,6 +23,7 @@ import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { isTempConversation, markAgentViewedAndRefresh } from './conversation';
 import { readInflightStream } from './inflight-streams';
 import { followRemoteStream } from './stream-resume';
+import { confirmDelivery } from './send-delivery';
 import { reloadCurrentConversation } from './sync-banner';
 
 const log = createLogger('remote-merge');
@@ -90,6 +91,12 @@ async function mergeOnce(convId: string): Promise<void> {
     return;
   }
 
+  // Sends shown as unconfirmed here that reached the server after all (a
+  // closed tab's, or one whose response was lost): sent, no Retry
+  for (const m of local) {
+    if (isLocalOnly(m) && serverIds.has(m.id)) confirmDelivery(convId, m.id);
+  }
+
   const rendered = new Set(
     [...container.querySelectorAll<HTMLElement>('.message[data-message-id]')].map((el) => el.dataset.messageId)
   );
@@ -99,10 +106,7 @@ async function mergeOnce(convId: string): Promise<void> {
   const live = response.streaming_message_id;
 
   const wasAtBottom = isScrolledToBottom(container);
-  for (const message of toRender) {
-    useStore.getState().appendMessage(convId, message);
-    addMessageToUI(message, container, undefined, { animate: true });
-  }
+  for (const message of toRender) renderInServerOrder(convId, container, message, server);
   if (toRender.length > 0) {
     log.info('Merged messages from another device', { conversationId: convId, count: toRender.length });
     updateLatestAssistantMarker(container);
@@ -121,6 +125,28 @@ async function mergeOnce(convId: string): Promise<void> {
   }
 
   if (live && !rendered.has(live)) void followRemoteStream(convId, live);
+}
+
+/**
+ * Render a merged message where the server has it: before the first later
+ * message already on screen (another device's question lands BEFORE the
+ * steering this device sent into its turn), else at the end.
+ */
+function renderInServerOrder(convId: string, container: HTMLElement, message: Message, server: Message[]): void {
+  const later = server.slice(server.indexOf(message) + 1);
+  const before = later
+    .map((m) => container.querySelector<HTMLElement>(`:scope > [data-message-id="${m.id}"]`))
+    .find((el) => el !== null);
+  useStore.getState().appendMessage(convId, message, before?.dataset.messageId);
+  const lastBefore = container.lastElementChild;
+  addMessageToUI(message, container, undefined, { animate: true });
+  if (!before) return;
+  // Move what the render appended (a bubble, or a row) into place
+  const added: Element[] = [];
+  for (let el = lastBefore ? lastBefore.nextElementSibling : container.firstElementChild; el; el = el.nextElementSibling) {
+    added.push(el);
+  }
+  for (const el of added) container.insertBefore(el, before);
 }
 
 /**

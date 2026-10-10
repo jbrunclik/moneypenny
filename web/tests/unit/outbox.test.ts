@@ -13,7 +13,7 @@ import {
   reconcileOutboxWithServer,
   _clearOutboxMemoryCache,
 } from '@/core/outbox';
-import { OUTBOX_STORAGE_KEY } from '@/config';
+import { OUTBOX_STORAGE_KEY, OUTBOX_TAB_STALE_MS, OUTBOX_TABS_STORAGE_KEY } from '@/config';
 import type { Message } from '@/types/api';
 
 const CONV = 'conv-1';
@@ -134,5 +134,49 @@ describe('reconcileOutboxWithServer', () => {
     const merged = reconcileOutboxWithServer(CONV, []);
     expect(merged).toHaveLength(0);
     expect(getOutboxEntry('other-conv', 'm1')).toBeDefined();
+  });
+});
+
+describe('outbox shared by two tabs', () => {
+  /** An entry another tab of this browser is sending (heartbeat at `seenAt`). */
+  function storeForeignEntry(id: string, seenAt: number | null): void {
+    const entry = { ...makeEntry(id), filesDropped: false, status: 'pending', ownerTab: 'tab-b' };
+    localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify({ [CONV]: [entry] }));
+    if (seenAt !== null) localStorage.setItem(OUTBOX_TABS_STORAGE_KEY, JSON.stringify({ 'tab-b': seenAt }));
+  }
+
+  it("leaves a live tab's in-flight send alone (not failed, not rendered here)", () => {
+    storeForeignEntry('m1', Date.now());
+    const merged = reconcileOutboxWithServer(CONV, []);
+    expect(merged).toHaveLength(0);
+    expect(getOutboxEntry(CONV, 'm1')?.status).toBe('pending');
+  });
+
+  it("fails a send whose tab stopped beating (closed or crashed)", () => {
+    storeForeignEntry('m1', Date.now() - OUTBOX_TAB_STALE_MS - 1_000);
+    const merged = reconcileOutboxWithServer(CONV, []);
+    expect(merged.map((m) => m.status)).toEqual(['failed']);
+    expect(getOutboxEntry(CONV, 'm1')?.status).toBe('failed');
+  });
+
+  it('fails a send whose tab never beat', () => {
+    storeForeignEntry('m1', null);
+    expect(reconcileOutboxWithServer(CONV, []).map((m) => m.status)).toEqual(['failed']);
+  });
+
+  it('a live in-flight send keeps this tab beating', () => {
+    addOutboxEntry(makeEntry('m1'));
+    markOutboxPending(CONV, 'm1');
+    const owner = (readStored()[CONV][0] as { ownerTab?: string }).ownerTab;
+    const tabs = JSON.parse(localStorage.getItem(OUTBOX_TABS_STORAGE_KEY) || '{}') as Record<string, number>;
+    expect(owner).toBeTruthy();
+    expect(Date.now() - (tabs[owner as string] ?? 0)).toBeLessThan(OUTBOX_TAB_STALE_MS);
+  });
+
+  it('a retry from this tab takes over a dead tab\'s send', () => {
+    storeForeignEntry('m1', null);
+    markOutboxPending(CONV, 'm1');
+    expect((readStored()[CONV][0] as { ownerTab?: string }).ownerTab).not.toBe('tab-b');
+    expect(reconcileOutboxWithServer(CONV, []).map((m) => m.status)).toEqual(['pending']);
   });
 });

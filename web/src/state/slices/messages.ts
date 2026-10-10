@@ -24,7 +24,8 @@ export interface MessagesSlice extends MessagesData {
   setMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
   prependMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
   appendMessages: (convId: string, messages: Message[], pagination: MessagesPagination) => void;
-  appendMessage: (convId: string, message: Message) => void;
+  /** Append (or with `beforeId`, insert before that message); replaces one with the same id */
+  appendMessage: (convId: string, message: Message, beforeId?: string) => void;
   updateMessage: (convId: string, messageId: string, updates: Partial<Message>) => void;
   removeMessage: (convId: string, messageId: string) => void;
   truncateMessagesFrom: (convId: string, messageId: string) => void;
@@ -91,7 +92,8 @@ function withMessagesAndCount(
 function withAppendedMessage(
   state: MessagesData,
   convId: string,
-  message: Message
+  message: Message,
+  beforeId?: string
 ): Partial<MessagesData> {
   const existing = state.messages.get(convId) || [];
   // Idempotent by id: a reply can complete via more than one path
@@ -105,8 +107,11 @@ function withAppendedMessage(
     newMessages.set(convId, replaced);
     return { messages: newMessages };
   }
+  const before = beforeId === undefined ? -1 : existing.findIndex((m) => m.id === beforeId);
+  const inserted =
+    before === -1 ? [...existing, message] : [...existing.slice(0, before), message, ...existing.slice(before)];
   // Update total count in pagination
-  return withMessagesAndCount(state, convId, [...existing, message], 1);
+  return withMessagesAndCount(state, convId, inserted, 1);
 }
 
 function withPaginationFlag(
@@ -136,8 +141,8 @@ export const createMessagesSlice: AppSlice<MessagesSlice> = (set, get) => ({
       const existing = state.messages.get(convId) || [];
       return withMessagesPage(state, convId, [...existing, ...newMsgs], pagination);
     }),
-  appendMessage: (convId, message) =>
-    set((state) => withAppendedMessage(state, convId, message)),
+  appendMessage: (convId, message, beforeId) =>
+    set((state) => withAppendedMessage(state, convId, message, beforeId)),
   updateMessage: (convId, messageId, updates) =>
     set((state) => {
       const existing = state.messages.get(convId);

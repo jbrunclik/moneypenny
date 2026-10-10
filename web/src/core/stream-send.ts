@@ -16,6 +16,7 @@ import { confirmDelivery, markSendFailed } from './send-delivery';
 import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './stream-recovery';
 import { handleStreamDone, type StreamDoneEvent } from './stream-done';
 import { processStreamEvent } from './stream-events';
+import { mergeExternalChanges } from './remote-merge';
 import { handleMissingDoneEvent, tryResumeStream } from './stream-resume';
 import {
   cleanupStreamingRequest,
@@ -80,6 +81,15 @@ async function consumeStream(send: StreamSend, events: AsyncGenerator<StreamEven
     if (event.type === 'done') {
       await handleStreamDone(event as unknown as StreamDoneEvent, state, convId, tempUserMessageId);
       continue;
+    }
+
+    // Another device's turn was running: the server saved this send as
+    // steering for it - no reply of our own; follow that one instead
+    if (event.type === 'interjected') {
+      state.interjectedInto = event.message_id;
+      state.serverMessageCount = event.message_count;
+      state.messageEl.remove();
+      return;
     }
 
     // Server-side CHAT_TIMEOUT: partial content was saved; let the loop
@@ -233,7 +243,7 @@ export async function sendStreamingMessage(
 
     // Handle stream ending without done event (connection dropped mid-stream)
     // The message may have been saved server-side, so try to recover it
-    if (!state.messageSuccessful) {
+    if (!state.messageSuccessful && !state.interjectedInto) {
       log.warn('Stream ended without done event', {
         conversationId: convId,
         hadContent: state.fullContent.trim() !== '',
@@ -257,4 +267,7 @@ export async function sendStreamingMessage(
     clearInflightStream(convId);
     cleanupStreamingRequest(requestId, convId, state.messageSuccessful, state.serverMessageCount);
   }
+  // (after the cleanup: a merge skips a conversation with a turn of its own)
+  // Renders the other device's question in place and follows its reply live
+  if (state.interjectedInto) await mergeExternalChanges(convId);
 }

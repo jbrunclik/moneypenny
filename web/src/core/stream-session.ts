@@ -54,6 +54,8 @@ export interface StreamingState {
   serverMessageCount?: number;
   /** Following another device's turn (followRemoteStream), not our own */
   remoteFollow?: boolean;
+  /** The send steered another device's running turn (this reply id) instead of starting one */
+  interjectedInto?: string;
 }
 
 export function createStreamingState(

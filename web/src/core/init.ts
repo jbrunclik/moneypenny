@@ -414,6 +414,11 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       onCurrentConversationRenamed: (title: string) => {
         updateChatTitle(title);
       },
+      onArchiveOrTrashChanged: ({ archive, trash }) => {
+        // Rows and counts come from the server (a trash row needs its purge date)
+        if (archive) void loadArchivedConversations();
+        if (trash) void loadTrashedConversations();
+      },
       onPlannerDeleted: () => {
         // Planner was deleted in another tab
         if (useStore.getState().isPlannerView) {

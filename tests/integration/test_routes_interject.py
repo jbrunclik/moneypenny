@@ -1,6 +1,12 @@
-"""Integration tests for POST /api/conversations/<conv_id>/chat/interject."""
+"""Integration tests for steering a turn in flight: POST .../chat/interject,
+and a send from another device while the conversation's turn is running."""
 
-from unittest.mock import patch
+import json
+import threading
+import time
+from datetime import datetime, timedelta
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 from flask.testing import FlaskClient
 
@@ -174,3 +180,188 @@ class TestChatInterject:
             )
 
         assert pop_interjection(test_user.id, test_conversation.id) is None
+
+
+def _sse_events(body: bytes) -> list[dict[str, Any]]:
+    return [
+        json.loads(line[len("data: ") :])
+        for line in body.decode().splitlines()
+        if line.startswith("data: ")
+    ]
+
+
+class TestSendDuringAnotherDevicesTurn:
+    """Two devices sending into one conversation at once used to start two
+    parallel turns whose messages and replies interleaved. A plain text send
+    while a turn is live steers that turn instead."""
+
+    CLIENT_ID = "6f1d2c3b-4a59-4e8d-9c7b-1a2b3c4d5e6f"
+
+    @staticmethod
+    def _running_turn(db: Database, conv_id: str) -> str:
+        """Another device's turn in flight: its question and empty reply."""
+        db.add_message(conv_id, "user", "Compare the plans")
+        return db.add_message(conv_id, "assistant", "").id
+
+    def _stream(
+        self, client: FlaskClient, headers: dict[str, str], conv_id: str, **body: Any
+    ) -> tuple[Any, MagicMock]:
+        """POST the stream route; the normal turn's generator is stubbed (its
+        producer thread would race teardown) - called means a new turn."""
+        payload = {"message": "Only the 2025 ones", "client_message_id": self.CLIENT_ID, **body}
+        with patch(
+            "src.api.helpers.chat_streaming.create_stream_generator", return_value=iter(())
+        ) as new_turn:
+            response = client.post(
+                f"/api/conversations/{conv_id}/chat/stream", json=payload, headers=headers
+            )
+        return response, new_turn
+
+    def test_stream_send_steers_the_running_turn(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        reply_id = self._running_turn(test_database, test_conversation.id)
+
+        response, new_turn = self._stream(client, auth_headers, test_conversation.id)
+
+        assert response.status_code == 200
+        new_turn.assert_not_called()
+        events = _sse_events(response.data)
+        assert events[0] == {"type": "user_message_saved", "user_message_id": self.CLIENT_ID}
+        assert events[1]["type"] == "interjected"
+        assert events[1]["message_id"] == reply_id
+        # (the reply in flight counts: it is the turn's reply)
+        assert events[1]["message_count"] == 3
+        assert pop_interjection(test_user.id, test_conversation.id) == "Only the 2025 ones"
+        # One turn: question -> steering -> the reply that takes it into account
+        test_database.update_message_content(reply_id, "Here is the comparison")
+        assert [m.content for m in test_database.get_messages(test_conversation.id)] == [
+            "Compare the plans",
+            "Only the 2025 ones",
+            "Here is the comparison",
+        ]
+
+    def test_a_finished_turn_starts_a_new_one(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        reply_id = self._running_turn(test_database, test_conversation.id)
+        test_database.journal_append_events(reply_id, [(1, json.dumps({"type": "stream_end"}))])
+
+        _, new_turn = self._stream(client, auth_headers, test_conversation.id)
+
+        new_turn.assert_called_once()
+
+    def test_a_stalled_turn_starts_a_new_one(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        """A worker that died mid-turn left no end marker: steering a dead
+        turn would leave the send unanswered."""
+        reply_id = self._running_turn(test_database, test_conversation.id)
+        with patch("src.db.models.stream_journal.time.time", return_value=time.time() - 1_000):
+            test_database.journal_append_events(reply_id, [(1, json.dumps({"type": "token"}))])
+
+        _, new_turn = self._stream(client, auth_headers, test_conversation.id)
+
+        new_turn.assert_called_once()
+
+    def test_an_old_unjournaled_placeholder_starts_a_new_one(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        reply_id = self._running_turn(test_database, test_conversation.id)
+        test_database.set_message_created_at(reply_id, datetime.now() - timedelta(seconds=400))
+
+        _, new_turn = self._stream(client, auth_headers, test_conversation.id)
+
+        new_turn.assert_called_once()
+
+    def test_a_live_journal_keeps_steering(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        reply_id = self._running_turn(test_database, test_conversation.id)
+        test_database.set_message_created_at(reply_id, datetime.now() - timedelta(seconds=400))
+        test_database.journal_append_events(reply_id, [(1, json.dumps({"type": "token"}))])
+
+        _, new_turn = self._stream(client, auth_headers, test_conversation.id)
+
+        new_turn.assert_not_called()
+
+    def test_sends_that_need_their_own_turn_still_get_one(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        self._running_turn(test_database, test_conversation.id)
+        for extra in ({"force_tools": ["web_search"]}, {"rerun_mode": "continue"}):
+            response, _ = self._stream(
+                client, auth_headers, test_conversation.id, client_message_id=None, **extra
+            )
+            assert all(e["type"] != "interjected" for e in _sse_events(response.data))
+            assert pop_interjection(test_user.id, test_conversation.id) is None
+
+    def test_a_retry_of_a_steering_send_is_a_duplicate(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        self._running_turn(test_database, test_conversation.id)
+        self._stream(client, auth_headers, test_conversation.id)
+
+        response, new_turn = self._stream(client, auth_headers, test_conversation.id)
+
+        assert response.status_code == 409
+        new_turn.assert_not_called()
+
+    def test_batch_send_steers_and_answers_with_the_running_reply(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        reply_id = self._running_turn(test_database, test_conversation.id)
+        # The other device's turn finishes a moment later
+        finish = threading.Timer(
+            0.3, lambda: test_database.update_message_content(reply_id, "Here is the comparison")
+        )
+        finish.start()
+        try:
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                json={"message": "Only the 2025 ones", "client_message_id": self.CLIENT_ID},
+                headers=auth_headers,
+            )
+        finally:
+            finish.join()
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["id"] == reply_id
+        assert data["content"] == "Here is the comparison"
+        assert data["user_message_id"] == self.CLIENT_ID
+        assert len(test_database.get_messages(test_conversation.id)) == 3
