@@ -233,8 +233,10 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     });
     await page.waitForTimeout(100);
 
-    // Now scroll back to bottom to resume auto-scroll
+    // Now scroll back to bottom to resume auto-scroll (with input: a move
+    // without any is layout, which must not re-arm following)
     await messagesContainer.evaluate((el) => {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: 4000, bubbles: true }));
       el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
     });
     await page.waitForTimeout(100);
@@ -1070,6 +1072,46 @@ test.describe('Send-to-top - reserved space after an abnormal end', () => {
 // The user touching the list takes over from any smooth scroll of ours:
 // the glide only aborted on a >5px deviation, so a press-and-hold (or a drag
 // along with it) was fought for up to 600ms.
+test.describe('Send-to-top - following resumes only for the user', () => {
+  test.use({ viewport: { width: 390, height: 664 } });
+
+  // An anchored reply still inside its reserved space sits within the
+  // resume threshold of the bottom: a nudge with no input there (layout
+  // settling, a re-fit) re-armed following, and once the reply outgrew the
+  // screen the view chased it - send-to-top lost
+  test('a nudge at the anchor with no input does not start chasing the reply', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+    // A first turn so the second has history to scroll past
+    await setMockResponse(page, LONG_RESPONSE);
+    await page.fill('#message-input', 'First question');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant').last()).not.toHaveClass(/streaming/, { timeout: 20000 });
+
+    await setStreamDelay(page, 10);
+    await page.fill('#message-input', 'Tell me everything');
+    await page.click('#send-btn');
+    await page.waitForTimeout(1000); // the glide lands on the anchor
+
+    // Layout nudges the view (no touch, wheel or key) - up and back down
+    await page.evaluate(async () => {
+      const c = document.getElementById('messages')!;
+      c.scrollTop -= 10;
+      await new Promise((r) => requestAnimationFrame(r));
+      c.scrollTop += 10;
+    });
+
+    // The reply outgrows the screen: the view stays at the anchor and the
+    // pill offers the rest (chasing kept it pinned at the bottom instead)
+    await expect(page.locator('.scroll-to-bottom.streaming-paused:not(.hidden)')).toBeVisible({ timeout: 30000 });
+    await clearMockResponse(page);
+    await resetStreamDelay(page);
+  });
+});
+
 test.describe('Send-to-top - the user takes over the glide', () => {
   test.use({ viewport: { width: 390, height: 664 }, hasTouch: true });
 

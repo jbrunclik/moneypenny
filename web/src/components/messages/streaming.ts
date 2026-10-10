@@ -2,7 +2,7 @@
  * Streaming message state management and updates.
  */
 
-import { getElementById, scrollToBottom, isScrolledToBottom } from '../../utils/dom';
+import { getElementById, scrollToBottom, isScrolledToBottom, userScrolledRecently } from '../../utils/dom';
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
@@ -235,7 +235,10 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     const maxScrollTop = container.scrollHeight - container.clientHeight;
     const movedDown = scrollTop > previousScrollTop && scrollTop <= maxScrollTop + 1;
 
-    if (atBottom && movedDown && !isProgrammaticScrollActive()) {
+    // ...and only the user: a move with no input of theirs (layout, a
+    // re-fit, a clamp next to the anchor - an anchored short reply sits
+    // within the threshold of the bottom) re-armed chasing the reply
+    if (atBottom && movedDown && !isProgrammaticScrollActive() && userScrolledRecently()) {
       // User scrolled back to bottom - use debounce to re-enable auto-scroll
       // This prevents rapid toggling when user is scrolling around near the bottom
       if (resumeDebounceTimeout) {

@@ -113,8 +113,15 @@ export function initScrollToBottom(): void {
   messagesContainer.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'mouse') noteUserScrollIntent();
   });
-  messagesContainer.addEventListener('keydown', (event) => {
-    if (SCROLL_KEYS.has(event.key)) takeOver();
+  // Document-level: the list scrolls by keys while focus is on the page,
+  // not only on the list (never while typing)
+  document.addEventListener('keydown', (event) => {
+    if (!SCROLL_KEYS.has(event.key)) return;
+    const target = event.target;
+    if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, button'))) {
+      return;
+    }
+    takeOver();
   });
 
   // Scroll listener with debounce for performance

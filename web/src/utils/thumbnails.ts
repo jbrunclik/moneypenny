@@ -1,5 +1,5 @@
 import { files } from '../api/files';
-import { getElementById, scrollToBottom, scrollToElementTop, scrollToPosition, isScrolledToBottom, cancelSmoothScroll, type SmoothScrollOptions } from './dom';
+import { getElementById, scrollToBottom, scrollToElementTop, scrollToPosition, isScrolledToBottom, cancelSmoothScroll, userScrolledRecently, type SmoothScrollOptions } from './dom';
 import { onMessagesScroll, offMessagesScroll } from './scroll-manager';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { createLogger } from './logger';
@@ -696,6 +696,13 @@ function setupUserScrollListener(): void {
 
         if (!scrolledUp) {
             return; // User scrolled down or stayed in place - don't disable
+        }
+        // A move up with no input of the user's in it is layout: the iOS
+        // keyboard closing or the reserved turn space released clamps the
+        // position down (that switched the chase off - later images then
+        // left a gap above the composer)
+        if (!userScrolledRecently()) {
+            return;
         }
 
         // User scrolled UP - this is definitely a user action

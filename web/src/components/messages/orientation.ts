@@ -2,7 +2,9 @@
  * Orientation change handling for preserving scroll position.
  */
 
-import { getElementById } from '../../utils/dom';
+import { getElementById, userScrolledSince } from '../../utils/dom';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/thumbnails';
+import { isTurnAnchored } from './turn-anchor';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('messages');
@@ -36,23 +38,29 @@ export function initOrientationChangeHandler(): void {
     }
 
     log.debug('Orientation change: saved scroll percentage', { savedScrollPercentage });
+    const savedAt = performance.now();
 
     // After orientation change, layout will reflow. Wait for it to settle and restore position.
     // Use multiple RAFs + timeout to ensure layout has fully settled
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setTimeout(() => {
-          if (savedScrollPercentage !== null) {
+          // An anchored turn is held by the list's resize observer (a
+          // percentage put it under the header); the user scrolling since
+          // the rotation owns the position
+          if (savedScrollPercentage !== null && !isTurnAnchored() && !userScrolledSince(savedAt)) {
             const newMaxScrollTop = container.scrollHeight - container.clientHeight;
             if (newMaxScrollTop > 0) {
+              // Ours, not the user's (the header auto-hide reacted to it)
+              endProgrammaticScroll(beginProgrammaticScroll());
               container.scrollTop = savedScrollPercentage * newMaxScrollTop;
               log.debug('Orientation change: restored scroll position', {
                 savedScrollPercentage,
                 newScrollTop: container.scrollTop,
               });
             }
-            savedScrollPercentage = null;
           }
+          savedScrollPercentage = null;
         }, 100); // Small delay to ensure layout has fully settled
       });
     });

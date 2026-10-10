@@ -9,7 +9,7 @@
  * re-pins the messages scroll to the bottom when the user was following.
  */
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from '../components/messages/turn-anchor';
-import { getElementById, isScrolledToBottom, setScrollDebugSink, userScrolledSince } from '../utils/dom';
+import { getElementById, isScrolledToBottom, isSmoothScrolling, setScrollDebugSink, userScrolledSince } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import {
@@ -425,7 +425,9 @@ export function initKeyboardViewportPinning(): void {
         for (const delay of [150, 350, 600]) {
           setTimeout(() => {
             // The user scrolling right after focusing owns the position
-            if (!signal.aborted && isTurnAnchored() && !userScrolledSince(heldAt)) {
+            // ...and a send glide in flight lands on its own (a hold jumped
+            // it to the end, its next frame pulled it back)
+            if (!signal.aborted && isTurnAnchored() && !userScrolledSince(heldAt) && !isSmoothScrolling()) {
               holdTurnAnchor(container);
             }
           }, delay);

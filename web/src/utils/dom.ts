@@ -7,6 +7,8 @@ import { SCROLL_BOTTOM_THRESHOLD_PX } from '../config';
 // stable this long, giving up after the max
 const SMOOTH_SCROLL_SETTLE_MS = 400;
 const SMOOTH_SCROLL_SETTLE_MAX_MS = 1500;
+// A touchmove this recent means a finger is on the list (no momentum stop)
+const MOMENTUM_STOP_TOUCH_GUARD_MS = 100;
 // How long a glide keeps re-writing a target the browser didn't take
 const SMOOTH_SCROLL_LAND_MAX_MS = 500;
 
@@ -155,6 +157,8 @@ export function cancelSmoothScroll(): void {
  */
 export function stopMomentumScroll(element: HTMLElement): void {
   if (!window.matchMedia?.('(pointer: coarse)').matches) return;
+  // A finger moving on the list right now: the toggle would end their drag
+  if (userScrolledSince(performance.now() - MOMENTUM_STOP_TOUCH_GUARD_MS)) return;
   element.style.overflowY = 'hidden';
   void element.offsetHeight;
   element.style.overflowY = '';
@@ -174,6 +178,16 @@ export interface SmoothScrollOptions {
 // How long after the user's last input an outside move still counts as
 // theirs: iOS momentum coasts for a second or more after the finger lifts
 const USER_SCROLL_MOMENTUM_MS = 1500;
+
+/**
+ * Whether the user scrolled the list themselves just now - within the
+ * momentum window, so an iOS coast after their flick still counts. A move
+ * with no input in it (a keyboard-close clamp, a reservation released) isn't
+ * theirs.
+ */
+export function userScrolledRecently(): boolean {
+  return userScrolledSince(performance.now() - USER_SCROLL_MOMENTUM_MS);
+}
 
 /** Whether an outside move during a scroll started at `startTime` is the user's. */
 function userTookOver(startTime: number, options: SmoothScrollOptions): boolean {
