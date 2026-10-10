@@ -25,6 +25,7 @@ def sync_summary(
         "created_at": conv.created_at.isoformat(),
         "updated_at": conv.updated_at.isoformat(),
         "message_count": message_count,
+        "read_count": conv.read_message_count,
         "last_message_preview": preview,
         "last_message_id": last_message_id,
         "archived": conv.archived,

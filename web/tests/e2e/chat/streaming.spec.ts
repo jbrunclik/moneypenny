@@ -361,6 +361,9 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     // Wait for streaming to start
     const assistantMessage = page.locator('.message.assistant').last();
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
+    // Let the send-to-top glide finish: it aborts only on a real move, and a
+    // "scroll to 0" from a start already near 0 isn't one (WebKit under load)
+    await page.waitForTimeout(700);
 
     // Perform rapid scroll up/down movements during streaming
     // This simulates a user browsing during an active stream

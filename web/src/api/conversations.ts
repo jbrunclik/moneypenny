@@ -35,10 +35,19 @@ export const conversations = {
     // Map snake_case message_count to camelCase messageCount. Pinned
     // conversations arrive separately (excluded from the paginated portion)
     // and are merged in front so the store holds one list.
-    const normalize = (conv: Conversation): Conversation => ({
-      ...conv,
-      messageCount: (conv as { message_count?: number }).message_count,
-    });
+    // read_count is the server-side read state (shared across devices):
+    // the unread badge shows from the first paint, not after a sync
+    const normalize = (conv: Conversation): Conversation => {
+      const { message_count, read_count } = conv as { message_count?: number; read_count?: number };
+      return {
+        ...conv,
+        messageCount: message_count,
+        unreadCount:
+          message_count !== undefined && read_count !== undefined
+            ? Math.max(0, message_count - read_count)
+            : conv.unreadCount,
+      };
+    };
     return {
       conversations: [
         ...(data.pinned_conversations ?? []).map(normalize),
@@ -301,6 +310,14 @@ export const conversations = {
     if (full) params.set('full', 'true');
     const query = params.toString();
     return requestWithRetry<SyncResponse>(`/api/conversations/sync${query ? `?${query}` : ''}`);
+  },
+
+  /** Record that this device has shown the conversation up to messageCount. */
+  async markRead(id: string, messageCount: number): Promise<void> {
+    await request<{ status: string }>(`/api/conversations/${id}/read`, {
+      method: 'POST',
+      body: JSON.stringify({ message_count: messageCount }),
+    });
   },
 
   /** Conversations changed after a change-log cursor, with their state. */

@@ -67,6 +67,9 @@ class Conversation:
     anonymous_mode: bool = False
     # Set while the conversation is in the trash (NULL = live)
     deleted_at: datetime | None = None
+    # Message count as of the last time any of the user's devices showed it
+    # (unread = message_count - read_message_count, shared across devices)
+    read_message_count: int = 0
 
 
 @dataclass

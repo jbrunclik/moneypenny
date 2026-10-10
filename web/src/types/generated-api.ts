@@ -4066,6 +4066,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that the conversation was shown
+         * @description Server-side read state shared by the user's devices: unread = message_count - read_count. Changes reach other devices through the sync change log.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/{agent_id}/executions": {
         parameters: {
             query?: never;
@@ -7084,6 +7143,12 @@ export interface components {
              */
             message_count: number | null;
             /**
+             * Read Count
+             * @description Messages already shown on any device (unread badge)
+             * @default null
+             */
+            read_count: number | null;
+            /**
              * Archived
              * @default null
              */
@@ -7166,6 +7231,12 @@ export interface components {
              * @default null
              */
             message_count: number | null;
+            /**
+             * Read Count
+             * @description Messages already shown on any device (unread badge)
+             * @default null
+             */
+            read_count: number | null;
             /**
              * Archived
              * @default null
@@ -7635,6 +7706,12 @@ export interface components {
             updated_at: string;
             /** Message Count */
             message_count: number;
+            /**
+             * Read Count
+             * @description Messages already shown on any device
+             * @default 0
+             */
+            read_count: number;
             /**
              * Last Message Preview
              * @default null

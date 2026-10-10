@@ -176,3 +176,37 @@ test('the planner merges messages from another device in place', async ({ page, 
   await expect(page.locator('.new-messages-banner')).toHaveCount(0);
   await expect(page.locator('#planner-dashboard[data-kept="1"]')).toHaveCount(1);
 });
+
+test.describe('unread state shared across devices', () => {
+  test('a chat read on another device loses its badge here', async ({ page, request }) => {
+    // The other device adds a turn: unread here
+    await request.post(`/api/conversations/${ids.beta}/chat/batch`, { data: { message: 'From the phone' } });
+    await poll(page);
+    await expect(item(page, 'Beta').locator('.unread-badge')).toHaveText('2');
+
+    // ...and reads it there
+    await request.post(`/api/conversations/${ids.beta}/read`, { data: { message_count: 4 } });
+    await poll(page);
+    await expect(item(page, 'Beta').locator('.unread-badge')).toHaveCount(0);
+  });
+
+  test('reading a chat here clears it for the other devices', async ({ page, request }) => {
+    await request.post(`/api/conversations/${ids.beta}/chat/batch`, { data: { message: 'From the phone' } });
+    await item(page, 'Beta').click();
+    await expect(page.locator('.message.user').last()).toContainText('From the phone');
+
+    await expect
+      .poll(async () => {
+        const list = await (await request.get('/api/conversations')).json();
+        const beta = list.conversations.find((c: { id: string }) => c.id === ids.beta);
+        return beta.message_count - beta.read_count;
+      })
+      .toBe(0);
+  });
+
+  test('badges show on first load, from the server', async ({ page, request }) => {
+    await request.post(`/api/conversations/${ids.beta}/chat/batch`, { data: { message: 'From the phone' } });
+    await page.reload();
+    await expect(item(page, 'Beta').locator('.unread-badge')).toHaveText('2');
+  });
+});

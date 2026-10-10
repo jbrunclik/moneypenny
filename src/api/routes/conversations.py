@@ -95,6 +95,7 @@ def list_conversations(user: User) -> dict[str, Any]:
             "created_at": c.created_at.isoformat(),
             "updated_at": c.updated_at.isoformat(),
             "message_count": message_count,
+            "read_count": c.read_message_count,
             "archived": c.archived or None,
             "pinned": c.pinned or None,
             "last_message_preview": preview,

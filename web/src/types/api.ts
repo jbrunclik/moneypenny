@@ -495,6 +495,7 @@ export interface ConversationSummary {
   created_at?: string | null;
   updated_at: string;
   message_count: number;
+  read_count?: number; // Shown on any of the user's devices (shared unread state)
   last_message_preview?: string | null;
   last_message_id?: string | null; // Newest message (detects edits/deletes)
   archived?: boolean;

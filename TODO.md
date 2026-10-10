@@ -28,7 +28,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 ## Chat & UI
 
 - [ ] **Multi-device sync - remaining after the Oct 10 2026 rework** (change log + in-place merge shipped; see docs/features/sync.md):
-  - Shared read state: unread badges are per device (a chat read on the phone stays unread on the desktop). Store a server-side last-read message id per conversation (agents already have `last_viewed_at`) and drop the count baselines.
   - Concurrent sends from two devices into one conversation interleave the turns (no per-conversation turn lock; the 409 only dedupes a client id). Plan: a send that arrives while another device's turn is still running in that conversation is treated as an interject (server routes it to the interjection path, like a second send from the same device), so the running reply takes it into account instead of a parallel turn starting.
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Sports card meta line ("Last session 2d ago · 12 sessions") - needs a last-session date and session count from the programs API

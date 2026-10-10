@@ -10,6 +10,7 @@ vi.mock('@/api/conversations', () => ({
   conversations: {
     sync: vi.fn(),
     syncChanges: vi.fn(),
+    markRead: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -1637,6 +1638,40 @@ describe('SyncManager', () => {
       await syncManager.incrementalSync();
 
       expect(hasPendingRecovery('a')).toBe(false);
+    });
+
+    it('unread badges follow the server read state shared by all devices', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      // 4 messages, all already shown on the phone: not unread here
+      mockSyncChanges().mockResolvedValue(changes([{ ...createConversationSummary('a', 'A', 4), read_count: 4 }]));
+      await syncManager.incrementalSync();
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.unreadCount ?? 0).toBe(0);
+
+      mockSyncChanges().mockResolvedValue(changes([{ ...createConversationSummary('a', 'A', 6), read_count: 4 }]));
+      await syncManager.incrementalSync();
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.unreadCount).toBe(2);
+    });
+
+    it('viewing a conversation reports it read to the server (once per count)', async () => {
+      const markRead = conversationsApi.markRead as unknown as ReturnType<typeof vi.fn>;
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      markRead.mockClear();
+
+      syncManager.markConversationRead('a', 6);
+      syncManager.markConversationRead('a', 6);
+
+      expect(markRead.mock.calls).toEqual([['a', 6]]);
+    });
+
+    it('our own turn finishing while switched away leaves the reply unread', async () => {
+      const markRead = conversationsApi.markRead as unknown as ReturnType<typeof vi.fn>;
+      await startWithCursor([createConversation('a', 'A', 2), createConversation('b', 'B', 2)]);
+      useStore.getState().setCurrentConversation(useStore.getState().conversations.find((c) => c.id === 'b')!);
+      markRead.mockClear();
+
+      syncManager.setLocalMessageCount('a', 4);
+
+      expect(markRead).toHaveBeenCalledWith('a', 3);
     });
 
     it('pages on while the server has more changes', async () => {

@@ -103,6 +103,9 @@ export class SyncManager {
   /** A full sync was requested while another sync held the lock. */
   private fullSyncQueued = false;
 
+  /** The read count last reported to the server per conversation (dedupe). */
+  private reportedReadCounts: Map<string, number> = new Map();
+
   /** applyChanges told the open conversation about an external update. */
   private notifiedCurrentUpdate = false;
 
@@ -208,6 +211,7 @@ export class SyncManager {
     this.localMessageCounts.clear();
     this.streamingConversations.clear();
     this.deferredUpdates.clear();
+    this.reportedReadCounts.clear();
     this.fullSyncQueued = false;
     this.isSyncing = false;
     this.plannerMessageCount = null;
@@ -458,6 +462,10 @@ export class SyncManager {
     const isNew = conv.created_at ? !this.isPaginationDiscovered(conv.created_at) : known === undefined;
     const baseline = known ?? (isNew ? 0 : conv.message_count);
     this.localMessageCounts.set(conv.id, baseline);
+    const unread =
+      conv.read_count !== undefined
+        ? Math.max(0, conv.message_count - conv.read_count)
+        : Math.max(0, conv.message_count - baseline);
     log.info('Conversation appeared from another device', { conversationId: conv.id, isNew });
 
     store.addConversation({
@@ -469,7 +477,7 @@ export class SyncManager {
       messageCount: conv.message_count,
       last_message_preview: conv.last_message_preview,
       pinned: conv.pinned,
-      unreadCount: Math.max(0, conv.message_count - baseline),
+      unreadCount: unread,
       hasExternalUpdate: false,
     });
     return true;
@@ -567,7 +575,10 @@ export class SyncManager {
       // unless we already know an older count (continued elsewhere)
       const knownCount = this.localMessageCounts.get(serverConv.id);
       if (knownCount === undefined) this.localMessageCounts.set(serverConv.id, 0);
-      const unreadCount = Math.max(0, serverConv.message_count - (knownCount ?? 0));
+      const unreadCount =
+        serverConv.read_count !== undefined
+          ? Math.max(0, serverConv.message_count - serverConv.read_count)
+          : Math.max(0, serverConv.message_count - (knownCount ?? 0));
 
       store.addConversation({
         id: serverConv.id,
@@ -640,6 +651,12 @@ export class SyncManager {
           // User is not viewing - count as unread
           unreadCount = serverConv.message_count - localCount;
         }
+      }
+      // Server-side read state wins: shared by the user's devices, so a chat
+      // read on the phone isn't unread here (the local count only drives the
+      // open conversation's change detection)
+      if (serverConv.read_count !== undefined && !isCurrentConv) {
+        unreadCount = Math.max(0, serverConv.message_count - serverConv.read_count);
       }
 
       if (existing) {
@@ -743,7 +760,8 @@ export class SyncManager {
     log.debug('Marking conversation as read', { convId, messageCount });
 
     // Also moves the planner/agent view baselines when that view is open
-    this.setLocalMessageCount(convId, messageCount);
+    this.applyLocalCount(convId, messageCount);
+    this.reportRead(convId, messageCount);
     useStore.getState().updateConversation(convId, {
       unreadCount: 0,
       hasExternalUpdate: false,
@@ -767,6 +785,21 @@ export class SyncManager {
   }
 
   /**
+   * Record on the server that this device has shown `count` messages - the
+   * read state behind every device's unread badge. Deduplicated; a failed
+   * report is retried with the next one.
+   */
+  private reportRead(convId: string, count: number): void {
+    if (convId.startsWith('temp-') || count < 0) return;
+    if (this.reportedReadCounts.get(convId) === count) return;
+    this.reportedReadCounts.set(convId, count);
+    conversationsApi.markRead(convId, count).catch((error: unknown) => {
+      this.reportedReadCounts.delete(convId);
+      log.debug('Reporting read state failed', { conversationId: convId, error });
+    });
+  }
+
+  /**
    * Update local message count after sending a message.
    * Prefer setLocalMessageCount with the server's count when a turn reports it.
    */
@@ -783,6 +816,15 @@ export class SyncManager {
    * or this device's own messages there read as "new from another device".
    */
   setLocalMessageCount(convId: string, count: number): void {
+    this.applyLocalCount(convId, count);
+    // Our own turn: shown if the chat is open; switched away, only our own
+    // message counts as read - the reply stays unread on every device
+    const isCurrent = useStore.getState().currentConversation?.id === convId;
+    this.reportRead(convId, isCurrent ? count : count - 1);
+  }
+
+  /** The local baseline (+ planner/agent view baselines), no read report. */
+  private applyLocalCount(convId: string, count: number): void {
     this.localMessageCounts.set(convId, count);
     const store = useStore.getState();
     store.updateConversation(convId, { messageCount: count });

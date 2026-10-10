@@ -12,7 +12,8 @@ from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
 from src.api.schemas.common import StatusResponse
-from src.api.schemas.conversations import ConversationsListPaginatedResponse
+from src.api.schemas.conversations import ConversationsListPaginatedResponse, MarkReadRequest
+from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
@@ -92,6 +93,29 @@ def pin_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
         raise_not_found_error("Conversation")
     logger.info("Conversation pinned", extra={"user_id": user.id, "conversation_id": conv_id})
     return {"status": "pinned"}, 200
+
+
+@api.route("/conversations/<conv_id>/read", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(
+    summary="Record that the conversation was shown",
+    description=(
+        "Server-side read state shared by the user's devices: unread = "
+        "message_count - read_count. Changes reach other devices through "
+        "the sync change log."
+    ),
+    responses=[404, 429],
+)
+@rate_limit_conversations
+@require_auth
+@validate_request(MarkReadRequest)
+def mark_conversation_read(
+    user: User, data: MarkReadRequest, conv_id: str
+) -> tuple[dict[str, str], int]:
+    """Record the message count this device has shown."""
+    if not db.mark_conversation_read(conv_id, user.id, data.message_count):
+        raise_not_found_error("Conversation")
+    return {"status": "read"}, 200
 
 
 @api.route("/conversations/<conv_id>/unpin", methods=["POST"])

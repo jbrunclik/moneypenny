@@ -73,6 +73,10 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
     if "anonymous_mode" in row.keys():
         anonymous_mode = bool(row["anonymous_mode"]) if row["anonymous_mode"] else False
 
+    read_message_count = 0
+    if "read_message_count" in row.keys():
+        read_message_count = int(row["read_message_count"] or 0)
+
     deleted_at = None
     if "deleted_at" in row.keys():
         deleted_at = datetime.fromisoformat(row["deleted_at"]) if row["deleted_at"] else None
@@ -96,6 +100,7 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         language_program=language_program,
         anonymous_mode=anonymous_mode,
         deleted_at=deleted_at,
+        read_message_count=read_message_count,
     )
 
 

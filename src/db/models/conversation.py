@@ -223,6 +223,34 @@ class ConversationMixin:
             delete_messages_blobs(message_ids)
             return cursor.rowcount > 0
 
+    def mark_conversation_read(self, conv_id: str, user_id: str, message_count: int) -> bool:
+        """Record that a device has shown the conversation up to message_count.
+
+        Clamped to the real count. Only an actual change writes (each write
+        is a change-log entry other devices fetch); updated_at is untouched,
+        so reading never reorders the sidebar. Returns whether the
+        conversation exists for the user.
+        """
+        with self._pool.get_connection() as conn:
+            owned = self._execute_with_timing(
+                conn,
+                "SELECT 1 FROM conversations WHERE id = ? AND user_id = ?",
+                (conv_id, user_id),
+            ).fetchone()
+            if not owned:
+                return False
+            self._execute_with_timing(
+                conn,
+                """UPDATE conversations
+                   SET read_message_count = MIN(
+                       ?, (SELECT COUNT(*) FROM messages WHERE conversation_id = ?))
+                   WHERE id = ? AND read_message_count != MIN(
+                       ?, (SELECT COUNT(*) FROM messages WHERE conversation_id = ?))""",
+                (message_count, conv_id, conv_id, message_count, conv_id),
+            )
+            conn.commit()
+            return True
+
     def count_messages(self, conversation_id: str) -> int:
         """Count messages in a conversation.
 

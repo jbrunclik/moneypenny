@@ -3193,6 +3193,57 @@
         "summary": "Restore a soft-deleted memory."
       }
     },
+    "/api/conversations/{conv_id}/read": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Record that the conversation was shown",
+        "description": "Server-side read state shared by the user's devices: unread = message_count - read_count. Changes reach other devices through the sync change log."
+      }
+    },
     "/api/agents/{agent_id}/executions": {
       "get": {
         "parameters": [
@@ -6897,6 +6948,19 @@
             "default": null,
             "title": "Message Count"
           },
+          "read_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Messages already shown on any device (unread badge)",
+            "title": "Read Count"
+          },
           "archived": {
             "anyOf": [
               {
@@ -7064,6 +7128,19 @@
             ],
             "default": null,
             "title": "Message Count"
+          },
+          "read_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Messages already shown on any device (unread badge)",
+            "title": "Read Count"
           },
           "archived": {
             "anyOf": [
@@ -7935,6 +8012,12 @@
           },
           "message_count": {
             "title": "Message Count",
+            "type": "integer"
+          },
+          "read_count": {
+            "default": 0,
+            "description": "Messages already shown on any device",
+            "title": "Read Count",
             "type": "integer"
           },
           "last_message_preview": {

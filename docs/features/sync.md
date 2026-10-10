@@ -63,6 +63,10 @@ GET /api/conversations/sync?since={ISO_TIMESTAMP}&full={BOOLEAN}
 
 ### Unread Count Calculation
 
+**Shared read state (Oct 2026, [migration 0062](../../migrations/0062_add_conversation_read_count.py)).** `conversations.read_message_count` is the message count as of the last time ANY of the user's devices showed the conversation; badges are `message_count - read_count`, from the conversation list on first paint and from every sync summary (`read_count`). A device reports it via `POST /conversations/<id>/read` (`reportRead` in SyncManager, deduplicated) when it shows a conversation (`markConversationRead`) and when its own turn ends (`setLocalMessageCount`: the full count if the chat is open, count - 1 if the user switched away - their own message is read, the reply isn't). The write is a conversation UPDATE, so the change log carries "read" to the other devices; `updated_at` is untouched (no reordering) and an unchanged count doesn't write. Existing conversations started fully read; `/test/seed` marks seeded history read unless `"unread": true`.
+
+The local counts below remain only for the OPEN conversation's change detection (merge trigger) and for servers without `read_count`:
+
 ```
 unreadCount = server_message_count - local_message_count
 ```

@@ -988,6 +988,11 @@ def main() -> None:
                             tool_rounds=int(msg["tool_rounds"]),
                         )
 
+                # Seeded history counts as already read (as a real device that
+                # wrote it would have reported); "unread": true keeps it unread
+                if not conv_data.get("unread"):
+                    g.db.mark_conversation_read(conv.id, user.id, len(messages))
+
                 # Optional running-summary state, as conversation compaction
                 # persists it ({summary, covered_count, generation})
                 compaction = conv_data.get("compaction")

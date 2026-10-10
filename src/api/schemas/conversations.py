@@ -65,6 +65,9 @@ class ConversationResponse(BaseModel):
     created_at: str
     updated_at: str
     message_count: int | None = None
+    read_count: int | None = Field(
+        default=None, description="Messages already shown on any device (unread badge)"
+    )
     archived: bool | None = None
     pinned: bool | None = None
     last_message_preview: str | None = None
@@ -92,6 +95,12 @@ class ConversationDetailResponse(BaseModel):
     messages: list[MessageResponse]
 
 
+class MarkReadRequest(BaseModel):
+    """A device has shown the conversation up to this many messages."""
+
+    message_count: int = Field(..., ge=0, description="Messages shown (server clamps)")
+
+
 class UpdateAnonymousModeRequest(BaseModel):
     """Request to turn anonymous mode on or off for a conversation."""
 
@@ -115,6 +124,7 @@ class SyncConversationResponse(BaseModel):
     created_at: str | None = None
     updated_at: str
     message_count: int
+    read_count: int = Field(default=0, description="Messages already shown on any device")
     last_message_preview: str | None = None
     last_message_id: str | None = Field(
         default=None, description="Newest message (detects edits/deletes a count can't)"
