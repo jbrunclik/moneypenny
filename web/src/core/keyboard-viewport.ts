@@ -9,7 +9,7 @@
  * re-pins the messages scroll to the bottom when the user was following.
  */
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from '../components/messages/turn-anchor';
-import { getElementById, isScrolledToBottom, userScrolledSince } from '../utils/dom';
+import { getElementById, isScrolledToBottom, setScrollDebugSink, userScrolledSince } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import {
@@ -109,6 +109,7 @@ function kbDebugEnabled(): boolean {
 
 /** 5 quick taps on the chat title toggle the overlay (PWA has no URL bar). */
 export function initKbDebugToggle(): void {
+  setScrollDebugSink(kbDebug);
   let taps = 0;
   let lastTap = 0;
   let lastTouchTs = 0;

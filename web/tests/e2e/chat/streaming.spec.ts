@@ -1149,6 +1149,45 @@ test.describe('Send-to-top - band changes keep the turn anchored', () => {
   });
 });
 
+// With real motion (the suite otherwise runs reduced: the glide is a jump).
+// A message that wraps in the phone composer shrinks it as the send clears
+// the input - mid-glide - and the glide used to take that move for the user
+// and stop where it was: the message stayed at the bottom on iOS.
+test.describe('Send-to-top - animated glide on a phone', () => {
+  test.use({ viewport: { width: 390, height: 664 }, hasTouch: true, contextOptions: { reducedMotion: 'no-preference' } });
+
+  test.afterEach(async ({ page }) => {
+    await clearMockResponse(page);
+    await resetStreamDelay(page);
+  });
+
+  test('a message that wraps in the composer still glides to the top', async ({ page, request }) => {
+    const messages = Array.from({ length: 30 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: `Message ${i + 1} ` + 'lorem ipsum '.repeat(20),
+    }));
+    await request.post('/test/seed', { data: { conversations: [{ title: 'History', messages }] } });
+    await page.goto('/');
+    await page.click('#menu-btn');
+    await page.locator('.conversation-item-wrapper', { hasText: 'History' }).click();
+    await page.waitForTimeout(800);
+    await enableStreaming(page);
+
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(false);
+    await setMockResponse(page, LONG_RESPONSE);
+    await setStreamDelay(page, 150);
+    await page.fill('#message-input', 'Mam jen normalni trysku a nechci ji menit, co ted s tim udelam');
+    await page.click('#send-btn');
+
+    await expect
+      .poll(async () => {
+        const gap = await turnTopBelowHeader(page, '.mobile-header');
+        return gap >= 0 && gap < 40;
+      }, { timeout: 5000 })
+      .toBe(true);
+  });
+});
+
 // While the reply is still only thinking / using tools, the trace growing
 // past the screen is not "new messages" - the pill waits for answer text.
 test.describe('Send-to-top - no pill while thinking', () => {

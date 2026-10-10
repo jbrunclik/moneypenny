@@ -8,7 +8,7 @@
  */
 
 import { TURN_REPLY_MIN_VISIBLE_PX, TURN_SPACE_RELEASE_MS } from '../../config';
-import { prefersReducedMotion } from '../../utils/dom';
+import { prefersReducedMotion, scrollDebug } from '../../utils/dom';
 import { useStore } from '../../state/store';
 import { hasTrackedRequestFor } from '../../core/active-requests';
 import {
@@ -107,6 +107,7 @@ export function reserveTurnSpace(container: HTMLElement, replyEl: HTMLElement): 
  */
 export function refreshTurnSpace(container: HTMLElement): void {
   if (anchor === null) return;
+  scrollDebug('anchor-refit', { top: Math.round(container.scrollTop), ch: container.clientHeight });
   container.querySelectorAll<HTMLElement>(`[${RESERVED_ATTR}]`).forEach((el) => {
     reserveTurnSpace(container, el);
   });
@@ -139,6 +140,7 @@ export function holdTurnAnchor(container: HTMLElement): void {
   const anchorTop = anchorTopOf(container);
   if (anchorTop === null) return;
   const token = beginProgrammaticScroll();
+  scrollDebug('anchor-hold', { from: Math.round(container.scrollTop), to: Math.round(anchorTop - topInset(container)) });
   container.scrollTop = anchorTop - topInset(container);
   endProgrammaticScroll(token);
 }

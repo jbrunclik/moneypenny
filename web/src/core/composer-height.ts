@@ -7,7 +7,7 @@
  * above it. The composer grows with multi-line input, so a static value
  * won't do - a ResizeObserver keeps the variable in sync.
  */
-import { getElementById, isScrolledToBottom } from '../utils/dom';
+import { getElementById, isScrolledToBottom, scrollDebug } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored, refreshTurnSpace } from '../components/messages/turn-anchor';
 import { createLogger } from '../utils/logger';
@@ -52,6 +52,7 @@ export function initComposerHeight(): void {
     if (prev !== next) {
       document.documentElement.style.setProperty('--composer-height', next);
       log.debug('Composer height changed', { height: h });
+      scrollDebug('composer', { h, prev, anchored: isTurnAnchored(), atAnchor });
 
       // The list's padding-bottom is bound to --composer-height. Growing it
       // (initial measure after load, keyboard-open padding change, multi-line

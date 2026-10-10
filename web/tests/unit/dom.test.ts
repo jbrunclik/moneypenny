@@ -555,16 +555,33 @@ describe('scrollToBottom (smooth) yields to an external scroll', () => {
     expect(el.scrollTop).toBe(1500);
   });
 
-  it('stops when the scroll position was moved from outside (user scrolled up)', async () => {
-    const { scrollToBottom } = await import('@/utils/dom');
+  it('stops when the user scrolled up mid-animation', async () => {
+    const { noteUserScrollIntent, scrollToBottom } = await import('@/utils/dom');
     const el = scroller();
     scrollToBottom(el, true);
     tick(16);
     tick(16);
-    // The user (or a test) jumps to the top mid-animation
+    // The user grabs the list (touch / wheel / scrollbar) and jumps to the top
+    noteUserScrollIntent();
     el.scrollTop = 0;
     tick(16);
     tick(1000);
     expect(el.scrollTop).toBe(0);
+  });
+
+  it('is not stopped by an upward drift with no user input (iOS momentum coasting on)', async () => {
+    vi.resetModules(); // no user scroll intent left over from earlier tests
+    const { scrollToBottom } = await import('@/utils/dom');
+    const el = scroller();
+    el.scrollTop = 400;
+    scrollToBottom(el, true);
+    // The list keeps coasting up from the flick before the tap
+    for (let i = 0; i < 5; i++) {
+      el.scrollTop -= 30;
+      tick(16);
+    }
+    tick(1000);
+    tick(1000);
+    expect(el.scrollTop).toBe(1500);
   });
 });

@@ -4,6 +4,7 @@ import {
   isScrolledToBottom,
   noteUserScrollIntent,
   scrollToBottom,
+  stopMomentumScroll,
 } from '../utils/dom';
 import { CHEVRON_DOWN_ICON } from '../utils/icons';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
@@ -91,6 +92,7 @@ export function initScrollToBottom(): void {
     onJumpToBottom?.();
     // Ours, not the user's: the header auto-hide hid the header on every tap
     const token = beginProgrammaticScroll();
+    stopMomentumScroll(messagesContainer);
     scrollToBottom(messagesContainer, true, () => endProgrammaticScroll(token));
   });
 
@@ -106,6 +108,11 @@ export function initScrollToBottom(): void {
   };
   messagesContainer.addEventListener('touchmove', takeOver, { passive: true });
   messagesContainer.addEventListener('wheel', takeOver, { passive: true });
+  // A mouse press may be a scrollbar drag: an upward move after it is the
+  // user's (smooth scrolls ignore upward drift with no input - momentum)
+  messagesContainer.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse') noteUserScrollIntent();
+  });
   messagesContainer.addEventListener('keydown', (event) => {
     if (SCROLL_KEYS.has(event.key)) takeOver();
   });

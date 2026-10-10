@@ -42,3 +42,39 @@ test('one tap reaches the bottom even when content grows during the scroll', asy
   expect(distance).toBeLessThan(2);
   await expect(page.locator('.scroll-to-bottom')).toBeHidden();
 });
+
+test('a tap while the list still coasts from a flick reaches the bottom', async ({ page, request }) => {
+  const messages = Array.from({ length: 40 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    content: `Message ${i + 1} ` + 'lorem ipsum '.repeat(30),
+  }));
+  await request.post('/test/seed', { data: { conversations: [{ title: 'Long', messages }] } });
+  await page.goto('/');
+  await page.click('#menu-btn');
+  await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
+  await page.waitForTimeout(800);
+  await page.locator('#messages').hover();
+  await page.mouse.wheel(0, -3000);
+  await expect(page.locator('.scroll-to-bottom')).toBeVisible();
+
+  // iOS momentum: the list keeps moving up on its own (no touch events -
+  // the finger already left it) while the button is tapped
+  await page.evaluate(() => {
+    const c = document.getElementById('messages')!;
+    const until = performance.now() + 150;
+    const coast = (): void => {
+      c.scrollTop -= 15;
+      if (performance.now() < until) requestAnimationFrame(coast);
+    };
+    requestAnimationFrame(coast);
+  });
+  await page.locator('.scroll-to-bottom').tap();
+  await page.waitForTimeout(1500);
+
+  const distance = await page.evaluate(() => {
+    const c = document.getElementById('messages')!;
+    return c.scrollHeight - c.scrollTop - c.clientHeight;
+  });
+  expect(distance).toBeLessThan(2);
+  await expect(page.locator('.scroll-to-bottom')).toBeHidden();
+});

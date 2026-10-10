@@ -113,6 +113,20 @@ export function userScrolledSince(since: number): boolean {
   return lastUserScrollIntentAt > since;
 }
 
+// On-device scroll diagnostics (the kbdebug overlay registers itself; dom.ts
+// can't import it - keyboard-viewport imports this module)
+let scrollDebugSink: ((event: string, data: Record<string, unknown>) => void) | null = null;
+
+/** Route scroll diagnostics to the on-device debug overlay. */
+export function setScrollDebugSink(sink: ((event: string, data: Record<string, unknown>) => void) | null): void {
+  scrollDebugSink = sink;
+}
+
+/** Report a scroll event to the debug overlay, if it is on. */
+export function scrollDebug(event: string, data: Record<string, unknown> = {}): void {
+  scrollDebugSink?.(event, data);
+}
+
 function finishSmoothScroll(): void {
   currentSmoothScrollAnimationId = null;
   const done = currentSmoothScrollDone;
@@ -127,8 +141,21 @@ function finishSmoothScroll(): void {
 export function cancelSmoothScroll(): void {
   if (currentSmoothScrollAnimationId !== null) {
     cancelAnimationFrame(currentSmoothScrollAnimationId);
+    scrollDebug('glide-cancel');
   }
   finishSmoothScroll();
+}
+
+/**
+ * Stop iOS momentum scrolling on `element`. A coasting list ignores
+ * scrollTop writes until it comes to rest; toggling overflow ends the coast.
+ * Touch devices only (a classic scrollbar would reflow the list).
+ */
+export function stopMomentumScroll(element: HTMLElement): void {
+  if (!window.matchMedia?.('(pointer: coarse)').matches) return;
+  element.style.overflowY = 'hidden';
+  void element.offsetHeight;
+  element.style.overflowY = '';
 }
 
 /** The user asked for less motion: smooth scrolls jump instead. */
@@ -169,6 +196,7 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
     return;
   }
   const startTime = performance.now();
+  scrollDebug('bottom-start', { from: Math.round(start), to: Math.round(target), ch: element.clientHeight });
 
   // Track the position we last wrote and the content height we saw. A
   // position that moved UP against the animation is the user scrolling up -
@@ -200,7 +228,8 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
     if (element.scrollHeight !== lastScrollHeight || element.clientHeight !== lastClientHeight) {
       // A scroll-up landing in the same frame as a height change is still
       // the user's - don't overwrite it with the retarget
-      if (element.scrollTop < expectedScrollTop - 5) {
+      if (element.scrollTop < expectedScrollTop - 5 && userScrolledSince(startTime)) {
+        scrollDebug('bottom-abort-user', { top: Math.round(element.scrollTop), expected: Math.round(expectedScrollTop) });
         finishSmoothScroll();
         return;
       }
@@ -210,8 +239,12 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
       distance = target - start;
       expectedScrollTop = element.scrollTop;
       lastChangeAt = currentTime;
-    } else if (element.scrollTop < expectedScrollTop - 5) {
-      // Scrolled up from outside - respect it and stop animating
+    } else if (element.scrollTop < expectedScrollTop - 5 && userScrolledSince(startTime)) {
+      // The user scrolled up - respect it and stop animating. An upward
+      // drift with no input of theirs is iOS momentum from the flick before
+      // the tap (the button is outside the list, so the tap doesn't stop
+      // it): aborting on it made the button do nothing
+      scrollDebug('bottom-abort-user', { top: Math.round(element.scrollTop), expected: Math.round(expectedScrollTop) });
       finishSmoothScroll();
       return;
     }
@@ -231,13 +264,19 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
     // Settle: pinned until the height is stable for a moment (bounded). Any
     // move that isn't ours (a slow scrollbar drag) ends it - in this phase
     // we only ever write the bottom
-    if (settleSince !== null && Math.abs(element.scrollTop - expectedScrollTop) > 1 && currentTime > lastChangeAt) {
+    if (
+      settleSince !== null &&
+      Math.abs(element.scrollTop - expectedScrollTop) > 1 &&
+      currentTime > lastChangeAt &&
+      userScrolledSince(startTime)
+    ) {
       finishSmoothScroll();
       return;
     }
     settleSince ??= currentTime;
     const stable = currentTime - lastChangeAt >= SMOOTH_SCROLL_SETTLE_MS;
     if (stable || currentTime - settleSince >= SMOOTH_SCROLL_SETTLE_MAX_MS) {
+      scrollDebug('bottom-done', { top: Math.round(element.scrollTop), gap: Math.round(element.scrollHeight - element.scrollTop - element.clientHeight) });
       finishSmoothScroll();
     } else {
       currentSmoothScrollAnimationId = requestAnimationFrame(animate);
@@ -316,6 +355,7 @@ export function scrollToPosition(
   const distance = targetTop - start;
   const duration = Math.min(600, Math.max(300, Math.abs(distance) * 0.5));
   const startTime = performance.now();
+  scrollDebug('glide-start', { from: Math.round(start), to: Math.round(targetTop), ch: container.clientHeight, sh: container.scrollHeight });
 
   // Track expected scroll position to detect external changes
   let expectedScrollTop = start;
@@ -330,6 +370,13 @@ export function scrollToPosition(
     const currentScrollTop = container.scrollTop;
     if (Math.abs(currentScrollTop - expectedScrollTop) > 5) {
       // External scroll detected - cancel our animation to respect user's intent
+      scrollDebug('glide-abort-outside', {
+        top: Math.round(currentScrollTop),
+        expected: Math.round(expectedScrollTop),
+        user: userScrolledSince(startTime),
+        ch: container.clientHeight,
+        sh: container.scrollHeight,
+      });
       finishSmoothScroll();
       return;
     }
@@ -345,6 +392,7 @@ export function scrollToPosition(
     if (progress < 1) {
       currentSmoothScrollAnimationId = requestAnimationFrame(animate);
     } else {
+      scrollDebug('glide-done', { top: Math.round(container.scrollTop), wanted: Math.round(targetTop) });
       finishSmoothScroll();
     }
   };
