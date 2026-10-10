@@ -514,7 +514,9 @@ async function handleSendFailure(convId: string, messageId: string, error: unkno
     toast.info('Connection problem - retrying...');
     await new Promise((resolve) => setTimeout(resolve, SEND_AUTO_RETRY_DELAY_MS));
     const entry = getOutboxEntry(convId, messageId);
-    if (entry) {
+    // Switched away meanwhile: a dispatch now rendered its streaming bubble
+    // into the conversation on screen - leave it failed (Retry on return)
+    if (entry && useStore.getState().currentConversation?.id === convId) {
       await dispatchSend(convId, entry);
       return;
     }

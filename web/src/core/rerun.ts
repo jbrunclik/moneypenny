@@ -17,7 +17,7 @@ import { removeOutboxEntry, restoreOutboxEntry } from './outbox';
 import { resetAutoRetry } from './send-delivery';
 import { sendStreamingMessage } from './stream-send';
 import { sendBatchMessage } from './batch-send';
-import { dispatchSend, sendMessage } from './messaging';
+import { dispatchSend, sendUiMessage } from './messaging';
 
 const log = createLogger('messaging');
 
@@ -41,6 +41,15 @@ export function initOutboxHandlers(): void {
   document.addEventListener('message:continue', () => {
     void continueResponse();
   });
+  // A reply that failed server-side (stream-send's error toast): answer the
+  // user's message again
+  document.addEventListener('message:retry-reply', (e) => {
+    const { convId } = (e as CustomEvent<{ convId: string }>).detail;
+    if (useStore.getState().currentConversation?.id !== convId) return;
+    if (useStore.getState().getActiveRequest(convId)) return;
+    void dispatchRerun(convId, 'regenerate');
+  });
+
   document.addEventListener('message:edit', (e) => {
     const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
     startMessageEdit(messageId);
@@ -116,6 +125,12 @@ function startMessageEdit(messageId: string): void {
   const message = useStore.getState().getMessages(convId).find((m) => m.id === messageId);
   const messageEl = document.querySelector<HTMLElement>(`.message[data-message-id="${messageId}"]`);
   if (!message || !messageEl) return;
+  // Only the text is resent, and the truncation deletes the original - its
+  // attachments were silently lost
+  if (message.files && message.files.length > 0) {
+    toast.info('Messages with attachments can\'t be edited yet - send a new message instead.');
+    return;
+  }
   beginInlineEdit(messageEl, message.content, {
     onSave: (newText) => void submitMessageEdit(convId, messageId, newText),
   });
@@ -139,14 +154,19 @@ async function submitMessageEdit(convId: string, messageId: string, newText: str
   // surviving bubbles' state - scroll position, loaded thumbnails)
   removeRenderedMessagesFrom(messageId);
 
-  // Re-send through the normal pipeline (outbox, retry, streaming) by
-  // placing the edited text in the composer and sending
+  // Re-send through the normal pipeline (outbox, retry, streaming) - not
+  // through the composer: that overwrote the user's draft there and sent
+  // the files attached to it along with the edit
+  if (await sendUiMessage(trimmed)) return;
+  // Couldn't go now (blocked): keep the text where the user can send it
   const input = getElementById<HTMLTextAreaElement>('message-input');
-  if (input) {
+  if (input && !input.value.trim()) {
     input.value = trimmed;
     input.dispatchEvent(new Event('input', { bubbles: true }));
+    toast.info('The edit could not be sent right now - it is in the message box.');
+  } else {
+    toast.error('The edit could not be sent right now. Please try again.');
   }
-  await sendMessage();
 }
 
 async function retryFailedMessage(messageId: string): Promise<void> {

@@ -178,6 +178,24 @@ async function handleStreamFailure(send: StreamSend, error: unknown): Promise<vo
   }
   log.error('Streaming failed', { error, conversationId: convId });
 
+  // The server said the turn failed and nothing streamed: there is nothing
+  // to resume or recover (it deleted the empty reply). Running the
+  // network-drop path anyway meant ~15s of a Stop button and no bubble,
+  // then two toasts - and no way to retry, the chat ending on the user's
+  // message. Offer the re-run right away.
+  if (state.serverError && !state.fullContent.trim()) {
+    state.messageEl.remove();
+    clearPendingRecovery(convId);
+    const message = error instanceof ApiError ? error.message : 'Failed to generate a response.';
+    toast.error(message, {
+      action: {
+        label: 'Retry',
+        onClick: () => document.dispatchEvent(new CustomEvent('message:retry-reply', { detail: { convId } })),
+      },
+    });
+    return;
+  }
+
   const recovery = await recoverAfterStreamError(send, error);
   if (recovery === 'stopped') return;
   if (recovery === 'delivered') {

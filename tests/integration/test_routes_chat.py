@@ -1,6 +1,7 @@
 """Integration tests for chat routes."""
 
 import json
+import time
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
@@ -1711,3 +1712,49 @@ class TestTruncateAndRerun:
         assert "Regenerated" in body
         messages = test_database.get_messages(test_conversation.id)
         assert [m.role for m in messages] == ["user", "assistant"]
+
+
+class TestStreamModelErrorLeavesNoPlaceholder:
+    """A model error before any text: the route deleted the empty reply
+    placeholder only if the producer thread had already exited - it is still
+    running its cleanup right after reporting the error, so the placeholder
+    stayed. The chat then ended on an empty assistant row: Regenerate (which
+    needs a user message last) was refused with a 400."""
+
+    def test_the_empty_reply_is_removed(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        import src.api.helpers.stream_producer as producer
+
+        real_clear = producer.clear_finish_request
+
+        def slow_clear(*args: Any, **kwargs: Any) -> None:
+            time.sleep(0.3)  # the producer's cleanup still running
+            real_clear(*args, **kwargs)
+
+        with (
+            patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class,
+            patch.object(producer, "clear_finish_request", slow_clear),
+        ):
+            mock_agent = MagicMock()
+
+            def failing_stream(*args: Any, **kwargs: Any) -> Any:
+                raise RuntimeError("model down")
+                yield  # pragma: no cover - makes this a generator
+
+            mock_agent.stream_chat_events = failing_stream
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Hello"},
+            )
+            body = response.data.decode()
+
+        assert '"type": "error"' in body
+        messages = test_database.get_messages(test_conversation.id)
+        assert [m.role for m in messages] == ["user"]

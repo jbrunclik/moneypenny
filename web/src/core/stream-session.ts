@@ -56,6 +56,8 @@ export interface StreamingState {
   remoteFollow?: boolean;
   /** The send steered another device's running turn (this reply id) instead of starting one */
   interjectedInto?: string;
+  /** The server reported the failure (an `error` event), not the network. */
+  serverError?: boolean;
 }
 
 export function createStreamingState(

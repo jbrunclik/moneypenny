@@ -87,8 +87,12 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
         try:
             yield from _process_event_queue(context)
 
-            # Save message and send done event
-            yield from _finalize_stream(context)
+            # Save message and send done event - unless the model failed
+            # before any text: that saved an EMPTY reply (the client already
+            # got the error), the chat ended on it and Regenerate was refused.
+            # A failure with partial text is "ready" and is kept.
+            if not (context.producer_failed and not context.final_results["ready"]):
+                yield from _finalize_stream(context)
 
         except Exception as e:
             yield from _handle_generator_error(context, e)
@@ -104,6 +108,12 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
             # stranded every recovery keyed to the original one (X1).
             # The approval path never sets "ready" - its save happens in
             # _finalize_approval_stream / the producer, so it is excluded too.
+            # A producer that reported a failure is finishing its own cleanup
+            # (token, stop flags, journal) - still alive for a moment, which
+            # kept the empty placeholder: the chat then ended on an empty
+            # assistant row and Regenerate was refused
+            if context.producer_failed and context.stream_thread is not None:
+                context.stream_thread.join(timeout=_PRODUCER_EXIT_WAIT_SECONDS)
             if (
                 context.placeholder_saved
                 and not context.final_results["ready"]
@@ -126,6 +136,10 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
     return generate()
 
 
+# How long the stream waits for a failed producer thread to exit
+_PRODUCER_EXIT_WAIT_SECONDS = 2.0
+
+
 class _StreamContext:
     """Encapsulates all state for a streaming request."""
 
@@ -138,6 +152,8 @@ class _StreamContext:
         self.turn = turn
         self.message_text = turn.message_text
         self.stream_request_id = turn.request_id
+        # The producer thread reported an exception (it exits right after)
+        self.producer_failed = False
 
         # Derived values
         self.conv_id = conv.id
@@ -353,6 +369,7 @@ def _handle_queue_error(context: _StreamContext, error: Exception) -> Generator[
             },
         )
 
+    context.producer_failed = True
     error_data = _build_error_data(error)
     try:
         yield f"data: {json.dumps(error_data)}\n\n"

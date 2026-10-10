@@ -225,6 +225,7 @@ function handleStreamError(
   state: StreamingState
 ): { error: Error } {
   log.error('Stream error', { message: event.message });
+  state.serverError = true;
 
   if (state.fullContent.trim()) {
     state.messageEl.classList.add('message-incomplete');

@@ -180,5 +180,10 @@ export async function setEmitRetry(page: Page, holdMs: number): Promise<void> {
   await page.request.post('/test/set-emit-retry', { data: { hold_ms: holdMs } });
 }
 
+/** The next streamed turn fails server-side before any text (one-shot). */
+export async function failNextStream(page: Page): Promise<void> {
+  await page.request.post('/test/fail-next-stream');
+}
+
 // Re-export test and expect from global-setup
 export { test, expect } from '../../global-setup';

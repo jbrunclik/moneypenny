@@ -128,6 +128,9 @@ DEFAULT_CONFIG = {
     "thinking_hold_ms": 0,
     # Emit a transient-error "retry" status first and hold it this long (ms)
     "emit_retry_hold_ms": 0,
+    # The next streamed turn fails before any text (one-shot) - the real
+    # route's error path: an error event, the empty reply removed
+    "fail_next_stream": False,
     # Deep research: offer args for the next streamed turn (one-shot) and the
     # fake pipeline's delay between scripted steps
     "deep_research_offer": None,
@@ -447,6 +450,10 @@ def create_mock_stream_chat_events() -> Any:
             response_text = f"{prefix}{text[:100]}"
 
         delay_s = MOCK_CONFIG["stream_delay_ms"] / 1000
+
+        if MOCK_CONFIG.get("fail_next_stream"):
+            MOCK_CONFIG["fail_next_stream"] = False
+            raise RuntimeError("mock model failure")
 
         # Optionally simulate a transient model error being retried
         if MOCK_CONFIG.get("emit_retry_hold_ms"):
@@ -1078,6 +1085,11 @@ def main() -> None:
             hold_ms = int(data.get("hold_ms", 0))
             MOCK_CONFIG["emit_retry_hold_ms"] = hold_ms
             return {"status": "set", "emit_retry_hold_ms": hold_ms}, 200
+
+        @test_bp.route("/test/fail-next-stream", methods=["POST"])
+        def fail_next_stream() -> tuple[dict[str, Any], int]:
+            MOCK_CONFIG["fail_next_stream"] = True
+            return {"status": "set"}, 200
 
         @test_bp.route("/test/set-batch-delay", methods=["POST"])
         def set_batch_delay() -> tuple[dict[str, Any], int]:
