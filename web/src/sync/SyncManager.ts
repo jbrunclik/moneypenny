@@ -21,7 +21,7 @@ import {
   SYNC_FULL_SYNC_THRESHOLD_MS,
   SYNC_MAX_CHANGE_PAGES,
 } from '../config';
-import { hasPendingRecovery, attemptRecovery } from '../core/stream-recovery';
+import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/stream-recovery';
 import type { ConversationSummary, SyncResponse } from '../types/api';
 
 const log = createLogger('sync');
@@ -412,6 +412,8 @@ export class SyncManager {
     const store = useStore.getState();
     const inList = store.conversations.some((c) => c.id === id);
     const current = store.currentConversation?.id === id ? store.currentConversation : null;
+    // Gone here too: a recovery of its interrupted reply ends silently
+    if (reason !== 'archived') cancelRecovery(id);
     // The known count stays (pruned on the next full sync): a restore or
     // unarchive then compares against it instead of counting it all unread
     this.deferredUpdates.delete(id);
@@ -515,6 +517,7 @@ export class SyncManager {
     // Handle deletions
     for (const id of deletedIds) {
       log.info('Conversation deleted externally', { conversationId: id });
+      cancelRecovery(id);
 
       if (store.currentConversation?.id === id) {
         toast.warning('This conversation was deleted.');
@@ -739,7 +742,8 @@ export class SyncManager {
   markConversationRead(convId: string, messageCount: number): void {
     log.debug('Marking conversation as read', { convId, messageCount });
 
-    this.localMessageCounts.set(convId, messageCount);
+    // Also moves the planner/agent view baselines when that view is open
+    this.setLocalMessageCount(convId, messageCount);
     useStore.getState().updateConversation(convId, {
       unreadCount: 0,
       hasExternalUpdate: false,
@@ -846,9 +850,12 @@ export class SyncManager {
 
       log.debug('Tab visible', { hiddenDurationMs: hiddenDuration });
 
-      // Check for pending stream recovery FIRST (before sync)
-      // This ensures the user sees the recovered message immediately
-      await this.attemptPendingStreamRecovery(hiddenDuration);
+      // Pending stream recovery starts first so the recovered message shows
+      // up promptly - but NOT awaited: it retries a missing message for
+      // seconds, and a sync waiting behind it noticed a conversation deleted
+      // on another device only after "Response may be incomplete" (two
+      // contradictory toasts). The sync cancels the recovery of a removed one.
+      void this.attemptPendingStreamRecovery(hiddenDuration);
 
       // Full sync if hidden for >5 minutes (for delete detection)
       if (hiddenDuration > SYNC_FULL_SYNC_THRESHOLD_MS) {
@@ -869,7 +876,7 @@ export class SyncManager {
   private async handlePageShow(event: PageTransitionEvent): Promise<void> {
     if (!event.persisted) return;
     log.info('Page restored from bfcache');
-    await this.attemptPendingStreamRecovery(0);
+    void this.attemptPendingStreamRecovery(0);
     this.incrementalSync();
   }
 
@@ -1074,6 +1081,16 @@ export class SyncManager {
       log.warn('Agent conversation sync failed', { error, agentId: this.viewedAgentId });
       // Don't throw - syncing is best-effort
     }
+  }
+
+  /**
+   * Baseline for the planner view's new-message check, set when it loads.
+   * Left to the first poll, a change made in the minute after opening the
+   * planner set the baseline instead of being noticed. (A baseline that is
+   * off by a filtered placeholder only causes a no-op merge.)
+   */
+  setPlannerBaseline(messageCount: number): void {
+    this.plannerMessageCount = messageCount;
   }
 
   /**

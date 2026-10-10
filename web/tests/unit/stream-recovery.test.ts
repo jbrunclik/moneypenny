@@ -89,6 +89,7 @@ import {
   hasPendingRecovery,
   getPendingRecovery,
   attemptRecovery,
+  cancelRecovery,
 } from '@/core/stream-recovery';
 import { conversations as conversationsApi } from '@/api/conversations';
 import { ApiError } from '@/api/http';
@@ -290,6 +291,29 @@ describe('stream-recovery', () => {
   });
 
   describe('attemptRecovery', () => {
+    it('a conversation deleted on another device mid-recovery ends it silently', async () => {
+      // One clear notice ("deleted on another device"), not that plus
+      // "Recovering response..." and "Response may be incomplete. Reload"
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+      const dismiss = vi.fn();
+      mockToastLoading.mockReturnValueOnce({ dismiss });
+      let fail!: (error: Error) => void;
+      mockGetMessage.mockReturnValue(new Promise((_, reject) => (fail = reject)));
+
+      const recovery = attemptRecovery('conv-1');
+      cancelRecovery('conv-1');
+      expect(dismiss).toHaveBeenCalled();
+      fail(new Error('Conversation gone'));
+
+      expect(await recovery).toBe(false);
+      expect(mockToastError).not.toHaveBeenCalled();
+      expect(mockToastWarning).not.toHaveBeenCalled();
+      expect(hasPendingRecovery('conv-1')).toBe(false);
+    });
+
     it('returns false when no pending recovery', async () => {
       const result = await attemptRecovery('conv-1');
       expect(result).toBe(false);

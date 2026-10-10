@@ -56,6 +56,7 @@ import { SyncManager, type SyncManagerCallbacks } from '@/sync/SyncManager';
 import { conversations as conversationsApi } from '@/api/conversations';
 import { planner as plannerApi } from '@/api/planner';
 import { toast } from '@/components/Toast';
+import { hasPendingRecovery, markStreamForRecovery } from '@/core/stream-recovery';
 
 const EMPTY_AGENT_STATS: AgentStatsBlock = {
   days: 7,
@@ -1626,6 +1627,16 @@ describe('SyncManager', () => {
       await syncManager.incrementalSync();
 
       expect(useStore.getState().conversations.find((c) => c.id === 'a')?.pinned).toBe(true);
+    });
+
+    it('a conversation deleted on another device cancels its pending stream recovery', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      markStreamForRecovery('a', 'msg-1', 'partial', 'network');
+      mockSyncChanges().mockResolvedValue(changes([], { removed_ids: ['a'] }));
+
+      await syncManager.incrementalSync();
+
+      expect(hasPendingRecovery('a')).toBe(false);
     });
 
     it('pages on while the server has more changes', async () => {

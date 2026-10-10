@@ -146,6 +146,33 @@ export function clearPendingRecovery(convId: string): void {
   }
 }
 
+// Recoveries cancelled mid-flight (the conversation was deleted on another
+// device) and the loading toast each running recovery shows
+const cancelledRecoveries = new Set<string>();
+const recoveryToasts = new Map<string, { dismiss: () => void }>();
+
+/**
+ * Abandon a recovery because its conversation is gone (deleted on another
+ * device): its "Recovering response..." toast goes at once and the running
+ * attempt ends without a notice of its own. Without this, opening a
+ * conversation deleted elsewhere showed "deleted" AND "recovering" (then
+ * "Response may be incomplete").
+ */
+export function cancelRecovery(convId: string): void {
+  if (!pendingRecoveries.has(convId) && !recoveryToasts.has(convId)) return;
+  log.info('Cancelling recovery - conversation removed', { conversationId: convId });
+  if (recoveryToasts.has(convId)) cancelledRecoveries.add(convId);
+  recoveryToasts.get(convId)?.dismiss();
+  recoveryToasts.delete(convId);
+  clearPendingRecovery(convId);
+}
+
+/** End-of-attempt check: was this recovery cancelled meanwhile? Consumes the flag. */
+function wasCancelled(convId: string): boolean {
+  recoveryToasts.delete(convId);
+  return cancelledRecoveries.delete(convId);
+}
+
 /**
  * Check if there's a pending recovery for a conversation.
  *
@@ -247,7 +274,9 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
   const isCurrentConversation = store.currentConversation?.id === conversationId;
 
   // Show loading toast
+  cancelledRecoveries.delete(conversationId);
   let loadingToast = toast.loading('Recovering response...');
+  recoveryToasts.set(conversationId, loadingToast);
 
   try {
     // Try to fetch the message with retries
@@ -255,7 +284,10 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
     const message = await fetchMessageWithRetry(expectedMessageId, () => {
       loadingToast.dismiss();
       loadingToast = toast.loading('Response still being generated...');
+      recoveryToasts.set(conversationId, loadingToast);
     });
+
+    if (wasCancelled(conversationId)) return false;
 
     if (message) {
       log.info('Recovery succeeded', {
@@ -306,6 +338,7 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
       return false;
     }
   } catch (error) {
+    if (wasCancelled(conversationId)) return false;
     log.error('Recovery failed', { conversationId, error });
 
     if (isCurrentConversation) {

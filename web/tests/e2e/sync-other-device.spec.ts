@@ -159,3 +159,20 @@ test('a rename on another device updates the open chat\'s header too', async ({ 
 
   await expect(page.locator('#current-chat-title').first()).toHaveText('Alpha renamed');
 });
+
+test('the planner merges messages from another device in place', async ({ page, request }) => {
+  await request.post('/test/set-planner-integrations', { data: { todoist: true, calendar: false } });
+  await page.goto('/#/planner');
+  await expect(page.locator('#planner-dashboard')).toBeVisible({ timeout: 10000 });
+  const planner = await (await request.get('/api/planner/conversation')).json();
+  const plannerId = (planner.id ?? planner.conversation?.id) as string;
+  await page.evaluate(() => document.getElementById('planner-dashboard')!.setAttribute('data-kept', '1'));
+
+  await request.post(`/api/conversations/${plannerId}/chat/batch`, { data: { message: 'Plan from the phone' } });
+  // The planner has its own count-based poll inside the same tick
+  await poll(page);
+
+  await expect(page.locator('.message.user').last()).toContainText('Plan from the phone');
+  await expect(page.locator('.new-messages-banner')).toHaveCount(0);
+  await expect(page.locator('#planner-dashboard[data-kept="1"]')).toHaveCount(1);
+});

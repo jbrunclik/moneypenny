@@ -31,6 +31,7 @@ import type { Conversation } from '../types/api';
 import { createDashboardElement, createDashboardLoadingElement } from '../components/PlannerDashboard';
 import { APP_NAME, PLANNER_DASHBOARD_CACHE_MS } from '../config';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { getSyncManager } from '../sync/SyncManager';
 
 import {
   ensureInputAreaVisible,
@@ -150,6 +151,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
       store.setPlannerDashboard(dashboard);
     }
     store.setPlannerConversation(convResponse);
+    getSyncManager()?.setPlannerBaseline(convResponse.messages.length);
 
     // Replace placeholder with real planner conversation
     const plannerConv: Conversation = {

@@ -83,7 +83,9 @@ async function mergeOnce(convId: string): Promise<void> {
     const known = localById.get(m.id);
     return known !== undefined && m.content !== '' && known.content !== '' && known.content !== m.content;
   });
-  if (vanished || edited) {
+  // (The planner keeps its rendered messages out of the store, so this
+  // never fires there - and the chat re-render would replace its view.)
+  if ((vanished || edited) && !useStore.getState().isPlannerView) {
     log.info('External edit/delete in the open conversation - re-rendering', { conversationId: convId });
     await reloadCurrentConversation(convId);
     return;

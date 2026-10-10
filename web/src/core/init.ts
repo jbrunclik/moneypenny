@@ -92,7 +92,6 @@ import { navigateToSports, navigateToSportsProgram } from './sports';
 import { navigateToLanguage, navigateToLanguageProgram } from './language';
 import { navigateToAgents, initAgents } from './agents';
 import { navigateToStorage } from './kv-store';
-import { showNewMessagesAvailableBanner } from './sync-banner';
 import { mergeExternalChanges } from './remote-merge';
 import { installAvatarFallback } from '../utils/avatar';
 
@@ -424,17 +423,19 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
           navigateToPlanner();
         }
       },
-      onPlannerExternalUpdate: (messageCount: number) => {
-        // New messages added to planner in another tab/device
-        if (useStore.getState().isPlannerView) {
-          showNewMessagesAvailableBanner(messageCount);
+      onPlannerExternalUpdate: () => {
+        // New messages added to planner in another tab/device: merge in place
+        const live = useStore.getState();
+        if (live.isPlannerView && live.currentConversation) {
+          void mergeExternalChanges(live.currentConversation.id);
         }
       },
-      onAgentConversationExternalUpdate: (messageCount: number) => {
-        // New messages added to agent conversation in another tab/device
+      onAgentConversationExternalUpdate: () => {
+        // New messages added to agent conversation in another tab/device:
+        // merge in place
         const currentConv = useStore.getState().currentConversation;
         if (currentConv?.is_agent) {
-          showNewMessagesAvailableBanner(messageCount);
+          void mergeExternalChanges(currentConv.id);
         }
       },
     });
