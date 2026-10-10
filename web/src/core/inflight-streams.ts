@@ -54,9 +54,14 @@ export function persistInflightStream(convId: string, messageId: string): void {
   writeInflightStreams(map);
 }
 
-export function clearInflightStream(convId: string): void {
+/**
+ * Drop the conversation's entry. With `messageId`, only that turn's: a turn
+ * ending after a newer one in the same conversation registered (a follow-up
+ * sent during its cost fetch) wiped the newer turn's reload-resume entry.
+ */
+export function clearInflightStream(convId: string, messageId?: string): void {
   const map = readInflightStreams();
-  if (convId in map) {
+  if (convId in map && (messageId === undefined || map[convId].messageId === messageId)) {
     delete map[convId];
     writeInflightStreams(map);
   }

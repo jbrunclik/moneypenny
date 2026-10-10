@@ -357,7 +357,7 @@ async function streamTurnFromJournal(
     // The localStorage entry survives until HERE (terminal outcome): clearing
     // it up front meant a second reload mid-resume found nothing and silently
     // abandoned the still-running turn. (Another device's turn has none.)
-    if (ownTurn) clearInflightStream(convId);
+    if (ownTurn) clearInflightStream(convId, messageId);
     // messageSuccessful=false on purpose: the reload refetched server counts,
     // so the user message is already counted - only the newly delivered
     // assistant message needs the local baseline bump (exact when the done

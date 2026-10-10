@@ -282,7 +282,8 @@ export async function sendStreamingMessage(
     // The turn finished (or its failure was surfaced) in this page - only a
     // page that died mid-stream should resume after reload. Per-conversation:
     // other concurrent streams keep their entries.
-    clearInflightStream(convId);
+    // (only this turn's entry: a newer turn may have registered its own)
+    if (state.expectedAssistantMessageId) clearInflightStream(convId, state.expectedAssistantMessageId);
     cleanupStreamingRequest(requestId, convId, state.messageSuccessful, state.serverMessageCount);
   }
   // (after the cleanup: a merge skips a conversation with a turn of its own)

@@ -39,6 +39,16 @@ describe('inflight-streams', () => {
     expect(readInflightStream('c2')?.messageId).toBe('m2');
   });
 
+  it("a turn's clear leaves a newer turn's entry in the same conversation", () => {
+    // The old turn's cleanup ran after a follow-up's stream registered (a
+    // send during the old turn's cost fetch): a reload then lost the new one
+    persistInflightStream('c1', 'new-reply');
+    clearInflightStream('c1', 'old-reply');
+    expect(readInflightStream('c1')?.messageId).toBe('new-reply');
+    clearInflightStream('c1', 'new-reply');
+    expect(readInflightStream('c1')).toBeNull();
+  });
+
   it('removes the storage key once the map is empty', () => {
     persistInflightStream('c1', 'm1');
     clearInflightStream('c1');
