@@ -212,22 +212,21 @@ def is_empty_placeholder(message: Any) -> bool:
     )
 
 
-def streaming_message_id(messages: list[Any]) -> str | None:
-    """The reply still being generated in this (newest) page of messages.
+def streaming_message_id(conversation_id: str) -> str | None:
+    """The reply still being generated in this conversation, if any.
 
     Its empty placeholder is filtered from responses, so another device
     learns about the in-flight turn only through this id - and follows it
-    via the resume endpoint. Among the newest two (the placeholder can sort
-    before its own user message, saved in the same instant), and only when
-    younger than the chat-turn deadline: an old empty reply is just empty.
+    via the resume endpoint. Looked up in the conversation, not the returned
+    page: steering saves user messages after the placeholder (it fell out of
+    a "newest rows" scan), and a search jump loads an older window. Only one
+    younger than the longest a turn can run counts: an old empty reply is
+    just empty.
     """
-    # The longest a turn can run: a deep-research run outlasts a chat turn
+    # A deep-research run outlasts a chat turn
     longest = max(Config.CHAT_TIMEOUT, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
     cutoff = datetime.now() - timedelta(seconds=longest + 60)
-    for message in messages[-2:]:
-        if is_empty_placeholder(message) and message.created_at >= cutoff:
-            return str(message.id)
-    return None
+    return db.get_streaming_placeholder_id(conversation_id, cutoff)
 
 
 def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]:

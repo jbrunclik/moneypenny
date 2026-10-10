@@ -33,6 +33,9 @@ export async function archiveConversation(convId: string): Promise<void> {
   try {
     getSyncManager()?.noteLocalChange(convId);
     await conversations.archive(convId);
+    // Again once it's committed: a poll started during the request may
+    // already see (or not yet see) the write - skip it either way
+    getSyncManager()?.noteLocalChange(convId);
 
     // Move from active to archived list
     store.removeConversation(convId);
@@ -71,6 +74,9 @@ export async function unarchiveConversation(convId: string): Promise<void> {
   try {
     getSyncManager()?.noteLocalChange(convId);
     await conversations.unarchive(convId);
+    // Again once it's committed: a poll started during the request may
+    // already see (or not yet see) the write - skip it either way
+    getSyncManager()?.noteLocalChange(convId);
 
     // Move from archived to active list
     store.removeArchivedConversation(convId);

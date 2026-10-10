@@ -9,7 +9,7 @@
  * re-pins the messages scroll to the bottom when the user was following.
  */
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from '../components/messages/turn-anchor';
-import { getElementById, isScrolledToBottom } from '../utils/dom';
+import { getElementById, isScrolledToBottom, userScrolledSince } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import {
@@ -415,11 +415,15 @@ export function initKeyboardViewportPinning(): void {
 
     if (atAnchor && container) {
       // Opening or closing: re-fit the reservation, back onto the anchor
+      const heldAt = performance.now();
       requestAnimationFrame(() => holdTurnAnchor(container));
       if (keyboardJustOpened) {
         for (const delay of [150, 350, 600]) {
           setTimeout(() => {
-            if (!signal.aborted && isTurnAnchored()) holdTurnAnchor(container);
+            // The user scrolling right after focusing owns the position
+            if (!signal.aborted && isTurnAnchored() && !userScrolledSince(heldAt)) {
+              holdTurnAnchor(container);
+            }
           }, delay);
         }
       }

@@ -14,6 +14,7 @@
  * - a popup with the depth stats and the summary text the model sees
  */
 
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
 import { costs } from '../api/costs';
 import { COMPACTION_DEEP_GENERATION } from '../config';
 import { useStore } from '../state/store';
@@ -221,8 +222,10 @@ export function applyCompactionMarkers(
   if (!hadDivider && !(status && boundary)) return;
 
   if (wasAtBottom) {
+    endProgrammaticScroll(beginProgrammaticScroll()); // ours, not the user's scroll
     container.scrollTop = container.scrollHeight;
   } else if (anchor) {
+    endProgrammaticScroll(beginProgrammaticScroll()); // ours, not the user's scroll
     container.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
   }
 }

@@ -52,6 +52,8 @@ export interface StreamingState {
   research?: ResearchProgress;
   /** The server's message count once the turn finished (done event) */
   serverMessageCount?: number;
+  /** Following another device's turn (followRemoteStream), not our own */
+  remoteFollow?: boolean;
 }
 
 export function createStreamingState(

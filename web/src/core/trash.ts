@@ -33,6 +33,9 @@ export async function restoreConversation(convId: string, conv?: Conversation): 
   try {
     getSyncManager()?.noteLocalChange(convId);
     await conversations.restore(convId);
+    // Again once it's committed: a poll started during the request may
+    // already see (or not yet see) the write - skip it either way
+    getSyncManager()?.noteLocalChange(convId);
 
     store.removeTrashedConversation(convId);
     if (source) {
@@ -72,6 +75,9 @@ export async function deleteConversationForever(convId: string): Promise<void> {
   try {
     getSyncManager()?.noteLocalChange(convId);
     await conversations.deletePermanently(convId);
+    // Again once it's committed: a poll started during the request may
+    // already see (or not yet see) the write - skip it either way
+    getSyncManager()?.noteLocalChange(convId);
   } catch (error) {
     // 404: already purged (or deleted on another device) - drop the stale row
     if (!(error instanceof ApiError && error.status === 404)) {

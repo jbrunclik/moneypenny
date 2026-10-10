@@ -22,7 +22,7 @@ import {
   SYNC_MAX_CHANGE_PAGES,
 } from '../config';
 import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/stream-recovery';
-import type { ConversationSummary, SyncResponse } from '../types/api';
+import { DEFAULT_CONVERSATION_TITLE, type ConversationSummary, type SyncResponse } from '../types/api';
 
 const log = createLogger('sync');
 
@@ -604,12 +604,16 @@ export class SyncManager {
     for (const serverConv of serverConversations) {
       if (localIds.has(serverConv.id)) {
         existingServerConvs.push(serverConv);
+      } else if (this.changedLocallySinceRequest(serverConv.id)) {
+        // Trashed / archived here after this snapshot was read: not back
+        continue;
       } else {
         // Belongs in the loaded part of the list (new, continued or restored
         // elsewhere) or only further down (pagination brings it). By the
         // list, not initialLoadTime: a conversation created on another
         // device while this page booted predates that time and was lost.
-        if (this.inLoadedWindow(serverConv.updated_at)) {
+        // A pinned one always belongs (the pinned group is never paged)
+        if (serverConv.pinned || this.inLoadedWindow(serverConv.updated_at)) {
           newServerConvs.push(serverConv);
         } else {
           // Pagination-discovered: just track the message count for when it's loaded via pagination
@@ -649,10 +653,11 @@ export class SyncManager {
         id: serverConv.id,
         title: serverConv.title,
         model: serverConv.model,
-        created_at: serverConv.updated_at, // We don't have created_at in sync response
+        created_at: serverConv.created_at ?? serverConv.updated_at,
         updated_at: serverConv.updated_at,
         messageCount: serverConv.message_count,
         last_message_preview: serverConv.last_message_preview,
+        pinned: serverConv.pinned,
         unreadCount,
         hasExternalUpdate: false,
       });
@@ -949,11 +954,13 @@ export class SyncManager {
       if (deferred) {
         this.deferredUpdates.delete(convId);
         if (this.changeCursor !== null) {
-          // The summary is a snapshot from DURING our turn - applying it
-          // reverted the title the turn had just set back to "New
-          // Conversation". The turn's own final save comes after it in the
-          // change log, so the next sync re-sends the conversation with its
-          // current state (and any change from the other device): fetch now.
+          // The summary is a snapshot from DURING our turn. Its counts are
+          // moot (the turn set the exact one), and its untitled "New
+          // Conversation" must not revert the title the turn just set - but
+          // the other device's changes in it (a rename, a pin) must not be
+          // lost either: a poll that landed after our final save already
+          // moved the cursor past it, so nothing re-sends them.
+          this.applyDeferredState(deferred);
           void this.incrementalSync();
         } else {
           // Legacy timestamp sync never re-sends it. Callers set the turn's
@@ -962,6 +969,32 @@ export class SyncManager {
           this.callbacks.onConversationsUpdated();
         }
       }
+    }
+  }
+
+  /** A deferred snapshot's non-count state (see setConversationStreaming). */
+  private applyDeferredState(summary: ConversationSummary): void {
+    const store = useStore.getState();
+    const local = store.conversations.find((c) => c.id === summary.id);
+    if (!local) return;
+    const updates: Partial<typeof local> = {};
+    if (summary.title !== DEFAULT_CONVERSATION_TITLE && summary.title !== local.title) {
+      updates.title = summary.title;
+      if (store.currentConversation?.id === summary.id) {
+        this.callbacks.onCurrentConversationRenamed?.(summary.title);
+      }
+    }
+    if (summary.pinned !== undefined && Boolean(local.pinned) !== summary.pinned) {
+      updates.pinned = summary.pinned;
+    }
+    if (Object.keys(updates).length > 0) {
+      store.updateConversation(summary.id, updates);
+      this.callbacks.onConversationsUpdated();
+    }
+    if (summary.anonymous_mode !== undefined) store.setAnonymousMode(summary.id, summary.anonymous_mode);
+    // The open chat may have the other device's messages in it too
+    if (store.currentConversation?.id === summary.id) {
+      this.callbacks.onCurrentConversationExternalUpdate(summary.message_count);
     }
   }
 

@@ -1777,6 +1777,21 @@ describe('SyncManager', () => {
       expect(mockSyncChanges()).toHaveBeenCalledTimes(2);
     });
 
+    it("another device's rename during our own turn survives the turn's end", async () => {
+      await startWithCursor([createConversation('a', 'Chat', 2)]);
+      syncManager.setConversationStreaming('a', true);
+      // Polled after our final save: the cursor moves past this change
+      mockSyncChanges().mockResolvedValueOnce(changes([createConversationSummary('a', 'Renamed on the phone', 4)]));
+      await syncManager.incrementalSync();
+      mockSyncChanges().mockResolvedValue(changes([]));
+
+      syncManager.setLocalMessageCount('a', 4);
+      syncManager.setConversationStreaming('a', false);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.title).toBe('Renamed on the phone');
+    });
+
     it('pages on while the server has more changes', async () => {
       await startWithCursor([createConversation('a', 'A', 2)]);
       mockSyncChanges()

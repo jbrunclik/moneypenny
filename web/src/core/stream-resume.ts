@@ -334,6 +334,7 @@ async function streamTurnFromJournal(
     uploadProgressHidden: true,
     expectedAssistantMessageId: messageId,
     activeAbortController: abortController,
+    remoteFollow: !ownTurn,
   });
 
   // Register in the store too: the getActiveRequest guard above blocks

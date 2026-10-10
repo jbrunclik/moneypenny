@@ -52,7 +52,9 @@ function handleUserMessageSaved(
   if (!event.expected_assistant_message_id) return;
   state.expectedAssistantMessageId = event.expected_assistant_message_id as string;
   // Persist so a crashed/reloaded page can resume this turn from the journal
-  persistInflightStream(convId, state.expectedAssistantMessageId);
+  // (not another device's turn this tab merely follows - its reload would
+  // resume it as its own)
+  if (!state.remoteFollow) persistInflightStream(convId, state.expectedAssistantMessageId);
   log.debug('Captured expected assistant message ID', {
     conversationId: convId,
     expectedMessageId: state.expectedAssistantMessageId,
@@ -153,7 +155,8 @@ export function processStreamEvent(
   switch (event.type) {
     case 'user_message_saved':
       handleUserMessageSaved(event, state, convId, tempUserMessageId);
-      getSyncManager()?.noteOwnMessageSaved(convId);
+      // (a followed stream's replayed event is the other device's message)
+      if (!state.remoteFollow) getSyncManager()?.noteOwnMessageSaved(convId);
       break;
 
     case 'thinking':

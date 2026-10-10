@@ -151,7 +151,12 @@ export function initToolbarButtons(): void {
       // the divergence surfaced only when turning anonymous OFF - the UI said
       // memory-enabled while the server kept the conversation anonymous).
       getSyncManager()?.noteLocalChange(convId);
-      void conversations.setAnonymousMode(convId, newState).catch((error: unknown) => {
+      void conversations
+        .setAnonymousMode(convId, newState)
+        // Again once committed: a poll started during the request must not
+        // revert the toggle (privacy-relevant - a send would use the old flag)
+        .then(() => getSyncManager()?.noteLocalChange(convId))
+        .catch((error: unknown) => {
         logger.error('Failed to persist anonymous mode', { error });
         useStore.getState().setAnonymousMode(convId, currentState);
         updateAnonymousButtonState(anonymousBtn, currentState);

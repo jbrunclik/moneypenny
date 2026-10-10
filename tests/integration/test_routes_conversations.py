@@ -650,3 +650,57 @@ class TestPinnedConversations:
     def test_pin_unknown_conversation_404(self, client, auth_headers) -> None:
         response = client.post("/api/conversations/nope/pin", headers=auth_headers)
         assert response.status_code == 404
+
+
+class TestStreamingMessageIdLookup:
+    def test_found_behind_several_interjections(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Steering saves user messages after the placeholder; with two or
+        more the "last two rows" scan missed it - a reload then dropped its
+        own resume entry and other devices stopped following the turn."""
+        test_database.add_message(test_conversation.id, "user", "Question")
+        placeholder = test_database.add_message(test_conversation.id, "assistant", "")
+        for text in ("Steer one", "Steer two", "Steer three"):
+            test_database.add_message(test_conversation.id, "user", text)
+
+        data = json.loads(
+            client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers).data
+        )
+
+        assert data["streaming_message_id"] == placeholder.id
+
+    def test_found_from_an_older_page(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """A search jump loads an older window (has_newer) - the turn in
+        flight is still the conversation's, not the page's."""
+        for i in range(30):
+            test_database.add_message(
+                test_conversation.id, "assistant" if i % 2 else "user", f"m{i}"
+            )
+        placeholder = test_database.add_message(test_conversation.id, "assistant", "")
+        newest = json.loads(
+            client.get(
+                f"/api/conversations/{test_conversation.id}?message_limit=5", headers=auth_headers
+            ).data
+        )
+
+        older = json.loads(
+            client.get(
+                f"/api/conversations/{test_conversation.id}?message_limit=5"
+                f"&message_cursor={newest['message_pagination']['older_cursor']}&direction=older",
+                headers=auth_headers,
+            ).data
+        )
+
+        assert older["message_pagination"]["has_newer"] is True
+        assert older["streaming_message_id"] == placeholder.id

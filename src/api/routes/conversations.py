@@ -240,7 +240,7 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         "anonymous_mode": conv.anonymous_mode,
         "messages": optimized_messages,
         # Only the newest page holds the turn in flight
-        "streaming_message_id": None if pagination.has_newer else streaming_message_id(messages),
+        "streaming_message_id": streaming_message_id(conv_id),
         "message_pagination": {
             "older_cursor": pagination.older_cursor,
             "newer_cursor": pagination.newer_cursor,

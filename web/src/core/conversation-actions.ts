@@ -79,6 +79,9 @@ export async function deleteConversation(convId: string): Promise<void> {
   try {
     getSyncManager()?.noteLocalChange(convId);
     await conversations.delete(convId);
+    // Again once it's committed: a poll started during the request may
+    // already see (or not yet see) the write - skip it either way
+    getSyncManager()?.noteLocalChange(convId);
 
     // Into the trash store before the re-render below, so the menu badge
     // counts it. purge_at is a local estimate; opening the trash view
@@ -217,6 +220,9 @@ export async function renameConversationTo(convId: string, newTitle: string): Pr
   try {
     getSyncManager()?.noteLocalChange(convId);
     await conversations.update(convId, { title: trimmedTitle });
+    // Again once it's committed: a poll started during the request may
+    // already see (or not yet see) the write - skip it either way
+    getSyncManager()?.noteLocalChange(convId);
 
     // Update local state
     if (isArchived) {
@@ -276,9 +282,15 @@ export async function togglePinConversation(convId: string): Promise<void> {
     if (nextPinned) {
       getSyncManager()?.noteLocalChange(convId);
       await conversations.pin(convId);
+      // Again once it's committed: a poll started during the request may
+      // already see (or not yet see) the write - skip it either way
+      getSyncManager()?.noteLocalChange(convId);
     } else {
       getSyncManager()?.noteLocalChange(convId);
       await conversations.unpin(convId);
+      // Again once it's committed: a poll started during the request may
+      // already see (or not yet see) the write - skip it either way
+      getSyncManager()?.noteLocalChange(convId);
     }
   } catch (error) {
     log.error('Failed to toggle pin', { error, conversationId: convId });

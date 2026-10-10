@@ -294,6 +294,25 @@ class MessageMixin:
             action=action,
         )
 
+    def get_streaming_placeholder_id(
+        self, conversation_id: str, newer_than: datetime
+    ) -> str | None:
+        """Newest empty assistant placeholder (a reply still streaming) created after `newer_than`."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """SELECT id FROM messages
+                   WHERE conversation_id = ? AND role = 'assistant'
+                     AND (content IS NULL OR content = '')
+                     AND (files IS NULL OR files = '' OR files = '[]')
+                     AND (sources IS NULL OR sources = '' OR sources = '[]')
+                     AND (generated_images IS NULL OR generated_images = '' OR generated_images = '[]')
+                     AND created_at >= ?
+                   ORDER BY created_at DESC, rowid DESC LIMIT 1""",
+                (conversation_id, newer_than.isoformat()),
+            ).fetchone()
+            return row[0] if row else None
+
     def set_message_created_at(self, message_id: str, created_at: datetime) -> None:
         """Re-stamp a message (moves it in the conversation's order)."""
         with self._pool.get_connection() as conn:

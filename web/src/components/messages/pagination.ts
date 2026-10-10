@@ -4,7 +4,7 @@
 
 import { getElementById } from '../../utils/dom';
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
-import { observeThumbnail } from '../../utils/thumbnails';
+import { observeThumbnail, beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/thumbnails';
 import { conversations } from '../../api/conversations';
 import { useStore } from '../../state/store';
 import { createLogger } from '../../utils/logger';
@@ -165,6 +165,7 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
       const newScrollHeight = container.scrollHeight;
       const scrollHeightDiff = newScrollHeight - previousScrollHeight;
       const targetScrollTop = container.scrollTop + scrollHeightDiff;
+      endProgrammaticScroll(beginProgrammaticScroll()); // ours, not the user's scroll
       container.scrollTop = targetScrollTop;
 
       // Track images in the prepended batch and re-adjust scroll position after they load
@@ -297,6 +298,7 @@ function trackPrependedImagesForScrollAdjustment(container: HTMLElement, prepend
           const growth = img.offsetHeight - heightBefore;
           const aboveViewport = img.getBoundingClientRect().top < container.getBoundingClientRect().top;
           if (growth !== 0 && aboveViewport) {
+            endProgrammaticScroll(beginProgrammaticScroll()); // ours, not the user's scroll
             container.scrollTop += growth;
           }
         });

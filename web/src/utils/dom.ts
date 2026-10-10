@@ -99,6 +99,20 @@ let currentSmoothScrollAnimationId: number | null = null;
 // Completion callback of the running animation (fires on finish, abort or cancel)
 let currentSmoothScrollDone: (() => void) | null = null;
 
+// When the user last touched-moved / wheeled / key-scrolled the list (see
+// ScrollToBottom's takeover listeners) - delayed re-pins of ours check it
+let lastUserScrollIntentAt = 0;
+
+/** The user just started scrolling the list themselves. */
+export function noteUserScrollIntent(): void {
+  lastUserScrollIntentAt = performance.now();
+}
+
+/** Whether the user scrolled the list themselves since `since` (performance.now). */
+export function userScrolledSince(since: number): boolean {
+  return lastUserScrollIntentAt > since;
+}
+
 function finishSmoothScroll(): void {
   currentSmoothScrollAnimationId = null;
   const done = currentSmoothScrollDone;
@@ -148,6 +162,12 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
   const duration = prefersReducedMotion()
     ? 0
     : Math.min(600, Math.max(300, Math.abs(distance) * 0.5)); // 300-600ms based on distance
+  // Already at the bottom: nothing to animate or settle (a settle phase
+  // would hold a programmatic token for nothing, muting the user's scroll)
+  if (Math.abs(distance) < 1) {
+    finishSmoothScroll();
+    return;
+  }
   const startTime = performance.now();
 
   // Track the position we last wrote and the content height we saw. A
@@ -178,6 +198,12 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
   const animate = (currentTime: number): void => {
     // Content or viewport height changed (keyboard, composer): new bottom
     if (element.scrollHeight !== lastScrollHeight || element.clientHeight !== lastClientHeight) {
+      // A scroll-up landing in the same frame as a height change is still
+      // the user's - don't overwrite it with the retarget
+      if (element.scrollTop < expectedScrollTop - 5) {
+        finishSmoothScroll();
+        return;
+      }
       lastScrollHeight = element.scrollHeight;
       lastClientHeight = element.clientHeight;
       target = element.scrollHeight - element.clientHeight;
@@ -202,7 +228,13 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
       currentSmoothScrollAnimationId = requestAnimationFrame(animate);
       return;
     }
-    // Settle: pinned until the height is stable for a moment (bounded)
+    // Settle: pinned until the height is stable for a moment (bounded). Any
+    // move that isn't ours (a slow scrollbar drag) ends it - in this phase
+    // we only ever write the bottom
+    if (settleSince !== null && Math.abs(element.scrollTop - expectedScrollTop) > 1 && currentTime > lastChangeAt) {
+      finishSmoothScroll();
+      return;
+    }
     settleSince ??= currentTime;
     const stable = currentTime - lastChangeAt >= SMOOTH_SCROLL_SETTLE_MS;
     if (stable || currentTime - settleSince >= SMOOTH_SCROLL_SETTLE_MAX_MS) {

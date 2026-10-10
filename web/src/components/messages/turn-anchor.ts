@@ -10,6 +10,7 @@
 import { TURN_REPLY_MIN_VISIBLE_PX, TURN_SPACE_RELEASE_MS } from '../../config';
 import { prefersReducedMotion } from '../../utils/dom';
 import { useStore } from '../../state/store';
+import { hasTrackedRequestFor } from '../../core/active-requests';
 import {
   beginProgrammaticScroll,
   disableScrollOnImageLoad,
@@ -147,6 +148,7 @@ export function holdTurnAnchor(container: HTMLElement): void {
  * itself for Continue) under the header, `replyEl` below it.
  */
 export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl: HTMLElement): void {
+  releasing?.();
   releaseTurnSpace(container);
   // The open's "scroll to the bottom as images load" mode would chase the
   // anchored reply to its end once a thumbnail in it loads
@@ -200,12 +202,21 @@ export function settleTurnSpace(container: HTMLElement): void {
     void el.offsetHeight; // start from the current height
     el.style.minHeight = '0px';
   }
-  window.setTimeout(() => {
+  const finish = (): void => {
+    window.clearTimeout(timer);
+    releasing = null;
     // A new turn may have reserved one of them again meanwhile
     reserved.filter((el) => !el.hasAttribute(RESERVED_ATTR)).forEach(clear);
     endProgrammaticScroll(token);
-  }, TURN_SPACE_RELEASE_MS + 50);
+  };
+  const timer = window.setTimeout(finish, TURN_SPACE_RELEASE_MS + 50);
+  releasing = finish;
 }
+
+// The release animation in flight (settleTurnSpace), finished early when a
+// new turn anchors: measuring against a still-shrinking reply put the new
+// turn's glide target off by the remaining shrink
+let releasing: (() => void) | null = null;
 
 /**
  * A turn of `convId` ended in any way (done, stop, error, recovery, a
@@ -215,6 +226,9 @@ export function settleTurnSpace(container: HTMLElement): void {
  */
 export function settleTurnFor(convId: string): void {
   if (useStore.getState().currentConversation?.id !== convId) return;
+  // A newer turn started meanwhile (a follow-up while this one's cleanup
+  // still ran): the anchor is its now
+  if (hasTrackedRequestFor(convId)) return;
   const container = document.getElementById('messages');
   if (container) settleTurnSpace(container);
 }

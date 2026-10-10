@@ -1069,7 +1069,7 @@ test.describe('Send-to-top - reserved space after an abnormal end', () => {
 test.describe('Send-to-top - the user takes over the glide', () => {
   test.use({ viewport: { width: 390, height: 664 }, hasTouch: true });
 
-  test('a touch mid-glide stops it where it is', async ({ page, request }) => {
+  test('a finger moving on the list mid-glide stops it where it is', async ({ page, request }) => {
     const messages = Array.from({ length: 30 }, (_, i) => ({
       role: i % 2 ? 'assistant' : 'user',
       content: `Message ${i + 1} ` + 'lorem ipsum '.repeat(20),
@@ -1095,7 +1095,7 @@ test.describe('Send-to-top - the user takes over the glide', () => {
     await page.waitForTimeout(80);
     await page.evaluate(() => {
       const c = document.getElementById('messages')!;
-      c.dispatchEvent(new Event('touchstart', { bubbles: true }));
+      c.dispatchEvent(new Event('touchmove', { bubbles: true }));
     });
     const held = await page.evaluate(() => document.getElementById('messages')!.scrollTop);
     await page.waitForTimeout(700);

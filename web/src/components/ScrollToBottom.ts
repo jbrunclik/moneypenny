@@ -1,4 +1,10 @@
-import { cancelSmoothScroll, getElementById, isScrolledToBottom, scrollToBottom } from '../utils/dom';
+import {
+  cancelSmoothScroll,
+  getElementById,
+  isScrolledToBottom,
+  noteUserScrollIntent,
+  scrollToBottom,
+} from '../utils/dom';
 import { CHEVRON_DOWN_ICON } from '../utils/icons';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
 import { SCROLL_BUTTON_SHOW_THRESHOLD_PX } from '../config';
@@ -92,8 +98,13 @@ export function initScrollToBottom(): void {
   // smooth scroll of ours (send glide, this button's own animation, image
   // re-pins). Those only aborted on a >5px deviation, so a press-and-hold or
   // a drag along with the glide was fought for up to 600ms.
-  const takeOver = (): void => cancelSmoothScroll();
-  messagesContainer.addEventListener('touchstart', takeOver, { passive: true });
+  // touchmove, not touchstart: a tap (copy, an action button) mid-glide must
+  // not stop it short of the top
+  const takeOver = (): void => {
+    noteUserScrollIntent();
+    cancelSmoothScroll();
+  };
+  messagesContainer.addEventListener('touchmove', takeOver, { passive: true });
   messagesContainer.addEventListener('wheel', takeOver, { passive: true });
   messagesContainer.addEventListener('keydown', (event) => {
     if (SCROLL_KEYS.has(event.key)) takeOver();
